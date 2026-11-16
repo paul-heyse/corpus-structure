@@ -7,19 +7,17 @@ import pytest
 
 from corpus_structure.methods.scoped_relations import (
     SCOPED_VERSION,
-    ScopedRelationsConfig,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.structural_products import (
-    ExternalSourceRef,
-    StructuralInput,
+    DeclaredStructuralSource,
+    DeclaredStructuralInput,
     StructuralPassage,
 )
 from methods.inline_formula_support import _FROZEN_TEXT
-from methods.m1_source_preparation_support import source
-from methods.scoped_relations_support import complete_native_fields, discover_relations
+from methods.m1_source_preparation_support import source, projection
+from methods.scoped_relations_support import discover_relations
 
 _DECLARATION = (
     "Let Z be a normal random variable with parameters µ = 0 and \u03c3 = 1. "
@@ -38,7 +36,7 @@ def frozen(distraction="", *, different_parent=False, clipped=False):
             _FROZEN_TEXT,
         )
     )
-    view = complete_native_fields(source("\n".join(blocks), labels=("text",) * len(blocks)))
+    view = source("\n".join(blocks), labels=("text",) * len(blocks))
     pieces = tuple(
         dict(p, source_field="text") if p["kind"] == "native_text" else p for p in view.pieces
     )
@@ -52,20 +50,8 @@ def frozen(distraction="", *, different_parent=False, clipped=False):
         )
         for i, n in enumerate(view.items)
     )
-    projection = dict(
-        text=view.text,
-        pieces=pieces,
-        items=[n["self_ref"] for n in items],
-        ancestors=[],
-        health={},
-    )
-    view = replace(
-        view,
-        pieces=pieces,
-        items=items,
-        ref=replace(view.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()),
-    )
-    frame = native_source_frame(view, ())
+    view = projection(view.text, pieces=pieces, items=items)
+    frame = view
     passage = SimpleNamespace(
         passage_id="standard-normal",
         start=1 if clipped else 0,
@@ -188,22 +174,7 @@ def ordered_fixture(*, control=None):
         offset = end
     text = declaration + "\n" + rival + query_text
     original = source("placeholder", labels=("text",))
-    projection = dict(
-        text=text,
-        pieces=pieces,
-        items=[n["self_ref"] for n in context_nodes],
-        ancestors=[],
-        health={},
-    )
-    view = replace(
-        original,
-        text=text,
-        items=context_nodes,
-        pieces=tuple(pieces),
-        ref=replace(
-            original.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()
-        ),
-    )
+    view = projection(text, pieces=tuple(pieces), items=context_nodes)
     scope = dict(source_ref="original", scope="instrument-calibration", effective_version="R2")
     query = StructuralPassage(
         passage_id="original-query",
@@ -219,24 +190,11 @@ def ordered_fixture(*, control=None):
 
 
 def ordered_run(view, query, wider):
-    frame = native_source_frame(view, ())
-    external = ExternalSourceRef(
-        project_id="fixture",
-        run_id=1,
-        cut_id=1,
-        release_id="fixture",
-        result_revision=0,
-        source_view_id=frame.source_view_id,
-        native_task_id=frame.native_product.task_id,
-        native_product_key=frame.native_product.product_key,
-        native_content_digest=frame.native_product.content_digest,
-        projection_digest=frame.projection_digest,
-        recipe_digest=frame.recipe_digest,
-        coordinate_version=3,
-    )
+    frame = view
+    external = DeclaredStructuralSource.model_validate(frame.pin.values())
     query = query.model_copy(update={"source_ref": external.identity})
     wider = wider.model_copy(update={"source_ref": external.identity})
-    inputs = StructuralInput(
+    inputs = DeclaredStructuralInput(
         question="formula witness",
         scope=query.scope,
         inventory_id="inventory",
@@ -245,15 +203,11 @@ def ordered_run(view, query, wider):
         passages=(query,),
         dependencies=("fixture",),
     )
-    config = ScopedRelationsConfig(
-        inputs=inputs, structural_input_digest=inputs.identity, ordered_formula_witness=wider
-    )
     output = discover_relations(
         frame,
         inline_equations_enabled=True,
         witnessed_links_enabled=True,
         passages=(query,),
-        predicate_version="5",
         ordered_formula_witness=wider,
     )
     operations = (output["operation"], *output["extra_operations"])
@@ -261,7 +215,8 @@ def ordered_run(view, query, wider):
     report = json.loads(
         canonical_bytes(
             dict(
-                configuration=config.model_dump(mode="json"),
+                inputs=inputs.model_dump(mode="json"),
+                witness=wider.model_dump(mode="json"),
                 body=dict(
                     operation_version=SCOPED_VERSION,
                     contribution_operations=operations,
@@ -271,23 +226,8 @@ def ordered_run(view, query, wider):
             )
         )
     )
-    source = {
-        "source_view_id": frame.source_view_id,
-        "text": frame.text,
-        "ref": {
-            "key": frame.unit_ref,
-            "projection_digest": frame.projection_digest,
-            "recipe_digest": frame.recipe_digest,
-            "native_product": {
-                "task_id": frame.native_product.task_id,
-                "product_key": frame.native_product.product_key,
-                "content_digest": frame.native_product.content_digest,
-            },
-        },
-        "context": {"items": view.items, "ancestors": view.ancestors, "pieces": view.pieces},
-    }
-    report["_primary_layers"] = output["_primary_layers"]
-    return witness, report, source
+    selected = frame.record
+    return witness, report, selected
 
 
 def test_ordered_formula_witness_keeps_exact_pieces_and_original_formula_population():
@@ -372,14 +312,13 @@ def test_ordered_formula_witness_uses_one_physical_target_for_two_inspected_reca
     assert len({row["members"][1] for row in links}) == 1
 
 
-def test_ordered_witness_remains_an_explicit_sealed_configuration():
-    assert SCOPED_VERSION == "17"
-    assert "ordered_formula_witness" in ScopedRelationsConfig.model_fields
+def test_ordered_witness_keeps_explicit_original_source_and_scope():
     _, report, _ = ordered_run(*ordered_fixture())
-    cfg = ScopedRelationsConfig.model_validate(report["configuration"])
-    assert cfg.inputs is not None and cfg.ordered_formula_witness is not None
-    assert len(cfg.inputs.sources) == 1
-    assert cfg.ordered_formula_witness.source_ref == cfg.inputs.sources[0].identity
+    inputs = DeclaredStructuralInput.model_validate(report["inputs"])
+    witness = StructuralPassage.model_validate(report["witness"])
+    assert len(inputs.sources) == 1
+    assert witness.source_ref == inputs.sources[0].identity
+    assert witness.start <= inputs.passages[0].start < inputs.passages[0].end <= witness.end
 
 
 def test_named_links_use_literal_anchors_and_never_choose_first_section():
@@ -411,19 +350,19 @@ def test_named_links_use_literal_anchors_and_never_choose_first_section():
     )
     view = source("\n".join(lines), labels=labels)
     items = {i["self_ref"]: dict(i, content_layer="body") for i in view.items}
-    view = replace(view, items=tuple(items.values()))
+    view = projection(view.text, pieces=view.pieces, items=tuple(items.values()))
     passage = SimpleNamespace(start=0, end=len(view.text), scope="work", passage_id="chapter")
-    from methods.navigation_fixture import primary_navigation
+    from methods.navigation_fixture import source_primary_products
 
-    layers = primary_navigation(view)
+    primary = source_primary_products(view)
     links = tuple(
         named_source_links(
             view.text,
             view.pieces,
             items,
             (passage,),
-            primary_layers=layers,
-            projection=view.ref.projection_digest,
+            navigation=primary.navigation,
+            projection=view.projection_digest,
         )
     )
 
@@ -443,8 +382,8 @@ def test_named_links_use_literal_anchors_and_never_choose_first_section():
 
 
 def test_retained_named_link_recipe_preserves_roles_and_refuses_inferred_endpoints():
-    from corpus_structure.methods.source_preparation import prepare_source
-    from corpus_structure.semantic.constructions.navigation import match_named_source_links
+    from methods.navigation_fixture import source_primary_products
+    from corpus_structure.methods.witnessed_source_links import match_named_source_links
     from corpus_structure.semantic.structural_products import StructuralPassage
 
     lines = (
@@ -462,10 +401,9 @@ def test_retained_named_link_recipe_preserves_roles_and_refuses_inferred_endpoin
         "Use Table 6.1 for this procedure.",
         "See Box and Muller.9",
     )
-    view = complete_native_fields(source("\n".join(lines), labels=("text",) * len(lines)))
-    view = replace(view, items=tuple(dict(item, content_layer="body") for item in view.items))
-    prepared = prepare_source(view, annotations_only=True)
-    assert not prepared.annotation_errors
+    view = source("\n".join(lines), labels=("text",) * len(lines))
+    view = projection(view.text, pieces=view.pieces, items=tuple(dict(item, content_layer="body") for item in view.items))
+    primary = source_primary_products(view)
     passage = StructuralPassage(
         passage_id="chapter",
         source_ref="fixture",
@@ -480,7 +418,7 @@ def test_retained_named_link_recipe_preserves_roles_and_refuses_inferred_endpoin
         view.pieces,
         {item["self_ref"]: item for item in view.items},
         (passage,),
-        prepared.annotations,
+        navigation=primary.navigation,
     )
 
     def literal(extent):

@@ -97,26 +97,14 @@ def prepare_predicate_readings(products):
 
 
 def _reports(product, primary_products=()):
-    """Read explicit governed inventories, or the genuine sealed historical layers."""
-    if primary_products:
-        selected = [
-            (pin, inventory)
-            for pin, inventory in prepare_predicate_readings(primary_products).for_source(
-                product.source
-            )
-            if any(row["family"] == PRIMARY_RULE_FAMILY for row in inventory["coverage"])
-        ]
-    else:
-        layers = getattr(product, "primary_layers", None)
-        if not layers:
-            raise ValueError(
-                "predicate consumer requires exact retained primary construction products"
-            )
-        selected = [
-            (pin, report.payload)
-            for pin, report in layers.items()
-            if PRIMARY_RULE_FAMILY in report.payload["operation"]["produced_families"]
-        ]
+    """Read only explicitly supplied governed construction inventories."""
+    if not primary_products:
+        raise ValueError("predicate consumer requires exact retained primary construction products")
+    selected = [
+        (pin, inventory)
+        for pin, inventory in prepare_predicate_readings(primary_products).for_source(product.source)
+        if any(row["family"] == PRIMARY_RULE_FAMILY for row in inventory["coverage"])
+    ]
     if not selected:
         raise ValueError("retained primary source-reading family is missing")
     return selected
@@ -134,11 +122,9 @@ def primary_inventory(product, reference, *, primary_products=()):
 def _projection(product):
     from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
 
-    return (
-        product.source.values()["projection_digest"]
-        if isinstance(product.source, DeclaredSourcePin)
-        else product.source.projection_digest
-    )
+    if not isinstance(product.source, DeclaredSourcePin):
+        raise ValueError("predicate annotations require their governed original source pin")
+    return product.source.values()["projection_digest"]
 
 
 def _span(product, text, term, occurrences):
@@ -235,17 +221,6 @@ def predicate_frames(text, annotations, *, layout="prose", primary_products=()):
         issues.extend(result.issues)
         unresolved.extend(result.unresolved_cues)
     return PredicateFrameResult(tuple(frames), tuple(issues), tuple(unresolved))
-
-
-def frames_from_annotation(view, *, layout="prose"):
-    return predicate_frame_result(view, layout=layout).frames
-
-
-def predicate_frame_result(view, *, layout="prose"):
-    """Restore native text only to project exact retained positions; never match a rule."""
-    view.check_layout()
-    text = " " * view.product.block_start + view.doc.text
-    return predicate_frames(text, (view.product,), layout=layout)
 
 
 def _project(text, product, *, primary_products=()):

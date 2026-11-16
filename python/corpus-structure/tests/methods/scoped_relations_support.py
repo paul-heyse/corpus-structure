@@ -1,93 +1,51 @@
-"""Controlled inputs and builders shared by the scoped relations consumers."""
-
-from dataclasses import replace
-from typing import Any
+"""Explicit current source/primary inputs for scoped relation controls."""
 
 from corpus_structure.methods.scoped_relations import discover_relations as _discover_relations
-from corpus_structure.semantic.structural_products import (
-    ExternalSourceRef,
-    StructuralInput,
-    StructuralPassage,
-)
+from corpus_structure.semantic.data_product_reference import DataProductReference
+from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
+from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
+from corpus_structure.semantic.structural_products import DeclaredStructuralInput, StructuralPassage
+from methods.navigation_fixture import source_primary_products
 
 
 def discover_relations(frame, **kwargs):
-    from dataclasses import fields
+    from corpus_structure.methods.predicate_contributions import declared_predicate_evidence
+    from corpus_structure.semantic.sentence_products import retained_source_annotation_products
 
-    from corpus_structure.methods.native_evidence_layers import PrimaryAnnotationProduct
-    from corpus_structure.methods.source_preparation import prepare_source
-    from methods.navigation_fixture import primary_navigation, view_from_frame
-
-    view = view_from_frame(frame)
+    annotations = kwargs.pop("annotations", None)
+    profile = kwargs.pop("annotation_profile", None)
+    errors = kwargs.pop("annotation_errors", ())
+    preflight = kwargs.pop("qualifier_preflight", None)
     native_profile = kwargs.pop("annotation_native_profile", None)
-    if "annotations" in kwargs:
-        products = tuple(kwargs["annotations"])
-    else:
-        from corpus_structure.ingest.annotations import AnnotationProfile
-        from corpus_structure.ingest.sentences import pipeline
-
-        profile = AnnotationProfile()
-        nlp: Any = pipeline(profile.configuration)
-        native_profile = nlp.selection().native
-        products = prepare_source(view, profile=profile, annotations_only=True).annotations
-    layers = dict(kwargs.pop("primary_layers", {}))
-    layers.update(
-        primary_navigation(view, products, formal=not layers, native_profile=native_profile)
-    )
-    kwargs["annotations"] = tuple(
-        PrimaryAnnotationProduct(
-            primary_layers=layers,
-            **{field.name: getattr(product, field.name) for field in fields(product)},
-        )
-        for product in products
-    )
-    kwargs.pop("predicate_version", None)
-    kwargs.pop("named_link_version", None)
-    output = _discover_relations(
-        frame, primary_layers=layers, predicate_version="6", named_link_version="4", **kwargs
-    )
-    return dict(output, _primary_layers=layers)
+    primary = kwargs.pop("primary", None)
+    if primary is None:
+        primary = source_primary_products(frame, annotations, profile=profile, native_profile=native_profile,
+            max_formula_chars=kwargs.get("max_formula_chars", 2048))
+    context = NativeSourceContext(frame, (), (source_slice(frame, 0, len(frame.text)),),
+        "scoped scientific control", "explicit-current-products", "selected original",
+        preparation=PreparedNativeSources((frame,)), max_chars=max(1,len(frame.text)),
+        max_pieces=max(1,len(frame.pieces)))
+    evidence = declared_predicate_evidence(frame, context,
+        retained_source_annotation_products(primary.source, primary.native) if primary.native is not None else (),
+        dependency=primary.native.semantic_id if primary.native is not None else primary.construction.semantic_id,
+        primary_products=(primary.construction,), formal_products=(primary.formal,),
+        passages=kwargs.get("passages"), annotation_errors=errors, qualifier_preflight=preflight)
+    return _discover_relations(frame,
+        navigation=primary.navigation, annotation_errors=errors,
+        formal_layers=declared_formal_layers((primary.formal,), primary.source),
+        retained_predicates=evidence.contributions,
+        retained_predicate_operations=evidence.operations,
+        retained_coordinate_texts=evidence.coordinate_texts,
+        primary_product_refs=tuple(DataProductReference(product.semantic_id)
+                                  for product in (primary.construction,primary.formal)), **kwargs)
 
 
-def complete_native_fields(view):
-    nodes = {node["self_ref"]: dict(node) for node in view.items}
-    for piece in view.pieces:
-        if piece.get("kind") == "native_text" and piece.get("cell_index") is None:
-            nodes[piece["item_ref"]]["text"] = view.text[piece["start"] : piece["end"]]
-    return replace(view, items=tuple(nodes.values()))
-
-
-def original_inputs(view):
-    ref = view.ref
-    original = ExternalSourceRef(
-        project_id="original",
-        run_id=10,
-        cut_id=11,
-        release_id="r",
-        result_revision=1,
-        source_view_id=ref.id,
-        native_task_id=ref.native_product.task_id,
-        native_product_key=ref.native_product.product_key,
-        native_content_digest=ref.native_product.content_digest,
-        projection_digest=ref.projection_digest,
-        recipe_digest=ref.recipe_digest,
-        coordinate_version=3,
-    )
-    return StructuralInput(
-        question="Retain original annotations",
-        scope="s",
-        inventory_id="i",
-        policy_id="p",
-        sources=(original,),
-        passages=(
-            StructuralPassage(
-                passage_id="original",
-                source_ref=original.identity,
-                start=0,
-                end=len(view.text),
-                text=view.text,
-                scope="s",
-            ),
-        ),
-        dependencies=("annotation:original",),
-    )
+def original_inputs(frame):
+    source = DeclaredStructuralSource.model_validate(frame.pin.values())
+    return DeclaredStructuralInput(question="Retain original annotations", scope="s",
+        inventory_id="i", policy_id="p", sources=(source,),
+        passages=(StructuralPassage(passage_id="original", source_ref=source.identity,
+            start=0, end=len(frame.text), text=frame.text, scope="s"),),
+        dependencies=(source.source_product,))

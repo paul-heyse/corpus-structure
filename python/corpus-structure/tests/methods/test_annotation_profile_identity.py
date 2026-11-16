@@ -8,19 +8,14 @@ from types import SimpleNamespace
 
 import pytest
 from annotation_support import controlled as controlled
-from annotation_support import item
+from annotation_support import item, selected_item
 
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.native_evidence_layers import (
-    retained_annotation_products,
-    retained_annotation_profile,
-)
 from corpus_structure.methods.native_profiles import NativeProfile
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
-from corpus_structure.semantic.source_contexts import NativeSourcePin
 
 
 def profile_and_run(configuration=None, **changes):
@@ -44,23 +39,21 @@ def profile_and_run(configuration=None, **changes):
     )
 
 
-def test_retained_identity_comes_from_original_complete_snapshot_without_ambient_runtime(
-    monkeypatch,
-):
-    from corpus_structure.methods import native_profiles
+def admitted_snapshot(controlled, monkeypatch, wire, profile):
+    import spacy
+    from corpus_structure.semantic import native_annotations
+    monkeypatch.setattr(native_annotations, "pipeline", lambda _: controlled)
+    monkeypatch.setattr(spacy.util, "get_package_path", lambda _: Path("controlled-fixture"))
+    execution = SimpleNamespace(native_group=SimpleNamespace(_selections={}), declare_native=lambda *_: None, lazy_work=lambda *_args, **_kwargs: SimpleNamespace(try_submit=lambda: None, abandon=lambda: None))
+    return native_annotations.annotation_work(execution, (), profile, lambda: None, native_profile=wire)
 
-    monkeypatch.setattr(
-        native_profiles, "spacy_selection", lambda *_a, **_k: pytest.fail("ambient runtime lookup")
-    )
-    native, run = profile_and_run()
-    actual = retained_annotation_profile(run)
-    assert actual.configuration.batch_size == 2
-    assert actual.execution_profile == native.fingerprint
-    expected = AnnotationProfile(
-        SentenceConfig(exclude=("ner",), batch_size=2), execution_profile=native.fingerprint
-    )
-    assert actual.identity() == expected.identity()
-    assert retained_annotation_profile(run, replace(expected, execution_profile=None)) == expected
+
+def test_retained_identity_comes_from_original_snapshot_without_ambient_runtime(controlled, monkeypatch):
+    from corpus_structure.methods import native_profiles
+    monkeypatch.setattr(native_profiles, "spacy_selection", lambda *_a, **_k: pytest.fail("ambient runtime lookup"))
+    native, _run = profile_and_run()
+    profile = AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=2), execution_profile=native.fingerprint)
+    admitted_snapshot(controlled, monkeypatch, native.wire, profile)
 
 
 @pytest.mark.parametrize(
@@ -73,14 +66,14 @@ def test_retained_identity_comes_from_original_complete_snapshot_without_ambient
         {"backend": "different"},
     ],
 )
-def test_explicit_execution_request_does_not_relabel_different_retained_identity(changes):
+def test_explicit_execution_request_does_not_relabel_different_retained_identity(changes, controlled, monkeypatch):
     original, _ = profile_and_run()
-    _, changed = profile_and_run(**changes)
+    changed, _ = profile_and_run(**changes)
     demand = AnnotationProfile(
         SentenceConfig(exclude=("ner",), batch_size=2), execution_profile=original.fingerprint
     )
     with pytest.raises(ValueError, match="execution profile"):
-        retained_annotation_profile(changed, demand)
+        admitted_snapshot(controlled, monkeypatch, changed.wire, demand)
 
 
 @pytest.mark.parametrize(
@@ -92,72 +85,39 @@ def test_explicit_execution_request_does_not_relabel_different_retained_identity
         ("matmul_precision", "high"),
     ],
 )
-def test_retained_profile_cannot_relabel_unsupported_device_or_numerical_contract(key, value):
+def test_retained_profile_cannot_relabel_unsupported_device_or_numerical_contract(key, value, controlled, monkeypatch):
     native, run = profile_and_run()
     wire = native.wire
     wire[key] = value
     run["execution_profile"] = source_value(wire)
-    with pytest.raises(ValueError, match="execution profile"):
-        retained_annotation_profile(run)
+    with pytest.raises(ValueError, match=r"native profile|native provider"):
+        admitted_snapshot(controlled, monkeypatch, wire, AnnotationProfile(SentenceConfig(exclude=("ner",),batch_size=2)))
 
 
-def test_missing_snapshot_refuses_request_and_preserves_unprofiled_legacy():
-    native, run = profile_and_run()
-    requested = AnnotationProfile(
-        SentenceConfig(exclude=("ner",), batch_size=2), execution_profile=native.fingerprint
-    )
-    legacy = {key: value for key, value in run.items() if key != "execution_profile"}
-    with pytest.raises(ValueError, match="execution profile"):
-        retained_annotation_profile(legacy, requested)
-    unprofiled = replace(requested, execution_profile=None)
-    assert retained_annotation_profile(legacy, unprofiled).identity() == unprofiled.identity()
-    with pytest.raises(ValueError, match="configuration"):
-        retained_annotation_profile(run, AnnotationProfile())
-    malformed = deepcopy(run)
+def test_missing_snapshot_refuses_explicit_admission(controlled, monkeypatch):
+    native, _run = profile_and_run()
+    requested = AnnotationProfile(SentenceConfig(exclude=("ner",),batch_size=2), execution_profile=native.fingerprint)
     wire = native.wire
     del wire["threads"]
-    malformed["execution_profile"] = source_value(wire)
     with pytest.raises(ValueError, match="complete frozen snapshot"):
-        retained_annotation_profile(malformed)
+        admitted_snapshot(controlled, monkeypatch, wire, requested)
+    with pytest.raises(ValueError, match="parameters"):
+        admitted_snapshot(controlled, monkeypatch, native.wire, AnnotationProfile())
 
 
-def test_direct_columns_roundtrip_through_retained_layer_with_same_dependency(controlled):
-    from methods.primary_reading_fixture import primary_product
-
-    request = item(controlled, "X X.")
+def test_direct_columns_roundtrip_through_current_annotations_with_same_dependency(controlled):
+    from methods.declared_primary_fixture import retained_source_annotations
+    from corpus_structure.semantic.sentence_products import retained_source_annotation_products
     profile = AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=2))
+    request, source, frame, context = selected_item(controlled, "X X.", block_id="#/texts/1")
     (direct,) = annotations.annotate((request,), profile)
     native = controlled.selection().native
-    text = " " * direct.block_start + request.block.text
-    primary = primary_product(text, direct, profile, native_profile=native)
-    pin = direct.source
-    assert isinstance(pin, NativeSourcePin)
-    view = SimpleNamespace(
-        ref=SimpleNamespace(
-            id=pin.source_view_id,
-            key=pin.unit_ref,
-            native_product=pin.native_product,
-            section_pointer=pin.section_pointer,
-            membership=pin.membership,
-            projection_digest=pin.projection_digest,
-            recipe_digest=pin.recipe_digest,
-        ),
-        text=text,
-        pieces=[piece.to_wire() for piece in direct.native_pieces],
-        items=[dict(self_ref=p.item_ref, label="text") for p in direct.native_pieces],
-        ancestors=[],
-        health={},
-        integrated_context=None,
-    )
-    (restored,) = retained_annotation_products(primary.primary_layers, view, profile)
+    profile = replace(profile, execution_profile=native.fingerprint)
+    primary = retained_source_annotations(source, frame, context, (direct,), profile)
+    (restored,) = retained_source_annotation_products(source, primary)
     assert asdict(restored) == asdict(direct)
     assert restored.dependency_digest == direct.dependency_digest
-    assert (
-        restored.profile_digest
-        == sha256(
-            canonical_bytes(replace(profile, execution_profile=native.fingerprint).identity())
-        ).hexdigest()
-    )
+    assert restored.profile_digest == sha256(canonical_bytes(profile.identity())).hexdigest()
 
 
 def test_direct_annotation_rejects_wrong_profile_before_pipeline_execution(controlled):
@@ -218,7 +178,7 @@ def test_restoration_source_changes_construction_resource_identity(
         content = read(path)
         return (
             content + b"\n# hypothetical restoration correction\n"
-            if path.name == "native_evidence_layers.py"
+            if path.name == "sentence_products.py"
             else content
         )
 
@@ -227,13 +187,13 @@ def test_restoration_source_changes_construction_resource_identity(
 
 
 @pytest.mark.parametrize("coerced", [True, 2.0])
-def test_retained_configuration_cannot_coerce_frozen_wire_scalar_types(coerced):
+def test_retained_configuration_cannot_coerce_frozen_wire_scalar_types(coerced, controlled, monkeypatch):
     native, run = profile_and_run()
     wire = native.wire
     wire["parameters"]["batch_size"] = coerced
     run["execution_profile"] = source_value(wire)
-    with pytest.raises(ValueError, match="complete frozen configuration"):
-        retained_annotation_profile(run)
+    with pytest.raises(ValueError, match="parameters"):
+        admitted_snapshot(controlled, monkeypatch, wire, AnnotationProfile(SentenceConfig(exclude=("ner",),batch_size=2)))
 
 
 def test_prepared_annotation_refuses_other_provider_before_declaration(controlled, monkeypatch):
@@ -262,12 +222,12 @@ def test_prepared_annotation_refuses_other_provider_before_declaration(controlle
 
 
 def test_fixture_refuses_profiled_columns_without_their_snapshot(controlled):
-    from methods.primary_reading_fixture import primary_product
-
+    from methods.declared_primary_fixture import retained_source_annotations
     profile = AnnotationProfile()
-    (product,) = annotations.annotate((item(controlled),), profile)
-    with pytest.raises(ValueError, match="original complete native snapshot"):
-        primary_product(" " * product.block_end, product, profile)
+    request, source, frame, context = selected_item(controlled, block_id="#/texts/1")
+    (product,) = annotations.annotate((request,), profile)
+    with pytest.raises(ValueError, match="execution|profile"):
+        retained_source_annotations(source, frame, context, (product,), profile)
 
 
 @pytest.mark.parametrize("missing", ["threads", "cudnn_allow_tf32", "device", "parameters"])

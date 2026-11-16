@@ -6,20 +6,20 @@ from hashlib import sha256
 import pytest
 
 from corpus_structure.ingest.annotations import AnnotationProfile
-from corpus_structure.methods.source_preparation import prepare_source
+from corpus_structure.ingest.sentences import pipeline
+from methods.m1_source_preparation_support import prepare_declared_source
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.structural_products import StructuralPassage
-from methods.m1_source_preparation_support import source
-from methods.scoped_relations_support import complete_native_fields, discover_relations
+from methods.m1_source_preparation_support import source, projection
+from methods.scoped_relations_support import discover_relations
 
 
 @pytest.mark.parametrize("case", ["complete", "clipped", "wrong_group", "no_scope"])
 def test_explicit_list_intro_has_independent_located_hosts(case):
     intro = "For each of the following, assume that all inputs are valid:"
     text = f"{intro}\nThe analyst records the input.\nThe reviewer checks the result."
-    view = complete_native_fields(source(text, labels=("text", "list_item", "list_item")))
+    view = source(text, labels=("text", "list_item", "list_item"))
     intro_node, first, second = [
         {**node, "content_layer": "body", "children": []} for node in view.items
     ]
@@ -49,20 +49,9 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
         first,
         second,
     )
-    projection = dict(
-        text=text,
-        pieces=view.pieces,
-        items=[node["self_ref"] for node in nodes],
-        ancestors=[],
-        health={},
-    )
-    view = replace(
-        view,
-        items=nodes,
-        ref=replace(view.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()),
-    )
+    view = projection(view.text, pieces=view.pieces, items=nodes)
     profile = AnnotationProfile()
-    prepared = prepare_source(view, profile=profile, annotations_only=True)
+    prepared = prepare_declared_source(view, profile=profile, annotations_only=True)
     assert not prepared.annotation_errors
     assert {a.block_id for a in prepared.annotations} == {"#/texts/0", "#/texts/1", "#/texts/2"}
     end = text.index("\nThe reviewer") if case == "clipped" else len(text)
@@ -75,8 +64,9 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
         text=text[:end],
     )
     output = discover_relations(
-        native_source_frame(view, ()),
+        view,
         annotations=prepared.annotations,
+        annotation_native_profile=pipeline(AnnotationProfile().configuration).selection().native,
         passages=None if case == "no_scope" else (passage,),
         witnessed_links_enabled=True,
     )
@@ -104,15 +94,15 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
         if row.get("component", {}).get("attachment_kind") == "scope_inheritance"
     ]
     assert len(projections) == len(inherited)
-    for projection in projections:
-        cue, host = projection["members"]
+    for projected in projections:
+        cue, host = projected["members"]
         (qualified,) = [
             row
             for row in rows.values()
             if row.get("component", {}).get("kind") == "predicate_qualifier"
             and tuple(row["members"][:2]) == (cue, host)
         ]
-        assert qualified["contribution_id"] in projection["computation_dependencies"]
+        assert qualified["contribution_id"] in projected["computation_dependencies"]
 
 
 @pytest.mark.parametrize(
@@ -126,9 +116,9 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
 )
 def test_scope_inheritance_requires_an_explicit_shared_clause(clause, expected_hosts):
     text = f"If the test succeeds, {clause}."
-    view = complete_native_fields(source(text, labels=("text",)))
-    view = replace(view, items=tuple(dict(item, content_layer="body") for item in view.items))
-    prepared = prepare_source(view, annotations_only=True)
+    view = source(text, labels=("text",))
+    view = projection(view.text, pieces=view.pieces, items=tuple(dict(item, content_layer="body") for item in view.items))
+    prepared = prepare_declared_source(view, annotations_only=True)
     passage = StructuralPassage(
         passage_id="scope",
         scope="scope",
@@ -138,8 +128,9 @@ def test_scope_inheritance_requires_an_explicit_shared_clause(clause, expected_h
         text=text,
     )
     output = discover_relations(
-        native_source_frame(view, ()),
+        view,
         annotations=prepared.annotations,
+        annotation_native_profile=pipeline(AnnotationProfile().configuration).selection().native,
         passages=(passage,),
         witnessed_links_enabled=True,
     )

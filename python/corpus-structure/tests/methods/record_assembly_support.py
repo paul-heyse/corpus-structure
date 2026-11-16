@@ -9,6 +9,7 @@ from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_rele
 from corpus_structure.semantic.data_operation_model import BoundRoleMember
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.observations import observation_inputs
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     PreparedNativeSources,
@@ -86,7 +87,7 @@ def source(text, *, identity=1, pieces=None, items=None, ancestors=("#/groups/1"
         "kind:native-source",
         f"subject:section:{identity}",
         "document:record-fixture",
-        b"{}",
+        canonical_bytes(dict(source=native.value["source"], selectors=native.value["selectors"])),
         b"{}",
         (),
         b"{}",

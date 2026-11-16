@@ -1,6 +1,6 @@
 """Primary navigation fields and consumers retain exact roles without rematching."""
 
-from copy import deepcopy
+import json
 from dataclasses import replace
 
 import pytest
@@ -10,22 +10,20 @@ from corpus_structure.methods.witnessed_source_links import (
     navigation_index,
     symbol_declarations,
 )
-from corpus_structure.semantic.characterization import LayerReport
+from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
+from corpus_structure.semantic.construction_products import ConstructionProduct
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import StructuralPassage
-from methods.m1_source_preparation_support import source
-from methods.navigation_fixture import primary_navigation
-from methods.scoped_relations_support import complete_native_fields
+from methods.m1_source_preparation_support import source, projection
+from methods.navigation_fixture import source_primary_products
 
 
 def fixture():
-    view = complete_native_fields(
-        source(
+    view = source(
             "Old Control was renamed to New Control.\nLet x be a count.", labels=("text", "text")
         )
-    )
-    view = replace(view, items=tuple(dict(item, content_layer="body") for item in view.items))
-    layers = primary_navigation(view)
+    view = projection(view.text, pieces=view.pieces, items=tuple(dict(item, content_layer="body") for item in view.items))
+    primary = source_primary_products(view)
     passage = StructuralPassage(
         passage_id="selected",
         source_ref="source",
@@ -34,11 +32,11 @@ def fixture():
         text=view.text,
         scope="work",
     )
-    return view, layers, passage
+    return view, primary, passage
 
 
 def test_navigation_retains_named_and_declaration_roles_before_consumption(monkeypatch):
-    view, layers, passage = fixture()
+    view, primary, passage = fixture()
     from corpus_structure.semantic.constructions import navigation
 
     monkeypatch.setattr(
@@ -51,17 +49,18 @@ def test_navigation_retains_named_and_declaration_roles_before_consumption(monke
         view.pieces,
         {item["self_ref"]: item for item in view.items},
         (passage,),
-        primary_layers=layers,
-        projection=view.ref.projection_digest,
+        navigation=primary.navigation,
+        projection=view.projection_digest,
     )
     renamed = [row for row in found.matches if row.kind == "renames"]
     assert len(renamed) == 1
     match = renamed[0]
     assert view.text[slice(*match.left)] == "Old Control"
+    assert match.right is not None
     assert view.text[slice(*match.right)] == "New Control"
     assert match.witness.primary_node is not None
-    assert match.witness.primary_node["layer"] in [pin.values() for pin in layers]
-    index = navigation_index(layers, view.ref.projection_digest)
+    assert match.witness.primary_node["product_id"] == primary.construction.semantic_id
+    index = primary.navigation
     piece = [p for p in view.pieces if p["kind"] == "native_text"][1]
     (declaration,) = symbol_declarations(index, piece["item_ref"], piece["start"], piece["end"])
     assert (declaration[1], declaration[2]) == ("x", "a count")
@@ -69,48 +68,35 @@ def test_navigation_retains_named_and_declaration_roles_before_consumption(monke
 
 
 def test_navigation_refuses_missing_primary_and_dangling_retained_role():
-    view, layers, passage = fixture()
+    view, primary, passage = fixture()
     missing = match_named_source_links(
         view.text,
         view.pieces,
         {item["self_ref"]: item for item in view.items},
         (passage,),
-        primary_layers={},
-        projection=view.ref.projection_digest,
+        navigation=NativeNavigationIndex((), primary.source),
+        projection=view.projection_digest,
     )
     assert missing.matches == () and missing.outcome() == "unsupported"
-    pin, layer = next(
-        (pin, layer)
-        for pin, layer in layers.items()
-        if any("navigation" in a for a in layer.payload["annotations"])
-    )
-    payload = deepcopy(layer.payload)
-    next(a for a in payload["annotations"] if "navigation" in a)["navigation"]["roles"][0][
-        "occurrences"
-    ] = ["missing-source"]
-    invalid = LayerReport(canonical_bytes(payload))
-    mutated = dict(layers)
-    del mutated[pin]
-    mutated[invalid.reference(pin.task_id)] = invalid
-    with pytest.raises(ValueError, match="unknown source occurrence"):
-        navigation_index(mutated, view.ref.projection_digest)
+    payload = json.loads(primary.construction.content)
+    next(packet["body"] for packet in payload["members"] if "navigation" in packet["body"])["navigation"]["roles"][0]["occurrences"] = ["missing-source"]
+    invalid = replace(primary.construction, content=canonical_bytes(payload))
+    with pytest.raises(ValueError, match="unknown declared source occurrence"):
+        NativeNavigationIndex((invalid,), primary.source)
 
 
 def test_artifact_fields_and_targets_are_consumed_without_source_recognition(monkeypatch):
-    from corpus_structure.methods.artifact_identity import discover_identity_records
+    from corpus_structure.semantic.artifact_products import native_artifact_records
     from corpus_structure.semantic.constructions import navigation
-    from corpus_structure.semantic.proposals import native_source_frame
-    from methods.scoped_relations_support import original_inputs
+    from methods.scoped_relations_support import original_inputs, discover_relations
 
-    view = complete_native_fields(
-        source(
+    view = source(
             'Table 5.1 (alias: "T5")\n'
             "See Table 5.2 (hereafter Table 6.1 in numbering namespace Main).\n"
             "Table 6.1 (numbering namespace: Main) (revision: new)",
             labels=("caption", "text", "caption"),
         )
-    )
-    layers = primary_navigation(view, annotations=(), formal=True)
+    primary = source_primary_products(view, annotations=())
     inputs = original_inputs(view)
     monkeypatch.setattr(
         navigation,
@@ -120,13 +106,9 @@ def test_artifact_fields_and_targets_are_consumed_without_source_recognition(mon
         ),
     )
     monkeypatch.setattr(navigation, "_ARTIFACT", None)
-    records = discover_identity_records(
-        native_source_frame(view, ()),
-        inputs,
-        inputs.sources[0].identity,
-        "work",
-        primary_layers=layers,
-    )
+    records = native_artifact_records(view, primary.source, inputs,
+        inputs.sources[0].identity, "work", primary.navigation)
+
     aliases = [row for row in records if row.artifact.controlled_code == "5.1"]
     assert len(aliases) == 1 and aliases[0].artifact.aliases == ("T5",)
     references = [row.explicit_reference for row in records if row.explicit_reference is not None]
@@ -160,8 +142,8 @@ def test_table_header_geometry_uses_primary_cell_roles():
         table_cell("A", 2, 0),
     ]
     view = native_table_source(cells)
-    primary = primary_navigation(view, annotations=())
-    index = navigation_index(primary, view.ref.projection_digest)
+    primary = source_primary_products(view, annotations=())
+    index = primary.navigation
     table = next(item for item in view.items if item["label"] == "table")
     mapped = _measure_table_geometry(table, navigation=index)["data"]["table_cells"]
     assert [i for i, cell in enumerate(mapped) if cell.get("column_header")] == list(range(7))
@@ -176,36 +158,12 @@ def test_table_header_geometry_uses_primary_cell_roles():
         (5, "relative_frequency"),
         (6, "row_key"),
     ]
-    from types import SimpleNamespace
-
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.methods.scoped_relations import (
-        ScopedRelationsConfig,
-    )
     from corpus_structure.semantic.observations import source_python
-
-    class Reader:
-        def source_view(self, _):
-            return view
-
-        def primary_characterization(self, _, *, families):
-            # This table has no linguistic token population; navigation is independently retained.
-            return {}
-
-        def characterization_layers(self, pins):
-            assert set(pins) == set(primary)
-            return primary
-
-    cfg = ScopedRelationsConfig(characterization_layers=tuple(pin.values() for pin in primary))
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, view.ref.key))
-    from semantic.sealed_scoped_fixture import build_scoped_result
-
-    result = build_scoped_result(view, cfg, unit.ref, primary_layers=primary)
-    assert result.contributions is not None
+    from methods.scoped_relations_support import discover_relations
+    result = discover_relations(view, primary=primary)
     cell_values = [
         source_python(row["value"])
-        for row in result.contributions
+        for row in result["contributions"]
         if row.get("value") is not None
         and source_python(row["value"]).get("role") in {"header", "row_label", "cell"}
     ]

@@ -873,9 +873,9 @@ def publish_predicate_evidence(
                 ),
                 **(
                     {
-                        "primary_products": [
+                        "primary_products": tuple(
                             {"product_id": product.semantic_id} for product in primary_products
-                        ]
+                        )
                     }
                     if primary_products
                     else {

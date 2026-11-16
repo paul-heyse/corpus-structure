@@ -291,7 +291,7 @@ def test_revision_requires_original_successor_and_direction():
 
 
 def test_typed_source_dependency_keeps_both_endpoints_outside_computational_dependencies():
-    from corpus_structure.methods.dossier_contributions import derive_contribution_members
+    from corpus_structure.methods.dossier_contributions import derive_declared_contribution_members
     from corpus_structure.semantic.contributions import contribution_identity
     from corpus_structure.semantic.observations import source_python, source_value
     from semantic.dossier_contributions_support import source_fixture
@@ -299,7 +299,7 @@ def test_typed_source_dependency_keeps_both_endpoints_outside_computational_depe
     value, ref, payload = source_fixture()
     (passage,) = value.passages
     passage = passage.model_copy(update={"effective_version": "R2"})
-    initial = derive_contribution_members(value, ref, payload)[0]
+    initial = derive_declared_contribution_members(value, ref, payload)[0]
     assert initial.contribution_citations is not None
     citations = {c.span.text: c.span for c in initial.contribution_citations}
     root = declared_definition_component(
@@ -325,7 +325,7 @@ def test_typed_source_dependency_keeps_both_endpoints_outside_computational_depe
     value = value.model_copy(
         update={"passages": (passage,), "dependencies": (ref.contribution_id,)}
     )
-    (member,) = derive_contribution_members(value, ref, payload, root=root)
+    (member,) = derive_declared_contribution_members(value, ref, payload, root=root)
     dependency = member.semantic_dependency
     assert dependency is not None and dependency.relation == "depends_on"
     assert [c.span.text for c in dependency.dependent] == ["50"]

@@ -5,15 +5,14 @@ from hashlib import sha256
 
 import pytest
 
-from corpus_structure.methods.source_preparation import prepare_source
+from methods.m1_source_preparation_support import prepare_declared_source
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.structural_products import (
-    ExternalSourceRef,
+    DeclaredStructuralSource,
     StructuralPassage,
 )
-from methods.m1_source_preparation_support import source
+from methods.m1_source_preparation_support import source, projection
 from methods.scoped_relations_support import discover_relations
 
 
@@ -35,50 +34,24 @@ def _joined_view():
         ),
     )
     view = source("fixture", labels=("text",))
-    digest = sha256(
-        canonical_bytes(
-            dict(
-                text=text,
-                pieces=pieces,
-                items=[item["self_ref"] for item in nodes],
-                ancestors=[],
-                health={},
-            )
-        )
-    ).hexdigest()
-    return replace(
-        view, ref=replace(view.ref, projection_digest=digest), text=text, pieces=pieces, items=nodes
-    )
+    return projection(text, pieces=pieces, items=nodes)
 
 
 def _joined_production(view, *, batch_size):
     release = "release:joined-source-control"
     named_version = "4"
-    frame = native_source_frame(view, ())
+    frame = view
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import SentenceConfig, pipeline
 
     profile = AnnotationProfile(SentenceConfig(batch_size=batch_size, exclude=("ner",)))
     native_profile = pipeline(profile.configuration).selection().native
-    annotations = prepare_source(view, profile=profile, annotations_only=True)
+    annotations = prepare_declared_source(view, profile=profile, annotations_only=True)
     assert not annotations.annotation_errors
     (block,) = annotations.annotations
     assert block.block_id == "#/texts/0"
     assert block.native_pieces[1].item_ref == "#/texts/1"
-    ref = ExternalSourceRef(
-        project_id="fixture",
-        run_id=1,
-        cut_id=1,
-        release_id=release,
-        result_revision=0,
-        source_view_id=view.ref.id,
-        native_task_id=view.ref.native_product.task_id,
-        native_product_key=view.ref.native_product.product_key,
-        native_content_digest=view.ref.native_product.content_digest,
-        projection_digest=view.ref.projection_digest,
-        recipe_digest=view.ref.recipe_digest,
-        coordinate_version=3,
-    )
+    ref = DeclaredStructuralSource.model_validate(frame.pin.values())
     passage = StructuralPassage(
         passage_id="cross-reference",
         source_ref=ref.identity,
@@ -91,11 +64,9 @@ def _joined_production(view, *, batch_size):
         frame,
         annotations=annotations.annotations,
         annotation_native_profile=native_profile,
-        annotation_origin_task_id=41,
+        annotation_profile=profile,
         passages=(passage,),
-        predicate_version="5",
         witnessed_links_enabled=True,
-        named_link_version=named_version,
     )
     return output
 

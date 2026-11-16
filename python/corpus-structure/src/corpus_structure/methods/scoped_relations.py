@@ -665,6 +665,7 @@ def discover_relations(
             "selected source",
             max_chars=max(1, len(frame.text)),
             max_pieces=max(1, len(source_pieces)),
+            preparation=PreparedNativeSources((frame,)),
         )
     pin = record_source_pin(frame)
     dependency = (
@@ -1882,7 +1883,7 @@ def discover_relations(
             {
                 **operation,
                 **(
-                    {"primary_products": [reference.values() for reference in primary_product_refs]}
+                    {"primary_products": tuple(reference.values() for reference in primary_product_refs)}
                     if declared
                     else {"primary_layers": [pin.values() for pin in primary_layers]}
                 ),
@@ -1899,7 +1900,7 @@ def discover_relations(
             operation_key=op,
             question="source_structural_relations",
             **(
-                {"primary_products": [reference.values() for reference in primary_product_refs]}
+                {"primary_products": tuple(reference.values() for reference in primary_product_refs)}
                 if declared
                 else {"primary_layers": [pin.values() for pin in primary_layers]}
             ),

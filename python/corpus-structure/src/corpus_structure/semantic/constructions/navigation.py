@@ -802,50 +802,6 @@ _RELATION_KINDS: dict[str, Literal["reference", "same_lineage", "supersedes"]] =
 }
 
 
-def populate_navigation(
-    layer, view, dependencies, *, check_active=lambda: None, admitted=lambda a, b: True
-):
-    """Characterize source navigation once; target selection remains a consumer operation."""
-    from corpus_structure.methods.native_evidence_layers import (
-        retained_annotation_products,
-        retained_annotation_profile,
-    )
-    from corpus_structure.semantic.characterization import annotation_reference
-
-    products = []
-    tokens = {}
-    for pin, report in dependencies.items():
-        body = report.payload
-        runs = [run for run in body.get("native_runs", ()) if run["provider"] == "spacy"]
-        if not runs:
-            continue
-        if len(runs) != 1:
-            raise ValueError("navigation requires one exact native spaCy run per layer")
-        run = runs[0]
-        profile = retained_annotation_profile(run)
-        products.extend(
-            product
-            for product in retained_annotation_products({pin: report}, view, profile)
-            if admitted(product.block_start, product.block_end)
-        )
-        for annotation in body["annotations"]:
-            native = annotation.get("native_token")
-            if native is not None and native["native_run"] == run["local_id"]:
-                tokens.setdefault((native["container"], native["index"]), []).append(
-                    annotation_reference(pin, annotation["local_id"]).values()
-                )
-    return _populate_navigation(
-        layer,
-        view,
-        products,
-        token_references=lambda block, index: tokens.get(
-            (f"spacy/{view.ref.id}/{block}/block", index), ()
-        ),
-        source_key=view.ref.id,
-        projection=view.ref.projection_digest,
-        check_active=check_active,
-        admitted=admitted,
-    )
 
 
 def populate_navigation_products(

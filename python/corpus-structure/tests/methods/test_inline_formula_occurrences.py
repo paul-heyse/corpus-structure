@@ -8,55 +8,18 @@ import pytest
 
 from corpus_structure.methods.contextual_candidates import retained_occurrences
 from corpus_structure.semantic.contributions import occurrence_identity
-from corpus_structure.semantic.formal_evidence import build_formal_layer
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import record_source_pin
 from methods.inline_formula_support import _FROZEN_TEXT as _FROZEN_TEXT
-from methods.m1_source_preparation_support import source
-from methods.primary_reading_fixture import prepared
-from methods.scoped_relations_support import complete_native_fields, discover_relations
+from methods.m1_source_preparation_support import source, projection
+from methods.scoped_relations_support import discover_relations
 
 
 def discovery(text, **kwargs):
-    view = complete_native_fields(source(text, labels=("text",)))
-    pieces = tuple(dict(piece, source_field="text") for piece in view.pieces)
-    projection = dict(
-        text=view.text,
-        pieces=pieces,
-        items=[node["self_ref"] for node in view.items],
-        ancestors=[],
-        health={},
-    )
-    view = replace(
-        view,
-        pieces=pieces,
-        ref=replace(
-            view.ref,
-            projection_digest=sha256(canonical_bytes(projection)).hexdigest(),
-        ),
-    )
-    frame = native_source_frame(view, ())
-    formal = build_formal_layer(
-        view,
-        prepared(),
-        dict(
-            key="text.formal_evidence",
-            version="1",
-            runtime="test-runtime",
-            model="none",
-            grammar="test-grammar",
-            configuration="test-config",
-            input="test-input",
-            context="source-only",
-        ),
-        max_inline_chars=kwargs.get("max_formula_chars", 2048),
-    )
-    layers = {formal.reference(103): formal}
-    result = discover_relations(
-        frame, inline_equations_enabled=True, primary_layers=layers, **kwargs
-    )
+    view = source(text, labels=("text",))
+    frame = view
+    result = discover_relations(frame, inline_equations_enabled=True, **kwargs)
     return view, frame, result
 
 
@@ -82,7 +45,7 @@ def test_frozen_symbol_is_exact_standalone_and_separate_from_geometry(mu):
     assert (anchor["start"], anchor["end"], anchor["source_piece"]) == (242, 243, "Z")
     assert z["kind"] == "occurrence" and "members" not in z and "endpoints" not in z
     assert source_python(z["value"])["syntax_standing"] == "syntax_only"
-    previous = discover_relations(frame, primary_layers=output["_primary_layers"])
+    previous = discover_relations(frame)
     assert output["operation"] == previous["operation"]
     assert [row for row in output["contributions"] if row not in rows] == list(
         previous["contributions"]

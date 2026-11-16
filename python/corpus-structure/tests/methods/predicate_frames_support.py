@@ -7,8 +7,6 @@ import pytest
 from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile, annotate
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.source_contexts import NativeSourcePin
 
 _PREFIX = "outside the block: "
 
@@ -30,25 +28,24 @@ def retained(
     nlp: Any = pipeline(profile.configuration)
     native_profile = nlp.selection().native
     layout = prepare_layout(nlp, block, start=len(_PREFIX))
-    source = NativeSourcePin(
-        7,
-        "source:7",
-        ProductReference(17, "integrated", "a" * 64),
-        "#/groups/7",
-        "descendants",
-        "b" * 64,
-        "c" * 64,
-        3,
-    )
     if pieces is None:
         pieces = (ProjectedPiece("#/texts/3", len(_PREFIX), len(_PREFIX + text), "native_text"),)
-    request = AnnotationInput(source, block_id, kind, block, layout, pieces)
+    from dataclasses import replace
+    from methods.declared_primary_fixture import selected_source
+    from methods.navigation_fixture import source_primary_products
+    pieces = tuple(replace(p, source_field="text") if p.source_field is None else p for p in pieces)
+    complete = _PREFIX + text
+    spellings = {}
+    for piece in pieces:
+        spellings[piece.item_ref] = spellings.get(piece.item_ref, "") + complete[piece.start:piece.end]
+    _source, frame, _context = selected_source(complete,
+        pieces=[dict(kind="synthetic_separator",start=0,end=len(_PREFIX)), *(p.to_wire() for p in pieces)],
+        items=[dict(self_ref=pointer,label=kind if kind != "paragraph" else "text",text=literal,orig=literal)
+            for pointer,literal in spellings.items()])
+    request = AnnotationInput(frame.pin, block_id, kind, block, layout, pieces)
     (product,) = annotate((request,), profile)
-    from methods.primary_reading_fixture import primary_product
-
-    return _PREFIX + text, primary_product(
-        _PREFIX + text, product, profile, native_profile=native_profile
-    )
+    primary = source_primary_products(frame, (product,), profile=profile, native_profile=native_profile)
+    return complete, product, primary
 
 
 def strings(text, span):

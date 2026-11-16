@@ -10,14 +10,15 @@ from pydantic import ValidationError
 from corpus_structure.methods import gliner, m1_source
 from corpus_structure.methods import source_preparation as prep
 from corpus_structure.methods.record_packs import formula_pack_variants
-from corpus_structure.semantic.proposals import native_source_frame
+from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
+from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     ContextRelationship,
     ContextRetrieval,
     PreparedNativeSources,
     RelatedNativeSource,
     RetrievalOutcome,
-    SourceSlice,
     SyntheticText,
 )
 from methods.m1_producer_support import detail_object, detail_objects
@@ -25,6 +26,11 @@ from methods.m1_source_preparation_support import source
 from methods.m1_source_profile_support import config as config
 from methods.record_assembly_support import context, fields, release, report, span
 from methods.record_assembly_support import model as record_model
+
+
+def prepare(view, **kwargs):
+    return prep.prepare_source(view, source_frame=view, context_population=DeclaredContextPopulation(
+        (view,), canonical_bytes({"fixture": "complete selected source inventory"})), **kwargs)
 
 
 def test_explicit_profile_budgets_and_unchanged_whitespace_identity(tmp_path):
@@ -154,7 +160,7 @@ def windows(text="L1\nL2\nF\nR1\nR2", *, max_chars=7, max_pieces=5, related=Fals
     chunks = text.split("\n")
     middle = chunks.index("F")
     view = source(text, labels=tuple("formula" if c == "F" else "text" for c in chunks))
-    frame = native_source_frame(view, ())
+    frame = view
     piece = next(p for p in view.pieces if p.get("item_ref") == f"#/texts/{middle}")
     retrieval = ContextRetrieval(
         ContextRelationship.DECLARATION,
@@ -173,7 +179,7 @@ def windows(text="L1\nL2\nF\nR1\nR2", *, max_chars=7, max_pieces=5, related=Fals
         piece["end"],
         ("formula_context",),
         "native formula",
-        pieces=(SourceSlice(7, piece["start"], piece["end"]),),
+        pieces=(DeclaredSourceSlice(frame.source_key, piece["start"], piece["end"]),),
         retrievals=(retrieval,),
         local_dispositions=(("#/missing", "missing_scope", "retained failure"),),
     )
@@ -187,15 +193,13 @@ def windows(text="L1\nL2\nF\nR1\nR2", *, max_chars=7, max_pieces=5, related=Fals
     sources = (frame,)
     neighbors = ()
     if related:
-        other = source("EX", labels=("text",))
-        other = replace(other, ref=replace(other.ref, id=8, key="source:8"))
-        other_frame = native_source_frame(other, ())
+        other_frame = source("EX", labels=("text",), identity=8)
         neighbors = (RelatedNativeSource(other_frame, ContextRelationship.DECLARATION, "owned"),)
         sources += (other_frame,)
         selection = replace(
             selection,
-            pieces=(*selection.pieces, SyntheticText("\n", "owned"), SourceSlice(8, 0, 2)),
-            relationships=((8, ContextRelationship.DECLARATION, "owned"),),
+            pieces=(*selection.pieces, SyntheticText("\n", "owned"), DeclaredSourceSlice(other_frame.source_key, 0, 2)),
+            relationships=((other_frame.source_key, ContextRelationship.DECLARATION, "owned"),),
         )
     preparation = PreparedNativeSources(sources)
     regions = [
@@ -259,17 +263,15 @@ def test_selected_related_source_custody_survives_every_alternative():
     _, _, contexts = windows(max_chars=10, max_pieces=7, related=True)
     assert len(contexts) > 1
     for ctx in contexts:
-        assert ctx.text.endswith("EX") and ctx.related[0].source.source_view_id == 8
-        assert (
-            ctx.map_span(len(ctx.text) - 2, len(ctx.text), literal="EX")[0].source.source_view_id
-            == 8
-        )
+        assert ctx.text.endswith("EX")
+        assert ctx.related[0].source.pin.values()["source_product"] == "product:record-source:8"
+        assert ctx.map_span(len(ctx.text) - 2, len(ctx.text), literal="EX")[0].source == ctx.related[0].source.pin
 
 
 def test_prose_formula_route_is_explicit_and_never_creates_native_occurrence():
     view = source("q = 1-p", labels=("text",))
-    old = prep.prepare_source(view, persisted_annotations=())
-    new = prep.prepare_source(
+    old = prepare(view, persisted_annotations=())
+    new = prepare(
         view, persisted_annotations=(), policy=prep.POLICY_V5, formula_prose=True
     )
     assert old.selections[0].families == prep.PROSE_FAMILIES
@@ -280,7 +282,7 @@ def test_prose_formula_route_is_explicit_and_never_creates_native_occurrence():
     assert m1_source._structural_groups(view, selection, ctx) == ()
     supplement = m1_source._prose_formula_scope(view, ctx, {"formula": span(0, 7, "q = 1-p")})
     assert supplement is not None and [f.role for f in supplement.fields] == ["scope"]
-    assert supplement.fields[0].native_pointer == view.ref.section_pointer
+    assert supplement.fields[0].native_pointer == view.section_pointer
     assert m1_source._prose_formula_scope(view, ctx, {"formula": span(0, 7, "changed")}) is None
 
 
@@ -372,7 +374,7 @@ def test_variant_attempts_have_matched_execution_report_and_coverage_rows(
 ):
 
     view = source("x=1", labels=("formula",))
-    product = prep.prepare_source(view, persisted_annotations=())
+    product = prepare(view, persisted_annotations=())
     cfg = config(tmp_path, policy=prep.POLICY_V5, source_inspection=True)
     native_context = product.selections[0].context(
         product.source,

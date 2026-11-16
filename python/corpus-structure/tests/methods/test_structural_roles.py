@@ -23,7 +23,6 @@ def test_passive_voice_keeps_agent_as_actor_and_subject_as_object():
             ("by", "ADP", "agent", 4, "IN"),
             ("Manager", "NOUN", "pobj", 5, "NN"),
         ],
-        explicit_products=True,
     )
     (frame,) = procedure_frames(text, (product,), primary_products=(primary,))
     assert values(text, frame, "actor") == ("Manager",)
@@ -48,7 +47,6 @@ def test_coordinated_actions_inherit_only_unambiguous_roles_and_keep_negation():
             ("Table", "NOUN", "dobj", 5, "NN"),
             ("5.1", "NUM", "nummod", 6, "CD"),
         ],
-        explicit_products=True,
     )
     frames = procedure_frames(text, (product,), primary_products=(primary,))
     assert len(frames) == 2
@@ -72,7 +70,6 @@ def test_source_conditions_and_order_are_dependency_cued_not_textual_order():
             ("signs", "VERB", "advcl", 1, "VBZ"),
             ("Form", "NOUN", "dobj", 5, "NN"),
         ],
-        explicit_products=True,
     )
     frames = procedure_frames(text, (product,), primary_products=(primary,))
     review = frames[0]
@@ -89,7 +86,6 @@ def test_missing_dependency_columns_supply_no_role_claims():
             ("reviews", "VERB", "ROOT", 1, "VBZ"),
             ("Table", "NOUN", "dobj", 1, "NN"),
         ],
-        explicit_products=True,
     )
     missing = replace(product, availability=())
     assert procedure_frames("Manager reviews Table.", (missing,), primary_products=(primary,)) == ()
@@ -109,7 +105,6 @@ def test_coordinate_passive_preserves_shared_agent_patient_and_explicit_modal_wi
             ("by", "ADP", "agent", 5, "IN"),
             ("Manager", "NOUN", "pobj", 6, "NN"),
         ],
-        explicit_products=True,
     )
     frames = procedure_frames(text, (product,), primary_products=(primary,))
     assert all(f["voice"] == "passive" for f in frames)
@@ -128,7 +123,6 @@ def test_coordinate_passive_preserves_shared_agent_patient_and_explicit_modal_wi
             ("approve", "VERB", "conj", 3, "VB"),
             ("Table", "NOUN", "dobj", 6, "NN"),
         ],
-        explicit_products=True,
     )
     frames = procedure_frames(text, (product,), primary_products=(primary,))
     assert values(text, frames[1], "modality") == ("may",)

@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 
-def annotation(text, specifications, *, source_pin=None, explicit_products=False):
+def annotation(text, specifications, *, frame=None):
     tokens = []
     cursor = 0
     for word, pos, dependency, head, tag in specifications:
@@ -34,9 +34,6 @@ def annotation(text, specifications, *, source_pin=None, explicit_products=False
     )
     from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.product_reference import ProductReference
-    from corpus_structure.semantic.source_contexts import NativeSourcePin
-    from methods.primary_reading_fixture import primary_product
 
     if cursor < len(text) and text[cursor:] == ".":
         root = next(i for i, t in enumerate(tokens) if t.dependency == "ROOT")
@@ -54,14 +51,13 @@ def annotation(text, specifications, *, source_pin=None, explicit_products=False
         )
     from methods.declared_primary_fixture import retained_products, selected_source
 
-    if explicit_products:
+    if frame is None:
         source, frame, context = selected_source(text)
-        source_pin = frame.pin
-    profile = (
-        AnnotationProfile(execution_profile="unadmitted:controlled-columns")
-        if explicit_products
-        else AnnotationProfile()
-    )
+    else:
+        from methods.navigation_fixture import source_primary_products
+        selected = source_primary_products(frame, annotations=())
+        source, context = selected.source, selected.context
+    profile = AnnotationProfile(execution_profile="unadmitted:controlled-columns")
     digest = sha256(text.encode()).hexdigest()
     rows = tuple(
         TokenAnnotation(
@@ -81,17 +77,7 @@ def annotation(text, specifications, *, source_pin=None, explicit_products=False
         for t in tokens
     )
     product = AnnotationProduct(
-        source=source_pin
-        or NativeSourcePin(
-            7,
-            "source:7",
-            ProductReference(17, "integrated", "a" * 64),
-            "#/groups/7",
-            "descendants",
-            "b" * 64,
-            "c" * 64,
-            3,
-        ),
+        source=frame.pin,
         block_id="#/texts/0",
         kind="paragraph",
         block_start=0,
@@ -118,7 +104,5 @@ def annotation(text, specifications, *, source_pin=None, explicit_products=False
         sentences=(SentenceAnnotation(0, len(text)),),
         dependency_digest=digest,
     )
-    if explicit_products:
-        _native, primary = retained_products(source, frame, context, product, profile)
-        return product, primary
-    return primary_product(text, product, profile)
+    _native, primary = retained_products(source, frame, context, product, profile)
+    return product, primary

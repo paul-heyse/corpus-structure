@@ -6,10 +6,6 @@ from typing import Any
 
 from corpus_structure.ingest.annotation_views import annotation_view
 from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
-from corpus_structure.methods.native_evidence_layers import (
-    retained_annotation_products,
-    retained_annotation_profile,
-)
 
 from .named_nominations import naming_nomination
 from .nodes import identity
@@ -24,62 +20,6 @@ def rule_identity(rule):
     )
 
 
-def populate_named(
-    layer,
-    view,
-    native_pin,
-    native_layer,
-    prepared: PreparedAnnotationRules,
-    *,
-    check_active=lambda: None,
-    admitted=lambda a, b: True,
-):
-    native_payload = native_layer.payload
-    runs = [run for run in native_payload.get("native_runs", ()) if run["provider"] == "spacy"]
-    if len(runs) != 1:
-        raise ValueError("named rules require one exact native spaCy run")
-    run = runs[0]
-    profile = retained_annotation_profile(run)
-    products = retained_annotation_products({native_pin: native_layer}, view, profile)
-    annotations = {a["local_id"]: a for a in native_payload["annotations"]}
-    source_occurrences = {o["local_id"]: o for o in native_payload["occurrences"]}
-    token_refs = {
-        (a["native_token"]["container"], a["native_token"]["index"]): dict(
-            layer=native_pin.values(), local_id=a["local_id"]
-        )
-        for a in annotations.values()
-        if a.get("native_token", {}).get("native_run") == run["local_id"]
-    }
-
-    def blocks():
-        for product in products:
-            container = f"spacy/{view.ref.id}/{product.block_id}/block"
-            native = annotation_view(
-                product,
-                view.text[product.block_start : product.block_end],
-                prepared.vocab,
-                required=(),
-            )
-            refs = {index: ref for (owner, index), ref in token_refs.items() if owner == container}
-
-            def occurrences(index, *, refs=refs):
-                ids = annotations[refs[index]["local_id"]]["occurrences"]
-                for oid in ids:
-                    layer.occurrences.setdefault(oid, source_occurrences[oid])
-                return ids
-
-            yield (
-                product,
-                native,
-                dict(layer=native_pin.values(), local_id=container),
-                refs,
-                occurrences,
-            )
-
-    _populate_named_blocks(
-        layer, view, native_pin, prepared, blocks(), check_active=check_active, admitted=admitted
-    )
-    return products
 
 
 def populate_named_products(

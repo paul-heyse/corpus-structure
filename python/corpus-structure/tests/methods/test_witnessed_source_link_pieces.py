@@ -5,7 +5,7 @@ from hashlib import sha256
 
 import pytest
 
-from corpus_structure.methods.source_preparation import prepare_source
+from methods.m1_source_preparation_support import prepare_declared_source
 from corpus_structure.semantic.constructions.navigation import (
     NAMED_COVERAGE_VERSION,
     NAMED_PIECE_VERSION,
@@ -13,7 +13,7 @@ from corpus_structure.semantic.constructions.navigation import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import StructuralPassage
-from methods.m1_source_preparation_support import source
+from methods.m1_source_preparation_support import source, projection
 
 _WRAPPER = "#/texts/20"
 _INLINE = "#/groups/40"
@@ -42,22 +42,8 @@ def _joined(prefix, suffix, *, select_suffix=True):
             end=len(text),
         ),
     )
-    projection = dict(
-        text=text,
-        pieces=pieces,
-        items=[node["self_ref"] for node in items],
-        ancestors=[],
-        health={},
-    )
-    base = source("placeholder", labels=("text",))
-    view = replace(
-        base,
-        text=text,
-        items=items,
-        pieces=pieces,
-        ref=replace(base.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()),
-    )
-    prepared = prepare_source(view, annotations_only=True)
+    view = projection(text, pieces=pieces, items=items)
+    prepared = prepare_declared_source(view, annotations_only=True)
     assert not prepared.annotation_errors
     (annotation,) = prepared.annotations
     assert annotation.block_id == _WRAPPER
@@ -137,7 +123,9 @@ def test_joined_citation_refuses_unproved_source_piece_or_token_ownership(contro
     elif control == "ambiguous":
         annotations = (annotation, replace(annotation, block_id="#/texts/other"))
     elif control == "duplicate":
-        view = replace(view, pieces=(*view.pieces, view.pieces[1]))
+        with pytest.raises(ValueError):
+            projection(view.text, pieces=(*view.pieces, view.pieces[1]), items=view.items)
+        return
     else:
         # The designator is a source role even though it is not a recipe node.
         tokens = tuple(
@@ -203,8 +191,8 @@ def test_optional_definition_concept_requires_its_own_exact_piece_tokens():
 def test_v4_keeps_same_block_roles_and_limits_joined_pieces_to_citation_rules():
     text = "Version B supersedes Version A."
     view = source(text, labels=("text",))
-    view = replace(view, items=tuple(dict(item, content_layer="body") for item in view.items))
-    prepared = prepare_source(view, annotations_only=True)
+    view = projection(view.text, pieces=view.pieces, items=tuple(dict(item, content_layer="body") for item in view.items))
+    prepared = prepare_declared_source(view, annotations_only=True)
     assert not prepared.annotation_errors
     passage = StructuralPassage(
         passage_id="runbook",

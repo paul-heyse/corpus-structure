@@ -13,16 +13,11 @@ from corpus_structure.methods.scoped_relations import (
     SourceWorkBinding,
 )
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.structural_products import (
-    ExternalSourceRef,
-    StructuralInput,
+    DeclaredStructuralInput,
     StructuralPassage,
 )
-from methods.m1_source_preparation_support import native_table_source, source, table_cell
-from methods.scoped_relations_support import (
-    complete_native_fields as complete_native_fields,
-)
+from methods.m1_source_preparation_support import native_table_source, source, table_cell, projection
 from methods.scoped_relations_support import (
     discover_relations as discover_relations,
 )
@@ -54,7 +49,7 @@ def test_native_table_roles_notes_and_units_keep_exact_cell_participants(explici
         else "Values are percentages.",
     )
     output = discover_relations(
-        native_source_frame(complete_native_fields(view), ()), source_work="actual-parent-sha"
+        view, source_work="actual-parent-sha"
     )
     rows = output["contributions"]
     values = {
@@ -96,7 +91,7 @@ def test_symbol_declarations_keep_occurrences_and_do_not_invent_unparsed_order()
         labels=("text",),
     )
     output = discover_relations(
-        native_source_frame(complete_native_fields(view), ()), annotations=()
+        view, annotations=()
     )
     rows = output["contributions"]
     values = {
@@ -111,7 +106,7 @@ def test_symbol_declarations_keep_occurrences_and_do_not_invent_unparsed_order()
 
 def test_source_without_authenticated_parent_binding_retains_no_artifact_identity():
     view = source("See Table 5.1.", labels=("text",))
-    output = discover_relations(native_source_frame(complete_native_fields(view), ()))
+    output = discover_relations(view)
     assert not any(r["semantic_type"] == "structural.artifact" for r in output["contributions"])
 
 
@@ -162,17 +157,16 @@ def test_condition_host_preserves_located_parts_after_declaration_refusal(
 ):
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.methods.predicate_contributions import predicate_qualifier_refusal
-    from corpus_structure.methods.source_preparation import prepare_source
+    from methods.m1_source_preparation_support import prepare_declared_source
 
     declaration, release = qualifier_release
     labels = ("section_header", "text") if "\n" in text else ("text",)
-    view = complete_native_fields(source(text, labels=labels))
-    prepared = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    view = source(text, labels=labels)
+    prepared = prepare_declared_source(view, profile=AnnotationProfile(), annotations_only=True)
     result = discover_relations(
-        native_source_frame(view, ()),
+        view,
         annotations=prepared.annotations,
         annotation_native_profile=_direct_profile(),
-        predicate_version="5",
         qualifier_preflight=lambda component: predicate_qualifier_refusal(release, component),
     )
     rows = {row["contribution_id"]: row for row in result["contributions"]}
@@ -223,14 +217,13 @@ def test_condition_host_preserves_located_parts_after_declaration_refusal(
         assert isinstance(detail, str) and reason in detail
 
 
-@pytest.mark.parametrize("predicate_version", ["4", "5"])
-def test_selected_action_preserves_wholly_clipped_role_without_an_anchor(predicate_version):
+def test_selected_action_preserves_wholly_clipped_role_without_an_anchor():
     from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.methods.source_preparation import prepare_source
+    from methods.m1_source_preparation_support import prepare_declared_source
 
     text = "The analyst records the input."
-    view = complete_native_fields(source(text, labels=("text",)))
-    prepared = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    view = source(text, labels=("text",))
+    prepared = prepare_declared_source(view, profile=AnnotationProfile(), annotations_only=True)
     start = text.index("records")
     selected = StructuralPassage(
         passage_id="action",
@@ -241,11 +234,10 @@ def test_selected_action_preserves_wholly_clipped_role_without_an_anchor(predica
         text="records",
     )
     output = discover_relations(
-        native_source_frame(view, ()),
+        view,
         annotations=prepared.annotations,
         annotation_native_profile=_direct_profile(),
         passages=(selected,),
-        predicate_version=predicate_version,
     )
     (frame,) = [
         row["component"]
@@ -259,32 +251,26 @@ def test_selected_action_preserves_wholly_clipped_role_without_an_anchor(predica
     }
 
 
-@pytest.mark.parametrize("named_version", ("2", "3"))
-def test_named_procedure_reference_binds_verb_to_caption_under_selected_version(named_version):
+def test_named_procedure_reference_binds_verb_to_caption_under_selected_version():
     from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.methods.source_preparation import prepare_source
+    from methods.m1_source_preparation_support import prepare_declared_source
 
-    view = complete_native_fields(
-        native_table_source(
+    view = native_table_source(
             (table_cell("1", 0, 0),),
             caption="Table 6.1 Results",
             note="The results are shown in Table 6.1.",
         )
-    )
-    view = replace(
-        view,
-        items=tuple(
+    view = projection(view.text, pieces=view.pieces, items=tuple(
             dict(
                 item,
                 content_layer="body",
                 **({"parent": {"$ref": "#/tables/0"}} if item["label"] == "caption" else {}),
             )
             for item in view.items
-        ),
-    )
-    annotation = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+        ))
+    annotation = prepare_declared_source(view, profile=AnnotationProfile(), annotations_only=True)
     output = discover_relations(
-        native_source_frame(view, ()),
+        view,
         source_work="fixture-parent",
         annotations=annotation.annotations,
         annotation_native_profile=_direct_profile(),
@@ -299,9 +285,7 @@ def test_named_procedure_reference_binds_verb_to_caption_under_selected_version(
                 text=view.text,
             ),
         ),
-        predicate_version="4",
         witnessed_links_enabled=True,
-        named_link_version=named_version,
     )
     rows = {row["contribution_id"]: row for row in output["contributions"]}
     (edge,) = [
@@ -324,13 +308,12 @@ def test_named_procedure_reference_binds_verb_to_caption_under_selected_version(
 
 
 def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
-    from corpus_structure.semantic.source_contexts import NativeSourcePin
     from methods.structural_roles_support import annotation
 
     text = "Table 5.1 must be reviewed by Manager."
-    view = complete_native_fields(source(text, labels=("text",)))
-    frame = native_source_frame(view, ())
-    product = annotation(
+    view = source(text, labels=("text",))
+    frame = view
+    product, construction = annotation(
         text,
         [
             ("Table", "NOUN", "nsubjpass", 4, "NN"),
@@ -341,9 +324,11 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
             ("by", "ADP", "agent", 4, "IN"),
             ("Manager", "NOUN", "pobj", 5, "NN"),
         ],
-        source_pin=NativeSourcePin.from_source(frame),
+        frame=frame,
     )
-    output = discover_relations(frame, source_work="parent", annotations=(product,))
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    output = discover_relations(frame, source_work="parent", annotations=(product,),
+        annotation_profile=AnnotationProfile(execution_profile="unadmitted:controlled-columns"))
     rows = output["contributions"]
     by_id = {
         r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows
@@ -371,7 +356,7 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
     )
     bound_operations, bound_rows = bind_contributions(
         prepared,
-        source=view.ref.key,
+        source=view.unit_ref,
         operations=(output["operation"], *output["extra_operations"]),
         contributions=rows,
         coordinate_texts=output["coordinates"],
@@ -404,8 +389,8 @@ def test_formula_syntax_links_repeated_uses_to_adjacent_local_declaration():
         ),
         dict(self_ref="#/texts/1", label="formula", text="x+x=2", parent={"$ref": "#/groups/1"}),
     )
-    view = replace(view, items=nodes)
-    output = discover_relations(native_source_frame(view, ()))
+    view = projection(view.text, pieces=view.pieces, items=nodes)
+    output = discover_relations(view)
     rows = output["contributions"]
     values = {
         r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows
@@ -418,9 +403,9 @@ def test_formula_syntax_links_repeated_uses_to_adjacent_local_declaration():
 
 
 def test_missing_native_roles_keeps_lexical_contributions_and_failed_stage():
-    view = complete_native_fields(source("Let x be count.", labels=("text",)))
+    view = source("Let x be count.", labels=("text",))
     output = discover_relations(
-        native_source_frame(view, ()),
+        view,
         annotations=(),
         annotation_errors=("retained parser block failed",),
     )
@@ -430,210 +415,65 @@ def test_missing_native_roles_keeps_lexical_contributions_and_failed_stage():
     assert output["extra_operations"][0]["emitted_count"] == 0
 
 
-def run_scoped(view, cfg, reader):
-    from dataclasses import fields
-
-    from corpus_structure.methods.native_evidence_layers import PrimaryAnnotationProduct
-    from methods.navigation_fixture import primary_navigation
-
-    class SelectedReader:
-        def __getattr__(self, name):
-            return getattr(reader, name)
-
-        def structural_source_annotations(self, *args):
-            retained = reader.structural_source_annotations(*args)
-            if (
-                retained.source.projection_digest != view.ref.projection_digest
-                or retained.source.text != view.text
-            ):
-                return retained
-            layers = primary_navigation(view, retained.annotations, formal=True)
-            return SimpleNamespace(
-                **{
-                    **retained.__dict__,
-                    "annotations": tuple(
-                        PrimaryAnnotationProduct(
-                            primary_layers=layers,
-                            **{
-                                field.name: getattr(product, field.name)
-                                for field in fields(product)
-                            },
-                        )
-                        for product in retained.annotations
-                    ),
-                }
-            )
-
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, view.ref.key))
-    from semantic.sealed_scoped_fixture import scoped_relation_result
-
-    return scoped_relation_result(SelectedReader(), view, cfg, unit.ref)
-
-
 @pytest.mark.parametrize("errors", ((), ("retained block failed",)))
-def test_original_annotation_port_keeps_roles_when_new_run_has_no_annotation_task(errors):
+def test_original_annotation_products_keep_roles_without_an_annotation_task(errors):
     from corpus_structure.ingest.annotations import AnnotationProfile
     from methods.structural_roles_support import annotation
-
     text = "Manager reviews Table 5.1."
-    view = complete_native_fields(source(text, labels=("text",)))
-    inputs = original_inputs(view)
-    cfg = ScopedRelationsConfig(
-        inputs=inputs,
-        structural_input_digest=inputs.identity,
-        work_bindings=(
-            SourceWorkBinding(
-                native_content_digest=view.ref.native_product.content_digest,
-                source_work="controlled-parent",
-                provenance="explicit functional control binding",
-            ),
-        ),
-    )
-    product = annotation(
-        text,
-        [
-            ("Manager", "NOUN", "nsubj", 1, "NN"),
-            ("reviews", "VERB", "ROOT", 1, "VBZ"),
-            ("Table", "NOUN", "dobj", 1, "NN"),
-            ("5.1", "NUM", "nummod", 2, "CD"),
-        ],
-    )
-    calls = []
-
-    class Reader:
-        def source_view(self, identity):
-            assert identity == view.ref.id
-            return view
-
-        def source_result(self, *_):
-            raise AssertionError("must use original-source annotations, not the new run")
-
-        def structural_source_annotations(self, actual, source_ref, profile):
-            calls.append((actual, source_ref, profile))
-            return SimpleNamespace(
-                source=native_source_frame(view, ()),
-                annotations=(product,),
-                errors=errors,
-            )
-
-    result = run_scoped(view, cfg, Reader())
-    assert calls == [(inputs, inputs.sources[0].identity, AnnotationProfile(cfg.sentences))]
-    assert result.contributions is not None and result.contribution_operations is not None
+    frame = source(text, labels=("text",))
+    product, _construction = annotation(text, [
+        ("Manager", "NOUN", "nsubj", 1, "NN"),
+        ("reviews", "VERB", "ROOT", 1, "VBZ"),
+        ("Table", "NOUN", "dobj", 1, "NN"),
+        ("5.1", "NUM", "nummod", 2, "CD"),
+    ], frame=frame)
+    output = discover_relations(frame, annotations=(product,), annotation_errors=errors,
+        annotation_profile=AnnotationProfile(execution_profile="unadmitted:controlled-columns"),
+        source_work="controlled-parent")
     assert {
-        (source_python(r["value"]) if "value" in r else {}).get("relation")
-        for r in result.contributions
-    } >= {
-        "actor",
-        "object",
-        "uses_artifact",
-    }
-    assert next(
-        o for o in result.contribution_operations if o["question"] == "source_procedure_roles"
-    )["outcome"] == ("limited" if errors else "succeeded")
-    assert result.parse_detail is not None and result.parse_detail["annotation_errors"] == list(
-        errors
-    )
+        source_python(row["value"]).get("relation")
+        for row in output["contributions"] if "value" in row
+    } >= {"actor", "object", "uses_artifact"}
+    assert next(operation for operation in output["extra_operations"]
+        if operation["question"] == "source_procedure_roles")["outcome"] == (
+            "limited" if errors else "succeeded")
 
 
-def test_original_annotation_inputs_require_exact_digest_and_complete_pair():
-    view = complete_native_fields(source("Let x be count.", labels=("text",)))
-    inputs = original_inputs(view)
-    for partial in (
-        dict(inputs=inputs),
-        dict(structural_input_digest=inputs.identity),
-        dict(inputs=inputs, structural_input_digest="f" * 64),
-    ):
-        with pytest.raises(ValueError, match="digest"):
-            ScopedRelationsConfig.model_validate(partial)
-    assert ScopedRelationsConfig().inputs is None
+@pytest.mark.parametrize("mismatch", ("source-member", "projection"))
+def test_original_annotations_refuse_a_changed_selected_source(mismatch):
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from methods.structural_roles_support import annotation
+    text = "Manager reviews Table."
+    frame = source(text, labels=("text",))
+    product, _construction = annotation(text, [
+        ("Manager", "NOUN", "nsubj", 1, "NN"),
+        ("reviews", "VERB", "ROOT", 1, "VBZ"),
+        ("Table", "NOUN", "dobj", 1, "NN"),
+    ], frame=frame)
+    changed = source(text if mismatch == "source-member" else text + " changed",
+        labels=("text",), identity=2 if mismatch == "source-member" else 1)
+    with pytest.raises(ValueError, match="selected source carrier"):
+        discover_relations(changed, annotations=(product,),
+            annotation_profile=AnnotationProfile(execution_profile="unadmitted:controlled-columns"))
 
 
-@pytest.mark.parametrize("mismatch", ("absent", "ambiguous", "native", "projection"))
-def test_original_annotation_reference_must_select_exactly_current_source_before_read(mismatch):
-    view = complete_native_fields(source("Let x be count.", labels=("text",)))
-    inputs = original_inputs(view)
-    original = inputs.sources[0]
-    if mismatch == "absent":
-        sources = (original.model_copy(update=dict(source_view_id=view.ref.id + 1)),)
-    elif mismatch == "ambiguous":
-        sources = (original, original.model_copy(update=dict(run_id=12, cut_id=13)))
-    else:
-        key = "native_content_digest" if mismatch == "native" else "projection_digest"
-        sources = (original.model_copy(update={key: "f" * 64}),)
-    inputs = StructuralInput.model_validate(
-        {
-            **inputs.model_dump(mode="json"),
-            "sources": [s.model_dump(mode="json") for s in sources],
-            "passages": [
-                inputs.passages[0]
-                .model_copy(update=dict(source_ref=sources[0].identity))
-                .model_dump(mode="json")
-            ],
-        }
-    )
-
-    class Reader:
-        def source_view(self, _):
-            return view
-
-        def structural_source_annotations(self, *_):
-            raise AssertionError("wrong current source must refuse before original annotation read")
-
-    with pytest.raises(ValueError, match=r"selected source reference|current native source"):
-        run_scoped(
-            view,
-            ScopedRelationsConfig(inputs=inputs, structural_input_digest=inputs.identity),
-            Reader(),
-        )
-
-
-@pytest.mark.parametrize("field,value", (("projection_digest", "f" * 64), ("text", "wrong source")))
-def test_original_annotation_port_cannot_substitute_detached_projection(field, value):
-    view = complete_native_fields(source("Let x be count.", labels=("text",)))
-    inputs = original_inputs(view)
-    frame = native_source_frame(view, ())
-    returned = SimpleNamespace(**{**frame.__dict__, field: value})
-
-    class Reader:
-        def source_view(self, _):
-            return view
-
-        def structural_source_annotations(self, *_):
-            return SimpleNamespace(source=returned, annotations=(), errors=())
-
-    with pytest.raises(ValueError, match="current native projection"):
-        run_scoped(
-            view,
-            ScopedRelationsConfig(inputs=inputs, structural_input_digest=inputs.identity),
-            Reader(),
-        )
-
-
-def test_same_run_refuses_missing_primary_without_reparse():
-    view = complete_native_fields(source("Let x be count.", labels=("text",)))
-    calls = []
-
-    class Reader:
-        def source_view(self, _):
-            return view
-
-        def primary_characterization(self, identity, *, families):
-            calls.append((identity, families))
-            raise ValueError("required primary navigation coverage is missing")
-
-        def structural_source_annotations(self, *_):
-            raise AssertionError("unconfigured original-source path must not run")
-
-    with pytest.raises(ValueError, match="required primary"):
-        run_scoped(view, ScopedRelationsConfig(), Reader())
-    assert len(calls) == 1 and calls[0][0] == view.ref.id
+def test_missing_navigation_refuses_without_reparse(monkeypatch):
+    from corpus_structure.ingest import annotations
+    from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
+    from methods.navigation_fixture import source_primary_products
+    frame = source("Let x be count.", labels=("text",))
+    primary = source_primary_products(frame, annotations=())
+    monkeypatch.setattr(annotations, "pipeline", lambda *_: pytest.fail("consumer reparsed source"))
+    primary = replace(primary, navigation=NativeNavigationIndex((), primary.source))
+    with pytest.raises(ValueError, match="required primary navigation"):
+        discover_relations(frame, primary=primary)
 
 
 def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swapped_host():
     from pathlib import Path
 
     from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.methods.source_preparation import prepare_source
+    from methods.m1_source_preparation_support import prepare_declared_source
     from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
     from corpus_structure.semantic.contributions import bind_contributions, contribution_identity
     from corpus_structure.semantic.observations import observation_inputs
@@ -642,11 +482,11 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
         "The reviewer must complete the purchase review form if the purchase exceeds the limit, "
         "and the analyst must retain the receipt if the audit remains open."
     )
-    view = complete_native_fields(source(text, labels=("text",)))
-    annotations = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    view = source(text, labels=("text",))
+    annotations = prepare_declared_source(view, profile=AnnotationProfile(), annotations_only=True)
     assert annotations.annotations and not annotations.annotation_errors
     output = discover_relations(
-        native_source_frame(view, ()),
+        view,
         annotations=annotations.annotations,
         annotation_native_profile=_direct_profile(),
     )
@@ -674,7 +514,7 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
     def bind(population):
         return bind_contributions(
             prepared,
-            source=view.ref.key,
+            source=view.unit_ref,
             operations=(output["operation"], *output["extra_operations"]),
             contributions=population,
             coordinate_texts=output["coordinates"],
@@ -703,17 +543,12 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
 
 
 def test_named_coverage_counts_selected_blocks_once_and_does_not_assume_absence():
-    from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.methods.source_preparation import prepare_source
-    from corpus_structure.semantic.constructions.navigation import match_named_source_links
-
-    view = complete_native_fields(
-        native_table_source(
-            (table_cell("1", 0, 0),), caption="Table 6.1", note="A value is reported."
-        )
-    )
-    items = {item["self_ref"]: dict(item, content_layer="body") for item in view.items}
-    product = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    from methods.navigation_fixture import source_primary_products
+    from corpus_structure.methods.witnessed_source_links import match_named_source_links
+    view = native_table_source((table_cell("1",0,0),), caption="Table 6.1", note="A value is reported.")
+    items = {item["self_ref"]:dict(item,content_layer="body") for item in view.items}
+    primary = source_primary_products(view)
+    unavailable = source_primary_products(view,annotations=())
     passages = tuple(
         StructuralPassage(
             passage_id=f"p-{i}",
@@ -726,18 +561,17 @@ def test_named_coverage_counts_selected_blocks_once_and_does_not_assume_absence(
         for i in range(2)
     )
     arguments = (view.text, view.pieces, items, passages)
-    verified = match_named_source_links(*arguments, product.annotations, version="3")
+    verified = match_named_source_links(*arguments, navigation=primary.navigation)
     assert (verified.inspected_count, verified.outcome()) == (1, "empty")
-    absent = match_named_source_links(*arguments, (), version="3")
+    absent = match_named_source_links(*arguments, navigation=unavailable.navigation)
     assert (absent.inspected_count, absent.outcome()) == (0, "unsupported")
     unselected = match_named_source_links(
         view.text,
         view.pieces,
         items,
         (),
-        (),
+        navigation=unavailable.navigation,
         annotation_errors=("another block failed",),
-        version="3",
     )
     assert (unselected.inspected_count, unselected.outcome()) == (0, "empty")
 
@@ -746,38 +580,18 @@ def _assert_public_condition_projection(view, relation, rows, predicate):
     from copy import deepcopy
 
     from corpus_structure.methods.structural_products import condition_qualification
-    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+    from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef, DeclaredStructuralSource
     from corpus_structure.semantic.structural_admission import structural_statement
-    from corpus_structure.semantic.structural_products import StructuralProductReport
+    from corpus_structure.semantic.structural_products import DeclaredStructuralProductReport
 
     pin = relation["pin"]
     scope = relation["component"]["scope"]
-    ref = RetainedContributionRef(
-        contribution_id=relation["contribution_id"],
-        project_id="control",
-        run_id=1,
-        cut_id=2,
-        release_id="control-release",
-        result_revision=1,
-        selected_task_id=3,
-        origin_task_id=4,
-        runtime_fingerprint="control-runtime",
-    )
-    selected = ExternalSourceRef(
-        project_id=ref.project_id,
-        run_id=ref.run_id,
-        cut_id=ref.cut_id,
-        release_id=ref.release_id,
-        result_revision=ref.result_revision,
-        source_view_id=pin["source_view_id"],
-        native_task_id=pin["native_product_task_id"],
-        native_product_key=pin["product_key"],
-        native_content_digest=pin["product_digest"],
-        projection_digest=pin["projection_digest"],
-        recipe_digest=pin["recipe_digest"],
-        coordinate_version=2,
-    )
-    inputs = StructuralInput(
+    selected = DeclaredStructuralSource.model_validate(pin)
+    ref = DeclaredContributionRef(contribution_id=relation["contribution_id"],
+        product_id="unadmitted:condition-fixture",kind_contract="unadmitted:retained-contributions",
+        project_id=pin["project_id"],subject=pin["subject"],subject_definition=pin["subject_definition"],
+        original_source=pin["original_source"],analyzed_scope_meaning=pin["analyzed_scope_meaning"])
+    inputs = DeclaredStructuralInput(
         question="Which condition limits this predicate?",
         scope=scope,
         inventory_id="frozen",
@@ -800,7 +614,7 @@ def _assert_public_condition_projection(view, relation, rows, predicate):
         "sources": [{"pin": pin, "projection": {"text": view.text, "pieces": view.pieces}}],
     }
     projected = condition_qualification(inputs, ref, payload)
-    report = StructuralProductReport(
+    report = DeclaredStructuralProductReport(
         kind="condition_qualification",
         inputs=inputs,
         condition_qualification=projected,

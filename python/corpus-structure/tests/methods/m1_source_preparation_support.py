@@ -5,7 +5,7 @@ from typing import Any
 from methods.record_assembly_support import source as declared_source
 
 
-def source(text="Mean is average.\nX+Y\n12\n?", *, labels=("text", "formula", "table", "unknown")):
+def source(text="Mean is average.\nX+Y\n12\n?", *, labels=("text", "formula", "table", "unknown"), identity=1):
     chunks = text.split("\n")
     pieces, nodes = [], []
     offset = 0
@@ -14,19 +14,13 @@ def source(text="Mean is average.\nX+Y\n12\n?", *, labels=("text", "formula", "t
         nodes.append(dict(self_ref=pointer, label=label, text=chunk))
         if chunk:
             pieces.append(
-                dict(
-                    item_ref=pointer,
-                    start=offset,
-                    end=offset + len(chunk),
-                    kind="native_text",
-                    source_field="text",
-                )
+                dict(item_ref=pointer, start=offset, end=offset + len(chunk), kind="native_text", source_field="text")
             )
             offset += len(chunk)
         if index < len(chunks) - 1:
             pieces.append(dict(start=offset, end=offset + 1, kind="synthetic_separator"))
             offset += 1
-    return projection(text, pieces=pieces, items=nodes)
+    return projection(text, pieces=pieces, items=nodes, identity=identity)
 
 
 def projection(text, *, pieces, items, ancestors=(), identity=1):
@@ -51,9 +45,7 @@ def _native_table_projection(cells, *, caption=None, note=None):
         if text:
             pointer = f"#/texts/{role}"
             table[role] = [{"$ref": pointer}]
-            nodes.append(
-                dict(self_ref=pointer, label="caption" if role == "captions" else "text", text=text)
-            )
+            nodes.append(dict(self_ref=pointer, label="caption" if role == "captions" else "text", text=text))
             chunks.append((pointer, None, text))
     pieces, texts, offset = [], [], 0
     for pointer, index, text in chunks:
@@ -67,11 +59,7 @@ def _native_table_projection(cells, *, caption=None, note=None):
                 item_ref=pointer,
                 start=offset,
                 end=offset + len(text),
-                **(
-                    dict(cell_index=index, source_field="cell_text")
-                    if index is not None
-                    else dict(source_field="text")
-                ),
+                **(dict(cell_index=index, source_field="cell_text") if index is not None else dict(source_field="text")),
             )
         )
         texts.append(text)
@@ -111,3 +99,12 @@ def dense_table_source():
 def declared_dense_table_source():
     """Current original/member coordinates over the independent finite cell inventory."""
     return dense_table_source()
+
+
+def prepare_declared_source(frame, **kwargs):
+    """Prepare the finite selected source with its explicit closed context inventory."""
+    from corpus_structure.methods.source_preparation import prepare_source
+    from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
+    from corpus_structure.semantic.identity import canonical_bytes
+    return prepare_source(frame, source_frame=frame,
+        context_population=DeclaredContextPopulation((frame,), canonical_bytes({"fixture": "complete selected source inventory"})), **kwargs)

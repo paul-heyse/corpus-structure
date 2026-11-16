@@ -20,19 +20,16 @@ from corpus_structure.semantic.constructions.navigation import (
 )
 from semantic.artifact_identity_support import nomination as nomination
 from semantic.artifact_identity_support import record as record
-from semantic.sealed_structural_fixture import (
-    artifact_result,
-)
 
 
 def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope():
     from methods.m1_source_preparation_support import source
-    from methods.navigation_fixture import primary_navigation
-    from methods.scoped_relations_support import complete_native_fields
+    from methods.navigation_fixture import source_primary_products
 
-    from corpus_structure.methods.artifact_identity import artifact_declared_relationships
+    from corpus_structure.methods.artifact_identity import declared_artifact_relationships
+    from corpus_structure.semantic.structural_products import DeclaredArtifactDeclaredEndpoint, DeclaredArtifactDeclaredRelationship, DeclaredPrimaryReference
 
-    records, passages, frames, primary_layers = [], [], {}, {}
+    records, passages, indexes = [], [], {}
     cases = (
         ("first", "one", "5.1", "old", "caption", ""),
         (
@@ -84,33 +81,11 @@ def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope()
             )
         )
         passages.append(SimpleNamespace(passage_id=citation.passage_id, start=0, end=len(body)))
-        view = complete_native_fields(
-            source(body, labels=("caption" if role == "caption" else "text",))
-        )
-        primary_layers.update(primary_navigation(view, annotations=()))
-        frames[citation.source_ref] = SimpleNamespace(
-            source_view_id=view.ref.id,
-            projection_digest=view.ref.projection_digest,
-            text=body,
-            native_context=json.dumps(
-                {
-                    "pieces": [
-                        {
-                            "kind": "native_text",
-                            "item_ref": citation.source_pointer,
-                            "start": 0,
-                            "end": len(body),
-                        }
-                    ]
-                }
-            ),
-        )
-    links = artifact_declared_relationships(
-        records,
-        SimpleNamespace(passages=passages),
-        frames,
-        primary_layers=primary_layers,
-    )
+        view = source(body, labels=("caption" if role == "caption" else "text",))
+        indexes[citation.source_ref] = source_primary_products(view, annotations=()).navigation
+    links = declared_artifact_relationships(records, SimpleNamespace(passages=passages), indexes,
+        endpoint_type=DeclaredArtifactDeclaredEndpoint,relationship_type=DeclaredArtifactDeclaredRelationship,
+        primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(reference.values()))
     assert [(row.kind, row.source_id, [end.record_id for end in row.targets]) for row in links] == [
         ("supersedes", "second", ["first"]),
         ("reference", "citation", ["other"]),
@@ -312,137 +287,30 @@ def test_strict_policy_probabilities_refuse_boundaries_and_nonfinite_values():
 
 
 def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics():
-    from pathlib import Path
-    from types import SimpleNamespace
-
     from methods.m1_source_preparation_support import source
-    from methods.navigation_fixture import primary_navigation
-    from methods.scoped_relations_support import complete_native_fields
-
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.methods.artifact_identity import (
-        ArtifactIdentityConfig,
-    )
-    from corpus_structure.methods.scoped_relations import SourceWorkBinding
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-    from corpus_structure.semantic.observations import observation_inputs
-    from corpus_structure.semantic.proposals import native_source_frame
-    from corpus_structure.semantic.structural_products import (
-        ExternalSourceRef,
-        StructuralInput,
-        StructuralPassage,
-    )
-
-    path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    prepared = prepare_release(
-        observation_inputs(SourceBundle("core", (SourceArtifact("core", path.read_bytes()),)))
-    )
-    policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
-    for raw, bind in [
-        ("No numbered artifact is stated.", True),
-        ("Table 5.1 Moments", True),
-        ("Table 5.1 Moments", False),
-    ]:
-        view = complete_native_fields(source(raw, labels=("caption",)))
-        primary = primary_navigation(view, annotations=(), formal=True)
-        frame = native_source_frame(view, ())
-        native = frame.native_product
-        reference = ExternalSourceRef(
-            project_id="p",
-            run_id=1,
-            cut_id=1,
-            release_id="r",
-            result_revision=1,
-            source_view_id=frame.source_view_id,
-            native_task_id=native.task_id,
-            native_product_key=native.product_key,
-            native_content_digest=native.content_digest,
-            projection_digest=frame.projection_digest,
-            recipe_digest=frame.recipe_digest,
-            coordinate_version=2,
-        )
-        inputs = StructuralInput(
-            question="Artifact source development",
-            scope="fixture",
-            inventory_id="literal",
-            policy_id="artifact-candidate-1",
-            sources=(reference,),
-            passages=(
-                StructuralPassage(
-                    passage_id="literal",
-                    source_ref=reference.identity,
-                    start=0,
-                    end=len(raw),
-                    text=raw,
-                    scope="fixture",
-                ),
-            ),
-            dependencies=("native:" + str(native.task_id),),
-        )
-
-        class Reader:
-            def __init__(self, bound_inputs, selected_ref, source_frame, bound):
-                self.inputs = bound_inputs
-                self.source_ref = selected_ref
-                self.frame = source_frame
-                self.bound = bound
-
-            def structural_source_frame(self, observed, selected):
-                assert self.bound and observed == self.inputs and selected == self.source_ref
-                return self.frame
-
-            def characterization_layers(self, pins, primary=primary):
-                assert set(pins) == set(primary)
-                return primary
-
-        cfg = ArtifactIdentityConfig(
-            characterization_layers=tuple(pin.values() for pin in primary),
-            inputs=inputs,
-            structural_input_digest=inputs.identity,
-            policy=policy,
-            work_bindings=(
-                SourceWorkBinding(
-                    native_content_digest=native.content_digest,
-                    source_work="parent",
-                    provenance="literal-source",
-                ),
-            )
-            if bind
-            else (),
-        )
-        ctx = SimpleNamespace(
-            reader=Reader(inputs, reference.identity, frame, bind), check_active=lambda: None
-        )
-        _projection_context = ctx
-        (result,) = (
-            artifact_result(
-                _projection_context.reader,
-                cfg,
-                ((SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),))[
-                    0
-                ].ref,
-                check_active=_projection_context.check_active,
-            ),
-        )
-        assert result.structural_product is not None
-        from corpus_structure.semantic.refusals import SemanticRefusal
-        from corpus_structure.semantic.structural_admission import structural_statement
-        from corpus_structure.semantic.structural_products import StructuralProductReport
-
-        with pytest.raises(SemanticRefusal, match="No public structural policy"):
-            structural_statement(StructuralProductReport.model_validate(result.structural_product))
-        from corpus_structure.semantic.artifact_identity import ArtifactIdentityProduct
-
-        product = ArtifactIdentityProduct.model_validate(
-            result.structural_product["artifact_identity"]
-        ).model_dump(mode="json", exclude_none=True)
-        from corpus_structure.semantic.identity import canonical_bytes
-
-        prepared.validate_json("ArtifactIdentityProduct", canonical_bytes(product))
-        assert product["pairs"] == []
-        assert len(product["records"]) == (1 if bind and raw.startswith("Table") else 0)
-        assert product["unbound_source_ids"] == ([] if bind else [frame.source_view_id])
+    from methods.navigation_fixture import source_primary_products
+    from corpus_structure.semantic.artifact_products import native_artifact_records
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+    from corpus_structure.semantic.structural_products import DeclaredStructuralInput, StructuralPassage, DeclaredArtifactReport, DeclaredArtifactIdentityProduct
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.structural_admission import structural_statement
+    policy = ArtifactScoringPolicy(prior=0.1,code_m=0.9,code_u=0.01,title_m=0.8,title_u=0.05)
+    for raw, bound in [("No numbered artifact is stated.", True),("Table 5.1 Moments",True),("Table 5.1 Moments",False)]:
+        frame = source(raw,labels=("caption",))
+        primary = source_primary_products(frame,annotations=())
+        reference = DeclaredStructuralSource.model_validate(frame.pin.values())
+        inputs = DeclaredStructuralInput(question="Artifact source development",scope="fixture",inventory_id="literal",policy_id="artifact-candidate-1",
+            sources=(reference,),passages=(StructuralPassage(passage_id="literal",source_ref=reference.identity,start=0,end=len(raw),text=raw,scope="fixture"),),dependencies=(reference.source_product,))
+        records = native_artifact_records(frame,primary.source,inputs,reference.identity,"parent",primary.navigation) if bound else ()
+        product = DeclaredArtifactIdentityProduct(records=records,pairs=(),route_counts=artifact_route_counts(()),policy=policy,
+            source_mapping_provenance=("literal-source",) if bound else (),unbound_sources=() if bound else (frame.source_key,))
+        report = DeclaredArtifactReport(inputs=inputs,artifact_identity=product)
+        with pytest.raises(SemanticRefusal,match="No public structural policy"):
+            structural_statement(report)
+        assert DeclaredArtifactReport.model_validate_json(report.model_dump_json()) == report
+        assert product.pairs == ()
+        assert len(product.records) == (1 if bound and raw.startswith("Table") else 0)
+        assert product.unbound_sources == (() if bound else (frame.source_key,))
 
 
 def test_pair_guard_uses_existing_resolver_without_transitive_bridges(monkeypatch):

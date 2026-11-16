@@ -9,9 +9,9 @@ from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.methods.dossier_contributions import derive_contribution_members
+from corpus_structure.methods.dossier_contributions import derive_declared_contribution_members
 from corpus_structure.methods.structural_products import StructuralDossierConfig, select_dossier
-from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
 from semantic.dossier_contributions_support import source_fixture as source_fixture
 
 
@@ -20,7 +20,7 @@ def test_source_join_enters_dossier_with_both_endpoint_citations_and_no_borrowed
     payload["public_assertions"] = [
         dict(assessment_id="source-geometry-is-not-meaning", statement="quote")
     ]
-    members = derive_contribution_members(inputs, ref, payload)
+    members = derive_declared_contribution_members(inputs, ref, payload)
     assert len(members) == 1
     member = members[0]
     assert member.role == "relationship" and member.qualification == "proposed"
@@ -33,7 +33,7 @@ def test_source_join_enters_dossier_with_both_endpoint_citations_and_no_borrowed
     assert set(member.computation_dependencies) >= {
         r["contribution_id"] for r in payload["contributions"]
     }
-    with pytest.raises(ValidationError, match="retained predecessors"):
+    with pytest.raises(ValidationError):
         StructuralDossierConfig(
             inputs=inputs,
             structural_input_digest=inputs.identity,
@@ -55,9 +55,9 @@ def test_source_join_enters_dossier_with_both_endpoint_citations_and_no_borrowed
 def test_reference_forbids_loose_identifiers(field):
     _, ref, _ = source_fixture()
     with pytest.raises(ValidationError):
-        RetainedContributionRef.model_validate({**ref.model_dump(), field: "1"})
+        DeclaredContributionRef.model_validate({**ref.model_dump(), field: "1"})
     with pytest.raises(ValidationError):
-        RetainedContributionRef.model_validate({**ref.model_dump(), "supported": True})
+        DeclaredContributionRef.model_validate({**ref.model_dump(), "supported": True})
 
 
 @pytest.mark.parametrize("corruption", ["identity", "endpoint", "source", "citation", "passage"])
@@ -73,7 +73,7 @@ def test_source_membership_rejects_forged_closure(corruption):
     elif corruption == "source":
         inputs = inputs.model_copy(
             update=dict(
-                sources=(inputs.sources[0].model_copy(update=dict(native_content_digest="d" * 64)),)
+                sources=(inputs.sources[0].model_copy(update=dict(projection_digest="d" * 64)),)
             )
         )
     elif corruption == "citation":
@@ -91,7 +91,7 @@ def test_source_membership_rejects_forged_closure(corruption):
             )
         )
     with pytest.raises(ValueError):
-        derive_contribution_members(inputs, ref, payload)
+        derive_declared_contribution_members(inputs, ref, payload)
 
 
 def replay_aliases(inputs, reference, member):
@@ -161,7 +161,7 @@ def test_public_source_membership_identity_excludes_execution_custody_aliases():
     )
 
     inputs, reference, payload = source_fixture()
-    member = derive_contribution_members(inputs, reference, payload)[0]
+    member = derive_declared_contribution_members(inputs, reference, payload)[0]
     assert member.contribution_citations is not None
     original = select_dossier(
         inputs, root_id="corpus", members=(member,), contribution_predecessors=(reference,)
@@ -190,7 +190,7 @@ def test_public_source_membership_identity_excludes_execution_custody_aliases():
 def test_native_source_member_replay_preserves_all_endpoint_citations(commit_db_engine):
     """Composition parity after owned-reader boundary; no claim of custody qualification."""
     inputs, ref, payload = source_fixture()
-    expected = derive_contribution_members(inputs, ref, payload)[0]
+    expected = derive_declared_contribution_members(inputs, ref, payload)[0]
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
     with commit_db_engine.connect() as conn, conn.begin():
         conn.exec_driver_sql(
@@ -341,6 +341,6 @@ def test_batch_projection_keeps_endpoint_meaning_and_private_authority(commit_db
         assert set(actual["computation_dependencies"]) >= {
             r["contribution_id"] for r in payload["contributions"]
         }
-        assert actual == derive_contribution_members(inputs, reference, payload)[0].model_dump(
+        assert actual == derive_declared_contribution_members(inputs, reference, payload)[0].model_dump(
             mode="json", exclude_none=True
         )
