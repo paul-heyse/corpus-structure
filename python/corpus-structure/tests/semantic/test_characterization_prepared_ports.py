@@ -38,15 +38,25 @@ from semantic.formal_products_support import selected
 
 
 @pytest.fixture(scope="module")
-def acquired():
+def acquired(tmp_path_factory):
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+
+    configuration = SentenceConfig(exclude=("ner",))
+    selection = NativeSelection(
+        NativeProfile("spacy", {"controlled": "unadmitted-schema"}, {},
+                      configuration.model_dump(mode="json"), "float32", "cupy", 4, 1),
+        tmp_path_factory.mktemp("controlled-sentence-custody"),
+    )
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = construction_product_inputs(
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
     collections = (
         formal_operation_sources(),
-        construction_operation_sources(),
-        contextual_operation_sources(),
+        construction_operation_sources(sentence_configuration=configuration,
+                                       sentence_selection=selection),
+        contextual_operation_sources(include_dependencies=False),
     )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
 
@@ -114,20 +124,73 @@ def values(port, **provided):
 
 
 def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_typed_packets(
-    acquired,
+    acquired, monkeypatch,
 ):
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.core.work import drive_prepared_work
+    from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.semantic.cpu_execution import CPUExecutionScope
     from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.sentence_products import (
+        _blocks,
+        _detach_annotation_block,
+        source_annotation_packets,
+        spacy_family_coverage,
+        validate_source_annotations,
+    )
 
-    _, _, prepared, _, formal = acquired
+    _, _, prepared, model, formal = acquired
     source = selected(formal, "Not every trial succeeds.")
     primary = formal.run(
         source, FormalEvidenceOptions(), subject_context=_publication_context(source)
     )
     port = admitted(acquired, "text.constructions/source-native", resolve_construction_port)
-    inputs = values(port, source=source.value, formal=(primary,))
+    from corpus_structure.semantic.data_operation_ports import PortRefusal
+
+    with pytest.raises(PortRefusal, match="omits a required typed role"):
+        port.invoke_python(values(port, source=source.value, formal=(primary,)))
+    # Controlled lexical/sentence columns let the real grammar consume original
+    # token positions. Missing learned columns remain partial, without provider authority.
+    import spacy
+
+    from corpus_structure.ingest import annotations as annotation_owner
+    from corpus_structure.ingest.sentences import make_doc, prepare_layout
+    from corpus_structure.semantic.declared_record_sources import (
+        DeclaredRecordSource,
+        DeclaredSourcePin,
+    )
+
+    nlp = spacy.blank("en")
+    monkeypatch.setattr(annotation_owner, "pipeline", lambda *_: nlp)
+    configuration = SentenceConfig(exclude=("ner",))
+    coordinate = source.value["source"]
+    pin = DeclaredRecordSource(coordinate["document"], coordinate["projection"],
+                              coordinate["section_pointer"], coordinate["membership"],
+                              _publication_context(source), "unadmitted:source", None,
+                              "unadmitted:source-kind")
+    (block,), coverage = _blocks(source)
+    layout = prepare_layout(nlp, block.block, start=block.start)
+    doc = make_doc(nlp, block.block, layout, start=block.start)
+    for index, token in enumerate(doc):
+        token.is_sent_start = index == 0
+    detached = _detach_annotation_block(
+        source.value, block, layout, doc, DeclaredSourcePin(canonical_bytes(pin.pin()).decode()),
+        configuration, "unadmitted:controlled-lexical-columns",
+    )
+    columns = dict(block_id=block.block_id, start=block.start, end=block.end,
+                   attributes={row["attribute"]: row["status"]
+                               for row in detached["annotation"]["availability"]})
+    annotations = dict(
+        source=source.value["source"], selectors=source.value["selectors"],
+        outcome="partial", blocks=[detached], block_coverage=coverage,
+        coverage=spacy_family_coverage(source.value, coverage, [columns]),
+        configuration=configuration.model_dump(mode="json"),
+        execution_profile="unadmitted:controlled-lexical-columns",
+    )
+    annotations["members"] = source_annotation_packets(prepared, model, annotations)
+    native = validate_source_annotations(prepared, model, annotations, source,
+                                         subject_context=_publication_context(source))
+    inputs = values(port, source=source.value, formal=(primary,), sentences=native)
     expected = port.invoke_python(inputs)
     cpu = CPUExecutionScope(
         prepared,
@@ -143,6 +206,7 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
         )
         assert actual.outputs[0].content == expected.outputs[0].content
         body = decode_semantic_value(json.loads(actual.outputs[0].meaning))
+        assert body["outcome"] == "partial"
         assert any(packet["body"].get("kind") == "binder" for packet in body["members"])
         receipt = json.loads(actual.cpu_execution_evidence)
         assert receipt["pid"] != os.getpid() and receipt["main_thread"] is True

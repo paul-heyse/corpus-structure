@@ -63,10 +63,10 @@ class ConstructionOperation:
                 "name": "sentences",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "direction": "input",
-                "minimum": 0,
+                "minimum": 1,
                 "maximum": 1,
                 "collection": "scalar",
-                "presence": "optional",
+                "presence": "required",
                 "parameter": "sentences",
                 "support": {
                     "provenance": "value_substitution",
@@ -99,7 +99,10 @@ class ConstructionOperation:
         },
         "outcomes": ["success", "failed"],
         "precision_description": "retained-positioned-characterization",
-        "dependencies": ["text.formal_evidence/source-native"],
+        "dependencies": [
+            "text.formal_evidence/source-native",
+            "segment.sentences/source-native",
+        ],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -185,6 +188,6 @@ class ConstructionOperation:
         self,
         source: FrozenNativeSource,
         formal: tuple[FormalEvidenceProduct, ...],
-        sentences: SourceAnnotations | None = None,
+        sentences: SourceAnnotations,
     ) -> ConstructionProduct:
         return execute_construction_profile(self, source, formal, sentences)

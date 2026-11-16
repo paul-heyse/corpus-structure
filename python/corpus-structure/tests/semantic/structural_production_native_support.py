@@ -19,6 +19,7 @@ def recipe(directory):
     from corpus_structure.evaluate.declared_structural_admission import (
         structural_reference_kind_declarations,
     )
+    from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.semantic.characterization_ports import construction_operation_sources
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
@@ -39,7 +40,6 @@ def recipe(directory):
     )
     from corpus_structure.semantic.predicate_products import predicate_operation_sources
     from corpus_structure.semantic.primary_operations import combine_primary_sources
-    from corpus_structure.semantic.sentence_products import sentence_operation_sources
     from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact
     from semantic.data_operation_kernel_support import CapturedKernelInputs
 
@@ -70,8 +70,8 @@ def recipe(directory):
     )
     sources = combine_primary_sources(
         sources,
-        sentence_operation_sources(),
         construction_operation_sources(
+            sentence_configuration=SentenceConfig(exclude=("ner",)),
             construction_options=load_construction_options(ROOT / "domains/statistics")
         ),
         predicate_operation_sources(),

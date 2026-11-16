@@ -275,9 +275,11 @@ def test_context_reads_exact_retained_parent_function_and_variable_with_native_o
         )
 
 
-def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependencies():
+def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependencies(tmp_path):
     from pathlib import Path
 
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
     from corpus_structure.semantic import SourceArtifact, SourceBundle
     from corpus_structure.semantic.characterization_ports import characterization_operation_sources
     from corpus_structure.semantic.construction_products import construction_product_inputs
@@ -293,13 +295,21 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
     from corpus_structure.semantic.formal_products import formal_operation_sources
     from corpus_structure.semantic.primary_operations import combine_primary_sources
 
+    configuration = SentenceConfig(exclude=("ner",))
+    selection = NativeSelection(
+        NativeProfile("spacy", {"controlled": "unadmitted-schema"}, {},
+                      configuration.model_dump(mode="json"), "float32", "cupy", 4, 1),
+        tmp_path,
+    )
+
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = construction_product_inputs(
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
     sources = combine_primary_sources(
         formal_operation_sources(),
-        characterization_operation_sources(),
+        characterization_operation_sources(sentence_configuration=configuration,
+                                           sentence_selection=selection),
         math_operation_sources(),
         math_analysis_operation_sources(),
     )

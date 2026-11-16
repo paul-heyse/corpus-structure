@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[4]
 
 
 def recipe():
+    from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.semantic.characterization_ports import characterization_operation_sources
     from corpus_structure.semantic.construction_products import construction_product_inputs
     from corpus_structure.semantic.declared_math_analysis import (
@@ -65,7 +66,7 @@ def recipe():
         source_discovery_operation_sources(),
         source_profile_operation_sources(),
         formal_operation_sources(),
-        characterization_operation_sources(),
+        characterization_operation_sources(sentence_configuration=SentenceConfig(exclude=("ner",))),
         math_operation_sources(),
         math_analysis_operation_sources(),
     )

@@ -259,7 +259,8 @@ def construction_configuration(options=None):
 
 
 def construction_operation_sources(
-    *, include_dependencies=True, construction_options=None
+    *, include_dependencies=True, construction_options=None,
+    sentence_configuration=None, sentence_selection=None,
 ) -> PythonSourceCollection:
     own = _operation_sources("construction_characterization", "construction")
     own = replace(
@@ -271,14 +272,22 @@ def construction_operation_sources(
     )
     if not include_dependencies:
         return own
+    if sentence_configuration is None:
+        raise ValueError("construction dependencies require an explicit sentence configuration")
     from .formal_products import formal_operation_sources
     from .primary_operations import combine_primary_sources
+    from .sentence_products import sentence_operation_sources
 
-    return combine_primary_sources(formal_operation_sources(), own)
+    return combine_primary_sources(
+        formal_operation_sources(),
+        sentence_operation_sources(sentence_configuration, selection=sentence_selection),
+        own,
+    )
 
 
 def contextual_operation_sources(
-    *, include_dependencies=True, construction_options=None
+    *, include_dependencies=True, construction_options=None,
+    sentence_configuration=None, sentence_selection=None,
 ) -> PythonSourceCollection:
     own = _operation_sources("contextual_interpretation", "contextual")
     if not include_dependencies:
@@ -286,7 +295,11 @@ def contextual_operation_sources(
     from .primary_operations import combine_primary_sources
 
     return combine_primary_sources(
-        construction_operation_sources(construction_options=construction_options), own
+        construction_operation_sources(
+            construction_options=construction_options,
+            sentence_configuration=sentence_configuration,
+            sentence_selection=sentence_selection,
+        ), own
     )
 
 
@@ -294,10 +307,18 @@ def document_view_operation_sources(*, include_dependencies=True) -> PythonSourc
     return _operation_sources("characterization", "view")
 
 
-def characterization_operation_sources(*, construction_options=None) -> PythonSourceCollection:
+def characterization_operation_sources(
+    *, construction_options=None, include_dependencies=True,
+    sentence_configuration=None, sentence_selection=None,
+) -> PythonSourceCollection:
     collections = (
-        construction_operation_sources(construction_options=construction_options),
-        contextual_operation_sources(construction_options=construction_options),
+        construction_operation_sources(
+            construction_options=construction_options,
+            include_dependencies=include_dependencies,
+            sentence_configuration=sentence_configuration,
+            sentence_selection=sentence_selection,
+        ),
+        contextual_operation_sources(include_dependencies=False),
         document_view_operation_sources(),
     )
     from .primary_operations import combine_primary_sources
@@ -360,7 +381,7 @@ def execute_view_kernel(
     )
 
 
-def execute_construction_profile(receiver, source, formal, sentences=None):
+def execute_construction_profile(receiver, source, formal, sentences):
     return receiver.profile.run(
         source, formal, sentences=sentences, check_active=receiver.check_active
     )
@@ -413,7 +434,7 @@ def _body(prepared, name, value):
 class _ConstructionInputs:
     source: FrozenNativeSource
     formal: tuple[FormalEvidenceProduct, ...]
-    native: Any = None
+    native: SourceAnnotations
 
 
 @dataclass(frozen=True)
@@ -709,18 +730,16 @@ class PreparedCharacterizationPort(ABC):
         if self.family == "construction":
             from .sentence_products import validate_source_annotations
 
-            native = (
-                None
-                if roles["sentences"] is None
-                else validate_source_annotations(
-                    self.prepared,
-                    self.model,
-                    _body(self.prepared, "DdoSourceAnnotations", roles["sentences"]),
-                    source,
-                )
+            native = validate_source_annotations(
+                self.prepared,
+                self.model,
+                _body(self.prepared, "DdoSourceAnnotations", roles["sentences"]),
+                source,
+                subject_context=roles["sentences"].subject_context
+                if isinstance(roles["sentences"], SourceAnnotations)
+                else None,
             )
-            if native is not None:
-                native = self._selected_product(native, binding, "sentences", 0)
+            native = self._selected_product(native, binding, "sentences", 0)
             return _ConstructionInputs(source, formal, native)
         supporting = self._retained(roles["supporting"], binding, "supporting")
         constructions = tuple(
@@ -854,9 +873,7 @@ class PreparedCharacterizationPort(ABC):
                 options=self.construction_options(),
                 contracts=interpreted_member_contracts(self.prepared, self.model),
                 assets=_semantic_assets(self.family).digest,
-                native=None
-                if inputs.native is None
-                else CharacterizationSnapshot(inputs.native.semantic_id, inputs.native.content),
+                native=CharacterizationSnapshot(inputs.native.semantic_id, inputs.native.content),
                 check_active=check_active,
             )
         elif isinstance(inputs, _ContextualInputs):
@@ -992,7 +1009,7 @@ def _resolve(port_type, prepared, model, operation, *, identity, authorize, cust
         model,
         authorize,
         custody,
-        port_type.operation_sources() if sources is None else sources,
+        port_type.operation_sources(include_dependencies=False) if sources is None else sources,
     )
     declaration = port.endpoint.run.__module__ + "." + port.endpoint.run.__qualname__
     if (
@@ -1036,11 +1053,13 @@ def full_document_view_operation_sources(
         )
     from .canonical_sentences import canonical_sentence_operation_sources
     from .declaration_products import declaration_operation_sources
+    from .formal_products import formal_operation_sources
     from .hanlp_products import hanlp_operation_sources
     from .source_discovery import source_discovery_operation_sources
 
     return combine_primary_sources(
-        characterization_operation_sources(),
+        characterization_operation_sources(include_dependencies=False),
+        formal_operation_sources(),
         declaration_operation_sources(),
         source_discovery_operation_sources(),
         canonical_sentence_operation_sources(sentence_configuration=sentence_configuration),

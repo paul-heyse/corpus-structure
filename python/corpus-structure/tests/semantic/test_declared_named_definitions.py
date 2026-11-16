@@ -213,7 +213,7 @@ def test_named_definition_acquisition_compiles_without_model_provider_dependenci
     )
     sources = combine_primary_sources(
         formal_operation_sources(),
-        characterization_operation_sources(),
+        characterization_operation_sources(include_dependencies=False),
         sentence_operation_sources(configuration, selection=selection),
         definition_component_operation_sources(),
     )

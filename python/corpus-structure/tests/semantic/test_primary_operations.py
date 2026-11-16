@@ -11,6 +11,31 @@ from corpus_structure.semantic.data_operation_consumers import resolve_prepared_
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
 
 
+def test_standalone_construction_closure_uses_only_explicit_sentence_selection(tmp_path, monkeypatch):
+    import pytest
+
+    from corpus_structure.methods import native_profiles
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+    from corpus_structure.semantic.characterization_ports import construction_operation_sources
+
+    with pytest.raises(ValueError, match="explicit sentence configuration"):
+        construction_operation_sources()
+    configuration = SentenceConfig(exclude=("ner", "lemmatizer"), batch_size=19)
+    selection = NativeSelection(
+        NativeProfile("spacy", {"controlled": "preparation"}, {},
+                      configuration.model_dump(mode="json"), "float32", "cupy", 4, 1),
+        tmp_path,
+    )
+    monkeypatch.setattr(native_profiles, "spacy_selection",
+                        lambda *_: pytest.fail("explicit selection reacquired an ambient profile"))
+    sources = construction_operation_sources(
+        sentence_configuration=configuration, sentence_selection=selection
+    )
+    custody = {artifact.name: artifact for artifact in sources.boundary_contracts}
+    assert json.loads(custody["sentences/execution-custody"].content)["configuration"] == configuration.model_dump(mode="json")
+    assert sum(source.module == "corpus_structure.methods.sentence_evidence" for source in sources.sources) == 1
+
+
 def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_path, monkeypatch):
     from corpus_structure.methods import native_profiles
     from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
@@ -79,6 +104,14 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
     )
     assert dependencies["text.constructions/source-native"] == (
         "text.formal_evidence/source-native",
+        "segment.sentences/source-native",
+    )
+    annotations = next(
+        role for role in model.operation("text.constructions/source-native").roles
+        if role.name == "sentences"
+    )
+    assert (annotations.minimum, annotations.maximum, annotations.collection, annotations.presence) == (
+        1, 1, "scalar", "required"
     )
     assert set(dependencies["text.contextual_evaluation/source-native"]) == {
         "text.formal_evidence/source-native",

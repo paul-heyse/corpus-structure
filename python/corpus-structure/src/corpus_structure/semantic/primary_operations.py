@@ -155,7 +155,9 @@ def primary_operation_inputs(
         ),
         formal_operation_sources(),
         declaration_operation_sources(),
-        characterization_operation_sources(construction_options=construction_options),
+        characterization_operation_sources(
+            construction_options=construction_options, include_dependencies=False
+        ),
         full_document_view_operation_sources(include_dependencies=False),
     )
     if capture_sources is not None:

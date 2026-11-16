@@ -52,9 +52,13 @@ def characterization_recipe(directory, *, construction_options=None):
     assert decoded is not None and decoded[1] is not None
     declarations, current = decoded
     assert current is not None
+    from corpus_structure.ingest.sentences import SentenceConfig
+
     sources = combine_primary_sources(
         current,
-        construction_operation_sources(construction_options=construction_options),
+        construction_operation_sources(
+            construction_options=construction_options, sentence_configuration=SentenceConfig(exclude=("ner",))
+        ),
         document_view_operation_sources(),
     )
     # Recompose the decoded declaration package once. All independent native/PDF

@@ -9,6 +9,7 @@ CONSTRUCTIONS = "text.constructions/source-native"
 
 
 def artifact_recipe(directory):
+    from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.semantic.artifact_products import (
         artifact_inputs,
         artifact_operation_sources,
@@ -25,7 +26,6 @@ def artifact_recipe(directory):
     from corpus_structure.semantic.predicate_products import predicate_operation_sources
     from corpus_structure.semantic.primary_operations import combine_primary_sources
     from corpus_structure.semantic.scoped_products import scoped_operation_sources
-    from corpus_structure.semantic.sentence_products import sentence_operation_sources
     from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact
     from semantic.data_operation_kernel_support import CapturedKernelInputs
 
@@ -39,9 +39,9 @@ def artifact_recipe(directory):
     sources = combine_primary_sources(
         sources,
         construction_operation_sources(
+            sentence_configuration=SentenceConfig(exclude=("ner",)),
             construction_options=load_construction_options(ROOT / "domains/statistics")
         ),
-        sentence_operation_sources(),
         predicate_operation_sources(),
         scoped_operation_sources(),
         artifact_operation_sources(),

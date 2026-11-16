@@ -23,6 +23,7 @@ def test_current_characterization_package_owns_actual_producers_without_model_pr
     )
     assert acquired.model.operation("text.constructions/source-native").dependencies == (
         "text.formal_evidence/source-native",
+        "segment.sentences/source-native",
     )
     assert not acquired.model.operation("text.compose_view/source-native").dependencies
     assert not any(
