@@ -1,11 +1,9 @@
 """Native section selectors bind one numbered occurrence before subtree expansion."""
 
-
 import pytest
 
-from corpus_structure.semantic.refusals import SourceReadRefused
 from corpus_structure.ingest.pdf_hierarchy import resolve_native_sections
-
+from corpus_structure.semantic.refusals import SourceReadRefused
 
 CATALOG = {
     "#/groups/11": "1.1: Sets",
@@ -51,7 +49,6 @@ def test_unique_unnumbered_aliases_preserve_existing_selection():
         resolve_native_sections(catalog, ["1.2: Sets"])
 
 
-
 def test_descendant_selection_retains_only_maximal_actual_roots():
     from corpus_structure.ingest.pdf_section_views import select_published_sections
 
@@ -59,6 +56,12 @@ def test_descendant_selection_retains_only_maximal_actual_roots():
     rows.append(dict(pointer="#/groups/child", name="Operations", ancestors=["#/groups/11"]))
     scope = dict(kind="native_sections", sections=(*SELECTORS, "Operations"))
     assert select_published_sections(rows, (), "descendants", scope) == (
-        "#/groups/11", "#/groups/12", "#/groups/13", "#/groups/18", "#/groups/56"
+        "#/groups/11",
+        "#/groups/12",
+        "#/groups/13",
+        "#/groups/18",
+        "#/groups/56",
     )
-    assert select_published_sections(rows, (), "direct", dict(kind="native_sections", sections=("1.1: Sets",))) == ("#/groups/11", "#/groups/child")
+    assert select_published_sections(
+        rows, (), "direct", dict(kind="native_sections", sections=("1.1: Sets",))
+    ) == ("#/groups/11", "#/groups/child")

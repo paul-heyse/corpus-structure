@@ -52,7 +52,7 @@ assessments, coverage and proof premises. Current
 [`consolidate_cut` (historical source)](../../README.md#historical-recovery)
 is the release-bound policy boundary; singleton candidates and storage validity are explicitly
 insufficient to authorize selection. Current
-[`ReadSession`](../../../python/corpus-structure/src/corpus_structure/semantic/query.py) and
+[`ReadSession` (historical source)](../../README.md#historical-recovery) and
 `SnapshotBinding` own pinned reads, evidence and coverage.
 The original CLI export (`cli/export.py`, now retired) captured a
 completed result inside `read_snapshot`, then exported a detached packet. Current DDO export uses

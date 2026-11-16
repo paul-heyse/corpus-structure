@@ -57,8 +57,12 @@ classes:
     )
 
 
-def prepare_archive(bundle=None, dependencies=ResolvedDependencies()):
+def prepare_archive(bundle=None, dependencies=None):
     from dataclasses import replace
+
+    if dependencies is None:
+        dependencies = ResolvedDependencies()
+
     import yaml
 
     from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
@@ -85,7 +89,11 @@ def prepare_archive(bundle=None, dependencies=ResolvedDependencies()):
         ),
     )
     dependencies = ResolvedDependencies(
-        artifacts=(*captured.dependencies.artifacts, SourceArtifact("opaque", b"\x00exact external bytes\xff"), *dependencies.artifacts),
+        artifacts=(
+            *captured.dependencies.artifacts,
+            SourceArtifact("opaque", b"\x00exact external bytes\xff"),
+            *dependencies.artifacts,
+        ),
         vocabularies=dependencies.vocabularies,
         ontology_sources=dependencies.ontology_sources,
     )

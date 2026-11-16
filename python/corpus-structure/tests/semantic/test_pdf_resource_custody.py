@@ -41,12 +41,18 @@ def captured_pdf_ports(tmp_path_factory):
     organization = pdf_transform_operation_sources(
         "organized", options=SectionPolicy("explicit-sections"), directory=directory / "owned"
     )
-    sources = pdf_views_operation_sources(capture, mode="organized", transformation_sources=organization)
+    sources = pdf_views_operation_sources(
+        capture, mode="organized", transformation_sources=organization
+    )
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    bundle = source_discovery_inputs(pdf_capture_inputs(
-        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))))
-    prepared = prepare_release(bundle, data_operation_dependencies(
-        ResolvedDependencies(), python_sources=sources), PreparationProfile(version="semantic-2"))
+    bundle = source_discovery_inputs(
+        pdf_capture_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    )
+    prepared = prepare_release(
+        bundle,
+        data_operation_dependencies(ResolvedDependencies(), python_sources=sources),
+        PreparationProfile(version="semantic-2"),
+    )
     model = bound_data_operation_model(prepared)
     return bundle, sources, prepared, model
 
@@ -55,29 +61,66 @@ def acquired_port(captured, operation_id):
     bundle, sources, prepared, model = captured
     operation = model.operation(operation_id)
     nominal = python_port_identity(model, sources, operation_id, schema=bundle, prepared=prepared)
-    boundaries = (*operation.assets, *(boundary for implementation in model.implementation_slices
-        if implementation.root == operation.implementation_root for boundary in implementation.boundaries))
-    identity = PreparedCapabilityIdentity(**asdict(nominal), runtime="unadmitted:pdf-resource-correspondence",
-        assets=canonical_bytes(tuple(asdict(boundary) for boundary in boundaries)))
+    boundaries = (
+        *operation.assets,
+        *(
+            boundary
+            for implementation in model.implementation_slices
+            if implementation.root == operation.implementation_root
+            for boundary in implementation.boundaries
+        ),
+    )
+    identity = PreparedCapabilityIdentity(
+        **asdict(nominal),
+        runtime="unadmitted:pdf-resource-correspondence",
+        assets=canonical_bytes(tuple(asdict(boundary) for boundary in boundaries)),
+    )
     authorized = []
-    options = dict(identity=identity, authorize=authorized.append, custody=sources.boundary_contracts, sources=sources)
+    options = dict(
+        identity=identity,
+        authorize=authorized.append,
+        custody=sources.boundary_contracts,
+        sources=sources,
+    )
     factory = resolve_prepared_factory(model, sources, operation_id)
     acquired = factory(prepared, model, operation_id, **options)
-    port = acquired.effect_implementation() if isinstance(acquired, CapturedEffectPort) else acquired
+    port = (
+        acquired.effect_implementation() if isinstance(acquired, CapturedEffectPort) else acquired
+    )
     assert authorized == [identity]
     return port, authorized, identity
 
 
-@pytest.mark.parametrize("operation", ("source.pdf/capture", "source.pdf_views/discovery", "source.pdf_organized_views/discovery", "source.pdf_sections/organize"))
-def test_stable_actual_pdf_resource_capture_verifies_without_native_execution(captured_pdf_ports, operation):
+@pytest.mark.parametrize(
+    "operation",
+    (
+        "source.pdf/capture",
+        "source.pdf_views/discovery",
+        "source.pdf_organized_views/discovery",
+        "source.pdf_sections/organize",
+    ),
+)
+def test_stable_actual_pdf_resource_capture_verifies_without_native_execution(
+    captured_pdf_ports, operation
+):
     port, authorized, identity = acquired_port(captured_pdf_ports, operation)
     port._verify()
     assert authorized == [identity, identity]
 
 
-@pytest.mark.parametrize("operation", ("source.pdf/capture", "source.pdf_views/discovery", "source.pdf_organized_views/discovery", "source.pdf_sections/organize"))
+@pytest.mark.parametrize(
+    "operation",
+    (
+        "source.pdf/capture",
+        "source.pdf_views/discovery",
+        "source.pdf_organized_views/discovery",
+        "source.pdf_sections/organize",
+    ),
+)
 @pytest.mark.parametrize("helper", ("pdf_health", "pdf_hierarchy"))
-def test_changed_helper_refuses_before_authorization(captured_pdf_ports, operation, helper, monkeypatch):
+def test_changed_helper_refuses_before_authorization(
+    captured_pdf_ports, operation, helper, monkeypatch
+):
     port, authorized, identity = acquired_port(captured_pdf_ports, operation)
     from corpus_structure.ingest import pdf_health, pdf_hierarchy
 
@@ -86,7 +129,7 @@ def test_changed_helper_refuses_before_authorization(captured_pdf_ports, operati
     original = Path.read_bytes
     before = original(path)
     changed = (
-        before.replace(b'value = dict(health)', b'value = {"display_coverage": "complete"}', 1)
+        before.replace(b"value = dict(health)", b'value = {"display_coverage": "complete"}', 1)
         if helper == "pdf_health"
         else before.replace(b"    return result\n", b"    return {}\n", 1)
     )
@@ -107,11 +150,20 @@ def test_moved_health_bytes_belong_to_both_actual_resource_owners(captured_pdf_p
     files = dict(json.loads(pdf_views_assets().content)["files"])
     assert files["ingest/pdf_health.py"] == Path(pdf_health.__file__).read_bytes().hex()
     _, sources, _, _ = captured_pdf_ports
-    capture = next(asset for asset in sources.boundary_contracts if asset.name == "pdf-capture/execution-custody")
+    capture = next(
+        asset
+        for asset in sources.boundary_contracts
+        if asset.name == "pdf-capture/execution-custody"
+    )
     captured = dict(json.loads(capture.content)["files"])
     assert captured["ingest/pdf_health.py"] == Path(pdf_health.__file__).read_bytes().hex()
     from corpus_structure.ingest import pdf_hierarchy
+
     assert captured["ingest/pdf_hierarchy.py"] == Path(pdf_hierarchy.__file__).read_bytes().hex()
-    custody = next(asset for asset in sources.boundary_contracts if asset.name == "pdf-organized/execution-custody")
+    custody = next(
+        asset
+        for asset in sources.boundary_contracts
+        if asset.name == "pdf-organized/execution-custody"
+    )
     files = dict(json.loads(custody.content)["files"])
     assert files["ingest/pdf_health.py"] == Path(pdf_health.__file__).read_bytes().hex()

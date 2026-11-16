@@ -87,7 +87,7 @@ returns pinned source selections, excerpts, lexical scores and bounded continuat
 requiring completed knowledge. It is useful for passage discovery; an excerpt match does not
 establish that a passage defines a usage. Current
 [generic queries (historical source)](../../README.md#historical-recovery),
-[semantic read sessions](../../../python/corpus-structure/src/corpus_structure/semantic/query.py)
+[semantic read sessions (historical source)](../../README.md#historical-recovery)
 and [source/explanation boundary](../../design/D8-agent-and-query-interfaces.md#source-product-query-and-explanation-boundary)
 already carry selected release/result scope, occurrence/source evidence and explicit coverage.
 The [companion export owner](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py)

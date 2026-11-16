@@ -22,8 +22,8 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.types import PreparedArtifact
 from semantic.archive_faults import administrative_archive_edit
-from semantic.releases_support import source_bundle as source_bundle
 from semantic.releases_support import prepare_archive, stage
+from semantic.releases_support import source_bundle as source_bundle
 
 
 def project(conn, release_id=None):
@@ -257,8 +257,6 @@ def test_activation_rejects_aba_and_preserves_original_archive(commit_db_engine:
         assert releases.open_release(conn, first.release_id) == first
 
 
-
-
 def test_concurrent_activation_has_one_winner(commit_db_engine: Engine):
     with commit_db_engine.begin() as conn:
         *_, first = stage(conn)
@@ -362,9 +360,7 @@ def test_same_local_property_name_retains_distinct_iris(commit_db_engine: Engine
 def test_archive_retains_explicit_ontology_dependency_selection(commit_db_engine: Engine):
     bundle = source_bundle()
     dependencies = ResolvedDependencies(
-        artifacts=(
-            SourceArtifact("ontology", b"format-version: 1.2\r\n"),
-        ),
+        artifacts=(SourceArtifact("ontology", b"format-version: 1.2\r\n"),),
         ontology_sources=("ontology",),
     )
     bundle, dependencies, profile, prepared = prepare_archive(bundle, dependencies)
@@ -437,6 +433,7 @@ def test_sql_admission_and_pointer_share_activation_savepoint(
 
 def test_archive_fixture_has_actual_checked_ddo_inputs_without_legacy_compiler():
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+
     bundle, dependencies, profile, prepared = prepare_archive()
     model = bound_data_operation_model(prepared)
     assert {
@@ -444,8 +441,12 @@ def test_archive_fixture_has_actual_checked_ddo_inputs_without_legacy_compiler()
         for operation in model.operations
         if operation.semantic_id.startswith("urn:ddo-test:")
     } == {
-        "urn:ddo-test:source", "urn:ddo-test:sample", "urn:ddo-test:consumer",
-        "urn:ddo-test:value-consumer", "urn:ddo-test:set", "urn:ddo-test:evaluator"
+        "urn:ddo-test:source",
+        "urn:ddo-test:sample",
+        "urn:ddo-test:consumer",
+        "urn:ddo-test:value-consumer",
+        "urn:ddo-test:set",
+        "urn:ddo-test:evaluator",
     }
     assert all(kind.complete for kind in model.kinds)
     assert not any(source.name.startswith("execution/") for source in dependencies.artifacts)

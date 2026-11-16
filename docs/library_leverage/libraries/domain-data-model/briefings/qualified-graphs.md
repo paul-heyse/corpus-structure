@@ -11,7 +11,7 @@ References: [RDFLib](../../../../libraries/data_model/rdflib.md),
 `QualifiedGraphProjection` binds release/realization/revision, typed-reference closure, snapshot
 lifetime, exact literals, explicit nulls, positions and assertion multiplicity. Its production
 consumers include the identity-exclusion graph in
-[query.py](../../../../../python/corpus-structure/src/corpus_structure/semantic/query.py).
+[query.py (historical source)](../../../../README.md#historical-recovery).
 The simpler `qualified_assertion_graph` helper's test-only callers do not describe this full adoption.
 
 `validate_graph` explicitly selects inference none, advanced false, imports false and no input

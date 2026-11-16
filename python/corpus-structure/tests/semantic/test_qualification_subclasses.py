@@ -6,14 +6,12 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from corpus_structure.semantic.identity import canonical_bytes
-
 from corpus_structure.semantic import (
     SourceArtifact,
     SourceBundle,
     prepare_release,
 )
-
+from corpus_structure.semantic.identity import canonical_bytes
 
 
 def inputs():
@@ -51,12 +49,21 @@ def inputs():
 
 def test_explicit_subtype_boundary_and_identity_policy():
     release = prepare_release(inputs())
-    observed = dict(modality="asserted", polarity=True, reporter="Alice", channel="Straße", hedge="measured")
-    assert release.validate_json("DomainQualification", canonical_bytes(observed)).model_dump() == observed
+    observed = dict(
+        modality="asserted", polarity=True, reporter="Alice", channel="Straße", hedge="measured"
+    )
+    assert (
+        release.validate_json("DomainQualification", canonical_bytes(observed)).model_dump()
+        == observed
+    )
     leaf = release.qualification_definition("DomainQualification")
     assert set(leaf.ancestors) == {"Qualification", "ReportQualification"}
+
     def identity(value):
-        return release.fact_identity("scope", "subject", "label", "same", value, qualification_class="DomainQualification")
+        return release.fact_identity(
+            "scope", "subject", "label", "same", value, qualification_class="DomainQualification"
+        )
+
     first = identity(observed)
     assert identity(dict(observed, reporter="Bob", channel="STRASSE")) == first
     assert identity(dict(observed, hedge="inferred")) != first
