@@ -18,6 +18,7 @@ from corpus_structure.semantic.declared_record_sources import (
 )
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
+    PreparedNativeSources,
     evidence_anchor,
     record_source_pin,
 )
@@ -354,7 +355,7 @@ def resolve_query_contexts(
     source_products: Sequence[Mapping[str, Any]],
     source: DeclaredNativeFrameSource,
     *,
-    preparation=None,
+    preparation: PreparedNativeSources,
 ) -> dict[str, LocatedQueryContext]:
     """Project selected primary facts; native admission owns their exact source custody."""
     products = {row["occurrence_id"]: row for row in source_products}

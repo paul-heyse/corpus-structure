@@ -326,7 +326,10 @@ def test_candidate_preparation_accepts_explicit_declared_frame_without_view_refe
     data = SimpleNamespace(
         text=text, pieces=native.value["pieces"], items=native.value["items"], health={}
     )
-    result = prepare_source(data, source_frame=frame, persisted_annotations=())
+    from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
+
+    population = DeclaredContextPopulation((frame,), b'{"identity":"fixture:current","complete":true}')
+    result = prepare_source(data, source_frame=frame, persisted_annotations=(), context_population=population)
     assert result.source is frame
     assert result.regions[0].pointer == "#/texts/0"
     assert result.preparation is not None

@@ -604,7 +604,10 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
     )
     data = NativeCandidateData.from_frame(selected)
     assert [(piece["start"], piece["end"]) for piece in data.pieces] == [(0, 5)]
-    original = prepare_source(data, source_frame=selected, persisted_annotations=())
+    from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
+
+    population = DeclaredContextPopulation((selected,), b'{"identity":"fixture:current","complete":true}')
+    original = prepare_source(data, source_frame=selected, persisted_annotations=(), context_population=population)
     assert original.selections
     for selection in original.selections:
         context = selection.context(
@@ -630,7 +633,8 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
         )
     clipped = frame([dict(projection=base.value["source"]["projection"], start=1, end=4)])
     partial = prepare_source(
-        NativeCandidateData.from_frame(clipped), source_frame=clipped, persisted_annotations=()
+        NativeCandidateData.from_frame(clipped), source_frame=clipped, persisted_annotations=(),
+        context_population=DeclaredContextPopulation((clipped,), population.witness),
     )
     assert partial.selections == ()
     assert partial.regions and all(region.outcome == "unsupported" for region in partial.regions)
@@ -711,8 +715,6 @@ def test_related_m1_context_consumes_only_related_members_own_selected_span():
         NativeCandidateData.from_frame(primary),
         primary,
         [ContextSelection("#/texts/0", 0, 1, ("definition",), "bounded source")],
-        reader=None,
-        read_budget=None,
         context_population=population,
         max_chars=100,
         max_pieces=16,
