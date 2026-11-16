@@ -323,10 +323,6 @@ class Reader(Protocol):
         """Read only the task's frozen primary selection; refuse incomplete prerequisites."""
         raise ValueError("this reader does not own a frozen primary characterization selection")
 
-    def characterization_view(self, reference: ProductReference) -> EnrichedDocumentView:
-        """Resolve one published view pin without requiring run completion."""
-        ...
-
     def source_views(self) -> Sequence[SourceViewRef]: ...
 
     def source_view_ref(self, source_view_id: int) -> SourceViewRef: ...
@@ -433,10 +429,6 @@ class SourcePreparationReader(Protocol):
         effective_version: str | None,
     ) -> Mapping[str, Any]:
         """Detach the complete bounded selected heading inventory and its coverage."""
-        ...
-
-    def contextual_mutual_neighbors(self, report: dict) -> dict:
-        """Prepare exact mutual neighbors over the current detached inventory and vectors."""
         ...
 
     def source_context_membership(self, source_view_id: int) -> str:

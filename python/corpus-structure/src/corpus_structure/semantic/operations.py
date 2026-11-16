@@ -1010,11 +1010,6 @@ class BoundReader:
             families=families,
         )
 
-    def characterization_view(self, reference):
-        from .characterization_store import read_view
-
-        return read_view(self.conn, reference, run_id=self.run_id)
-
     def pdf_contract(self):
         from .pdf_contracts import pdf_context_for_release
 
@@ -1258,25 +1253,6 @@ class BoundReader:
             {"targets": payload},
         )
         return {row[0]: row[1] for row in rows}
-
-    def contextual_mutual_neighbors(self, report):
-        from sqlalchemy import text
-
-        from .identity import canonical_bytes
-
-        return self.conn.execute(
-            text(
-                "SELECT ops.contextual_mutual_neighbors("
-                "CAST(:inventory AS jsonb),CAST(:profile AS jsonb),CAST(:vectors AS jsonb))"
-            ),
-            {
-                "inventory": canonical_bytes(report["inventories"][0]).decode(),
-                "profile": canonical_bytes(report["profiles"][0]).decode()
-                if report["profiles"]
-                else None,
-                "vectors": canonical_bytes(report["vectors"]).decode(),
-            },
-        ).scalar_one()
 
     def validate_structural_inputs(self, inputs):
         from sqlalchemy import text

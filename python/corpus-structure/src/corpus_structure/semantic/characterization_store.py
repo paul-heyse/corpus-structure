@@ -170,16 +170,6 @@ def read_layer_manifest(
     return _published_layer_manifest(reference, payload)
 
 
-def read_view(
-    connection: Connection,
-    reference: ProductReference,
-    *,
-    run_id: int | None = None,
-    max_bytes: int = 67108864,
-) -> EnrichedDocumentView:
-    return _read(connection, reference, "view", run_id, EnrichedDocumentView, max_bytes)
-
-
 def read_inventory(
     connection: Connection, run_id: int, *, after=None, limit=100, max_bytes=1048576
 ):
@@ -252,34 +242,3 @@ def read_primary_layers(
     for start in range(0, max(len(references), 1), 1000):
         read_page(references[start : start + 1000])
     return layers
-
-
-def read_nodes(
-    connection: Connection,
-    reference: ProductReference,
-    kind: str,
-    *,
-    selectors: dict[str, Any] | None = None,
-    run_id: int | None = None,
-    after: tuple[int, str, str] | None = None,
-    limit: int = 100,
-    max_bytes: int = 1048576,
-) -> dict[str, Any]:
-    """Select indexed annotations or terms before hydrating their recorded context."""
-    from ._operation_calls import read_characterization_nodes as invoke
-
-    return cast(
-        dict[str, Any],
-        invoke(
-            connection,
-            task_id=reference.task_id,
-            product_key=reference.product_key,
-            content_digest=reference.content_digest,
-            kind=kind,
-            selectors=selectors or {},
-            run_id=RunId(run_id) if run_id is not None else None,
-            after=list(after) if after is not None else None,
-            limit=limit,
-            max_bytes=max_bytes,
-        ),
-    )
