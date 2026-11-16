@@ -440,6 +440,17 @@ class ContractUnavailable(ValueError):
     pass
 
 
+def _member_key(value):
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductMemberReference, DataProductReference,
+    )
+
+    if not isinstance(value, dict) or set(value) != {"product_id", "member_id"}:
+        raise ContractUnavailable("task graph requires an exact current member reference")
+    reference = DataProductMemberReference(DataProductReference(value["product_id"]), value["member_id"])
+    return reference.product.product_id, reference.member_id
+
+
 def _entity_meaning(entity, *, compare_value=False):
     value = {
         "kind": entity["kind"],
@@ -979,16 +990,14 @@ class TaskPopulation:
         if self.family != family:
             raise ContractUnavailable("candidate question family differs from declared task")
         index = {
-            (
-                canonical_bytes(n["qualified_identity"]["layer"]),
-                n["qualified_identity"]["local_id"],
-            ): k
+            _member_key(n["qualified_identity"]): k
             for k, n in self.nodes.items()
+            if "path" not in n["qualified_identity"]
         }
 
         def resolve(reference):
             try:
-                return index[(canonical_bytes(reference["layer"]), reference["local_id"])]
+                return index[_member_key(reference)]
             except (KeyError, TypeError) as error:
                 raise ContractUnavailable(
                     "frozen candidate lacks its exact retained endpoint"
@@ -1125,11 +1134,9 @@ class TaskPopulation:
 
     def _modal_questions(self):
         local_index = {
-            (
-                canonical_bytes(n["qualified_identity"]["layer"]),
-                n["qualified_identity"]["local_id"],
-            ): key
+            _member_key(n["qualified_identity"]): key
             for key, n in self.nodes.items()
+            if "path" not in n["qualified_identity"]
         }
 
         def proposal(question_key):
@@ -1174,10 +1181,10 @@ class TaskPopulation:
                 "insufficient",
             }:
                 raise ContractUnavailable("modal question has an undeclared selected option")
-            layer = canonical_bytes(node["qualified_identity"]["layer"])
+            product, _ = _member_key(node["qualified_identity"])
             dependencies = {}
             for dependency in answer.get("depends_on", ()):
-                target = local_index.get((layer, dependency))
+                target = local_index.get((product, dependency))
                 if target is None:
                     raise ContractUnavailable(
                         "modal dependency is unavailable in exact family population"

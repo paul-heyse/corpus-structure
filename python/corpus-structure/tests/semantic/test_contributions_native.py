@@ -363,11 +363,6 @@ def test_native_score_state_missing_is_not_zero(private_source):
 def test_actual_blank_cell_subject_survives_native_read_and_source_first_assessment(private_source):
     from dataclasses import replace
 
-    from corpus_structure.evaluate.operation_assessment import (
-        OperationCase,
-        OperationEvaluationFrame,
-        score_cases,
-    )
     from corpus_structure.methods.contribution_adapter import adapt_native_groups
     from corpus_structure.methods.record_assembly import native_table_groups
     from corpus_structure.semantic.operations import BoundReader
@@ -428,38 +423,6 @@ def test_actual_blank_cell_subject_survives_native_read_and_source_first_assessm
         and proposal["anchor_role"] == "inspection_subject"
     )
     assert not any(name in proposal["anchors"][0] for name in ("source_piece", "start", "end"))
-    frame = OperationEvaluationFrame(
-        unit="blank-cell",
-        release_id=case.prepared.release_id,
-        guideline_version="blank-1",
-        rubric_version="blank-1",
-        context_policy="native-only",
-        operation_question="native-cell",
-        operation_version="1",
-        domain="controlled-table",
-        direction="source_first",
-        pin=pin,
-        anchor_ids=(anchor["anchor_id"],),
-        anchor_scopes=(scope,),
-    )
-    expected = OperationCase(
-        case_id="blank-value",
-        facet="source_field_state",
-        candidate_selector={"semantic_type": "table.cell_value"},
-        anchor_ids=frame.anchor_ids,
-        inspected_scope="table/cell/2",
-        source_state="unstated",
-        judgment="supported",
-        alternatives=({"source_field_state": "unstated", "anchor_role": "inspection_subject"},),
-        explanation=(
-            "The independently specified native cell text is blank; "
-            "its inspection subject remains attributable."
-        ),
-        assessor_provenance={"source": "authored fixture"},
-    )
-    scored = score_cases(frame, (expected,), inventory.contributions)
-    assert scored["cases"][0]["capture_outcome"] == "captured_structure"
-    assert score_cases(frame, (expected,), ())["cases"][0]["error_category"] == "missing_output"
 
 
 def local_draft(case):

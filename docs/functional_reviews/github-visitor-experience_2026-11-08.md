@@ -152,7 +152,7 @@ a few questions raised by the examples.
 |---|---|
 | Where do source locations come from? | [PDF section views](../../python/corpus-structure/src/corpus_structure/ingest/pdf_section_views.py) · [Source-view SQL](../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) |
 | How are observations and links produced? | [GLiNER method](../../python/corpus-structure/src/corpus_structure/methods/gliner.py) · [Contextual links](../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py) |
-| How do readers inspect and assess results? | [Operation assessment](../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py) · [Reader queries](../design/D8-agent-and-query-interfaces.md) · [MCP CLI](../../python/corpus-structure/src/corpus_structure/cli/mcp.py) |
+| How do readers inspect and assess results? | [Operation assessment (historical recovery)](../README.md#historical-recovery) · [Reader queries](../design/D8-agent-and-query-interfaces.md) · [MCP CLI](../../python/corpus-structure/src/corpus_structure/cli/mcp.py) |
 
 The existing artifact-only decision is explicit in ADR-0003. If Pages is selected for
 implementation, supersede that decision and update publishing operations. Reuse the

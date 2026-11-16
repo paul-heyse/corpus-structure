@@ -7,10 +7,12 @@ from functools import cache
 import pytest
 import yaml
 from evaluation_record_references_support import bundle, fixture, model, prepared
+from evaluation_record_alignment_support import PIN, role
 
 from corpus_structure.evaluate.record_alignment import (
     RecordSide,
     align_records,
+    align_independent_references,
     reference_contract,
     whole_reading_correct,
 )
@@ -73,7 +75,7 @@ def successor_preparation(change="unrelated"):
 def successor_reading(reference, contexts, binding):
     """An independently validated prediction fixture with distinct release/alias IDs."""
     target, target_model = successor_preparation()
-    pin = dict(binding.pin, source="source:actual-successor", source_view_id=73)
+    pin = dict(binding.pin, source=canonical_bytes(["product:actual-successor", "member:organized-source"]).decode(), source_product="product:actual-successor")
     prediction = deepcopy(reference)
     prediction["pin"] = pin
     anchors = {}
@@ -226,7 +228,7 @@ def test_changed_source_or_consumed_contract_refuses_instead_of_false_misses(cha
         successor_reading(reference, contexts, binding)
     )
     if change == "source":
-        correspondence[0]["prediction_pin"] = dict(target_frame.pin, product_digest="e" * 64)
+        correspondence[0]["prediction_pin"] = dict(target_frame.pin, projection_digest="e" * 64)
     elif change == "scope":
         target_frame = replace(
             target_frame,
@@ -347,4 +349,72 @@ def test_consumed_vocabulary_meaning_changes_source_reference_contract():
                     "physical_digest": "d" * 64,
                 }
             ],
+        )
+
+
+def test_related_attributed_header_preserves_separate_pin_and_requires_explicit_closure():
+    row, contexts, binding = fixture("table")
+    header = role(row, "header_path")
+    evidence = next(
+        value for value in row["evidence_sets"] if value["set_id"] in header["evidence_sets"]
+    )
+    related_pin = dict(
+        PIN, source=canonical_bytes(["product:related-header", "member:organized-source"]).decode(), source_product="product:related-header", section_pointer="#/header"
+    )
+    replacements = {}
+    for anchor in row["anchors"]:
+        if anchor["anchor_id"] in evidence["anchors"]:
+            old = anchor["anchor_id"]
+            anchor["pin"] = related_pin
+            anchor["binding"] = dict(
+                version=2, relationship="selected_context", policy="attributed-selected-source-2"
+            )
+            anchor["anchor_id"] = anchor_identity(anchor)
+            replacements[old] = anchor["anchor_id"]
+            for context in contexts:
+                if context["pointer"] == anchor["pointer"]:
+                    context["pin"] = related_pin
+    old_set = evidence["set_id"]
+    evidence["anchors"] = tuple(replacements.get(value, value) for value in evidence["anchors"])
+    evidence["set_id"] = evidence_set_identity(evidence)
+    header["evidence_sets"] = tuple(
+        evidence["set_id"] if value == old_set else value for value in header["evidence_sets"]
+    )
+    row["interpretation_id"] = interpretation_identity(row)
+    binding = replace(
+        binding,
+        anchor_ids=frozenset(value["anchor_id"] for value in row["anchors"]),
+        related_pins=(related_pin,),
+    )
+    def compare(frame):
+        return align_independent_references(
+            RecordSide(frame, (row,)), RecordSide(frame, (row,)), prepared(),
+            coordinate_texts=contexts, model=model(),
+        )
+    assert compare(binding).counts["full"].matched == 1
+    with pytest.raises(ValueError, match="source pin"):
+        compare(replace(binding, related_pins=()))
+    stale = replace(binding, related_pins=(dict(related_pin, projection_digest="e" * 64),))
+    with pytest.raises(ValueError, match="same native product"):
+        compare(stale)
+
+
+def test_independent_agreement_does_not_adopt_a_production_acceptance_policy():
+    row, contexts, binding = fixture()
+    binding = replace(binding, prediction_policy_version="independent-production-policy-2")
+    original = deepcopy(row)
+    got = align_independent_references(
+        RecordSide(binding, (row,)), RecordSide(binding, (row,)), prepared(),
+        coordinate_texts=contexts, model=model(),
+    )
+    assert got.counts["full"].matched == 1
+    assert got.prediction_policy_version == binding.reference_policy_version
+    assert row == original and binding.prediction_policy_version == "independent-production-policy-2"
+    wrong = deepcopy(row)
+    wrong["policy_version"] = binding.prediction_policy_version
+    wrong["interpretation_id"] = interpretation_identity(wrong)
+    with pytest.raises(ValueError, match="acceptance policy"):
+        align_independent_references(
+            RecordSide(binding, (row,)), RecordSide(binding, (wrong,)), prepared(),
+            coordinate_texts=contexts, model=model(),
         )

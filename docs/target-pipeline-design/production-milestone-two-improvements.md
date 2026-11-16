@@ -75,7 +75,7 @@ This is a small change with direct value for the granular assessment you want.
 
 `compare_assessments()` categorizes `unsupported → unsupported` as `unchanged`. Its `still_unresolved` category covers `ambiguous` or `unassessed`.
 
-That transition definition is defensible, but the resulting summary can conceal the current condition. The actual d1 comparisons show no “still unresolved” cases even though the host, referent, and quantity failures persist. The detailed judgments and README explain this correctly; the summary does not make it obvious. [Comparison implementation](https://github.com/paul-heyse/corpus-structure/blob/e55bcfc546c65dd5c3261414f79b618c71c8903b/python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py)
+That transition definition is defensible, but the resulting summary can conceal the current condition. The actual d1 comparisons show no “still unresolved” cases even though the host, referent, and quantity failures persist. The detailed judgments and README explain this correctly; the summary does not make it obvious. [Comparison implementation (historical recovery)](../README.md#historical-recovery)
 
 **Change:** preserve the transition categories and add an orthogonal final-state summary:
 

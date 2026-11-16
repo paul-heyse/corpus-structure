@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from hashlib import sha256
 from typing import Any
 
@@ -23,6 +23,7 @@ from corpus_structure.semantic.record_contracts import (
     validate_record_declarations,
 )
 from corpus_structure.semantic.types import PreparedRelease
+from corpus_structure.semantic.refusals import ReferenceError
 
 from .semantic_alignment import TierCounts
 
@@ -45,7 +46,7 @@ def reference_contract(prepared: PreparedRelease) -> dict[str, Any]:
     # Independent reference authoring may be absent from a pure alignment release.
     names.update(
         name
-        for name in ("ReferenceRecordBatch", "RecordReferenceAnchorScope", "DdoRecordAnchorScope")
+        for name in ("DdoRecordAnchorScope",)
         if f"json_schema/{name}" in artifacts
     )
     schemas = {name: json.loads(artifacts[f"json_schema/{name}"]) for name in sorted(names)}
@@ -282,11 +283,9 @@ def _frame(prepared: PreparedRelease, frame: RecordEvaluationFrame) -> dict[str,
     closure = (pin, *related)
     if len({canonical_bytes(value) for value in closure}) != len(closure):
         raise ValueError("record evaluation source closure contains duplicate pins")
-    product = (
-        ("format", "project_id", "document", "original_source", "projection_digest")
-        if pin.get("format") == "declared-native-source-v1"
-        else ("native_product_task_id", "product_key", "product_digest")
-    )
+    if pin.get("format") != "declared-native-source-v1":
+        raise ValueError("record alignment requires a current original-relative source pin")
+    product = ("format", "project_id", "document", "original_source", "projection_digest")
     if any(
         tuple(value[key] for key in product) != tuple(pin[key] for key in product)
         for value in related
@@ -294,9 +293,7 @@ def _frame(prepared: PreparedRelease, frame: RecordEvaluationFrame) -> dict[str,
         raise ValueError("related evaluation source requires the same native product")
     scopes = tuple(
         prepared.validate_python(
-            "DdoRecordAnchorScope"
-            if pin.get("format") == "declared-native-source-v1"
-            else "RecordReferenceAnchorScope",
+            "DdoRecordAnchorScope",
             value,
         ).model_dump(mode="python")
         for value in frame.anchor_scopes
@@ -683,3 +680,31 @@ def whole_reading_correct(
             for value in aligned.match_bindings
         )
     return candidate["record_id"] in aligned.matches["full"]
+
+
+def align_independent_references(
+    a: RecordSide,
+    b: RecordSide,
+    prepared: PreparedRelease,
+    *,
+    model: EffectiveDataOperationModel,
+    coordinate_texts: Sequence[Mapping[str, Any]] = (),
+):
+    """Compare two independent readings under reference acceptance, retaining source identity.
+
+    Only comparison expectations change. Frozen production policy, authored records,
+    bytes, standings and interpretation IDs remain unchanged.
+    """
+    if a.frame != b.frame:
+        raise ReferenceError(
+            "independent agreement requires the same frozen source/guideline frame"
+        )
+    comparison = replace(a.frame, prediction_policy_version=a.frame.reference_policy_version)
+    return align_records(
+        RecordSide(comparison, a.records),
+        RecordSide(comparison, b.records),
+        prepared,
+        coordinate_texts=coordinate_texts,
+        model=model,
+        prediction_model=model,
+    )

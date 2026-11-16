@@ -46,7 +46,7 @@ Provide a short code-reading route organized by reader questions. Link source ca
 to PDF section views and their SQL contract, observation production to GLiNER, typed
 relationships to contextual links, and inspection to the Reader and MCP. Link
 operation-level assessment separately.
-[PDF section views](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_section_views.py) · [Source-view SQL](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) · [GLiNER method](../../../python/corpus-structure/src/corpus_structure/methods/gliner.py) · [Contextual links](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py) · [Operation assessment](../../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py) · [Reader and agent interfaces](../../design/D8-agent-and-query-interfaces.md)
+[PDF section views](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_section_views.py) · [Source-view SQL](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) · [GLiNER method](../../../python/corpus-structure/src/corpus_structure/methods/gliner.py) · [Contextual links](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py) · [Operation assessment (historical recovery)](../../README.md#historical-recovery) · [Reader and agent interfaces](../../design/D8-agent-and-query-interfaces.md)
 
 **Closure.** A reader can find all four actions from the opening and explain the
 output and its evidence using the README alone. Check the same journeys in the

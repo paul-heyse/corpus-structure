@@ -2,134 +2,35 @@
 
 import json
 from copy import deepcopy
-from dataclasses import replace
-from typing import Any, cast
+from typing import Any
 
 import pytest
-from evaluation_characterization_assessment_support import (
-    EXTENT as EXTENT,
-)
-from evaluation_characterization_assessment_support import (
-    PIN as PIN,
-)
-from evaluation_characterization_assessment_support import (
-    VIEW as VIEW,
-)
-from evaluation_characterization_assessment_support import (
-    captured_assessment as captured_assessment,
-)
-from evaluation_characterization_assessment_support import (
-    case as case,
-)
-from evaluation_characterization_assessment_support import (
-    coverage as coverage,
-)
-from evaluation_characterization_assessment_support import (
-    frame as frame,
-)
-from evaluation_characterization_assessment_support import (
-    payload as payload,
-)
-
 from corpus_structure.evaluate.characterization_assessment import (
     LayerProjection,
     graph_equal,
     output_key,
-    score_characterization,
 )
-from corpus_structure.evaluate.operation_assessment import (
-    CharacterizationSourceOpportunity,
-    OperationEvaluationFrameV3,
-    decode_authored,
-    decode_frame,
-    encode_frame,
-)
-from corpus_structure.evaluate.semantic import ReferenceError
+
+from corpus_structure.semantic.refusals import ReferenceError
+
+PIN = {"product_id": "product:characterization-control"}
+EXTENT = dict(source_view_id=23, projection="c" * 64, native_pointer="#/texts/0", start=0, end=20)
 
 
-def prediction(**changes):
-    return dict(
-        reference=dict(layer=PIN, collection="terms", local_id="term"),
-        collection="terms",
-        extents=[dict(EXTENT, start=1, end=4)],
-        value=dict(kind="operator", value="not", family="prose.scope"),
-        **changes,
-    )
 
 
-def test_v3_source_frame_roundtrip_preserves_discontinuity_and_never_binds_outputs():
-    opportunity = CharacterizationSourceOpportunity(
-        "opportunity", (EXTENT, dict(EXTENT, start=24, end=30)), "scope", "stated"
-    )
-    value = frame(opportunities=(opportunity,))
-    assert decode_frame(encode_frame(value)) == value
-    assert len(encode_frame(value)["evaluation_frame"]["opportunities"][0]["extents"]) == 2
-    with pytest.raises(ReferenceError, match="source-first"):
-        frame(characterization_view=VIEW)
 
 
-def test_v3_explicit_empty_output_population_is_not_unbound():
-    value = frame("output_first")
-    assert value.outputs == ()
-    assert decode_frame(encode_frame(value)) == value
-    with pytest.raises(ReferenceError, match="requires exact"):
-        replace(value, outputs=None)
-    result = score_characterization(value, (), ())
-    assert result["output_coverage"]["selected_count"] == 0
-    assert result["cases"] == []
 
 
-def test_case_cannot_backfill_output_id_or_move_source_opportunity():
-    frozen = frame()
-    assert (
-        decode_authored(json.dumps(payload(frozen, (case(),))).encode(), frozen)["cases"][0]
-        == case()
-    )
-    for invalid in (case(output_reference=prediction()["reference"]), case(opportunity_id="other")):
-        with pytest.raises(ReferenceError):
-            decode_authored(json.dumps(payload(frozen, (invalid,))).encode(), frozen)
 
 
-def test_missing_and_wrong_structure_are_distinct_from_unexamined_scope():
-    correct = score_characterization(frame(), (case(),), (prediction(),), coverage=(coverage(),))
-    assert correct["cases"][0]["judgment"] == "supported"
-    missing = score_characterization(frame(), (case(),), (), coverage=(coverage(),))
-    assert missing["cases"][0]["error_category"] == "missed_opportunity"
-    wrong = prediction()
-    wrong["value"]["value"] = "every"
-    result = score_characterization(frame(), (case(),), (wrong,), coverage=(coverage(),))
-    assert result["cases"][0]["error_category"] == "wrong_structure"
-    unavailable = score_characterization(frame(), (case(),), (), coverage=())
-    assert unavailable["cases"][0]["error_category"] == "prediction_scope_unavailable"
 
 
-def test_inapplicable_is_visible_and_never_earns_semantic_credit():
-    opportunity = replace(frame().opportunities[0], source_state="inapplicable")
-    result = score_characterization(
-        frame(opportunities=(opportunity,)),
-        (case(source_state="inapplicable", alternatives=()),),
-        (),
-        coverage=(coverage(),),
-    )
-    assert result["cases"][0]["judgment"] == "unassessed"
-    assert result["cases"][0]["error_category"] == "inapplicable"
 
 
-def test_source_opportunity_stays_visible_without_reference_or_output():
-    result = score_characterization(frame(), (), (), coverage=(coverage(),))
-    assert result["source_coverage"]["opportunity_count"] == 1
-    assert result["source_coverage"]["opportunities"][0]["assessment_status"] == "reference_missing"
 
 
-def test_output_first_exact_identity_cannot_be_replaced_by_equal_text():
-    original = prediction()["reference"]
-    frozen = frame("output_first", outputs=(original,))
-    other = prediction()
-    other["reference"] = dict(original, local_id="other")
-    with pytest.raises(ReferenceError, match="absent"):
-        score_characterization(
-            frozen, (case(output_reference=original),), (other,), coverage=(coverage(),)
-        )
 
 
 def graph() -> dict[str, Any]:
@@ -216,112 +117,31 @@ def test_graph_projection_keeps_same_spelling_binders_distinct_and_linear():
     }
     layer["terms"] = terms
     actual = LayerProjection(lambda _: layer).project(
-        dict(layer=PIN, collection="terms", local_id="root")
+        dict(product_id=PIN["product_id"], collection="terms", member_id="root")
     )["graph"]
     assert isinstance(actual, dict)
     assert len(actual["nodes"]) == 3
     assert actual["nodes"][0]["edges"][0]["target"] != actual["nodes"][0]["edges"][1]["target"]
     assert (
-        output_key(dict(layer=PIN, collection="coverage", local_id="native.tokens"))[-1]
+        output_key(dict(product_id=PIN["product_id"], collection="coverage", member_id="native.tokens"))[-1]
         == "native.tokens"
     )
 
 
-def test_unlocated_prediction_cannot_prove_a_correct_negative():
-    unlocated = prediction()
-    unlocated["extents"] = []
-    c = case(source_state="unstated", alternatives=(), expectation_mode="absence_detection")
-    result = score_characterization(frame(), (c,), (unlocated,), coverage=(coverage(),))
-    assert result["cases"][0]["judgment"] == "unassessed"
-    assert result["cases"][0]["error_category"] == "mapping_unavailable"
 
 
-def test_another_completed_family_cannot_prove_scope_was_examined():
-    unrelated = dict(coverage(), family="native.tokens")
-    result = score_characterization(frame(), (case(),), (), coverage=(unrelated,))
-    assert result["cases"][0]["error_category"] == "prediction_scope_unavailable"
 
 
-def test_multiple_questions_on_one_opportunity_retain_each_assessment():
-    result = score_characterization(
-        frame(),
-        (case(), case(case_id="other-question", alternatives=({"value": {"value": "every"}},))),
-        (prediction(),),
-        coverage=(coverage(),),
-    )
-    assessments = result["source_coverage"]["opportunities"][0]["assessments"]
-    assert [v["case_id"] for v in assessments] == ["scope-case", "other-question"]
-    assert [v["judgment"] for v in assessments] == ["supported", "unsupported"]
 
 
-def test_native_only_formal_position_remains_unmapped_in_semantic_assessment():
-    native_only = prediction()
-    native_only["extents"] = [{"native_pointer": "#/texts/0"}]
-    result = score_characterization(frame(), (case(),), (native_only,), coverage=(coverage(),))
-    assert result["cases"][0]["error_category"] == "mapping_unavailable"
 
 
-@pytest.mark.parametrize("extents", ([], [{"native_pointer": "#/texts/0"}]))
-def test_evaluation_capture_retains_unmapped_outputs_before_absence_grading(monkeypatch, extents):
-    report = captured_assessment(
-        monkeypatch,
-        extents=extents,
-        expected_case=case(
-            source_state="unstated", alternatives=(), expectation_mode="absence_detection"
-        ),
-    )
-    assert report["output_coverage"]["selected_count"] == 1
-    assert report["cases"][0]["judgment"] == "unassessed"
-    assert report["cases"][0]["error_category"] == "mapping_unavailable"
 
 
-def test_evaluation_capture_discards_provably_disjoint_output(monkeypatch):
-    report = captured_assessment(
-        monkeypatch,
-        extents=[dict(EXTENT, start=25, end=28)],
-        expected_case=case(
-            source_state="unstated", alternatives=(), expectation_mode="absence_detection"
-        ),
-    )
-    assert report["output_coverage"]["selected_count"] == 0
-    assert report["cases"][0]["judgment"] == "supported"
-    assert report["cases"][0]["error_category"] == "inspected_unstated"
 
 
-def test_evaluation_capture_scores_coverage_using_declared_source_selectors(monkeypatch):
-    report = captured_assessment(
-        monkeypatch,
-        extents=[],
-        expected_case=case(
-            candidate_selector={"collection": "coverage", "value": {"family": "prose.scope"}},
-            alternatives=({"value": {"availability": "available", "outcome": "complete"}},),
-        ),
-    )
-    assert report["cases"][0]["judgment"] == "supported"
-    assert report["cases"][0]["matched_references"][0]["collection"] == "coverage"
 
 
-def test_evaluation_coverage_reports_unavailable_truth_without_claiming_semantic_quality(
-    monkeypatch,
-):
-    row = dict(
-        coverage(),
-        eligible=[dict(projection=EXTENT["projection"], start=0, end=20)],
-        examined=[],
-        availability="unavailable",
-        outcome="failed",
-    )
-    report = captured_assessment(
-        monkeypatch,
-        extents=[],
-        coverage_row=row,
-        expected_case=case(
-            candidate_selector={"collection": "coverage", "value": {"family": "prose.scope"}},
-            alternatives=({"value": {"availability": "unavailable", "outcome": "failed"}},),
-        ),
-    )
-    assert report["cases"][0]["judgment"] == "supported"
-    assert report["quality_claim"] == "not_established"
 
 
 def test_semantic_graph_projection_is_frozen_and_ignores_incidental_evidence():
@@ -339,15 +159,6 @@ def test_semantic_graph_projection_is_frozen_and_ignores_incidental_evidence():
     changed = deepcopy(expected)
     changed["nodes"][1]["edges"][1]["target"] = "left"
     assert not graph_equal(actual, changed, "source_semantics")
-    with pytest.raises(ReferenceError, match="declared comparison"):
-        case(alternatives=({"graph": expected},))
-    authored = case(alternatives=({"graph": expected},), graph_projection="source_semantics")
-    assert (
-        decode_authored(json.dumps(payload(frame(), (authored,))).encode(), frame())["cases"][
-            0
-        ].graph_projection
-        == "source_semantics"
-    )
 
 
 def test_semantic_graph_projection_preserves_scope_and_shared_binders():
@@ -457,26 +268,6 @@ def test_semantic_choice_and_prerequisite_order_is_not_incidental_identity():
     assert not graph_equal(actual, crossed, "source_semantics")
 
 
-def test_unresolved_source_does_not_hide_false_unique_output_resolution():
-    reference = prediction()["reference"]
-    opportunity = replace(frame().opportunities[0], source_state="unresolved")
-    frozen = frame("output_first", opportunities=(opportunity,), outputs=(reference,))
-    result = score_characterization(
-        frozen,
-        (
-            case(
-                output_reference=reference,
-                source_state="unresolved",
-                judgment="unsupported",
-                alternatives=(),
-                error_category="unsupported_unique_resolution",
-            ),
-        ),
-        (prediction(),),
-        coverage=(coverage(),),
-    )
-    assert result["cases"][0]["judgment"] == "unsupported"
-    assert result["cases"][0]["error_category"] == "unsupported_unique_resolution"
 
 
 def test_named_binding_graph_alpha_renames_generated_refs_but_keeps_head_direction():
@@ -485,7 +276,7 @@ def test_named_binding_graph_alpha_renames_generated_refs_but_keeps_head_directi
             return prefix + name
 
         def ref(name):
-            return dict(layer=PIN, local_id=local(name))
+            return dict(product_id=PIN["product_id"], member_id=local(name))
 
         occurrences = [
             dict(local_id=local(f"o{i}"), extents=[dict(EXTENT, start=i * 5, end=i * 5 + 1)])
@@ -552,17 +343,17 @@ def test_named_binding_graph_alpha_renames_generated_refs_but_keeps_head_directi
     left, root = layer("producer-")
     right, expected_root = layer("independent-")
     actual = LayerProjection(lambda _: left).project(
-        dict(layer=PIN, collection="annotations", local_id=root["local_id"])
+        dict(product_id=PIN["product_id"], collection="annotations", member_id=root["member_id"])
     )["graph"]
     expected = LayerProjection(lambda _: right).project(
-        dict(layer=PIN, collection="annotations", local_id=expected_root["local_id"])
+        dict(product_id=PIN["product_id"], collection="annotations", member_id=expected_root["member_id"])
     )["graph"]
     assert graph_equal(actual, expected, "source_semantics")
     right["annotations"][-1]["named_match"]["bindings"][0]["head"] = dict(
-        layer=PIN, local_id="independent-token1"
+        product_id=PIN["product_id"], member_id="independent-token1"
     )
     reversed_head = LayerProjection(lambda _: right).project(
-        dict(layer=PIN, collection="annotations", local_id=expected_root["local_id"])
+        dict(product_id=PIN["product_id"], collection="annotations", member_id=expected_root["member_id"])
     )["graph"]
     assert not graph_equal(actual, reversed_head, "source_semantics")
 
@@ -629,19 +420,19 @@ def test_formal_graph_keeps_source_link_and_meaning_without_generated_input_ids(
         )
 
     actual = LayerProjection(lambda _: layer("producer-")).project(
-        dict(layer=PIN, collection="annotations", local_id="producer-token")
+        dict(product_id=PIN["product_id"], collection="annotations", member_id="producer-token")
     )["graph"]
     expected = LayerProjection(lambda _: layer("independent-")).project(
-        dict(layer=PIN, collection="annotations", local_id="independent-token")
+        dict(product_id=PIN["product_id"], collection="annotations", member_id="independent-token")
     )["graph"]
     assert graph_equal(actual, expected, "source_semantics")
     wrong = LayerProjection(lambda _: layer("independent-", "y")).project(
-        dict(layer=PIN, collection="annotations", local_id="independent-token")
+        dict(product_id=PIN["product_id"], collection="annotations", member_id="independent-token")
     )["graph"]
     assert not graph_equal(actual, wrong, "source_semantics")
     wrong_correspondence = LayerProjection(
         lambda _: layer("independent-", correspondence_source="other")
-    ).project(dict(layer=PIN, collection="annotations", local_id="independent-token"))["graph"]
+    ).project(dict(product_id=PIN["product_id"], collection="annotations", member_id="independent-token"))["graph"]
     assert not graph_equal(actual, wrong_correspondence, "source_semantics")
 
 
@@ -691,7 +482,7 @@ def test_navigation_graph_lifts_real_role_token_and_source_label_references():
                     dict(role="cue", occurrences=[prefix + "o1"]),
                 ],
                 native_tokens=[
-                    dict(name="head", index=0, native_node=dict(layer=PIN, local_id=prefix + "t0"))
+                    dict(name="head", index=0, native_node=dict(product_id=PIN["product_id"], member_id=prefix + "t0"))
                 ],
                 source_labels=[
                     dict(kind="numbering_namespace", value="Eq", occurrences=[prefix + "o0"])
@@ -709,344 +500,82 @@ def test_navigation_graph_lifts_real_role_token_and_source_label_references():
         )
 
     actual = LayerProjection(lambda _: layer("producer-")).project(
-        dict(layer=PIN, collection="annotations", local_id="producer-navigation")
+        dict(product_id=PIN["product_id"], collection="annotations", member_id="producer-navigation")
     )["graph"]
     expected = LayerProjection(lambda _: layer("independent-")).project(
-        dict(layer=PIN, collection="annotations", local_id="independent-navigation")
+        dict(product_id=PIN["product_id"], collection="annotations", member_id="independent-navigation")
     )["graph"]
     assert graph_equal(actual, expected, "source_semantics")
     assert not graph_equal(actual, expected, "native_fidelity")
     wrong = LayerProjection(lambda _: layer("independent-", subject=1)).project(
-        dict(layer=PIN, collection="annotations", local_id="independent-navigation")
+        dict(product_id=PIN["product_id"], collection="annotations", member_id="independent-navigation")
     )["graph"]
     assert not graph_equal(actual, wrong, "source_semantics")
 
 
-def native_reference(**changes):
-    return dict(
-        version="spacy-native-reference-v1",
-        kind="spans",
-        scheme="spacy",
-        text="may",
-        words=["may"],
-        spaces=[False],
-        span_key="sents",
-        spans=[dict(start=0, end=3)],
-        labeled=False,
-        **changes,
-    )
 
 
-def test_native_case_expected_structure_is_explicit_and_closed():
-    value = case(
-        native_reference=native_reference(),
-        required_family="spacy.sentences",
-        alternatives=(),
-        candidate_selector={},
-    )
-    assert (
-        decode_authored(json.dumps(payload(frame(), (value,))).encode(), frame())["cases"][
-            0
-        ].native_reference
-        == value.native_reference
-    )
-    for invalid in (
-        dict(native_reference(), scheme="UD"),
-        dict(native_reference(), text="changed"),
-        dict(native_reference(), unknown_field="hidden"),
-    ):
-        with pytest.raises(ReferenceError, match="native scoring"):
-            case(native_reference=invalid, alternatives=(), candidate_selector={})
-    with pytest.raises(ReferenceError, match="own task"):
-        case(native_reference=native_reference())
 
 
-def test_native_partial_scores_never_become_semantic_credit():
-    value = case(
-        native_reference=native_reference(),
-        required_family="spacy.sentences",
-        alternatives=(),
-        candidate_selector={},
-    )
-    result = score_characterization(
-        frame(),
-        (value,),
-        (),
-        native_scores={
-            value.case_id: dict(
-                status="partial",
-                exact_match=True,
-                reason="unalignable_reference",
-                scores={"sents_f": 1.0},
-                coverage={
-                    "reference": {"scored": 1, "unalignable": 1},
-                    "prediction": {"emitted": 1},
-                },
-            )
-        },
-    )
-    assert result["cases"][0]["judgment"] == "unassessed"
-    assert result["cases"][0]["native_metrics"]["scores"]["sents_f"] == 1.0
 
 
-def test_native_exact_task_structure_judgment_does_not_use_a_score_threshold():
-    value = case(
-        native_reference=native_reference(),
-        required_family="spacy.sentences",
-        alternatives=(),
-        candidate_selector={},
-    )
-    for exact, judgment in ((True, "supported"), (False, "unsupported")):
-        result = score_characterization(
-            frame(),
-            (value,),
-            (),
-            native_scores={
-                value.case_id: dict(
-                    status="scored",
-                    exact_match=exact,
-                    reason=None,
-                    scores={"sents_f": 0.999},
-                    coverage={},
-                )
-            },
-        )
-        assert result["cases"][0]["judgment"] == judgment
 
 
-def test_native_capture_restores_retained_block_by_exact_ordered_scope(monkeypatch):
-    from types import SimpleNamespace
-
-    from spacy.tokens import Doc
-
-    from corpus_structure.evaluate.characterization_assessment import NativeCaseInputs
-    from corpus_structure.methods import native_evidence_layers as restoration
-    from corpus_structure.semantic import source_views
-
-    text = "may"
-    extent = dict(EXTENT, start=0, end=3, text=text, synthetic=False)
-    body = dict(
-        base_document=VIEW,
-        operation={"produced_families": ["spacy.tokens", "spacy.sentences"]},
-        source_scope={"source_view_ids": [23]},
-        occurrences=[dict(local_id="block-occ", extents=[extent])],
-        annotations=[
-            dict(
-                local_id="block",
-                kind="native.block",
-                family="spacy.tokens",
-                occurrences=["block-occ"],
-            ),
-            dict(
-                local_id="token",
-                kind="native.token",
-                family="spacy.tokens",
-                native_token=dict(native_run="spacy", container="block"),
-                occurrences=["block-occ"],
-            ),
-        ],
-        memberships=[],
-        roles=[],
-        terms=[],
-        choices=[],
-        coverage=[],
-    )
-    projection = LayerProjection(lambda _: body)
-    frozen = frame(
-        opportunities=(
-            replace(frame().opportunities[0], extents=({key: extent[key] for key in EXTENT},)),
-        )
-    )
-    value = case(
-        native_reference=native_reference(),
-        required_family="spacy.sentences",
-        alternatives=(),
-        candidate_selector={},
-    )
-    restored = []
-
-    def docs(layer, views, vocab, *, required):
-        restored.append((layer.payload, required))
-        return {"block": Doc(vocab, words=["may"], spaces=[False], sent_starts=[True])}
-
-    monkeypatch.setattr(restoration, "retained_spacy_docs", docs)
-    monkeypatch.setattr(
-        source_views, "load_source_view", lambda *a, **k: SimpleNamespace(text=text)
-    )
-    native = NativeCaseInputs(
-        None, frozen, [PIN], projection, [dict(coverage(), family="spacy.sentences")]
-    )
-    first, repeated = native.score(value), native.score(value)
-    assert first["status"] == "scored" and first["exact_match"] is True
-    assert repeated == first and len(restored) == 1
-    token_ref = dict(layer=PIN, collection="annotations", local_id="token")
-    output_frame = replace(
-        frozen,
-        direction="output_first",
-        characterization_view=VIEW,
-        selected_layers=(PIN,),
-        outputs=(token_ref,),
-    )
-    unrelated_output = NativeCaseInputs(
-        None, output_frame, [PIN], projection, [dict(coverage(), family="spacy.sentences")]
-    ).score(replace(value, output_reference=token_ref))
-    assert unrelated_output["status"] == "unavailable"
-    assert unrelated_output["reason"] == "native_output_reference_incompatible"
-    # Same literal string at another authentic source position must not select this block.
-    other_scope = replace(
-        frozen,
-        opportunities=(
-            replace(
-                frozen.opportunities[0],
-                extents=(dict(frozen.opportunities[0].extents[0], start=5, end=8),),
-            ),
-        ),
-    )
-    unrelated = NativeCaseInputs(
-        None, other_scope, [PIN], projection, [dict(coverage(), family="spacy.sentences")]
-    ).score(value)
-    assert (
-        unrelated["status"] == "unavailable"
-        and unrelated["reason"] == "native_block_scope_unavailable"
-    )
 
 
-@pytest.mark.parametrize(
-    ("state", "judgment"),
-    (
-        ("stated", "supported"),
-        ("unstated", "supported"),
-        ("unresolved", "ambiguous"),
-        ("inapplicable", "unassessed"),
-        ("uninspected", "unassessed"),
-    ),
-)
-def test_uninspected_source_opportunity_freezes_scope_without_preauthoring_state(state, judgment):
-    opportunity = replace(frame().opportunities[0], source_state="uninspected")
-    frozen = frame(opportunities=(opportunity,))
-    authored = case(
-        source_state=state,
-        judgment=judgment,
-        alternatives=({"value": {"kind": "operator"}},) if state == "stated" else (),
-        expectation_mode="absence_detection" if state == "unstated" else "structure",
-    )
-    decoded = decode_authored(json.dumps(payload(frozen, (authored,))).encode(), frozen)
-    assert decoded["cases"][0].source_state == state
-    restored = decode_frame(encode_frame(frozen))
-    assert isinstance(restored, OperationEvaluationFrameV3)
-    assert restored.opportunities[0].source_state == "uninspected"
 
 
-def test_known_frozen_source_state_cannot_be_silently_relabelled():
-    with pytest.raises(ReferenceError, match="invalid operation"):
-        decode_authored(
-            json.dumps(
-                payload(
-                    frame(),
-                    (case(source_state="unresolved", judgment="ambiguous", alternatives=()),),
-                )
-            ).encode(),
-            frame(),
-        )
 
 
-def test_output_author_packet_resolves_only_exact_witness_closure(monkeypatch):
-    from types import SimpleNamespace
-
-    from corpus_structure.evaluate import operation_assessment as assessment
-    from corpus_structure.semantic import characterization_store as store
-
-    dependency = dict(PIN, task_id=9, content_digest="d" * 64)
-    selected = dict(layer=PIN, collection="choices", local_id="choice")
-    body = dict(
-        occurrences=[dict(local_id="location", extents=[EXTENT])],
-        roles=[
-            dict(
-                local_id="role",
-                owner="predicate",
-                member="participant",
-                role="subject",
-                occurrences=["location"],
-                basis={"kind": "native_prediction", "status": "recorded"},
-            )
-        ],
-        terms=[
-            dict(
-                local_id="predicate",
-                kind="predicate",
-                children=[dict(role="subject", target="participant", structural=True)],
-            ),
-            dict(local_id="participant", kind="participant", occurrences=["location"]),
-        ],
-        choices=[
-            dict(
-                local_id="choice",
-                compatibility="exclusive",
-                members=[
-                    dict(
-                        local_id="reading",
-                        root="role",
-                        required_external_choices=[
-                            dict(layer=dependency, local_id="external-reading")
-                        ],
-                    )
-                ],
-            )
-        ],
-    )
-    dependency_body = dict(
-        choices=[
-            dict(
-                local_id="dependency-choice",
-                compatibility="unknown",
-                members=[
-                    dict(local_id="external-reading", root="other-root"),
-                    dict(local_id="other-reading", root="other-root"),
-                ],
-            )
-        ],
-        terms=[dict(local_id="other-root", kind="predicate", value="other")],
-    )
-    packet = dict(selected_outputs=[dict(reference=selected, value=body["choices"][0])])
-    monkeypatch.setattr(
-        assessment, "_call", lambda *a, **kw: SimpleNamespace(scalar_one=lambda: deepcopy(packet))
-    )
-    monkeypatch.setattr(assessment, "_unit", lambda *a: {"source_run_id": 47})
-    loaded = []
-
-    def read(_conn, pin, *, run_id, max_bytes):
-        assert run_id == 47 and 0 < max_bytes <= 8388608
-        loaded.append(pin.task_id)
-        return SimpleNamespace(payload=body if pin.task_id == PIN["task_id"] else dependency_body)
-
-    monkeypatch.setattr(store, "read_layer", read)
-    result = assessment.author_packet(cast(Any, None), 3)
-    assert loaded == [7, 9]
-    assert [item["reference"] for item in result["selected_outputs"]] == [selected]
-    witness = result["selected_outputs"][0]["witness_context"]
-    assert witness["purpose"] == "interpretation_only_not_assessed_population"
-    identities = {node["qualified_identity"]["local_id"] for node in witness["graph"]["nodes"]}
-    assert identities == {
-        "choice",
-        "reading",
-        "role",
-        "predicate",
-        "participant",
-        "location",
-        "external-reading",
-        "dependency-choice",
-        "other-reading",
-        "other-root",
-    }
-    assert any(
-        node["value"].get("compatibility") == "unknown" for node in witness["graph"]["nodes"]
-    )
-    monkeypatch.setattr(assessment, "_AUTHOR_PACKET_BYTES", len(json.dumps(packet)))
-    with pytest.raises(ReferenceError, match="byte bound"):
-        assessment.author_packet(cast(Any, None), 3)
 
 
 def test_author_witness_graph_enforces_budget_before_full_closure():
     body = {"terms": [dict(local_id="term", kind="predicate", value="x" * 100)]}
     with pytest.raises(ReferenceError, match="byte bound"):
         LayerProjection(lambda pin: body).graph(PIN, "term", max_bytes=32, witness_closure=True)
+
+
+@pytest.mark.parametrize("provider,column,value", [
+    ("spacy", "pos", "VERB"), ("spacy", "lemma", "run"),
+    ("spacy", "dependency", "ROOT"), ("hanlp", "tag", "VBZ"),
+    ("spacy", "morphology", {}),
+])
+def test_current_member_projection_preserves_native_column_provider_and_empty_value(provider, column, value):
+    from corpus_structure.evaluate.characterization_assessment import _matches
+
+    # Controlled transport values establish projection fidelity, not provider execution.
+    native = dict(native_run="run", scheme="provider-native", **{column: value})
+    body = dict(annotations=[dict(local_id="token", kind="native_token", native_token=native)],
+                native_runs=[dict(local_id="run", provider=provider)])
+    output = dict(product_id=PIN["product_id"], member_id="token", collection="annotations")
+    actual = LayerProjection(lambda pin: body).project(output, include_graph=False)
+    expected = dict(native_provider=provider, value=dict(native_token={column: value, "scheme": "provider-native"}))
+    assert _matches(actual, expected)
+    assert not _matches(actual, dict(native_provider="other-provider"))
+    assert not _matches(actual, dict(value=dict(native_token=dict(scheme="other-scheme"))))
+    del body["annotations"][0]["native_token"][column]
+    absent = LayerProjection(lambda pin: body).project(output, include_graph=False)
+    assert column not in absent["value"]["native_token"]
+    assert not _matches(absent, expected)
+
+
+def test_current_graph_semantics_keeps_label_independent_of_native_score():
+    body = dict(annotations=[dict(local_id="token", kind="native_token", vocabulary="native",
+                                native_label="VERB", scores=[dict(value=0.9)])])
+    before = LayerProjection(lambda pin: body).graph(PIN, "token")
+    body["annotations"][0]["scores"] = [dict(value=0.1)]
+    changed_score = LayerProjection(lambda pin: body).graph(PIN, "token")
+    assert graph_equal(before, changed_score, "source_semantics")
+    assert not graph_equal(before, changed_score, "native_fidelity")
+    body["annotations"][0]["native_label"] = "NOUN"
+    changed_label = LayerProjection(lambda pin: body).graph(PIN, "token")
+    assert not graph_equal(before, changed_label, "source_semantics")
+
+
+def test_assessment_projection_refuses_old_task_addresses():
+    from corpus_structure.evaluate.characterization_assessment import pin_key
+
+    with pytest.raises(ReferenceError, match="current product"):
+        pin_key(dict(task_id=7, product_key="layer", content_digest="a" * 64))
+    with pytest.raises(ReferenceError, match="product/member"):
+        output_key(dict(layer=PIN, local_id="token", collection="annotations"))

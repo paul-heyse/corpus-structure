@@ -74,7 +74,7 @@ including emissions outside the source-first opportunity inventory. Author from
 authenticated source and independent rubric, then bind the output with protected grades
 outside provider and selection inputs. Use the existing review and adjudication owners for
 ambiguous references. An explicit correction creates a revised frozen reference for both
-arms. [Operation assessment owner](../../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py)
+arms. [Operation assessment owner (historical recovery)](../../README.md#historical-recovery)
 
 Freeze each comparator's exact run/cut, semantic release, execution/provider profiles,
 prediction scope and evaluation frame. Use run 404/cut 514 for current source-only

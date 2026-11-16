@@ -70,7 +70,7 @@ candidates are available.
 [M1 producer](../../../python/corpus-structure/src/corpus_structure/methods/m1_source.py) ·
 [Predicate qualification](../../../python/corpus-structure/src/corpus_structure/methods/assertion_qualification.py) ·
 [DMA canary and full-book evidence](../../design_review/evidence/2026-11-08_dma-audit-repair/README.md) ·
-[Prediction selection](../../../python/corpus-structure/src/corpus_structure/evaluate/record_references.py)
+[Prediction selection (historical recovery)](../../README.md#historical-recovery)
 
 For definition questions, d1 can propose a literal, premise or scope reading with its
 own grounded evidence. Preserve the released `definition-scope-1` route for strong

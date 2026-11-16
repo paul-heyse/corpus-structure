@@ -6,7 +6,9 @@ from typing import Any
 
 from corpus_structure.evaluate.record_alignment import RecordEvaluationFrame
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.observations import observation_inputs
+from corpus_structure.semantic.declared_record_sources import declared_record_inputs, DeclaredRecordSource
+from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     evidence_set_identity,
@@ -21,20 +23,17 @@ ROOT = Path(__file__).resolve().parents[3]
 MODEL = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic"
 
 
-PIN = {
-    "source": "source:independent-fixture",
-    "native_product_task_id": 23,
-    "product_key": "organized",
-    "product_digest": "a" * 64,
-    "projection_digest": "b" * 64,
-    "recipe_digest": "c" * 64,
-    "source_view_id": 7,
-}
+PIN = DeclaredRecordSource(
+    "document:independent-fixture", "b" * 64, "#/", "descendants",
+    SubjectContext("project:fixture", "subject:fixture", "document:independent-fixture", b"{}", subject_definition="original-source-view"),
+    "product:independent-source", "member:organized-source", "kind:original-source",
+).pin()
+
 
 
 @cache
 def bundle():
-    return observation_inputs(
+    declared = declared_record_inputs(
         SourceBundle(
             "statistics_semantic",
             (
@@ -49,6 +48,14 @@ def bundle():
             ),
         )
     )
+    # Exact current scope schema, supplied explicitly for pure alignment only.
+    root = "record_alignment_scope_root"
+    return SourceBundle(root, (*declared.sources,
+        SourceArtifact("data_operation_record_policy_scope", (MODEL / "data-operation-record-policy.yaml").read_bytes()),
+        SourceArtifact(root, canonical_bytes(dict(id="urn:record-alignment-scope", name=root,
+            imports=[declared.root, "data_operation_record_policy_scope"]))),
+    ))
+
 
 
 @cache

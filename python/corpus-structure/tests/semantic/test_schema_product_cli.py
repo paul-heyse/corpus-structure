@@ -151,8 +151,12 @@ def test_schema_validation_cli_requests_bounded_dependency_detail(cli, monkeypat
         report["observations"] == value["observations"] and report["complete"] == value["complete"]
     )
     page = report["projection_dependencies"]
-    assert page["total"] > 1 and page["next_after"] == 1
+    # Current default acquisition supplies no retained query-projection analysis.
+    # Its absence is explicit unknown coverage, not an empty complete population.
+    assert page["total"] == 1 and page.get("next_after") is None
+    assert page["paging_complete"] is True and page["coverage_complete"] is False
     assert len(page["items"]) == 1 and page["items"][0]["family"] == "input"
+    assert page["items"][0]["status"] == "unavailable"
 
     def forbidden(*args, **kwargs):
         pytest.fail("invalid native dependency bound acquired settings or pack inputs")
@@ -226,5 +230,7 @@ def test_schema_check_archived_release_forwards_dependency_request(
     report = json.loads(result.stdout)["validation"]
     assert report["report_version"] == 5 and report["release_id"] == prepared.release_id
     page = report["projection_dependencies"]
-    assert page["total"] > 1 and page["next_after"] == 1
+    assert page["total"] == 1 and page.get("next_after") is None
+    assert page["paging_complete"] is True and page["coverage_complete"] is False
     assert len(page["items"]) == 1 and page["items"][0]["family"] == "relation"
+    assert page["items"][0]["status"] == "unavailable"

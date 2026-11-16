@@ -17,7 +17,7 @@ All new-task efficacy and benefit claims remain Proposed.
 
 ## Foundation assessment and preserved boundaries
 
-Current [operation assessment](../../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py)
+Current [operation assessment (historical recovery)](../../README.md#historical-recovery)
 already distinguishes `OperationEvaluationFrameV2` source opportunities from frozen output-first
 contribution membership. It retains source groups, exposure, exact questions/rubrics, source pins,
 source state and independent expected structures. `OperationCase` can assess one narrow facet

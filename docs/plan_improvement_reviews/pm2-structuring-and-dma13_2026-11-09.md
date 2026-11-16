@@ -75,7 +75,7 @@ through completed result projection; a direct projector test alone would miss th
 ### I02 · Show current assessment state alongside the paired transition
 
 **Observed reporting gap; recommended with I01.** Pro §§2.2, 6; PM2-11.
-[`compare_assessments`](../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py)
+[`compare_assessments` (historical recovery)](../README.md#historical-recovery)
 treats `unsupported → unsupported` as unchanged; the
 managed evaluator CLI (`cli/eval.py`, retired; historical finding baseline)
 and review view (`serve/review_views.py`, retired; historical finding baseline)

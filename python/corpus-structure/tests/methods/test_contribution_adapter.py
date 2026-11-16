@@ -325,11 +325,6 @@ def test_local_mentions_attributes_and_directed_endpoints_preserve_repeated_occu
 def test_attribute_semantics_exclude_native_scores_and_accept_independent_label_expectations(
     multi_label, returned, expected
 ):
-    from corpus_structure.evaluate.operation_assessment import (
-        OperationCase,
-        OperationEvaluationFrame,
-        score_cases,
-    )
     from corpus_structure.semantic.contributions import bind_contributions
 
     ctx = context("X")
@@ -357,35 +352,6 @@ def test_attribute_semantics_exclude_native_scores_and_accept_independent_label_
             assert "score" not in attribute
         else:
             assert attribute["score"] == {"kind": "float", "hexadecimal": float(confidence).hex()}
-        frame = OperationEvaluationFrame(
-            unit="source:fixture",
-            release_id="release:test",
-            guideline_version="independent-label-1",
-            rubric_version="attribute-label-1",
-            context_policy="declared-mention-1",
-            operation_question="retain_native_spans_attributes_relations",
-            operation_version="native-local-contributions-2",
-            domain="fixture",
-            direction="output_first",
-            pin=attribute["pin"],
-            contribution_ids=(attribute["contribution_id"],),
-        )
-        authored = OperationCase(
-            case_id="label",
-            facet="role",
-            anchor_ids=(),
-            inspected_scope="mention X",
-            source_state="stated",
-            judgment="supported",
-            alternatives=({"value": {"kind": "text", "text": label}},),
-            explanation="Independent fixture label expectation has no model confidence.",
-            assessor_provenance={"fixture": "independent role label"},
-            contribution_id=attribute["contribution_id"],
-        )
-        assessed = score_cases(
-            frame, (authored,), (attribute,), endpoint_closure=batch.contributions
-        )
-        assert assessed["cases"][0]["judgment"] == "supported"
     bind_contributions(
         release(),
         source=batch.contributions[0]["pin"]["source"],

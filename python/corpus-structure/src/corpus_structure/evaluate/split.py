@@ -5,21 +5,10 @@ The pack's values are its `eval/split.yaml` (D7 §3.1, D2 §2), read by `load_ev
 worked examples, the slices whose units are forced into a dev set, and the set sizes. Pages are
 relative to the source profile's root. An absent file is the defaults.
 
-`split_documents(conn, project_id, config, seed)` assigns every registered document of the project
-once, in one transaction:
-
-1. **reserved**: the worked examples' pages, in no split;
-2. **forced dev**: the declared pages, each with its reason; a page both reserved and forced is
-   refused;
-3. **hash**: the rest, grouped by chapter (`kb.document.meta.chapter`, those without one forming a
-   group), ordered by `sha256(source_uri + str(seed))` over the UTF-8 encoded URI as stored; within
-   each group the documents at 0-based index mod 5 = 4 go to test and the rest to dev.
-
-Existing rows never change. A document registered later is ordered among its chapter's unassigned
-documents only, so it cannot move an assigned one; a document whose source URI already has an
-assignment (new bytes at a known page) takes that page's split. A pack change that contradicts an
-existing row (a page newly reserved or forced that sits elsewhere) is refused, listing each.
-`assign` is the pure rule; `split_of` is the split lookup.
+`assign` implements the pure split rule: reserved pages, forced development pages,
+then stable chapter-local hash assignment. It preserves supplied existing assignments
+and refuses contradictory settings. Database reference-set orchestration belongs to
+current selected assessment products.
 """
 
 from __future__ import annotations
@@ -149,10 +138,3 @@ def assign(
             seen[d.source_uri] = Assignment(d.id, split, "hash", seed_text)
             out.append(seen[d.source_uri])
     return sorted(out, key=lambda a: a.document_id)
-
-
-def split_documents(conn, project_id, config=None, seed=None):
-    """Persist immutable semantic split assignments via the restricted evaluator."""
-    from .semantic import split_documents as persist
-
-    return persist(conn, project_id, config, seed)

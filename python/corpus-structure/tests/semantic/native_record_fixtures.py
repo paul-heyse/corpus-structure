@@ -229,9 +229,6 @@ class RecordSourceRecipe:
             "interpretations",
             "characterization",
             "source-reading",
-            "reference",
-            "characterization-reference",
-            "reference-characterization",
         }:
             raise ValueError(f"unknown record composition: {self.composition}")
         if self.record_method != "records":
@@ -287,7 +284,6 @@ def _interpretation_dependencies(dependencies):
 
 
 def _record_composition(name):
-    from corpus_structure.evaluate.record_references import reference_inputs
     from corpus_structure.semantic.characterization import characterization_inputs
     from corpus_structure.semantic.source_reading_schema import source_reading_inputs
 
@@ -299,12 +295,6 @@ def _record_composition(name):
         return characterization_inputs, None
     if name == "source-reading":
         return source_reading_inputs, None
-    if name == "reference":
-        return reference_inputs, None
-    if name == "characterization-reference":
-        return lambda bundle: characterization_inputs(reference_inputs(bundle)), None
-    if name == "reference-characterization":
-        return lambda bundle: reference_inputs(characterization_inputs(bundle)), None
     raise ValueError(f"unknown record composition: {name}")
 
 

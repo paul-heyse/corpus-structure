@@ -12,7 +12,7 @@ from corpus_structure.evaluate.task_semantics import (
     score_task,
 )
 
-PIN = dict(task_id=7, product_key="layer", content_digest="a" * 64)
+PIN = dict(product_id="product:task-semantic-control")
 EXTENT = dict(source_view_id=23, projection="c" * 64, native_pointer="#/texts/0", start=0, end=1)
 
 
@@ -120,7 +120,7 @@ def predictions(wire, family="construction.predication", selected=None):
         for row in wire.get(name, ())
     ]
     return [
-        projection.project(dict(layer=PIN, collection=name, local_id=identity))
+        projection.project(dict(product_id=PIN["product_id"], collection=name, member_id=identity))
         for name, identity in outputs
         if selected is None or identity in selected
     ]
@@ -572,24 +572,6 @@ def test_output_first_witnesses_do_not_authorize_unselected_context_claims():
     )
 
 
-def test_semantic_case_wire_is_v3_only_and_excludes_other_expectation_kinds():
-    import json
-
-    from evaluation_characterization_assessment_support import case, frame, payload
-
-    from corpus_structure.evaluate.operation_assessment import decode_authored
-    from corpus_structure.evaluate.semantic import ReferenceError
-
-    semantic = case(
-        alternatives=(),
-        candidate_selector={},
-        semantic_reference=reference(),
-        required_family="construction.predication",
-    )
-    decoded = decode_authored(json.dumps(payload(frame(), [semantic])).encode(), frame())
-    assert decoded["cases"][0].semantic_reference["version"] == "characterization-task-reference-v1"
-    with pytest.raises(ReferenceError, match="cannot mix"):
-        case(semantic_reference=reference())
 
 
 def test_conditional_role_assertions_preserve_their_own_choice_prerequisite():
@@ -634,7 +616,7 @@ def test_context_binding_uses_literal_private_role_and_exact_external_proxy():
             family="context.binding",
             kind="context.symbolic_site",
             occurrences=[occurrence],
-            external_premises=[dict(layer=PIN, local_id=target)],
+            external_premises=[dict(product_id=PIN["product_id"], member_id=target)],
         )
         for identity, occurrence, target in (
             ("binder-proxy", "quant", "binder-a"),
@@ -887,11 +869,11 @@ def test_literal_source_cue_kind_and_empty_closed_slot_have_explicit_meaning():
 def test_multi_root_population_shares_exact_witness_nodes_without_merging_roots():
     wire = body()
     projection = LayerProjection(lambda pin: wire)
-    refs = [dict(layer=PIN, collection="terms", local_id=identity) for identity in ("p", "s")]
+    refs = [dict(product_id=PIN["product_id"], collection="terms", member_id=identity) for identity in ("p", "s")]
     rows = [projection.project(ref, include_graph=False) for ref in refs]
     shared = projection.graph_many([(PIN, "p"), (PIN, "s")])
     assert len(shared["roots"]) == 2 and shared["roots"][0] != shared["roots"][1]
-    identities = [node["qualified_identity"]["local_id"] for node in shared["nodes"]]
+    identities = [node["qualified_identity"]["member_id"] for node in shared["nodes"]]
     assert identities.count("s") == 1
     for row, root in zip(rows, shared["roots"], strict=True):
         assert "graph" not in row
@@ -900,15 +882,15 @@ def test_multi_root_population_shares_exact_witness_nodes_without_merging_roots(
 
 
 def test_scalar_capture_does_not_build_graphs_it_cannot_consume(monkeypatch):
-    from evaluation_characterization_assessment_support import captured_assessment, case
-
     def forbidden(*args, **kwargs):
         raise AssertionError("scalar case must not build a graph")
 
     monkeypatch.setattr(LayerProjection, "graph", forbidden)
     monkeypatch.setattr(LayerProjection, "graph_many", forbidden)
-    result = captured_assessment(monkeypatch, extents=[dict(EXTENT, end=20)], expected_case=case())
-    assert result["cases"][0]["judgment"] == "supported"
+    result = LayerProjection(lambda pin: body()).project(
+        dict(product_id=PIN["product_id"], member_id="p", collection="terms"), include_graph=False,
+    )
+    assert result["value"]["kind"] == "predicate" and "graph" not in result
 
 
 def test_object_level_disjunction_uses_literal_connective_not_analytical_groups():
@@ -1242,10 +1224,6 @@ def test_witness_result_declares_existential_scope_and_actual_support_conditions
 
 
 def test_unknown_positive_support_remains_unassessed_in_case_grading():
-    from evaluation_characterization_assessment_support import case, coverage, frame
-
-    from corpus_structure.evaluate.characterization_assessment import score_characterization
-
     wire = body(wrapped=False)
     wire["terms"][-1]["required_choices"] = ["a"]
     wire["choices"] = [
@@ -1259,23 +1237,12 @@ def test_unknown_positive_support_remains_unassessed_in_case_grading():
             ],
         )
     ]
-    authored = case(
-        alternatives=(),
-        candidate_selector={},
-        required_family="construction.predication",
-        semantic_reference=reference(mode="witness", complete_slots=[]),
+    result = score_task(
+        reference(mode="witness", complete_slots=[]),
+        "construction.predication", predictions(wire),
     )
-    result = score_characterization(
-        frame(),
-        (authored,),
-        predictions(wire),
-        coverage=(dict(coverage(), family="construction.predication"),),
-    )
-    graded = result["cases"][0]
-    assert (
-        graded["judgment"] == "unassessed" and graded["error_category"] == "witness_support_unknown"
-    )
-    assert graded["semantic_metrics"]["exact_match"] is None
+    assert result["status"] == "unavailable" and result["exact_match"] is None
+    assert result["reason"] == "witness_support_unknown"
 
 
 def test_output_first_choice_cannot_substitute_correct_unselected_witness_group():
@@ -1307,7 +1274,7 @@ def test_output_first_choice_cannot_substitute_correct_unselected_witness_group(
     def selected(group):
         projection = LayerProjection(lambda pin: wire)
         row = projection.project(
-            dict(layer=PIN, collection="choices", local_id=group), include_graph=False
+            dict(product_id=PIN["product_id"], collection="choices", member_id=group), include_graph=False
         )
         graph = projection.graph_many([(PIN, group)], witness_closure=True)
         row["task_graph"], row["task_graph_root"] = graph, graph["roots"][0]
@@ -1318,7 +1285,7 @@ def test_output_first_choice_cannot_substitute_correct_unselected_witness_group(
     result = score_task(ref, "construction.scope", selected("first"), output_first=True)
     assert result["status"] == "scored" and result["exact_match"] is False
     assert result["differences"][0]["kind"] == "frozen_choice_group_not_matched"
-    assert result["match_scope"]["assessed_choice_groups"][0]["local_id"] == "first"
+    assert result["match_scope"]["assessed_choice_groups"][0]["member_id"] == "first"
     assert (
         score_task(ref, "construction.scope", selected("second"), output_first=True)["exact_match"]
         is True
@@ -1336,7 +1303,7 @@ def candidate_question_wire(
 
     def description(identity: str, start: int, end: int) -> dict[str, Any]:
         return dict(
-            reference=dict(layer=PIN, local_id=identity),
+            reference=dict(product_id=PIN["product_id"], member_id=identity),
             source_members=[extent(start, end)],
             required_external_choices=[],
         )
@@ -1372,7 +1339,7 @@ def candidate_question_wire(
                 family=family,
                 occurrences=["focal-loc"],
                 external_premises=[
-                    dict(layer=PIN, local_id=identity)
+                    dict(product_id=PIN["product_id"], member_id=identity)
                     for identity in ("focal", "endpoint", "second")
                 ],
                 model_answer=dict(
@@ -1512,12 +1479,12 @@ def test_candidate_question_refuses_unbound_or_undeclared_frozen_population(muta
     elif mutation == "wrong_source":
         offered["members"][0]["source_members"][0]["source_view_id"] = 99
     elif mutation == "wrong_identity":
-        offered["members"][0]["reference"]["layer"] = dict(PIN, task_id=88)
+        offered["members"][0]["reference"]["product_id"] = "product:other-task-semantic-control"
     elif mutation == "incompatible":
         offered["compatibility"] = "exclusive"
     elif mutation == "missing_choice":
         offered["members"][0]["required_external_choices"] = [
-            dict(layer=PIN, local_id="unretained-choice")
+            dict(product_id=PIN["product_id"], member_id="unretained-choice")
         ]
     else:
         offered["members"].append(deepcopy(offered["members"][0]))
@@ -1590,12 +1557,12 @@ def test_candidate_choice_prerequisite_preserves_full_term_root_not_normalized_h
         )
     ]
     question = wire["annotations"][-1]
-    question["external_premises"].append(dict(layer=PIN, local_id="host-member"))
+    question["external_premises"].append(dict(product_id=PIN["product_id"], member_id="host-member"))
     frozen = question["model_answer"]["native_answer"]["request"]["interpretation"][
         "frozen_candidates"
     ]
     frozen["alternatives"][0]["members"][0]["required_external_choices"] = [
-        dict(layer=PIN, local_id="host-member")
+        dict(product_id=PIN["product_id"], member_id="host-member")
     ]
     ref = candidate_question_reference()
     ref["groups"] = [

@@ -46,7 +46,7 @@ Ordered procedures remain shadow output until the five core families ship and a 
 promotion meets equivalent evidence requirements.
 
 [D7](../../design/D7-evaluation-goldens-outer-loop.md) and the existing protected
-[semantic evaluator](../../../python/corpus-structure/src/corpus_structure/evaluate/semantic.py)
+[semantic evaluator (historical recovery)](../../README.md#historical-recovery)
 own reference authoring, sampling and grading. The source has immutable source-bound reference
 passes, a completed-cut universe including empty producer reports, archived evaluation policy,
 protected insertion/grading and core/full/evidence
