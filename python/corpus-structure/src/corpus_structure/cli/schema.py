@@ -36,8 +36,8 @@ from corpus_structure.cli.managed import OperationAccount
 from corpus_structure.cli.output import JsonOpt, diagnostic, emit
 from corpus_structure.cli.target import ConfiguredSelection, current_selection, selection_summary
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
-from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.semantic.refusals import trusted_operation_model_id
+from corpus_structure.semantic.storage_target import StorageTarget
 
 if TYPE_CHECKING:
     from sqlalchemy import MetaData

@@ -65,7 +65,12 @@ def test_init_refuses_a_missing_template(
     cli: Any, native_server: Any, semantic_absent_database: DatabaseReservation
 ) -> None:
     name = semantic_absent_database.name
-    result = cli("db", "init", "--creation-only", settings=lambda: settings(native_server, name, "no_such_template"))
+    result = cli(
+        "db",
+        "init",
+        "--creation-only",
+        settings=lambda: settings(native_server, name, "no_such_template"),
+    )
     assert result.exit_code == 1
     assert "the template 'no_such_template' is missing" in result.stderr
     assert not native_server.exists(name)
@@ -134,7 +139,9 @@ def test_reserved_cli_never_adopts_or_drops_an_intervening_database(
             actor.exec_driver_sql(f'DROP DATABASE IF EXISTS "{name}"')
 
 
-def test_cli_subprocess_acknowledges_creation_before_invalid_empty_stage_refusal(native_server: Any) -> None:
+def test_cli_subprocess_acknowledges_creation_before_invalid_empty_stage_refusal(
+    native_server: Any,
+) -> None:
     name = database_name("init").name
     template = database_name("test").name
     with native_server.database(template, native_server.template) as engine:

@@ -27,7 +27,8 @@ from semantic.data_operation_kernel_support import STORAGE
 def test_current_native_release_deployment_resumes_before_separate_activation(
     semantic_bare_engine, native_settings, current_native_model_checkout, monkeypatch
 ):
-    from corpus_structure.cli import model as commands, recipes
+    from corpus_structure.cli import model as commands
+    from corpus_structure.cli import recipes
     from corpus_structure.core.db.store import Store
     from corpus_structure.schema import preparation
     from corpus_structure.semantic.storage_target import StorageTargetError
@@ -45,7 +46,9 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     runner = CliRunner()
 
     def command(*args, **kwargs):
-        return runner.invoke(app, [*args, "--json"], obj=CliState(settings_factory=lambda: settings), **kwargs)
+        return runner.invoke(
+            app, [*args, "--json"], obj=CliState(settings_factory=lambda: settings), **kwargs
+        )
 
     def run(action, candidate):
         return command("model", "change", action, candidate)
@@ -54,9 +57,20 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
         assert result.exit_code == 0, result.output
         return json.loads(result.stdout)
 
-    staged = success(command("model", "change", "preview", "-", input=yaml.safe_dump({
-        "native_revision": "current_release_root", "data_operations": "target.yaml",
-    })))
+    staged = success(
+        command(
+            "model",
+            "change",
+            "preview",
+            "-",
+            input=yaml.safe_dump(
+                {
+                    "native_revision": "current_release_root",
+                    "data_operations": "target.yaml",
+                }
+            ),
+        )
+    )
     success(run("apply", staged["result_id"]))
     authored = success(run("candidate", staged["result_id"]))["result_id"]
     store = ResultStore(root / "results")
@@ -66,17 +80,27 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     assert binding.release_artifacts_sha256 is not None
     success(run("register", authored))
     prepared = commands._prepare_release(root, (), data_operations="target.yaml")
-    wrong_cluster = binding.model_copy(update={
-        "target_identity": binding.target_identity.model_copy(update={"system_identifier": "0"})
-    })
+    wrong_cluster = binding.model_copy(
+        update={
+            "target_identity": binding.target_identity.model_copy(update={"system_identifier": "0"})
+        }
+    )
     with pytest.raises(StorageTargetError, match="differs from the approved target"):
-        deploy_candidate(root, settings, wrong_cluster, prepared, report=lambda _: pytest.fail("unexpected effect"))
+        deploy_candidate(
+            root,
+            settings,
+            wrong_cluster,
+            prepared,
+            report=lambda _: pytest.fail("unexpected effect"),
+        )
 
     upgrade = migrations.upgrade
 
     def drift_after_upgrade(connection, *args, **kwargs):
         result = upgrade(connection, *args, **kwargs)
-        connection.exec_driver_sql("ALTER TABLE data.project ADD CONSTRAINT controlled_deployment_drift CHECK(length(project_id)>0)")
+        connection.exec_driver_sql(
+            "ALTER TABLE data.project ADD CONSTRAINT controlled_deployment_drift CHECK(length(project_id)>0)"
+        )
         return result
 
     with monkeypatch.context() as faults:
@@ -114,9 +138,13 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
         assert migrations.current_revision(connection) == binding.revision
         assert connection.scalar(text("SELECT count(*) FROM sem.release")) == 0
 
-    wrong_purpose = settings.model_copy(update={
-        "database": settings.database.model_copy(update={"admission_url": settings.database.reader_url})
-    })
+    wrong_purpose = settings.model_copy(
+        update={
+            "database": settings.database.model_copy(
+                update={"admission_url": settings.database.reader_url}
+            )
+        }
+    )
     effects = []
     with pytest.raises(DBAPIError) as denied:
         deploy_candidate(root, wrong_purpose, binding, prepared, report=effects.append)
@@ -128,7 +156,11 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     write, close = Invocation._write, Store.close
 
     def fail_checkpoint(invocation):
-        if invocation.manifest.action == "model.deploy" and invocation.manifest.stage == "migration" and invocation.manifest.settled is None:
+        if (
+            invocation.manifest.action == "model.deploy"
+            and invocation.manifest.stage == "migration"
+            and invocation.manifest.settled is None
+        ):
             raise OSError("controlled post-commit receipt failure")
         write(invocation)
 
@@ -153,12 +185,19 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
         assert retained["operation_account"] == account
         if cleanup:
             refused = command("evidence", "retain", failure["invocation_id"], "--for", "I09")
-            assert refused.exit_code == 1 and "evidence promotion requires established custody" in refused.stdout
+            assert (
+                refused.exit_code == 1
+                and "evidence promotion requires established custody" in refused.stdout
+            )
 
     # Existing current roots preflight all purpose/privilege boundaries before
     # publishing any application release or claiming admission.
     with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql("GRANT TEMP ON DATABASE " + connection.dialect.identifier_preparer.quote(binding.target_identity.database) + " TO corpus_sem_writer")
+        connection.exec_driver_sql(
+            "GRANT TEMP ON DATABASE "
+            + connection.dialect.identifier_preparer.quote(binding.target_identity.database)
+            + " TO corpus_sem_writer"
+        )
     try:
         failed = run("deploy", authored)
         assert failed.exit_code == 1, failed.output
@@ -167,7 +206,11 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
         assert failure["operation_account"]["known_effects"] == []
     finally:
         with semantic_bare_engine.begin() as connection:
-            connection.exec_driver_sql("REVOKE TEMP ON DATABASE " + connection.dialect.identifier_preparer.quote(binding.target_identity.database) + " FROM corpus_sem_writer")
+            connection.exec_driver_sql(
+                "REVOKE TEMP ON DATABASE "
+                + connection.dialect.identifier_preparer.quote(binding.target_identity.database)
+                + " FROM corpus_sem_writer"
+            )
 
     deployed = success(run("deploy", authored))
     account = deployed["operation_account"]
@@ -184,16 +227,25 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
         with pytest.raises(ModelError, match="admitted release does not match"):
             deploy_candidate(root, settings, binding, prepared, report=lambda _: None)
     finally:
-        with semantic_bare_engine.begin() as connection, administrative_archive_edit(connection, admitted):
+        with (
+            semantic_bare_engine.begin() as connection,
+            administrative_archive_edit(connection, admitted),
+        ):
             connection.execute(update(admitted).where(exact).values(content_digest=digest))
 
     project = "current-deployment-control"
     with semantic_bare_engine.begin() as connection:
         connection.execute(insert(table("data.project")).values(project_id=project))
         assert activation_token(connection, project).release_id is None
-    checked = success(command("release", "check", "--target", "development", "--release", binding.release))
+    checked = success(
+        command("release", "check", "--target", "development", "--release", binding.release)
+    )
     assert checked["acquired"]["database_oid"] == binding.target_identity.database_oid
-    activated = success(command("release", "activate", binding.release, "--project", project, "--target", "development"))
+    activated = success(
+        command(
+            "release", "activate", binding.release, "--project", project, "--target", "development"
+        )
+    )
     assert activated["release_id"] == binding.release and activated["generation"] == 1
     with semantic_bare_engine.connect() as connection:
         assert activation_token(connection, project).release_id == binding.release

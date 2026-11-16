@@ -29,9 +29,7 @@ def test_reader_prepares_once_and_keeps_queries_and_connections_separate(monkeyp
     from corpus_structure.semantic import contextual_retrieval, contextual_storage
 
     inventory, vectors, query = inputs()
-    prepared = cast(
-        PreparedRelease, SimpleNamespace(release_id="release", artifacts=())
-    )
+    prepared = cast(PreparedRelease, SimpleNamespace(release_id="release", artifacts=()))
     reader = BoundReader(cast(Connection, object()), 1, prepared)
     calls, observed = [], []
     original = contextual_storage.transient_vector_relation

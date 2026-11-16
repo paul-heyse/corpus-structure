@@ -794,11 +794,10 @@ def _prepare_release_uncached(
     stack: tuple[tuple[str, str], ...],
 ) -> PreparedRelease:
     """Prepare a complete interpretation. This does not persist, activate or enforce SQL rules."""
-    data_operation_target = any(
-        a.name.startswith("data-operations/") for a in dependencies.artifacts
-    )
     if any(a.name.startswith("execution/") for a in dependencies.artifacts):
-        _fail("execution_model", "execution", "legacy execution inputs are unsupported", "unsupported")
+        _fail(
+            "execution_model", "execution", "legacy execution inputs are unsupported", "unsupported"
+        )
     for dependency in dependencies.artifacts:
         if dependency.name == "operation/query-manifest.json" or dependency.name.endswith(
             "/operation/query-manifest.json"
@@ -1283,9 +1282,7 @@ def _prepare_release_uncached(
                     if any(v.enum == "Establishment" for v in vocabularies)
                     else [],
                     "executable_reference_splits": (
-                        sorted(
-                            _enum_members(vocabularies, rows, "ReferenceSplit", "executable")
-                        )
+                        sorted(_enum_members(vocabularies, rows, "ReferenceSplit", "executable"))
                         if any(v.enum == "ReferenceSplit" for v in vocabularies)
                         else []
                     ),

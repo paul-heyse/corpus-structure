@@ -517,9 +517,15 @@ def artifact_kernel(
     names = {role.role for role in roles}
     if names != {"sources", "constructions", "nominations"}:
         raise ValueError("artifact computation requires its exact finite input roles")
-    require_consumed_cpu_basis(input_basis, context, roles,
+    require_consumed_cpu_basis(
+        input_basis,
+        context,
+        roles,
         {name: tuple(arguments[name]) for name in names},
-        parameters=canonical_bytes(semantic_value({name: value for name, value in arguments.items() if name not in names})))
+        parameters=canonical_bytes(
+            semantic_value({name: value for name, value in arguments.items() if name not in names})
+        ),
+    )
 
     result = ArtifactIdentityOperation(
         PreparedArtifactInputs(prepared, roles, context, check_active)
@@ -547,8 +553,11 @@ class ArtifactCallPlan:
             arguments=arguments.arguments,
             roles=binding.roles,
             context=binding.subject_context,
-            input_basis=cpu_input_basis_from_binding(self.port.operation.recipe, binding,
-                {role.role: tuple(arguments.arguments[role.role]) for role in binding.roles}),
+            input_basis=cpu_input_basis_from_binding(
+                self.port.operation.recipe,
+                binding,
+                {role.role: tuple(arguments.arguments[role.role]) for role in binding.roles},
+            ),
             prepared=self.prepared,
             check_active=check_active,
         )

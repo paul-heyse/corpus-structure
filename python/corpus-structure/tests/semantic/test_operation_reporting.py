@@ -710,9 +710,7 @@ def test_projection_validation_reuses_retained_detail_and_keeps_compact_complete
         unknowns=(),
         projections=(SimpleNamespace(family="input", analysis=analysis),),
     )
-    context: Any = SimpleNamespace(
-        release_id="release:validation", artifacts=()
-    )
+    context: Any = SimpleNamespace(release_id="release:validation", artifacts=())
     monkeypatch.setattr(products, "read_projection_analysis", lambda _: product)
     compact = projection_validation_report(context).model_dump(mode="json")
     assert compact["report_version"] == 5
