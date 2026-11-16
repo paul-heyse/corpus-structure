@@ -40,6 +40,21 @@ OID130661481, the acknowledged ownership stamp and system7701811359771751232. Th
 used existing `acknowledged_database`, `acquired_target` and `current_revision` while the CLI defect
 was repaired. No native/application deployment or adoption is established.
 
+## Rollback-only root preparation · 2026-11-16
+
+**passed:** native-only preview `264a9a24186b4bd9a62645dbf7748bdd`, exact apply
+`516cf3eee46246d4a26194d6271c7672` (no source patch), and rollback-only candidate
+`c3b3900d559244fd9cc62808bdc37f39` on the owned stage. The candidate contains594 native
+and124 ordinary operations, with no application release or admission claim. The
+[current request](current-root.yaml) selects an empty current root, never the historical chain.
+
+This first candidate is **superseded before registration**: integration inspection found that the
+shared restricted selected-fit reader and older record-fit checks could resolve an adopted
+request's current release instead of its immutable producing episode. The correction must retain
+original release/runtime/recipe/generation and exact intent request/task/attempt/runtime fences,
+including original inputs/support when rechecking the fit. No persistent installation occurred.
+A fresh reviewed preview/candidate must capture that correction before registration.
+
 ## Acceptance still required
 
 - Final-source current root candidate, reviewed exact physical/native/ACL delta, registration and

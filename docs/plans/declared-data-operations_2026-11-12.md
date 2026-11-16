@@ -49,7 +49,11 @@ removed; source regeneration uses current compiler22 and normal archive opening 
 finalization. The old run-based structural/journey/gap/dossier reader tails are removed in favor of
 the actual selected implementations. Independent citation expectations consume the current member
 projection. Current fixture helpers verify installed frozen custody rather than authoring DDL.
-Original CPU definition body/source/target lineage is captured and guarded at retention/publication.
+Original CPU definition and artifact body/source/target lineage is captured and guarded at retention/
+publication. Legacy execution-model fields, result adapters, continuation tokens and archive-name
+standing are removed; current archive authority is the protected native fence and exact retained
+products. Generic SHACL validation remains and now isolates caller-owned graphs using pySHACL's
+native cloning; obsolete qualified execution-graph projections and their orphan fixtures are removed.
 Scoped Python120 had119passed/1stale generated-protocol source hash, `be1a768719b8442ea1d251a9341503a3`;
 current generation and exact retry are required. Scientific artifact registered-native scenarios
 still need their current-DDO counterpart; their expectations must survive reader retirement.
@@ -63,7 +67,15 @@ The fixed catalog has32 variants remaining/60 removed; genuine caller closure, n
 determines retirement. Remaining old scientific/finalizer fixtures must migrate or retire with
 preserved independent expectations. No legacy reader will be kept merely for historical data.
 
-I09 remains open for native-only preview/candidate/register/deploy, a registered current root,
+The native-only normal preview/apply and rollback-only root candidate have now run on the owned
+empty stage (`264a9a24186b4bd9a62645dbf7748bdd`, `516cf3eee46246d4a26194d6271c7672`,
+`c3b3900d559244fd9cc62808bdc37f39`). This candidate is superseded before registration for a
+revealed original-episode binding correction in the restricted selected-fit/record-fit checks.
+No persistent install/adoption follows from rollback-only authoring. The
+[current-root evidence](../design_review/evidence/2026-11-16_ddo-current-native/README.md)
+retains the exact stage/request and acceptance boundary.
+
+I09 remains open for the corrected candidate/register/deploy, a registered current root,
 current fixture baseline, full supported consumer readiness, recovery/fencing and adoption.
 I02/I04/I05/I06 retain common authority, source/body/lineage and native/provider integration.
 DDO-12 remains open for the final-source functional/provider/fault/nonfunctional union.

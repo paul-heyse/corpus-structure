@@ -287,9 +287,13 @@ BEGIN
  RAISE EXCEPTION 'feature fit cut bytes or native pins differ' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=p_derivation AND outcome='success';
  SELECT operation.* INTO STRICT definition FROM sem.data_operation_definition operation
- JOIN ops.data_request request ON request.release_id=operation.release_id AND request.operation_id=operation.operation_id
+ JOIN ops.data_request request ON operation.release_id=episode.release_id AND request.operation_id=operation.operation_id
  WHERE request.id=episode.request_id AND request.project_id=d.project_id;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id
+ AND request_id=episode.request_id AND generation=episode.generation;
+ IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (episode.producer_task_id,episode.producer_attempt,episode.runtime_id) THEN
+ RAISE EXCEPTION 'feature fit frame differs from original producer fences' USING ERRCODE='23514'; END IF;
  SELECT receipt.id INTO STRICT receipt_id FROM ops.data_publication_receipt receipt
  JOIN ops.data_derivation_output output ON output.derivation_id=receipt.derivation_id
  WHERE receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
