@@ -309,7 +309,7 @@ ops.ddo_structural_product_reference(kb.data_product),ops.ddo_require_structural
 CREATE OR REPLACE FUNCTION ops.ddo_require_structural_dossier_completion(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $structural$
 DECLARE definition sem.data_operation_definition; selected jsonb; conclusion kb.data_product;
- comparison_product kb.data_product; value jsonb; actual_count bigint;
+ comparison_product kb.data_product; admission_value jsonb; actual_count bigint;
 BEGIN
  IF r.operation_id<>'structure.dossier/declared' THEN RETURN; END IF;
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
@@ -344,14 +344,14 @@ BEGIN
  AND EXISTS(SELECT FROM ops.ddo_input_support_refs(r.binding,'admissions',selected->'position',conclusion.id,NULL) support
  WHERE support->>'kind'='computation' AND support->>'derivation_id'=episode.id);
  IF actual_count<>1 THEN RAISE EXCEPTION 'dossier admission lacks its exact actual native issuer receipt' USING ERRCODE='23514'; END IF;
- value:=data.ddo_json(conclusion.canonical_body);
+ admission_value:=data.ddo_json(conclusion.canonical_body);
  SELECT product.* INTO STRICT comparison_product FROM kb.data_product product
  JOIN jsonb_array_elements(completion->'inputs') input ON input->>'product_id'=product.id
  WHERE input->>'role'='comparisons' AND input->>'member_id' IS NULL
- AND product.id=value->'report'->>'product_id' AND product.project_id=r.project_id;
- IF jsonb_strip_nulls(value->'report') IS DISTINCT FROM jsonb_strip_nulls(ops.ddo_structural_product_reference(comparison_product))
- OR value->>'statement_encoding' IS DISTINCT FROM 'ddo-semantic-value-v1'
- OR value->>'statement_meaning_json' IS DISTINCT FROM data.canonical_json(ops.ddo_structural_comparison_statement(comparison_product.canonical_body)) THEN
+ AND product.id=admission_value->'report'->>'product_id' AND product.project_id=r.project_id;
+ IF jsonb_strip_nulls(admission_value->'report') IS DISTINCT FROM jsonb_strip_nulls(ops.ddo_structural_product_reference(comparison_product))
+ OR admission_value->>'statement_encoding' IS DISTINCT FROM 'ddo-semantic-value-v1'
+ OR admission_value->>'statement_meaning_json' IS DISTINCT FROM data.canonical_json(ops.ddo_structural_comparison_statement(comparison_product.canonical_body)) THEN
  RAISE EXCEPTION 'dossier admission differs from the actual retained comparison and exact statement' USING ERRCODE='23514'; END IF;
  END LOOP;
 EXCEPTION WHEN no_data_found OR too_many_rows THEN

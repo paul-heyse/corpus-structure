@@ -174,6 +174,46 @@ their Python reader are being retired; two old structural reference functions re
 fixture callers until their current counterparts qualify. Shared characterization scientific
 kernels still have consumers.
 
+Legacy run progress/status DTOs, cursors/readers and their source capture are removed;
+current demand status/tasks remain authoritative. The genuine finalizer/liveness and rich kernels
+still have real legacy fixture consumers and remain explicit retirement work. Preserved controls
+now call their actual coverage/supervisor owners; the bounded37 pure controls **passed**
+`7b5de99603aa403ca267322d65e9756e`, with three native counterparts collected but **not_run**.
+Selected characterization summary is now a metadata-only projection with bounded counts/provider
+digests and exact cut/cursor/unknown standing, with25 worker controls **passed**
+`dfa44e47a2f74faf8078f3d3c5bf3e80`. Actual data acquisition still reads the existing bounded
+selected product page; no native metadata-only fetch is claimed. Current characterization/formal/
+construction/composition consumers and their independent evidence/choice/coverage controls replace
+the old run/task publication fixture. Worker42 pure controls **passed**
+`0cc86d7301cb4828b865b335437eecde`, strengthened syntax1 **passed**
+`1810ea5a4fbe450c8b115b73c9a4290f`;11 native counterparts remain **not_run**.
+
+The new structural journey now has actual selected original source members, a controlled typed CPU
+inventory, production comparison, exact original A/B/C passes, production native issuer and
+ordinary dossier/gap/export plus author/body-copy/disclosure/revocation counterexamples. Its pure
+inventory/independent-statement control **passed** `4d09a02ce1954ae8a0da1f51b95b71d1`;
+native execution remains **not_run** pending v9. It grants no provider-accuracy or independently
+verified external actor-execution credit. Actual source-member versus comparison subject-definition
+alignment must be observed rather than relabelled to satisfy a guard.
+
+V9 authoring remains open after two settled rollback failures, `1054387e05c146dcb77f6322bf259ac5`
+and `82db512e0f1e41699200db98c2915108`. The first required correct SQL definition order; the
+second found one ambiguous dossier local. Both are repaired in current source; the
+[v9 evidence owner](../design_review/evidence/2026-11-15_ddo-v9-native/README.md) retains exact
+source, intent and limits. No v9 files are registered and no persistent deployment occurred.
+Integrated endpoint types/lint **passed** `315905a338f84ac4b5a965a877f0adf1`/
+`18efc94533824c2d9910370a68c615bf`; documentation publication **passed**
+`6680c49e07104463a0fc88b3343a7f03`. These diagnostics do not establish native qualification. All transferred settled worker
+receipts, including failures, are root-held/read; their fully merged worktrees are removed.
+The remaining rich-publication worker owns a still-active worktree.
+
+Two bounded investigations remain with I02/I05/I06: preserve truthful D1 limited-result inspection
+without manufacturing successful/empty candidates, and migrate legacy record publication/support/
+alternative controls through the actual rich CPU/native ports. An unresolved record-field value
+alternative with independent literal evidence is distinct from numerical rich-value disagreement;
+large diagnostics must traverse the actual current controlled producer/admission path. Useful old
+scientific expectations do not justify preserving their storage/protocol shells.
+
 ## Current state and execution order
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |

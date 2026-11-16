@@ -40,7 +40,9 @@ from semantic.structural_admission_native_support import (
 from semantic.structural_native_fixture import TEXT
 
 
-def test_controlled_structural_fixture_has_complete_checked_source_and_independent_expectation(tmp_path):
+def test_controlled_structural_fixture_has_complete_checked_source_and_independent_expectation(
+    tmp_path,
+):
     from corpus_structure.methods.structural_products import produce_structural_comparison
     from corpus_structure.semantic.data_operation_model import BoundRoleMember
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
@@ -63,59 +65,157 @@ def test_controlled_structural_fixture_has_complete_checked_source_and_independe
     assert all(item.complete for item in prepared.model.implementation_slices)
     refs, predicates, retained, passages, sources = [], [], [], [], []
     for side in ("left", "right"):
-        value = FrozenNativeSource.from_projection(prepared.prepared, document="pure:" + side,
-            section_pointer="#/groups/0", membership="descendants", text=TEXT,
-            pieces=[dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=9)],
-            items=[dict(self_ref="#/texts/0", label="text", text=TEXT, orig=TEXT, prov=[])])
+        value = FrozenNativeSource.from_projection(
+            prepared.prepared,
+            document="pure:" + side,
+            section_pointer="#/groups/0",
+            membership="descendants",
+            text=TEXT,
+            pieces=[
+                dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=9)
+            ],
+            items=[dict(self_ref="#/texts/0", label="text", text=TEXT, orig=TEXT, prov=[])],
+        )
         analyzed_scope = dict(source=value.value["source"], selectors=value.value["selectors"])
-        context = dict(project_id=PROJECT, subject="pure:" + side, subject_definition="original-source-view",
-                       original_source="pure:" + side, analyzed_scope=analyzed_scope)
-        member = BoundRoleMember("pure:source:" + side, "pure:source-kind", context["subject"], context["original_source"],
-            json_bytes(analyzed_scope), b"{}", (), b"{}", subject_definition=context["subject_definition"], support_references=())
-        frame = DeclaredNativeFrameSource.acquire(prepared.prepared, value.value, member, project=PROJECT)
-        values = source_values(prepared.prepared, prepared.model, value.value, frame.pin.values(), context,
-            DeclaredStructuralInputPin.from_bound(member, project=PROJECT).model_dump(mode="python"))
+        context = dict(
+            project_id=PROJECT,
+            subject="pure:" + side,
+            subject_definition="original-source-view",
+            original_source="pure:" + side,
+            analyzed_scope=analyzed_scope,
+        )
+        member = BoundRoleMember(
+            "pure:source:" + side,
+            "pure:source-kind",
+            context["subject"],
+            context["original_source"],
+            json_bytes(analyzed_scope),
+            b"{}",
+            (),
+            b"{}",
+            subject_definition=context["subject_definition"],
+            support_references=(),
+        )
+        frame = DeclaredNativeFrameSource.acquire(
+            prepared.prepared, value.value, member, project=PROJECT
+        )
+        values = source_values(
+            prepared.prepared,
+            prepared.model,
+            value.value,
+            frame.pin.values(),
+            context,
+            DeclaredStructuralInputPin.from_bound(member, project=PROJECT).model_dump(
+                mode="python"
+            ),
+        )
         report = values["predicates"]
-        reading = next(packet["body"]["contribution_id"] for packet in report["members"]
-                       if packet["body"].get("component", {}).get("kind") == "predicate_reading")
-        reference = DeclaredContributionRef(product_id="pure:predicate:" + side, member_id=None,
-            kind_contract="pure:predicate-kind", contribution_id=reading,
-            **{key: context[key] for key in ("project_id", "subject", "subject_definition", "original_source")},
-            analyzed_scope_meaning=frame.pin.values()["analyzed_scope_meaning"])
+        reading = next(
+            packet["body"]["contribution_id"]
+            for packet in report["members"]
+            if packet["body"].get("component", {}).get("kind") == "predicate_reading"
+        )
+        reference = DeclaredContributionRef(
+            product_id="pure:predicate:" + side,
+            member_id=None,
+            kind_contract="pure:predicate-kind",
+            contribution_id=reading,
+            **{
+                key: context[key]
+                for key in ("project_id", "subject", "subject_definition", "original_source")
+            },
+            analyzed_scope_meaning=frame.pin.values()["analyzed_scope_meaning"],
+        )
         refs.append(reference)
         predicates.append(Product({}, report))
         from corpus_structure.semantic.declared_candidate_products import candidate_member_values
 
-        retained.append(dict(contributions=candidate_member_values(report, candidate_type="contribution")))
+        retained.append(
+            dict(contributions=candidate_member_values(report, candidate_type="contribution"))
+        )
         source = DeclaredStructuralSource.model_validate(frame.pin.values())
         sources.append(source)
-        passages.append(dict(passage_id=side, source_ref=source.identity, start=0, end=9, text=TEXT, scope="selected"))
-    inputs = DeclaredStructuralInput(question="Compare exact source-qualified controlled roles", scope="selected",
-        inventory_id="independent-native-structural-inputs", policy_id="exact-native-structural-control-1",
-        sources=sources, passages=passages, dependencies=[ref.contribution_id for ref in refs],
-        coverage_limits=["Only retained predicate coverage is used; unavailable formal characterization remains unresolved."])
-    report = produce_structural_comparison(inputs, left_id="left", right_id="right", left_reading=refs[0], right_reading=refs[1],
-        left_retained=retained[0], right_retained=retained[1], primary_layers=None)
+        passages.append(
+            dict(
+                passage_id=side,
+                source_ref=source.identity,
+                start=0,
+                end=9,
+                text=TEXT,
+                scope="selected",
+            )
+        )
+    inputs = DeclaredStructuralInput(
+        question="Compare exact source-qualified controlled roles",
+        scope="selected",
+        inventory_id="independent-native-structural-inputs",
+        policy_id="exact-native-structural-control-1",
+        sources=sources,
+        passages=passages,
+        dependencies=[ref.contribution_id for ref in refs],
+        coverage_limits=[
+            "Only retained predicate coverage is used; unavailable formal characterization remains unresolved."
+        ],
+    )
+    report = produce_structural_comparison(
+        inputs,
+        left_id="left",
+        right_id="right",
+        left_reading=refs[0],
+        right_reading=refs[1],
+        left_retained=retained[0],
+        right_retained=retained[1],
+        primary_layers=None,
+    )
     assert structural_statement(report) == expected_statement(*predicates)
 
 
 def _passes(kernel, report, expected):
-    frame = dict(report=report.reference.model_dump(mode="python"), inputs=report.body["inputs"],
-        question="Compare exact source-qualified controlled roles", case_id="whole", operation="qualified_comparison",
-        rubric_version="independent-structural-comparison-1", direction="source_first", exposed_outputs=[])
+    frame = dict(
+        report=report.reference.model_dump(mode="python"),
+        inputs=report.body["inputs"],
+        question="Compare exact source-qualified controlled roles",
+        case_id="whole",
+        operation="qualified_comparison",
+        rubric_version="independent-structural-comparison-1",
+        direction="source_first",
+        exposed_outputs=[],
+    )
     meaning = canonical_bytes(semantic_value(expected)).decode()
-    return [dict(version="structural-reference-pass-1", frame=deepcopy(frame), pass_kind=kind,
-        actor=dict(principal="protected-structural-author:" + kind, session_id="authored-session:" + kind, basis="authored_attribution"),
-        author_assertion="protected-structural-author:" + kind, parents=[],
-        cases=[dict(case_id="whole", facet="public_statement", path=["public_statement"], judgment="supported",
-                    expected_meaning_json=meaning, source_passages=["left", "right"])]) for kind in ("A", "B", "C")]
+    return [
+        dict(
+            version="structural-reference-pass-1",
+            frame=deepcopy(frame),
+            pass_kind=kind,
+            actor=dict(
+                principal="protected-structural-author:" + kind,
+                session_id="authored-session:" + kind,
+                basis="authored_attribution",
+            ),
+            author_assertion="protected-structural-author:" + kind,
+            parents=[],
+            cases=[
+                dict(
+                    case_id="whole",
+                    facet="public_statement",
+                    path=["public_statement"],
+                    judgment="supported",
+                    expected_meaning_json=meaning,
+                    source_passages=["left", "right"],
+                )
+            ],
+        )
+        for kind in ("A", "B", "C")
+    ]
 
 
 @pytest.fixture
 def structural_native_journey(current_pdf_source_factory, tmp_path):
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
-    with current_pdf_source_factory((("text", TEXT, TEXT, None), ("text", TEXT, TEXT, None))) as source:
+    with current_pdf_source_factory(
+        (("text", TEXT, TEXT, None), ("text", TEXT, TEXT, None))
+    ) as source:
         kernel = admit_current_target(source, recipe(tmp_path), tmp_path / "consumer")
         originals = source_products(source)
         inventories = tuple(build_inventory(kernel, item) for item in originals)
@@ -123,23 +223,53 @@ def structural_native_journey(current_pdf_source_factory, tmp_path):
         component = inventories[0][1]
         selection = compare_selection(originals, predicates)
         source_sets = comparison_sources(originals, predicates)
-        retained, result = execute(kernel, request(kernel, (COMPARE,), originals[0].context,
-            source_sets=source_sets, selections=(selection,), inference="actual-structural-comparison"))
+        retained, result = execute(
+            kernel,
+            request(
+                kernel,
+                (COMPARE,),
+                originals[0].context,
+                source_sets=source_sets,
+                selections=(selection,),
+                inference="actual-structural-comparison",
+            ),
+        )
         assert result.receipt_count == 1
-        (comparison,) = selected(kernel, retained["demand_id"], kind="urn:corpus:structural:DeclaredComparisonReport")
+        (comparison,) = selected(
+            kernel, retained["demand_id"], kind="urn:corpus:structural:DeclaredComparisonReport"
+        )
         expected = expected_statement(*predicates)
         # These expectations were specified from the exact source/finite grammar,
         # before any protected pass exists; output agreement does not author labels.
         from corpus_structure.semantic.structural_admission import structural_statement
         from corpus_structure.semantic.structural_products import DeclaredComparisonReport
 
-        assert structural_statement(DeclaredComparisonReport.model_validate(comparison.body)) == expected
+        assert (
+            structural_statement(DeclaredComparisonReport.model_validate(comparison.body))
+            == expected
+        )
         passes = _passes(kernel, comparison, expected)
-        independent = tuple(authored(kernel, comparison.context, "pass:" + value["pass_kind"], value,
-            author=value["author_assertion"]) for value in passes[:2])
-        staged = author_interpretations(kernel.purpose("evaluate"), kernel.prepared,
-            request=request(kernel, (ISSUER,), comparison.context, originals=independent,
-                            inference="actual-original-structural-A-B"))
+        independent = tuple(
+            authored(
+                kernel,
+                comparison.context,
+                "pass:" + value["pass_kind"],
+                value,
+                author=value["author_assertion"],
+            )
+            for value in passes[:2]
+        )
+        staged = author_interpretations(
+            kernel.purpose("evaluate"),
+            kernel.prepared,
+            request=request(
+                kernel,
+                (ISSUER,),
+                comparison.context,
+                originals=independent,
+                inference="actual-original-structural-A-B",
+            ),
+        )
         # Actual admissions precede C. Its parents are their actual native product
         # addresses and bodies, rather than predicted product IDs or receipts.
         parents = []
@@ -147,24 +277,66 @@ def structural_native_journey(current_pdf_source_factory, tmp_path):
         from corpus_structure.semantic.declared_structural_references import DeclaredProductRef
         from corpus_structure.semantic.demand_results import selected_record_index
 
-        with kernel.purpose("evaluate").begin() as connection, selected_record_index(connection, staged["demand_id"],
-                project_id=PROJECT, scope={}, capture_frontier=True) as (_, index):
+        with (
+            kernel.purpose("evaluate").begin() as connection,
+            selected_record_index(
+                connection, staged["demand_id"], project_id=PROJECT, scope={}, capture_frontier=True
+            ) as (_, index),
+        ):
             for admitted in staged["authored_admissions"]:
                 _, body = _selected_body(index, admitted["product_id"])
-                product = next(row for row in index.rows("kb.data_product") if row["id"] == admitted["product_id"])
-                reference = DeclaredProductRef(product_id=product["id"], member_id=None, kind_contract=product["kind_contract"],
-                    project_id=PROJECT, subject=product["subject"], subject_definition=product["subject_definition"],
-                    original_source=product["original_source"], analyzed_scope_meaning=comparison.reference.analyzed_scope_meaning)
-                parents.append(dict(reference=reference.model_dump(mode="python"), body_digest=body_identity(body).key))
+                product = next(
+                    row
+                    for row in index.rows("kb.data_product")
+                    if row["id"] == admitted["product_id"]
+                )
+                reference = DeclaredProductRef(
+                    product_id=product["id"],
+                    member_id=None,
+                    kind_contract=product["kind_contract"],
+                    project_id=PROJECT,
+                    subject=product["subject"],
+                    subject_definition=product["subject_definition"],
+                    original_source=product["original_source"],
+                    analyzed_scope_meaning=comparison.reference.analyzed_scope_meaning,
+                )
+                parents.append(
+                    dict(
+                        reference=reference.model_dump(mode="python"),
+                        body_digest=body_identity(body).key,
+                    )
+                )
         assert len(parents) == 2
         passes[2]["parents"] = parents
-        originals_passes = (*independent, authored(kernel, comparison.context, "pass:C", passes[2], author=passes[2]["author_assertion"]))
-        yield dict(kernel=kernel, source=source, originals=originals, predicates=predicates, component=component,
-            comparison=comparison, comparison_selection=selection, source_sets=source_sets,
-            passes=passes, original_passes=originals_passes, expected=expected, tmp_path=tmp_path)
+        originals_passes = (
+            *independent,
+            authored(
+                kernel,
+                comparison.context,
+                "pass:C",
+                passes[2],
+                author=passes[2]["author_assertion"],
+            ),
+        )
+        yield dict(
+            kernel=kernel,
+            source=source,
+            originals=originals,
+            predicates=predicates,
+            component=component,
+            comparison=comparison,
+            comparison_selection=selection,
+            source_sets=source_sets,
+            passes=passes,
+            original_passes=originals_passes,
+            expected=expected,
+            tmp_path=tmp_path,
+        )
 
 
-def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_export(structural_native_journey, monkeypatch):
+def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_export(
+    structural_native_journey, monkeypatch
+):
     from corpus_structure.semantic.data_operation_service import DemandOperationSelection
     from corpus_structure.serve.selected_structural_review import (
         SelectedStructuralReviewRequest,
@@ -179,53 +351,124 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
 
     case = structural_native_journey
     kernel, comparison = case["kernel"], case["comparison"]
-    retained, result = execute(kernel, request(kernel, (ISSUER,), comparison.context, originals=case["original_passes"],
-        inference="actual-structural-independent-issuer"), purpose="evaluate", author=True)
+    retained, result = execute(
+        kernel,
+        request(
+            kernel,
+            (ISSUER,),
+            comparison.context,
+            originals=case["original_passes"],
+            inference="actual-structural-independent-issuer",
+        ),
+        purpose="evaluate",
+        author=True,
+    )
     assert result.receipt_count == 1
-    (admission,) = selected(kernel, retained["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission")
+    (admission,) = selected(
+        kernel, retained["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission"
+    )
     assert admission.body["assessment_basis"] == "independently_attributed_authored_judgments"
     assert admission.body["scientific_truth"] == "not_established"
     assert admission.body["member_truth"] == "not_established_by_assembly_admission"
-    assert admission.body["statement_meaning_json"] == canonical_bytes(semantic_value(case["expected"])).decode()
+    assert (
+        admission.body["statement_meaning_json"]
+        == canonical_bytes(semantic_value(case["expected"])).decode()
+    )
     component = case["component"]
     component_id = component.body["definition_components"]["components"][0]["component_id"]
-    dossier_selection = DemandOperationSelection(operation=DOSSIER, parameters=dict(component_id=component_id,
-        question="Assemble the actual selected comparison and unresolved root", scope="selected"))
-    sources = (*case["source_sets"],
+    dossier_selection = DemandOperationSelection(
+        operation=DOSSIER,
+        parameters=dict(
+            component_id=component_id,
+            question="Assemble the actual selected comparison and unresolved root",
+            scope="selected",
+        ),
+    )
+    sources = (
+        *case["source_sets"],
         FrozenSourceSet("dossier-sources", tuple(value.entry() for value in case["originals"])),
         FrozenSourceSet("dossier-components", (component.entry(),)),
         FrozenSourceSet("dossier-definitions", ()),
         FrozenSourceSet("dossier-comparisons", (comparison.entry(),)),
         FrozenSourceSet("dossier-candidates", ()),
         FrozenSourceSet("dossier-relationships", ()),
-        FrozenSourceSet("dossier-admissions", (admission.entry(),)))
+        FrozenSourceSet("dossier-admissions", (admission.entry(),)),
+    )
     # Ordinary execution consumes the bounded conclusion. The writer does not
     # receive evaluator inputs or a capability to issue another conclusion.
-    ordinary, ordinary_result = execute(kernel, request(kernel, (DOSSIER,), comparison.context,
-        source_sets=sources, selections=(dossier_selection,), inference="actual-writer-dossier-consumer"))
+    ordinary, ordinary_result = execute(
+        kernel,
+        request(
+            kernel,
+            (DOSSIER,),
+            comparison.context,
+            source_sets=sources,
+            selections=(dossier_selection,),
+            inference="actual-writer-dossier-consumer",
+        ),
+    )
     assert ordinary_result.receipt_count == 1
-    (ordinary_dossier,) = selected(kernel, ordinary["demand_id"], kind="urn:corpus:structural:DeclaredDossierReport")
-    complete, _ = execute(kernel, request(kernel, (COMPARE, ISSUER, DOSSIER), comparison.context,
-        originals=case["original_passes"], source_sets=sources,
-        selections=(case["comparison_selection"], dossier_selection), inference="actual-ordinary-structural-dossier"), purpose="evaluate", author=True)
-    (actual_comparison,) = selected(kernel, complete["demand_id"], kind="urn:corpus:structural:DeclaredComparisonReport")
-    (actual_admission,) = selected(kernel, complete["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission")
-    (dossier,) = selected(kernel, complete["demand_id"], kind="urn:corpus:structural:DeclaredDossierReport")
+    (ordinary_dossier,) = selected(
+        kernel, ordinary["demand_id"], kind="urn:corpus:structural:DeclaredDossierReport"
+    )
+    complete, _ = execute(
+        kernel,
+        request(
+            kernel,
+            (COMPARE, ISSUER, DOSSIER),
+            comparison.context,
+            originals=case["original_passes"],
+            source_sets=sources,
+            selections=(case["comparison_selection"], dossier_selection),
+            inference="actual-ordinary-structural-dossier",
+        ),
+        purpose="evaluate",
+        author=True,
+    )
+    (actual_comparison,) = selected(
+        kernel, complete["demand_id"], kind="urn:corpus:structural:DeclaredComparisonReport"
+    )
+    (actual_admission,) = selected(
+        kernel, complete["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission"
+    )
+    (dossier,) = selected(
+        kernel, complete["demand_id"], kind="urn:corpus:structural:DeclaredDossierReport"
+    )
     assert actual_comparison.row["product_id"] == comparison.row["product_id"]
     assert dossier.row["product_id"] == ordinary_dossier.row["product_id"]
     assert dossier.body["admissions_input"][0]["product_id"] == actual_admission.row["product_id"]
     assert dossier.body["dossier"]["members"]
     assert all(value["qualification"] == "proposed" for value in dossier.body["dossier"]["members"])
-    gap = SelectedGapRequest(demand_id=complete["demand_id"], project_id=PROJECT,
-        report="unconnected_supported_comparison", root=actual_comparison.root, binding=dossier.root, admission=actual_admission.root)
+    gap = SelectedGapRequest(
+        demand_id=complete["demand_id"],
+        project_id=PROJECT,
+        report="unconnected_supported_comparison",
+        root=actual_comparison.root,
+        binding=dossier.root,
+        admission=actual_admission.root,
+    )
     with kernel.purpose("read").begin() as connection:
         page = inspect_selected_gap(connection, gap)
-        membership = inspect_selected_dossier(connection, SelectedDossierRequest(demand_id=complete["demand_id"], project_id=PROJECT,
-            root=dossier.root, population="membership"))
-        archive = export_selected_structural_review(connection, SelectedStructuralReviewRequest(selection=gap), destination=case["tmp_path"] / "ordinary-structural-review")
+        membership = inspect_selected_dossier(
+            connection,
+            SelectedDossierRequest(
+                demand_id=complete["demand_id"],
+                project_id=PROJECT,
+                root=dossier.root,
+                population="membership",
+            ),
+        )
+        archive = export_selected_structural_review(
+            connection,
+            SelectedStructuralReviewRequest(selection=gap),
+            destination=case["tmp_path"] / "ordinary-structural-review",
+        )
     assert page["availability"] == "observed"
     (row,) = page["rows"]
-    assert row["reason"] == "no_qualifying_root_binding" and set(row["evidence"]["sides"]) == {"left", "right"}
+    assert row["reason"] == "no_qualifying_root_binding" and set(row["evidence"]["sides"]) == {
+        "left",
+        "right",
+    }
     assert row["evidence"]["scientific_truth"] == "not_established"
     assert membership["availability"] == "observed"
     archive_path, archive_digest = archive["path"], archive["manifest_digest"]
@@ -233,7 +476,9 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     verified = verify_selected_structural_review(Path(archive_path), manifest_digest=archive_digest)
     assert verified["cut_id"] == archive["cut_id"]
     # Every delivered ordinary byte is inspected, including native support closure.
-    ordinary = b"".join(path.read_bytes() for path in Path(archive_path).rglob("*") if path.is_file())
+    ordinary = b"".join(
+        path.read_bytes() for path in Path(archive_path).rglob("*") if path.is_file()
+    )
     assert b"protected-structural-author:" not in ordinary and b"authored-session:" not in ordinary
     # Captured schemas may describe the protected kind. Actual protected products
     # and original pass bodies are not ordinary disclosed provenance.
@@ -242,49 +487,107 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     closure_name = native_manifest["closure"]
     assert isinstance(closure_name, str)
     closure = [json_loads(line) for line in (native / closure_name).read_bytes().splitlines()]
-    protected_kind = kernel.identities["urn:corpus:structural-admission:protected:DdoStructuralReferencePass", "kind"]
-    assert not any(value["relation"] == "kb.data_product" and value["record"]["kind_contract"] == protected_kind for value in closure)
-    assert any(value["relation"] == "ops.data_authority_leaf"
-               and value["record"]["product_id"] == actual_admission.row["product_id"]
-               and value["record"]["protected_dependencies"] == "undisclosed" for value in closure)
+    protected_kind = kernel.identities[
+        "urn:corpus:structural-admission:protected:DdoStructuralReferencePass", "kind"
+    ]
+    assert not any(
+        value["relation"] == "kb.data_product"
+        and value["record"]["kind_contract"] == protected_kind
+        for value in closure
+    )
+    assert any(
+        value["relation"] == "ops.data_authority_leaf"
+        and value["record"]["product_id"] == actual_admission.row["product_id"]
+        and value["record"]["protected_dependencies"] == "undisclosed"
+        for value in closure
+    )
 
     # Same-shaped authored content has no issuer standing. Give the copied fact
     # its actual different subject so semantic-product deduplication cannot turn
     # this into possession of the already genuinely issued product.
     from corpus_structure.serve.interpretation_authoring import author_interpretations
-    copy_context = replace(comparison.context, subject="authored-copy:" + comparison.context.subject)
-    copied = authored(kernel, copy_context, "ordinary-admission-copy", admission.body,
-        author="ordinary authored-copy control", kind="urn:corpus:structural-admission:DdoStructuralAdmission")
-    copy_report = author_interpretations(kernel.purpose("write"), kernel.prepared,
-        request=request(kernel, (DOSSIER,), copy_context, originals=(copied,), source_sets=sources,
-            selections=(dossier_selection,), inference="same-kind-authored-content-is-not-native-authority"))
+
+    copy_context = replace(
+        comparison.context, subject="authored-copy:" + comparison.context.subject
+    )
+    copied = authored(
+        kernel,
+        copy_context,
+        "ordinary-admission-copy",
+        admission.body,
+        author="ordinary authored-copy control",
+        kind="urn:corpus:structural-admission:DdoStructuralAdmission",
+    )
+    copy_report = author_interpretations(
+        kernel.purpose("write"),
+        kernel.prepared,
+        request=request(
+            kernel,
+            (DOSSIER,),
+            copy_context,
+            originals=(copied,),
+            source_sets=sources,
+            selections=(dossier_selection,),
+            inference="same-kind-authored-content-is-not-native-authority",
+        ),
+    )
     (copy_header,) = copy_report["authored_admissions"]
     assert copy_header["evidence"]["standing"] == "authored"
     from corpus_structure.semantic.demand_results import selected_record_index
-    with kernel.purpose("read").begin() as connection, selected_record_index(connection,
-            copy_report["demand_id"], project_id=PROJECT, scope={"product_ids": [copy_header["product_id"]]},
-            capture_frontier=True) as (_, index):
-        assert copy_header["admission_id"] in {value["admission_id"] for value in index.frontier_rows("original_source_admissions")}
+
+    with (
+        kernel.purpose("read").begin() as connection,
+        selected_record_index(
+            connection,
+            copy_report["demand_id"],
+            project_id=PROJECT,
+            scope={"product_ids": [copy_header["product_id"]]},
+            capture_frontier=True,
+        ) as (_, index),
+    ):
+        assert copy_header["admission_id"] in {
+            value["admission_id"] for value in index.frontier_rows("original_source_admissions")
+        }
         assert not tuple(index.rows("ops.data_authority_leaf"))
     with kernel.engine.begin() as connection:
-        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation_output WHERE product_id=:product"),
-                                 {"product": copy_header["product_id"]}) == 0
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM ops.data_derivation_output WHERE product_id=:product"),
+                {"product": copy_header["product_id"]},
+            )
+            == 0
+        )
     # This address is an adversarial caller claim, never a fabricated receipt.
     # It cannot borrow the other exact product's real issuer proof.
-    claimed_root = actual_admission.root.model_copy(update={"product_id": copy_header["product_id"]})
+    claimed_root = actual_admission.root.model_copy(
+        update={"product_id": copy_header["product_id"]}
+    )
     with kernel.purpose("read").begin() as connection:
-        refused = inspect_selected_gap(connection, gap.model_copy(update={"admission": claimed_root}))
+        refused = inspect_selected_gap(
+            connection, gap.model_copy(update={"admission": claimed_root})
+        )
     assert [row["status"] for row in refused["rows"]] == ["unavailable"]
     assert refused["rows"][0]["reason"] == "authorized_comparison_support_unavailable"
 
     for failure in ("original-author", "ordinary-output"):
         changed = deepcopy(case["passes"][2])
         changed["actor"]["session_id"] += ":" + failure
-        author = "different-original-author" if failure == "original-author" else changed["author_assertion"]
+        author = (
+            "different-original-author"
+            if failure == "original-author"
+            else changed["author_assertion"]
+        )
         c = authored(kernel, comparison.context, "refusal:C:" + failure, changed, author=author)
-        pending = request(kernel, (ISSUER,), comparison.context, originals=(*case["original_passes"][:2], c),
-            inference="native-structural-refusal:" + failure)
-        _assert_native_issuer_refusal(kernel, pending, monkeypatch, exchange_output=failure == "ordinary-output")
+        pending = request(
+            kernel,
+            (ISSUER,),
+            comparison.context,
+            originals=(*case["original_passes"][:2], c),
+            inference="native-structural-refusal:" + failure,
+        )
+        _assert_native_issuer_refusal(
+            kernel, pending, monkeypatch, exchange_output=failure == "ordinary-output"
+        )
 
     # Revoke the actual original C, not an equal body, a guessed receipt or a
     # selected alias. Common reverse impact must reach issuer and ordinary dossier.
@@ -293,22 +596,62 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 
-    (original_c,) = [value for value in retained["authored_admissions"] if value["selection_name"] == "pass:C"]
+    (original_c,) = [
+        value for value in retained["authored_admissions"] if value["selection_name"] == "pass:C"
+    ]
     with kernel.engine.begin() as connection:
-        assert connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": actual_admission.row["derivation_id"]}) is True
-        assert connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": dossier.row["derivation_id"]}) is True
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_support_valid(:episode)"),
+                {"episode": actual_admission.row["derivation_id"]},
+            )
+            is True
+        )
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_support_valid(:episode)"),
+                {"episode": dossier.row["derivation_id"]},
+            )
+            is True
+        )
     with kernel.purpose("write").begin() as connection:
-        DataOperationStorage(connection).revoke_data_support(cast(WireRevokeDataSupportRequest, dict(
-            project_id=PROJECT, original_source=comparison.context.original_source, selector_kind="original-admission",
-            selector=original_c["admission_id"], reason="controlled actual structural C revocation")))
+        DataOperationStorage(connection).revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                dict(
+                    project_id=PROJECT,
+                    original_source=comparison.context.original_source,
+                    selector_kind="original-admission",
+                    selector=original_c["admission_id"],
+                    reason="controlled actual structural C revocation",
+                ),
+            )
+        )
     with kernel.engine.begin() as connection:
-        assert connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": actual_admission.row["derivation_id"]}) is False
-        assert connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": dossier.row["derivation_id"]}) is False
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_support_valid(:episode)"),
+                {"episode": actual_admission.row["derivation_id"]},
+            )
+            is False
+        )
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_support_valid(:episode)"),
+                {"episode": dossier.row["derivation_id"]},
+            )
+            is False
+        )
     with kernel.purpose("read").begin() as connection:
         current = inspect_selected_gap(connection, gap)
     assert current["rows"] and all(row["status"] == "unavailable" for row in current["rows"])
     # The held historic transfer remains verifiable; it grants no current trust.
-    assert verify_selected_structural_review(Path(archive_path), manifest_digest=archive_digest)["cut_id"] == archive["cut_id"]
+    assert (
+        verify_selected_structural_review(Path(archive_path), manifest_digest=archive_digest)[
+            "cut_id"
+        ]
+        == archive["cut_id"]
+    )
 
 
 def _assert_native_issuer_refusal(kernel, pending, monkeypatch, *, exchange_output):
@@ -322,16 +665,27 @@ def _assert_native_issuer_refusal(kernel, pending, monkeypatch, *, exchange_outp
     observed = []
 
     def guarded(storage, payload):
-        if payload["completion"]["outputs"] and payload["completion"]["outputs"][0]["role"] == "admission":
+        if (
+            payload["completion"]["outputs"]
+            and payload["completion"]["outputs"][0]["role"] == "admission"
+        ):
             if exchange_output:
                 exchanged = deepcopy(payload)
-                value = decode_semantic_value(exchanged["completion"]["outputs"][0]["product"]["body"])
+                value = decode_semantic_value(
+                    exchanged["completion"]["outputs"][0]["product"]["body"]
+                )
                 import json
+
                 statement = decode_semantic_value(json.loads(value["statement_meaning_json"]))
                 statement["scope"] = "forged-native-output-scope"
-                value["statement_meaning_json"] = canonical_bytes(semantic_value(statement)).decode()
+                value["statement_meaning_json"] = canonical_bytes(
+                    semantic_value(statement)
+                ).decode()
                 exchanged["completion"]["outputs"][0]["product"]["body"] = semantic_value(value)
-                assert exchanged["completion"]["execution_evidence"] == payload["completion"]["execution_evidence"]
+                assert (
+                    exchanged["completion"]["execution_evidence"]
+                    == payload["completion"]["execution_evidence"]
+                )
                 payload = exchanged
             try:
                 return actual(storage, payload)
@@ -347,5 +701,9 @@ def _assert_native_issuer_refusal(kernel, pending, monkeypatch, *, exchange_outp
     assert len(observed) == 1
     error = observed[0].orig
     assert isinstance(error, psycopg.errors.CheckViolation) and error.sqlstate == "23514"
-    expected = "ordinary conclusion differs" if exchange_output else "original submitted author attribution"
+    expected = (
+        "ordinary conclusion differs"
+        if exchange_output
+        else "original submitted author attribution"
+    )
     assert expected in (error.diag.message_primary or "")
