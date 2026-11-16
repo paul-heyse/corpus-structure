@@ -16,7 +16,7 @@ ASSET = "record-policy-native-fixture/candidate-assets"
 MODULE = "evaluate.declared_record_candidate_fixture"
 
 
-def candidate_values(prepared, source, pin, *, model, check_active, family="table"):
+def candidate_values(prepared, source, pin, *, model, check_active, family="table", variant="standard"):
     from copy import deepcopy
 
     from corpus_structure.semantic.record_contracts import (
@@ -29,6 +29,8 @@ def candidate_values(prepared, source, pin, *, model, check_active, family="tabl
 
     if family not in {"table", "measurement"}:
         raise ValueError("controlled candidate family is not declared")
+    if variant not in {"standard", "unresolved-value-alternative"}:
+        raise ValueError("controlled candidate variant is not declared")
     value_role = "value" if family == "table" else "original_value"
     tables = [item for item in source["items"] if item.get("label") == "table"]
     if len(tables) != 1 or len(tables[0].get("data", {}).get("table_cells", ())) != 2:
@@ -129,8 +131,19 @@ def candidate_values(prepared, source, pin, *, model, check_active, family="tabl
         value.update(
             state="unresolved", reason="controlled extraction did not resolve this interpretation"
         )
-        value.pop("value")
+        actual_value = value.pop("value")
         value.pop("original")
+        if variant == "unresolved-value-alternative":
+            literal = next(item for item in unresolved["evidence_sets"] if item["set_id"] == value["evidence_sets"][0])
+            inspected = dict(literal, usage="context")
+            inspected["set_id"] = evidence_set_identity(inspected)
+            unresolved["evidence_sets"] = (*unresolved["evidence_sets"], inspected)
+            value["evidence_sets"] = (inspected["set_id"],)
+            value["alternatives"] = (dict(
+                alternative_id=f"controlled-native-cell-{position}-actual-value",
+                value=actual_value, evidence_sets=(literal["set_id"],),
+                reason="actual located value remains a distinct unresolved alternative",
+            ),)
         unresolved["interpretation_id"] = interpretation_identity(unresolved)
         records.append(unresolved)
     return tuple(records), tuple(coordinates)
@@ -160,6 +173,7 @@ def execute_kernel(
         model=bound_data_operation_model(prepared),
         check_active=check_active,
         family=question.get("family", "table"),
+        variant=question.get("variant", "standard"),
     )
     actual_context = SubjectContext(
         context["project_id"],
@@ -182,7 +196,11 @@ def execute_kernel(
         coverage=(
             dict(family=question.get("family", "table"), scope=pin["source"], outcome=outcome),
         ),
-        diagnostics={"reports": [], "fixture": "controlled-native-two-cell-computation"},
+        diagnostics={
+            "reports": [], "fixture": "controlled-native-two-cell-computation",
+            **({"controlled_large": "x" * question["diagnostic_bytes"]}
+               if question.get("diagnostic_bytes", 0) else {}),
+        },
     )
 
 

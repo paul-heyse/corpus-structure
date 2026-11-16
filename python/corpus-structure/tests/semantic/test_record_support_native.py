@@ -1,67 +1,88 @@
-"""Native ordinary support/diagnostic journey; controlled source, no quality claim."""
+"""Current native support custody, bounded diagnostics and revocation."""
 
-from dataclasses import replace
+from decimal import Decimal
+from typing import cast
 
 import pytest
+from evaluate.declared_record_native_support import PROJECT, run_readings
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.method import CoverageDraft
-from corpus_structure.semantic.domain_operations import consolidate_cut
-from corpus_structure.semantic.operations import complete_unit_result, seal_cut
-from corpus_structure.semantic.read_snapshot import read_snapshot
-from corpus_structure.semantic.record_queries import (
-    RecordReadLimit,
-    read_completed_record_projection,
+from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.rich_queries import SourceReadingsQuery
+from semantic.record_publication_native_support import (
+    publish_readings, query_publication, rich_publication as rich_publication,
 )
-from semantic.native_record_fixtures import RecordSourceRecipe, candidate, unit
-from semantic.native_record_fixtures import private_source as private_source
 
 
-@pytest.mark.parametrize(
-    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
-)
-def test_native_candidate_support_omits_large_diagnostics_but_retains_available_task_locator(
-    private_source, record_source_reader
-):
-    case = private_source
-    with case.writer.begin() as conn:
-        complete_unit_result(
-            conn,
-            task_id=case.task,
-            attempt=case.held.attempt,
-            holder="records",
-            prepared=case.prepared,
-            method=case.method,
-            configuration_hash="private-config",
-            source="private-unit",
-            records=(candidate(case),),
-            result=replace(
-                unit(case),
-                parse_detail=dict(tokens="x" * (2 * 1024**2)),
-                coverage=(
-                    CoverageDraft(
-                        family="table",
-                        scope="private-unit",
-                        outcome="partial",
-                        reason="controlled inspection",
-                    ),
-                ),
-            ),
-        )
-        cut = seal_cut(conn, case.run, "candidate-support-final", final=True)
-    result = consolidate_cut(case.writer, cut, "candidate-support-result")
-    with read_snapshot(record_source_reader) as conn:
-        projection = read_completed_record_projection(
-            conn, run_id=case.run, include_diagnostics=False
-        )
-        with pytest.raises(RecordReadLimit):
-            read_completed_record_projection(
-                conn, run_id=case.run, include_diagnostics=True, max_bytes=64 * 1024
-            )
-    assert projection.cut_id == cut
-    assert projection.realization_id == result.realization_id
-    assert len(projection.rows["source_record"]) == 1
-    assert projection.rows["record_assertion"] == ()
-    producer = next(row for row in projection.coverage if row.selected_task_id == case.task)
-    assert producer.origin_task_id == case.task and producer.cut_member
-    assert producer.diagnostics is None
-    assert producer.diagnostics_available and not producer.diagnostics_included
+def test_native_support_keeps_actual_raw_resolution_and_admission_producers(rich_publication, monkeypatch):
+    from evaluate.declared_record_native_support import complete_policy_fit
+    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+
+    journey = rich_publication
+    fitted = complete_policy_fit(journey)
+    _, products, *_ = journey.selected_products(journey.kernel.purpose("read"), fitted.demand_id,
+        kind="https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization")
+    ((authorization, _),) = products
+    source = next(source for source in journey.sources
+        if source.pin == fitted.calibration.grade.frame.coverage[0].source)
+    selected = publish_readings(journey, fitted.calibration_readings, source=source,
+        authorization=authorization, inference="actual-record-support")
+    assert len(selected.admission.selected_reading_ids) == 2
+    assert selected.admission.selected_fact_ids == ()
+    page = query_publication(selected, SourceReadingsQuery(name="source_readings"), limit=1)
+    assert len(page["rows"]) == 1 and page["cursor"] is not None
+    second = query_publication(selected, SourceReadingsQuery(name="source_readings"), cursor=page["cursor"])
+    rows = [*page["rows"], *second["rows"]]
+    assert len(rows) == 2 and {row["scientific_truth"] for row in rows} == {"not-established"}
+    assert {Decimal(decode_semantic_value(row["reading"])["value"]["value"]["lexical"])
+        for row in rows} == {Decimal(12)}
+    from evaluate.test_declared_rich_native_journey import refuse_rich_completion_substitution
+
+    for attack in ("decision", "missing-cpu"):
+        refuse_rich_completion_substitution(fitted, authorization, source, monkeypatch, attack=attack)
+    with journey.kernel.engine.begin() as connection:
+        for row in rows:
+            assertion = row["assertion"]
+            for name, operation in (("original", "fixture.record_candidates"),
+                ("resolution", "resolve.m1_readings/declared")):
+                (support,) = assertion[name]["support_references"]
+                assert support["kind"] == "computation"
+                assert connection.scalar(text("SELECT request.operation_id FROM ops.data_derivation episode JOIN ops.data_request request ON request.id=episode.request_id WHERE episode.id=:id"),
+                    {"id": support["derivation_id"]}) == operation
+            assert assertion["source_interpretation_id"] != assertion["interpretation_id"]
+        (support,) = selected.admission.consolidation.support_references
+        assert isinstance(support, ComputationalSupportReference)
+        assert connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": support.derivation_id}) is True
+        DataOperationStorage(connection).revoke_data_support(cast(WireRevokeDataSupportRequest, {
+            "project_id": PROJECT, "original_source": source.pin.original_source,
+            "selector_kind": "product", "selector": source.pin.source_product,
+            "reason": "actual source-product revocation",
+        }))
+        assert connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": support.derivation_id}) is False
+    with pytest.raises(DBAPIError, match="pins or current trust differ"):
+        query_publication(selected, SourceReadingsQuery(name="source_readings"), cursor=page["cursor"])
+
+
+def test_native_large_diagnostics_remain_in_actual_support_without_forcing_public_body(rich_publication):
+    from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+    from corpus_structure.semantic.demand_results import SelectedGraphBudgetExceeded, selected_record_index
+
+    journey = rich_publication
+    source = journey.sources[0]
+    readings = run_readings(journey, (source,), policy=None,
+        diagnostic_bytes=2 * 1024**2, inference="actual-large-record-diagnostic")
+    ((raw_product, raw),) = readings.raw
+    assert json_loads(raw["diagnostics_json"])["controlled_large"] == "x" * (2 * 1024**2)
+    selected = publish_readings(journey, readings, source=source, inference="bounded-record-diagnostic-support")
+    assert selected.admission.selected_reading_ids == ()
+    assert raw_product["id"] in {reference.product_id for reference in selected.consolidation.input_population}
+    page = query_publication(selected, SourceReadingsQuery(name="source_readings"), max_bytes=64 * 1024)
+    assert page["rows"] == [] and len(json_bytes(page)) <= 64 * 1024
+    with journey.kernel.purpose("read").begin() as connection:
+        with pytest.raises(SelectedGraphBudgetExceeded):
+            with selected_record_index(connection, readings.demand_id, project_id=PROJECT,
+                scope={"product_ids": [raw_product["id"]]}, max_total_bytes=64 * 1024):
+                raise AssertionError("oversized exact support escaped its declared graph bound")

@@ -1,73 +1,56 @@
-"""Native candidate alternative custody; no acceptance or model-quality claim."""
+"""Actual current record-field alternatives and scientific value alternatives stay distinct."""
 
-from copy import deepcopy
+from decimal import Decimal
 
-import pytest
-from sqlalchemy import select
+from evaluate.declared_record_native_support import run_readings
 
-from corpus_structure.semantic.domain_operations import consolidate_cut
-from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import seal_cut
-from corpus_structure.semantic.record_contracts import (
-    evidence_set_identity,
-    interpretation_identity,
+from corpus_structure.semantic.rich_knowledge_contracts import DdoRichAlternative, DdoRichFact
+from corpus_structure.semantic.rich_queries import ClaimsQuery
+from semantic.record_publication_native_support import (
+    publish_authored, publish_readings, query_publication, rich_publication as rich_publication,
 )
-from corpus_structure.semantic.record_projection import RECORD_ROW_TYPES, reconstruct_record
-from semantic.native_record_fixtures import RecordSourceRecipe, candidate, complete
-from semantic.native_record_fixtures import private_source as private_source
 
 
-@pytest.mark.parametrize(
-    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
-)
-def test_unresolved_value_alternative_keeps_own_evidence_through_publication(private_source):
-    case = private_source
-    original = deepcopy(candidate(case))
-    field = next(item for item in original["fields"] if item["role"] == "value")
-    literal_set = next(
-        item for item in original["evidence_sets"] if item["set_id"] == field["evidence_sets"][0]
-    )
-    inspected_set = dict(literal_set, usage="context")
-    inspected_set["set_id"] = evidence_set_identity(inspected_set)
-    original["evidence_sets"] = (*original["evidence_sets"], inspected_set)
-    actual_value = field.pop("value")
-    field.pop("original", None)
-    field.pop("original_pieces", None)
-    field.update(
-        state="unresolved",
-        reason="independent inspection leaves this reading unresolved",
-        evidence_sets=(inspected_set["set_id"],),
-        alternatives=(
-            dict(
-                alternative_id="controlled-actual-value-alternative",
-                value=actual_value,
-                evidence_sets=(literal_set["set_id"],),
-                reason="actual located value retained as a candidate alternative",
-            ),
-        ),
-    )
-    original["interpretation_id"] = interpretation_identity(original)
-    with case.writer.begin() as conn:
-        complete(case, conn, (original,))
-        cut = seal_cut(conn, case.run, "candidate-alternative-final", final=True)
-    result = consolidate_cut(case.writer, cut, "candidate-alternative-publication")
-    with case.writer.connect() as conn:
-        rows = {
-            name: conn.execute(
-                select(table("data." + name)).where(
-                    table("data." + name).c.release_id == case.prepared.release_id,
-                    table("data." + name).c.realization_id == result.realization_id,
-                )
-            )
-            .mappings()
-            .all()
-            for name in RECORD_ROW_TYPES
-        }
-    restored = reconstruct_record(rows, original["record_id"], original["interpretation_id"])
-    assert restored == original
-    restored_field = next(item for item in restored["fields"] if item["role"] == "value")
-    assert restored_field["state"] == "unresolved" and "value" not in restored_field
-    assert restored_field["evidence_sets"] == (inspected_set["set_id"],)
-    assert restored_field["alternatives"][0]["evidence_sets"] == (literal_set["set_id"],)
-    assert rows["record_admission"][0]["decision"] == "candidate"
-    assert rows["record_assertion"] == []
+def test_unresolved_field_alternative_retains_separate_literal_evidence_in_native_product(rich_publication):
+    journey = rich_publication
+    source = journey.sources[0]
+    readings = run_readings(journey, (source,), policy=None,
+        variant="unresolved-value-alternative", inference="actual-field-alternative")
+    ((raw_product, raw),) = readings.raw
+    records = [member["body"] for member in raw["members"]
+        if member["body"]["candidate_type"] == "record"]
+    unresolved = [record for record in records
+        if next(field for field in record["fields"] if field["role"] == "value")["state"] == "unresolved"]
+    assert len(unresolved) == 2
+    for record in unresolved:
+        field = next(field for field in record["fields"] if field["role"] == "value")
+        assert "value" not in field
+        (alternative,) = field["alternatives"]
+        assert alternative["value"]["lexical"] == "12"
+        assert field["evidence_sets"] != alternative["evidence_sets"]
+        evidence = {item["set_id"]: item for item in record["evidence_sets"]}
+        assert {evidence[key]["usage"] for key in field["evidence_sets"]} == {"context"}
+        assert {evidence[key]["usage"] for key in alternative["evidence_sets"]} == {"literal"}
+        assert all(anchor["pin"] == raw["source_pin"] for anchor in record["anchors"])
+    selected = publish_readings(journey, readings, source=source, inference="retained-field-alternative")
+    assert selected.admission.selected_reading_ids == ()
+    assert raw_product["id"] in {reference.product_id for reference in selected.consolidation.input_population}
+    assert query_publication(selected, ClaimsQuery(name="claims"))["rows"] == []
+
+
+def test_native_scientific_disagreement_retains_both_values_and_withholds_selection(rich_publication):
+    selected = publish_authored(rich_publication, (
+        {"kind": "number", "number": Decimal(1)}, {"kind": "number", "number": Decimal(2)},
+    ), inference="actual-scientific-value-alternative")
+    assert selected.admission.selected_fact_ids == selected.admission.selected_occurrence_ids == ()
+    alternatives = [packet.body for packet in selected.admission.members if isinstance(packet.body, DdoRichAlternative)]
+    facts = [packet.body for packet in selected.admission.members if isinstance(packet.body, DdoRichFact)]
+    assert len(facts) == 2 and len(alternatives) == 1
+    assert alternatives[0].completeness == "complete" and alternatives[0].faithful is True
+    assert alternatives[0].origin == "value-disagreement"
+    assert set(alternatives[0].fact_ids) == {fact.fact_id for fact in facts}
+    assert alternatives[0].source_members
+    assert all(reference.kind == "authored" for origin in alternatives[0].source_members
+        for reference in origin.support_references)
+    assert query_publication(selected, ClaimsQuery(name="claims"))["rows"] == []
+    assert len(query_publication(selected, ClaimsQuery(name="claims", population="retained"))["rows"]) == 2
