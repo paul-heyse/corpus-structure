@@ -264,7 +264,9 @@ def selected_vector_frame(inventory, query, targets):
             ],
         ):
             raise ValueError("selected vector differs from its exact profile/input identity")
+    from .contextual_storage import lexical_target_rows
     return {
+        "lexical_targets": source_value(lexical_target_rows(selected)),
         "profile": query["profile"],
         "vectors": source_value(
             [asdict(value) for value in sorted(vectors, key=lambda value: value.object_id)]

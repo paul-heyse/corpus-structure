@@ -564,6 +564,14 @@ def prepare_contextual_inventory(binding, inventory, vectors, *, profile_id, dim
     return PreparedContextualInventory(binding, inventory, vectors, profile_id, dimension, relation)
 
 
+def lexical_target_rows(inventory):
+    """Exact lexical projection under Python's declared Unicode case semantics."""
+    return tuple(dict(target_id=target.target_id,
+        search_text=" ".join((target.label, target.description, *target.aliases)),
+        exact_forms=[target.label.lower(), *(alias.lower() for alias in target.aliases)])
+        for target in inventory.targets)
+
+
 def transient_vector_relation(
     inventory: FrozenInventory, vectors: Sequence[EncodedVector], *, profile_id: str, dimension: int
 ):
@@ -577,6 +585,7 @@ def transient_vector_relation(
     from sqlalchemy.dialects.postgresql import ARRAY
 
     rows = []
+    lexical = {row["target_id"]: row for row in lexical_target_rows(inventory)}
     for target in inventory.targets:
         matches = [
             v
@@ -601,8 +610,8 @@ def transient_vector_relation(
                         ),
                         VECTOR(dimension),
                     ),
-                    " ".join((target.label, target.description, *target.aliases)),
-                    [target.label.lower(), *(a.lower() for a in target.aliases)],
+                    lexical[target.target_id]["search_text"],
+                    lexical[target.target_id]["exact_forms"],
                 )
             )
     raw = values(

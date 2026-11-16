@@ -37,6 +37,9 @@ _FILES = (
     "methods/contextual_targets.py",
     "semantic/contextual_target_products.py",
     "semantic/contextual_cpu.py",
+    "methods/contextual_scoring.py",
+    "semantic/contextual_scores.py",
+    "semantic/contextual_scoring_native.py",
     "semantic/structural_products.py",
 )
 
@@ -95,8 +98,7 @@ def contextual_retrieval_assets():
                         name,
                         (
                             admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
-                            if name
-                            in ("methods/contextual_declared.py", "methods/contextual_targets.py")
+                            if name in ("methods/contextual_declared.py", "methods/contextual_targets.py", "methods/contextual_scoring.py")
                             else (_ROOT / name).read_bytes().hex()
                         ),
                     )
@@ -157,12 +159,7 @@ def contextual_operation_sources(numerical_policy=None, *, neighborhood_policy=N
                 (_ROOT / name).read_bytes(),
                 str((_ROOT / name).resolve()),
             )
-            for name in (
-                *_FILES[:3],
-                "methods/contextual_targets.py",
-                "semantic/contextual_target_products.py",
-                "semantic/contextual_cpu.py",
-            )
+            for name in (*_FILES[:3], "methods/contextual_targets.py", "semantic/contextual_target_products.py", "semantic/contextual_cpu.py", "methods/contextual_scoring.py", "semantic/contextual_scores.py")
         ),
         boundary_contracts=(
             contextual_retrieval_assets(),
@@ -212,10 +209,12 @@ class ContextualRetrievalInputs:
 def prepare_contextual_retrieval(query, inventory, vectors, policy, *, check_active=lambda: None):
     from corpus_structure.methods.contextual_embeddings import identity, validate_vector
 
-    from .contextual_storage import transient_vector_relation
+    from .contextual_storage import transient_vector_relation, lexical_target_rows
     from .observations import source_python
 
     selected = admitted_contextual_inventory(inventory)
+    if canonical_bytes(source_python(vectors["lexical_targets"])) != canonical_bytes(lexical_target_rows(selected)):
+        raise ValueError("contextual lexical targets differ from their exact frozen inventory")
     profile = _PROFILE.validate_python(source_python(vectors["profile"]))
     values = _VECTORS.validate_python(source_python(vectors["vectors"]))
     if len(values) > profile.max_items or len(selected.targets) + 1 > profile.max_items:
@@ -270,26 +269,10 @@ def prepare_contextual_retrieval(query, inventory, vectors, policy, *, check_act
 
 
 def query_contextual_retrieval(connection, inputs, query, policy, *, numerical_policy=None):
-    from .contextual_retrieval import retrieve_candidates
-
-    selected, profile, encoded, relation = (
-        inputs.inventory,
-        inputs.profile,
-        inputs.query_vector,
-        inputs.relation,
-    )
-    return retrieve_candidates(
-        connection,
-        occurrence_id=query["occurrence_id"],
-        query=encoded,
-        inventory=selected,
-        relation=relation,
-        lexical_query=query["lexical_query"],
-        dimension=profile.dimension,
-        budget=policy["budget"],
-        channel_budget=policy["channel_budget"],
-        numerical_policy=numerical_policy,
-    )
+    from .contextual_scores import query_contextual_scores, candidates_from_scores
+    numerics = default_retrieval_numerics() if numerical_policy is None else numerical_policy
+    scores = query_contextual_scores(connection, inputs, query, policy, numerical_policy=numerics)
+    return candidates_from_scores(inputs, scores, query, policy, numerical_policy=numerics)
 
 
 def finish_contextual_retrieval(inputs, candidates, query, *, check_active=lambda: None):
@@ -362,8 +345,8 @@ def contextual_interpretation_candidates(product):
     )
 
 
-def execute_retrieval_profile(receiver, query, inventory, vectors, policy):
-    return receiver.execute(query, inventory, vectors, policy)
+def execute_retrieval_profile(receiver, query, inventory, vectors, policy, scores):
+    return receiver.execute(query, inventory, vectors, policy, scores)
 
 
 @dataclass
@@ -373,69 +356,36 @@ class ContextualRetrievalPlan:
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        from corpus_structure.core.method import PreparedWork
-
+        import inspect
+        from .contextual_scores import execute_contextual_retrieval_kernel
+        from .data_operation_cpu_basis import cpu_input_basis_from_binding, cpu_authority_value
         from .data_operation_json import json_bytes
-        from .data_operation_model import json_context_meaning
         from .data_operation_prepared_call import PreparedCallResult
 
         if binding is None or binding.subject_context is None:
             raise ValueError("contextual retrieval requires its acquired source context")
-        classes = {
-            "query": "DdoContextualQuery",
-            "inventory": "DdoContextualInventory",
-            "vectors": "DdoContextualVectors",
-            "policy": "DdoContextualRetrievalPolicy",
-        }
-        values = {
-            name: self.prepared.validate_json(
-                class_name, json_bytes(arguments.arguments[name])
-            ).model_dump(mode="python", exclude_unset=True)
-            for name, class_name in classes.items()
-        }
-        pin, context = values["query"]["source_pin"], binding.subject_context
-        if (
-            pin["project_id"],
-            pin["subject"],
-            pin["original_source"],
-            pin["analyzed_scope_meaning"],
-        ) != (
-            context.project_id,
-            context.subject,
-            context.original_source,
-            json_context_meaning(context.analyzed_scope).decode(),
-        ):
-            raise ValueError("contextual query differs from its acquired source context")
-
-        def compute():
-            self.port._verify()
-            check_active()
-            inputs = prepare_contextual_retrieval(**values, check_active=check_active)
-            with execution_owner.engine.begin() as connection:
-                candidates = query_contextual_retrieval(
-                    connection,
-                    inputs,
-                    values["query"],
-                    values["policy"],
-                    numerical_policy=self.numerical_policy,
-                )
-            product = finish_contextual_retrieval(
-                inputs, candidates, values["query"], check_active=check_active
-            )
-            checked = self.prepared.validate_json(
-                "DdoContextualRetrievalProduct", json_bytes(product)
-            ).model_dump(mode="python", exclude_unset=True)
-            contextual_interpretation_candidates(checked)
-            check_active()
-            self.port._verify()
-            return PreparedCallResult(checked)
-
-        (result,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
-        return result
+        classes = dict(query="DdoContextualQuery", inventory="DdoContextualInventory",
+            vectors="DdoContextualVectors", policy="DdoContextualRetrievalPolicy", scores="DdoContextualNativeScores")
+        values = {name: self.prepared.validate_json(kind, json_bytes(arguments.arguments[name])).model_dump(
+            mode="python", exclude_unset=True) for name, kind in classes.items()}
+        basis = cpu_input_basis_from_binding(self.port.identity.recipe, binding,
+            {name: (value,) for name, value in values.items()})
+        kernel = execute_contextual_retrieval_kernel
+        bound = inspect.signature(kernel).bind(input_basis=basis,
+            numerical_policy=self.numerical_policy.model_dump(mode="json"), check_active=check_active)
+        reply = yield from self.port.plan_cpu_reply(kernel, bound, contextual_operation_sources(self.numerical_policy),
+            check_active=check_active, execution_owner=execution_owner)
+        product = cpu_authority_value(reply.content, expected_basis=basis)
+        checked = self.prepared.validate_json("DdoContextualRetrievalProduct", json_bytes(product)).model_dump(
+            mode="python", exclude_unset=True)
+        contextual_interpretation_candidates(checked)
+        return PreparedCallResult(checked, cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+            cpu_execution_reply=reply.content)
 
 
 def resolve_retrieval_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.methods.contextual_declared import ContextualRetrievalOperation
+    from .contextual_scores import execute_contextual_retrieval_kernel
 
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
@@ -460,20 +410,9 @@ def resolve_retrieval_port(prepared, model, operation, *, identity, authorize, c
         authorize,
         (contextual_retrieval_assets(), contextual_numerical_asset(numerical_policy)),
         contextual_operation_sources(numerical_policy),
-        functions=(
-            (
-                "corpus_structure.semantic.contextual_operations.prepare_contextual_retrieval",
-                prepare_contextual_retrieval,
-            ),
-            (
-                "corpus_structure.semantic.contextual_operations.query_contextual_retrieval",
-                query_contextual_retrieval,
-            ),
-            (
-                "corpus_structure.semantic.contextual_operations.finish_contextual_retrieval",
-                finish_contextual_retrieval,
-            ),
-        ),
+        functions=(("corpus_structure.semantic.contextual_scores.execute_contextual_retrieval_kernel",
+            execute_contextual_retrieval_kernel),),
+        retain_cpu_reply=True,
         requires_prepared_schema=True,
     )
     plan.port = port
@@ -520,50 +459,33 @@ class ContextualInventoryPlan:
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        import inspect
-
-        from .contextual_cpu import execute_contextual_projection_kernel
-        from .data_operation_cpu_basis import cpu_authority_value, cpu_input_basis_from_binding
         from .data_operation_json import json_bytes
         from .data_operation_prepared_call import PreparedCallResult
 
+        import inspect
+        from .contextual_cpu import execute_contextual_projection_kernel
+        from .data_operation_cpu_basis import cpu_authority_value, cpu_input_basis_from_binding
         if binding is None or binding.subject_context is None:
             raise ValueError("contextual inventory requires its actual selected input basis")
-        selected = self.prepared.validate_json(
-            "DdoContextualTargetSelection", json_bytes(arguments.arguments["selection"])
-        ).model_dump(mode="python", exclude_unset=True)
-        basis = cpu_input_basis_from_binding(
-            self.port.identity.recipe, binding, {"selection": (selected,)}
-        )
+        selected = self.prepared.validate_json("DdoContextualTargetSelection",
+            json_bytes(arguments.arguments["selection"])).model_dump(mode="python", exclude_unset=True)
+        basis = cpu_input_basis_from_binding(self.port.identity.recipe, binding, {"selection": (selected,)})
         kernel = execute_contextual_projection_kernel
-        bound = inspect.signature(kernel).bind(
-            input_basis=basis,
-            operation=self.port.operation.semantic_id,
-            member_contract="",
-            check_active=check_active,
-        )
-        reply = yield from self.port.plan_cpu_reply(
-            kernel,
-            bound,
-            contextual_operation_sources(),
-            check_active=check_active,
-            execution_owner=execution_owner,
-        )
+        bound = inspect.signature(kernel).bind(input_basis=basis,
+            operation=self.port.operation.semantic_id, member_contract="", check_active=check_active)
+        reply = yield from self.port.plan_cpu_reply(kernel, bound, contextual_operation_sources(),
+            check_active=check_active, execution_owner=execution_owner)
         product = cpu_authority_value(reply.content, expected_basis=basis)
-        checked = self.prepared.validate_json(
-            "DdoContextualInventory", json_bytes(product)
-        ).model_dump(mode="python", exclude_unset=True)
-        return PreparedCallResult(
-            checked,
-            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
-            cpu_execution_reply=reply.content,
-        )
+        checked = self.prepared.validate_json("DdoContextualInventory", json_bytes(product)).model_dump(
+            mode="python", exclude_unset=True)
+        return PreparedCallResult(checked, cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+            cpu_execution_reply=reply.content)
 
 
 def resolve_inventory_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.methods.contextual_declared import ContextualInventoryOperation
-
     from .contextual_cpu import execute_contextual_projection_kernel
+
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
 

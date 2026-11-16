@@ -17,6 +17,7 @@ from corpus_structure.semantic.contextual_operations import (
 from corpus_structure.semantic.contextual_retrieval import freeze_inventory, target_representation
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.observations import source_python, source_value
+from corpus_structure.semantic.contextual_storage import lexical_target_rows
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
@@ -85,6 +86,7 @@ def inputs():
         "inventory": {"inventory": source_value(asdict(inventory))},
         "vectors": {
             "profile": source_value(asdict(profile)),
+            "lexical_targets": source_value(lexical_target_rows(inventory)),
             "vectors": source_value([asdict(value) for value in vectors]),
         },
         "policy": policy,

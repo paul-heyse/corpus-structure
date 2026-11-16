@@ -14,7 +14,7 @@ from typing import cast as typing_cast
 
 from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import Integer, Text, any_, bindparam, cast, func, literal, select, union_all
-from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION, REGCONFIG
+from sqlalchemy.dialects.postgresql import ARRAY, DOUBLE_PRECISION, REGCONFIG
 from sqlalchemy.engine import Connection
 from sqlalchemy.sql.selectable import FromClause
 
@@ -381,6 +381,73 @@ class _RetrievalRow(Protocol):
     score: float | None
 
 
+def contextual_score_statement(relation, *, inventory_id, profile_id, target_ids,
+    query_vector, lexical_query, channel_budget, text_configuration):
+    """The one bounded Core scoring query, shared by execution and native admission.
+
+    Arguments are SQL expressions. The caller owns authentic membership and exact
+    numerical/runtime policy; this function owns dense/FTS/alias scoring and ties.
+    """
+    eligible = (
+        select(relation)
+        .where(
+            relation.c.inventory_id == inventory_id,
+            relation.c.profile_id == profile_id,
+            relation.c.target_id == any_(target_ids),
+        )
+        .cte("eligible_concept_vectors")
+        .prefix_with("MATERIALIZED")
+    )
+    distance = eligible.c.vector.op("OPERATOR(public.<=>)", return_type=DOUBLE_PRECISION)(query_vector)
+    config = text_configuration.cast(REGCONFIG)
+    tsquery = func.websearch_to_tsquery(config, lexical_query)
+    tsvector = func.to_tsvector(config, eligible.c.search_text)
+    lexical_score = func.ts_rank_cd(tsvector, tsquery)
+    membership = select(
+        literal("membership").label("kind"),
+        cast(literal(None), Text).label("channel"),
+        eligible.c.target_id,
+        cast(literal(None), Integer).label("rank"),
+        cast(literal(None), DOUBLE_PRECISION).label("score"),
+    )
+    branches = [membership]
+    for name, score, ordering, predicate in (
+        ("dense", 1 - distance, (distance, eligible.c.target_id), None),
+        (
+            "lexical",
+            lexical_score,
+            (lexical_score.desc(), eligible.c.target_id),
+            tsvector.op("@@")(tsquery),
+        ),
+        (
+            "alias",
+            literal(1.0),
+            (eligible.c.target_id,),
+            func.lower(lexical_query) == any_(eligible.c.exact_forms),
+        ),
+    ):
+        hits = select(
+            eligible.c.target_id,
+            cast(score, DOUBLE_PRECISION).label("score"),
+            func.row_number().over(order_by=ordering).label("rank"),
+        )
+        if predicate is not None:
+            hits = hits.where(predicate)
+        bounded = hits.order_by(*ordering).limit(channel_budget).subquery(name + "_hits")
+        branches.append(
+            select(
+                literal("hit"),
+                literal(name),
+                bounded.c.target_id,
+                bounded.c.rank,
+                bounded.c.score,
+            )
+        )
+    combined = union_all(*branches).subquery("retrieval_rows")
+    return select(combined).order_by(combined.c.kind.desc(), combined.c.channel,
+        combined.c.rank, combined.c.target_id)
+
+
 def retrieve_candidates(
     conn: Connection,
     *,
@@ -422,75 +489,18 @@ def retrieve_candidates(
             numerical_policy=numerics,
         )
     numerics.require_runtime(conn)
-    eligible = (
-        select(relation)
-        .where(
-            relation.c.inventory_id == inventory.inventory_id,
-            relation.c.profile_id == query.profile_id,
-            relation.c.target_id.in_(inventory.target_ids),
-        )
-        .cte("eligible_concept_vectors")
-        .prefix_with("MATERIALIZED")
-    )
-    distance = eligible.c.vector.cosine_distance(
-        cast(bindparam("query_vector", list(vector), type_=VECTOR(dimension)), VECTOR(dimension))
-    )
-    config = literal(numerics.text_configuration).cast(REGCONFIG)
-    tsquery = func.websearch_to_tsquery(config, lexical_query)
-    tsvector = func.to_tsvector(config, eligible.c.search_text)
-    lexical_score = func.ts_rank_cd(tsvector, tsquery)
-    membership = select(
-        literal("membership").label("kind"),
-        cast(literal(None), Text).label("channel"),
-        eligible.c.target_id,
-        cast(literal(None), Integer).label("rank"),
-        cast(literal(None), DOUBLE_PRECISION).label("score"),
-    )
-    branches = [membership]
-    for name, score, ordering, predicate in (
-        ("dense", 1 - distance, (distance, eligible.c.target_id), None),
-        (
-            "lexical",
-            lexical_score,
-            (lexical_score.desc(), eligible.c.target_id),
-            tsvector.op("@@")(tsquery),
-        ),
-        (
-            "alias",
-            literal(1.0),
-            (eligible.c.target_id,),
-            func.lower(literal(lexical_query)) == any_(eligible.c.exact_forms),
-        ),
-    ):
-        hits = select(
-            eligible.c.target_id,
-            cast(score, DOUBLE_PRECISION).label("score"),
-            func.row_number().over(order_by=ordering).label("rank"),
-        )
-        if predicate is not None:
-            hits = hits.where(predicate)
-        bounded = hits.order_by(*ordering).limit(channel_budget).subquery(name + "_hits")
-        branches.append(
-            select(
-                literal("hit"),
-                literal(name),
-                bounded.c.target_id,
-                bounded.c.rank,
-                bounded.c.score,
-            )
-        )
-    combined = union_all(*branches).subquery("retrieval_rows")
+    statement = contextual_score_statement(relation,
+        inventory_id=bindparam("inventory_id", inventory.inventory_id, type_=Text),
+        profile_id=bindparam("profile_id", query.profile_id, type_=Text),
+        target_ids=bindparam("target_ids", list(inventory.target_ids), type_=ARRAY(Text)),
+        query_vector=cast(bindparam("query_vector", list(vector), type_=VECTOR(dimension)), VECTOR(dimension)),
+        lexical_query=bindparam("lexical_query", lexical_query, type_=Text),
+        channel_budget=bindparam("channel_budget", channel_budget, type_=Integer),
+        text_configuration=literal(numerics.text_configuration))
     rows = typing_cast(
         tuple[_RetrievalRow, ...],
         tuple(
-            conn.execute(
-                select(combined).order_by(
-                    combined.c.kind.desc(),
-                    combined.c.channel,
-                    combined.c.rank,
-                    combined.c.target_id,
-                )
-            )
+            conn.execute(statement)
         ),
     )
     actual = tuple(sorted(row.target_id for row in rows if row.kind == "membership"))

@@ -96,6 +96,7 @@ classes:
   DdoContextualVectors:
     is_a: SourceRecordProduct
     attributes:
+      lexical_targets: {range: SourceValue, inlined: true, required: true}
       profile: {range: SourceValue, inlined: true, required: true}
       vectors: {range: SourceValue, inlined: true, required: true}
   DdoContextualQuery:
@@ -138,6 +139,24 @@ classes:
       constraints: {range: SourceValue, inlined: true, required: true}
       witnesses: {range: SourceValue, inlined: true, required: true}
       exclusions: {range: SourceValue, inlined: true, required: true}
+  DdoContextualNativeScoreHit:
+    is_a: SourceRecordProduct
+    attributes:
+      channel: {required: true, pattern: "^(alias|lexical|dense)$"}
+      target_id: {required: true}
+      rank: {range: integer, required: true, minimum_value: 1}
+      score_float8_hex: {required: true, pattern: "^[0-9a-f]{16}$"}
+  DdoContextualNativeScores:
+    is_a: SourceRecordProduct
+    attributes:
+      version: {required: true, equals_string: contextual-native-scores-1}
+      inventory_id: {required: true}
+      profile_id: {required: true}
+      occurrence_id: {required: true}
+      query_vector_id: {required: true}
+      lexical_query: {required: true}
+      membership: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      hits: {range: DdoContextualNativeScoreHit, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
   DdoContextualRetrievalProduct:
     is_a: SourceRecordProduct
     attributes:
