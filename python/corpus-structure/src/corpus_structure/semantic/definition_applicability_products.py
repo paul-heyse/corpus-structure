@@ -3,10 +3,112 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from .declared_structural_references import DeclaredComponentRef, DeclaredRelationshipRef
 from .identity import canonical_bytes
 from .structural_products import ApplicabilityPremise, DeclaredLocatedDefinitionComponent
+
+
+def applicability_inputs(bundle):
+    from .contextual_operations import contextual_inputs
+    from .declared_structural_calls import structural_inputs
+    return structural_inputs(contextual_inputs(bundle))
+
+
+def applicability_profile_assets():
+    from pathlib import Path
+    from .python_module_projection import admitted_operation_module_meaning
+    from .types import SourceArtifact
+    root = Path(__file__).parents[1]
+    files = ("methods/definition_applicability_declared.py", "semantic/definition_applicability_products.py",
+        "methods/definition_applicability.py", "semantic/contextual_target_products.py",
+        "semantic/contextual_operations.py", "semantic/contextual_links.py", "semantic/contextual_retrieval.py",
+        "semantic/declared_structural_calls.py", "semantic/declared_structural_references.py",
+        "semantic/declared_record_sources.py", "semantic/structural_products.py",
+        "semantic/data_operation_cpu_basis.py", "semantic/data_operation_prepared_call.py")
+    return SourceArtifact("definition-applicability/profile-assets", canonical_bytes(dict(
+        version="declared-definition-applicability-1", files=[(name,
+            admitted_operation_module_meaning((root/name).read_bytes()).hex() if name.startswith("methods/")
+            else (root/name).read_bytes().hex()) for name in files])))
+
+
+def applicability_operation_sources():
+    from pathlib import Path
+    from .python_operation_sources import PythonSource, PythonSourceCollection
+    root = Path(__file__).parents[1]
+    return PythonSourceCollection(tuple(PythonSource("corpus_structure."+name.removesuffix(".py").replace("/", "."),
+        (root/name).read_bytes(), str(root/name)) for name in (
+            "methods/definition_applicability_declared.py", "semantic/definition_applicability_products.py",
+            "methods/definition_applicability.py", "semantic/data_operation_prepared_call.py")),
+        boundary_contracts=(applicability_profile_assets(),))
+
+
+@dataclass(frozen=True)
+class PreparedApplicabilityInputs:
+    prepared: Any
+    roles: tuple
+    context: Any
+    check_active: Any
+
+
+def applicability_kernel(arguments: dict, roles: tuple, context: Any, input_basis: list,
+    *, prepared: Any, check_active: Any) -> dict:
+    from corpus_structure.methods.definition_applicability_declared import DefinitionApplicabilityOperation
+    from .data_operation_cpu_basis import cpu_authority_reply, require_consumed_cpu_basis
+    from .data_operation_identity import semantic_value
+    names = {role.role for role in roles}
+    if names != {"source", "components", "relationship"} or any(
+        role.state != "present" or len(role.members) != 1 for role in roles):
+        raise ValueError("applicability requires its exact scalar input population")
+    require_consumed_cpu_basis(input_basis, context, roles,
+        {name: (arguments[name],) for name in names}, parameters=canonical_bytes(semantic_value(
+            {name: value for name, value in arguments.items() if name not in names})))
+    result = DefinitionApplicabilityOperation(PreparedApplicabilityInputs(prepared, roles, context,
+        check_active)).run(**arguments)
+    return cpu_authority_reply(input_basis, result)
+
+
+@dataclass
+class ApplicabilityCallPlan:
+    prepared: Any
+    port: Any = None
+
+    def verify(self):
+        if applicability_profile_assets() != self.port.assets[0]:
+            raise ValueError("definition applicability source or policy changed")
+
+    def plan(self, arguments, *, binding, check_active, execution_owner):
+        import inspect
+        from .data_operation_cpu_basis import cpu_input_basis_from_binding
+        if binding is None or binding.subject_context is None:
+            raise ValueError("applicability requires its actual qualified binding")
+        processed = cpu_input_basis_from_binding(self.port.operation.recipe, binding,
+            {role.role: (arguments.arguments[role.role],) for role in binding.roles})
+        bound = inspect.signature(applicability_kernel, eval_str=True).bind(arguments=arguments.arguments,
+            roles=binding.roles, context=binding.subject_context, input_basis=processed,
+            prepared=self.prepared, check_active=check_active)
+        return (yield from self.port.plan_cpu(applicability_kernel, bound, applicability_operation_sources(),
+            prepared_release_id=self.prepared.release_id, verify=self.verify,
+            execution_owner=execution_owner, check_active=check_active))
+
+
+def resolve_applicability_port(prepared, model, operation, *, identity, authorize, custody, sources):
+    from corpus_structure.methods.definition_applicability_declared import DefinitionApplicabilityOperation
+    from .data_operation_ports import PortRefusal
+    from .data_operation_prepared_call import PreparedOriginalCallPort
+    selected = model.operation(operation)
+    if selected.semantic_id != DefinitionApplicabilityOperation.__data_operation__["id"]:
+        raise PortRefusal("applicability factory differs from its actual operation")
+    receiver, plan = DefinitionApplicabilityOperation(None), ApplicabilityCallPlan(prepared)
+    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run, plan.plan,
+        "corpus_structure.semantic.definition_applicability_products.ApplicabilityCallPlan.plan",
+        authorize, (applicability_profile_assets(),), applicability_operation_sources(),
+        functions=(("corpus_structure.semantic.definition_applicability_products.applicability_kernel", applicability_kernel),
+            ("corpus_structure.semantic.definition_applicability_products.execute_definition_applicability", execute_definition_applicability)),
+        requires_prepared_schema=True, retain_cpu_reply=True)
+    plan.port = port
+    return port
 
 
 @dataclass(frozen=True)
@@ -41,7 +143,8 @@ def selected_definition_applicability(
         evidence_anchor,
         source_slice,
     )
-    from .structural_admission import structural_statement
+    from .contextual_target_products import component_target_values
+    from .contextual_retrieval import _meaning
     from .structural_products import ApplicabilityPremise, DeclaredStructuralDefinitionReading
 
     usage = next(passage for passage in inputs.passages if passage.passage_id == usage_id)
@@ -68,22 +171,20 @@ def selected_definition_applicability(
         raise ValueError("relationship usage differs from the admitted original source")
     if relationship_reference.edge_id != binding.edge.edge_id:
         raise ValueError("applicability substitutes its selected relationship edge")
-    exact_binding = canonical_bytes(
-        component_reference.model_dump(mode="json", exclude_none=True)
-    ).decode()
+    target, meaning = component_target_values(component_report, component,
+        original_source=component_reference.original_source)
     carriers = tuple(
         value
         for value in binding.representations
         if value.target_id == component.component_id
-        and value.source_binding == exact_binding
+        and value == target
         and value.type_name == "definition"
     )
     if len(carriers) != 1:
         raise ValueError(
             "selected relationship does not carry this exact native component reference"
         )
-    meaning = structural_statement(component_report, component.component_id)["definition_component"]
-    if canonical_bytes(meaning) != canonical_bytes(binding.target.meaning):
+    if canonical_bytes(_meaning(meaning)) != canonical_bytes(binding.target.meaning):
         raise ValueError("selected relationship changes source-resolved definition meaning")
     context = NativeSourceContext(
         usage_frame,

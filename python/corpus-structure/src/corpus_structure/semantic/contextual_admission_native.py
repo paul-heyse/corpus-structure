@@ -158,6 +158,15 @@ BEGIN
  values_:=ops.ddo_contextual_scoring_inputs(r,completion);
  ELSIF r.operation_id='retrieve.contextual_witnesses/declared' THEN
  PERFORM ops.ddo_contextual_witness_inputs(r,completion);
+ ELSIF r.operation_id='retrieve.contextual_targets/components' THEN
+ DECLARE original ops.data_request:=r; source_basis jsonb; report_row jsonb;
+ BEGIN
+ original.binding:=r.binding||jsonb_build_object('inputs',completion->'inputs','support',completion->'support');
+ source_basis:=ops.ddo_cpu_input_basis(original);
+ SELECT value INTO STRICT report_row FROM jsonb_array_elements(data.ddo_field(source_basis,'roles')->1)
+ WHERE data.ddo_field(value,'role')->>1='report';
+ PERFORM ops.ddo_definition_component_basis(report_row);
+ END;
  END IF;
  IF r.operation_id='retrieve.contextual_scores/declared' THEN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;

@@ -138,9 +138,11 @@ class SourceContextualTargetsOperation:
                 "collection": "scalar",
                 "presence": "required",
                 "parameter": "report",
+                "subject_target": "source-set",
                 "support": {
                     "provenance": "exact",
-                    "source": "explicit-authentic-selected-target",
+                    "source": "frozen-source-set",
+                    "source_set": "contextual-definition-components",
                     "coverage": {"role": "report", "description": "exact-selected-target-value"},
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],

@@ -119,6 +119,9 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         "structure.condition_qualification/declared",
         "structure.clause_classification/declared",
         "retrieve.contextual/declared",
+        "retrieve.contextual_scores/declared",
+        "retrieve.contextual_witnesses/declared",
+        "retrieve.contextual/with-witnesses",
         "interpret.finite_candidates",
     }
     operations = {operation.semantic_id: operation for operation in model.operations}

@@ -1,5 +1,7 @@
 """Selected numerical backends, exact score transport and scoped recipe ownership."""
 
+from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
+
 import struct
 from pathlib import Path
 
@@ -32,7 +34,7 @@ def test_selected_backend_changes_retrieval_recipe_without_salting_inventory():
 
     def compile_policy(policy):
         return compile_data_operations(
-            bundle, (contextual_operation_declarations(),), contextual_operation_sources(policy)
+            bundle, (contextual_operation_declarations(), structural_operation_declarations(),), contextual_operation_sources(policy)
         )
 
     first, second = compile_policy(selected), compile_policy(different)

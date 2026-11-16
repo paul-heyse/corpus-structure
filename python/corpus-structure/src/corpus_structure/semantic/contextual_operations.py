@@ -40,6 +40,8 @@ _FILES = (
     "methods/contextual_witnesses.py",
     "semantic/contextual_witnesses.py",
     "semantic/contextual_witness_native.py",
+    "semantic/contextual_definition_native.py",
+    "semantic/definition_admission_native.py",
     "methods/contextual_scoring.py",
     "semantic/contextual_scores.py",
     "semantic/contextual_scoring_native.py",
@@ -134,7 +136,6 @@ def contextual_operation_declarations():
     from .contextual_neighborhood import NeighborhoodNumericalPolicy
     from .data_operation_model import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
-    from .structural_products import DeclaredDefinitionComponentsReport
 
     return SourceArtifact(
         "contextual/retrieval-numerical-kinds",
@@ -151,11 +152,7 @@ def contextual_operation_declarations():
                     namespace="urn:corpus:kind:contextual-neighborhood:",
                     root_name="NumericalPolicy",
                 )
-                + nominal_schema_kinds(
-                    DeclaredDefinitionComponentsReport.model_json_schema(),
-                    namespace="urn:corpus:structural:",
-                    root_name="DeclaredDefinitionComponentsReport",
-                ),
+,
             }
         ),
     )

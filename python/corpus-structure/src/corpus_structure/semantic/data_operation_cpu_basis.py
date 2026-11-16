@@ -25,6 +25,7 @@ CPU_AUTHORITY_BATCH_REPLY_VERSION = "cpu-authority-batch-reply-1"
 
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
+    from .data_operation_model import ResolvedRoleBinding
 
 
 @dataclass(frozen=True)
@@ -103,11 +104,22 @@ def cpu_input_basis_from_binding(
     """Pair actual consumed values with their existing selected headers and support."""
     if not binding.sufficient or binding.subject_context is None:
         raise ValueError("CPU authority basis requires its sufficient native binding")
+    return cpu_input_basis_from_roles(recipe, binding.subject_context, binding.roles, bodies_by_role,
+        parameters=binding.parameters, replicate=binding.replicate)
+
+
+def cpu_input_basis_from_roles(
+    recipe: str, context: SubjectContext, selected_roles: tuple[ResolvedRoleBinding, ...],
+    bodies_by_role: Mapping[str, tuple[Any, ...]], *, parameters: bytes, replicate: str | None,
+) -> list:
+    """Pair actual role values with complete headers, shared by parent and CPU consumer."""
     roles = []
-    declared = {role.role for role in binding.roles}
+    declared = {role.role for role in selected_roles}
+    if len(declared) != len(selected_roles):
+        raise ValueError("CPU authority selected headers repeat a role")
     if set(bodies_by_role) != declared:
         raise ValueError("CPU authority values differ from their actual bound roles")
-    for selected in binding.roles:
+    for selected in selected_roles:
         bodies = bodies_by_role[selected.role]
         if len(bodies) != len(selected.members):
             raise ValueError("CPU authority values differ from their actual selected population")
@@ -121,7 +133,7 @@ def cpu_input_basis_from_binding(
                     member.member,
                     member.kind_contract,
                     SubjectContext(
-                        binding.subject_context.project_id,
+                        context.project_id,
                         member.subject,
                         member.original_source,
                         member.analyzed_scope,
@@ -133,11 +145,24 @@ def cpu_input_basis_from_binding(
             )
     return cpu_input_basis(
         recipe,
-        binding.subject_context,
+        context,
         tuple(roles),
-        parameters=binding.parameters,
-        replicate=binding.replicate,
+        parameters=parameters,
+        replicate=replicate,
     )
+
+
+def require_consumed_cpu_basis(
+    input_basis: list, context: SubjectContext, roles: tuple[ResolvedRoleBinding, ...],
+    bodies_by_role: Mapping[str, tuple[Any, ...]], *, parameters: bytes,
+) -> None:
+    """Check actual consumed headers, bodies and parameters against the native basis."""
+    _require_current_basis(input_basis)
+    supplied = decode_semantic_value(input_basis)
+    expected = cpu_input_basis_from_roles(supplied["recipe"], context, roles, bodies_by_role,
+        parameters=parameters, replicate=supplied["replicate"])
+    if canonical_bytes(expected) != canonical_bytes(input_basis):
+        raise ValueError("CPU arguments differ from their actual exact input basis")
 
 
 def cpu_authority_reply(input_basis: list, output: Any) -> dict:

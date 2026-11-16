@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
+
 import json
 import os
 from dataclasses import asdict
@@ -54,7 +56,7 @@ def acquired():
         bundle,
         data_operation_dependencies(
             ResolvedDependencies(),
-            declarations=(contextual_operation_declarations(),),
+            declarations=(contextual_operation_declarations(), structural_operation_declarations(),),
             python_sources=sources,
         ),
         PreparationProfile(version="semantic-2"),

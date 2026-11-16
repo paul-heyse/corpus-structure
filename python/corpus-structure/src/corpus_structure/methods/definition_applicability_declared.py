@@ -381,14 +381,14 @@ class DefinitionApplicabilityOperation:
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.definition_applicability_products.execute_definition_applicability",
-                "contract": "definitions/profile-assets",
+                "contract": "definition-applicability/profile-assets",
                 "role": "same-exact-native-usage-compatibility-policy",
             }
         ],
         "assets": [
             {
                 "reference": "declared-definition-products",
-                "contract": "definitions/profile-assets",
+                "contract": "definition-applicability/profile-assets",
                 "role": "typed-primary-domain-projection",
             }
         ],
@@ -396,9 +396,9 @@ class DefinitionApplicabilityOperation:
 
     @staticmethod
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
-        from corpus_structure.semantic.definition_products import resolve_definition_port
+        from corpus_structure.semantic.definition_applicability_products import resolve_applicability_port
 
-        return resolve_definition_port(
+        return resolve_applicability_port(
             prepared,
             model,
             operation,
