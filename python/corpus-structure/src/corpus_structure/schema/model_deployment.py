@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from corpus_structure.schema.model import ModelError
 from corpus_structure.schema.model_change import (
     ChangePreview,
+    RuntimeCustody,
     checked_path,
     generator_fingerprint,
     verify_release_products,
@@ -41,6 +42,8 @@ from corpus_structure.settings import DeploymentProfile, Settings
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection, Engine
+
+    from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 
 _NATIVE_PRODUCTS = (
     ("UPGRADE", "native_candidate.py", "upgrade.txt"),
@@ -69,6 +72,7 @@ class Candidate(BaseModel):
     release_artifacts_sha256: str | None = None
     packs: tuple[str, ...]
     data_operations: str | None = None
+    runtime: RuntimeCustody | None = None
     files: dict[str, str | None]
     hashes: dict[str, str]
     wrapper_sha256: str | None = None
@@ -81,6 +85,7 @@ class Candidate(BaseModel):
                 self.release_manifest_sha256 is not None
                 or self.release_artifacts_sha256 is not None
                 or self.inspection_sha256 is not None
+                or self.runtime is not None
             ):
                 raise ValueError(
                     "a native-only candidate cannot carry release hashes or an application inspection capsule"
@@ -98,6 +103,7 @@ class Candidate(BaseModel):
         revision: str | None,
         prepared: PreparedRelease | None,
         products: dict[str, bytes],
+        *, runtime: RuntimeBinding | None = None,
     ) -> Candidate:
         if (
             not preview.target
@@ -110,7 +116,9 @@ class Candidate(BaseModel):
             )
         if prepared is None:
             if (
-                not preview.effects.native
+                runtime is not None
+                or preview.runtime is not None
+                or not preview.effects.native
                 or preview.effects.admission
                 or preview.local_release is not None
                 or preview.release_manifest_sha256 is not None
@@ -121,6 +129,7 @@ class Candidate(BaseModel):
                 )
         else:
             preview.verify_release(prepared)
+            preview.verify_runtime(runtime, prepared)
         binding = cls(
             workspace=preview.workspace,
             model_revision=preview.revision,
@@ -139,6 +148,7 @@ class Candidate(BaseModel):
             release_artifacts_sha256=preview.release_artifacts_sha256,
             packs=preview.request.packs,
             data_operations=preview.request.data_operations,
+            runtime=preview.runtime,
             files={
                 **preview.inputs,
                 **{
@@ -650,9 +660,11 @@ def deploy_candidate(
     deployment: tuple | None,
     *,
     report: Callable[[str], None],
+    runtime: RuntimeBinding | None = None,
     checkpoint: Callable[[StorageTarget, str | None, str, str | None], None] | None = None,
 ) -> None:
     from sqlalchemy import text
+    from sqlalchemy.exc import NoResultFound
 
     from corpus_structure.semantic.authored_sql import (
         SQLAdmissionError,
@@ -661,6 +673,7 @@ def deploy_candidate(
         prepare_release_sql,
     )
     from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
+    from corpus_structure.semantic.data_operation_runtime import RuntimeBindingError
     from corpus_structure.semantic.execution_admission import (
         require_frozen_native_revision,
         verify_deployment_catalog,
@@ -668,6 +681,10 @@ def deploy_candidate(
     from corpus_structure.semantic.migrations import current_revision, migration_fence, upgrade
     from corpus_structure.semantic.releases import open_release, persist_release
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.runtime_binding_store import (
+        persist_runtime_binding,
+        runtime_binding_for_release,
+    )
 
     check_candidate_files(root, binding)
     _, destination = deployment_settings(settings, binding.target_profile)
@@ -676,6 +693,8 @@ def deploy_candidate(
     prepared = None
     sql_inputs = None
     if binding.release is None:
+        if runtime is not None:
+            raise ModelError(["native-only candidate cannot admit a runtime"])
         if deployment is not None:
             raise ModelError(["native-only candidate cannot deploy application release inputs"])
     else:
@@ -690,6 +709,12 @@ def deploy_candidate(
             binding="the candidate",
         )
         sql_inputs = prepare_release_sql(prepared, deps)
+        if binding.data_operations:
+            if binding.runtime is None or runtime is None:
+                raise ModelError(["application candidate lacks exact reviewed runtime custody"])
+            binding.runtime.verify(runtime, prepared)
+        elif runtime is not None or binding.runtime is not None:
+            raise ModelError(["runtime admission requires declared data-operation inputs"])
     if binding.target_identity is None:
         raise ModelError(["candidate lacks the approved acquired PostgreSQL target"])
     assert_explicit_route(destination)
@@ -869,8 +894,8 @@ def deploy_candidate(
                     release_fence(recovery)
                     return exact_archive(recovery)
 
-            def observe_admission() -> bool | None:
-                native = conn.scalar(
+            def observe_admission(observing: Connection) -> bool | None:
+                native = observing.scalar(
                     text("""
                         WITH descriptor AS (
                             SELECT convert_to(
@@ -897,9 +922,20 @@ def deploy_candidate(
                     """),
                     {"release": binding.release, "physical_id": physical_id},
                 )
-                if native is not True or analyzed is None:
+                if native is not True:
                     return native
-                rows = conn.execute(
+                if runtime is not None:
+                    try:
+                        retained = runtime_binding_for_release(observing, prepared, runtime.runtime_id)
+                    except NoResultFound:
+                        return False
+                    except RuntimeBindingError:
+                        return None
+                    if retained != runtime:
+                        return None
+                if analyzed is None:
+                    return True
+                rows = observing.execute(
                     text("""
                         SELECT input_name, content, content_digest FROM sem.sql_admission
                         WHERE release_id=:release AND physical_id=:physical_id
@@ -916,7 +952,7 @@ def deploy_candidate(
             def reconcile_admission() -> bool | None:
                 conn.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
                 release_fence(conn)
-                return observe_admission()
+                return observe_admission(conn)
 
             with _commit_deployment_effect(
                 writer,
@@ -946,11 +982,19 @@ def deploy_candidate(
                         writer, binding.release, analyzed=analyzed, physical_id=physical_id
                     )
                 admit_data_operation_release(writer, prepared)
+                if runtime is not None:
+                    persist_runtime_binding(writer, prepared, runtime)
             with _deployment_connection(reader) as snapshot, snapshot.begin():
                 snapshot.exec_driver_sql(
                     "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
                 )
                 verify_reader(snapshot)
-                if not exact_archive(snapshot) or observe_admission() is not True:
-                    raise ModelError(["admitted release does not match the candidate"])
+                # Native catalog correspondence uses the acquired maintenance
+                # route: the execution descriptor is deliberately not a reader API.
+                if not exact_archive(snapshot) or observe_admission(conn) is not True:
+                    raise ModelError(["admitted release does not match the candidate release/runtime custody"])
+                if runtime is not None and runtime_binding_for_release(
+                    snapshot, prepared, runtime.runtime_id
+                ) != runtime:
+                    raise ModelError(["reader runtime differs from reviewed custody"])
             settled("verified")

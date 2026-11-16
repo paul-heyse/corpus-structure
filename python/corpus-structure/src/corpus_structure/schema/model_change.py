@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import stat
 import subprocess
@@ -12,7 +13,7 @@ from difflib import unified_diff
 from hashlib import sha256
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -36,6 +37,10 @@ from corpus_structure.semantic.source_comparison import EffectiveChangeCompariso
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import DeploymentProfile
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
+
 
 _PHYSICAL_DIR = preparation.MODEL_PATH / "semantic"
 _PHYSICAL = (_PHYSICAL_DIR / PHYSICAL_ROOT).as_posix()
@@ -69,6 +74,46 @@ class NativeIntent(BaseModel):
     recreate: tuple[NativeEffect, ...] = ()
 
 
+class RuntimeCustody(BaseModel):
+    """Exact reviewed runtime bytes; a logical profile establishes no execution outcome."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    execution_profile: str
+    runtime_id: str
+    manifest_sha256: str
+    archive_sha256: str
+
+    @classmethod
+    def from_binding(cls, binding: RuntimeBinding) -> RuntimeCustody:
+        return cls(
+            execution_profile=json.loads(binding.manifest)["execution_profile"],
+            runtime_id=binding.runtime_id,
+            manifest_sha256=sha256(binding.manifest).hexdigest(),
+            archive_sha256=sha256(binding.archive).hexdigest(),
+        )
+
+    def verify(self, binding: RuntimeBinding, prepared: PreparedRelease) -> None:
+        from corpus_structure.semantic.data_operation_runtime import (
+            RuntimeBindingError,
+            validate_data_operation_runtime,
+        )
+
+        if (
+            binding.release_id != prepared.release_id
+            or binding.runtime_id != self.runtime_id
+            or sha256(binding.manifest).hexdigest() != self.manifest_sha256
+            or sha256(binding.archive).hexdigest() != self.archive_sha256
+        ):
+            raise model.ModelError(["runtime differs from exact reviewed custody"])
+        try:
+            validate_data_operation_runtime(binding, prepared)
+        except RuntimeBindingError as error:
+            raise model.ModelError(["reviewed runtime is invalid: " + str(error)]) from error
+        if json.loads(binding.manifest)["execution_profile"] != self.execution_profile:
+            raise model.ModelError(["runtime execution profile differs from reviewed selection"])
+
+
 class ChangeRequest(NativeIntent):
     baseline: str = "HEAD"
     core: str | None = None
@@ -78,11 +123,21 @@ class ChangeRequest(NativeIntent):
     archive_release: str | None = None
     packs: tuple[str, ...] = ()
     data_operations: str | None = None
+    execution_profile: str | None = None
     native_predecessor: str | None = None
     native_revision: str | None = None
     deployment: bool = False
     deployment_profile: DeploymentProfile | None = None
     source_migrations: tuple[SourceMigration, ...] = ()
+
+    @model_validator(mode="after")
+    def explicit_application_runtime(self):
+        executable = bool(self.data_operations and (self.deployment or self.native_requested))
+        if executable and (self.execution_profile is None or not self.execution_profile.strip()):
+            raise ValueError("DDO application deployment requires an explicit execution_profile")
+        if not executable and self.execution_profile is not None:
+            raise ValueError("execution_profile requires an actual DDO application deployment")
+        return self
 
     @property
     def declared_native_revision(self) -> str | None:
@@ -143,10 +198,28 @@ class ChangePreview(BaseModel):
     local_release: str | None = None
     release_manifest_sha256: str | None = None
     release_artifacts_sha256: str | None = None
+    runtime: RuntimeCustody | None = None
     discovery: dict | None = None
     source_migrations: tuple[SourceMigrationPreview, ...] = ()
     source_comparison: EffectiveChangeComparison | None = None
     query_analysis: ProjectionAnalysisComparison | None = None
+
+    @model_validator(mode="after")
+    def runtime_matches_application(self):
+        if self.runtime is not None and (
+            not self.effects.admission or not self.request.data_operations
+            or self.request.execution_profile != self.runtime.execution_profile
+        ):
+            raise ValueError("runtime custody requires its reviewed DDO application/profile")
+        return self
+
+    def verify_runtime(self, binding: RuntimeBinding | None, prepared: PreparedRelease) -> None:
+        if self.request.data_operations and self.effects.admission:
+            if self.runtime is None or binding is None:
+                raise model.ModelError(["application preview lacks exact reviewed runtime custody"])
+            self.runtime.verify(binding, prepared)
+        elif self.runtime is not None or binding is not None:
+            raise model.ModelError(["preview has no DDO runtime admission intent"])
 
     @model_validator(mode="after")
     def query_analysis_matches_release_pair(self):

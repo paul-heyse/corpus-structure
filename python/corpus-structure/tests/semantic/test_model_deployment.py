@@ -67,6 +67,7 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
                 {
                     "native_revision": "current_release_root",
                     "data_operations": "target.yaml",
+                    "execution_profile": "execution:deployment-control",
                 }
             ),
         )
@@ -80,6 +81,11 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     assert binding.release_artifacts_sha256 is not None
     success(run("register", authored))
     prepared = commands._prepare_release(root, (), data_operations="target.yaml")
+    runtime = commands._read_runtime(store, authored, binding.runtime, prepared[3])
+    assert runtime is not None and binding.runtime is not None
+    assert staged["runtime"]["runtime_id"] == runtime.runtime_id
+    assert binding.runtime.execution_profile == "execution:deployment-control"
+    assert json.loads(runtime.manifest)["observed"] == {}
     wrong_cluster = binding.model_copy(
         update={
             "target_identity": binding.target_identity.model_copy(update={"system_identifier": "0"})
@@ -92,6 +98,7 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
             wrong_cluster,
             prepared,
             report=lambda _: pytest.fail("unexpected effect"),
+            runtime=runtime,
         )
 
     upgrade = migrations.upgrade
@@ -147,7 +154,7 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     )
     effects = []
     with pytest.raises(DBAPIError) as denied:
-        deploy_candidate(root, wrong_purpose, binding, prepared, report=effects.append)
+        deploy_candidate(root, wrong_purpose, binding, prepared, report=effects.append, runtime=runtime)
     assert getattr(denied.value.orig, "sqlstate", None) == "42501"
     assert effects == ["migration"]
     with semantic_bare_engine.connect() as connection:
@@ -212,7 +219,53 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
                 + " FROM corpus_sem_writer"
             )
 
+    # Both native admissions share the transaction. A real runtime insert followed
+    # by refusal must leave neither runtime nor operation admission standing.
+    from corpus_structure.semantic import runtime_binding_store
+
+    persist_runtime = runtime_binding_store.persist_runtime_binding
+
+    def refuse_after_runtime(connection, release, actual):
+        persist_runtime(connection, release, actual)
+        raise ModelError(["controlled refusal after real runtime registration"])
+
+    with monkeypatch.context() as faults:
+        faults.setattr(runtime_binding_store, "persist_runtime_binding", refuse_after_runtime)
+        failed = run("deploy", authored)
+    assert failed.exit_code == 1, failed.output
+    failure = json.loads(failed.stdout)
+    assert failure["operation_account"]["known_effects"] == ["migration", "archive"]
+    with semantic_bare_engine.connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM sem.runtime_binding")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM sem.deployment_admission")) == 0
+
+    def lose_admission_ack(connection, release, actual):
+        identity = persist_runtime(connection, release, actual)
+        commit = connection.dialect.do_commit
+
+        def commit_and_lose(driver):
+            faults.setattr(connection.dialect, "do_commit", commit)
+            commit(driver)
+            raise OSError("controlled lost admission/runtime commit acknowledgement")
+
+        faults.setattr(connection.dialect, "do_commit", commit_and_lose)
+        return identity
+
+    with monkeypatch.context() as faults:
+        faults.setattr(runtime_binding_store, "persist_runtime_binding", lose_admission_ack)
+        failed = run("deploy", authored)
+    assert failed.exit_code == 1, failed.output
+    failure = json.loads(failed.stdout)
+    assert failure["operation_account"]["known_effects"] == ["migration", "archive", "admission"]
+    assert failure["operation_account"]["failure"]["database_effects"] == "commit_confirmed"
+    assert failure["operation_account"]["failure"]["operation_id"] == "model.deploy:admission"
+    from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
+
+    with semantic_bare_engine.connect() as connection:
+        assert runtime_binding_for_release(connection, prepared[3], runtime.runtime_id) == runtime
+
     deployed = success(run("deploy", authored))
+    assert deployed["runtime"] == binding.runtime.model_dump(mode="json")
     account = deployed["operation_account"]
     assert account["release"] == binding.release
     assert account["known_effects"] == ["migration", "archive", "admission", "verified"]
@@ -225,7 +278,7 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
             connection.execute(update(admitted).where(exact).values(content_digest="0" * 64))
     try:
         with pytest.raises(ModelError, match="admitted release does not match"):
-            deploy_candidate(root, settings, binding, prepared, report=lambda _: None)
+            deploy_candidate(root, settings, binding, prepared, report=lambda _: None, runtime=runtime)
     finally:
         with (
             semantic_bare_engine.begin() as connection,
@@ -253,3 +306,51 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     # Archive bytes stay the actual reviewed release, without a second schema-only
     # or legacy-run publication route.
     assert sha256(prepared[3].manifest).hexdigest() == binding.release_manifest_sha256
+
+
+    # The normal application-only route reuses the installed native root and
+    # admits the same exact reviewed runtime without authoring another migration.
+    application = success(command(
+        "model", "change", "preview", "-", input=yaml.safe_dump({
+            "deployment": True, "data_operations": "target.yaml",
+            "execution_profile": "execution:deployment-control",
+        })
+    ))
+    success(run("apply", application["result_id"]))
+    application_candidate = success(run("candidate", application["result_id"]))
+    assert application_candidate["runtime"]["runtime_id"] == runtime.runtime_id
+    application_deployed = success(run("deploy", application_candidate["result_id"]))
+    assert application_deployed["operation_account"]["known_effects"] == [
+        "archive", "admission", "verified"
+    ]
+
+    # Actual ordinary demand creation can select the newly admitted runtime.
+    # This controlled native integer producer establishes transport/custody,
+    # without claiming PDF or provider execution.
+    from typing import cast
+
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
+    from corpus_structure.semantic.data_operation_service import (
+        CreateDataDemand,
+        create_data_demand,
+    )
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    intent = freeze_demand(
+        bound_data_operation_model(prepared[3]),
+        roots=(RootSubject("deployment:subject", "deployment:source", b'{"page":1}'),),
+        targets=("urn:ddo-test:source",), inference="deployment:initial-native-request",
+        execution_profile="execution:deployment-control",
+    )
+    with (
+        open_runtime_engine(settings, "deployment-first-demand", purpose="write") as engine,
+        engine.begin() as connection,
+    ):
+        created = create_data_demand(connection, CreateDataDemand(
+            project_id=project, release_id=binding.release, runtime_id=runtime.runtime_id,
+            intent=cast(dict, intent.record),
+        ))
+    assert created["runtime_id"] == runtime.runtime_id
+    assert created["release_id"] == binding.release
+    assert created["obligations"][0]["subject"] == "deployment:subject"

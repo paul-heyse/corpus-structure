@@ -34,13 +34,14 @@ from corpus_structure.cli.output import (
     write_report_bytes,
     write_report_text,
 )
-from corpus_structure.cli.schema import model_stage, refusal
+from corpus_structure.cli.schema import NativeCandidateResult, model_stage, refusal
 from corpus_structure.cli.target import (
     ConfiguredSelection,
     configured_selection,
     current_selection,
     selection_summary,
 )
+from corpus_structure.schema.model_change import RuntimeCustody
 from corpus_structure.schema.source_migrations import ConsumerOutcome
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.model_comparison import DeclaredModelComparison
@@ -53,6 +54,8 @@ if TYPE_CHECKING:
     from corpus_structure.cli.managed import ResultStore
     from corpus_structure.schema.model_change import ChangePreview
     from corpus_structure.schema.model_deployment import Candidate
+    from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
+    from corpus_structure.semantic.types import PreparedRelease
 
 app = typer.Typer(help="Check the model and prepare canonical changes.")
 changes = typer.Typer(help="Preview, apply and deploy exact model changes.")
@@ -65,10 +68,15 @@ class ModelResult(BaseModel):
     changed: tuple[str, ...] = ()
     predecessor: str | None = None
     release: str | None = None
+    runtime: RuntimeCustody | None = None
     target_profile: DeploymentProfile | None = None
     acquired_target: StorageTarget | None = None
     selection: ConfiguredSelection | None = None
     operation_account: OperationAccount | None = None
+
+
+class ApplicationNativeCandidateResult(NativeCandidateResult):
+    runtime: RuntimeCustody
 
 
 class CheckResult(BaseModel):
@@ -121,6 +129,7 @@ class PreviewEffectsReport(EffectGuidance):
     predecessor: str | None
     release: str | None
     release_artifacts_sha256: str | None = None
+    runtime: RuntimeCustody | None = None
     changed_paths: tuple[str, ...]
     effects: dict[str, JsonValue]
     comparison_status: Literal["available", "unavailable", "not_applicable"]
@@ -207,6 +216,7 @@ class CandidateInspection(EffectGuidance):
     predecessor: str | None
     release: str | None
     release_artifacts_sha256: str | None = None
+    runtime: RuntimeCustody | None = None
     target: str
     target_profile: DeploymentProfile
     acquired_target: StorageTarget | None
@@ -253,6 +263,39 @@ def _load_artifact(store, result_id: str, action: str, role: str) -> bytes:
     if sha256(raw).hexdigest() != manifest.details.get("sha256"):
         raise ResultError("result artifact no longer matches its settled digest")
     return raw
+
+
+
+def _publish_runtime(result, binding: RuntimeBinding) -> None:
+    for role, content in (("runtime_manifest", binding.manifest), ("runtime_archive", binding.archive)):
+        path = result.directory / (role + ".json")
+        path.write_bytes(content)
+        result.publish(role, path)
+
+
+def _read_runtime(
+    store: ResultStore, result_id: str, custody: RuntimeCustody | None, prepared: PreparedRelease | None
+) -> RuntimeBinding | None:
+    from corpus_structure.cli.managed import ResultError
+    from corpus_structure.schema.model import ModelError
+    from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
+
+    manifest = store.show(result_id)
+    if manifest.action not in {"model.preview", "model.candidate"} or manifest.outcome != "passed":
+        raise ResultError("runtime custody requires a successful preview or candidate")
+    if custody is None:
+        if {"runtime_manifest", "runtime_archive"} & manifest.artifacts.keys():
+            raise ModelError(["runtime artifacts lack reviewed custody"])
+        return None
+    if prepared is None:
+        raise ModelError(["runtime custody requires its application release"])
+    binding = RuntimeBinding(
+        prepared.release_id, custody.runtime_id,
+        store.read_artifact(result_id, "runtime_manifest"),
+        store.read_artifact(result_id, "runtime_archive"),
+    )
+    custody.verify(binding, prepared)
+    return binding
 
 
 def _publish_sql_explanation(result, explanation):
@@ -598,6 +641,8 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ("Pending deployment base", _base_summary(report.deployment_base)),
         ("Release", report.release or "unavailable"),
         ("Prepared artifacts SHA-256", report.release_artifacts_sha256 or "unavailable"),
+        ("Runtime", report.runtime.runtime_id if report.runtime else "not applicable"),
+        ("Execution profile (logical selection)", report.runtime.execution_profile if report.runtime else "not applicable"),
         ("Changed paths", _path_summary(report.changed_paths)),
         ("Native authoring", "required" if report.effects["native"] else "not required"),
         ("Release admission", "planned" if report.effects["admission"] else "not planned"),
@@ -905,6 +950,7 @@ def inspect_preview(
                 predecessor=staged.request.native_predecessor,
                 release=staged.local_release,
                 release_artifacts_sha256=staged.release_artifacts_sha256,
+                runtime=staged.runtime,
                 changed_paths=paths,
                 effects=staged.effects.model_dump(mode="json"),
                 comparison_status="available"
@@ -990,6 +1036,8 @@ def _candidate_view(report: CandidateInspection) -> Table:
         ("Authoring target", _target_summary(None, report.authoring_target)),
         ("Release", report.release),
         ("Prepared artifacts SHA-256", report.release_artifacts_sha256 or "unavailable"),
+        ("Runtime", report.runtime.runtime_id if report.runtime else "not applicable"),
+        ("Execution profile (logical selection)", report.runtime.execution_profile if report.runtime else "not applicable"),
         ("Native revision", report.native_revision or "not applicable"),
         ("Predecessor", report.predecessor or "not applicable"),
         ("Pending authoring base", _base_summary(report.native_base)),
@@ -1252,6 +1300,7 @@ def inspect_candidate(
                 predecessor=binding.predecessor,
                 release=binding.release,
                 release_artifacts_sha256=binding.release_artifacts_sha256,
+                runtime=binding.runtime,
                 target=binding.target,
                 target_profile=binding.target_profile,
                 acquired_target=binding.target_identity,
@@ -1530,6 +1579,21 @@ def preview(
                     else None,
                     release_artifacts_sha256=local.artifacts_sha256 if local is not None else None,
                 )
+                if staged.effects.admission and bound.data_operations:
+                    from corpus_structure.semantic.data_operation_runtime import (
+                        prepare_data_operation_runtime,
+                    )
+
+                    assert local is not None and dependencies is not None
+                    assert bound.execution_profile is not None
+                    staged.verify_release(local)
+                    runtime = prepare_data_operation_runtime(
+                        local, dependencies.artifacts,
+                        execution_profile=bound.execution_profile, observed={},
+                    )
+                    staged = staged.model_copy(update={"runtime": RuntimeCustody.from_binding(runtime)})
+                    staged.verify_runtime(runtime, local)
+                    _publish_runtime(result, runtime)
                 artifact = result.directory / "preview.json"
                 artifact.write_text(staged.model_dump_json(), encoding="utf-8")
                 patch = result.directory / "model.patch"
@@ -1548,6 +1612,7 @@ def preview(
                 changed=tuple(file.path for file in staged.files),
                 predecessor=bound.native_predecessor,
                 release=release,
+                runtime=staged.runtime,
                 target_profile=staged.target_profile,
                 acquired_target=staged.target_identity,
                 selection=current_selection(ctx, staged.target_profile),
@@ -1761,6 +1826,9 @@ def candidate(
                         staged.verify_release(prepared)
                         _retain_authored_sql(sql_holder, dependencies, preserve=True)
                         sql_inputs = prepare_release_sql(prepared, dependencies)
+                    runtime = _read_runtime(store, change, staged.runtime, prepared)
+                    if runtime is not None:
+                        _publish_runtime(result, runtime)
                     products: dict[str, bytes] = {}
                     if staged.effects.native:
                         settings = state(ctx).settings()
@@ -1815,6 +1883,7 @@ def candidate(
                             stage="release candidate",
                             revision=staged.revision,
                             release=prepared.release_id,
+                            runtime=staged.runtime,
                             target_profile=staged.target_profile,
                             acquired_target=staged.target_identity,
                             selection=current_selection(ctx, staged.target_profile),
@@ -1828,7 +1897,7 @@ def candidate(
                         sql_holder[0] = explanation_from_native(
                             products["native_operations.json"], sql_holder[0]
                         )
-                    binding = Candidate.from_preview(staged, revision, prepared, products)
+                    binding = Candidate.from_preview(staged, revision, prepared, products, runtime=runtime)
                     if prepared is not None:
                         from corpus_structure.semantic.inspection_capsule import make_capsule
 
@@ -1857,6 +1926,10 @@ def candidate(
                     release=binding.release,
                     predecessor=binding.predecessor,
                 )
+        if binding.runtime is not None and isinstance(report, NativeCandidateResult):
+            report = ApplicationNativeCandidateResult(
+                **report.model_dump(), runtime=binding.runtime
+            )
         emit(
             report.model_copy(update={"operation_account": result.manifest.operation_account}),
             json=json_,
@@ -1978,6 +2051,10 @@ def deploy(
                     )
                 )
 
+                runtime = _read_runtime(
+                    store, candidate, binding.runtime, deployment[3] if deployment else None
+                )
+
                 def report(effect: str) -> None:
                     diagnostic(f"Model {result.id} · {effect}")
 
@@ -1988,6 +2065,7 @@ def deploy(
                         binding,
                         deployment,
                         report=report,
+                        runtime=runtime,
                         checkpoint=lambda target, predecessor, revision, effect: (
                             result.record_deployment_checkpoint(
                                 target, predecessor, revision, binding.release, effect
@@ -2002,11 +2080,12 @@ def deploy(
                     )
                     raise
             store.release(candidate, _registration_hold(candidate))
-            result.settle(release=binding.release)
+            result.settle(release=binding.release, runtime_id=binding.runtime.runtime_id if binding.runtime else None)
         emit(
             ModelResult(
                 result_id=result.id,
                 stage="deployed",
+                runtime=binding.runtime,
                 revision=binding.model_revision,
                 predecessor=binding.predecessor,
                 release=binding.release,
