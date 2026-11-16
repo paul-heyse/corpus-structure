@@ -312,27 +312,51 @@ def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(m
         deps=["ROOT", "punct"],
     )
     import json
+
     from annotation_support import ControlledPipeline, selected_item
     from methods.declared_primary_fixture import retained_source_annotations
+
     from corpus_structure.ingest import annotations as annotation_owner
     from corpus_structure.ingest.annotations import AnnotationProfile, annotate
-    from corpus_structure.semantic.sentence_products import source_annotation_packets, validate_source_annotations
+    from corpus_structure.semantic.sentence_products import (
+        source_annotation_packets,
+        validate_source_annotations,
+    )
 
     controlled = ControlledPipeline()
-    request, source, frame, context = selected_item(controlled, "Alpha.", start=0, block_id="#/texts/1")
+    request, source, frame, context = selected_item(
+        controlled, "Alpha.", start=0, block_id="#/texts/1"
+    )
     monkeypatch.setattr(annotation_owner, "pipeline", lambda _: controlled)
-    annotation_profile = AnnotationProfile(execution_profile=controlled.selection().native.fingerprint)
-    (annotation,) = annotate((request,), annotation_profile, processed_docs=(original,), require_complete=False)
+    annotation_profile = AnnotationProfile(
+        execution_profile=controlled.selection().native.fingerprint
+    )
+    (annotation,) = annotate(
+        (request,), annotation_profile, processed_docs=(original,), require_complete=False
+    )
     native = retained_source_annotations(source, frame, context, (annotation,), annotation_profile)
     value = json.loads(native.content)
-    value["blocks"][0]["lexemes"] = [dict(
-        lower=token.lower_, is_alpha=token.is_alpha, is_space=token.is_space,
-        is_punct=token.is_punct, is_quote=token.is_quote, like_num=token.like_num,
-        sent_start=token.is_sent_start,
-    ) for token in original]
+    value["blocks"][0]["lexemes"] = [
+        dict(
+            lower=token.lower_,
+            is_alpha=token.is_alpha,
+            is_space=token.is_space,
+            is_punct=token.is_punct,
+            is_quote=token.is_quote,
+            like_num=token.like_num,
+            sent_start=token.is_sent_start,
+        )
+        for token in original
+    ]
     value["members"] = source_annotation_packets(native.prepared, native.model, value)
-    native = validate_source_annotations(native.prepared, native.model, value, source,
-        configuration=annotation_profile.configuration, subject_context=context)
+    native = validate_source_annotations(
+        native.prepared,
+        native.model,
+        value,
+        source,
+        configuration=annotation_profile.configuration,
+        subject_context=context,
+    )
     assert len(native.inventory("token")) == 2
     vocab = retained_native_vocab(source, native)
     _, doc, _, start, end = next(retained_native_documents(source, native, vocab))
@@ -580,7 +604,11 @@ def test_statistics_named_rule_configuration_belongs_to_construction_profile():
         ("symbol_declaration", "denotes"),
         ("condition_exception", "marked_clause"),
     }
-    added = {rule.variant: rule for rule in options.annotation_rules if rule.variant in {"active_as_term_attachment", "active_as_marked_nominal"}}
+    added = {
+        rule.variant: rule
+        for rule in options.annotation_rules
+        if rule.variant in {"active_as_term_attachment", "active_as_marked_nominal"}
+    }
     for rule in added.values():
         assert set(rule.bindings) == {"defining_cue", "defined_term", "defining_content"}
         assert rule.bindings["defined_term"].node == "term"

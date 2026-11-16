@@ -240,15 +240,27 @@ an explicit optional-condition fixture assertion; its source control1 passed
 (387 artifacts); optional projection analysis remains unassessed.
 
 Independent source review at `5d3d50df1` found the following current integration gaps. They include
-inherited target-path defects, not solely retirement regressions. Source inspection is their present
-evidence; native capture is waiting for their bounded repairs and affected controls.
+inherited target-path defects, not solely retirement regressions. Their Python boundary repairs are
+integrated and independently rechecked by source inspection; native qualification remains open.
+Typed witness projection (`dc7c69d58`) passed37 `87bbafae22fb4d08a3aa50e41d5d7bb7` using actual
+producer packets; its corrected expectation failure `bafec2525d8f44b892963323523b0f44` remains held.
+Coverage/choice/scope (`decbeeb89`) passed81/failed1 fixture
+`a38c8cd045ed4259bc930b7e70075f9c`; exact1 passed `65550da1976e40df9e013f87a2f90867`,82/82
+nodes covered, no context differences or unknowns, sources differ. The fixture now retains honest
+partial native standing for missing MORPH, with original lexical/head/no-source-getter criteria.
+Earlier `af53c1a136a44f3cb43004c4c29b58f8` and intermediate positive65
+`6d2f9bbdcc56450798cfcc0c34f42f1a` remain held. Guards conserve partitioned text intervals and
+captured unprojected formula identities without turning unknown ancestry into examined absence.
+After normal generation and maintenance, whole typing passed `28b82024ab9949eea5d9dd2879547cf3`,
+lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973 passed
+`868e0bb2b2054ccf83357c79d43057a0` (functional execution not_run).
 
 | Finding | Current gap / owning repair | Disposition |
 |---|---|---|
-| DDO-SI-01 | Named-rule witness projection consumes `{product_id, block_id}` as a generic member reference, and its inventory loader drops actual native block/token packets. Resolve the typed block through its retained product, preserve genuine node kinds and traverse actual current dependencies. | **Open**; selected inventory/assessment owner, isolated witness increment. |
-| DDO-SI-02 | Interpreted complete coverage can omit an eligible span, duplicate a family or omit a fact-bearing family. Reuse current source-selector interval semantics and validate union conservation while preserving partitioned examination. | **Open**; interpreted-product/source selector owner. |
-| DDO-SI-03 | Required external choices accept ordinary authenticated dependency members. Narrow to the existing validated `record_type=choice_member` packet subset and retain owning-group/source custody. | **Open**; interpreted-product owner. |
-| DDO-SI-04 | Interpreted occurrences can remain inside native pieces while escaping narrowed selected scope. Reuse source selector containment already required by formal products, including pointer/page meaning. | **Open**; source/formal/interpreted owners; share the existing selector responsibility. |
+| DDO-SI-01 | Named-rule witness projection consumes `{product_id, block_id}` as a generic member reference, and its inventory loader drops actual native block/token packets. Resolve the typed block through its retained product, preserve genuine node kinds and traverse actual current dependencies. | **Closed at Python projection boundary**, `dc7c69d58`,37 pure controls and independent source recheck. Native selected-read qualification remains required. |
+| DDO-SI-02 | Interpreted complete coverage can omit an eligible span, duplicate a family or omit a fact-bearing family. Reuse current source-selector interval semantics and validate union conservation while preserving partitioned examination. | **Closed at Python validator boundary**, `decbeeb89`, partition/gap/atom/unknown-ancestry and family controls plus independent source recheck. Native qualification remains required. |
+| DDO-SI-03 | Required external choices accept ordinary authenticated dependency members. Narrow to the existing validated `record_type=choice_member` packet subset and retain owning-group/source custody. | **Closed at Python validator boundary**, `decbeeb89`, real choice alternative positive and foreign-member negatives plus independent source recheck. Native qualification remains required. |
+| DDO-SI-04 | Interpreted occurrences can remain inside native pieces while escaping narrowed selected scope. Reuse source selector containment already required by formal products, including pointer/page meaning. | **Closed at Python validator boundary**, `decbeeb89`, shared pointer/page/range containment with formal/construction positives and escaped-scope negatives; independent source recheck. Native qualification remains required. |
 
 Cross-release request execution (`c0e1b6f4d`, `f5ac9e2a3`, `726a411bc`) uses authenticated attach
 metadata and the exact original generation release/runtime/binding before capacity reservation.

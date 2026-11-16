@@ -1,4 +1,4 @@
-# Prepared only: no preview, candidate, registration or deployment performed.
+# Native-only successor; lifecycle outcomes are recorded in this folder's README.
 baseline: HEAD
 native_revision: semantic_ddo_stable_read_renewal
 native_predecessor: semantic_ddo_observation_split

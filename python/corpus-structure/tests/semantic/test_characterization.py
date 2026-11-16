@@ -638,8 +638,20 @@ def test_complete_coverage_uses_original_pointer_ancestry_and_page_membership():
             dict(kind="native_text", item_ref="#/texts/1", source_field="text", start=3, end=10),
         ],
         items=[
-            dict(self_ref="#/texts/0", label="text", text="all", parent={"$ref": "#/groups/0"}, prov=[dict(page_no=1)]),
-            dict(self_ref="#/texts/1", label="text", text="xxxxxxx", parent={"$ref": "#/groups/0"}, prov=[dict(page_no=2)]),
+            dict(
+                self_ref="#/texts/0",
+                label="text",
+                text="all",
+                parent={"$ref": "#/groups/0"},
+                prov=[dict(page_no=1)],
+            ),
+            dict(
+                self_ref="#/texts/1",
+                label="text",
+                text="xxxxxxx",
+                parent={"$ref": "#/groups/0"},
+                prov=[dict(page_no=2)],
+            ),
         ],
     )
     body = literal_inventory(case)
@@ -657,7 +669,9 @@ def test_complete_coverage_uses_original_pointer_ancestry_and_page_membership():
 
 
 @pytest.mark.parametrize("corruption", ["duplicate", "uncovered_fact_family"])
-def test_family_coverage_has_one_row_and_accounts_for_every_analytical_family(graph_source, corruption):
+def test_family_coverage_has_one_row_and_accounts_for_every_analytical_family(
+    graph_source, corruption
+):
     body = literal_inventory(graph_source)
     if corruption == "duplicate":
         body["coverage"].append(copy.deepcopy(body["coverage"][0]))
@@ -673,17 +687,52 @@ def test_family_coverage_has_one_row_and_accounts_for_every_analytical_family(gr
 @pytest.mark.parametrize("member", ["p", "annotation", "group", "occurrence", None])
 def test_required_external_choices_are_actual_packed_alternatives(graph_source, site, member):
     body = literal_inventory(graph_source)
-    body["annotations"] = [dict(local_id="annotation", family="scope", kind="construction", vocabulary="literal", status="interpreted", occurrences=[body["occurrences"][0]["local_id"]])]
-    body["choices"] = [dict(local_id="group", family="scope", compatibility="exclusive", members=[dict(local_id="left", root="not_all"), dict(local_id="right", root="all_not")])]
+    body["annotations"] = [
+        dict(
+            local_id="annotation",
+            family="scope",
+            kind="construction",
+            vocabulary="literal",
+            status="interpreted",
+            occurrences=[body["occurrences"][0]["local_id"]],
+        )
+    ]
+    body["choices"] = [
+        dict(
+            local_id="group",
+            family="scope",
+            compatibility="exclusive",
+            members=[dict(local_id="left", root="not_all"), dict(local_id="right", root="all_not")],
+        )
+    ]
     upstream = current_product(graph_source, body)
     downstream = literal_inventory(graph_source)
     if member == "occurrence":
         member = body["occurrences"][0]["local_id"]
-    ref = dict(product_id=upstream.semantic_id, **(dict(member_id=member) if member is not None else {}))
+    ref = dict(
+        product_id=upstream.semantic_id, **(dict(member_id=member) if member is not None else {})
+    )
     if site == "term":
         downstream["terms"][0]["required_external_choices"] = [ref]
     else:
-        downstream["roles"] = [dict(local_id="role", family="scope", owner="p", member="r", role="reference", scheme="literal", occurrences=[], basis=dict(kind="native_prediction", status="recorded", native_scheme="literal", native_label="reference", required_external_choices=[ref]))]
+        downstream["roles"] = [
+            dict(
+                local_id="role",
+                family="scope",
+                owner="p",
+                member="r",
+                role="reference",
+                scheme="literal",
+                occurrences=[],
+                basis=dict(
+                    kind="native_prediction",
+                    status="recorded",
+                    native_scheme="literal",
+                    native_label="reference",
+                    required_external_choices=[ref],
+                ),
+            )
+        ]
     with pytest.raises(ValueError):
         current_product(graph_source, downstream, (upstream,))
     ref["member_id"] = "left"
@@ -705,13 +754,19 @@ def test_current_occurrences_cannot_escape_the_exact_frozen_source_range():
         current_product(case, body)
 
 
-
 def test_complete_coverage_conserves_unprojected_native_atom_identity():
-    case = selected_graph("all", items=[
-        dict(self_ref="#/texts/0", label="text", text="all"),
-        dict(self_ref="#/formula/0", label="formula", text="", orig="x=1", prov=[dict(page_no=1)]),
-        dict(self_ref="#/formula/1", label="formula", text="", orig="y=2", prov=[dict(page_no=2)]),
-    ])
+    case = selected_graph(
+        "all",
+        items=[
+            dict(self_ref="#/texts/0", label="text", text="all"),
+            dict(
+                self_ref="#/formula/0", label="formula", text="", orig="x=1", prov=[dict(page_no=1)]
+            ),
+            dict(
+                self_ref="#/formula/1", label="formula", text="", orig="y=2", prov=[dict(page_no=2)]
+            ),
+        ],
+    )
     body = literal_inventory(case)
     projection = case.source.value["source"]["projection"]
     row = body["coverage"][0]
@@ -724,13 +779,17 @@ def test_complete_coverage_conserves_unprojected_native_atom_identity():
 
 
 def test_unknown_pointer_ancestry_cannot_prove_eligible_scope_was_examined():
-    case = selected_graph("allxxx", pieces=[
-        dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=3),
-        dict(kind="native_text", item_ref="#/texts/1", source_field="text", start=3, end=6),
-    ], items=[
-        dict(self_ref="#/texts/0", label="text", text="all", parent={"$ref": "#/groups/0"}),
-        dict(self_ref="#/texts/1", label="text", text="xxx", parent={"$ref": "#/unavailable"}),
-    ])
+    case = selected_graph(
+        "allxxx",
+        pieces=[
+            dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=3),
+            dict(kind="native_text", item_ref="#/texts/1", source_field="text", start=3, end=6),
+        ],
+        items=[
+            dict(self_ref="#/texts/0", label="text", text="all", parent={"$ref": "#/groups/0"}),
+            dict(self_ref="#/texts/1", label="text", text="xxx", parent={"$ref": "#/unavailable"}),
+        ],
+    )
     body = literal_inventory(case)
     projection = case.source.value["source"]["projection"]
     row = body["coverage"][0]

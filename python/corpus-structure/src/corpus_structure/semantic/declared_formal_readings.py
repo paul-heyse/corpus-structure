@@ -110,8 +110,11 @@ class SelectedCharacterizationInventories(Mapping):
                     analyzed_scope=dict(source=body["source"], selectors=body["selectors"]),
                 )
                 if packet["context"] != context or identifier != _id(
-                    body["source"], kind.removeprefix("native_"), member["block_id"],
-                    member["start"], member["end"],
+                    body["source"],
+                    kind.removeprefix("native_"),
+                    member["block_id"],
+                    member["start"],
+                    member["end"],
                 ):
                     raise ValueError("selected native member changes its declared source identity")
             inventory[names[kind]].append(member)

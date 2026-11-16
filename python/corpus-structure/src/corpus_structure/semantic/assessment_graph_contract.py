@@ -15,7 +15,10 @@ ASSESSMENT_COLLECTIONS = (
 )
 ASSESSMENT_NATIVE_COLLECTIONS = ("native_block", "native_token", "native_sentence")
 ASSESSMENT_NODE_KINDS = (
-    *ASSESSMENT_COLLECTIONS, *ASSESSMENT_NATIVE_COLLECTIONS, "choice_member", "named_binding"
+    *ASSESSMENT_COLLECTIONS,
+    *ASSESSMENT_NATIVE_COLLECTIONS,
+    "choice_member",
+    "named_binding",
 )
 ASSESSMENT_RELATION_KINDS = tuple(
     sorted(

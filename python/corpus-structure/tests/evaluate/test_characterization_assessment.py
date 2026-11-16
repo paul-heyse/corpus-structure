@@ -261,30 +261,43 @@ def named_witness_case() -> dict[str, Any]:
     formal, construction = profiles()
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     rule = AnnotationRule(
-        rule="copula", variant="is", mechanism="token", pattern=[{"TEXT": "is"}],
+        rule="copula",
+        variant="is",
+        mechanism="token",
+        pattern=[{"TEXT": "is"}],
         bindings={"cue": {"node": "match"}},
     )
     product = construction.run(
-        source, (primary,), ConstructionOptions(annotation_rules=(rule,)),
-        sentences=native, subject_context=context,
+        source,
+        (primary,),
+        ConstructionOptions(annotation_rules=(rule,)),
+        sentences=native,
+        subject_context=context,
     )
     products = {
         value.semantic_id: json.loads(value.content) for value in (primary, native, product)
     }
     match = next(
-        packet["body"] for packet in products[product.semantic_id]["members"]
+        packet["body"]
+        for packet in products[product.semantic_id]["members"]
         if packet["body"].get("kind") == "construction.named_binding"
     )
     return dict(
-        products=products, product=product.semantic_id, native=native.semantic_id,
-        formal=primary.semantic_id, member=match["local_id"], block=request.block_id,
+        products=products,
+        product=product.semantic_id,
+        native=native.semantic_id,
+        formal=primary.semantic_id,
+        member=match["local_id"],
+        block=request.block_id,
     )
 
 
 def _named_witness(case):
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_product_reference import DataProductReference
-    from corpus_structure.semantic.declared_formal_readings import SelectedCharacterizationInventories
+    from corpus_structure.semantic.declared_formal_readings import (
+        SelectedCharacterizationInventories,
+    )
 
     records = {
         key: dict(canonical_body=semantic_value(value)) for key, value in case["products"].items()
@@ -293,9 +306,7 @@ def _named_witness(case):
     projection = LayerProjection(
         lambda pin: inventories[DataProductReference(pin["product_id"])].payload
     )
-    return projection.graph(
-        dict(product_id=case["product"]), case["member"], witness_closure=True
-    )
+    return projection.graph(dict(product_id=case["product"]), case["member"], witness_closure=True)
 
 
 def test_named_witness_closes_actual_native_block_and_token_packets(named_witness_case):
@@ -307,34 +318,70 @@ def test_named_witness_closes_actual_native_block_and_token_packets(named_witnes
     native = case["products"][case["native"]]
     (block,) = [p["body"] for p in native["members"] if p["body"]["record_type"] == "native_block"]
     (token,) = [
-        p["body"] for p in native["members"]
-        if p["body"]["record_type"] == "native_token" and (p["body"]["start"], p["body"]["end"]) == (5, 7)
+        p["body"]
+        for p in native["members"]
+        if p["body"]["record_type"] == "native_token"
+        and (p["body"]["start"], p["body"]["end"]) == (5, 7)
     ]
     assert block["block_id"] == case["block"] and block["local_id"] != case["block"]
-    match = next(p["body"] for p in case["products"][case["product"]]["members"] if p["member_id"] == case["member"])
-    assert match["named_match"]["native_container"] == dict(product_id=case["native"], block_id=case["block"])
+    match = next(
+        p["body"]
+        for p in case["products"][case["product"]]["members"]
+        if p["member_id"] == case["member"]
+    )
+    assert match["named_match"]["native_container"] == dict(
+        product_id=case["native"], block_id=case["block"]
+    )
 
     # These expected relationships follow the declared rule and literal 'is' extent,
     # independently of the projection implementation.
     selected = {
-        (edge["label"], edge.get("position"), tuple(sorted(nodes[edge["target"]]["qualified_identity"].items())))
-        for edge in root["edges"] if edge["label"] in {"named_match.native_container", "named_match.nodes"}
+        (
+            edge["label"],
+            edge.get("position"),
+            tuple(sorted(nodes[edge["target"]]["qualified_identity"].items())),
+        )
+        for edge in root["edges"]
+        if edge["label"] in {"named_match.native_container", "named_match.nodes"}
     }
     assert selected == {
-        ("named_match.native_container", None, tuple(sorted(dict(product_id=case["native"], member_id=block["local_id"]).items()))),
-        ("named_match.nodes", 0, tuple(sorted(dict(product_id=case["native"], member_id=token["local_id"]).items()))),
+        (
+            "named_match.native_container",
+            None,
+            tuple(sorted(dict(product_id=case["native"], member_id=block["local_id"]).items())),
+        ),
+        (
+            "named_match.nodes",
+            0,
+            tuple(sorted(dict(product_id=case["native"], member_id=token["local_id"]).items())),
+        ),
     }
     (binding_edge,) = [edge for edge in root["edges"] if edge["label"] == "named_match.binding"]
     binding = nodes[binding_edge["target"]]
     assert binding["value"]["collection"] == "named_binding" and binding["value"]["role"] == "cue"
     assert {
-        (edge["label"], edge.get("position"), nodes[edge["target"]]["qualified_identity"]["member_id"])
+        (
+            edge["label"],
+            edge.get("position"),
+            nodes[edge["target"]]["qualified_identity"]["member_id"],
+        )
         for edge in binding["edges"]
     } == {("head", None, token["local_id"]), ("members", 0, token["local_id"])}
-    actual_native = [node for node in nodes.values() if node["qualified_identity"]["product_id"] == case["native"]]
-    assert {node["value"]["collection"] for node in actual_native} == {"native_block", "native_token"}
+    actual_native = [
+        node
+        for node in nodes.values()
+        if node["qualified_identity"]["product_id"] == case["native"]
+    ]
+    assert {node["value"]["collection"] for node in actual_native} == {
+        "native_block",
+        "native_token",
+    }
     for node in actual_native:
-        original = next(p["body"] for p in native["members"] if p["member_id"] == node["qualified_identity"]["member_id"])
+        original = next(
+            p["body"]
+            for p in native["members"]
+            if p["member_id"] == node["qualified_identity"]["member_id"]
+        )
         assert node["value"] == {
             "collection": original["record_type"],
             **{key: value for key, value in original.items() if key != "local_id"},
@@ -342,17 +389,23 @@ def test_named_witness_closes_actual_native_block_and_token_packets(named_witnes
         assert "lemma" not in node["value"]  # Position-only packets do not invent native columns.
 
 
-def test_named_binding_graph_alpha_renames_generated_refs_but_keeps_head_direction(named_witness_case):
+def test_named_binding_graph_alpha_renames_generated_refs_but_keeps_head_direction(
+    named_witness_case,
+):
     actual = _named_witness(named_witness_case)
     expected = deepcopy(actual)
-    names = {node["id"]: "independent-" + str(index) for index, node in enumerate(expected["nodes"])}
+    names = {
+        node["id"]: "independent-" + str(index) for index, node in enumerate(expected["nodes"])
+    }
     expected["root"] = names[expected["root"]]
     for node in expected["nodes"]:
         node["id"] = names[node["id"]]
         for edge in node["edges"]:
             edge["target"] = names[edge["target"]]
     assert graph_equal(actual, expected, "source_semantics")
-    binding = next(node for node in expected["nodes"] if node["value"]["collection"] == "named_binding")
+    binding = next(
+        node for node in expected["nodes"] if node["value"]["collection"] == "named_binding"
+    )
     head = next(edge for edge in binding["edges"] if edge["label"] == "head")
     token = next(node for node in expected["nodes"] if node["id"] == head["target"])
     binding["edges"].remove(head)
@@ -362,7 +415,20 @@ def test_named_binding_graph_alpha_renames_generated_refs_but_keeps_head_directi
 
 @pytest.mark.parametrize(
     "mutation",
-    ("member_as_block", "wrong_block", "block_member_as_physical_id", "wrong_product", "missing_product", "undeclared_product", "foreign_source", "foreign_scope", "wrong_token_kind", "wrong_token_product", "ambiguous_block", "changed_member_identity"),
+    (
+        "member_as_block",
+        "wrong_block",
+        "block_member_as_physical_id",
+        "wrong_product",
+        "missing_product",
+        "undeclared_product",
+        "foreign_source",
+        "foreign_scope",
+        "wrong_token_kind",
+        "wrong_token_product",
+        "ambiguous_block",
+        "changed_member_identity",
+    ),
 )
 def test_named_witness_refuses_foreign_or_ambiguous_native_closure(named_witness_case, mutation):
     from hashlib import sha256
@@ -372,7 +438,9 @@ def test_named_witness_refuses_foreign_or_ambiguous_native_closure(named_witness
     case = deepcopy(named_witness_case)
     product = case["products"][case["product"]]
     native = case["products"][case["native"]]
-    match = next(p["body"]["named_match"] for p in product["members"] if p["member_id"] == case["member"])
+    match = next(
+        p["body"]["named_match"] for p in product["members"] if p["member_id"] == case["member"]
+    )
     block = next(p for p in native["members"] if p["body"]["record_type"] == "native_block")
     if mutation == "member_as_block":
         match["native_container"] = dict(product_id=case["native"], member_id=block["member_id"])
@@ -385,7 +453,9 @@ def test_named_witness_refuses_foreign_or_ambiguous_native_closure(named_witness
     elif mutation == "missing_product":
         case["products"].pop(case["native"])
     elif mutation == "undeclared_product":
-        product["dependencies"] = [ref for ref in product["dependencies"] if ref["product_id"] != case["native"]]
+        product["dependencies"] = [
+            ref for ref in product["dependencies"] if ref["product_id"] != case["native"]
+        ]
     elif mutation == "foreign_source":
         native["source"]["document"] = "document:foreign"
     elif mutation == "foreign_scope":
@@ -397,9 +467,17 @@ def test_named_witness_refuses_foreign_or_ambiguous_native_closure(named_witness
     elif mutation == "ambiguous_block":
         other = deepcopy(block)
         other["body"]["end"] -= 1
-        other["body"]["local_id"] = other["member_id"] = sha256(canonical_bytes(dict(
-            source=native["source"], kind="block", block_id=case["block"], start=0, end=other["body"]["end"]
-        ))).hexdigest()
+        other["body"]["local_id"] = other["member_id"] = sha256(
+            canonical_bytes(
+                dict(
+                    source=native["source"],
+                    kind="block",
+                    block_id=case["block"],
+                    start=0,
+                    end=other["body"]["end"],
+                )
+            )
+        ).hexdigest()
         native["members"].append(other)
     elif mutation == "changed_member_identity":
         block["body"]["local_id"] = block["member_id"] = "not-the-source-owned-identity"

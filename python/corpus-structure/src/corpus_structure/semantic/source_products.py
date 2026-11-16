@@ -167,10 +167,12 @@ class NativeSourceSelectorIndex:
                 }
             ),
             frozenset(item["self_ref"] for item in value["items"]),
-            MappingProxyType({
-                item["self_ref"]: frozenset(row["page_no"] for row in item.get("prov", ()))
-                for item in value["items"]
-            }),
+            MappingProxyType(
+                {
+                    item["self_ref"]: frozenset(row["page_no"] for row in item.get("prov", ()))
+                    for item in value["items"]
+                }
+            ),
         )
 
     def matches(self, selector: Mapping[str, Any], pointer: str) -> bool | None:
@@ -192,16 +194,14 @@ class NativeSourceSelectorIndex:
         return False
 
 
-
 def selected_source_ranges(value, selectors, *, selector_index=None, include_unknown=False):
     """Merge exact selected projection intervals under captured pointer/page membership."""
     ancestry = selector_index or NativeSourceSelectorIndex.from_value(value)
     intervals = []
     for selector in selectors:
         start, end = selector.get("start", 0), selector.get("end", len(value["text"]))
-        if (
-            selector["projection"] != value["source"]["projection"]
-            or not 0 <= start <= end <= len(value["text"])
+        if selector["projection"] != value["source"]["projection"] or not 0 <= start <= end <= len(
+            value["text"]
         ):
             raise ValueError("selected source interval differs from original projection")
         if "native_pointer" not in selector and "page" not in selector:
@@ -211,9 +211,8 @@ def selected_source_ranges(value, selectors, *, selector_index=None, include_unk
             if piece["kind"] != "native_text":
                 continue
             match = ancestry.matches(selector, piece["item_ref"])
-            if (
-                (match is not True and not (include_unknown and match is None))
-                or ("page" in selector and ancestry.pages[piece["item_ref"]] != {selector["page"]})
+            if (match is not True and not (include_unknown and match is None)) or (
+                "page" in selector and ancestry.pages[piece["item_ref"]] != {selector["page"]}
             ):
                 continue
             intervals.append((max(start, piece["start"]), min(end, piece["end"])))
@@ -226,24 +225,28 @@ def selected_source_ranges(value, selectors, *, selector_index=None, include_unk
     return tuple(merged)
 
 
-
 def selected_source_unprojected_atoms(value, selectors, *, selector_index, include_unknown=False):
     """Preserve the formal owner's selected formula atoms without projected characters."""
     projected = {piece["item_ref"] for piece in value["pieces"] if piece["kind"] == "native_text"}
-    unprojected = {item["self_ref"] for item in value["items"] if item.get("label") == "formula"} - projected
+    unprojected = {
+        item["self_ref"] for item in value["items"] if item.get("label") == "formula"
+    } - projected
     selected = set()
     for selector in selectors:
         # The formal owner cannot locate an unprojected atom in a partial text range.
-        if "start" in selector and (selector["start"], selector.get("end")) != (0, len(value["text"])):
+        if "start" in selector and (selector["start"], selector.get("end")) != (
+            0,
+            len(value["text"]),
+        ):
             continue
         for pointer in unprojected:
             match = selector_index.matches(selector, pointer)
-            if (
-                (match is True or (include_unknown and match is None))
-                and ("page" not in selector or selector["page"] in selector_index.pages[pointer])
+            if (match is True or (include_unknown and match is None)) and (
+                "page" not in selector or selector["page"] in selector_index.pages[pointer]
             ):
                 selected.add(pointer)
     return frozenset(selected)
+
 
 def source_extent_selected(value, extent, *, selector_index):
     """A positioned native-piece extent stays within one actual frozen selector."""
@@ -264,6 +267,7 @@ def source_extent_selected(value, extent, *, selector_index):
         and selector.get("start", 0) <= start <= end <= selector.get("end", len(value["text"]))
         for selector in value["selectors"]
     )
+
 
 def _projection_body(
     *, document, section_pointer, membership, text, pieces, items, ancestors=(), recognition=()

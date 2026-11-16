@@ -373,7 +373,9 @@ class LayerProjection:
             try:
                 body = self.load(pin)
             except KeyError as error:
-                raise ReferenceError("graph witness product is absent from selected closure") from error
+                raise ReferenceError(
+                    "graph witness product is absent from selected closure"
+                ) from error
             self.layers[key] = body
             index = {}
             for collection in (*COLLECTIONS, *ASSESSMENT_NATIVE_COLLECTIONS):
@@ -423,7 +425,8 @@ class LayerProjection:
         ):
             raise ReferenceError("native block witness changes original source or analyzed scope")
         blocks = [
-            row for row in native.get("native_block", ())
+            row
+            for row in native.get("native_block", ())
             if row["block_id"] == reference["block_id"]
         ]
         if len(blocks) != 1:
@@ -530,7 +533,10 @@ class LayerProjection:
                     for position, target in enumerate(data):
                         target_pin, target_member = _graph_member(target)
                         edge(name, target_member, target_pin, position=position)
-                elif name in {"head", "members", "antecedent_members"} and collection == "named_binding":
+                elif (
+                    name in {"head", "members", "antecedent_members"}
+                    and collection == "named_binding"
+                ):
                     match = self.indexes[key][identity[1]][1]["named_match"]
                     native_pin, block = self.native_block(current_pin, match["native_container"])
                     targets = ((None, data),) if name == "head" else enumerate(data)
@@ -549,7 +555,9 @@ class LayerProjection:
                     match = dict(data)
                     container = match.pop("native_container", None)
                     if container is None:
-                        raise ReferenceError("named witness lacks its actual native block reference")
+                        raise ReferenceError(
+                            "named witness lacks its actual native block reference"
+                        )
                     native_pin, block = self.native_block(current_pin, container)
                     edge("named_match.native_container", block["local_id"], native_pin)
                     for position, target in enumerate(match.pop("nodes", ())):

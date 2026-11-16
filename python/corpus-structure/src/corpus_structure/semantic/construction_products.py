@@ -37,7 +37,11 @@ from .formal_readings import FormalSourceReadings
 from .identity import canonical_bytes
 from .sentence_products import SourceAnnotationReadings, SourceAnnotations, sentence_product_inputs
 from .source_products import (
-    FrozenNativeSource, selected_source_ranges, selected_source_unprojected_atoms, source_extent_selected, source_subject,
+    FrozenNativeSource,
+    selected_source_ranges,
+    selected_source_unprojected_atoms,
+    source_extent_selected,
+    source_subject,
 )
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
@@ -729,11 +733,21 @@ def validate_interpreted_product(
         ):
             raise ValueError("complete or empty family requires available examined coverage")
         if row["outcome"] in {"complete", "empty"}:
-            eligible = selected_source_ranges(selected, row["eligible"], selector_index=selector_index, include_unknown=True)
-            examined = selected_source_ranges(selected, row["examined"], selector_index=selector_index)
-            eligible_atoms = selected_source_unprojected_atoms(selected, row["eligible"], selector_index=selector_index, include_unknown=True)
-            examined_atoms = selected_source_unprojected_atoms(selected, row["examined"], selector_index=selector_index)
-            if not eligible_atoms <= examined_atoms or any(not any(c <= a and b <= d for c, d in examined) for a, b in eligible):
+            eligible = selected_source_ranges(
+                selected, row["eligible"], selector_index=selector_index, include_unknown=True
+            )
+            examined = selected_source_ranges(
+                selected, row["examined"], selector_index=selector_index
+            )
+            eligible_atoms = selected_source_unprojected_atoms(
+                selected, row["eligible"], selector_index=selector_index, include_unknown=True
+            )
+            examined_atoms = selected_source_unprojected_atoms(
+                selected, row["examined"], selector_index=selector_index
+            )
+            if not eligible_atoms <= examined_atoms or any(
+                not any(c <= a and b <= d for c, d in examined) for a, b in eligible
+            ):
                 raise ValueError("complete or empty family leaves eligible source scope unexamined")
         if row["outcome"] == "empty" and any(
             item["family"] == row["family"]
