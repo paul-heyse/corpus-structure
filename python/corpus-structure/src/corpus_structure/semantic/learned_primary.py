@@ -10,7 +10,12 @@ import json
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from corpus_structure.methods.pm2_source import D1SourceField, MappedSource, SourceMapRefused
+
+    from .model_characterization import ModelScope, QuestionRequest
 
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
@@ -47,6 +52,47 @@ _FILES = (
     "methods/definition_applicability.py",
     "semantic/definition_model_products.py",
 )
+
+
+def learned_d1_evidence(
+    scope: ModelScope,
+    request: QuestionRequest,
+    native: dict[str, Any],
+    field: D1SourceField,
+) -> dict[str, MappedSource | SourceMapRefused]:
+    """Keep a declared focal answer inside its authenticated original source region."""
+    from corpus_structure.methods.pm2_result import d1_evidence
+    from corpus_structure.methods.pm2_source import MappedSource, SourceMapReason, SourceMapRefused
+
+    from .source_contexts import record_source_pin
+
+    assessed = request.payload["interpretation"]["assessed_scope"]
+    if assessed != {
+        "pin": record_source_pin(scope.mapping.context.primary),
+        "focal_extent": list(scope.focal),
+        "projection_extent": list(scope.examined),
+        "scope_digest": scope.mapping.scope_digest,
+    }:
+        raise ValueError("D1 assessed scope differs from its actual bound focal source")
+    located = d1_evidence(
+        scope.mapping, native, field=field, source_path=request.family.source_field, native=True
+    )
+    for question in request.family.questions:
+        support = located.get(question.key)
+        if (
+            question.literal_scope == "focal"
+            and isinstance(support, MappedSource)
+            and any(
+                not scope.focal[0] <= piece.start < piece.end <= scope.focal[1]
+                for piece in support.pieces
+            )
+        ):
+            located[question.key] = SourceMapRefused(
+                SourceMapReason.INVALID_EXTENT,
+                scope.mapping.scope_digest,
+                "native literal lies outside the released focal output region",
+            )
+    return located
 
 
 def learned_primary_inputs(bundle):
@@ -232,7 +278,6 @@ class PreparedLearnedPrimary:
         from corpus_structure.methods.pm2_products import PARSER_QUESTIONS, ParserProduct
         from corpus_structure.methods.pm2_result import (
             _parser_products,
-            d1_evidence,
             pm2_contribution_values,
             pm2_input_digest,
         )
@@ -449,13 +494,7 @@ class PreparedLearnedPrimary:
             if len(fields) != 1 or any(type(value) is not int for value in fields[0][:2]):
                 raise ValueError("D1 lacks one exact original-source rendered field")
             field = D1SourceField(rendered, request.family.source_field, *fields[0][:2])
-            located = d1_evidence(
-                scope.mapping,
-                native,
-                field=field,
-                source_path=request.family.source_field,
-                native=True,
-            )
+            located = learned_d1_evidence(scope, request, native, field)
             values = interpretation_products(request.family, request.payload, native, located)
             retain_candidates(
                 scope.mapping,

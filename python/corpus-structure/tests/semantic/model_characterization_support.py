@@ -2,12 +2,10 @@
 
 import json
 from dataclasses import asdict, replace
-from hashlib import sha256
 from pathlib import Path
 
 import pytest
 
-from corpus_structure.core.method import SourceViewRef
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerProfile, GlinerReport
 from corpus_structure.methods.model_observation import installed_policy, observation_digest
 from corpus_structure.methods.pm2_gliner_classification import ClassificationProfile
@@ -19,11 +17,8 @@ from corpus_structure.semantic.interpretation_questions import (
     characterization_question_dependencies,
 )
 from corpus_structure.semantic.model_characterization import (
-    ModelCharacterizationBuilder,
     prepare_model_scope,
 )
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.types import ResolvedDependencies
 
 
@@ -34,65 +29,6 @@ def prepared():
         characterization_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))),
         characterization_question_dependencies(ResolvedDependencies()),
     )
-
-
-def scope(text="may may", focal=None):
-    pieces = (
-        dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=len(text)),
-    )
-    projection = dict(text=text, pieces=pieces, items=["#/texts/0"], ancestors=[], health={})
-    view = PreparedSourceView(
-        SourceViewRef(
-            11,
-            "model-source",
-            3,
-            ProductReference(7, "document", "a" * 64),
-            "#/groups/0",
-            "descendants",
-            sha256(canonical_bytes(projection)).hexdigest(),
-            "c" * 64,
-        ),
-        text,
-        pieces,
-        (dict(self_ref="#/texts/0", label="text", text=text),),
-        (),
-        {},
-    )
-    return prepare_model_scope(view, focal or (0, len(text)), (0, len(text)))
-
-
-def builder(selected_scope):
-    base = selected_scope.view.ref.native_product.values()
-    ref = selected_scope.view.ref
-    selected = dict(
-        source_view_ids=[ref.id],
-        source_views=[
-            dict(
-                source_view_id=ref.id,
-                key=ref.key,
-                base_document=base,
-                section_pointer=ref.section_pointer,
-                membership=ref.membership,
-                projection_digest=ref.projection_digest,
-                recipe_digest=ref.recipe_digest,
-            )
-        ],
-        profile="model-test",
-        selectors=[
-            dict(projection=ref.projection_digest, start=0, end=len(selected_scope.view.text))
-        ],
-    )
-    operation = dict(
-        key="text.model_characterization",
-        version="1",
-        runtime="fixture-runtime",
-        model="fixture-model",
-        grammar="none",
-        configuration="fixture-config",
-        input="fixture-input",
-        context="fixture-context",
-    )
-    return ModelCharacterizationBuilder(base, selected, operation)
 
 
 def d1_reply(request, answers):
@@ -116,21 +52,6 @@ def d1_reply(request, answers):
         state_fields=[[start, end, "/source"]],
         native=dict(answers=native, usage=dict(input_tokens=42)),
     )
-
-
-def mark_other_families_complete(output, selected_scope):
-    for family in CHARACTERIZATION_FAMILIES:
-        if not output.covered[family]:
-            output.record(
-                family,
-                [
-                    dict(
-                        projection=selected_scope.view.ref.projection_digest,
-                        start=0,
-                        end=len(selected_scope.view.text),
-                    )
-                ],
-            )
 
 
 def gliner_profile():
@@ -189,3 +110,19 @@ def gliner_report(pack, item, profile, raw, *, overlap="nested", threshold=0.5):
         batch_receipt_json=json.dumps(receipt),
         member_ordinal=0,
     )
+
+
+def scope(text="may may", focal=None):
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredRecordSource
+    from corpus_structure.semantic.source_products import native_projection_identity, source_subject
+
+    pieces = [dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=len(text))]
+    items = [dict(self_ref="#/texts/0", label="text", text=text)]
+    projection = native_projection_identity(text, pieces, items)
+    coordinate = dict(document="book", projection=projection, section_pointer="#/groups/0", membership="direct")
+    selectors = [dict(projection=projection, start=0, end=len(text))]
+    context = SubjectContext("p", source_subject(coordinate), "book", canonical_bytes(dict(source=coordinate, selectors=selectors)), subject_definition="original-source-view")
+    source = DeclaredRecordSource("book", projection, "#/groups/0", "direct", context, "product:source", None, "kind:source")
+    frame = DeclaredNativeFrameSource(canonical_bytes(dict(source=coordinate, selectors=selectors, text=text, pieces=pieces, items=items, ancestors=[])).decode(), canonical_bytes(source.pin()).decode())
+    return prepare_model_scope(frame, focal or (0, len(text)), (0, len(text)))
