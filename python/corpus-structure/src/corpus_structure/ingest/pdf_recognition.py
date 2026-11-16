@@ -324,7 +324,7 @@ class RecognitionPage:
         return self.result.get("outcome") == "succeeded"
 
     def requests(
-        self, *, verify_retained: bool = False
+        self, *, verify_retained: bool = False, expected_requests: tuple[bytes, ...] | None = None
     ) -> Iterator[tuple[dict[str, Any], bytes, tuple[bytes, ...]]]:
         """Durable rows survive worker/process loss before result.json is finalized."""
         paths = sorted(
@@ -332,6 +332,8 @@ class RecognitionPage:
             for path in self.directory.glob("request-*.json")
             if not path.name.endswith(".http.json")
         )
+        if expected_requests is not None and len(paths) != len(expected_requests):
+            raise ValueError("recognition request inventory changed after report preparation")
         expected = None
         if verify_retained:
             expected = self.result.get("requests")
@@ -355,7 +357,10 @@ class RecognitionPage:
         for ordinal, path in enumerate(paths):
             if verify_retained:
                 path = owned(path.name)
-            row = json.loads(path.read_bytes())
+            request_content = path.read_bytes()
+            if expected_requests is not None and request_content != expected_requests[ordinal]:
+                raise ValueError("recognition request changed after report preparation")
+            row = json.loads(request_content)
             if expected is not None and (
                 row != expected[ordinal]
                 or row.get("outcome") != "succeeded"
@@ -414,7 +419,7 @@ class RecognitionPage:
             for name in names:
                 retained = owned(name)
                 if retained.exists():
-                    payload = retained.read_bytes()
+                    payload = request_content if name == path.name else retained.read_bytes()
                     context[name] = sha256(payload).hexdigest()
                     artifacts.append(payload)
             row["receipt_digests"] = context

@@ -1189,10 +1189,10 @@ def retain_recognition_page(
     if report.report.page_no != page.page_no or report.report.recipe_digest != recipe.digest:
         raise ValueError("recognition report belongs to a different page/recipe")
     retained = 0
-    for ordinal, (row, raw, artifacts) in enumerate(page.requests(verify_retained=verify_retained)):
+    for ordinal, (row, raw, artifacts) in enumerate(
+        page.requests(verify_retained=verify_retained, expected_requests=report.requests)
+    ):
         check_active()
-        if ordinal >= len(report.requests) or row != json.loads(report.requests[ordinal]):
-            raise ValueError("recognition request changed after report preparation")
         observation = recognition_observation_values(page, row, raw, source=source, recipe=recipe)
         if structural_pin is not None:
             if not isinstance(structural_pin, ProductReference):

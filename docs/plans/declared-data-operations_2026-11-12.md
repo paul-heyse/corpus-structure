@@ -261,7 +261,8 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-02 | Interpreted complete coverage can omit an eligible span, duplicate a family or omit a fact-bearing family. Reuse current source-selector interval semantics and validate union conservation while preserving partitioned examination. | **Closed at Python validator boundary**, `decbeeb89`, partition/gap/atom/unknown-ancestry and family controls plus independent source recheck. Native qualification remains required. |
 | DDO-SI-03 | Required external choices accept ordinary authenticated dependency members. Narrow to the existing validated `record_type=choice_member` packet subset and retain owning-group/source custody. | **Closed at Python validator boundary**, `decbeeb89`, real choice alternative positive and foreign-member negatives plus independent source recheck. Native qualification remains required. |
 | DDO-SI-04 | Interpreted occurrences can remain inside native pieces while escaping narrowed selected scope. Reuse source selector containment already required by formal products, including pointer/page meaning. | **Closed at Python validator boundary**, `decbeeb89`, shared pointer/page/range containment with formal/construction positives and escaped-scope negatives; independent source recheck. Native qualification remains required. |
-| DDO-SI-05 | Authentic original/authored support is rejected because correlated admission queries resolve unqualified `reference` to the admission table column. Qualify the selected support value in its helper and attachment guard. | **Source repaired, native qualification open.** Actual native46 had39passed/7failed; native3 had1passed/2failed. Read-only probes and independent source review isolate the SQL shadowing; normal successor and uninstrumented affected retries required. |
+| DDO-SI-05 | Authentic original/authored support is rejected because correlated admission queries resolve unqualified `reference` to the admission table column. Qualify the selected support value in its helper and attachment guard. | **Bounded original/support qualification passed** in45/46 controls at `40b104a88`; current authored grade/event and full native qualification remain open. Source `c697eae0f`, normal successor registered/deployed, no relaxed support checks. |
+| DDO-SI-06 | Recognition retention compares raw immutable request JSON with an iterator row enriched with receipt metadata, rejecting genuine requests. Check immutable bytes before enrichment, preserving derived provenance and final inventory checks. | **Source repaired; native retry open.** Raw-byte/inventory2 and full scripted-recognition14 controls passed; independent source review supports repair. Native kernel digest unchanged; current PDF application capture must be reacquired. |
 
 Cross-release request execution (`c0e1b6f4d`, `f5ac9e2a3`, `726a411bc`) uses authenticated attach
 metadata and the exact original generation release/runtime/binding before capacity reservation.
@@ -294,7 +295,38 @@ shadowing. Three instrumented private diagnostic failures `655ed7ebb474465ba7981
 predicate without substituting native SQL or expectations; they are not qualification.
 [Finalized diagnostic](../design_review/evidence/2026-11-16_ddo-current-native/records/ddo.original-support-shadowing.json)
 and two independent source inspections support the bounded qualified-reference repair.
-A normal captured successor and actual affected retries remain required. Next settle actual native/security/failed consumer journeys,
+The qualified-reference successor is registered `40b104a88` and deployed/verified on the same
+owned stage `2187c7b40a4e4010862dc8ef917964e7`, revision=head
+`semantic_ddo_support_reference`. Native46 rerun `df4782a537d84421ba127e1e7204574a` had45passed/
+1failed with complete reporting/native/custody; all original-input, CPU, cross-release and renewal
+controls passed. The remaining PDF failure is **DDO-SI-06**, an actual producer representation bug:
+`RecognitionPage.requests` adds derived `receipt_digests`, then retention compares that enriched
+row to raw request JSON. Source now checks exact raw bytes before enrichment, retains/hashes those
+same checked bytes, and preserves all provenance/native/count guards. Independent raw-byte and
+inventory2 passed `e2c63514ab2640618b7573e7db8c33ad`; full scripted HTTP/recognition14 passed
+`7e6940cb56604c05a179de7e345c2c0c`. These are controlled-provider custody checks, not actual
+recognition inference. Independent review and observed unchanged native digest `6ca9f97f9b50f7fb85d8d8d79af322969e417877ef4a59aff5d6c7a47f97fb74`
+establish no native recapture obligation from this Python-only repair; current PDF application
+capture does change and must be reacquired before repaired execution.
+
+Transport/public150 passed `0aaa41e61afe4b39ad7a2e26a9747bfd` at `40b104a88`, complete reporting/
+native/custody: native search1 and controlled/Python149, no actual-provider claim. Current ordinary
+regex negative now exercises admission, not archive opening: stale-name exact retry
+`ad83664fa447429b807c77f368ade90f` failed collection; correctly named actual admission1 passed
+`1eeb8f843e3e4f8599d8640e554cb959`. Original failed receipts stay retained. Actual consumer4
+`ea79102385c141d5a0dd05887b82bcd1` and native/public48 `1bce5dabff9547b3ac0b4b554bf993c8`
+started before the Python repair and retain their original source/context; assess affected
+PDF capture applicability without promoting invocation starts to passage.
+
+Application-only statistics preview/apply/candidate/deploy on the owned stage passed
+`c8444f0f73e5425e83579539860c9197` / `d1c2a8c809a2414e9effad8a78a688e6` /
+`6f04cf538ca847deb4ae04d70e60d862` / `f63cf2fd78dc4298a1e6c44b54be6da8` at `40b104a88`.
+Exact release `release:ee2353849330ac94827055d7944a39d96b8efddca6d75ddd9c3c96d2ed4d46ec`
+and source-native runtime `runtime:aea6ed7668ea70c3df2084cff8d8abb78fa9917a055fb7d981484b5429af427d`
+were archived/admitted/verified; separate `ci db check` and `ci release check` passed. This proves
+that normal application admission boundary at that source, not repaired PDF producer execution;
+no activation or development adoption occurred. Current provider collection10
+`bb568d6e18e14e66b4c16223f95e44f6` passed collection only; actual required providers remain open. Next settle actual native/security/failed consumer journeys,
 qualify actual providers and selected CLI/MCP/export reads, recover/fence and adopt the current
 development target, execute the retained whole-document demand with interruption/resume, then
 establish the final-source functional/provider/fault/nonfunctional union. Already implemented coverage, graph, neighborhood, source-migration and rich consumer

@@ -11,7 +11,7 @@ application/provider qualification by preparing or installing infrastructure.
 The existing `corpus_structure_dev` remains PostgreSQL18.7 on dedicated5434, database OID25921445,
 system7701811359771751232, installed `semantic_bep_located_v2`; maintenance status reacquired this
 identity on2026-11-16. That development database has had no reset, rename, native deployment,
-activation or data conversion. The current root is registered and installed only on the owned stage. Historical frozen files remain
+activation or data conversion. The current root and nine successors are registered and installed on the owned stage. An application release/runtime is admitted there at source40b104a88; no activation occurred. The subsequent PDF executor repair requires new application capture for current execution. Historical frozen files remain
 unchanged and are not a selectable current install route. The unregistered
 [v10 preparation](../2026-11-15_ddo-v10-native/README.md) is superseded.
 
@@ -424,6 +424,50 @@ true and exact binding/native original references, yet support helper returns[].
 Source now qualifies `selected_support.value` in both helper and attachment admission queries;
 two independent inspections found no remaining material issue or relaxed authentication.
 **DDO-SI-05** in the coordinator owns current disposition. Capture and uninstrumented retries remain open.
+
+## Qualified original support successor and application admission · 2026-11-16
+
+Normal preview `0f1d768449a6476988785f8c6b84f589`, exact apply
+`8787638e6d044039a390698c66db91b4`, rollback-only candidate
+`d9a09192e41640a58c63d79d01201b93`, registration `7cd41eeed795466e9524f9785ef75588`
+and deploy `2187c7b40a4e4010862dc8ef917964e7` **passed** for the
+[qualified-reference request](support-reference-successor.yaml). Four exact frozen files are
+registered `40b104a88`; separate maintenance status reads revision=head
+`semantic_ddo_support_reference` on unchanged stage OID130661481/system7701811359771751232.
+Root plus nine successors are retained; no frozen predecessors were edited.
+
+All11 native transitions change function bodies only: two explicit support-reference fixes,
+seven unchanged guards updating only their authenticated native digest, native descriptor and
+complete execution descriptor refresh. Hash-verified full candidate review confirms509desired
+identities, unchanged nonfunction objects and all101privileges. Ordinary operations0; no ACL,
+owner, search-path, security or physical shape change. Candidate hashes are
+`c0561021d247f93f3bcf97efe07917cc8e260920139665d32c66a40ca3cd5d7d` (Python),
+`027f8bbbc79f64708d6285e2684c1be64147d846a5613fb76da8b351c69c8d4f` (operations),
+`cae8e382d651766edd910c81c2b625013abe3a87e5920b36fd606d1f117f98c2` (admission).
+Native digest is `6ca9f97f9b50f7fb85d8d8d79af322969e417877ef4a59aff5d6c7a47f97fb74`;
+physical identity remains unchanged. Existing computed-column warnings imply no candidate column
+operation; prior exact stored-expression review remains applicable.
+
+Native46 `df4782a537d84421ba127e1e7204574a` settled **failed**,45passed/1PDFfailure,
+complete native/reporting/custody. Original/support, CPU, cross-release and renewal controls pass.
+The remaining controlled-provider native PDF journey reaches a distinct producer bug: the request
+iterator enriches raw JSON with receipt digests before comparison with immutable report bytes.
+**DDO-SI-06** owns the Python repair: compare exact bytes before enrichment, retain/hash those same
+checked bytes and preserve inventory/provenance/native fences. Two pure controls
+`e2c63514ab2640618b7573e7db8c33ad` and full scripted-recognition14
+`7e6940cb56604c05a179de7e345c2c0c` **passed**. This is no actual recognition-inference claim.
+Observed native digest stays unchanged; no new native capture is justified by those executor files.
+Their PDF application producer capture changes and needs fresh acquisition for repaired execution.
+
+Application-only [statistics request](statistics-application.yaml) preview/apply/candidate/deploy
+**passed** `c8444f0f73e5425e83579539860c9197` / `d1c2a8c809a2414e9effad8a78a688e6` /
+`6f04cf538ca847deb4ae04d70e60d862` / `f63cf2fd78dc4298a1e6c44b54be6da8`, at source `40b104a88`.
+Release `release:ee2353849330ac94827055d7944a39d96b8efddca6d75ddd9c3c96d2ed4d46ec` and
+runtime `runtime:aea6ed7668ea70c3df2084cff8d8abb78fa9917a055fb7d981484b5429af427d`
+are archived/admitted/verified on the stage. Separate `ci db check --release … --json` and
+`ci release check --release … --json` **passed**; generation=null, no activation. The subsequently
+repaired PDF producer is not qualified by that older application capture. Development remains
+unchanged; current application acquisition at adoption remains required.
 
 ## Acceptance still required
 

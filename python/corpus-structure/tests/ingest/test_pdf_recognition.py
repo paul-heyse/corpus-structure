@@ -32,6 +32,7 @@ from corpus_structure.ingest.pdf_recognition import (
     repetitive_capped_page,
     transform_point,
 )
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.pdf_integrated import prepare_integrated_pdf_product
 
 
@@ -397,3 +398,41 @@ def test_owned_file_source_is_verified_without_retaining_pdf_bytes(tmp_path):
     assert isinstance(source.original, Path)
     with pytest.raises(ValueError, match="digest"):
         PreparedRecognitionSource.from_path(path, "0" * 64)
+
+
+def test_report_request_bytes_remain_distinct_from_derived_receipt_metadata(tmp_path):
+    from corpus_structure.ingest.pdf_recognition import RecognitionPage
+    from corpus_structure.semantic.pdf_transforms import prepare_recognition_report
+
+    request = {"ordinal": 0, "stage": "fullpage", "submitted_image": "page.png"}
+    content = canonical_bytes(request)
+    (tmp_path / "request-000.json").write_bytes(content)
+    (tmp_path / "page.png").write_bytes(b"independent-submitted-image")
+    result = {"outcome": "failed", "requests": [request]}
+    (tmp_path / "result.json").write_bytes(canonical_bytes(result))
+    page = RecognitionPage(1, tmp_path, result, {})
+    recipe = NemotronRecipe("1" * 64, "2" * 64)
+    report = prepare_recognition_report(page, recipe)
+
+    row, _, artifacts = next(page.requests(expected_requests=report.requests))
+    assert {key: value for key, value in row.items() if key != "receipt_digests"} == request
+    assert "receipt_digests" not in json.loads(content)
+    assert row["receipt_digests"]["request-000.json"] == sha256(content).hexdigest()
+    assert content in artifacts
+    assert (tmp_path / "request-000.json").read_bytes() == content
+
+    # Equivalent JSON is still different immutable request bytes.
+    (tmp_path / "request-000.json").write_bytes(content + b"\n")
+    with pytest.raises(ValueError, match="recognition request changed after report preparation"):
+        list(page.requests(expected_requests=report.requests))
+
+
+def test_report_request_inventory_cannot_gain_or_lose_a_request(tmp_path):
+    from corpus_structure.ingest.pdf_recognition import RecognitionPage
+
+    page = RecognitionPage(1, tmp_path, {}, {})
+    with pytest.raises(ValueError, match="request inventory changed"):
+        list(page.requests(expected_requests=(b'{"ordinal":0}',)))
+    (tmp_path / "request-000.json").write_bytes(b'{"ordinal":0}')
+    with pytest.raises(ValueError, match="request inventory changed"):
+        list(page.requests(expected_requests=()))
