@@ -145,7 +145,7 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         if not item.complete
     ]
     assert not incomplete, incomplete
-    assert preparation.version == "semantic-2" and prepared.execution_model_id is None
+    assert preparation.version == "semantic-2"
 
     components = operations["structure.definition_components/declared"]
     assert components.dependencies == ("text.gliner_definitions/source-native",)

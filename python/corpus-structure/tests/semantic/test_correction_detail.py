@@ -269,7 +269,7 @@ def test_raw_marker_still_requires_opt_in_when_raw_values_are_in_detail(tmp_path
     report = graph_validation_report(
         validation,
         prepared=cast(
-            PreparedRelease, SimpleNamespace(release_id="release:original", execution_model_id=None)
+            PreparedRelease, SimpleNamespace(release_id="release:original", artifacts=())
         ),
         scope="supplied",
         detail=True,
@@ -630,7 +630,7 @@ def test_graph_observation_locations_follow_selected_result_identity(raw, detail
     report = graph_validation_report(
         validation,
         prepared=cast(
-            PreparedRelease, SimpleNamespace(release_id="release:original", execution_model_id=None)
+            PreparedRelease, SimpleNamespace(release_id="release:original", artifacts=())
         ),
         scope="realization@7/qualified-projection",
         detail=detail,

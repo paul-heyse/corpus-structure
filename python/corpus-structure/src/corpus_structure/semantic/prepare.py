@@ -610,7 +610,7 @@ def effective_class_definitions(
 ) -> tuple[ClassDefinition, ...]:
     """Materialize effective classes before boundaries, artifacts or release identity.
 
-    Both the legacy release builder and the supplied-input data-operation compiler
+    The schema-only builder and the supplied-input data-operation compiler
     consume this one normalization phase; it acquires no application implementation.
     """
     enum_types = set(enum_names)
@@ -794,27 +794,11 @@ def _prepare_release_uncached(
     stack: tuple[tuple[str, str], ...],
 ) -> PreparedRelease:
     """Prepare a complete interpretation. This does not persist, activate or enforce SQL rules."""
-    execution = None
     data_operation_target = any(
         a.name.startswith("data-operations/") for a in dependencies.artifacts
     )
-    if data_operation_target and any(
-        a.name.startswith("execution/") for a in dependencies.artifacts
-    ):
-        _fail(
-            "execution_model",
-            "data-operations",
-            "target data-operation preparation cannot combine legacy execution admission inputs",
-        )
-    if profile.version == "semantic-2" and not data_operation_target:
-        from .composed import execution_model_from_dependencies
-
-        try:
-            execution = execution_model_from_dependencies(dependencies)
-        except (ValueError, KeyError, TypeError) as exc:
-            _fail("execution_model", "execution", str(exc))
-    elif any(a.name.startswith("execution/") for a in dependencies.artifacts):
-        _fail("execution_model", "execution", "execution inputs require semantic-2")
+    if any(a.name.startswith("execution/") for a in dependencies.artifacts):
+        _fail("execution_model", "execution", "legacy execution inputs are unsupported", "unsupported")
     for dependency in dependencies.artifacts:
         if dependency.name == "operation/query-manifest.json" or dependency.name.endswith(
             "/operation/query-manifest.json"
@@ -953,7 +937,6 @@ def _prepare_release_uncached(
                 if data_operations is not None and data_operations.source_interfaces is not None
                 else {}
             ),
-            **({"execution_model_id": execution.model_id} if execution is not None else {}),
             "profile": asdict(profile),
             "libraries": {
                 name: value
@@ -1300,9 +1283,7 @@ def _prepare_release_uncached(
                     if any(v.enum == "Establishment" for v in vocabularies)
                     else [],
                     "executable_reference_splits": (
-                        list(execution.reference_splits)
-                        if execution is not None
-                        else sorted(
+                        sorted(
                             _enum_members(vocabularies, rows, "ReferenceSplit", "executable")
                         )
                         if any(v.enum == "ReferenceSplit" for v in vocabularies)
@@ -1321,9 +1302,6 @@ def _prepare_release_uncached(
         )
     )
     rows += tuple(RegistryRow("enum", v.enum, canonical_bytes(asdict(v))) for v in vocabularies)
-    if execution is not None:
-        artifacts.append(PreparedArtifact("execution/contracts.json", execution.content))
-        rows += (RegistryRow("execution_model", execution.model_id, execution.content),)
     from .characterization import compile_attachment_policies, compile_characterization_profiles
 
     attachment_policy = compile_attachment_policies(definitions)
@@ -1338,8 +1316,6 @@ def _prepare_release_uncached(
     if projection_analysis is not None:
         artifacts.append(projection_analysis)
     required = ("semantic_registry", "scoped_publication", "typed_values")
-    if execution is not None:
-        required += execution.required_capabilities
     if rule_fragments:
         required += ("conditional_rules_native",)
     prepared = PreparedRelease(
@@ -1353,7 +1329,6 @@ def _prepare_release_uncached(
         tuple(sorted(set(required))),
         tuple(diagnostics),
         adapters,
-        execution.model_id if execution is not None else None,
         _boundary_models=boundary_models,
     )
     if data_operations is not None and any(

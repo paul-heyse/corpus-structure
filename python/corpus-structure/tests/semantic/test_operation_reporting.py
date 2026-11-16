@@ -326,7 +326,7 @@ def test_current_report_boundary_prepares_without_legacy_operation_authority(mon
     reports._report_model.cache_clear()
     monkeypatch.setitem(sys.modules, "corpus_structure.semantic.contracts", None)
     boundary, _digest = reports._report_model()
-    assert boundary.execution_model_id is None
+    assert not any(a.kind == "data_operations.json" for a in boundary.artifacts)
     properties = boundary.json_schema("OperationExplanation")["properties"]
     assert isinstance(properties, dict)
     assert "binding_json" in properties
@@ -711,7 +711,7 @@ def test_projection_validation_reuses_retained_detail_and_keeps_compact_complete
         projections=(SimpleNamespace(family="input", analysis=analysis),),
     )
     context: Any = SimpleNamespace(
-        release_id="release:validation", execution_model_id="model:validation"
+        release_id="release:validation", artifacts=()
     )
     monkeypatch.setattr(products, "read_projection_analysis", lambda _: product)
     compact = projection_validation_report(context).model_dump(mode="json")

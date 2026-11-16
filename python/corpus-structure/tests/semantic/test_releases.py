@@ -40,7 +40,7 @@ def project(conn, release_id=None):
 def test_archive_is_exact_offline_and_idempotent(commit_db_engine: Engine, monkeypatch):
     with commit_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = stage(conn, composed=False)
-        assert prepared.execution_model_id is None  # Pure artifact custody grants no execution.
+        assert not any(a.kind == "data_operations.json" for a in prepared.artifacts)
         calls = []
         from corpus_structure.semantic import prepare as preparation
 

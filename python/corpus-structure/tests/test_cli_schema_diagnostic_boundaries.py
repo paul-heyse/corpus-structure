@@ -60,7 +60,7 @@ def test_success_survives_optional_publication_failure(
     result = cli(*arguments, "--retain-diagnostics", "--json", env={"CORPUS_CI_RESULTS": str(root)})
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)
-    for key in ("release_id", "execution_model_id", "artifacts"):
+    for key in ("release_id", "operation_model_id", "artifacts"):
         assert report[key] == expected[key]
     for key in ("validation_outcome", "complete", "observations"):
         assert report["validation"][key] == expected["validation"][key]

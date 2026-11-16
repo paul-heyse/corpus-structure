@@ -42,7 +42,6 @@ declarations: [{name: operations, path: operations.yaml}]
 def test_target_preparation_archives_without_legacy_acquisition(tmp_path):
     root = inputs(tmp_path)
     bundle, deps, profile, prepared = prepare_data_operation_inputs(root, "target.yaml")
-    assert prepared.execution_model_id is None
     assert not any(a.name.startswith("execution/") for a in deps.artifacts)
     _validate_manifest(bundle, deps, profile, prepared)
     archive = _archive_bytes(bundle, deps, prepared)

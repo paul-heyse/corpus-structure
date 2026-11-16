@@ -246,6 +246,7 @@ BEGIN
  AND ops.ddo_operation_event_dependencies_valid(episode)
  AND ops.ddo_contextual_dependencies_valid(episode)
  AND ops.ddo_definition_dependencies_valid(episode)
+ AND ops.ddo_artifact_dependencies_valid(episode)
  AND ops.ddo_rich_admission_dependencies_valid(episode) AND NOT EXISTS(
  SELECT FROM ops.data_derivation d JOIN ops.data_request r ON r.id=d.request_id
  JOIN ops.data_revocation v ON v.scope=ops.ddo_scope(r.project_id,r.original_source)
@@ -1233,6 +1234,7 @@ BEGIN
  PERFORM ops.ddo_require_structural_admission_completion(r,p->'completion');
  PERFORM ops.ddo_require_structural_dossier_completion(r,p->'completion');
  PERFORM ops.ddo_require_definition_completion(r,p->'completion');
+ PERFORM ops.ddo_require_artifact_completion(r,p->'completion');
  PERFORM ops.ddo_require_contextual_completion(r,p->'completion');
  PERFORM ops.ddo_require_rich_preparation_completion(r,p->'completion');
  PERFORM ops.ddo_require_rich_admission_completion(r,p->'completion');
@@ -1479,6 +1481,7 @@ BEGIN
  PERFORM ops.ddo_require_structural_admission_completion(r,i.payload);
  PERFORM ops.ddo_require_structural_dossier_completion(r,i.payload);
  PERFORM ops.ddo_require_definition_completion(r,i.payload);
+ PERFORM ops.ddo_require_artifact_completion(r,i.payload);
  PERFORM ops.ddo_require_contextual_completion(r,i.payload);
  PERFORM ops.ddo_require_rich_preparation_completion(r,i.payload);
  PERFORM ops.ddo_require_rich_admission_completion(r,i.payload);

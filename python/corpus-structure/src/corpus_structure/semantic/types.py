@@ -243,9 +243,8 @@ class PreparedRelease:
     required_capabilities: tuple[str, ...]
     diagnostics: tuple[Diagnostic, ...]
     _adapters: tuple[tuple[str, TypeAdapter[BaseModel]], ...] = field(repr=False, compare=False)
-    execution_model_id: str | None = None
     _adapter_loader: Callable[[str], TypeAdapter[BaseModel]] | None = field(
-        default=None, repr=False, compare=False
+        default=None, repr=False, compare=False, kw_only=True
     )
     _adapter_lock: Any = field(default_factory=RLock, repr=False, compare=False)
     _loaded_adapters: dict[str, TypeAdapter[BaseModel]] = field(
@@ -258,9 +257,6 @@ class PreparedRelease:
         default_factory=dict, repr=False, compare=False, init=False
     )
     _enum_memberships: dict[tuple[str, str | None], frozenset[str]] = field(
-        default_factory=dict, repr=False, compare=False, init=False
-    )
-    _result_adapters: dict[tuple[str, str, str | None], TypeAdapter[Any]] = field(
         default_factory=dict, repr=False, compare=False, init=False
     )
 
@@ -347,11 +343,7 @@ class PreparedRelease:
         return self.enum_members("Establishment", subset="source_admissible")
 
     def reference_splits(self) -> frozenset[str]:
-        """Operational splits belong to the exact bound execution schema when composed."""
-        if self.execution_model_id is not None:
-            from .contracts import bound_execution_model
-
-            return frozenset(bound_execution_model(self).reference_splits)
+        """Resolve declared operational split membership from the supplied schema."""
         if "ReferenceSplit" not in self.vocabulary_names:
             raise PreparationError(
                 (

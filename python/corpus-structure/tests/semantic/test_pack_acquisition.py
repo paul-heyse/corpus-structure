@@ -12,8 +12,6 @@ def test_acquire_and_compose_never_invoke_compiler(monkeypatch):
 
     monkeypatch.setattr(regeneration, "prepare_release", forbidden)
     inputs = regeneration.acquire_pack(DOMAINS / "statistics")
-    monkeypatch.setattr("corpus_structure.semantic.contracts.compile_execution_model", forbidden)
-    monkeypatch.setattr("corpus_structure.semantic.contracts.trusted_execution_inputs", forbidden)
 
     def ambient_read(path):
         raise AssertionError(f"ambient source read during composition: {path}")
@@ -45,13 +43,10 @@ def test_current_pack_acquisition_has_real_source_contracts_without_old_catalog(
     def forbidden(*args, **kwargs):
         raise AssertionError("current pack preparation cannot compile or acquire an old catalog")
 
-    monkeypatch.setattr("corpus_structure.semantic.contracts.compile_execution_model", forbidden)
-    monkeypatch.setattr("corpus_structure.semantic.contracts.trusted_execution_inputs", forbidden)
     bundle, dependencies, profile, prepared = regeneration.prepare_pack(DOMAINS / "statistics")
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 
     model = bound_data_operation_model(prepared)
-    assert prepared.execution_model_id is None
     assert model.operation("data.inspect_data_operation_release").profile == "read"
     assert model.operation("rich.consolidate").profile == "derivation"
     admission = model.operation("rich.admit")

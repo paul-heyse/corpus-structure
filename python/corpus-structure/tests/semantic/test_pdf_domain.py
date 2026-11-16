@@ -81,7 +81,6 @@ def test_pdf_domain_call_projection_checks_exact_variant_and_digest(domain, mode
     artifacts = pdf_domain_artifacts(dependencies, model=model)
     prepared = prepare_release(source_bundle(), ResolvedDependencies(), PreparationProfile())
     prepared = replace(prepared, artifacts=(*prepared.artifacts, *artifacts))
-    assert prepared.execution_model_id is None
     require_call_context(
         prepared, "retain_pdf_original", "retain_pdf_original", RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
     )

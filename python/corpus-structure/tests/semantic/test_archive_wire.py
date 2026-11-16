@@ -45,7 +45,6 @@ def test_writer_preserves_independently_specified_archive3_bytes_and_omissions()
     assert canonical_bytes(_products(prepared())) == canonical_bytes(wire())
     decoded = decode_products(wire())
     assert decoded.registry_rows[0].semantic_row() == RegistryRow("kind", "name", b"\x00\xff")
-    assert decoded.execution_model_id is None
     assert decoded.diagnostics == (Diagnostic("bad", "field", "invalid field"),)
 
 

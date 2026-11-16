@@ -105,7 +105,6 @@ def _role(name, members):
 
 def test_math_profiles_compile_without_a_legacy_execution_binding(math_profile):
     prepared = math_profile.prepared
-    assert prepared.execution_model_id is None
     model = bound_data_operation_model(prepared)
     assert {"extract.math/declared", "normalize.formula/declared"} <= {
         op.semantic_id for op in model.operations

@@ -30,7 +30,7 @@ def test_reader_prepares_once_and_keeps_queries_and_connections_separate(monkeyp
 
     inventory, vectors, query = inputs()
     prepared = cast(
-        PreparedRelease, SimpleNamespace(release_id="release", execution_model_id="model")
+        PreparedRelease, SimpleNamespace(release_id="release", artifacts=())
     )
     reader = BoundReader(cast(Connection, object()), 1, prepared)
     calls, observed = [], []

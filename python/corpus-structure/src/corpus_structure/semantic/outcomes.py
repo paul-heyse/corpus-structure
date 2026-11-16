@@ -1,6 +1,5 @@
 """Owned translations between distinct source and semantic outcome domains."""
 
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -91,32 +90,6 @@ _BASE_TRANSLATIONS = MappingProxyType(
 @dataclass(frozen=True)
 class PreparedCoverageLowerer:
     translations: Mapping[str, str]
-
-    @classmethod
-    def from_release(cls, prepared) -> PreparedCoverageLowerer:
-        if prepared.execution_model_id is None:
-            raise ValueError("coverage translation requires a composed execution binding")
-        rows = [r for r in prepared.registry_rows if r.kind == "execution_model"]
-        if len(rows) != 1 or rows[0].name != prepared.execution_model_id:
-            raise ValueError("composed coverage requires its exact execution products")
-        product = json.loads(rows[0].body)
-        if product["model_id"] != prepared.execution_model_id:
-            raise ValueError("coverage execution identity differs")
-        translations = {}
-        for rule in product["outcome_translations"]:
-            if (rule["source_domain"], rule["target_domain"]) != (
-                "source_coverage",
-                "semantic_coverage",
-            ):
-                continue
-            if rule["source"] in translations:
-                raise ValueError("duplicate coverage translation")
-            if rule["target"] not in get_args(SemanticCoverageOutcome):
-                raise ValueError("unsupported semantic coverage target")
-            translations[rule["source"]] = rule["target"]
-        if set(translations) != set(get_args(SourceCoverageOutcome)):
-            raise ValueError("coverage translation does not cover the source domain")
-        return cls(MappingProxyType(translations))
 
     def lower(
         self, outcome: str, reason: str | None = None, required_capability: str | None = None

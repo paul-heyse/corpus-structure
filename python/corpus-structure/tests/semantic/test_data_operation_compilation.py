@@ -574,7 +574,6 @@ def test_target_composed_preparation_never_enters_legacy_approval(monkeypatch):
     target = prepare_release(
         schema_bundle(), deps, profile=PreparationProfile(version="semantic-2")
     )
-    assert target.execution_model_id is None
     assert any(artifact.kind == "data_operations.json" for artifact in target.artifacts)
     with pytest.raises(ValueError, match="cannot combine legacy"):
         data_operation_dependencies(

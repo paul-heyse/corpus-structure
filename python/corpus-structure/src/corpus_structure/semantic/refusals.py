@@ -108,8 +108,6 @@ def semantic_failure_fields(error: BaseException) -> dict[str, Any]:
 
 def trusted_operation_model_id(prepared: PreparedRelease) -> str | None:
     """Name the actual checked operation model in located boundary diagnostics."""
-    if prepared.execution_model_id is not None:
-        return prepared.execution_model_id
     if any(artifact.kind == "data_operations.json" for artifact in prepared.artifacts):
         from hashlib import sha256
 

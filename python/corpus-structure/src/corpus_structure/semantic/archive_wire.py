@@ -47,7 +47,6 @@ class ArchiveProducts:
     artifacts: tuple[ArtifactReference, ...]
     required_capabilities: tuple[str, ...]
     diagnostics: tuple[Diagnostic, ...]
-    execution_model_id: str | None = None
 
 
 def _exact(value: Any, expected: type) -> Any:
@@ -108,12 +107,6 @@ def _converter() -> Converter:
     converter.register_unstructure_hook(
         Diagnostic, make_dict_unstructure_fn(Diagnostic, converter, **nullable)
     )
-    converter.register_unstructure_hook(
-        ArchiveProducts,
-        make_dict_unstructure_fn(
-            ArchiveProducts, converter, execution_model_id=override(omit_if_default=True)
-        ),
-    )
     return converter
 
 
@@ -151,6 +144,5 @@ def encode_products(prepared: PreparedRelease) -> dict[str, Any]:
         tuple(ArtifactReference(a.kind, a.digest) for a in prepared.artifacts),
         prepared.required_capabilities,
         prepared.diagnostics,
-        prepared.execution_model_id,
     )
     return _CONVERTER.unstructure(product)

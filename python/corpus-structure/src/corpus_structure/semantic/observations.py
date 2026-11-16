@@ -201,21 +201,17 @@ def bind_result(
     record_coordinate_texts: Sequence[Mapping[str, Any]] = (),
     contribution_coordinate_texts: Sequence[Mapping[str, Any]] = (),
 ) -> BaseModel:
-    """Validate a recognizer's terminal product under its run's release.
+    """Validate a recognizer's terminal product against its supplied schema.
 
     Item ordinals are inside the stable input, never database task/attempt identities. Equal
     reports at two positions stay separate; replaying a terminal product gives the same keys.
     The operational repository still fences and persists this product atomically with the task.
     Base-schema construction remains pure; every current effect owner separately requires the
-    composed execution binding and its method dimensions before publication.
+    declared operation and native completion contracts before publication.
     """
     if result.characterization_layer is not None or result.characterization_view is not None:
         raise ValueError("characterization products require protected characterization completion")
 
-    from .operation_results import validate_method_dimension
-
-    if prepared.execution_model_id is not None:
-        validate_method_dimension(prepared, method, "result.outcome", result.outcome.value)
     unit_key = result.ref.unit_key
     if not all(
         (
@@ -286,12 +282,6 @@ def bind_result(
                 row["projected_start"], row["projected_end"] = draft.projected_span
             if draft.recognized_span is not None:
                 row["recognized_start"], row["recognized_end"] = draft.recognized_span
-        if prepared.execution_model_id is not None:
-            validate_method_dimension(prepared, method, "observation.family", row["family"])
-            validate_method_dimension(prepared, method, "observation.outcome", row["outcome"])
-            validate_method_dimension(
-                prepared, method, "observation.confidence_source", row.get("confidence_source")
-            )
         observations.append(row)
     payload: dict[str, object] = {
         "release_id": prepared.release_id,

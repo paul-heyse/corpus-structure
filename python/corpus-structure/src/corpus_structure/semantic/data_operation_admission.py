@@ -40,7 +40,7 @@ def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperat
     artifacts = [a for a in prepared.artifacts if a.kind == "data_operations.json"]
     manifest = json.loads(prepared.manifest)
     if (
-        prepared.execution_model_id is not None
+        "execution_model_id" in manifest
         or len(artifacts) != 1
         or manifest.get("data_operation_model") != artifacts[0].digest
     ):

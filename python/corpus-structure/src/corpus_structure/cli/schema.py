@@ -37,6 +37,7 @@ from corpus_structure.cli.output import JsonOpt, diagnostic, emit
 from corpus_structure.cli.target import ConfiguredSelection, current_selection, selection_summary
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.storage_target import StorageTarget
+from corpus_structure.semantic.refusals import trusted_operation_model_id
 
 if TYPE_CHECKING:
     from sqlalchemy import MetaData
@@ -74,7 +75,7 @@ class ArtifactRow(BaseModel):
 class CompileResult(BaseModel):
     packs: list[str]
     release_id: str
-    execution_model_id: str | None
+    operation_model_id: str | None
     artifacts: list[ArtifactRow]
     validation: dict | None = None
 
@@ -216,7 +217,7 @@ def _compile_packs(
             CompileResult(
                 packs=domain,
                 release_id=prepared.release_id,
-                execution_model_id=prepared.execution_model_id,
+                operation_model_id=trusted_operation_model_id(prepared),
                 artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts],
                 validation=validation,
             ),
@@ -328,7 +329,7 @@ def check_(
             CompileResult(
                 packs=[],
                 release_id=prepared.release_id,
-                execution_model_id=prepared.execution_model_id,
+                operation_model_id=trusted_operation_model_id(prepared),
                 artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts],
                 validation=validation_model.model_dump(mode="json"),
             ),
@@ -377,7 +378,7 @@ def derive_(
             CompileResult(
                 packs=selected,
                 release_id=prepared.release_id,
-                execution_model_id=prepared.execution_model_id,
+                operation_model_id=trusted_operation_model_id(prepared),
                 artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts],
             ),
             json=json_,

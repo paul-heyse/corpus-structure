@@ -310,7 +310,6 @@ def test_current_scientific_context_needs_exact_archive_but_no_legacy_execution_
     # Current comparison consumes the supplied semantic schema and explicit
     # captured policy, without acquiring an execution catalog.
     prepared = release()
-    assert prepared.execution_model_id is None
     artifact = PreparedArtifact(
         SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe(context_profile=profile))
     )

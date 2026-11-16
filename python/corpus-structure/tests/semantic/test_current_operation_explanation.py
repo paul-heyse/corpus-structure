@@ -75,7 +75,6 @@ classes:
 def test_explanation_retains_checked_definition_binding_and_documentation_without_effect_authority():
     prepared = current_release()
     result = explain_operation(prepared, "inspect.current").model_dump(mode="json")
-    assert prepared.execution_model_id is None
     assert result["report_version"] == 3
     assert result["recipe"].startswith("recipe:")
     assert result["definition"].startswith("definition:")

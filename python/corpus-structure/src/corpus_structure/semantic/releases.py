@@ -112,8 +112,6 @@ def _validate_manifest(
     if target:
         from .composed import data_operations_from_dependencies
 
-        if prepared.execution_model_id is not None:
-            raise ReleaseConflict("target release cannot contain legacy execution admission")
         model = data_operations_from_dependencies(
             bundle, dependencies, prepared.definitions, prepared.vocabularies
         )
@@ -122,18 +120,6 @@ def _validate_manifest(
         manifest["data_operation_model"] = _digest(model.content)
         if model.source_interfaces is not None:
             manifest["data_operation_source_interfaces"] = _digest(model.source_interfaces)
-    elif profile.version == "semantic-2":
-        from .composed import execution_model_from_dependencies
-
-        try:
-            execution = execution_model_from_dependencies(dependencies)
-        except Exception as exc:
-            raise ReleaseConflict(f"cannot reconstruct execution inputs: {exc}") from exc
-        if prepared.execution_model_id != execution.model_id:
-            raise ReleaseConflict("prepared execution model differs from exact inputs")
-        manifest["execution_model_id"] = execution.model_id
-    elif prepared.execution_model_id is not None:
-        raise ReleaseConflict("execution model requires the composed semantic-2 profile")
     expected = canonical_bytes(manifest)
     if prepared.manifest != expected or prepared.release_id != "release:" + _digest(expected):
         raise ReleaseConflict(
@@ -264,61 +250,6 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
         for row in prepared.registry_rows
         if row.kind == "metric_definition"
     ]
-    if prepared.execution_model_id is not None:
-        from .contracts import bound_execution_model
-
-        execution = bound_execution_model(prepared)
-        bindings = {binding.id: binding for binding in execution.implementations}
-        effects = {effect.id: effect.version for effect in execution.effect_definitions}
-        for operation in execution.operations:
-            if operation.implementation is None:
-                continue
-            binding = bindings[operation.implementation]
-            rows["execution_operation"].append(
-                {
-                    "release_id": rid,
-                    "operation_id": operation.id,
-                    "implementation_id": binding.id,
-                    "implementation_version": binding.version,
-                }
-            )
-            rows["operation_effect"].extend(
-                {
-                    "release_id": rid,
-                    "operation_id": operation.id,
-                    "effect_id": effect,
-                    "effect_version": effects[effect],
-                }
-                for effect in operation.effects
-            )
-        for transition in execution.transitions:
-            rows["execution_transition"].append(
-                {
-                    "release_id": rid,
-                    "transition_id": transition.id,
-                    "operation_id": transition.operation,
-                    "lifecycle": transition.lifecycle,
-                }
-            )
-            rows["execution_edge"].extend(
-                {
-                    "release_id": rid,
-                    "transition_id": transition.id,
-                    "prior_state": before,
-                    "result_state": after,
-                }
-                for before in transition.from_states
-                for after in transition.to_states
-            )
-            rows["transition_effect"].extend(
-                {
-                    "release_id": rid,
-                    "transition_id": transition.id,
-                    "effect_id": effect,
-                    "effect_version": effects[effect],
-                }
-                for effect in transition.effects
-            )
     # The index shares contextual role derivation with public Core property queries.
     rows["operation_property_role"] = [
         {"release_id": rid, "class_id": cls, "property_id": prop, "role": role}
@@ -376,13 +307,9 @@ def persist_release(
     This trusts the compiler's prepared product, checks its complete input manifest,
     and never recompiles while writing projection rows. The caller commits or rolls back.
     """
-    from .contracts import require_bound_operation
-
     _validate_manifest(bundle, dependencies, profile, prepared)
     # Pure schema artifacts may be archived without granting execution authority.
-    # Executable releases additionally retain their declared archive operation.
-    if prepared.execution_model_id is not None:
-        require_bound_operation(prepared, "archive")
+    # Current executable releases additionally require the trusted native archive fence.
     if profile.compiler_version != SEMANTIC_COMPILER_VERSION:
         raise ReleaseConflict(f"unsupported archive compiler {profile.compiler_version}")
     from .prepare import prepare_release
@@ -393,7 +320,7 @@ def persist_release(
     ):
         raise ReleaseConflict("prepared products differ from exact-source verification")
 
-    if prepared.execution_model_id is not None:
+    if any(a.kind == "data_operations.json" for a in prepared.artifacts):
         from .execution_admission import require_archive_fence
 
         require_archive_fence(conn)

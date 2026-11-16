@@ -42,6 +42,7 @@ _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 def native_protocol_sources(
     *, physical_sources=None, linkml_types=None
 ) -> tuple[SourceArtifact, ...]:
+    from .artifact_admission_native import artifact_admission_native_sql
     from .authority_leaf import NativeAuthorityLeaf
     from .contextual_admission_native import contextual_admission_native_sql
     from .contextual_definition_native import contextual_definition_native_sql
@@ -127,6 +128,14 @@ def native_protocol_sources(
         SourceArtifact(
             "native/data-operation-definition-admission.py",
             Path(__file__).with_name("definition_admission_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-artifact-admission.sql",
+            artifact_admission_native_sql().encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-artifact-admission.py",
+            Path(__file__).with_name("artifact_admission_native.py").read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-contextual-definition.sql",
@@ -358,6 +367,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-cpu-basis.py",
         "native/data-operation-definition-admission.sql",
         "native/data-operation-definition-admission.py",
+        "native/data-operation-artifact-admission.sql",
+        "native/data-operation-artifact-admission.py",
         "native/data-operation-contextual-definition.sql",
         "native/data-operation-contextual-definition.py",
         "native/data-operation-contextual-admission.sql",
@@ -501,6 +512,7 @@ def native_sql(sources=None) -> str:
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
             "native/data-operation-definition-admission.sql",
+            "native/data-operation-artifact-admission.sql",
             "native/data-operation-contextual-definition.sql",
             "native/data-operation-contextual-linguistics.sql",
             "native/data-operation-contextual-scoring.sql",

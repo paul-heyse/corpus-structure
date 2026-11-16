@@ -161,7 +161,6 @@ def reconstruct_release(
         required_capabilities=products.required_capabilities,
         diagnostics=products.diagnostics,
         _adapters=adapters,
-        execution_model_id=products.execution_model_id,
         _boundary_models=models,
         _adapter_loader=load_adapter,
     )
@@ -282,16 +281,9 @@ def open_release_parts(
         ordered = tuple(by_name[item.kind] for item in products.artifacts)
         if len(ordered) != len(artifacts):
             raise ReleaseConflict("unexpected archived artifacts")
-        execution_id = products.execution_model_id
         target_artifacts = [a for a in ordered if a.kind == "data_operations.json"]
-        if profile.version == "semantic-2" and not target_artifacts:
-            if not execution_id:
-                raise ReleaseConflict("composed archive lacks execution identity")
-            expected["execution_model_id"] = execution_id
-        elif execution_id is not None:
-            raise ReleaseConflict("execution model requires semantic-2")
         if target_artifacts:
-            if execution_id is not None or len(target_artifacts) != 1:
+            if len(target_artifacts) != 1:
                 raise ReleaseConflict("ambiguous archived operation model")
             from .data_operation_model import read_effective_data_operations
 

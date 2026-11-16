@@ -86,7 +86,7 @@ def _report_schemas() -> _ReportSchemaProduct:
 if TYPE_CHECKING:
     from sqlalchemy import Connection
 
-    from .ontology import GraphProjectionBinding, GraphValidation
+    from .ontology import GraphValidation
     from .types import SourceBundle
 
 
@@ -1110,8 +1110,7 @@ def validation_failure_report(
 def graph_validation_report(
     validation: GraphValidation,
     *,
-    prepared: PreparedRelease | None = None,
-    binding: GraphProjectionBinding | None = None,
+    prepared: PreparedRelease,
     scope: str,
     detail: bool = False,
     raw_evidence: bool = False,
@@ -1123,18 +1122,7 @@ def graph_validation_report(
     from hashlib import sha256
 
     reference = "sha256:" + sha256(validation.report).hexdigest()
-    if prepared is None and binding is None:
-        raise SemanticRefusal("graph report requires a trusted release binding")
-    if prepared is not None:
-        release_id, model_id = prepared.release_id, prepared.execution_model_id
-    else:
-        assert binding is not None
-        release_id, model_id = binding.release_id, binding.execution_model_id
-    if binding is not None and (binding.release_id, binding.execution_model_id) != (
-        release_id,
-        model_id,
-    ):
-        raise SemanticRefusal("graph report binding differs from supplied release")
+    release_id, model_id = prepared.release_id, trusted_operation_model_id(prepared)
     observations = [
         dict(
             category="state_violation",
