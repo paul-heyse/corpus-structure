@@ -469,6 +469,16 @@ D3 and D7 own realization and qualification; no persistent adoption follows from
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0112](../adr/0112-cpu-reply-correspondence.md), [ADR-0113](../adr/0113-selected-structural-admission.md)
 
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** One current structural
+evaluator uses finite actual comparison/condition/definition report choices, faithful per-policy
+whole-statement lowering and exact protected original A/B/C. Definition admission selects one
+explicit component; other policies require a null component selector. Explicit report/admission
+root pairs share one selected read cut and bounded authority. This extends ADR-0113's initial
+comparison scope while preserving its attribution and disclosure limits; D5/D7/D8 and the DDO
+coordinator own consumer integration and retirement of the old authoring path.
+
+> Decision: [ADR-0115](../adr/0115-structural-policy-issuer.md)
+
 **Accepted target; implementation/qualification Proposed · 2026-11-15.** Contextual target
 materialization and vector products preserve unchanged-target reuse across inventory changes.
 One native scoring product owns Core alias/full-text/pgvector query execution; actual CPU reduction
@@ -734,8 +744,10 @@ use the same typed model and native authority boundary. D1/D2/D7 own these contr
 coordinator owns implementation and retirement evidence.
 Structural statements retain canonical tagged scalar meaning and exact native report references;
 an ordinary dossier consumes the actual admitted conclusion through common support custody.
+The current structural issuer uses explicit typed comparison/condition/definition choices and
+an exact definition-component selector; report kinds and policy lowering remain distinct.
 
-> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md), [ADR-0113](../adr/0113-selected-structural-admission.md)
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md), [ADR-0113](../adr/0113-selected-structural-admission.md), [ADR-0115](../adr/0115-structural-policy-issuer.md)
 
 **Accepted target; implementation/qualification Proposed · 2026-11-15.** CPU decisions used for
 native rich admission bind the actual reply bytes through the existing typed execution receipt.

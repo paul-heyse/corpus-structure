@@ -1,5 +1,18 @@
 # D5 · Consolidation, identity and confidence
 
+## Finite structural report admission
+
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** One `structure.admit`
+evaluator checks the actual typed comparison/condition/definition producer and its faithful
+source-resolved whole-statement lowering. Definition policy selects one exact component;
+comparison/condition require a null component selector. A unique supported exact C adjudication
+can issue an ordinary structural conclusion. It grants no scientific/member truth or whole
+applicability. Same-shaped authored reports cannot substitute for genuine producer/factory/CPU
+correspondence. Old structural publication authority retires with its maintained consumers.
+The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns qualification.
+
+> Decision: [ADR-0115](../adr/0115-structural-policy-issuer.md)
+
 ## Declared consolidation and currentness
 
 **Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one

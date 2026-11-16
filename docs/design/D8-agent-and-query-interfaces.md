@@ -1,5 +1,18 @@
 # D8 · Agent and query interfaces
 
+## Selected structural report and admission bindings
+
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** The existing selected
+structural request keeps explicit report roots and adds explicit report/admission root pairs.
+Each paired report must be an explicit root. One cut acquires both roots and required support;
+the reader exposes the ordinary permitted statement with its actual native authority leaf.
+Protected judgments remain undisclosed. Comparison gap/dossier policies stay comparison-scoped;
+condition/definition reports retain their own statement/component meaning. Missing/unselected
+admission or unavailable support never establishes absence. Native reader/export and retirement
+qualification remains with the [DDO coordinator](../plans/declared-data-operations_2026-11-12.md).
+
+> Decision: [ADR-0115](../adr/0115-structural-policy-issuer.md)
+
 ## Pinned demand and operation interfaces
 
 **Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one

@@ -1,5 +1,18 @@
 # D7 · Evaluation, goldens and the outer loop
 
+## Finite structural report adjudication
+
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** Comparison, condition
+and exact definition-component policies share the current evaluator's protected original A/B/C
+protocol, retaining their distinct report choice, frame, question, rubric and selected passages.
+C names exact original A/B parents. Source-first and output-first exposure remain distinct;
+actor attribution does not establish independently verified provider execution. Native issuance
+requires the unique supported whole statement to equal the corresponding source-resolved lowering.
+The former structural reference-set/pass APIs retire after real consumer migration and native
+qualification owned by the [DDO coordinator](../plans/declared-data-operations_2026-11-12.md).
+
+> Decision: [ADR-0115](../adr/0115-structural-policy-issuer.md)
+
 ## Protected preservation during adoption
 
 **Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one
