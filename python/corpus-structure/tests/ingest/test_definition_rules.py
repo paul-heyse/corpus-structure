@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 import yaml
 from annotation_support import controlled as controlled
-from annotation_support import item, primary_product
+from annotation_support import item
 
 from corpus_structure.ingest.annotation_views import annotation_view
 from corpus_structure.ingest.annotations import annotate
@@ -15,8 +15,8 @@ from corpus_structure.methods.definition_applicability import (
     components_from_named_matches,
     definition_scopes,
 )
-from corpus_structure.methods.predicate_frames import predicate_frame_result
 from corpus_structure.schema.pack import DOMAINS
+from corpus_structure.semantic.constructions.retained_rules import recognize_frame_result
 from corpus_structure.semantic.structural_products import StructuralPassage
 
 
@@ -27,13 +27,8 @@ def matched(controlled, text, heads, deps, pos, lemmas, *, display=None):
         replace(t, head=h, dependency=d, pos=p, lemma=lemma)
         for t, h, d, p, lemma in zip(product.tokens, heads, deps, pos, lemmas, strict=True)
     )
-    view = annotation_view(
-        primary_product(
-            text, replace(product, tokens=tokens), native_profile=controlled.selection().native
-        ),
-        text,
-        controlled.vocab,
-    )
+    # These authored-column rules consume a native view, not an admitted primary report.
+    view = annotation_view(replace(product, tokens=tokens), text, controlled.vocab)
     recipe = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_text())[
         "annotation_rules"
     ]
@@ -53,7 +48,7 @@ def matched(controlled, text, heads, deps, pos, lemmas, *, display=None):
         scope="s",
     )
     scopes = definition_scopes(
-        matches, predicate_frame_result(view), content_role="defining_content"
+        matches, recognize_frame_result(view), content_role="defining_content"
     )
     if display is not None:
         start = text.index(display) + 100

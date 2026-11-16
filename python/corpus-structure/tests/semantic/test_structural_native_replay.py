@@ -1,17 +1,18 @@
-"""Native deterministic replay checks, separate from source-custody qualification."""
+"""Current structural kernels and genuine native consumer criteria.
 
-import json
-from pathlib import Path
+The fixed formal/grouping controls are unadmitted domain values, not native
+publication or provider evidence. Actual native comparisons consume genuine
+source/primary/predicate products; no lexical-only RPC or run snapshot is used.
+"""
 
 import pytest
-from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.methods.structural_products import compare_clauses
-from corpus_structure.semantic.structural_admission import structural_statement
-from semantic.native_record_fixtures import RecordSourceRecipe
-from semantic.native_record_fixtures import private_source as private_source
-from semantic.typed_structural_composition_support import revision_inputs, threshold_inputs
+from corpus_structure.semantic.identity import canonical_bytes
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory,
+)
+from semantic.formal_products_support import profile as profile
+from semantic.formal_products_support import selected
 
 _COMPARISON_LITERALS = (
     ("Date: 2024-02-29", {"kind": "date", "value": "2024-02-29"}),
@@ -54,663 +55,190 @@ _COMPARISON_LITERALS = (
 )
 
 
-def _captured_comparison_inputs(case, inputs):
-    from corpus_structure.semantic.source_views import load_source_view
+def _formal_case(profile, text):
+    from corpus_structure.semantic.data_operation_model import SubjectContext, json_context_meaning
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+    from corpus_structure.semantic.formal_products import FormalEvidenceOptions
+    from corpus_structure.semantic.formal_readings import FormalSourceReadings
+    from corpus_structure.semantic.source_products import source_subject
 
-    with case.writer.connect() as conn:
-        view = load_source_view(conn, case.other_view, analysis=False)
-    source = inputs.sources[0].model_copy(
-        update=dict(
-            project_id=case.project_id,
-            run_id=case.run,
-            release_id=case.prepared.release_id,
-            source_view_id=view.ref.id,
-            native_task_id=view.ref.native_product.task_id,
-            native_product_key=view.ref.native_product.product_key,
-            native_content_digest=view.ref.native_product.content_digest,
-            projection_digest=view.ref.projection_digest,
-            recipe_digest=view.ref.recipe_digest,
-        )
+    native = selected(profile, text)
+    coordinate = native.value["source"]
+    scope = canonical_bytes({"source": coordinate, "selectors": native.value["selectors"]})
+    context = SubjectContext("unadmitted:project", source_subject(coordinate), coordinate["document"], scope, subject_definition="original-source-view")
+    assert context.original_source is not None
+    product = profile.run(native, FormalEvidenceOptions(), subject_context=context)
+    address = DeclaredStructuralSource(
+        source='["unadmitted:source",null]', source_product="unadmitted:source", kind_contract="unadmitted:source-kind",
+        project_id=context.project_id, subject=context.subject, subject_definition=context.subject_definition,
+        original_source=context.original_source, analyzed_scope_meaning=json_context_meaning(scope).decode(),
+        document=coordinate["document"], projection_digest=coordinate["projection"], section_pointer=coordinate["section_pointer"], membership=coordinate["membership"],
     )
-    passages = tuple(
-        p.model_copy(
-            update=dict(
-                source_ref=source.identity,
-                start=view.text.index(p.text),
-                end=view.text.index(p.text) + len(p.text),
-            )
-        )
-        for p in inputs.passages
-    )
-    return inputs.model_copy(update=dict(sources=(source,), passages=passages)), view
+    return native, address, product, FormalSourceReadings.from_products((product,), native)
 
 
-def _captured_formal_layers(view):
-    from corpus_structure.semantic.formal_evidence import build_formal_layer, grammar_identity
-    from semantic.primary_formal_fixture import release
-
-    layer = build_formal_layer(
-        view,
-        release(),
-        dict(
-            key="text.formal_evidence",
-            version="1",
-            runtime="fixture",
-            model="none",
-            grammar=grammar_identity(),
-            configuration="fixture",
-            input="fixture",
-            context="source-only",
-        ),
-    )
-    return {layer.reference(1000 + view.ref.id): layer}
-
-
-def _primary_wire(layers):
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    return {canonical_bytes(pin.values()).decode(): layer.payload for pin, layer in layers.items()}
-
-
-def _captured_clause(passage, source, layers):
-    from corpus_structure.methods.structural_products import threshold_readings
-    from corpus_structure.semantic.structural_products import ClauseField, ClauseReading
-
-    fields = [
-        ClauseField(dimension=dimension, lexical_value=value, evidence=(passage.passage_id,))
-        for dimension, value in (("parent", passage.parent), ("version", passage.effective_version))
-        if value
-    ]
-    thresholds = threshold_readings(passage, source=source, primary_layers=layers)
-    if len(thresholds) == 1:
-        assert all(isinstance(field, ClauseField) for field in thresholds)
-        fields.extend(field for field in thresholds if isinstance(field, ClauseField))
-    return ClauseReading(passage_id=passage.passage_id, fields=tuple(fields))
-
-
-@pytest.mark.parametrize(
-    "left,right,private_source",
-    [
-        (*pair, RecordSourceRecipe(sibling_references=pair))
-        for pair in [
-            ("revenue > 25000 USD", "revenue > 50000 USD"),
-            (
-                "revenue > 25000 USD\nComparison basis: annual gross revenue.",
-                "revenue > 50000 USD\nComparison basis: annual gross revenue.",
-            ),
-            ("x > 2 kg", "x > 5 kg\nRevision R2 supersedes revision R1."),
-            (
-                "Clause rule.\nRevision R1.\nx > 2 kg",
-                "Clause rule.\nRevision R2 supersedes revision R1.\nx > 5 kg",
-            ),
-            ("revenue >= 25000 USD", "revenue > 25000 USD"),
-            ("revenue < 50000 USD", "revenue <= 25000 USD"),
-            ("x > 2", "x > 5"),
-            ("x > 2 kg and y > 3 kg", "x > 5 kg"),
-            ("prefix. x ≥ +2.00e2 kg", "x >= 200 kg"),
-            ("x > 2. kg", "x > 2 kg"),
-            (
-                "Manager must approve Table 5.1 if revenue > 25000 USD unless account is closed.",
-                "Manager must approve Table 5.1 if revenue > 50000 USD unless account is closed.",
-            ),
-            (
-                "Table 5.1 must be approved by Manager if revenue > 25000 USD.",
-                "Table 5.1 must be approved by Analyst if revenue > 25000 USD.",
-            ),
-            (
-                "If revenue > 25000 USD, Manager must approve Table 5.1 before signing.",
-                "Nothing is prescribed.",
-            ),
-            ("Manager must approve Table; Analyst may reject Form.", "Manager may review Table."),
-        ]
-    ],
-    indirect=("private_source",),
-)
-def test_native_comparison_replays_same_source_route(
-    record_source_admin, private_source, left, right
-):
-    inputs = threshold_inputs(left, right)
-    if "supersedes" in right:
-        inputs = revision_inputs(left, right)
-    inputs, view = _captured_comparison_inputs(private_source, inputs)
-    primary = _captured_formal_layers(view)
-    source = inputs.sources[0]
-    a, b = (_captured_clause(passage, source, primary) for passage in inputs.passages)
-    expected = compare_clauses(inputs, left=a, right=b, primary_layers=primary)
-    with record_source_admin.connect() as conn, conn.begin():
-        actual = conn.scalar(
-            text("""SELECT ops.structural_compare_lexical(
-                CAST(:inputs AS jsonb),:left,:right,
-                CAST(:left_fields AS jsonb),CAST(:right_fields AS jsonb),CAST(:primary AS jsonb))
-            """),
-            dict(
-                inputs=inputs.model_dump_json(),
-                primary=json.dumps({source.identity: _primary_wire(primary)}),
-                left=inputs.passages[0].passage_id,
-                right=inputs.passages[1].passage_id,
-                left_fields=json.dumps(
-                    {f.dimension: f.model_dump(mode="json", exclude_none=True) for f in a.fields}
-                ),
-                right_fields=json.dumps(
-                    {f.dimension: f.model_dump(mode="json", exclude_none=True) for f in b.fields}
-                ),
-            ),
-        )
-        comparison = expected.model_dump(mode="json", exclude_none=True)["comparison"]
-        assert actual == comparison
-        public = conn.scalar(
-            text("SELECT data.structural_public_statement(CAST(:report AS jsonb),NULL)"),
-            dict(report=expected.model_dump_json(exclude_none=True)),
-        )
-        assert public == structural_statement(expected)
-
-
-def test_native_dossier_replays_membership_after_reader_boundary(commit_db_engine):
-    """Isolate composition after the reader; this is not reader/provider qualification."""
-    from corpus_structure.methods.structural_products import derive_dossier_members, select_dossier
-    from corpus_structure.semantic.structural_products import (
-        DefinitionComponentsProduct,
-        LocatedDefinitionSpan,
-        RetainedComponentRef,
-        RetainedStructuralRef,
-        StructuralProductReport,
-        definition_component,
-    )
-
-    inputs = threshold_inputs("term is defining content", "unrelated candidate context")
-    p = inputs.passages[0]
-    term = LocatedDefinitionSpan(passage_id=p.passage_id, start=0, end=4, text="term")
-    content = LocatedDefinitionSpan(
-        passage_id=p.passage_id, start=8, end=24, text="defining content"
-    )
-    component = definition_component(
-        term=term,
-        content=content,
-        interpretation="definition",
-        basis="matched_cue",
-        scope=p.scope,
-        evidence=(p.passage_id,),
-        reason="Explicit source cue.",
-    )
-    unrelated = definition_component(
-        term=LocatedDefinitionSpan(passage_id="b", start=0, end=9, text="unrelated"),
-        content=LocatedDefinitionSpan(passage_id="b", start=10, end=27, text="candidate context"),
-        interpretation="definition",
-        basis="matched_cue",
-        scope=inputs.passages[1].scope,
-        evidence=("b",),
-        reason="Separate source and sense.",
-    )
-    predecessor = StructuralProductReport(
-        kind="definition_components",
-        inputs=inputs,
-        definition_components=DefinitionComponentsProduct(
-            components=(component, unrelated), stages=()
-        ),
-    )
-    ref = RetainedStructuralRef(
-        product_id=predecessor.product_id,
-        project_id="p",
-        run_id=1,
-        cut_id=1,
-        release_id="r",
-        result_revision=1,
-        selected_task_id=1,
-        origin_task_id=1,
-        runtime_fingerprint="runtime",
-    )
-    inputs = inputs.model_copy(
-        update=dict(dependencies=(*inputs.dependencies, predecessor.product_id))
-    )
-    root = RetainedComponentRef(
-        **ref.model_dump(),
-        component_id=component.component_id,
-        operation_id="structure.definition_components",
-        operation_version="5",
-        dependencies=predecessor.inputs.dependencies,
-    )
-    payload = dict(
-        report=predecessor.model_dump(mode="json", exclude_none=True),
-        public_assertions=[
-            dict(
-                assessment_id="protected-reader-fixture",
-                statement=structural_statement(predecessor, component.component_id),
-            )
-        ],
-    )
-    members, facets = derive_dossier_members(inputs, ((ref, payload),), root=component)
-    report = select_dossier(
-        inputs,
-        root_id=root.component_id,
-        root_component=root,
-        members=members,
-        supported_facets=facets,
-        predecessors=(ref,),
-        member_budget=1,
-    )
-    config = dict(
-        root_component=root.model_dump(mode="json"),
-        predecessors=[ref.model_dump(mode="json")],
-        member_budget=1,
-        policy="supported-facet-greedy-1",
-    )
-    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
-    with commit_db_engine.connect() as conn, conn.begin():
-        for file in (
-            "dossier_contributions.sql",
-            "structural_products.sql",
-            "structural_publication.sql",
-        ):
-            conn.exec_driver_sql(
-                (sql / file).read_text(), execution_options={"no_parameters": True}
-            )
-        conn.execute(
-            text("SELECT set_config('test.structural_payload',:payload,true)"),
-            dict(payload=json.dumps(payload)),
-        )
-        conn.exec_driver_sql(
-            "CREATE OR REPLACE FUNCTION ops.resolve_retained_structural_report(ref jsonb) "
-            "RETURNS jsonb LANGUAGE sql STABLE AS $$ "
-            "SELECT current_setting('test.structural_payload')::jsonb $$"
-        )
-        conn.execute(
-            text("SELECT set_config('test.dossier_root',:component,true)"),
-            dict(component=component.model_dump_json(exclude_none=True)),
-        )
-        conn.exec_driver_sql(
-            "CREATE OR REPLACE FUNCTION ops.resolve_retained_component(ref jsonb) "
-            "RETURNS jsonb LANGUAGE sql STABLE AS $$ "
-            "SELECT jsonb_build_object('component',current_setting('test.dossier_root')::jsonb) $$"
-        )
-        actual = conn.scalar(
-            text("SELECT ops.structural_dossier(CAST(:inputs AS jsonb),CAST(:config AS jsonb))"),
-            dict(inputs=inputs.model_dump_json(exclude_none=True), config=json.dumps(config)),
-        )
-        assert report.dossier is not None
-        assert actual == report.dossier.model_dump(mode="json", exclude_none=True)
-        public = conn.scalar(
-            text("SELECT data.structural_public_statement(CAST(:report AS jsonb),NULL)"),
-            dict(report=report.model_dump_json(exclude_none=True)),
-        )
-        assert public == structural_statement(report)
-        assert len(actual["members"]) == 2 and {m["passage_id"] for m in actual["members"]} == {"a"}
-
-
-def test_native_representation_projects_only_selected_member_closure(commit_db_engine):
-    from corpus_structure.methods.structural_products import select_dossier
-    from corpus_structure.semantic.structural_products import DossierMember, LocatedDefinitionSpan
-    from corpus_structure.serve.structural_products import dossier_member_page
-
-    inputs = threshold_inputs("retained source", "uncited source")
-    p = inputs.passages[0]
-    citation = LocatedDefinitionSpan(passage_id=p.passage_id, start=p.start, end=p.end, text=p.text)
-    members = tuple(
-        DossierMember(
-            member_id=str(i),
-            passage_id=p.passage_id,
-            citation=citation,
-            role="exception",
-            scope=p.scope,
-            sense="unresolved",
-            relation_product_id="upstream",
-        )
-        for i in range(3)
-    )
-    report = select_dossier(inputs, root_id="root", members=members, member_budget=1)
-    result = dossier_member_page(report, population="display", offset=1, limit=1)
-    assert [m["member_id"] for m in result["members"]] == ["1"]
-    assert (
-        len(result["citations"]) == 1
-        and result["citations"][0]["citation"]["text"] == "retained source"
-    )
-    assert result["citations"][0]["source"] == inputs.sources[0].model_dump(mode="json")
-    assert result["supported_facets"] == []
-
-
-def test_native_note_scope_checks_the_whole_original_note(commit_db_engine):
-    from methods.m1_source_preparation_support import native_table_source, table_cell
-    from methods.scoped_relations_support import complete_native_fields, discover_relations
-
-    from corpus_structure.semantic.observations import source_python
-    from corpus_structure.semantic.proposals import native_source_frame
-
-    note_text = "Only the Heads row uses percentages."
-    view = complete_native_fields(
-        native_table_source(
-            (
-                table_cell("Probability %", 0, 1, column_header=True),
-                table_cell("Heads", 1, 0, row_header=True),
-                table_cell("50", 1, 1),
-                table_cell("50", 2, 1),
-            ),
-            note=note_text,
-        )
-    )
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    output = discover_relations(native_source_frame(view, ()))
-    rows = output["contributions"]
-    layers = {
-        canonical_bytes(pin.values()).decode(): layer.payload
-        for pin, layer in output["_primary_layers"].items()
-    }
-    physical = dict(
-        id=view.ref.id,
-        key=view.ref.key,
-        native_task_id=view.ref.native_product.task_id,
-        native_product_key=view.ref.native_product.product_key,
-        native_content_digest=view.ref.native_product.content_digest,
-        projection_digest=view.ref.projection_digest,
-        recipe_digest=view.ref.recipe_digest,
-        projection=dict(text=view.text, pieces=view.pieces),
-    )
-    note = next(r for r in rows if source_python(r["value"]).get("role") == "note")
-    (anchor,) = note["anchors"]
-    original = {item["self_ref"]: dict(item) for item in view.items}
-
-    def bind(conn, items):
-        conn.execute(
-            text("SELECT set_config('test.note_native_items',:items,true)"),
-            {"items": json.dumps(items)},
-        )
-
-    replay = text(
-        "SELECT ops.validate_source_table_note_scope("
-        "jsonb_populate_record(NULL::kb.source_view,CAST(:physical AS jsonb)),"
-        "CAST(:rows AS jsonb),CAST(:layers AS jsonb))"
-    )
-    with commit_db_engine.connect() as conn, conn.begin():
-        # Isolate the installed scope guard after the owned raw-item boundary.
-        conn.exec_driver_sql("""
-            CREATE OR REPLACE FUNCTION ops.read_pdf_published_items(
-                p_task bigint,p_product text,p_digest text,p_pointers text[])
-            RETURNS TABLE(product_id text,revision_id text,pointer text,ordinal bigint,
-                label text,parent_pointer text,section_pointer text,content_layer text,
-                text text,native_json jsonb) LANGUAGE sql STABLE AS $$
-                SELECT NULL::text,NULL::text,p,NULL::bigint,NULL::text,NULL::text,
-                    NULL::text,NULL::text,item->>'text',item
-                FROM unnest(p_pointers) p
-                CROSS JOIN LATERAL (
-                    SELECT current_setting('test.note_native_items')::jsonb->p AS item
-                ) value
-            $$
-        """)
-        bind(conn, original)
-        conn.execute(
-            replay,
-            {
-                "rows": json.dumps(rows),
-                "layers": json.dumps(layers),
-                "physical": json.dumps(physical),
-            },
-        )
-
-        prefix = "Do not apply the following statement. "
-        original[anchor["pointer"]]["text"] = prefix + note_text
-        anchor["start"], anchor["end"] = len(prefix), len(prefix) + len(note_text)
-        bind(conn, original)
-        with (
-            pytest.raises(DBAPIError, match="requires the whole original note"),
-            conn.begin_nested(),
-        ):
-            conn.execute(
-                replay,
-                {
-                    "rows": json.dumps(rows),
-                    "layers": json.dumps(layers),
-                    "physical": json.dumps(physical),
-                },
-            )
-
-
-@pytest.mark.parametrize(
-    "connector,expected_group,expected_typed,private_source",
-    [
-        (
-            *case,
-            RecordSourceRecipe(
-                sibling_references=(
-                    f"Clerk must file Form {case[0]} Form if X > 5 kg. No exceptions.",
-                    "Reviewer may file Form and Report if X > 7 kg.",
-                )
-            ),
-        )
-        for case in [
-            ("and", "conjunction", "unknown"),
-            ("or", "disjunction", "unknown"),
-            ("as well as", "unresolved", "ambiguous"),
-        ]
-    ],
-    indirect=("private_source",),
-)
-def test_retained_comparison_groups_exact_occurrences(
-    record_source_admin, private_source, connector, expected_group, expected_typed
-):
-    from corpus_structure.methods.structural_products import read_retained_clause
-    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
-
-    inputs = threshold_inputs(
-        f"Clerk must file Form {connector} Form if X > 5 kg. No exceptions.",
-        "Reviewer may file Form and Report if X > 7 kg.",
-    )
-
-    inputs, view = _captured_comparison_inputs(private_source, inputs)
-
-    def retained_side(passage, source):
-        reference = RetainedContributionRef(
-            contribution_id="source-contribution:" + "a" * 64,
-            project_id=source.project_id,
-            run_id=1,
-            cut_id=1,
-            release_id=source.release_id,
-            result_revision=0,
-            selected_task_id=1,
-            origin_task_id=1,
-            runtime_fingerprint="runtime",
-        )
-        pin = {
-            "source_view_id": source.source_view_id,
-            "native_product_task_id": source.native_task_id,
-            "product_digest": source.native_content_digest,
-            "projection_digest": source.projection_digest,
-            "recipe_digest": source.recipe_digest,
-        }
-
-        def extent(spelling, at=0):
-            start = passage.start + passage.text.index(spelling, max(0, at - passage.start))
-            return {"start": start, "end": start + len(spelling)}
-
-        first = extent("Form")
-        second = extent("Form" if "Clerk" in passage.text else "Report", first["end"])
-        actor, modal = ("Clerk", "must") if "Clerk" in passage.text else ("Reviewer", "may")
-        component = {"scope": passage.passage_id}
-        rows = [
-            {
-                "contribution_id": reference.contribution_id,
-                "pin": pin,
-                "component": {**component, "kind": "predicate_reading", "frame": "frame"},
-            },
-            {
-                "contribution_id": "frame",
-                "pin": pin,
-                "component": {
-                    **component,
-                    "kind": "predicate_frame",
-                    "frame_members": [
-                        dict(
-                            role="actor",
-                            contribution="actor",
-                            outcome="complete",
-                            extents=[extent(actor)],
-                        ),
-                        dict(
-                            role="predicate",
-                            contribution="predicate",
-                            outcome="complete",
-                            extents=[extent("file")],
-                        ),
-                        dict(
-                            role="object", contribution="first", outcome="complete", extents=[first]
-                        ),
-                        dict(
-                            role="object",
-                            contribution="second",
-                            outcome="complete",
-                            extents=[second],
-                        ),
-                    ],
-                },
-            },
-            {
-                "contribution_id": "modal",
-                "component": dict(
-                    kind="predicate_qualifier",
-                    host_contribution_id="frame",
-                    qualifier_contribution_id="modal-cue",
-                    qualifier_kind="modality",
-                ),
-            },
-            {
-                "contribution_id": "modal-cue",
-                "pin": pin,
-                "component": {"extents": [extent(modal)]},
-            },
-        ]
-        if "No exceptions." in passage.text:
-            rows.extend(
-                (
-                    {
-                        "contribution_id": "exception",
-                        "component": dict(
-                            kind="predicate_qualifier",
-                            host_contribution_id="frame",
-                            qualifier_contribution_id="exception-cue",
-                            qualifier_kind="exception",
-                        ),
-                    },
-                    {
-                        "contribution_id": "exception-cue",
-                        "pin": pin,
-                        "component": {"extents": [extent("No exceptions.")]},
-                    },
-                )
-            )
-        return reference, rows
-
-    left, right = inputs.passages
-    sources = {source.identity: source for source in inputs.sources}
-    ls, rs = sources[left.source_ref], sources[right.source_ref]
-    lr, lrows = retained_side(left, ls)
-    rr, rrows = retained_side(right, rs)
-    # Each comparison side has its own retained producer and original view.
-    rr = rr.model_copy(update={"selected_task_id": 2, "origin_task_id": 2})
-    primary = _captured_formal_layers(view)
-    a = read_retained_clause(left, ls, lr, {"contributions": lrows}, primary_layers=primary)
-    b = read_retained_clause(right, rs, rr, {"contributions": rrows}, primary_layers=primary)
-    report = compare_clauses(
-        inputs, left=a, right=b, left_reading=lr, right_reading=rr, primary_layers=primary
-    )
-    comparison = report.comparison
-    assert comparison is not None
-    object_ = comparison.dimensions[2]
-    group = object_.left_group
-    assert group is not None
-    assert group.grouping == expected_group
-    assert object_.typed_outcome == expected_typed
-    assert [m.lexical_value for m in group.members] == ["Form", "Form"]
-    assert [m.spans[0].start for m in group.members if m.spans] == [
-        left.text.index("Form"),
-        left.text.rindex("Form"),
-    ]
-    assert comparison.dimensions[0].outcome == "different_lexical_value"
-    assert comparison.dimensions[3].outcome == "different_lexical_value"
-    for index in (4, 5):
-        missing = comparison.dimensions[index].left_group
-        assert missing is not None and missing.state == "absent"
-    exception = comparison.dimensions[6]
-    assert exception.left_group is not None and exception.left_group.state == "empty"
-    # The primary fact witnesses the phrase; the original sentence terminator
-    # remains in the retained clause rather than enlarging the lexical marker.
-    (empty_span,) = exception.left_group.witnesses
-    empty_start = left.start + left.text.index("No exceptions")
-    assert (empty_span.start, empty_span.end, empty_span.text) == (
-        empty_start,
-        empty_start + len("No exceptions"),
-        "No exceptions",
-    )
-    (empty_ref,) = exception.left_group.primary_witnesses
-    matching = tuple(layer for pin, layer in primary.items() if pin == empty_ref.product)
-    assert len(matching) == 1, "primary witness must retain its actual selected product address"
-    (retained_primary,) = matching
-    empty_fact = next(
-        row
-        for row in retained_primary.payload["annotations"]
-        if row["local_id"] == empty_ref.local_id
-    )
-    assert empty_fact["kind"] == "formal.exception_empty" and empty_fact["native_label"] == "empty"
-    assert exception.right_group is not None and exception.right_group.state == "absent"
-
-    with record_source_admin.connect() as conn, conn.begin():
-        actual = conn.scalar(
-            text("""SELECT ops.comparison_groups(
-                CAST(:passage AS jsonb),CAST(:source AS jsonb),
-                CAST(:ref AS jsonb),CAST(:rows AS jsonb),CAST(:primary AS jsonb))
-            """),
-            dict(
-                passage=left.model_dump_json(),
-                source=ls.model_dump_json(),
-                ref=lr.model_dump_json(),
-                rows=json.dumps(lrows),
-                primary=json.dumps(_primary_wire(primary)),
-            ),
-        )
-        assert actual == a.model_dump(mode="json", exclude_none=True)["groups"]
-        public = conn.scalar(
-            text("SELECT data.structural_public_statement(CAST(:report AS jsonb),NULL)"),
-            dict(report=report.model_dump_json(exclude_none=True)),
-        )
-        assert public == structural_statement(report)
-
-
-@pytest.mark.parametrize(
-    "private_source",
-    [
-        RecordSourceRecipe(
-            sibling_references=tuple(spelling for spelling, _expected in _COMPARISON_LITERALS)
-        )
-    ],
-    indirect=True,
-    ids=("comparison-literals",),
-)
-def test_comparison_literals_are_bounded_and_agree_with_native(record_source_admin, private_source):
+@pytest.mark.parametrize("spelling,expected", _COMPARISON_LITERALS)
+def test_current_comparison_literal_has_independent_bounded_meaning(profile, spelling, expected):
     from corpus_structure.methods.structural_products import _literal_reading
+    from corpus_structure.semantic.structural_products import (
+        DeclaredPrimaryReference,
+        LocatedDefinitionSpan,
+    )
 
-    value = threshold_inputs(_COMPARISON_LITERALS[0][0], _COMPARISON_LITERALS[0][0])
-    value = value.model_copy(update=dict(passages=(value.passages[0],)))
-    inputs, view = _captured_comparison_inputs(private_source, value)
-    primary = _captured_formal_layers(view)
-    source = inputs.sources[0]
-    with record_source_admin.connect() as conn, conn.begin():
-        for spelling, expected in _COMPARISON_LITERALS:
-            start = view.text.index(spelling)
-            passage = inputs.passages[0].model_copy(
-                update=dict(text=spelling, start=start, end=start + len(spelling))
-            )
-            literal, reference = _literal_reading(passage, source, primary)
-            assert (
-                literal.model_dump(mode="json", exclude_none=True) if literal else None
-            ) == expected
-            actual = conn.scalar(
-                text(
-                    "SELECT ops.comparison_literal(CAST(:passage AS jsonb),"
-                    "CAST(:source AS jsonb),CAST(:primary AS jsonb))"
-                ),
-                dict(
-                    passage=passage.model_dump_json(),
-                    source=source.model_dump_json(),
-                    primary=json.dumps(_primary_wire(primary)),
-                ),
-            )
-            assert actual.get("literal") == expected
-            if reference is not None:
-                assert actual["primary_formal"] == reference.values()
+    _, source, product, primary = _formal_case(profile, spelling)
+    span = LocatedDefinitionSpan(passage_id="literal", start=0, end=len(spelling), text=spelling)
+    literal, reference = _literal_reading(span, source, primary)
+    assert (literal.model_dump(mode="json", exclude_none=True) if literal else None) == expected
+    if expected is not None:
+        assert isinstance(reference, DeclaredPrimaryReference)
+        assert reference.product_id == product.semantic_id
+        assert reference.member_id in {member.member_id for member in product.members}
+
+
+@pytest.mark.parametrize("connector,grouping", [("and", "conjunction"), ("or", "disjunction"), ("as well as", "unresolved")])
+def test_current_retained_clause_keeps_repeated_exact_occurrences_and_empty_exception(profile, connector, grouping):
+    from corpus_structure.methods.structural_products import read_retained_clause
+    from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
+    from corpus_structure.semantic.structural_products import StructuralPassage
+
+    text = f"Clerk must file Form {connector} Form. No exceptions."
+    _, source, formal, primary = _formal_case(profile, text)
+    passage = StructuralPassage(passage_id="left", source_ref=source.identity, start=0, end=len(text), text=text, scope="selected")
+    reference = DeclaredContributionRef(product_id="unadmitted:predicate-report", member_id=None, kind_contract="unadmitted:predicate-kind", contribution_id="source-contribution:"+"a"*64, **source.model_dump(include={"project_id", "subject", "subject_definition", "original_source", "analyzed_scope_meaning"}))
+
+    def extent(word, start=0):
+        at = text.index(word, start)
+        return dict(start=at, end=at+len(word))
+
+    first = extent("Form")
+    second = extent("Form", first["end"])
+    pin = source.model_dump(mode="json", exclude_none=True)
+    rows = [
+        dict(contribution_id=reference.contribution_id, pin=pin, component=dict(kind="predicate_reading", frame="frame", scope="selected")),
+        dict(contribution_id="frame", pin=pin, component=dict(kind="predicate_frame", scope="selected", frame_members=[
+            dict(role=role, contribution=role+str(index), outcome="complete", extents=[location])
+            for index, (role, location) in enumerate((("actor", extent("Clerk")), ("predicate", extent("file")), ("object", first), ("object", second)))
+        ])),
+        dict(contribution_id="exception", component=dict(kind="predicate_qualifier", host_contribution_id="frame", qualifier_contribution_id="exception-cue", qualifier_kind="exception")),
+        dict(contribution_id="exception-cue", pin=pin, component=dict(extents=[extent("No exceptions.")])),
+    ]
+    reading = read_retained_clause(passage, source, reference, {"contributions": rows}, primary_layers=primary)
+    groups = reading.groups
+    assert groups is not None
+    group = groups["object"]
+    assert group.grouping == grouping
+    assert [member.lexical_value for member in group.members] == ["Form", "Form"]
+    positions = []
+    for member in group.members:
+        assert member.spans is not None
+        positions.append(member.spans[0].start)
+    assert positions == [first["start"], second["start"]]
+    assert groups["exception"].state == "empty"
+    (witness,) = groups["exception"].witnesses
+    assert (witness.start, witness.end, witness.text) == (text.index("No exceptions"), text.index("No exceptions")+13, "No exceptions")
+    from corpus_structure.semantic.structural_products import DeclaredPrimaryReference
+
+    reference = groups["exception"].primary_witnesses[0]
+    assert isinstance(reference, DeclaredPrimaryReference)
+    assert reference.product_id == formal.semantic_id
+    assert groups["condition"].state == "absent"
+
+
+@pytest.mark.parametrize("prefix", ["", "Do not apply the following statement. "])
+def test_current_navigation_uses_the_whole_original_note(profile, prefix):
+    from corpus_structure.semantic.constructions.layers import ConstructionLayer, ConstructionSource
+    from corpus_structure.semantic.constructions.navigation import (
+        FAMILY,
+        populate_navigation_products,
+    )
+
+    text = prefix + "Only the Heads row uses percentages."
+    native, _, _, _ = _formal_case(profile, text)
+    layer = ConstructionLayer(native.value["source"], {"selectors": native.value["selectors"]}, {"key": "text.constructions/source-native"}, semantic=True, families=(FAMILY,))
+    populate_navigation_products(layer, ConstructionSource.from_native(native), native, None)
+    notes = [row for row in layer.facts()["annotations"] if row.get("navigation", {}).get("kind") == "note_scope"]
+    assert len(notes) == (0 if prefix else 1)
+
+
+def test_current_dossier_page_excludes_unselected_member_source_closure():
+    from corpus_structure.methods.structural_products import produce_structural_dossier
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+    from corpus_structure.semantic.structural_products import StructuralPassage
+    from corpus_structure.serve.structural_products import dossier_member_page
+    from semantic.test_dossier_products import _predecessor
+
+    component, root, predecessor, report, inputs = _predecessor()
+    other = DeclaredStructuralSource.model_validate({**inputs.sources[0].model_dump(), "source": '["source:unrelated","member:unrelated"]', "source_product": "source:unrelated", "source_member": "member:unrelated", "document": "document:unrelated", "original_source": "document:unrelated", "subject": "subject:unrelated"})
+    unused = StructuralPassage(passage_id="unrelated", source_ref=other.identity, start=0, end=14, text="uncited source", scope="unrelated")
+    inputs = inputs.model_copy(update={"sources": (*inputs.sources, other), "passages": (*inputs.passages, unused)})
+    dossier = produce_structural_dossier(inputs, root_component=root, root=component, retained=((predecessor, {"report": report}),), relationships={})
+    assert dossier.dossier is not None
+    before = dossier.model_dump(mode="json")
+    page = dossier_member_page(dossier, population="membership", offset=1, limit=1)
+    assert len(page["members"]) == len(page["citations"]) == 1
+    assert page["members"][0]["member_id"] == dossier.dossier.members[1].member_id
+    assert page["citations"][0]["source"] == inputs.sources[0].model_dump(mode="json")
+    assert b"source:unrelated" not in canonical_bytes(page)
+    assert dossier.model_dump(mode="json") == before
+
+
+@pytest.mark.parametrize(
+    "left,right,actor_outcome",
+    [
+        ("Manager must approve Table 5.1 if revenue > 25000 USD.", "Manager must approve Table 5.1 if revenue > 50000 USD.", "same_lexical_value"),
+        ("Table 5.1 must be approved by Manager if revenue > 25000 USD.", "Table 5.1 must be approved by Analyst if revenue > 25000 USD.", "different_lexical_value"),
+    ],
+    ids=("threshold", "passive-actor"),
+)
+def test_current_native_comparison_consumes_actual_predicate_and_formal_source_products(
+    current_pdf_source_factory, tmp_path, left, right, actor_outcome
+):
+    from corpus_structure.semantic.data_operation_service import DemandOperationSelection
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+    from semantic.current_pdf_source_support import admit_current_target
+    from semantic.structural_admission_native_support import COMPARE, execute, request
+    from semantic.structural_admission_native_support import selected as selected_products
+    from semantic.structural_production_native_support import (
+        PREDICATES,
+        produce_source_reports,
+        recipe,
+        selected_for_source,
+    )
+
+    literals = (left, right)
+    with current_pdf_source_factory(tuple(("text", value, value, None) for value in literals)) as source:
+        kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
+        _, _, products, _ = produce_source_reports(source, kernel, PREDICATES, text=left)
+        source_kind = kernel.identities["https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource", "kind"]
+        originals = tuple(next(value for value in products if value.row["kind_contract"] == source_kind and value.body["source"]["section_pointer"] == f"#/groups/{index}" and value.body["source"]["membership"] == "descendants") for index in range(2))
+        reports, formal, readings = [], [], []
+        for original in originals:
+            (report,) = selected_for_source(kernel, products, "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoPredicateInspectionReport", original)
+            reports.append(report)
+            formal.extend(selected_for_source(kernel, products, "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct", original))
+            rows = {packet["body"]["contribution_id"]: packet["body"] for packet in report.body["members"]}
+            matching = []
+            for row in rows.values():
+                component = row.get("component", {})
+                if component.get("kind") != "predicate_reading":
+                    continue
+                frame = rows[component["frame"]]["component"]
+                if any(member["role"] == "predicate" and any(original.body["text"][extent["start"]:extent["end"]] in {"approve", "approved"} for extent in member["extents"]) for member in frame["frame_members"]):
+                    matching.append(row["contribution_id"])
+            assert len(matching) == 1
+            readings.append(matching[0])
+        parameters = dict(question="Compare genuine selected predicate roles.", scope="selected", inventory_id="current-native-comparison", policy_id="exact-private-predicate-comparison-1", left_passage_id="left", right_passage_id="right", left_start=0, left_end=len(left), right_start=0, right_end=len(right), left_reading=readings[0], right_reading=readings[1], left_source_reference=canonical_bytes([originals[0].row["product_id"], originals[0].row["member_id"]]).decode(), right_source_reference=canonical_bytes([originals[1].row["product_id"], originals[1].row["member_id"]]).decode(), left_report_reference=canonical_bytes([reports[0].row["product_id"], None]).decode(), right_report_reference=canonical_bytes([reports[1].row["product_id"], None]).decode())
+        demand, execution = execute(kernel, request(kernel, (COMPARE,), originals[0].context, selections=(DemandOperationSelection(operation=COMPARE, parameters=parameters),), source_sets=(FrozenSourceSet("structural-sources", tuple(value.entry() for value in originals)), FrozenSourceSet("structural-reports", tuple(value.entry() for value in reports)), FrozenSourceSet("structural-formal", tuple(value.entry() for value in formal))), inference="current-real-source-comparison:"+actor_outcome))
+        assert execution.receipt_count == 1
+        (product,) = selected_products(kernel, demand["demand_id"], kind="urn:corpus:structural:DeclaredComparisonReport")
+        comparison = product.body["comparison"]
+        assert len(comparison["dimensions"]) == 10
+        assert comparison["dimensions"][0]["outcome"] == actor_outcome
+        assert comparison["equivalence"] == comparison["identity_standing"] == "not_asserted"
+        if actor_outcome == "same_lexical_value":
+            threshold = comparison["dimensions"][5]
+            assert threshold["left_group"]["members"][0]["typed"]["value"] == "25000"
+            assert threshold["right_group"]["members"][0]["typed"]["value"] == "50000"
+            assert threshold["typed_outcome"] == "unknown"
+        assert [comparison[key]["product_id"] for key in ("left_reading", "right_reading")] == [value.row["product_id"] for value in reports]
+        assert [value["product_id"] for value in product.body["sources_input"]] == [value.row["product_id"] for value in originals]

@@ -120,6 +120,29 @@ population membership form the binding. Distinct but equal-spelled occurrences r
 Native SQL authenticates mechanical witnesses and support closure; it does not reconstruct language
 meaning independently. Replace method-name/version literals with generated declared bindings.
 
+The structural comparison cutover preserves two distinct boundaries. The current native
+`structure.compare/declared` consumer requires exact retained predicate-reading references and
+their source/formal input closure. Bare labelled dates, identifiers, quantities, ranges and raw
+threshold phrases remain independent inputs to the current formal and structural kernels; they do
+not acquire predicate references or semantic comparison standing merely by parsing successfully.
+The former lexical-only SQL replay frontdoor and SQL/Python duplicate-algorithm agreement tests are
+retired with their old callers. Their independent literal bounds, repeated-occurrence grouping,
+whole-note scope and selected dossier-member closure remain current domain controls. Genuine
+predicate-sentence native comparisons and the current selected dossier/read boundary retain separate
+native qualification obligations; those obligations are not discharged by pure kernel checks or by
+claiming native equivalence for all fourteen old lexical replay examples.
+
+Located-definition replay likewise preserves the current ordered request/member commitment, exact
+binary observations, directed attachment and source-act/content ownership through their current
+library and source/CPU consumers. Old installed located-model RPC acceptance, including historical
+unversioned observation acceptance, is not a compatibility obligation. Genuine learned-provider
+execution remains separate from controlled request/decoder checks and named-definition CPU/native
+publication correspondence. Contextual retrieval preserves its current thirteen native atomic
+refusal cases, exact selected scoring/vector custody, version unknowns and competing senses; a
+task-keyed resident vector query is not a second acquisition route. The maintained transient
+relation retains fixed-vector PostgreSQL score, tie and empty-channel controls, separately from
+actual demand/publication qualification.
+
 External-agent queue work declares packet source, guideline/policy/model, authorized effect and
 reference scope. Awaiting an agent is a durable demand fate. The pipeline does not call the external
 agent or invent a successful derivation before a valid answer arrives. Authored selections and
