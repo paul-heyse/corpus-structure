@@ -211,7 +211,7 @@ class ContextualWitnessOperation:
         self.execute = execute
 
     def run(
-        self, source: dict, query: dict, inventory: dict, hypotheses: dict, cues: list[dict]
+        self, source: dict, query: dict, inventory: dict, hypotheses: dict, cues: tuple[dict, ...]
     ) -> dict:
         return execute_witness_profile(self, source, query, inventory, hypotheses, cues)
 

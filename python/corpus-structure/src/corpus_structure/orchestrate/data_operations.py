@@ -678,6 +678,13 @@ class NativeDemandExecutor:
                 continue
             decoded = tuple(member.value() for member in members)
             if roles[role].collection == "scalar":
+                if (
+                    not decoded
+                    and retained_roles[role].state == "present"
+                    and roles[role].minimum == 0
+                    and roles[role].presence == "optional"
+                ):
+                    continue
                 if len(decoded) != 1:
                     raise PortRefusal(
                         "scalar input requires one admitted member: "

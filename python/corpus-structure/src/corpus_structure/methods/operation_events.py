@@ -128,7 +128,7 @@ class OperationEventFrame:
         ],
     }
 
-    def run(self, question: dict, reports: list[dict], sources: list[dict]) -> dict:
+    def run(self, question: dict, reports: tuple[dict, ...], sources: tuple[dict, ...]) -> dict:
         from corpus_structure.evaluate.declared_operation_events import execute_frame_profile
 
         return execute_frame_profile(self, question, reports, sources)

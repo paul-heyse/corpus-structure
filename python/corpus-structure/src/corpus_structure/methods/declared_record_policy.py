@@ -378,11 +378,11 @@ class RecordPolicyGrade:
 
     def run(
         self,
-        sources: list[dict],
+        sources: tuple[dict, ...],
         reference_a: dict,
         reference_b: dict,
         adjudication: dict,
-        prediction: list[dict],
+        prediction: tuple[dict, ...],
         specification: dict,
     ) -> dict:
         return execute_grade_profile(

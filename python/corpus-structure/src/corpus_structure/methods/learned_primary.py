@@ -1565,7 +1565,7 @@ class D1SourcePrimaryOperation:
             check_active,
         )
 
-    def run(self, source: FrozenNativeSource, focuses: list[dict]) -> LearnedPrimaryProducts:
+    def run(self, source: FrozenNativeSource, focuses: tuple[dict, ...]) -> LearnedPrimaryProducts:
         return execute_learned_primary(self, source, focuses=focuses)
 
 
@@ -3176,7 +3176,7 @@ class GlinerFunctionPrimaryOperation:
             check_active,
         )
 
-    def run(self, source: FrozenNativeSource, focuses: list[dict]) -> LearnedPrimaryProducts:
+    def run(self, source: FrozenNativeSource, focuses: tuple[dict, ...]) -> LearnedPrimaryProducts:
         return execute_learned_primary(self, source, focuses=focuses)
 
 
