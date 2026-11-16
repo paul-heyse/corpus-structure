@@ -107,7 +107,9 @@ def captured(content: bytes | None = None):
         visual_read_schema,
     )
     from corpus_structure.semantic.record_policy_native import (
+        EVENT_FRAME_SCHEMA_SOURCE,
         GRADE_SCHEMA_SOURCE,
+        operation_event_frame_schema,
         record_policy_grade_schema,
     )
 
@@ -120,4 +122,5 @@ def captured(content: bytes | None = None):
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(VISUAL_SOURCE, visual_read_schema()),
         SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),
+        SourceArtifact(EVENT_FRAME_SCHEMA_SOURCE, operation_event_frame_schema()),
     )

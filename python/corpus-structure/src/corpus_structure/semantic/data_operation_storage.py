@@ -66,7 +66,9 @@ def native_protocol_sources(
     from .record_grade_native import record_grade_native_sql
     from .record_policy_completion_native import record_policy_completion_native_sql
     from .record_policy_native import (
+        EVENT_FRAME_SCHEMA_SOURCE,
         GRADE_SCHEMA_SOURCE,
+        operation_event_frame_schema,
         record_policy_grade_schema,
         record_policy_native_sql,
     )
@@ -187,6 +189,11 @@ def native_protocol_sources(
             Path(__file__).with_name("declared_structural_admission.py").read_bytes(),
         ),
         SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),
+        SourceArtifact(EVENT_FRAME_SCHEMA_SOURCE, operation_event_frame_schema()),
+        SourceArtifact(
+            "native/data-operation-operation-events.py",
+            Path(__file__).parents[1].joinpath("evaluate/selected_operation_events.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-record-grade.py",
             Path(__file__).parents[1].joinpath("evaluate/declared_record_policy.py").read_bytes(),
@@ -331,6 +338,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-structural-admission-native.py",
         "native/data-operation-structural-admission.py",
         "native/data-operation-record-grade.schema.json",
+        "native/data-operation-operation-event-frame.schema.json",
+        "native/data-operation-operation-events.py",
         "native/data-operation-record-grade.py",
         "native/data-operation-record-policy-completion.sql",
         "native/data-operation-record-policy-completion.py",

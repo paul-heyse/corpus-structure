@@ -165,6 +165,7 @@ def test_restricted_read_preserves_actual_cut_bytes_and_exact_frame(monkeypatch)
     def boundary(actual, **parameters):
         assert actual is connection
         assert parameters.pop("cut").content == selected.cut_canonical_json.encode()
+        assert parameters.pop("variant") == "record-feature-grade"
         assert parameters == selected.model_dump(mode="python", exclude={"cut_canonical_json"})
         calls.append(parameters)
         return {
@@ -173,7 +174,7 @@ def test_restricted_read_preserves_actual_cut_bytes_and_exact_frame(monkeypatch)
             "frame": grade.model_dump(mode="json"),
         }
 
-    monkeypatch.setattr(native, "read_record_feature_fit_frame", boundary)
+    monkeypatch.setattr(native, "read_selected_feature_fit_frame", boundary)
     assert reacquire_record_feature_grade(connection, selected) == grade
     assert len(calls) == 1
     with pytest.raises(ValueError, match="original acquired cut bytes"):

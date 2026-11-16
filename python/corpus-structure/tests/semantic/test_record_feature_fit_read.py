@@ -13,7 +13,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.record_policy_native import (
-    read_record_feature_fit_frame,
+    read_selected_feature_fit_frame,
     record_policy_grade_schema,
 )
 
@@ -68,6 +68,7 @@ def test_fit_transport_preserves_actual_cut_bytes_and_rejects_substituted_select
     cut = selection()
     grade = DdoRecordGrade.from_frame(grade_frame()).model_dump(mode="json")
     result = dict(
+        variant="record-feature-grade",
         cut=cut.record,
         product_id="product:grade",
         derivation_id="derivation:grade",
@@ -80,8 +81,9 @@ def test_fit_transport_preserves_actual_cut_bytes_and_rejects_substituted_select
         requests.append(request)
         return result
 
-    monkeypatch.setattr(DataOperationStorage, "read_record_feature_fit_frame", read)
+    monkeypatch.setattr(DataOperationStorage, "read_selected_feature_fit_frame", read)
     args = dict(
+        variant="record-feature-grade",
         project_id="project:one",
         demand_id="demand:one",
         read_id="read:one",
@@ -92,20 +94,20 @@ def test_fit_transport_preserves_actual_cut_bytes_and_rejects_substituted_select
         frame_digest=grade["frame_digest"],
         cut=cut,
     )
-    assert read_record_feature_fit_frame(object(), **args) == result
+    assert read_selected_feature_fit_frame(object(), **args) == result
     assert requests[0]["cut_canonical_json"].encode() == cut.content
     with pytest.raises(ValueError, match="exact retained cut bytes"):
-        read_record_feature_fit_frame(
+        read_selected_feature_fit_frame(
             object(), **{**args, "expected_cut": "cut-selection:" + "0" * 64}
         )
     assert len(requests) == 1
     result["cut"] = {**cut.record, "runtime_id": "runtime:other"}
     with pytest.raises(ValueError, match="another retained cut"):
-        read_record_feature_fit_frame(object(), **args)
+        read_selected_feature_fit_frame(object(), **args)
     result["cut"] = cut.record
     result["product_id"] = "product:other"
-    with pytest.raises(ValueError, match="another protected grade"):
-        read_record_feature_fit_frame(object(), **args)
+    with pytest.raises(ValueError, match="another protected frame"):
+        read_selected_feature_fit_frame(object(), **args)
 
 
 def test_fit_transport_restores_signed_zero_from_authenticated_canonical_frame(monkeypatch):
@@ -119,8 +121,9 @@ def test_fit_transport_restores_signed_zero_from_authenticated_canonical_frame(m
     projected["frame"]["events"][0]["features"]["values"][0] = 0.0
     monkeypatch.setattr(
         DataOperationStorage,
-        "read_record_feature_fit_frame",
+        "read_selected_feature_fit_frame",
         lambda *args: dict(
+            variant="record-feature-grade",
             cut=cut.record,
             product_id="product:grade",
             derivation_id="derivation:grade",
@@ -128,8 +131,9 @@ def test_fit_transport_restores_signed_zero_from_authenticated_canonical_frame(m
             frame=projected,
         ),
     )
-    restored = read_record_feature_fit_frame(
+    restored = read_selected_feature_fit_frame(
         object(),
+        variant="record-feature-grade",
         project_id="project:one",
         demand_id="demand:one",
         read_id="read:one",
@@ -140,8 +144,22 @@ def test_fit_transport_restores_signed_zero_from_authenticated_canonical_frame(m
         frame_digest=grade["frame_digest"],
         cut=cut,
     )
-    actual = DdoRecordGrade.model_validate(restored["frame"])
+    actual = DdoRecordGrade.model_validate_json(json_bytes(restored["frame"]))
     value = actual.frame.events[0].features.values[0]
     assert value is not None
     assert math.copysign(1.0, value) == -1.0
     assert actual.frame_canonical_json == grade["frame_canonical_json"]
+
+
+def test_fit_transport_rejects_unknown_variant_before_native_call(monkeypatch):
+    cut = selection()
+    def unexpected(*args):
+        pytest.fail("unknown variant reached native transport")
+    monkeypatch.setattr(DataOperationStorage, "read_selected_feature_fit_frame", unexpected)
+    with pytest.raises(ValueError, match="variant"):
+        read_selected_feature_fit_frame(
+            object(), variant="unrestricted-frame", project_id="project:one",
+            demand_id="demand:one", read_id="read:one", use_id="use:grade",
+            product_id="product:grade", derivation_id="derivation:grade",
+            expected_cut=cut.identity, frame_digest="a"*64, cut=cut,
+        )

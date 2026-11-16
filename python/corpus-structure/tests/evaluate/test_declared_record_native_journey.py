@@ -188,7 +188,7 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
 
     from corpus_structure.evaluate.declared_record_policy import reacquire_record_feature_grade
     from corpus_structure.semantic._data_operation_wire import (
-        WireReadRecordFeatureFitFrameRequest,
+        WireReadSelectedFeatureFitFrameRequest,
         WireRevokeDataSupportRequest,
     )
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -247,11 +247,12 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
         with pytest.raises(DBAPIError, match="feature fit"), connection.begin_nested():
             reacquire_record_feature_grade(connection, fitted.calibration.selection)
         payload = fitted.feature.selection.model_dump(mode="json")
+        payload["variant"] = "record-feature-grade"
         payload["expected_cut"] = "cut-selection:" + "0" * 64
         payload["max_bytes"] = 8388608
         with pytest.raises(DBAPIError, match="cut bytes or native pins"), connection.begin_nested():
-            DataOperationStorage(connection).read_record_feature_fit_frame(
-                cast(WireReadRecordFeatureFitFrameRequest, payload)
+            DataOperationStorage(connection).read_selected_feature_fit_frame(
+                cast(WireReadSelectedFeatureFitFrameRequest, payload)
             )
 
     # Ordinary authored bodies remain authored. The maintained protected

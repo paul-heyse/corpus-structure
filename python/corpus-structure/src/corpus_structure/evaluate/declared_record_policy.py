@@ -589,7 +589,7 @@ def reacquire_record_feature_grade(
 ) -> DdoRecordGrade:
     """Use the actual restricted native fitter capability; never a general read fallback."""
     from corpus_structure.semantic.demand_results import CutSelection
-    from corpus_structure.semantic.record_policy_native import read_record_feature_fit_frame
+    from corpus_structure.semantic.record_policy_native import read_selected_feature_fit_frame
 
     cut = CutSelection(selection.cut_canonical_json.encode())
     if (cut.identity, cut.record["project_id"], cut.record["demand_id"], cut.record["read_id"]) != (
@@ -600,7 +600,7 @@ def reacquire_record_feature_grade(
     ):
         raise SemanticRefusal("fitter selection differs from the original acquired cut bytes")
     values = selection.model_dump(mode="python", exclude={"cut_canonical_json"})
-    result = read_record_feature_fit_frame(connection, cut=cut, **values)
+    result = read_selected_feature_fit_frame(connection, variant="record-feature-grade", cut=cut, **values)
     if (result["product_id"], result["derivation_id"]) != (
         selection.product_id,
         selection.derivation_id,

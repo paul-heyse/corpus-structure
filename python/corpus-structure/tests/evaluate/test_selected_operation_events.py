@@ -203,3 +203,32 @@ def test_source_order_stays_signed_and_canonical_frame_bytes_are_retained(nomina
         DdoOperationEventFrame.model_validate_json(canonical_bytes({
             **protected.model_dump(mode="json"), "frame_digest":"0"*64,
         }))
+
+
+def test_restricted_current_event_frame_transport_retains_its_own_exact_meaning(nominal_profile, monkeypatch):
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.record_policy_native import operation_event_frame_schema, read_selected_feature_fit_frame
+    from jsonschema import Draft7Validator
+    import json
+
+    actual = DdoOperationEventFrame.capture(frame(nominal_profile, [event_value(nominal_profile, 1)], ("supported",)))
+    body = actual.model_dump(mode="json")
+    Draft7Validator(json.loads(operation_event_frame_schema())).validate(body)
+    cut = CutSelection(actual.frame.question.prediction_selection.cut_canonical_json.encode())
+    requests = []
+    def native(storage, request):
+        requests.append(request)
+        return dict(variant="operation-event-frame", cut=cut.record, product_id="product:frame",
+                    derivation_id="episode:frame", receipt_id="receipt:frame", frame=body)
+    monkeypatch.setattr(DataOperationStorage, "read_selected_feature_fit_frame", native)
+    arguments = dict(variant="operation-event-frame", project_id=PROJECT,
+                     demand_id=cut.record["demand_id"], read_id=cut.record["read_id"],
+                     use_id="use:frame", product_id="product:frame", derivation_id="episode:frame",
+                     expected_cut=cut.identity, frame_digest=actual.frame_digest, cut=cut)
+    result = read_selected_feature_fit_frame(object(), **arguments)
+    assert DdoOperationEventFrame.model_validate_json(json_bytes(result["frame"])) == actual
+    assert requests[0]["cut_canonical_json"].encode() == cut.content
+    with pytest.raises(ValidationError):
+        DdoOperationEventFrame.model_validate_json(json_bytes({**body, "labels": []}))
+    with pytest.raises(ValueError, match="another protected frame"):
+        read_selected_feature_fit_frame(object(), **{**arguments, "variant":"record-feature-grade"})

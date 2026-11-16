@@ -85,24 +85,31 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
             raise ValueError("visual read definition collides with protocol")
         document["definitions"].update(definitions)
         content = canonical_bytes(document)
-    if "read_record_feature_fit_frame_result" in document.get("definitions", {}):
-        from .record_policy_native import GRADE_SCHEMA_SOURCE, record_policy_grade_schema
+    if "read_selected_feature_fit_frame_result" in document.get("definitions", {}):
+        from .record_policy_native import (
+            EVENT_FRAME_SCHEMA_SOURCE, GRADE_SCHEMA_SOURCE,
+            operation_event_frame_schema, record_policy_grade_schema,
+        )
 
-        if sources is None:
-            captured = record_policy_grade_schema()
-        else:
-            values = [source.content for source in sources if source.name == GRADE_SCHEMA_SOURCE]
-            if len(values) != 1:
-                raise ValueError("record feature fitting requires its captured grade schema")
-            captured = values[0]
-        extension = checked_json_schema(json.loads(captured))
-        definitions = dict(extension.get("definitions", {}))
-        definitions["selected_record_grade"] = {
-            key: value for key, value in extension.items() if key not in {"definitions", "$schema"}
-        }
-        if definitions.keys() & document["definitions"].keys():
-            raise ValueError("record grade definition collides with native protocol")
-        document["definitions"].update(definitions)
+        for source_name, factory, root in (
+            (GRADE_SCHEMA_SOURCE, record_policy_grade_schema, "selected_record_grade"),
+            (EVENT_FRAME_SCHEMA_SOURCE, operation_event_frame_schema, "selected_operation_event_frame"),
+        ):
+            if sources is None:
+                captured = factory()
+            else:
+                values = [source.content for source in sources if source.name == source_name]
+                if len(values) != 1:
+                    raise ValueError("feature fitting requires its exact captured frame schemas")
+                captured = values[0]
+            extension = checked_json_schema(json.loads(captured))
+            definitions = dict(extension.get("definitions", {}))
+            definitions[root] = {
+                key: value for key, value in extension.items() if key not in {"definitions", "$schema"}
+            }
+            if definitions.keys() & document["definitions"].keys():
+                raise ValueError("fit frame definition collides with native protocol")
+            document["definitions"].update(definitions)
         content = canonical_bytes(document)
     if "original_document_selection" in document.get("definitions", {}):
         from .data_operation_support import (

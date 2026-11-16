@@ -799,6 +799,110 @@ class WireInspectExternalDataResultResult(TypedDict):
     ]
 
 
+class WireOperationEventFrameDeclaredProductRef(TypedDict):
+    analyzed_scope_meaning: Required[str]
+    kind_contract: Required[str]
+    member_id: NotRequired[str | None]
+    original_source: Required[str | None]
+    product_id: Required[str]
+    project_id: Required[str]
+    subject: Required[str]
+    subject_definition: Required[str]
+
+
+class WireOperationEventFrameDeclaredStructuralSource(TypedDict):
+    analyzed_scope_meaning: Required[str]
+    document: Required[str]
+    format: NotRequired[Literal["declared-native-source-v1"]]
+    kind_contract: Required[str]
+    membership: Required[Literal["direct", "descendants"]]
+    original_source: Required[str]
+    project_id: Required[str]
+    projection_digest: Required[str]
+    section_pointer: Required[str]
+    source: Required[str]
+    source_member: NotRequired[str | None]
+    source_product: Required[str]
+    subject: Required[str]
+    subject_definition: Required[str]
+
+
+class WireOperationEventFrameSelectedDefinitionEvent(TypedDict):
+    component_id: Required[str]
+    derivation_id: Required[str]
+    origin_group: Required[str]
+    producer_operation: Required[
+        Literal[
+            "structure.definition_components/declared",
+            "structure.definition_declaration_components/declared",
+            "structure.definition_named_components/declared",
+        ]
+    ]
+    producer_revision: Required[str]
+    report: Required[WireOperationEventFrameDeclaredProductRef]
+    source: Required[WireOperationEventFrameDeclaredStructuralSource]
+    use_id: Required[str]
+
+
+class WireOperationEventFrameIndependentEventJudgment(TypedDict):
+    facets: Required[dict[str, Literal["supported", "unsupported", "ambiguous", "unassessed"]]]
+    judgment: Required[Literal["supported", "unsupported", "ambiguous", "unassessed"]]
+    selection: Required[WireOperationEventFrameSelectedDefinitionEvent]
+
+
+class WireOperationEventFrameSelectedEventRead(TypedDict):
+    cut_canonical_json: Required[str]
+    cut_id: Required[str]
+    demand_id: Required[str]
+    project_id: Required[str]
+    read_id: Required[str]
+    release_id: Required[str]
+    runtime_id: Required[str]
+
+
+class WireOperationEventFrameDdoOperationEventQuestion(TypedDict):
+    author: Required[str]
+    corpus_id: Required[str]
+    event: Required[Literal["defined_by_correctness", "defining_text_attachment_correctness"]]
+    exposure: NotRequired[Literal["output_first"]]
+    judgments: Required[list[WireOperationEventFrameIndependentEventJudgment]]
+    original_selection: Required[WireOperationEventFrameSelectedEventRead]
+    partition: Required[Literal["development", "feature_fit"]]
+    pass_kind: NotRequired[Literal["C"]]
+    prediction_selection: Required[WireOperationEventFrameSelectedEventRead]
+    reference_name: Required[str]
+    rubric: Required[str]
+    rubric_version: Required[str]
+    version: NotRequired[Literal["selected-operation-event-question-1"]]
+
+
+class WireOperationEventFrameSelectedEventFeatureUnavailable(TypedDict):
+    event_id: Required[str]
+    judgment: Required[Literal["supported", "unsupported", "ambiguous", "unassessed"]]
+    reason: Required[Literal["missing_common_passage", "incomparable_endpoint_anchors"]]
+    selection: Required[WireOperationEventFrameSelectedDefinitionEvent]
+
+
+class WireOperationEventFrameSelectedEventObservation(TypedDict):
+    event_id: Required[str]
+    facets: Required[dict[str, Literal["supported", "unsupported", "ambiguous", "unassessed"]]]
+    features: Required[list[int | float | Decimal]]
+    judgment: Required[Literal["supported", "unsupported", "ambiguous", "unassessed"]]
+    selection: Required[WireOperationEventFrameSelectedDefinitionEvent]
+
+
+class WireOperationEventFrameSelectedOperationEventFrame(TypedDict):
+    event_ids: Required[list[str]]
+    event_version: Required[str]
+    feature_names: Required[list[str]]
+    feature_unavailable: Required[list[WireOperationEventFrameSelectedEventFeatureUnavailable]]
+    observations: Required[list[WireOperationEventFrameSelectedEventObservation]]
+    producer_version: Required[str]
+    question: Required[WireOperationEventFrameDdoOperationEventQuestion]
+    question_reference: Required[WireOperationEventFrameDeclaredProductRef]
+    version: NotRequired[Literal["selected-operation-event-frame-1"]]
+
+
 class WireOriginalSourceAdmissionResult(TypedDict):
     admission_id: Required[WireAdmissionId]
     analyzed_scope: Required[WireJsonValue]
@@ -981,7 +1085,7 @@ class WireReadExternalDataQueueResult(TypedDict):
     packets: Required[list[WireExternalPacketHead]]
 
 
-class WireReadRecordFeatureFitFrameRequest(TypedDict):
+class WireReadSelectedFeatureFitFrameRequest(TypedDict):
     cut_canonical_json: Required[str]
     demand_id: Required[WireIdentifier]
     derivation_id: Required[WireIdentifier]
@@ -992,6 +1096,7 @@ class WireReadRecordFeatureFitFrameRequest(TypedDict):
     project_id: Required[WireIdentifier]
     read_id: Required[WireReadId]
     use_id: Required[WireIdentifier]
+    variant: Required[Literal["record-feature-grade", "operation-event-frame"]]
 
 
 class WireRecordGradeDeclaredProductRef(TypedDict):
@@ -1116,12 +1221,20 @@ class WireSelectedRecordGrade(TypedDict):
     version: NotRequired[Literal["record-grade-1"]]
 
 
-class WireReadRecordFeatureFitFrameResult(TypedDict):
+class WireSelectedOperationEventFrame(TypedDict):
+    frame: Required[WireOperationEventFrameSelectedOperationEventFrame]
+    frame_canonical_json: Required[str]
+    frame_digest: Required[str]
+    version: NotRequired[Literal["selected-operation-event-frame-product-1"]]
+
+
+class WireReadSelectedFeatureFitFrameResult(TypedDict):
     cut: Required[WireCutSelection]
     derivation_id: Required[WireIdentifier]
-    frame: Required[WireSelectedRecordGrade]
+    frame: Required[WireSelectedRecordGrade | WireSelectedOperationEventFrame]
     product_id: Required[WireIdentifier]
     receipt_id: Required[WireIdentifier]
+    variant: Required[Literal["record-feature-grade", "operation-event-frame"]]
 
 
 class WireReadSelectedPdfSourceRequest(TypedDict):
@@ -1616,12 +1729,12 @@ class DataOperationCalls:
     def _invoke(self, name: str, payload: Any) -> Any:
         raise NotImplementedError
 
-    def read_record_feature_fit_frame(
-        self, payload: WireReadRecordFeatureFitFrameRequest
-    ) -> WireReadRecordFeatureFitFrameResult:
+    def read_selected_feature_fit_frame(
+        self, payload: WireReadSelectedFeatureFitFrameRequest
+    ) -> WireReadSelectedFeatureFitFrameResult:
         return cast(
-            WireReadRecordFeatureFitFrameResult,
-            self._invoke("read_record_feature_fit_frame", payload),
+            WireReadSelectedFeatureFitFrameResult,
+            self._invoke("read_selected_feature_fit_frame", payload),
         )
 
     def admit_authored_data(
