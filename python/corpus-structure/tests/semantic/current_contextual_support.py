@@ -192,7 +192,7 @@ def registry_targets(names):
     )
 
 
-def target_intent(kernel, names, *, replicate, discovery_only=False):
+def target_intent(kernel, names, *, replicate, discovery_only=False, targets=None):
     from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
     from corpus_structure.semantic.data_operation_model import SubjectContext
@@ -211,7 +211,7 @@ def target_intent(kernel, names, *, replicate, discovery_only=False):
         "curated-targets",
         dict(
             targets=source_value(
-                [value.model_dump(mode="python") for value in registry_targets(names)]
+                [value.model_dump(mode="python") for value in (registry_targets(names) if targets is None else targets)]
             )
         ),
         kind_contract=kind,
@@ -244,7 +244,7 @@ def retained_products(kernel, demand, kind):
     )
 
 
-def inventory_intent(kernel, query, names):
+def inventory_intent(kernel, query, names, *, targets=None, effective_version=None):
     from dataclasses import asdict
 
     from corpus_structure.semantic.contextual_registry import registry_input
@@ -252,14 +252,15 @@ def inventory_intent(kernel, query, names):
     from corpus_structure.semantic.data_operation_support import authored_fact_selection
     from corpus_structure.semantic.observations import source_value
 
-    registry, targets = registry_input(registry_targets(names))
+    registry, representations = registry_input(registry_targets(names) if targets is None else targets)
     selected = authored_fact_selection(
         "contextual-inventory",
         dict(
             source_selection=registry,
             scope="global",
-            targets=source_value([asdict(value) for value in targets]),
+            targets=source_value([asdict(value) for value in representations]),
             semantic_targets=source_value({}),
+            **({"effective_version": effective_version} if effective_version is not None else {}),
         ),
         kind_contract=kernel.identities[
             "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTargetSelection",
@@ -345,3 +346,39 @@ def retrieval_intent(kernel, selection, *, budget):
         execution_profile=kernel.recipe.execution_profile,
         original_sources=(policy,),
     )
+
+
+def witnessed_retrieval_intent(kernel, selection, query_demand, query, *, hypotheses, budget,
+    relations=("denotes",), cues=None):
+    """Actual admitted author assertions and exact selected source cues, never inference claims."""
+    from corpus_structure.semantic.contextual_selection import (
+        ContextualSelectedProduct, acquire_contextual_witness_selection,
+        freeze_contextual_witnessed_retrieval_demand,
+    )
+    from corpus_structure.semantic.data_operation_support import authored_fact_selection
+    from corpus_structure.semantic.observations import source_value
+    from semantic.current_pdf_source_support import PROJECT
+
+    carrier = query.body["carrier"]
+    with kernel.purpose("read").begin() as connection:
+        selected = acquire_contextual_witness_selection(connection, selection, project_id=PROJECT,
+            query=ContextualSelectedProduct(query_demand, query.row["product_id"]),
+            cues=(carrier,) if cues is None else cues)
+    author = "controlled contextual test author"
+    assertions = authored_fact_selection("contextual-authored-hypotheses",
+        dict(author_assertion=author, hypotheses=hypotheses),
+        kind_contract=kernel.identities[
+            "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualWitnessHypotheses", "kind"],
+        context=selection.query_context, author=author,
+        selection_id="explicit-private-source-relationship-hypotheses")
+    policy = authored_fact_selection("contextual-policy",
+        dict(budget=budget, channel_budget=32, constraints=source_value([
+            dict(constraint_id="source-relationship", relation_kinds=list(relations),
+                occurrence_role="mention", target_role="concept", multiplicity="one")]),
+            exclusions=source_value([])),
+        kind_contract=kernel.identities[
+            "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualRetrievalPolicy", "kind"],
+        context=selection.query_context, author=author, selection_id="explicit-source-relationship-constraints")
+    return freeze_contextual_witnessed_retrieval_demand(kernel.model, selected,
+        inference="explicit-private-authored-source-cue-binding",
+        execution_profile=kernel.recipe.execution_profile, original_sources=(assertions, policy))
