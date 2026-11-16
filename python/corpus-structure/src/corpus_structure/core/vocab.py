@@ -342,17 +342,6 @@ class MethodFamily(StrEnum):
     EVAL = "eval"
 
 
-class MethodTier(StrEnum):
-    """`ops.method_config.tier`. Lifecycle: static."""
-
-    DETERMINISTIC = "deterministic"
-    ENCODER = "encoder"
-    LOCAL_LLM = "local_llm"
-    AGENT = "agent"
-    HOSTED_LLM = "hosted_llm"
-    HUMAN = "human"
-
-
 class PolicyChain(StrEnum):
     """`ops.policy_rule.chain`. Lifecycle: static."""
 
@@ -1113,7 +1102,6 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     RuleGroup: Lifecycle.STATIC,
     RuleSeverity: Lifecycle.STATIC,
     MethodFamily: Lifecycle.STATIC,
-    MethodTier: Lifecycle.STATIC,
     PolicyChain: Lifecycle.STATIC,
     RunKind: Lifecycle.STATIC,
     RunStatus: Lifecycle.STATIC,

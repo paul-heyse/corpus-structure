@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from spacy.lang.en import English
 
 from corpus_structure.core.method import Resources, UnitRef, UnitResult
-from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.core.vocab import MethodFamily, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.constructions.resources import construction_digest
 from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.product_reference import ProductReference
@@ -39,7 +39,7 @@ class _SealedPrimary:
     version = "1"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.DOCUMENT
-    tier = MethodTier.DETERMINISTIC
+
     confidence_source = None
     resources = Resources()
 

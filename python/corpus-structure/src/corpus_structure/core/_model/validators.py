@@ -195,25 +195,6 @@ def span(obj: object) -> None:
     invariants.ordered(obj, "start_offset", "end_offset")
 
 
-def kb_entity(obj: object) -> None:
-    """KbEntity: iff_present(scope_segment, scope = local); iff_present(kind, type =
-    core:Statement); only_when(resolved_to, type = core:ExternalReference).
-    """
-    invariants.iff_present(obj, "scope_segment", "scope", ("local",))
-    invariants.iff_present(obj, "kind", "type", ("core:Statement",))
-    invariants.only_when(obj, "resolved_to", "type", ("core:ExternalReference",))
-
-
-def claim(obj: object) -> None:
-    """Claim: exactly_one(object_entity, object_value)."""
-    invariants.exactly_one(obj, "object_entity", "object_value")
-
-
-def entity_identity(obj: object) -> None:
-    """EntityIdentity: exactly_one(value_entity, value_text)."""
-    invariants.exactly_one(obj, "value_entity", "value_text")
-
-
 def citation_frame(obj: object) -> None:
     """CitationFrame: iff_absent(parent, version = 1)."""
     invariants.iff_absent(obj, "parent", "version", (1,))
@@ -250,9 +231,6 @@ VALIDATORS: Final[Mapping[str, Callable[[object], None]]] = {
     "SchemaRule": schema_rule,
     "KbSegment": kb_segment,
     "Span": span,
-    "KbEntity": kb_entity,
-    "Claim": claim,
-    "EntityIdentity": entity_identity,
     "CitationFrame": citation_frame,
 }
 INVARIANTS: Final[Mapping[str, tuple[str, ...]]] = {
@@ -307,13 +285,6 @@ INVARIANTS: Final[Mapping[str, tuple[str, ...]]] = {
         "ordered_eq(start_offset, end_offset)",
     ),
     "Span": ("ordered(start_offset, end_offset)",),
-    "KbEntity": (
-        "iff_present(scope_segment, scope = local)",
-        "iff_present(kind, type = core:Statement)",
-        "only_when(resolved_to, type = core:ExternalReference)",
-    ),
-    "Claim": ("exactly_one(object_entity, object_value)",),
-    "EntityIdentity": ("exactly_one(value_entity, value_text)",),
     "CitationFrame": ("iff_absent(parent, version = 1)",),
 }
 PATTERNS: Final[Mapping[str, tuple[tuple[str, str], ...]]] = {

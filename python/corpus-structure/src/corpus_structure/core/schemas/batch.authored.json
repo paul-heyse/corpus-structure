@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/89b083ed4152/batch.authored.json",
+  "$id": "https://corpus-structure.dev/schemas/f4c75acb7744/batch.authored.json",
   "$defs": {
     "AlternativeItem": {
       "additionalProperties": false,

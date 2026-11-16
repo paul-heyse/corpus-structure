@@ -47,10 +47,11 @@ def record(changes: list[dict[str, Any]], **kw: Any) -> change.ChangeRecord:
 
 MENTION_TEXT = "      text: {required: true, description: The mention text.}\n"
 NOTE = "      note: {description: A seeded optional field.}\n"
-CLAIM_CONFIDENCE = """      confidence:
-        range: Real
-        description: The confidence.
-      completeness:"""
+SEGMENT_ORDINAL = """      ordinal:
+        range: integer
+        required: true
+        description: position among siblings
+      depth:"""
 
 SEEDS: dict[str, dict[str, Any]] = {
     "descriptive": {
@@ -70,14 +71,14 @@ SEEDS: dict[str, dict[str, Any]] = {
     "relational-additive": {
         "system": [
             (
-                CLAIM_CONFIDENCE,
-                CLAIM_CONFIDENCE.replace(
-                    "      completeness:",
-                    "      note:\n        description: A seeded column.\n      completeness:",
+                SEGMENT_ORDINAL,
+                SEGMENT_ORDINAL.replace(
+                    "      depth:",
+                    "      note:\n        description: A seeded column.\n      depth:",
                 ),
             )
         ],
-        "element": "sys:Claim.note",
+        "element": "sys:KbSegment.note",
         "change": "added",
         "record": {"alembic_revision": "0002"},
     },
@@ -244,26 +245,26 @@ def test_nested_additive_touching_a_key_bearing_path_is_refused(
 def test_a_record_must_match_the_diff_exactly(base: model.Model, tmp_path: Path) -> None:
     new, _ = _seed(tmp_path, "relational-additive")
     assert change.check(record([]), base, new) == [
-        "sys:Claim.note added: not declared (the diff gives relational-additive)"
+        "sys:KbSegment.note added: not declared (the diff gives relational-additive)"
     ]
     extra = [
         {
-            "element": "sys:Claim.note",
+            "element": "sys:KbSegment.note",
             "change": "added",
             "compatibility_class": "relational-additive",
         },
         {
-            "element": "sys:Claim.key",
+            "element": "sys:KbSegment.key",
             "change": "removed",
             "compatibility_class": "breaking",
             "decision": "x",
         },
     ]
     problems = change.check(record(extra, alembic_revision="0002"), base, new)
-    assert problems == ["sys:Claim.key removed: declared but not in the diff"]
+    assert problems == ["sys:KbSegment.key removed: declared but not in the diff"]
     no_alembic = change.check(record(extra[:1]), base, new)
     assert no_alembic == [
-        "sys:Claim.note added: a relational-additive change needs the record's Alembic revision"
+        "sys:KbSegment.note added: a relational-additive change needs the record's Alembic revision"
     ]
 
 

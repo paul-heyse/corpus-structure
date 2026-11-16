@@ -808,3 +808,275 @@
     judgment_carry_over: Historical source and operation judgments retain original protocols.
     compiled_artifacts: []
     source_profiles: []
+- label: 0.6.6
+  content_hash: f4c75acb77445976104b3fa3ebfc560da286bd483f53e2f951c912e1e6f99f54
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    linkml-runtime: 1.12.1
+  parent: 89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1
+  change_record:
+    from_revision: 89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1
+    to_revision: f4c75acb77445976104b3fa3ebfc560da286bd483f53e2f951c912e1e6f99f54
+    changes:
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Alignment
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Claim
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:ClaimEntityRef
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:ClaimEvidence
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:ClaimLink
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:ClaimRef
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:ClaimSupport
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:EntityAlias
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:EntityAnchor
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:EntityIdentity
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:EntityMention
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Experiment
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Intervention
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:KbEntity
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Measurement
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Method
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:MethodConfig
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:MethodTier
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Observation
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Project.promoted_run
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:RenditionBuild
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Result
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Run
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:RunOptions
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'
+    - element: sys:Task
+      change: removed
+      compatibility_class: breaking
+      reason: Retire unmounted run execution and materialization declarations after actual Python, fixed-call
+        and fixture caller closure; current DDO, scientific payloads and physical task custody remain
+        independently owned.
+      authorized_by: Operator-approved DDO legacy retirement and coordinator terminal caller-closure assignment,
+        2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
+        declarations without an old-reader compatibility obligation'

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from pydantic import JsonValue, TypeAdapter
 
 from corpus_structure.core.method import ObservationDraft, Resources, UnitResult
-from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.core.vocab import MethodFamily, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.methods.m1_annotations import (
     METHOD,
@@ -27,7 +27,7 @@ def m1_annotation_descriptor():
         name=METHOD,
         version="3",
         family=MethodFamily.EXTRACT,
-        tier=MethodTier.DETERMINISTIC,
+
         unit_type=TaskUnitType.SOURCE_VIEW,
         confidence_source=None,
         Config=M1AnnotationConfig,
@@ -90,7 +90,7 @@ def compose_view_descriptor():
         name="text.compose_view",
         version="1",
         family=MethodFamily.NORMALIZE,
-        tier=MethodTier.DETERMINISTIC,
+
         unit_type=TaskUnitType.DOCUMENT,
         confidence_source=None,
         Config=ComposeViewConfig,

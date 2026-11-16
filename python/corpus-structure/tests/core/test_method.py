@@ -45,7 +45,6 @@ from corpus_structure.core.payloads import AuthorMarkupPayload, LinkPayload
 from corpus_structure.core.vocab import (
     ConfidenceSource,
     MethodFamily,
-    MethodTier,
     ObservationKind,
     ObservationOutcome,
     RunKind,
@@ -69,7 +68,7 @@ class StubMethod:
 
     version = "1"
     family = MethodFamily.EXTRACT
-    tier = MethodTier.DETERMINISTIC
+
     confidence_source: ConfidenceSource | None = None
     Config = StubConfig
     resources = Resources()
@@ -97,7 +96,7 @@ class StubPacketMethod:
     version = "1"
     family = MethodFamily.AGENT
     unit_type = TaskUnitType.SEGMENT
-    tier = MethodTier.AGENT
+
     confidence_source: ConfidenceSource | None = ConfidenceSource.AGENT
     Config = StubConfig
     resources = Resources(worker="agent")

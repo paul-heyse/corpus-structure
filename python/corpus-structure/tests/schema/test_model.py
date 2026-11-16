@@ -147,10 +147,10 @@ def _attr(data: dict, cls: str, name: str) -> dict:
         ("system", lambda d: d["classes"].update({"Polarity": {"description": "clash"}}),
          "system.classes.Polarity: the name is also core.enums.Polarity"),
         # ci:same names a slot of the declaring and of the referenced class
-        ("system", lambda d: _ann(_attr(d, "KbEntity", "resolved_to"), "ci:same", "nowhere"),
-         "system.classes.KbEntity.resolved_to: ci:same 'nowhere' is not a slot of KbEntity"),
-        ("system", lambda d: _ann(_attr(d, "Claim", "attribution_entity"), "ci:same", "modality"),
-         "ci:same 'modality' is not a slot of the referenced KbEntity"),
+        ("system", lambda d: _attr(d, "KbSegment", "parent").update({"annotations": {"ci:same": "nowhere"}}),
+         "system.classes.KbSegment.parent: ci:same 'nowhere' is not a slot of KbSegment"),
+        ("system", lambda d: _ann(_attr(d, "KbSegment", "rendition"), "ci:same", "kind"),
+         "ci:same 'kind' is not a slot of the referenced Rendition"),
     ],
 )  # fmt: skip
 def test_a_seeded_placement_is_refused(tmp_path: Path, module: str, edit, problem: str) -> None:
@@ -291,7 +291,7 @@ def test_the_revision_hashes_the_parsed_files_and_is_logged(
     loaded: model.Model, tmp_path: Path
 ) -> None:
     current = model.revision(loaded)
-    assert (current.label, current.key_scheme) == ("0.6.5", 1)
+    assert (current.label, current.key_scheme) == ("0.6.6", 1)
     assert model.check_log(current, model.read_log()) == []
     reordered = seeded(tmp_path, edit_core=lambda d: d.update(dict(reversed(list(d.items())))))
     assert model.content_hash(*reordered.paths) == current.content_hash  # parsed, not bytes
@@ -367,7 +367,7 @@ def test_regenerating_reproduces_every_committed_file(loaded: model.Model, tmp_p
 _TM_11 = (
     # the vocab.py sets of F2b, as they were
     "VersionState SchemaClassKind EntityScope SlotRole RuleGroup RuleSeverity MethodFamily "
-    "MethodTier PolicyChain RunKind RunStatus TaskUnitType TaskStatus "
+    "PolicyChain RunKind RunStatus TaskUnitType TaskStatus "
     "ObservationKind ObservationOutcome AliasKind StatementRole ClaimStatus Establishment "
     "EvidenceRole LinkType MeasurementScope InterventionKind ExperimentDecision DocumentSplit "
     "GoldenSplit GoldenUnitStatus GoldenPass GoldenItemType AlignmentTarget AlignmentTier "
@@ -458,9 +458,8 @@ def test_generated_validators_apply_the_declared_templates() -> None:
     validators.citation_frame(Row(version=1, parent=None))
     with pytest.raises(ValueError, match="parent is absent exactly when version is 1"):
         validators.citation_frame(Row(version=2, parent=None))
-    with pytest.raises(ValueError, match="resolved_to is given only when type"):
-        validators.kb_entity(Row(scope="global", scope_segment=None, type="stat:T", kind=None,
-                                 resolved_to=7))  # fmt: skip
+    with pytest.raises(ValueError, match="scope_segment is given only when scope is local"):
+        validators.entity_item(Row(scope="global", extent=None, scope_segment="source-piece"))
     assert validators.INVARIANTS["KbSegment"] == (
         "iff_absent(parse_reason, parse_status = ok)", "ordered_eq(start_offset, end_offset)"
     )  # fmt: skip

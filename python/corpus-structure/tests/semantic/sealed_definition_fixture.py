@@ -12,7 +12,7 @@ from typing import Literal
 from pydantic import JsonValue, TypeAdapter
 
 from corpus_structure.core.method import Resources, UnitResult
-from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.core.vocab import MethodFamily, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.identity import canonical_bytes
 
 
@@ -23,7 +23,7 @@ def component_descriptor():
         name="structure.definition_components",
         version="10",
         family=MethodFamily.RESOLVE,
-        tier=MethodTier.ENCODER,
+
         unit_type=TaskUnitType.RUN,
         confidence_source=None,
         Config=DefinitionComponentsConfig,
@@ -38,7 +38,7 @@ def applicability_descriptor():
         name="structure.definitions",
         version="2",
         family=MethodFamily.RESOLVE,
-        tier=MethodTier.DETERMINISTIC,
+
         unit_type=TaskUnitType.RUN,
         confidence_source=None,
         Config=DefinitionApplicabilityConfig,
