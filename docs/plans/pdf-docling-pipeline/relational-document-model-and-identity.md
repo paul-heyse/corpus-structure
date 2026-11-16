@@ -14,7 +14,7 @@ A new interior type then changes its model/codec rather than every SQL scalar/ro
 
 PDF-19 extends identity under the declared representation profile. Exact IPC bytes, serialized
 schema fingerprints and logical content identity are distinct: compression, dictionaries and batch
-layout may alter the first without altering meaning. Preserve ADR-0043 and exact historical
+layout may alter the first without altering meaning. Preserve ADR-0119 and exact historical
 bytes/receipts without promising maintained old-pin readers (RC12). Test independent expected variants/presence/null/order,
 rebatching and projection correspondence. Broader native lowering replacement waits for I21/I23;
 no silent coercion or dropped native fields. PDF-27 owns new codec work; this owner retains the

@@ -1,0 +1,3 @@
+baseline: HEAD
+native_revision: semantic_ddo_logical_family
+native_predecessor: semantic_ddo_explicit_pin_scope

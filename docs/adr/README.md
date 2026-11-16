@@ -26,7 +26,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0034](0034-recorded-agent-supervision.md) | Agents execute the semantic queue through supervised or interactive MCP sessions | 2026-10-30 | [§B3](../design/DESIGN.md#section-b3) | Implemented | [ADR-0015](0015-agent-work-queue.md) |
 | [ADR-0035](0035-model-governed-analysis.md) | One interpretation authority governs prepared analytical representations | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0012](0012-math-grammar-token-keys.md) |
 | [ADR-0040](0040-forward-pdf-only-contracts.md) | Maintain the integrated PDF architecture without historical HTML compatibility | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0039](0039-integrated-pdf-products.md) |
-| [ADR-0043](0043-segmented-artifact-byte-identity.md) | Separate admitted segmented byte identity from export serialization digests | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0045](0045-structured-pdf-payload-validation.md) | Validate model-governed PDF page payloads over immutable stored bytes | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0042](0042-relational-pdf-document-records.md), [ADR-0044](0044-native-pdf-metadata-jsonschema.md) |
 | [ADR-0047](0047-current-only-domain-runtime.md) | Use composed execution and record-backed PDF sources without historical result compatibility | 2026-11-02 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0046](0046-unified-operation-realization.md) |
 | [ADR-0049](0049-m1-qualified-source-records.md) | Release qualified CPU source records through existing semantic authority | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
@@ -89,6 +88,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0116](0116-contextual-authored-witness-bindings.md) | Contextual witnesses bind attributed hypotheses to exact current source carriers | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0117](0117-current-operation-event-fitting.md) | Selected event fitting preserves protected frames and exposes only authorized parameters | 2026-11-16 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0118](0118-current-target-installation.md) | One current native root and frozen successors replace historical installation paths | 2026-11-16 | [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0119](0119-pdf-logical-meaning-and-execution-custody.md) | Keep PDF logical meaning independent of execution custody | 2026-11-16 | [§B4](../design/DESIGN.md#section-b4) | Proposed | ADR-0043 |
 
 ## Superseded, still in the tree
 

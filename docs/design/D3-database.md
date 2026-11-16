@@ -544,6 +544,18 @@ The receipt's projection-contract digest and the producer schema-source digest a
 authorities. A newer validation epoch qualifies new preparation/seal work; it does not reinterpret
 an immutable published pin or require recomputing that publication's contract with installed policy.
 
+**Accepted current target; implementation/qualification Proposed · 2026-11-16.** The single
+logical-record frame owner normalizes declared typed input/endpoint references to authenticated
+target meaning and excludes application release and physical execution addresses. Exact qualified
+pins/receipts, original input/endpoint foreign keys, support/currentness and native publication
+checks remain mandatory. Preserve schema/source/recipe, all ordered typed values, occurrence and
+coverage meanings; recognition inputs use their captured meaning contract and actual raw-source
+binding. Unknown metadata is never recursively scrubbed. Scalar/artifact byte folds and export
+byte custody remain unchanged. Unsupported older logical profiles refuse or regenerate rather
+than being interpreted with installed new frames.
+
+> Decision: [ADR-0119](../adr/0119-pdf-logical-meaning-and-execution-custody.md)
+
 **Implemented; focused controls Tested (2026-11-03).** Current source methods may read their exact
 published output before selecting its source views: the bound running document task, document/source
 build original and producing/consuming project must agree. This does not expose private builds or
@@ -624,7 +636,7 @@ lengths and canonical byte folds. Conventional serialization SHA-256 is optional
 scoped export metadata; original/raw/historical digest custody is unchanged. Explicit native
 exports are generated from admitted records rather than required as publication envelopes.
 
-> Decision: [ADR-0043](../adr/0043-segmented-artifact-byte-identity.md)
+> Decision: [ADR-0119](../adr/0119-pdf-logical-meaning-and-execution-custody.md)
 
 ### Native PDF metadata validation
 

@@ -291,7 +291,7 @@ equality but failed the native family check. That check incorrectly required a c
 field-family class to also be an operation body/member kind. Grade and policy issuance now use one
 private finalized-effective-model class-contract query, preserving exact class/domain/owner/key and
 producer release. No general projection of unused logical kinds is introduced. Four focused controls
-passed `51417eec86aa4fe19c1d0be22e90a24d`; native successor capture and actual grade/fitting remain open.
+passed `51417eec86aa4fe19c1d0be22e90a24d`. The exact logical-family successor is now installed on the owned stage; actual private-helper/control1 passed within `ead7540fb8b24a70b7c270f8f39bf9f5`. Actual grade publication now reaches fitting, where the restricted frame reader returned a plain result instead of the shared required payload envelope. That return shape is corrected in source; full grade/fit/authorization remains open pending the next coherent native capture.
 
 Orphan characterization readers and raw realization/EAV publication/consolidation/record-assertion
 modules, their closed SQL call bodies and mechanism fixtures are retired. Current rich full-family
@@ -300,6 +300,60 @@ role counts, nonpresent states and exact Decimal criteria stay with current scie
 atomicity/custody qualification remains required. Project initialization now consumes explicit pack
 `originals.yaml`, eliminating retired ingest-method configuration as its source inventory. Ten focused
 current registration/retained-fact/path controls passed `b923bd023a134b63807930baac7fbeb1`.
+
+Current native lifecycle and source boundary: preview `9f433ceb08144474a95271d876e6ffe8`, exact
+apply `a4862a8885d246f19f0aa1e532655bf2`, rollback-only candidate
+`a48481284cc4403c8e7e74ab6df34f34`, registration `dbb88829802b46c5acb2fdd0199efdb8`
+and deployment `7b977f0adf634672afd7a1bdefeb6bbc` passed. Root and independent review covered all12
+native operations, zero ordinary/privilege operations and complete descriptor/ACL differences.
+Exact frozen files are committed at `7d115dc76`; separate maintenance confirms unchanged stage
+OID130661481/system7701811359771751232, revision=head `semantic_ddo_logical_family`. No application
+admission/activation occurred. Subsequent PDF source/physical changes require a fresh successor.
+
+The artifact canonical-configuration native case passed in `d7b81b6547464774acc190d6a1e99c72`.
+Its larger exact-revision/cross-work case hit the900-second worker watchdog and remains failed with
+incomplete reporting; native observation is complete and overall supervisor cleanup is established.
+A bounded raw faulthandler diagnostic locates the main thread waiting in `execute_binding` during
+actual ready-frontier acquisition. This is no proof of the exact slow SQL or a deadlock; the
+workload/execution-fit failure remains open. Structured native traceback is unavailable for that
+crash, and the CLI lacks a direct retained-test-stderr view; root owns the bounded reporting repair.
+Event-positive `19dd25cda7274fcea07286d2da8d6280` still exposes empty named components after actual
+Sentence/Construction execution. Independent controlled parse trees roundtrip, while an actual
+CPU spaCy inspection finds different `as` dependency attachments for the two literal fixtures.
+Current retained grammar/source-column and report-stage diagnosis is required; no native/GPU
+accuracy or source-act integration claim follows from the controlled counterpart.
+
+Current PDF recognition/integration separation is integrated in source: a retained observation-set
+producer owns recognition/recovery policy; deterministic integration consumes actual raw capture
+and that exact selected observation set. One captured meaning specification drives Python and
+native observation projection. The existing physical PDF product retains nullable first-publication
+context, never fabricated for older rows; actual completion/runtime and selected-source guards
+remain mandatory. The publisher takes explicit authentic execution runtime, preserves its original
+origin on replay, and the next successor must retire the exact old6-argument signature. Current
+ordinary observation reads use the shared payload envelope and typed selected cuts. Actual native
+reclaim/adoption/policy-only reuse, refusal and revocation counterparts are collected, not_run.
+Root has regenerated PDF calls, wire/fates and physical columns from the integrated sources.
+
+[ADR-0119](../adr/0119-pdf-logical-meaning-and-execution-custody.md) accepts one current PDF
+logical-fold/profile correction with typed authenticated input/endpoint meaning, excluding release
+and physical execution address salts. Exact qualified physical pins/receipts/bytes and source,
+schema, recipe, ordered occurrence/input/coverage meanings remain. Recognition input normalization
+must consume the one captured observation-meaning contract and authentic raw binding. Implementation
+and actual equality/change/refusal qualification are in progress; older current profiles will refuse
+or regenerate, with no historical interpreter. This is accepted remaining I02/I03/I09 scope, not
+native closure or a second normalized-document authority.
+
+BoundReader, orphan private report wrappers/effect catalog, old record master seeds and run-based
+structural annotation loaders are now removed with their closed callers. Shared scientific owners
+retain independently expected whole-inventory/budget/unknown, source/scope and antecedent criteria.
+Remaining completion/runtime/source-view and PDF fixture tails stay assigned. The implicit
+corpus-specific `PdfIngestConfig.originals` field is removed; root inventory/config/fitter transport15
+passed `c9a47a3750ec4d00a52cea39104f2211`. Native archive/numerical9 had8passed in
+`0ee22bc2c7b546518645fd1671e99f64`; its remaining regex negative asserted executable admission
+at the archive-only phase. The test now enters actual admission in the same rollback boundary;
+no production pattern guard changes. Whole types `133947ca049244ccb67c2b782e7757d6` still fail
+remaining old callers, including two old PDF observation calls missing actual runtime. ADR lint
+passed `8c66ae70ec82478da11417ddc501cd99`; this is documentation/process evidence only.
 
 Remaining execution: finish obsolete operation/publication/source-view/runtime caller closure;
 qualify the actual artifact, event, PDF, protected record and large application routes; settle

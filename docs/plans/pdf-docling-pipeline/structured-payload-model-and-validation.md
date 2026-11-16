@@ -49,7 +49,7 @@ server validation under another encoding.
 
 PDF-27 first schedules a successor ADR through the existing decision process, superseding the
 affected clauses of immutable ADR-0042/0044, and updates DESIGN §B4 and affected D1/D2/D3/D4/D6/D8
-owners. Accepted ADRs are not edited during plan authoring. Preserve ADR-0043 exact-byte/logical/
+owners. Accepted ADRs are not edited during plan authoring. Preserve ADR-0119 exact-byte/logical/
 export distinctions. Every committed migration through0065 stays frozen; PDF-25 supplies forward
 revisions against the settled head and current-realization rebuild (RC12). Preserve retained
 evidence, not mandatory old published-pin readers. No default changes follow from successful probes.

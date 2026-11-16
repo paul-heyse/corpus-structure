@@ -648,11 +648,15 @@ book-scale publication, complete streaming integration or adopted consumer quali
 
 > Decision: ADR-0045
 
-**Accepted segmented-byte identity (2026-11-01).** New artifact streams require independently
+**Accepted byte custody and current logical-meaning target (2026-11-16); logical-profile implementation pending.** New artifact streams require independently
 verified parts, lengths and canonical byte folds. Whole-stream serialization SHA is optional
 export metadata; original/raw/historical digest custody is unchanged.
+The one current PDF logical-record fold excludes release and physical input/endpoint addresses,
+using authenticated typed target meaning instead. Qualified pins, receipts and all native
+lineage/permission checks retain exact execution custody. Recipe/schema/source and ordered
+occurrence/input meanings remain; unsupported older profiles refuse or regenerate.
 
-> Decision: ADR-0043
+> Decision: ADR-0119
 
 **Accepted structured-payload placement (2026-11-01).** The semantic release governs a page-scoped
 OCR/candidate Arrow IPC profile, its logical identity and required SQL projections. The finite

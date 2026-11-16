@@ -240,6 +240,39 @@ support. Its earlier fixture-root-list failure `eb8124da5374431ca8de05d82e261070
 This establishes that binding/readiness boundary, not complete artifact/record/event publication.
 Those actual consumer retries and the original pinned-reuse controls remain required.
 
+## Finalized logical-class contract successor · 2026-11-16
+
+**passed:** preview `9f433ceb08144474a95271d876e6ffe8`, exact apply
+`a4862a8885d246f19f0aa1e532655bf2`, rollback-only candidate
+`a48481284cc4403c8e7e74ab6df34f34`, registration `dbb88829802b46c5acb2fdd0199efdb8`
+and deployment `7b977f0adf634672afd7a1bdefeb6bbc`. The
+[request](logical-family-successor.yaml) binds predecessor `semantic_ddo_explicit_pin_scope`.
+Exact four frozen files are registered at `7d115dc76`; separate maintenance confirms the original
+stage OID130661481/system7701811359771751232 and revision=head `semantic_ddo_logical_family`.
+
+Root and independent review checked all12 native transitions, zero ordinary/privilege operations,
+all bound artifact hashes and exact predecessor catalogs. One new private
+`sem.ddo_model_class_contract(text,text,text)` uses finalized archived complete-class and unique
+kind domain/owner/key identity, with optional exact class name. It is SQL STABLE SECURITY DEFINER,
+publisher owned, fixed search path, PUBLIC revoked and no purpose-role EXECUTE grants. Grade and
+policy issuance use it instead of incorrectly requiring a logical field-family class to also be
+an operation body/member kind. Existing context/event/producer/fit/publication guards remain.
+Seven validity callbacks recapture native127b…→21bf…; complete descriptors recapture the expected
+bodies/inputs. Function count382→383, inputs159 with six expected hashes changed;101 table/schema
+privilege policies, physical c634/97 relations, ABI, PDF contracts/inputs, checks, indexes, triggers,
+views, readers and scientific layout are unchanged. Rollback-only PL/pgSQL2.10 checks and exact
+rendered-candidate/native/frozen-catalog admission passed.
+
+Actual private-helper equality/refusal/ACL control passed within
+`ead7540fb8b24a70b7c270f8f39bf9f5`; its complete grade/fit case failed later because the restricted
+reader returned a plain result rather than the native wire payload envelope. Artifact canonical
+configuration passed within `d7b81b6547464774acc190d6a1e99c72`; larger revision/cross-work hit a
+worker watchdog and has incomplete reporting. Event-positive `19dd25cda7274fcea07286d2da8d6280`
+still has empty named components. These are bounded current-source findings, not complete consumer
+qualification. Subsequent current PDF split/actual-runtime/physical-source changes require a new
+normal successor, including exact retirement of the old observation-publisher signature. No
+application release/runtime/activation or development adoption occurred in this cycle.
+
 ## Acceptance still required
 
 - Preserve exact registered root custody and qualify any required native successor discovered by

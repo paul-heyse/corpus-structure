@@ -57,7 +57,7 @@ Native `pg_jsonschema`0.3.4 validates actual metadata JSON under the released cl
 projection constraints. Its raw-JSON interface avoids PostgreSQL's NUL-rejecting JSON traversal;
 there is no sanitization or client-only schema assertion. Exact Python reads/exports retain float
 bits, negative zero, explicit nulls and text. [ADR-0044](../../adr/0044-native-pdf-metadata-jsonschema.md)
-owns this mechanism; ADR-0043 owns verified byte folds versus optional serialization SHA.
+owns this mechanism; ADR-0119 owns verified byte folds versus optional serialization SHA.
 
 The installed extension has no compiled-schema handle API. Current admission validates each
 metadata row; existing bounded uploads and Psycopg executemany remain intact. PDF-27/28 and
@@ -190,7 +190,7 @@ the selected global materialization boundary. PostgreSQL separately enforces act
 collection/reference/containment/frame/companion and artifact invariants through generated local
 and set-shaped guards. Validation outcomes bind the immutable inventory and archived contract.
 
-[ADR-0043](../../adr/0043-segmented-artifact-byte-identity.md) separates required native byte folds
+[ADR-0119](../../adr/0119-pdf-logical-meaning-and-execution-custody.md) separates required native byte folds
 and exact retained-byte correspondence from optional new export serialization SHA-256. There is
 no submitted whole native export prerequisite. Readers generate that serialization explicitly
 from admitted records. Existing original/raw/historical byte identities stay unchanged.

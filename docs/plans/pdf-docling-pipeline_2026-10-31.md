@@ -135,7 +135,7 @@ upstream seam. I14 must report the actual remaining working set, not claim that 
 bound the whole native graph. I19/PDF-26 remains deferred because no selected early-consumption
 workflow establishes closure ahead of native global inference; revisit when such a consumer exists.
 
-[ADR-0043](../adr/0043-segmented-artifact-byte-identity.md) records the selected byte identity:
+[ADR-0119](../adr/0119-pdf-logical-meaning-and-execution-custody.md) records the selected byte identity:
 new segmented streams require actual parts/lengths and native-verified canonical byte folds;
 conventional serialization SHA-256 is separately scoped optional export metadata. Original/raw/
 historical digests stay unchanged. No server hashing extension is required. Complete native
@@ -225,7 +225,7 @@ The operator selected **Adopt both changes**; ADR successors and enduring owners
 | RC10 | Qualify ADR-0042 independent server interior validation for selected model-bound payload families. Preserve PostgreSQL custody, relationships, release/attempt bindings and atomic visibility. | PDF-27 successor ADR and affected DESIGN/D1/D2/D3/D4/D6/D8 owners; PDF-28 complete persisted-payload validation before PDF-21 acceptance. |
 | RC11 | Qualify ADR-0044 mandatory pg_jsonschema validation where SQL no longer interprets selected interiors; retain validation for actual remaining SQL consumers. | Same decision route; PDF-20/21 inventory and selective replacement before dependency removal; PDF-25 forward migration. |
 
-ADR-0043 identities, PDF-only integrated content, intact sections, automated independent grading
+ADR-0119 identities, PDF-only integrated content, intact sections, automated independent grading
 and evidence provenance remain. All migrations through0065 remain immutable, including undeployed
 ones; use new forward releases/revisions and compatible retained-evidence reuse for current products. No current default
 changes merely because a probe succeeds.
