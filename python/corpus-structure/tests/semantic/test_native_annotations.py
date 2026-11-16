@@ -11,9 +11,8 @@ from corpus_structure.ingest.sentences import Block, SentenceConfig, pipeline, p
 from corpus_structure.methods.characterization_resources import ProviderExecution
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 from corpus_structure.semantic.native_annotations import annotation_work
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.source_contexts import NativeSourcePin
 from semantic.primary_formal_fixture import prepared as prepared
+from methods.declared_primary_fixture import selected_source
 
 
 def _plan(work):
@@ -27,23 +26,20 @@ def test_actual_hosted_annotation_preserves_native_atoms_pieces_and_token_positi
     start = 23
     block = Block(text, ((4, 7),), (), ((19, 22),))
     layout = prepare_layout(pipeline(profile.configuration), block, start=start)
-    source = NativeSourcePin(
-        7,
-        "source:7",
-        ProductReference(17, "integrated", "a" * 64),
-        "#/groups/7",
-        "descendants",
-        "b" * 64,
-        "c" * 64,
-        3,
+    pieces = (ProjectedPiece("#/texts/7", start, start + len(text), "native_text", source_field="text"),)
+    _source, frame, _context = selected_source(
+        "\n" * start + text,
+        pieces=[dict(kind="synthetic_separator", start=0, end=start), pieces[0].to_wire()],
+        items=[dict(self_ref="#/texts/7", label="text", text=text, orig=text)],
     )
+    source = frame.pin
     item = AnnotationInput(
         source,
         "paragraph:7",
         "paragraph",
         block,
         layout,
-        (ProjectedPiece("#/texts/7", start, start + len(text), "native_text"),),
+        pieces,
     )
     cpu = CPUExecutionScope(prepared)
     execution = ProviderExecution(cpu.budget, cpu.policy)

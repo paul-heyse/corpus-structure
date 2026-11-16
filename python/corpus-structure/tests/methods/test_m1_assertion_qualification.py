@@ -9,29 +9,28 @@ import pytest
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.methods.assertion_qualification import AssertionQualification
 from corpus_structure.methods.gliner import GlinerRefused
-from corpus_structure.methods.m1_annotations import consume_annotations
 from corpus_structure.methods.m1_source import configured_packs
 from corpus_structure.methods.record_assembly import OCCURRENCE_POLICY, assemble_records
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
-    SourceSlice,
+    PreparedNativeSources,
+    source_slice,
     SyntheticText,
 )
 from methods.domain_configuration import candidate_configuration
 from methods.m1_producer_support import (
     ROOT,
     ControlledDecoder,
-    candidate_fixture_inputs,
     candidate_fixture_product,
     detail_object,
     detail_objects,
-    owned_reader,
-    view,
 )
 from methods.m1_source_profile_support import config
 from methods.record_assembly_support import model as record_model
-from methods.record_assembly_support import report, span
+from methods.record_assembly_support import report, span, release as record_release
+from methods.declared_primary_fixture import source_readings, selected_source
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.m1_products import NativeCandidateData
 
 
 def group(text, subject, predicate, obj, *, start=0):
@@ -57,15 +56,31 @@ class AssertionDecoder(ControlledDecoder):
 
 
 def produce(monkeypatch, text, groups, *, heading=None):
-    source = view(text, heading=heading)
-    reader = owned_reader(source)
+    from corpus_structure.methods.source_preparation import prepare_source
+    from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
 
-    decoder = AssertionDecoder(text, groups)
-    decoder = decoder
     cfg = candidate_configuration(ROOT / "domains/statistics", "default")
-    result = candidate_fixture_product(
-        candidate_fixture_inputs(reader, source, cfg, check_active=lambda: None), decoder
+    frame, annotations, primary, native = source_readings(
+        text, AnnotationProfile(cfg.sentences), heading=heading
     )
+    data = NativeCandidateData.from_frame(frame)
+    population = DeclaredContextPopulation((frame,), canonical_bytes(dict(
+        identity="unadmitted:complete-original-context", complete=True,
+        members=[frame.pin.values()["source_member"]], evidence={"literal": "pure source"},
+    )))
+    prepared_source = prepare_source(
+        data, source_frame=frame, context_population=population,
+        profile=AnnotationProfile(cfg.sentences, execution_profile=native.value.execution_profile),
+        persisted_annotations=annotations, max_chars=cfg.max_context_chars,
+        max_pieces=cfg.max_context_pieces, max_annotation_chars=cfg.max_annotation_chars,
+        policy=cfg.policy, formula_prose=cfg.formula_prose,
+        region_pointers=cfg.region_pointers,
+    )
+    result = candidate_fixture_product(dict(
+        prepared=record_release(), model=record_model(), view=data, prepared_source=prepared_source,
+        annotation_result={"semantic_product": native.semantic_id}, primary_products=primary,
+        cfg=cfg, check_active=lambda: None,
+    ), AssertionDecoder(text, groups))
     assert result.records and result.parse_detail
     assert all(r["family"] == "assertion" and r["standing"] == "candidate" for r in result.records)
     return result.records, result.parse_detail
@@ -199,38 +214,38 @@ def test_unsupported_attachment_keeps_literal_candidate_and_unresolved_qualifier
 @pytest.mark.parametrize("case", ["missing", "foreign-pin", "clipped", "synthetic"])
 def test_unavailable_or_unmappable_retained_cues_stay_unresolved(tmp_path, case):
     text = "The pumps might drain the tanks."
-    source_view = view(text)
-    reader = owned_reader(source_view)
-    source = native_source_frame(source_view, ())
-    annotations, errors, _ = consume_annotations(
-        reader, source_view, AnnotationProfile(config(tmp_path).sentences)
+    source, annotations, primary, _native = source_readings(
+        text, AnnotationProfile(config(tmp_path).sentences)
     )
-    assert not errors and len(annotations) == 1
+    assert len(annotations) == 1
     (annotation,) = annotations
-    pieces = (SourceSlice(source_view.ref.id, 0, len(text)),)
+    data = NativeCandidateData.from_frame(source)
+    pieces = (source_slice(source, 0, len(text)),)
     if case == "missing":
         annotations = ()
     elif case == "foreign-pin":
         annotations = (
-            replace(annotation, source=replace(annotation.source, projection_digest="0" * 64)),
+            replace(annotation, source=replace(annotation.source, content=canonical_bytes(
+                {**annotation.source.values(), "projection_digest": "0" * 64}).decode())),
         )
     else:
         middle = (
             (SyntheticText("might ", "controlled synthetic modal"),) if case == "synthetic" else ()
         )
         pieces = (
-            SourceSlice(source_view.ref.id, 0, text.index("might")),
+            source_slice(source, 0, text.index("might")),
             *middle,
-            SourceSlice(source_view.ref.id, text.index("drain"), len(text)),
+            source_slice(source, text.index("drain"), len(text)),
         )
-    context = NativeSourceContext(source, (), pieces, "assertion refusal control", "test", case)
+    context = NativeSourceContext(source, (), pieces, "assertion refusal control", "test", case,
+                                  version=2, preparation=PreparedNativeSources((source,)))
     row = group(context.text, "The pumps", "drain", "the tanks")
-    pack = configured_packs(reader.prepared, config(tmp_path))["assertion"]
+    pack = configured_packs(record_release(), config(tmp_path))["assertion"]
     retained = report(context, pack, "assertion", [row])
-    qualifier = AssertionQualification(source, annotations, source_view.pieces, source_view.items)
+    qualifier = AssertionQualification(source, annotations, data.pieces, data.items, primary_products=primary)
     supplement = qualifier.supplement(context, pack, retained, row)
     result = assemble_records(
-        reader.prepared,
+        record_release(),
         context,
         pack,
         retained,
@@ -248,17 +263,13 @@ def test_unavailable_or_unmappable_retained_cues_stay_unresolved(tmp_path, case)
 
 
 def test_literal_assertion_pack_refuses_decoder_classification(tmp_path):
-    source_view = view("The pumps drain the tanks.")
-    source = native_source_frame(source_view, ())
+    _selected, source, _context = selected_source("The pumps drain the tanks.")
     context = NativeSourceContext(
-        source,
-        (),
-        (SourceSlice(source_view.ref.id, 0, len(source_view.text)),),
-        "classification injection control",
-        "test",
-        "entire native passage",
+        source, (), (source_slice(source, 0, len(source.text)),),
+        "classification injection control", "test", "entire native passage",
+        version=2, preparation=PreparedNativeSources((source,)),
     )
-    prepared = owned_reader(source_view).prepared
+    prepared = record_release()
     pack = configured_packs(prepared, config(tmp_path))["assertion"]
     row = group(context.text, "The pumps", "drain", "the tanks")
     raw = report(context, pack, "assertion", [dict(row, polarity={"text": "positive"})])
@@ -280,13 +291,11 @@ def test_qualification_reads_primary_predication_without_recognition(tmp_path, m
     from corpus_structure.semantic.constructions import retained_rules
 
     text = "The pumps might drain the tanks."
-    source_view = view(text)
-    reader = owned_reader(source_view)
-    source = native_source_frame(source_view, ())
-    annotations, errors, _ = consume_annotations(
-        reader, source_view, AnnotationProfile(config(tmp_path).sentences)
+    source, annotations, primary, _native = source_readings(
+        text, AnnotationProfile(config(tmp_path).sentences)
     )
-    assert annotations and not errors
+    data = NativeCandidateData.from_frame(source)
+    assert annotations
 
     def unexpected(*_args, **_kwargs):
         pytest.fail("assertion consumer recognized source language")
@@ -297,16 +306,16 @@ def test_qualification_reads_primary_predication_without_recognition(tmp_path, m
     context = NativeSourceContext(
         source,
         (),
-        (SourceSlice(source_view.ref.id, 0, len(text)),),
+        (source_slice(source, 0, len(text)),),
         "assertion primary projection",
         "test",
-        "complete selected source",
+        "complete selected source", version=2, preparation=PreparedNativeSources((source,)),
     )
-    pack = configured_packs(reader.prepared, config(tmp_path))["assertion"]
+    pack = configured_packs(record_release(), config(tmp_path))["assertion"]
     row = group(context.text, "The pumps", "drain", "the tanks")
     retained = report(context, pack, "assertion", [row])
     result = AssertionQualification(
-        source, annotations, source_view.pieces, source_view.items
+        source, annotations, data.pieces, data.items, primary_products=primary
     ).supplement(context, pack, retained, row)
     assert result is not None
     assert {(field.role, field.label) for field in result.fields} == {
@@ -319,7 +328,7 @@ def test_missing_primary_layout_is_unknown():
     from corpus_structure.methods.predicate_frames import source_layout
 
     assert (
-        source_layout(SimpleNamespace(primary_layers={}), "arbitrary source", (), {}) == "unknown"
+        source_layout(SimpleNamespace(), "arbitrary source", (), {}) == "unknown"
     )
 
 
@@ -334,49 +343,31 @@ def test_missing_primary_layout_is_unknown():
 def test_missing_cue_columns_withhold_only_unsupported_conclusions(
     tmp_path, missing, text, expected
 ):
-    from dataclasses import fields
-
-    from corpus_structure.ingest.annotations import AnnotationProduct
-    from methods.primary_reading_fixture import native_execution_for_product, primary_product
-
-    source_view = view(text)
-    reader = owned_reader(source_view)
-    profile = AnnotationProfile(config(tmp_path).sentences)
-    annotations, errors, _ = consume_annotations(reader, source_view, profile)
-    assert annotations and not errors
-    original = annotations[0]
-    original_execution = native_execution_for_product(original, profile)
-    native = AnnotationProduct(
-        **{field.name: getattr(original, field.name) for field in fields(AnnotationProduct)}
-    )
-    native = replace(
-        native,
-        availability=tuple(
+    def withhold(product):
+        return replace(product, availability=tuple(
             replace(row, status="absent") if row.attribute == missing else row
-            for row in native.availability
-        ),
+            for row in product.availability
+        ))
+
+    source, annotations, primary, _native = source_readings(
+        text, AnnotationProfile(config(tmp_path).sentences), change=withhold
     )
-    characterized = primary_product(text, native, profile, native_profile=original_execution)
-    coverage = next(
-        row
-        for layer in characterized.primary_layers.values()
-        for row in layer.payload["coverage"]
-        if row["family"] == "construction.source_readings"
-    )
-    assert coverage["outcome"] == "complete"
-    source = native_source_frame(source_view, ())
+    data = NativeCandidateData.from_frame(source)
+    coverage = next(row for product in primary for row in product.value.coverage
+                    if row.family == "construction.source_readings")
+    assert coverage.outcome == "complete"
     context = NativeSourceContext(
         source,
         (),
-        (SourceSlice(source_view.ref.id, 0, len(text)),),
+        (source_slice(source, 0, len(text)),),
         "partial cue examination",
         "test",
-        "exact source",
+        "exact source", version=2, preparation=PreparedNativeSources((source,)),
     )
-    pack = configured_packs(reader.prepared, config(tmp_path))["assertion"]
+    pack = configured_packs(record_release(), config(tmp_path))["assertion"]
     row = group(context.text, "The pumps", "drain", "the tanks")
     retained = report(context, pack, "assertion", [row])
     result = AssertionQualification(
-        source, (characterized,), source_view.pieces, source_view.items
+        source, annotations, data.pieces, data.items, primary_products=primary
     ).supplement(context, pack, retained, row)
     assert ({(field.role, field.label) for field in result.fields} if result else set()) == expected

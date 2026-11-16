@@ -45,13 +45,14 @@ class ProcedureFrame(TypedDict):
     dependency: str
 
 
-def procedure_frames(text, annotations) -> tuple[ProcedureFrame, ...]:
+def procedure_frames(text, annotations, *, primary_products=()) -> tuple[ProcedureFrame, ...]:
     """Project retained primary predicate roles into the domain's procedure shape."""
+    from .predicate_frames import prepare_predicate_readings, primary_inventory
+
+    selected = prepare_predicate_readings(primary_products)
     frames: list[ProcedureFrame] = []
     for product in annotations:
-        if not getattr(product, "primary_layers", None):
-            continue
-        result = predicate_frames(text, (product,))
+        result = predicate_frames(text, (product,), primary_products=selected)
         for primary in result.frames:
             if primary.voice not in {"active", "passive"}:
                 continue
@@ -81,7 +82,7 @@ def procedure_frames(text, annotations) -> tuple[ProcedureFrame, ...]:
                         else ((subordinate.start, subordinate.end), (main.start, main.end))
                     )
                     orders.append((first, second))
-            primary_body = product.primary_layers[primary.primary_ref.layer].payload
+            primary_body = primary_inventory(product, primary.primary_ref, primary_products=selected)
             terms = {term["local_id"]: term for term in primary_body["terms"]}
             clause = next(
                 (

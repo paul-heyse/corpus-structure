@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 
-def annotation(text, specifications, *, source_pin=None):
+def annotation(text, specifications, *, source_pin=None, explicit_products=False):
     tokens = []
     cursor = 0
     for word, pos, dependency, head, tag in specifications:
@@ -52,7 +52,12 @@ def annotation(text, specifications, *, source_pin=None):
                 sentence=0,
             )
         )
-    profile = AnnotationProfile()
+    from methods.declared_primary_fixture import retained_products, selected_source
+
+    if explicit_products:
+        source, frame, context = selected_source(text)
+        source_pin = frame.pin
+    profile = AnnotationProfile(execution_profile="unadmitted:controlled-columns") if explicit_products else AnnotationProfile()
     digest = sha256(text.encode()).hexdigest()
     rows = tuple(
         TokenAnnotation(
@@ -89,7 +94,7 @@ def annotation(text, specifications, *, source_pin=None):
         block_end=len(text),
         display_spans=(),
         text_digest=digest,
-        native_pieces=(ProjectedPiece("#/texts/0", 0, len(text), "native_text"),),
+        native_pieces=(ProjectedPiece("#/texts/0", 0, len(text), "native_text", source_field="text"),),
         layout_digest=digest,
         layout_recipe="canonical-token-layout-1",
         profile_recipe=profile.recipe,
@@ -107,4 +112,7 @@ def annotation(text, specifications, *, source_pin=None):
         sentences=(SentenceAnnotation(0, len(text)),),
         dependency_digest=digest,
     )
+    if explicit_products:
+        _native, primary = retained_products(source, frame, context, product, profile)
+        return product, primary
     return primary_product(text, product, profile)

@@ -4,6 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from annotation_support import controlled as controlled
 from semantic.test_m1_declared_products import _sources, configuration, record_schemas
 from semantic.test_source_annotations import detached as detached
 
@@ -293,3 +294,22 @@ def test_current_m1_refuses_changed_or_unselected_primary_before_provider(
         ValueError, match=r"whole construction|selected native product|exact original source"
     ):
         next(profile.run(source.value, annotations, body, (source.value,)))
+
+
+def test_current_annotation_fixture_uses_declared_source_and_separate_nominal_products(
+    controlled, monkeypatch
+):
+    from corpus_structure.ingest import sentences
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods import source_preparation
+    from methods.declared_primary_fixture import source_readings
+
+    monkeypatch.setattr(sentences, "pipeline", lambda *_: controlled)
+    monkeypatch.setattr(source_preparation, "pipeline", lambda *_: controlled)
+    frame, annotations, primary, native = source_readings("X X.", AnnotationProfile())
+    assert len(annotations) == len(primary) == 1
+    assert annotations[0].source == frame.pin
+    assert not hasattr(annotations[0], "primary_layers")
+    assert [token.lemma for token in annotations[0].tokens] == ["lemma:0", "lemma:1"]
+    assert native.value.source.model_dump(mode="json", exclude_unset=True) == frame.value["source"]
+    assert primary[0].value.source.model_dump(mode="json", exclude_unset=True) == frame.value["source"]

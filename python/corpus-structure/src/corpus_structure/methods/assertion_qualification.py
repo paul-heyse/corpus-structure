@@ -127,7 +127,8 @@ class AssertionQualification:
         group: Mapping[str, Any],
     ) -> NativeRecordGroup | None:
         if (
-            not self._annotations
+            not isinstance(context.primary, DeclaredNativeFrameSource)
+            or not self._annotations
             or context.primary.pin != self._pin
             or report.context_id != context.dependency_digest
         ):
