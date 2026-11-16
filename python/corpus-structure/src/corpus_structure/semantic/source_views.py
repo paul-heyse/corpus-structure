@@ -646,8 +646,6 @@ def store_source_view(
         raise
 
 
-
-
 def load_native_source_frames(conn: Connection, task_ids):
     """Decode the exact captured native sources; historical primaries stay primary-only."""
     from .proposals import NativeProposalFrame, ProposalSentence, native_frame_from_dict

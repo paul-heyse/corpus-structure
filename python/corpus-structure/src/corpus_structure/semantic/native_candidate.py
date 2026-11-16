@@ -827,7 +827,6 @@ def series_predecessor_definitions(connection):
     guard = ALEMBIC_DIR / "versions/semantic_0053_positioned_syntax.sql"
     trigger = ALEMBIC_DIR / "versions/semantic_0023_execution.sql"
     completion = ALEMBIC_DIR / "versions/semantic_0050_native_evidence.sql"
-    direction = ALEMBIC_DIR / "versions/semantic_0029_reference_boundaries.sql"
     return (
         _shape_definition(connection, sql, source=path.name),
         _context_definition(connection, sql, source=path.name),
@@ -855,12 +854,6 @@ def series_predecessor_definitions(connection):
         ),
         _task_call_definition(
             connection, completion.read_text(), name="complete_task", source="frozen0050 complete"
-        ),
-        _task_call_definition(
-            connection,
-            direction.read_text(),
-            name="record_direction",
-            source="frozen0029 direction",
         ),
     )
 
@@ -1446,14 +1439,6 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
             native_task_completion_sql(),
             name="complete_task",
             source="native completion:forward",
-        )
-    )
-    definitions.append(
-        _task_call_definition(
-            connection,
-            Path(__file__).with_name("sql").joinpath("directions.sql").read_text(),
-            name="record_direction",
-            source="native direction:forward",
         )
     )
     from .native_sql_body import published_revision_definition, published_validation_definition

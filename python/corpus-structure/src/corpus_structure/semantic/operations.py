@@ -2391,10 +2391,6 @@ def end_source_run(
     )
 
 
-
-
-
-
 def renew_claim(conn: Connection, *, task_id: TaskId, attempt: TaskAttempt, holder: str) -> None:
     """Renew only the current attempt through the protected native ownership guard."""
     try:

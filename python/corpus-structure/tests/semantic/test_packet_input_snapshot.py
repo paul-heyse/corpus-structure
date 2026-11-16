@@ -7,10 +7,7 @@ from corpus_structure.semantic.operations import (
     OperationBinding,
     create_run,
 )
-
 from semantic.operation_scenario_support import prepare_operation_scenario
-
-
 
 
 def test_native_task_configuration_matches_frozen_params_and_version(

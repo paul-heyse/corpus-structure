@@ -14,8 +14,6 @@ from ._operation_ids import TaskId as TaskId
 from .operation_value_types import HeldProgress as HeldProgress
 
 
-
-
 def validate_result_dimension(
     prepared, operation: str, dimension: str, value: str, *, field: str | None = None
 ) -> None:
@@ -79,8 +77,6 @@ def _result_adapter(
         else domain["values"]
     )
     return TypeAdapter(literal[tuple(members)])
-
-
 
 
 def validate_method_dimension(prepared, method: str, dimension: str, value: str | None) -> None:

@@ -65,7 +65,6 @@ if typing.TYPE_CHECKING:
     from corpus_structure.semantic.contextual_retrieval import (
         CandidateList,
         FrozenInventory,
-        TargetRepresentation,
     )
     from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, PreparedPdfProduct
     from corpus_structure.semantic.pdf_integrated import (

@@ -54,10 +54,6 @@ def test_db_migrate_uses_semantic_history_and_refuses_legacy(commit_db_engine):
         _migrate(commit_db_engine, "owned-test", False)
 
 
-
-
-
-
 def test_execution_admission_refuses_genuine_unbound_semantic1_before_run(commit_db_engine):
     from psycopg.errors import CheckViolation
     from sqlalchemy import insert

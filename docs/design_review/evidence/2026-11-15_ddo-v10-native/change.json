@@ -1,0 +1,91 @@
+{
+  "retire": [
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "create_structural_reference_set",
+      "arguments": [
+        "text",
+        "text",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "record_structural_reference_pass",
+      "arguments": [
+        "bigint",
+        "text",
+        "text",
+        "bytea",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "record_direction",
+      "arguments": [
+        "bigint",
+        "text",
+        "text",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "capture_native_source_frame",
+      "arguments": [
+        "bigint",
+        "text",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "hold_agent_result",
+      "arguments": [
+        "bigint",
+        "integer",
+        "text",
+        "text",
+        "boolean",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "lock_input_snapshot",
+      "arguments": [
+        "bigint"
+      ],
+      "relation": null
+    }
+  ],
+  "recreate": [],
+  "baseline": "HEAD",
+  "core": null,
+  "system": null,
+  "physical": null,
+  "change": null,
+  "archive_release": null,
+  "packs": [
+    "statistics"
+  ],
+  "data_operations": null,
+  "native_predecessor": "semantic_ddo_domain_v9",
+  "native_revision": "semantic_ddo_domain_v10",
+  "deployment": false,
+  "deployment_profile": null,
+  "source_migrations": [],
+  "data_steps": []
+}

@@ -321,6 +321,24 @@ attempt `ad343476d73548789664045babfc7484` **failed** because the PDF descriptor
 before a table CHECK is created; the owning installation repair and actual retry remain open.
 A v10 request is prepared only: no candidate, registration, deployment or adoption is claimed.
 
+The next closed retirement increment removes the legacy ProposalSession/held-agent packet,
+run direction and source-frame backfill write paths, their logical/effect/call declarations and
+mechanism-specific fixtures. Current ExternalDataSession and useful independent packet/locator
+expectations remain. The catalog now has36 fixed variants (56 removed from the original92).
+Worker pure/current external/generator53 **passed** `997a724d3ca64c5fa814018819b3a3ab`;
+initial48passed/6failed `8c2685b3d9484d50ac8900f86fc3e155` remains retained. The orphan
+run-vector cache, optional encoder cache branch and native authorization branch are deleted;
+actual current canonical target reuse replaces them. Worker63 **passed**
+`5c4e795bbfba4d628476f74dcd5abd27`, types `622215420e5e44a08141a2f9e6a0871c`.
+Root current scoring/actual local-model18 **passed** `768d0cfbaae54bb896facf6ba61024a7`;
+structural reader/detached41 **passed** `5d01d93a45724b1780bd7e7b8ed9cf65`.
+Native publication/scientific witness controls remain open. The v10 request names exactly six
+retired native signatures; registration requires actual rollback authoring and reviewed deltas.
+Fresh-target normalization exposed a missing score-meaning parenthesis and ambiguous CASE
+expressions in contextual guards; the owning generators are repaired, actual retry remains open.
+Publication **passed** `9cfd6db29f414a93a506e097b541dfbb` after replacing a retired structural
+assessment link; original failed `23cc4561493048c2a3d5c4b09251a4a9` is preserved.
+
 ## Current state and execution order
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |

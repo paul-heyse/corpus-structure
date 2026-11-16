@@ -143,8 +143,6 @@ def test_postgresql_preflight_admits_only_requested_page_and_refuses_body_transf
         assert "count(*)" in statements[0]
 
 
-
-
 @pytest.mark.parametrize("bytes_limit,oversized", [(1048576, False), (2048, True)])
 def test_current_search_shares_budget_across_exact_source_population_before_ranking(
     monkeypatch, bytes_limit, oversized

@@ -53,7 +53,5 @@ def retained(
     )
 
 
-
-
 def register(app: typer.Typer) -> None:
     app.add_typer(mcp_app, name="mcp")

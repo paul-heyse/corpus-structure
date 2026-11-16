@@ -49,12 +49,8 @@ def test_changed_bound_domain_changes_runtime_acceptance_and_does_not_reuse_old_
 def test_changed_result_field_refuses_at_actual_constructor_binding():
     release = prepared(composed=True)
     with pytest.raises(ValueError, match="differs from constructor"):
-        validate_result_dimension(
-            release, "read_original", "outcome", "missing", field="protocol"
-        )
-    validate_result_dimension(
-        release, "read_original", "outcome", "missing", field="outcome"
-    )
+        validate_result_dimension(release, "read_original", "outcome", "missing", field="protocol")
+    validate_result_dimension(release, "read_original", "outcome", "missing", field="outcome")
 
 
 def test_schema_only_preparation_has_no_operational_result_authority():

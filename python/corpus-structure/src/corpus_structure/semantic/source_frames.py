@@ -9,8 +9,6 @@ from .proposals import NativeProposalFrame
 from .refusals import OperationConflict
 
 
-
-
 def load_source_frames(conn: Connection, task_ids) -> dict[int, NativeProposalFrame]:
     """Read exact captured PDF sources; historical HTML frames have no current reader."""
     from .source_views import load_native_source_frames
