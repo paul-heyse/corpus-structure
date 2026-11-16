@@ -203,15 +203,12 @@ def execute_target_encoder_authority_kernel(
     *,
     check_active,
 ) -> dict:
-    from .contextual_cpu import contextual_basis_values
     from .contextual_target_products import materialize_target
-    from .data_operation_cpu_basis import cpu_authority_reply
+    from .data_operation_cpu_basis import cpu_authority_reply, cpu_basis_values
 
-    roles, context = contextual_basis_values(input_basis)
+    roles, context = cpu_basis_values(input_basis, scalar_roles=("target",), set_roles=())
     rows = roles.get("target", ())
-    if len(rows) != 1 or set(roles) != {"target"}:
-        raise ValueError("target encoder requires its one exact processed target input")
-    target = materialize_target(rows[0]["body"], context=context)
+    target = materialize_target(rows[0].body, context=context)
     result = execute_target_encoder_kernel(
         target, profile_record, model_path, artifacts, check_active=check_active
     )
@@ -227,33 +224,30 @@ def execute_query_encoder_authority_kernel(
     *,
     check_active,
 ) -> dict:
-    from .contextual_cpu import contextual_basis_values, contextual_input_role
-    from .data_operation_cpu_basis import cpu_authority_reply
+    from .data_operation_cpu_basis import cpu_authority_reply, cpu_basis_values
     from .data_operation_identity import decode_semantic_value
     from .data_operation_model import json_context_meaning
 
-    roles, _ = contextual_basis_values(input_basis)
-    if len(roles.get("source", ())) != 1 or len(roles.get("occurrence", ())) != 1:
-        raise ValueError("query encoder requires its exact source and retained occurrence")
-    source = contextual_input_role(roles["source"][0])
+    roles, _ = cpu_basis_values(input_basis, scalar_roles=("source", "occurrence"), set_roles=(), sequence_roles=("primary",))
+    source = roles["source"][0]
     from .contextual_cpu import checked_frame_source
 
     frame = checked_frame_source(frame_record, source)
-    occurrence = roles["occurrence"][0]["body"]
+    occurrence = roles["occurrence"][0].body
     parameters = decode_semantic_value(input_basis)["parameters"]
     selected = parameters.get("context_selection")
     query_context, context_inputs = None, ()
     if selected is not None:
-        if set(roles) != {"source", "occurrence", "primary"}:
+        if not roles["primary"]:
             raise ValueError("selected query requires its complete processed primary population")
         query_context, context_inputs = prepare_primary_query_context(
             frame,
             occurrence,
-            tuple(contextual_input_role(row) for row in roles["primary"]),
+            roles["primary"],
             recipe=selected["recipe"],
             evidence=selected["evidence"],
         )
-    elif set(roles) != {"source", "occurrence"}:
+    elif roles["primary"]:
         raise ValueError("lexical query cannot silently consume unrequested primary context")
     result = execute_contextual_encoder_kernel(
         frame_record,
@@ -267,7 +261,7 @@ def execute_query_encoder_authority_kernel(
     )
     from .declared_structural_references import DeclaredContributionRef
 
-    occurrence_input = contextual_input_role(roles["occurrence"][0])
+    occurrence_input = roles["occurrence"][0]
     result["query"]["carrier"] = DeclaredContributionRef(
         product_id=occurrence_input.product_id,
         member_id=occurrence_input.member_id,

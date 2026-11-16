@@ -175,6 +175,7 @@ def case(recipe):
         ("episode:primary",),
         b"{}",
         subject_definition="original-source-view",
+        position=0,
         support_references=tuple(
             ComputationalSupportReference(derivation_id=episode) for episode in ("episode:primary",)
         ),

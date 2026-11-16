@@ -188,10 +188,7 @@ def source_values(prepared, model, source, pin, context, source_input):
 
 
 def _matched_source_values(input_basis: list, *, prepared, check_active) -> dict:
-    from corpus_structure.semantic.contextual_cpu import (
-        contextual_basis_values,
-        contextual_input_role,
-    )
+    from corpus_structure.semantic.data_operation_cpu_basis import cpu_basis_values
     from corpus_structure.semantic.contextual_witnesses import contextual_input_reference
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.declared_record_sources import (
@@ -201,11 +198,11 @@ def _matched_source_values(input_basis: list, *, prepared, check_active) -> dict
     from corpus_structure.semantic.structural_products import DeclaredStructuralInputPin
 
     check_active()
-    roles, context = contextual_basis_values(input_basis)
+    roles, context = cpu_basis_values(input_basis, scalar_roles=("source",), set_roles=())
     if set(roles) != {"source"} or len(roles["source"]) != 1:
         raise ValueError("finite matcher requires its actual exact source basis")
     row = roles["source"][0]
-    actual = contextual_input_role(row)
+    actual = row
     if actual.context != context:
         raise ValueError("finite matcher source differs from its actual output context")
     source = actual.body

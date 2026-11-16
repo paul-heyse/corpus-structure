@@ -151,23 +151,20 @@ def candidates_from_scores(inputs, scores, query, policy, *, numerical_policy):
 def execute_contextual_retrieval_kernel(
     input_basis: list, numerical_policy: dict, *, witnessed: bool, check_active
 ) -> dict:
-    from .contextual_cpu import contextual_basis_values, contextual_input_role
     from .contextual_numerics import RetrievalNumericalPolicy
     from .contextual_operations import finish_contextual_retrieval, prepare_contextual_retrieval
     from .contextual_witnesses import STANDING, contextual_input_reference
-    from .data_operation_cpu_basis import cpu_authority_reply
+    from .data_operation_cpu_basis import cpu_authority_reply, cpu_basis_values
 
-    roles, context = contextual_basis_values(input_basis)
     expected_roles = {"query", "inventory", "vectors", "policy", "scores"} | (
         {"witnesses"} if witnessed else set()
     )
-    if set(roles) != expected_roles or any(len(rows) != 1 for rows in roles.values()):
-        raise ValueError("contextual reduction requires four exact inputs and its native scores")
-    values = {name: rows[0]["body"] for name, rows in roles.items()}
+    roles, context = cpu_basis_values(input_basis, scalar_roles=tuple(sorted(expected_roles)), set_roles=())
+    values = {name: rows[0].body for name, rows in roles.items()}
     query, scores = values.pop("query"), values.pop("scores")
     binding = values.pop("witnesses") if witnessed else None
     pin = query["source_pin"]
-    query_context = contextual_input_role(roles["query"][0]).context
+    query_context = roles["query"][0].context
     if query_context != context or (pin["project_id"], pin["original_source"]) != (
         query_context.project_id,
         query_context.original_source,

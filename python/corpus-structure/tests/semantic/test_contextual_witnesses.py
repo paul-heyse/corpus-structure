@@ -1,7 +1,7 @@
 """Independent authored-binding semantics; these controlled facts are unadmitted."""
 
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import replace
 
 import pytest
 
@@ -55,12 +55,7 @@ def witness_case():
     )
 
     def ref(value):
-        record = asdict(value)
-        record["context"] = value.context.identity_record
-        record["support"] = [item.model_dump() for item in value.support]
-        return contextual_input_reference(record, contribution=True).model_dump(
-            mode="python", exclude_none=True
-        )
+        return contextual_input_reference(value, contribution=True).model_dump(mode="python", exclude_none=True)
 
     carrier_ref, other_ref = ref(carrier), ref(other)
     hypotheses = dict(
@@ -154,6 +149,7 @@ def test_binding_refuses_custody_substitution_without_promoting_absence(change, 
         hypotheses[0]["cue_refs"] = [other]
     elif change == "missing-carrier":
         roles.pop(4)
+        roles[4] = replace(roles[4], position=0)
     elif change == "foreign-target":
         hypotheses[0]["target_id"] = "foreign"
     elif change == "duplicate-assertion":
