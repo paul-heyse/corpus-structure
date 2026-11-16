@@ -16,6 +16,7 @@ VISUAL_LOCATOR_RELATIONS = frozenset(
 class PhysicalCatalogExpectations:
     indexes: tuple[dict[str, str], ...]
     generated: dict[str, dict[str, str]]
+    defaults: dict[str, dict[str, str]]
 
 
 def _admission_descriptor(admission):
@@ -276,9 +277,12 @@ def native_admission_sql(
     if physical_catalog is not None:
         for name, table in tables.items():
             generated = physical_catalog.generated.get(name, {})
+            defaults = physical_catalog.defaults.get(name, {})
             for column in table["columns"]:
                 if column["generated"]:
                     column["default"] = generated[column["name"]]
+                elif column["default"] is not None:
+                    column["default"] = defaults[column["name"]]
     descriptor["tables"] = sorted(tables.values(), key=lambda item: item["relation"])
     from .alembic_privileges import admission_comparison_sql, desired_policies
 

@@ -583,11 +583,14 @@ def compare_table_policy(context, changes, schema, name, reflected, declared):
 def compare_schema_policy(context, changes, schemas):
     from alembic.util import PriorityDispatchResult
 
+    from .alembic_native import selected_comparison_schemas
+
     options = context.migration_context.opts
+    selected_schemas = selected_comparison_schemas(context, schemas)
     desired = [
         policy
         for policy in options["declared_privileges"]
-        if policy["kind"] == "schema" and policy["name"] in schemas
+        if policy["kind"] == "schema" and policy["name"] in selected_schemas
     ]
     options["compared_privileges"].extend(
         privilege_operations(

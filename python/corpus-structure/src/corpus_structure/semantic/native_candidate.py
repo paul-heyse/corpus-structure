@@ -1626,7 +1626,8 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
     return tuple(definitions)
 
 
-def _admission_definitions(connection, sql, *, source, require_descriptor=True):
+def current_admission_definitions(connection, sql, *, source, require_descriptor=True):
+    """Declare current purpose grants without historical migration-owner custody."""
     prepared = prepare_sql(sql, source=source)
     definitions = []
     for index, raw in enumerate(prepared.statements):
@@ -1649,14 +1650,6 @@ def _admission_definitions(connection, sql, *, source, require_descriptor=True):
                 "corpus_sem_admitter",
             )
         )
-        if name[1] == "require_execution_release":
-            # Frozen 0026_admission.sql:373 grants EXECUTE to __MIGRATION_OWNER__.
-            # Later CREATE OR REPLACE declarations retain this explicit historical
-            # capability. The guard itself resolves owner_name through sem.nspowner.
-            migration_owner = semantic_namespace_owner(connection)
-            if migration_owner is None:
-                raise NativeAuthoringError("native admission requires its semantic namespace owner")
-            roles = tuple(dict.fromkeys((*roles, migration_owner)))
         definition = definition_from_sql(
             connection,
             prepared.excerpt(index),
@@ -1664,10 +1657,6 @@ def _admission_definitions(connection, sql, *, source, require_descriptor=True):
             owner="corpus_sem_publisher",
             grants=tuple((role, "EXECUTE", False) for role in roles),
         )
-        if name[1] == "require_execution_release":
-            definition = replace(
-                definition, role_bindings=(("$migration_owner", "sem_namespace_owner"),)
-            )
         definitions.append(definition)
     if len(definitions) != (2 if require_descriptor else 1) or (
         not require_descriptor and definitions[0].identity.name != "require_execution_release"
@@ -1676,6 +1665,25 @@ def _admission_definitions(connection, sql, *, source, require_descriptor=True):
             f"{source}: admission requires its descriptor and enforcing guard"
         )
     return tuple(definitions)
+
+
+def _admission_definitions(connection, sql, *, source, require_descriptor=True):
+    definitions = current_admission_definitions(
+        connection, sql, source=source, require_descriptor=require_descriptor
+    )
+    # The historical series retains frozen0026's migration-owner EXECUTE edge.
+    # A fresh target has no such predecessor or namespace binding obligation.
+    owner = semantic_namespace_owner(connection)
+    return tuple(
+        replace(
+            item,
+            grants=tuple(dict.fromkeys((*item.grants, (owner, "EXECUTE", False)))),
+            role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+        )
+        if item.identity.name == "require_execution_release"
+        else item
+        for item in definitions
+    )
 
 
 def candidate_admission_sql(
@@ -1734,12 +1742,16 @@ def _declared_physical_catalog(connection, target_metadata):
     scratch_relation = "pg_temp." + scratch
     indexes = []
     generated = {}
+    defaults = {}
     savepoint = connection.begin_nested()
     try:
         # Match the protecting guard's deparser search path.
         execute_native_sql(connection, "SET LOCAL search_path = pg_catalog, pg_temp")
         for relation in sorted(target_metadata.tables.values(), key=lambda item: item.fullname):
-            if not relation.indexes and not any(c.computed is not None for c in relation.columns):
+            if not relation.indexes and not any(
+                c.computed is not None or (c.identity is None and c.server_default is not None)
+                for c in relation.columns
+            ):
                 continue
             target = preparer.format_table(relation)
             definition = str(
@@ -1791,19 +1803,25 @@ def _declared_physical_catalog(connection, target_metadata):
                 )
             expressions = connection.execute(
                 text("""
-                    SELECT a.attname, pg_get_expr(d.adbin,d.adrelid)
+                    SELECT a.attname, pg_get_expr(d.adbin,d.adrelid), a.attgenerated
                     FROM pg_attribute a
                     JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
-                    WHERE a.attrelid=to_regclass(:relation) AND a.attgenerated <> ''
+                    WHERE a.attrelid=to_regclass(:relation) AND a.attidentity = ''
                 """),
                 {"relation": scratch_relation},
             )
-            generated[relation.fullname] = dict(expressions.tuples().all())
+            normalized = expressions.tuples().all()
+            generated[relation.fullname] = {
+                name: expression for name, expression, kind in normalized if kind
+            }
+            defaults[relation.fullname] = {
+                name: expression for name, expression, kind in normalized if not kind
+            }
             execute_native_sql(connection, "DROP TABLE " + scratch_relation)
     finally:
         savepoint.rollback()
     return PhysicalCatalogExpectations(
-        tuple(sorted(indexes, key=lambda item: item["index"])), generated
+        tuple(sorted(indexes, key=lambda item: item["index"])), generated, defaults
     )
 
 

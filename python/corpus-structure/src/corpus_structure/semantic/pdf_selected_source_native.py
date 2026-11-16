@@ -192,9 +192,9 @@ BEGIN
  ) SELECT event FROM output ORDER BY phase,path;
 END $selected$;
 REVOKE ALL ON FUNCTION ops.read_pdf_selected_source_events(
- text,bigint,text,bigint,text,text,text,text,text) FROM PUBLIC;
+ text,text,text,text,text,text,text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.read_pdf_selected_source_events(
- text,bigint,text,bigint,text,text,text,text,text)
+ text,text,text,text,text,text,text,text,text)
  TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;
 """
     )

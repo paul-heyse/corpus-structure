@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -143,9 +144,45 @@ def capture_target_installation(
         pdf_sources=pdf_sources,
         extra_sources=(
             SourceArtifact("authoring/target_installation.py", Path(__file__).read_bytes()),
+            SourceArtifact(
+                "authoring/pdf-descriptor.sql",
+                Path(__file__).with_name("sql").joinpath("pdf_descriptor.sql").read_bytes(),
+            ),
+            SourceArtifact(
+                "authoring/pdf-record-identity.sql",
+                Path(__file__).with_name("sql").joinpath("pdf_record_identity.sql").read_bytes(),
+            ),
+            SourceArtifact(
+                "authoring/pdf-record-artifact-identity.sql",
+                Path(__file__)
+                .with_name("sql")
+                .joinpath("pdf_record_artifact_identity.sql")
+                .read_bytes(),
+            ),
         ),
     )
     return TargetInstallation(selected, pdf_sources, inputs)
+
+
+def target_physical_prerequisites(connection, installation: TargetInstallation):
+    """The table-free current function used by the PDF body CHECK declaration."""
+    from .native_candidate import _task_call_definition
+
+    source = next(
+        item.content.decode()
+        for item in installation.authoring_inputs.sources
+        if item.name == "authoring/pdf-descriptor.sql"
+    )
+    return (
+        _task_call_definition(
+            connection,
+            source,
+            schema="ops",
+            name="pdf_product_descriptor",
+            source="target-current:PDF descriptor CHECK prerequisite",
+            grants=(),
+        ),
+    )
 
 
 def target_pdf_sql(installation: TargetInstallation) -> str:
@@ -158,6 +195,16 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
     sql = Path(__file__).with_name("sql")
     return "\n".join(
         (
+            next(
+                source.content.decode()
+                for source in installation.authoring_inputs.sources
+                if source.name == "authoring/pdf-record-identity.sql"
+            ),
+            next(
+                source.content.decode()
+                for source in installation.authoring_inputs.sources
+                if source.name == "authoring/pdf-record-artifact-identity.sql"
+            ),
             stage_native_sql(
                 target_metadata=installation.metadata, pdf_sources=installation.pdf_sources
             ),
@@ -204,6 +251,17 @@ def target_native_definitions(connection, installation: TargetInstallation):
         ("closure.sql", "sem", "record_deployment_admission", ("corpus_sem_admitter",)),
         ("closure.sql", "sem", "record_sql_admission", ("corpus_sem_admitter",)),
         ("closure.sql", "sem", "activate_release", ("corpus_sem_admitter",)),
+        (
+            "closure.sql",
+            "data",
+            "require_runtime_principal",
+            (
+                "corpus_sem_reader",
+                "corpus_sem_writer",
+                "corpus_sem_evaluator",
+                "corpus_sem_admitter",
+            ),
+        ),
         ("execution_projection.sql", "sem", "require_scientific_layout", ()),
     ):
         definitions.append(
@@ -423,18 +481,69 @@ def target_admission_descriptor(installation: TargetInstallation, native_objects
     )
 
 
+@contextmanager
+def target_authoring_scratch(connection, installation: TargetInstallation):
+    """Supply the declared empty archive/PDF row layouts for static authoring only."""
+    from sqlalchemy import text
+
+    from .archive_transport import archive_tables, scratch_name
+    from .native_objects import NativeAuthoringError
+    from .pdf_staging import STAGE_FAMILIES
+
+    relations = [
+        *((scratch_name(relation), relation) for relation in archive_tables(installation.metadata)),
+        *(
+            ("ps_" + installation.metadata.tables[name].name, installation.metadata.tables[name])
+            for name in STAGE_FAMILIES.values()
+        ),
+    ]
+    preparer = connection.dialect.identifier_preparer
+    savepoint = connection.begin_nested()
+    try:
+        for name, relation in relations:
+            quoted = preparer.quote(name)
+            if (
+                connection.scalar(text("SELECT to_regclass(:name)"), {"name": "pg_temp." + quoted})
+                is not None
+            ):
+                raise NativeAuthoringError(
+                    "target static authoring requires unused scratch context: " + name
+                )
+            connection.exec_driver_sql(
+                "CREATE TEMP TABLE "
+                + quoted
+                + " (LIKE "
+                + preparer.format_table(relation)
+                + " INCLUDING CONSTRAINTS) ON COMMIT DROP"
+            )
+            connection.exec_driver_sql(
+                "ALTER TABLE pg_temp." + quoted + " OWNER TO corpus_sem_publisher"
+            )
+        yield
+    finally:
+        savepoint.rollback()
+
+
 def prepare_target_authoring(
-    connection, installation: TargetInstallation, *, owned_authoring=False
+    connection,
+    installation: TargetInstallation,
+    *,
+    physical_prerequisites=(),
+    owned_authoring=False,
 ):
     """Normalize a complete fresh declaration using the existing rollback-only author."""
-    from .native_candidate import _admission_definitions, _declared_physical_catalog, definition_sql
-    from .native_objects import prepare_native_authoring
+    from .native_candidate import (
+        _declared_physical_catalog,
+        current_admission_definitions,
+        definition_sql,
+    )
+    from .native_objects import NativeAuthoring, native_sql_script, prepare_native_authoring
     from .native_products import admission_kernel
     from .source_view_native import native_admission_sql
 
     products = (
         *target_native_definitions(connection, installation),
-        *_admission_definitions(
+        *current_admission_definitions(
             connection,
             admission_kernel(),
             source="target-current:admission guard",
@@ -445,23 +554,52 @@ def prepare_target_authoring(
         connection, products, predecessor=(), owned_authoring=owned_authoring
     )
     sql = native_admission_sql(
-        definition_sql(products),
+        native_sql_script(
+            statement for item in physical_prerequisites for statement in item.statements
+        )
+        + "\n"
+        + definition_sql(products),
         inputs=installation.authoring_inputs,
-        base_descriptor=target_admission_descriptor(installation, normalized.desired),
-        native_objects=normalized.desired,
+        base_descriptor=target_admission_descriptor(
+            installation, (*physical_prerequisites, *normalized.desired)
+        ),
+        native_objects=(*physical_prerequisites, *normalized.desired),
         target_metadata=installation.metadata,
         physical_catalog=_declared_physical_catalog(connection, installation.metadata),
     )
-    admission = _admission_definitions(connection, sql, source="target-current:admission")
+    admission = current_admission_definitions(connection, sql, source="target-current:admission")
     complete = (*products[:-1], *admission)
-    return prepare_native_authoring(
-        connection,
-        complete,
-        predecessor=(),
-        owned_authoring=owned_authoring,
-        check_plpgsql=frozenset(
-            item.identity for item in complete if item.identity.kind == "function"
-        ),
+    with target_authoring_scratch(connection, installation):
+        remaining = prepare_native_authoring(
+            connection,
+            complete,
+            predecessor=(),
+            owned_authoring=owned_authoring,
+            check_plpgsql=frozenset(
+                item.identity for item in complete if item.identity.kind == "function"
+            ),
+            check_plpgsql_triggers=frozenset(
+                item.identity for item in complete if item.identity.kind == "trigger"
+            ),
+        )
+    return NativeAuthoring(desired=(*physical_prerequisites, *remaining.desired))
+
+
+def target_database_privileges_sql() -> str:
+    """Current root policy: only the protected publisher needs session scratch."""
+    from sqlalchemy.dialects.postgresql import dialect
+
+    from .alembic_privileges import PUBLISHER, PURPOSE_ROLES
+
+    quote = dialect().identifier_preparer.quote
+    revoke = "REVOKE TEMP ON DATABASE %I FROM PUBLIC," + ",".join(map(quote, PURPOSE_ROLES))
+    grant = "GRANT TEMP ON DATABASE %I TO " + quote(PUBLISHER)
+    return (
+        "DO $target_database$ BEGIN EXECUTE format('"
+        + revoke.replace("'", "''")
+        + "',current_database()); EXECUTE format('"
+        + grant.replace("'", "''")
+        + "',current_database()); END $target_database$"
     )
 
 
@@ -473,13 +611,16 @@ def prepare_target_candidate(
     The returned ordinary/native operations still require explicit review, frozen
     registration and the existing migration lifecycle. This never stamps or deploys.
     """
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
     from alembic.operations.ops import ExecuteSQLOp
     from sqlalchemy import text
     from sqlalchemy.schema import CreateSchema
 
+    from .alembic_native import NativeTransitionOp
     from .alembic_privileges import table_policy
     from .native_candidate import _physical_check_contract, compare_declared_candidate
-    from .native_objects import NativeAuthoringError
+    from .native_objects import NativeAuthoringError, prepare_native_authoring
 
     if not owned_authoring:
         raise NativeAuthoringError("fresh target preparation requires owned authoring custody")
@@ -518,6 +659,17 @@ def prepare_target_candidate(
     try:
         for statement in schema_sql:
             connection.exec_driver_sql(statement)
+        prerequisites = target_physical_prerequisites(connection, installation)
+        prerequisite_authoring = prepare_native_authoring(
+            connection,
+            prerequisites,
+            predecessor=(),
+            owned_authoring=True,
+            check_plpgsql=frozenset(item.identity for item in prerequisites),
+        )
+        operations = Operations(MigrationContext.configure(connection))
+        for item in prerequisite_authoring.desired:
+            operations.invoke(NativeTransitionOp(None, item))
         installation.metadata.create_all(connection, checkfirst=False)
         for relation in installation.metadata.tables.values():
             connection.exec_driver_sql(
@@ -526,7 +678,12 @@ def prepare_target_candidate(
                 + " OWNER TO "
                 + quote(table_policy(relation)["owner"])
             )
-        authoring = prepare_target_authoring(connection, installation, owned_authoring=True)
+        authoring = prepare_target_authoring(
+            connection,
+            installation,
+            physical_prerequisites=prerequisite_authoring.desired,
+            owned_authoring=True,
+        )
         physical_contract = _physical_check_contract(connection, installation.metadata, authoring)
     finally:
         scaffolding.rollback()
@@ -539,5 +696,20 @@ def prepare_target_candidate(
     )
     if candidate.upgrade_ops is None:
         raise NativeAuthoringError("fresh target preparation produced no migration body")
-    candidate.upgrade_ops.ops[:0] = [ExecuteSQLOp(statement) for statement in schema_sql]
+    prerequisite_ids = {item.identity for item in prerequisite_authoring.desired}
+    early = [
+        item
+        for item in candidate.upgrade_ops.ops
+        if isinstance(item, NativeTransitionOp) and item.identity in prerequisite_ids
+    ]
+    if {item.identity for item in early} != prerequisite_ids:
+        raise NativeAuthoringError(
+            "fresh target migration lost its physical function prerequisites"
+        )
+    candidate.upgrade_ops.ops[:] = [
+        ExecuteSQLOp(target_database_privileges_sql()),
+        *(ExecuteSQLOp(statement) for statement in schema_sql),
+        *early,
+        *(item for item in candidate.upgrade_ops.ops if item not in early),
+    ]
     return candidate, authoring

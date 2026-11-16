@@ -153,6 +153,17 @@ def render_native(autogen_context, operation):
     return f"op.native_transition({operation.payload()!r})"
 
 
+def selected_comparison_schemas(autogen_context, schemas):
+    # Reflection has no namespace to report before a fresh root is installed.
+    # Explicit target tables also declare their namespaces, subject to the same
+    # configured schema filters. Alembic aggregates single/sequence metadata.
+    return set(schemas) | {
+        relation.schema
+        for relation in autogen_context.sorted_tables
+        if autogen_context.run_name_filters(relation.schema, "schema", {})
+    }
+
+
 def compare_native(autogen_context, upgrade_ops, schemas):
     authoring = autogen_context.migration_context.opts.get("native_authoring")
     if not isinstance(authoring, NativeAuthoring):
@@ -161,9 +172,10 @@ def compare_native(autogen_context, upgrade_ops, schemas):
         )
     before = {item.identity: item for item in authoring.predecessor}
     desired = {item.identity: item for item in authoring.desired}
+    selected_schemas = selected_comparison_schemas(autogen_context, schemas)
     # Refuse drift before appending any operation; absent desired context never means drop.
     for identity in before.keys() | desired.keys():
-        if identity.schema not in schemas:
+        if identity.schema not in selected_schemas:
             raise NativeAuthoringError(
                 f"managed native schema excluded from comparison: {identity.schema}"
             )

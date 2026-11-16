@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from typing import cast
 
 import pytest
 from alembic.autogenerate import produce_migrations, render_python_code
@@ -14,6 +15,7 @@ from sqlalchemy import Column, Integer, MetaData, Table, text
 from corpus_structure.semantic.alembic_native import NativeTransitionOp, plugin
 from corpus_structure.semantic.native_objects import (
     NativeAuthoring,
+    NativeAuthoringError,
     admit_native,
     definition_from_sql,
     execute_native_sql,
@@ -84,6 +86,45 @@ def context(conn):
             "autogenerate_plugins": ["alembic.autogenerate.*", plugin.name],
         },
     )
+
+
+@pytest.mark.parametrize("metadata_sequence", [False, True])
+def test_native_fresh_namespace_is_declared_and_respects_schema_filter(
+    semantic_bare_engine,
+    metadata_sequence,
+):
+    md = MetaData()
+    Table("items", md, Column("n", Integer), schema="native test")
+    with semantic_bare_engine.begin() as conn:
+        # Normalize genuine PostgreSQL source under a rollback-only namespace;
+        # comparison itself must see the actual empty database.
+        with conn.begin_nested() as temporary:
+            conn.exec_driver_sql('CREATE SCHEMA "native test"')
+            selected = definition_from_sql(
+                conn,
+                'CREATE OR REPLACE FUNCTION "native test".fresh() RETURNS integer '
+                "LANGUAGE sql AS $$ SELECT 7 $$",
+                source="fresh-control",
+                owner=conn.scalar(text("SELECT current_user")),
+            )
+            authoring = prepare_native_authoring(conn, (selected,), owned_authoring=True)
+            temporary.rollback()
+        assert conn.scalar(text("SELECT to_regnamespace('native test')")) is None
+        migration = context(conn)
+        migration.opts["native_authoring"] = authoring
+        # AutogenContext supports sequences; produce_migrations' annotation is
+        # narrower than the supported metadata passed through to that context.
+        target = cast(MetaData, [MetaData(), md] if metadata_sequence else md)
+        script = produce_migrations(migration, target)
+        native = [item for item in upgrades(script).ops if isinstance(item, NativeTransitionOp)]
+        assert [item.identity for item in native] == [selected.identity]
+        migration.opts["include_name"] = lambda name, typ, parents: typ != "schema"
+        with pytest.raises(NativeAuthoringError, match="managed native schema excluded"):
+            produce_migrations(migration, target)
+        # A function's schema cannot enlarge scope without declared target tables.
+        migration.opts["include_name"] = lambda name, typ, parents: True
+        with pytest.raises(NativeAuthoringError, match="managed native schema excluded"):
+            produce_migrations(migration, MetaData())
 
 
 def test_native_plugin_frozen_payload_actual_properties_and_caller_rollback(
