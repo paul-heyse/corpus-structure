@@ -79,6 +79,10 @@ def capture_target_installation(selected: MetaData) -> TargetInstallation:
                 .joinpath("pdf_record_artifact_identity.sql")
                 .read_bytes(),
             ),
+            SourceArtifact(
+                "authoring/pdf-captured-recognition.sql",
+                Path(__file__).with_name("sql").joinpath("source_record_recognition.sql").read_bytes(),
+            ),
         ),
     )
     return TargetInstallation(selected, pdf_sources, inputs)
@@ -133,6 +137,11 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
             sql.joinpath("pdf_record_proof_reader.sql").read_text(),
             sql.joinpath("pdf_record_access_correspondence.sql").read_text(),
             observation_publication_sql(),
+            next(
+                source.content.decode()
+                for source in installation.authoring_inputs.sources
+                if source.name == "authoring/pdf-captured-recognition.sql"
+            ),
             pdf_completion_native_sql(),
             selected_source_reader_sql(),
         )
