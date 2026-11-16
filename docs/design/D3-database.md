@@ -17,22 +17,25 @@ one transaction before immutable publication. Binary artifacts do not pass throu
 JSONB envelope. The existing durable archive representation and readers keep their meanings;
 runtime bindings retain their separate ownership.
 
-**Accepted target; integration Proposed · 2026-11-13.** PDF staging uses actual legacy run
-custody or genuine DDO request/claim/demand custody. It does not fabricate a run for the latter.
+**Accepted target; integration Proposed · 2026-11-15.** PDF staging uses genuine DDO
+request/generation/claim/demand custody. Physical task/attempt/holder/lease and publisher receipts
+remain authentic execution fences. The retained legacy run branch is a retirement obligation, not
+a second target interface; no synthetic run supplies current custody.
 Raw original-asset support and existing-view support remain distinct authenticated reference
 branches. Sealed PDF publisher custody remains separate from a later current admission fence;
 the native completion envelope must retain both when adopting an already-published result.
 
 **Accepted target; integration Proposed · 2026-11-13.** Current DDO request and product
 identities include one explicit qualified subject context: project, local subject, original source
-and analyzed scope. Native authentication reconstructs that context from admitted custody. Local
+and analyzed scope, with the mandatory checked subject-definition reference. Native authentication reconstructs that context from admitted custody. Local
 subject headers remain for display and joins; historical frozen interpretations retain their
 original identity meaning. The coordinator owns implementation and qualification.
 
 **Implemented native foundation; scoped Tested · 2026-11-13.** Registered successor
 `semantic_ddo_projection_v1` closes population ambiguity by full authenticated member context,
 preserving JSONB numeric value meaning and null/string distinction under each declared body schema.
-Current target admission requires model v5; exact historical v2/v3/v4 reading grants no current admission.
+The current target admission requires model v8 and refuses obsolete interpretation families;
+this dated foundation does not establish subsequent source correspondence or full native acceptance.
 Effective identity headers avoid repeating canonical witnesses while complete governing facts remain
 archived ([ADR-0105](../adr/0105-compact-effective-identity-archives.md)).
 Independent native replay, principal, support/recovery and scoped discovery controls are reconciled
