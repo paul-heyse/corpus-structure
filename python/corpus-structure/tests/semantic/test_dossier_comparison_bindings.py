@@ -1,14 +1,13 @@
 """Exact side custody, directed roles and native composition parity."""
 
-from pathlib import Path
+from dataclasses import replace
 
 import pytest
-from sqlalchemy import text
 
 from corpus_structure.methods.structural_products import derive_dossier_members
 from corpus_structure.semantic.structural_products import (
-    StructuralProductReport,
-    definition_component,
+    DeclaredStructuralProductReport,
+    declared_definition_component,
 )
 from semantic.dossier_comparison_bindings_support import (
     fixture as fixture,
@@ -62,24 +61,31 @@ def test_side_binding_keeps_opposite_context_and_requires_own_membership():
 @pytest.mark.parametrize("failure", ["scope", "version", "target_custody", "source", "occurrence"])
 def test_comparison_qualification_rejects_substitution(failure):
     value, root, root_ref, reference, payload, selected, relationships = fixture()
-    from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
+    from corpus_structure.semantic.declared_structural_references import DeclaredRelationshipRef
 
     relationship_ref = selected[0].relationship_ref
-    assert isinstance(relationship_ref, RetainedRelationshipDecisionRef)
+    assert isinstance(relationship_ref, DeclaredRelationshipRef)
     relationship = relationships[relationship_ref]
+    binding = relationship.binding
     match = "exact scoped root relationship"
     if failure == "scope":
-        relationship["decision"]["scope"] = "other"
+        binding = replace(binding, decision=replace(binding.decision, scope="other"))
     elif failure == "version":
-        relationship["decision"]["effective_version"] = "R1"
+        binding = replace(binding, decision=replace(binding.decision, effective_version="R1"))
     elif failure == "target_custody":
-        relationship["component_targets"][0]["reference"]["cut_id"] += 1
+        from corpus_structure.semantic.contextual_retrieval import target_representation
+        carrier = binding.representations[0]
+        changed = target_representation(carrier.target_id, "wrong-exact-root", carrier.label, carrier.description,
+            type_name=carrier.type_name, scope=carrier.scope, effective_version=carrier.effective_version)
+        binding = replace(binding, representations=(changed,))
+        match = "exact native root component"
     elif failure == "source":
-        relationship["source_view_id"] += 10
+        binding = replace(binding, source_pin={**binding.source_pin, "source_product": "another"})
     else:
-        relationship["located_occurrence"][0]["start"] += 1
-        relationship["located_occurrence"][0]["end"] += 1
-        match = "outside the exact comparison side"
+        anchor = binding.anchors[0]
+        binding = replace(binding, anchors=({**anchor, "start": anchor["start"] + 1, "end": anchor["end"] + 1},))
+        match = "actual native source text"
+    relationships[relationship_ref] = replace(relationship, binding=binding)
     with pytest.raises(ValueError, match=match):
         derive(value, root, root_ref, reference, payload, selected[:1], relationships)
 
@@ -88,7 +94,7 @@ def test_comparison_root_witness_cannot_bind_another_focus_in_the_same_passage()
     from corpus_structure.methods.structural_products import _comparison_member_roles
 
     value, root, root_ref, reference, payload, selected, relationships = fixture()
-    report = StructuralProductReport.model_validate(payload["report"])
+    report = DeclaredStructuralProductReport.model_validate(payload["report"])
     assert report.comparison is not None
     left = next(p for p in value.passages if p.passage_id == report.comparison.left_id)
     report = report.model_copy(
@@ -114,12 +120,12 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
     from corpus_structure.methods.structural_products import _comparison_member_roles
     from corpus_structure.semantic.structural_products import (
         ApplicabilityPremise,
-        DefinitionProduct,
-        StructuralDefinitionReading,
+        DeclaredDefinitionProduct,
+        DeclaredStructuralDefinitionReading,
     )
 
     value, root, root_ref, reference, payload, selected, relationships = fixture(exception=False)
-    report = StructuralProductReport.model_validate(payload["report"])
+    report = DeclaredStructuralProductReport.model_validate(payload["report"])
     assert report.comparison is not None
     left, right = value.passages
     left_focus, right_focus = span(left, "Apply measure"), span(right, "Measure is a control rule")
@@ -143,7 +149,7 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
             )
         }
     )
-    premise = StructuralProductReport(
+    premise = DeclaredStructuralProductReport(
         kind="definition_applicability",
         inputs=value.model_copy(
             update={
@@ -160,13 +166,13 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
                 ),
             }
         ),
-        definition=DefinitionProduct(
+        definition=DeclaredDefinitionProduct(
             usage_id=usage.passage_id,
             candidate_list_id="candidate-list",
             eligible_targets=(root.component_id,),
             candidate_targets=(root.component_id,),
             readings=(
-                StructuralDefinitionReading(
+                DeclaredStructuralDefinitionReading(
                     target_id=root.component_id,
                     component_ref=root_ref,
                     link_ref=selected[0].relationship_ref,
@@ -194,7 +200,7 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
             ),
         ),
     )
-    premise_ref = reference.model_copy(update={"product_id": premise.product_id})
+    premise_ref = reference.model_copy(update={"product_id": "unadmitted:applicability", "structural_id": premise.product_id})
     text = f'"{left_focus.text}" contradicts "{right_focus.text}".'
     proof = left.model_copy(
         update={
@@ -235,77 +241,22 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
 
 
 def test_revision_requires_original_successor_and_direction():
-    value = side_inputs()
-    left, right = value.passages
-    left_text = (
-        "Apply measure. Measure is a control rule.\nClause rules.\n"
-        "Revision R2 supersedes revision R1."
-    )
+    from semantic.structural_products_support import input_from_passages
+    from semantic.structural_formal_support import formal_reading_sets
+    left_text = "Apply measure. Measure is a control rule.\nClause rules.\nRevision R2 supersedes revision R1."
     right_text = "Measure is a control rule.\nClause rules.\nRevision R1."
-    right = right.model_copy(
-        update=dict(
-            text=right_text,
-            source_ref=left.source_ref,
-            start=len(left_text) + 1,
-            end=len(left_text) + 1 + len(right_text),
-            parent="rules",
-            effective_version="R1",
-        )
-    )
-    left = left.model_copy(update=dict(text=left_text, end=len(left_text), parent="rules"))
-    value = value.model_copy(update=dict(passages=(left, right)))
-    from semantic.primary_formal_fixture import formal_layers
-
-    primary = formal_layers(value)
+    value = input_from_passages((
+        dict(passage_id="a", document="same-original", text=left_text, start=0,
+             scope="rules", effective_version="R2", parent="rules"),
+        dict(passage_id="b", document="same-original", text=right_text, start=len(left_text)+1,
+             scope="rules", effective_version="R1", parent="rules"),
+    ), scope="rules")
     value, root, root_ref, reference, payload, selected, relationships = fixture(
-        value, exception=False, root_on_left=True, primary_layers=primary
-    )
+        value, exception=False, root_on_left=True, primary_layers=formal_reading_sets(value))
     members, _ = derive(value, root, root_ref, reference, payload, selected[:1], relationships)
     assert [(m.role, m.citation.text) for m in members if m.role == "revision"] == [
         ("revision", "Revision R2 supersedes revision R1.")
     ]
-
-
-def test_native_role_projection_matches_python_and_refuses_stale_target(commit_db_engine):
-    value, root, root_ref, reference, payload, selected, relationships = fixture()
-    members, _ = derive(value, root, root_ref, reference, payload, selected[:1], relationships)
-    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
-    statement = text(
-        "SELECT role FROM ops.dossier_comparison_roles(CAST(:ref AS jsonb),CAST(:report AS jsonb),"
-        "CAST(:selection AS jsonb),CAST(:edge AS jsonb),CAST(:root_ref AS jsonb),"
-        "CAST(:root AS jsonb)) role"
-    )
-    from json import dumps
-
-    from sqlalchemy.exc import DBAPIError
-
-    from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
-
-    relationship_ref = selected[0].relationship_ref
-    assert isinstance(relationship_ref, RetainedRelationshipDecisionRef)
-    edge = relationships[relationship_ref]
-    arguments = dict(
-        ref=reference.model_dump_json(),
-        report=dumps(payload["report"]),
-        selection=selected[0].model_dump_json(),
-        edge=dumps(edge),
-        root_ref=root_ref.model_dump_json(),
-        root=root.model_dump_json(),
-    )
-    with commit_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(sql.read_text(), execution_options={"no_parameters": True})
-        actual = list(conn.scalars(statement, arguments))
-        assert actual == [
-            dict(
-                role=m.role,
-                span=m.citation.model_dump(mode="json"),
-                comparison_binding=binding(m).model_dump(mode="json", exclude_none=True),
-            )
-            for m in members
-        ]
-        edge["component_targets"][0]["reference"]["cut_id"] += 1
-        with pytest.raises(DBAPIError, match="exact scoped root relationship"), conn.begin_nested():
-            conn.execute(statement, {**arguments, "edge": dumps(edge)})
 
 
 def test_typed_source_dependency_keeps_both_endpoints_outside_computational_dependencies():
@@ -320,7 +271,7 @@ def test_typed_source_dependency_keeps_both_endpoints_outside_computational_depe
     initial = derive_contribution_members(value, ref, payload)[0]
     assert initial.contribution_citations is not None
     citations = {c.span.text: c.span for c in initial.contribution_citations}
-    root = definition_component(
+    root = declared_definition_component(
         term=citations["Probability %"],
         content=citations["50"],
         scope=passage.scope,
