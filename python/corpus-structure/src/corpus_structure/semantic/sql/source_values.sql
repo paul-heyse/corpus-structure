@@ -73,6 +73,35 @@ END $fn$;
 REVOKE ALL ON FUNCTION data.record_source_json(jsonb) FROM PUBLIC;
 
 
+-- Exact integer-only JSON metadata to SourceValue. JSON null is observed null;
+-- SQL NULL remains SQL NULL. Object field order is canonical UTF-8/C order.
+CREATE OR REPLACE FUNCTION data.record_json_source(p jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE result jsonb; kind text:=jsonb_typeof(p);
+BEGIN
+ CASE kind
+ WHEN 'null' THEN RETURN jsonb_build_object('kind','null');
+ WHEN 'string' THEN RETURN jsonb_build_object('kind','text','text',p);
+ WHEN 'boolean' THEN RETURN jsonb_build_object('kind','boolean','boolean',p);
+ WHEN 'number' THEN
+  IF (p#>>'{}') !~ '^-?(0|[1-9][0-9]*)$' THEN
+   RAISE EXCEPTION 'source metadata requires exact integer JSON numbers' USING ERRCODE='23514'; END IF;
+  RETURN jsonb_build_object('kind','integer','integer',p);
+ WHEN 'array' THEN
+  SELECT COALESCE(jsonb_agg(data.record_json_source(value) ORDER BY position),'[]') INTO result
+   FROM jsonb_array_elements(p) WITH ORDINALITY x(value,position);
+  RETURN jsonb_build_object('kind','array','items',result);
+ WHEN 'object' THEN
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('name',key,'position',position-1,
+      'value',data.record_json_source(value)) ORDER BY position),'[]') INTO result
+   FROM (SELECT key,value,row_number() OVER (ORDER BY key COLLATE "C") AS position FROM jsonb_each(p)) x;
+  RETURN jsonb_build_object('kind','object','fields',result);
+ ELSE RAISE EXCEPTION 'unsupported source metadata JSON' USING ERRCODE='23514';
+ END CASE;
+END $fn$;
+REVOKE ALL ON FUNCTION data.record_json_source(jsonb) FROM PUBLIC;
+
+
 -- Pure JSON meaning agrees with the fixed graph scalar/container ABI. No datatype
 -- labels or source-product classes are introduced into graph values.
 CREATE OR REPLACE FUNCTION data.record_json_meaning(p jsonb) RETURNS jsonb
