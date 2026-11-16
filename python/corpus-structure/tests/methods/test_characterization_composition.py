@@ -1,180 +1,80 @@
-"""Ordinary composition selects exact retained inputs and preserves weaker profiles."""
-
-from pathlib import Path
-from types import SimpleNamespace
+"""Current composition preserves exact products, source selection and weak coverage."""
 
 import pytest
-from semantic.characterization_support import layer_payload
-from semantic.sealed_primary_fixture import compose_view_result
 
-from corpus_structure.core.method import UnitRef, UnitView
-from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.methods.characterization import ComposeViewConfig
-from corpus_structure.semantic.characterization import _published_layer_manifest, validate_layer
-from corpus_structure.semantic.product_reference import ProductReference
-
-
-@pytest.fixture(scope="module")
-def prepared():
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-    from corpus_structure.semantic.characterization import characterization_inputs
-
-    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    bundle = SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
-    return prepare_release(characterization_inputs(bundle))
+from corpus_structure.semantic.data_product_reference import DataProductReference
+from corpus_structure.semantic.enriched_document_products import compose_enriched_document
+from corpus_structure.semantic.formal_products import FormalEvidenceOptions
+from semantic.formal_products_support import selected
+from semantic.test_construction_products import _publication_context
+from semantic.test_construction_products import profiles as profiles
 
 
-def inputs(prepared):
-    body = layer_payload(prepared)
-    base = ProductReference(**body["base_document"])
-    ref = SimpleNamespace(id=11, document_id=17, native_product=base)
-    reader = SimpleNamespace(
-        prepared=prepared, source_views=lambda: [ref], characterization_layers=lambda pins: {}
-    )
-    reader.characterization_manifests = lambda pins: {
-        pin: _published_layer_manifest(
-            pin,
-            {
-                key: value
-                for key, value in report.payload.items()
-                if key
-                in {
-                    "format",
-                    "release_id",
-                    "base_document",
-                    "operation",
-                    "source_scope",
-                    "outcome",
-                    "dependencies",
-                    "coverage",
-                }
-            },
+def test_source_only_view_preserves_source_without_analytical_coverage(profiles):
+    formal, construction = profiles
+    source = selected(formal, "All samples are finite.")
+    view = compose_enriched_document(
+        construction.prepared,
+        construction.model,
+        (source,),
+        (),
+        profile="source_only",
+        subject_context=_publication_context(source, document=True),
+    ).value.model_dump(mode="json", exclude_unset=True)
+    assert view["sources"] == [source.value]
+    assert view["profile"] == "source_only"
+    assert view["products"] == view["active"] == view["coverage"] == []
+
+
+def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_product(profiles):
+    formal, construction = profiles
+    source = selected(formal, "Not every trial succeeds.")
+    context = _publication_context(source)
+    primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    symbolic = construction.run(source, (primary,), subject_context=context)
+    original = (primary.content, primary.semantic_id, primary.prepared)
+    result = compose_enriched_document(
+        construction.prepared,
+        construction.model,
+        (source,),
+        (primary, symbolic),
+        active=(DataProductReference(symbolic.semantic_id),),
+        subject_context=_publication_context(source, document=True),
+    ).value.model_dump(mode="json", exclude_unset=True)
+    assert result["products"] == [DataProductReference(primary.semantic_id).values(), DataProductReference(symbolic.semantic_id).values()]
+    assert result["active"] == [DataProductReference(symbolic.semantic_id).values()]
+    assert result["coverage"]
+    assert all(row["products"] == [DataProductReference(symbolic.semantic_id).values()] for row in result["coverage"])
+    assert (primary.content, primary.semantic_id, primary.prepared) == original
+    assert primary.prepared is original[2]
+    for active in (
+        (DataProductReference(symbolic.semantic_id), DataProductReference(symbolic.semantic_id)),
+        (DataProductReference("unselected-product"),),
+    ):
+        with pytest.raises(ValueError, match="exact subset"):
+            compose_enriched_document(
+                construction.prepared, construction.model, (source,), (primary, symbolic),
+                active=active, subject_context=_publication_context(source, document=True),
+            )
+    with pytest.raises(ValueError, match="exact selected dependency"):
+        compose_enriched_document(
+            construction.prepared, construction.model, (source,), (symbolic,),
+            active=(DataProductReference(symbolic.semantic_id),), subject_context=_publication_context(source, document=True),
         )
-        for pin, report in reader.characterization_layers(pins).items()
-    }
-    run = SimpleNamespace(reader=reader)
-    unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, 17), run)
-    return body, reader, run, unit
-
-
-def test_sealed_source_only_returns_terminal_view(prepared, tmp_path):
-    body, reader, _run, unit = inputs(prepared)
-    cfg = ComposeViewConfig(
-        characterization_base_document=body["base_document"],
-        characterization_source_scope=body["source_scope"],
-    )
-    result = compose_view_result(reader, cfg, unit.ref)
-    assert result.characterization_view is not None
-    assert result.characterization_view.payload["profile"] == "source_only"
-    assert result.characterization_view is not None
-    assert result.characterization_view.payload["layers"] == []
-    assert result.characterization_view is not None
-    assert result.characterization_view.payload["coverage"] == []
-
-
-def test_selected_layer_closure_is_retained(prepared):
-    body, reader, _run, unit = inputs(prepared)
-    report = validate_layer(prepared, body)
-    pin = report.reference(19)
-    reader.characterization_layers = lambda pins: {pin: report}
-    cfg = ComposeViewConfig(
-        characterization_base_document=body["base_document"],
-        characterization_source_scope=body["source_scope"],
-        characterization_layers=(pin.values(),),
-        characterization_profile="selected_layers",
-    )
-    result = compose_view_result(reader, cfg, unit.ref)
-    assert result.characterization_view is not None
-    assert result.characterization_view.payload["coverage"] == report.payload["coverage"]
-    assert result.characterization_view is not None
-    assert result.characterization_view.payload["layers"] == [pin.values()]
-
-
-def test_unbound_config_and_wrong_document_refuse(prepared):
-    body, reader, _run, _unit = inputs(prepared)
-    with pytest.raises(ValueError, match="explicit base"):
-        ComposeViewConfig().require_selection()
-    cfg = ComposeViewConfig(
-        characterization_base_document=body["base_document"],
-        characterization_source_scope=body["source_scope"],
-    )
-    with pytest.raises(ValueError, match="task unit"):
-        compose_view_result(reader, cfg, UnitRef(TaskUnitType.DOCUMENT, 99))
-    with pytest.raises(ValueError, match="source_only"):
-        ComposeViewConfig(
-            characterization_layers=(dict(task_id=1, product_key="layer", content_digest="a" * 64),)
+    with pytest.raises(ValueError, match="source-only"):
+        compose_enriched_document(
+            construction.prepared, construction.model, (source,), (primary,),
+            profile="source_only", subject_context=_publication_context(source, document=True),
         )
 
 
-def test_composition_resolves_original_release_without_rewriting_retained_layer(prepared):
-    from semantic.characterization_construction_support import construction_release_inputs
-
-    from corpus_structure.semantic import prepare_release
-
-    body, reader, _run, unit = inputs(prepared)
-    report = validate_layer(prepared, body)
-    pin = report.reference(19)
-    newer = prepare_release(construction_release_inputs())
-    reader.prepared = newer
-    reader.characterization_layers = lambda pins: {pin: report}
-    resolved = []
-
-    def release(identity):
-        resolved.append(identity)
-        assert identity == prepared.release_id
-        return prepared
-
-    reader.characterization_release = release
-    cfg = ComposeViewConfig(
-        characterization_base_document=body["base_document"],
-        characterization_source_scope=body["source_scope"],
-        characterization_layers=(pin.values(),),
-        characterization_profile="selected_layers",
-    )
-    result = compose_view_result(reader, cfg, unit.ref)
-    assert result.characterization_view is not None
-    assert result.characterization_view.payload["release_id"] == newer.release_id
-    assert result.characterization_view.payload["layers"] == [pin.values()]
-    assert report.payload["release_id"] == prepared.release_id
-    # Original-release authentication belongs to the protected manifest read, not a
-    # fresh whole-layer reconstruction during composition.
-    assert resolved == []
-
-
-def test_dependency_retention_does_not_select_its_interpretations(prepared):
-    from copy import deepcopy
-
-    from corpus_structure.semantic.characterization import validate_view
-
-    body, reader, _run, unit = inputs(prepared)
-    old = validate_layer(prepared, body)
-    old_pin = old.reference(19)
-    newer_body = deepcopy(body)
-    newer_body["dependencies"] = [old_pin.values()]
-    newer_body["operation"]["input"] = "refreshed-rules"
-    newer_body["coverage"][0]["reason"] = "newly selected analysis"
-    new = validate_layer(prepared, newer_body, dependencies={old_pin: old})
-    new_pin = new.reference(20)
-    closure = {old_pin: old, new_pin: new}
-    reader.characterization_layers = lambda pins: closure
-    cfg = ComposeViewConfig(
-        characterization_base_document=body["base_document"],
-        characterization_source_scope=body["source_scope"],
-        characterization_layers=(old_pin.values(), new_pin.values()),
-        characterization_active_layers=(new_pin.values(),),
-        characterization_profile="selected_layers",
-    )
-    result = compose_view_result(reader, cfg, unit.ref)
-    assert result.characterization_view is not None
-    view = result.characterization_view.payload
-    assert view["layers"] == [old_pin.values(), new_pin.values()]
-    assert view["active_layers"] == [new_pin.values()]
-    assert view["coverage"] == new.payload["coverage"]
-    with pytest.raises(ValueError, match="coverage"):
-        validate_view(prepared, {**view, "coverage": old.payload["coverage"]}, closure)
-    with pytest.raises(ValueError, match="active layer"):
-        validate_view(
-            prepared, {**view, "active_layers": [new_pin.values(), new_pin.values()]}, closure
+def test_composition_refuses_an_actual_product_from_an_unselected_source(profiles):
+    formal, construction = profiles
+    source = selected(formal, "All samples are finite.")
+    other = selected(formal, "Every trial succeeds.")
+    product = formal.run(other, FormalEvidenceOptions(), subject_context=_publication_context(other))
+    with pytest.raises(ValueError, match="no retained original source coordinate"):
+        compose_enriched_document(
+            construction.prepared, construction.model, (source,), (product,),
+            active=(DataProductReference(product.semantic_id),), subject_context=_publication_context(source, document=True),
         )
-    with pytest.raises(ValueError, match="dependency closure"):
-        validate_view(prepared, {**view, "layers": [new_pin.values()]}, closure)

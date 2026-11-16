@@ -1,32 +1,15 @@
-"""The method contract (D4 §1; orchestration §3.1, P0-O-0).
+"""Shared source-result payloads, resource settings and configuration references.
 
-The types live in `core` because the methods sit below `orchestrate` (in `ingest/`, `methods/`,
-`validate/` and `consolidate/`, D9 §1) and import them without importing orchestration:
-
-- `Method`, the protocol every registered method satisfies, and the
-  `ConfidenceSource` its observations contribute to (or none);
-- the views a method reads: `UnitRef`, `UnitView`, `RunView` and the `Reader` protocol, which O1
-  implements over the database already scoped to the run (its renditions, reuse, cut);
-- what a method returns: `ObservationDraft`s naming their payload class, version and source,
-  `MeasurementDraft`s, and one `UnitResult` per unit; `Digest` from `input_digest`;
-- `Resources`, `MethodSettings` (the result-neutral settings only) and `MethodContext`;
-- the configuration reference markers (`ArtifactRef`, `ConfigRef`,
-  `PackSection`), found on a `Config` by `config_references`;
-- `payload_hash`, the one form in which digests cite upstream observations;
-- the `Registry` interface and `ResolvedConfig`.
-
-Nothing here reads the database, the environment or a pack file. `MethodSettings` is a frozen
-`BaseModel`, never a `BaseSettings` (coordinator decision 26): a method's settings view is built by
-its caller from the process settings and carries nothing that can change a method's output.
+These pure types are consumed by current source kernels and declared operations.
+Execution, native custody and prepared-call ownership belong to their explicit owners.
 """
 
 from __future__ import annotations
 
 import hashlib
-import logging
 import math
 import typing
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -40,7 +23,6 @@ from corpus_structure.core.vocab import (
     MeasurementScope,
     ObservationKind,
     ObservationOutcome,
-    RunKind,
     TaskUnitType,
 )
 
@@ -60,9 +42,6 @@ if typing.TYPE_CHECKING:
         LayerManifest,
         LayerReport,
     )
-    from corpus_structure.semantic.pdf_integrated import (
-        PreparedIntegratedPdfProduct,
-    )
     from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
     from corpus_structure.semantic.product_reference import ProductReference
     from corpus_structure.semantic.source_contexts import SourceContextRead, SourceContextRequest
@@ -75,9 +54,7 @@ if typing.TYPE_CHECKING:
 
 
 class Digest(NamedTuple):
-    """What `input_digest` returns: the bytes that enter the input hash (D6 §4), and the hash of
-    the assembled packet for a packet method (M24; M10 from phase 1). Every other method leaves
-    `packet_hash` None."""
+    """Exact input bytes with an optional separately retained packet hash."""
 
     bytes: bytes
     packet_hash: str | None = None
@@ -115,7 +92,7 @@ def payload_hash(payload: BaseModel | Mapping[str, Any]) -> str:
     return hashlib.sha256(canonical_json(_decimals(raw, "$"))).hexdigest()
 
 
-# --- Units and runs ----------------------------------------------------------------------------
+# --- Source unit references ----------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -436,53 +413,6 @@ class SourcePreparationReader(Protocol):
         ...
 
 
-@dataclass(frozen=True, slots=True)
-class RunView:
-    """The run a method works in: its identity and versions, its resolved options and the reader.
-    `options` are the run's stored, resolved options (orchestration §3.4)."""
-
-    run_id: int
-    kind: RunKind
-    phase: int
-    reference_run_id: int | None
-    model_revision: str
-    schema_version_id: int
-    guideline_version_id: int | None
-    policy_version_id: int | None
-    key_scheme: int
-    options: Mapping[str, JsonValue]
-    reader: Reader
-
-
-class SourceRunContext(Protocol):
-    """Fields source operations read, independent of the legacy interpretation catalog."""
-
-    @property
-    def run_id(self) -> int: ...
-    @property
-    def kind(self) -> RunKind: ...
-    @property
-    def phase(self) -> int: ...
-    @property
-    def reference_run_id(self) -> int | None: ...
-    @property
-    def options(self) -> Mapping[str, JsonValue]: ...
-    @property
-    def reader(self) -> Reader: ...
-
-
-@dataclass(frozen=True, slots=True)
-class UnitView:
-    """A unit with its document and rendition where they apply, and the run view."""
-
-    ref: UnitRef
-    run: SourceRunContext
-    document_id: int | None = None
-    rendition_id: int | None = None
-    source_view_id: int | None = None
-    context_only: bool = False
-
-
 # --- Drafts and results ------------------------------------------------------------------------
 
 
@@ -540,13 +470,6 @@ class ObservationDraft[P: BaseModel]:
         for extent in (self.projected_span, self.recognized_span):
             if extent is not None and not 0 <= extent[0] < extent[1]:
                 raise ValueError("native observation extent is empty or reversed")
-
-    def source(self, method: Method[Any]) -> str | None:
-        """The draft's confidence source: its own, or else the method's."""
-        if self.confidence_source is METHOD_SOURCE:
-            return method.confidence_source
-        return self.confidence_source
-
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class MeasurementDraft:
@@ -665,14 +588,14 @@ class UnitResult:
             )
 
 
-# --- Resources, settings and context -----------------------------------------------------------
+# --- Resources and settings -----------------------------------------------------------
 
 WorkerKind = Literal["cpu", "encoder", "llm", "agent"]
 
 
 @dataclass(frozen=True, slots=True)
 class Resources:
-    """The worker kind a method's tasks run on, its batch size and its maximum concurrency."""
+    """Owned worker kind, batch size and maximum concurrency."""
 
     worker: WorkerKind = "cpu"
     batch_size: int = 1
@@ -697,16 +620,6 @@ class MethodSettings(BaseModel):
     nemotron_worker: Path = Path("services/nemotron-parse/worker.py")
     nemotron_receipts: Path = Path("build/recognition")
     nemotron_timeout_seconds: float = 1800.0
-
-
-def _unleased_operation() -> None:
-    """Standalone method kernels have no external task lease to maintain."""
-
-
-def _unowned_observation_publication(
-    ref: UnitRef, product: PreparedIntegratedPdfProduct
-) -> ProductReference:
-    raise RuntimeError("recognition observation publication requires an owned task fence")
 
 
 @dataclass(frozen=True, slots=True)
@@ -748,52 +661,12 @@ class PdfRecordPublicationDraft:
     kind: Literal["native", "integrated"] = "native"
 
 
-def _unowned_record_publication(
-    ref: UnitRef, product: PdfRecordPublicationDraft
-) -> ProductReference:
-    raise RuntimeError("record publication requires an owned task fence")
-
-
-def _unowned_record_production(ref: UnitRef, request: PdfRecordProducerRequest) -> ProductReference:
-    raise RuntimeError("record production requires an owned task fence")
-
-
-def _unowned_characterization_operation(ref: UnitRef) -> Mapping[str, str]:
-    raise RuntimeError("characterization requires an owned task operation identity")
-
-
-@dataclass(frozen=True, slots=True)
-class MethodContext:
-    """What `run` receives beside its units: the run view, its reader, the settings view and a
-    logger. The execution owner supplies check_active for leased work; native workers poll
-    that control port without acquiring database or lease ownership."""
-
-    run: SourceRunContext
-    reader: Reader
-    settings: MethodSettings
-    logger: logging.Logger
-    check_active: Callable[[], None] = _unleased_operation
-    characterization_operation: Callable[[UnitRef], Mapping[str, str]] = (
-        _unowned_characterization_operation
-    )
-    produce_pdf_records: Callable[[UnitRef, PdfRecordProducerRequest], ProductReference] = (
-        _unowned_record_production
-    )
-    retain_pdf_records: Callable[[UnitRef, PdfRecordPublicationDraft], ProductReference] = (
-        _unowned_record_publication
-    )
-    retain_pdf_observation: Callable[[UnitRef, PreparedIntegratedPdfProduct], ProductReference] = (
-        _unowned_observation_publication
-    )
-
-
 # --- Configuration references ------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
 class ArtifactRef:
-    """A `Config` field resolved to the hash of the run's schema version's compiled artifact of
-    this compiler and kind (D4 §1, D3 §3)."""
+    """A configuration field naming an acquired compiled artifact by compiler and kind."""
 
     compiler: str
     kind: str
@@ -821,7 +694,7 @@ _REFERENCES = (ArtifactRef, ConfigRef, PackSection)
 
 def config_references(config: type[BaseModel]) -> dict[tuple[str, ...], ConfigReference]:
     """Every reference marker on a `Config`'s fields (`Annotated[str, ArtifactRef(...)]`), by the
-    field's path through nested models, found by introspection; the registry resolves them without
+    field's path through nested models, found by introspection; the acquisition owner resolves them without
     naming any section, profile or compiler. A field with two markers is refused."""
     out: dict[tuple[str, ...], ConfigReference] = {}
 
@@ -838,66 +711,3 @@ def config_references(config: type[BaseModel]) -> dict[tuple[str, ...], ConfigRe
 
     visit(config, ())
     return out
-
-
-# --- The method protocol and the registry ------------------------------------------------------
-
-
-class Method[C: BaseModel](Protocol):
-    """A registered method (D4 §1): stable name and version, family, unit type, confidence
-    source, its `Config` model and resources, and the three calls."""
-
-    name: str
-    version: str
-
-    @property
-    def family(self) -> str: ...
-
-    unit_type: TaskUnitType
-
-    @property
-    def confidence_source(self) -> str | None: ...
-
-    Config: type[C]
-    resources: Resources
-
-    def select(self, run: SourceRunContext, cfg: C) -> Iterable[UnitRef]:
-        """The default units, when no policy narrows them."""
-        ...
-
-    def input_digest(self, unit: UnitView, cfg: C) -> Digest:
-        """What the unit's result depends on, by content (D4 §1 rule 4, D6 §4)."""
-        ...
-
-    def run(self, units: Sequence[UnitView], cfg: C, ctx: MethodContext) -> Sequence[UnitResult]:
-        """One result per unit, in the units' order."""
-        ...
-
-
-@dataclass(frozen=True, slots=True)
-class ResolvedConfig:
-    """A method's named configuration as a run uses it: the `Config` instance after the merge and
-    reference resolution, its canonical params, the config hash and the `ops.method_config` row."""
-
-    method: str
-    name: str
-    config: BaseModel
-    params: Mapping[str, JsonValue]
-    config_hash: str
-    method_config_id: int | None = None
-
-
-class Registry(Protocol):
-    """How A2, E1 and the MCP server name methods and configurations (O1 implements it)."""
-
-    def method(self, name: str) -> Method[Any]:
-        """The registered method of that name; an unregistered name is refused."""
-        ...
-
-    def methods(self) -> Sequence[Method[Any]]:
-        """Every registered method."""
-        ...
-
-    def config(self, method: str, name: str) -> ResolvedConfig:
-        """A method's named configuration (`<method>/<name>`), resolved for the run's schema."""
-        ...

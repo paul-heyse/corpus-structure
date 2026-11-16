@@ -50,7 +50,7 @@ def test_lint_reports_a_seeded_metamodel_error(tmp_path: Path) -> None:
     shutil.copy(MODEL / "core.yaml", tmp_path / "core.yaml")
     text = (MODEL / "system.yaml").read_text(encoding="utf-8")
     (tmp_path / "system.yaml").write_text(
-        text.replace("  RunStatus:\n", "  RunStatus:\n    bogus: 1\n", 1)
+        text.replace("  VersionState:\n", "  VersionState:\n    bogus: 1\n", 1)
     )
     assert any(
         "'bogus' was unexpected" in line
@@ -367,7 +367,7 @@ def test_regenerating_reproduces_every_committed_file(loaded: model.Model, tmp_p
 _TM_11 = (
     # the vocab.py sets of F2b, as they were
     "VersionState SchemaClassKind EntityScope SlotRole RuleGroup RuleSeverity MethodFamily "
-    "PolicyChain RunKind RunStatus TaskUnitType TaskStatus "
+    "PolicyChain TaskUnitType TaskStatus "
     "ObservationKind ObservationOutcome AliasKind StatementRole ClaimStatus Establishment "
     "EvidenceRole LinkType MeasurementScope InterventionKind ExperimentDecision DocumentSplit "
     "GoldenSplit GoldenUnitStatus GoldenPass GoldenItemType AlignmentTarget AlignmentTier "

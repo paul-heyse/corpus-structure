@@ -1,20 +1,13 @@
-"""The method contract (D4 §1; orchestration §3.1, P0-O-0).
-
-The stub methods below are checked against the `Method` protocol by pyrefly as part of the
-ordinary type check; `test_a_draft_without_a_payload_class_fails_to_type_check` runs pyrefly on a
-snippet that must fail.
-"""
+"""Independent shared payload, digest, settings and configuration-reference contracts."""
 
 from __future__ import annotations
 
 import datetime
 import json
-import logging
 import shutil
 import subprocess
 import sysconfig
 import unicodedata
-from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -27,27 +20,21 @@ from corpus_structure.core.method import (
     ArtifactRef,
     ConfigRef,
     Digest,
-    Method,
-    MethodContext,
     MethodSettings,
+    METHOD_SOURCE,
     ObservationDraft,
     PackSection,
     Resources,
-    RunView,
-    SourceRunContext,
     UnitRef,
     UnitResult,
-    UnitView,
     config_references,
     payload_hash,
 )
 from corpus_structure.core.payloads import AuthorMarkupPayload, LinkPayload
 from corpus_structure.core.vocab import (
     ConfidenceSource,
-    MethodFamily,
     ObservationKind,
     ObservationOutcome,
-    RunKind,
     TaskUnitType,
 )
 
@@ -63,83 +50,15 @@ class StubConfig(BaseModel):
     threshold: str = "0.5"
 
 
-class StubMethod:
-    """A method of any unit type: what the protocol asks, and nothing more."""
+def test_digest_retains_exact_input_and_optional_packet_identity() -> None:
+    plain = Digest(b"u1|0.5")
+    assert plain.bytes == b"u1|0.5" and plain.packet_hash is None
+    packet = Digest(b"packet of u1", payload_hash({"packet": "packet of u1"}))
+    assert packet.bytes == b"packet of u1"
+    # Independent canonical packet bytes, without a run or method dispatcher.
+    import hashlib
 
-    version = "1"
-    family = MethodFamily.EXTRACT
-
-    confidence_source: ConfidenceSource | None = None
-    Config = StubConfig
-    resources = Resources()
-
-    def __init__(self, unit_type: TaskUnitType) -> None:
-        self.name = f"stub.{unit_type}"
-        self.unit_type = unit_type
-
-    def select(self, run: SourceRunContext, cfg: StubConfig) -> Iterable[UnitRef]:
-        return [UnitRef(self.unit_type, 1, "u1")]
-
-    def input_digest(self, unit: UnitView, cfg: StubConfig) -> Digest:
-        return Digest(f"{unit.ref.unit_key}|{cfg.threshold}".encode())
-
-    def run(
-        self, units: Sequence[UnitView], cfg: StubConfig, ctx: MethodContext
-    ) -> Sequence[UnitResult]:
-        return [UnitResult(ref=u.ref, outcome=ObservationOutcome.EMPTY) for u in units]
-
-
-class StubPacketMethod:
-    """A packet method (M24's shape): its digest carries the packet hash."""
-
-    name = "agent.stub"
-    version = "1"
-    family = MethodFamily.AGENT
-    unit_type = TaskUnitType.SEGMENT
-
-    confidence_source: ConfidenceSource | None = ConfidenceSource.AGENT
-    Config = StubConfig
-    resources = Resources(worker="agent")
-
-    def select(self, run: SourceRunContext, cfg: StubConfig) -> Iterable[UnitRef]:
-        return []
-
-    def input_digest(self, unit: UnitView, cfg: StubConfig) -> Digest:
-        packet = f"packet of {unit.ref.unit_key}"
-        return Digest(packet.encode(), payload_hash({"packet": packet}))
-
-    def run(
-        self, units: Sequence[UnitView], cfg: StubConfig, ctx: MethodContext
-    ) -> Sequence[UnitResult]:
-        return []
-
-
-METHODS: list[Method[StubConfig]] = [StubMethod(t) for t in TaskUnitType]  # pyrefly checks these
-PACKET: Method[StubConfig] = StubPacketMethod()
-
-
-def test_a_stub_of_every_unit_type_is_a_method() -> None:
-    assert [m.unit_type for m in METHODS] == list(TaskUnitType)
-    assert TaskUnitType.SPAN in {m.unit_type for m in METHODS}  # M12's unit (D4 §1)
-
-
-def unit(key: str = "u1") -> UnitView:
-    reader: Any = None  # no stub here reads
-    run = RunView(run_id=1, kind=RunKind.FULL,
-                  phase=0, reference_run_id=None, model_revision="m1", schema_version_id=1,
-                  guideline_version_id=None, policy_version_id=None, key_scheme=1, options={},
-                  reader=reader)  # fmt: skip
-    return UnitView(UnitRef(TaskUnitType.SEGMENT, 7, key), run)
-
-
-def test_only_a_packet_methods_digest_has_a_packet_hash() -> None:
-    plain = METHODS[0].input_digest(unit(), StubConfig())
-    assert plain.packet_hash is None and plain.bytes == b"u1|0.5"
-    packet = PACKET.input_digest(unit(), StubConfig())
-    assert packet.packet_hash is not None and len(packet.packet_hash) == 64
-
-
-# --- payload_hash ------------------------------------------------------------------------------
+    assert packet.packet_hash == hashlib.sha256(b'{"packet":"packet of u1"}').hexdigest()
 
 
 def test_payload_hash_ignores_key_order_and_normalization() -> None:
@@ -221,11 +140,11 @@ def test_a_draft_names_its_payload_class_version_and_source() -> None:
     payload = link()
     draft = ObservationDraft(kind=ObservationKind.LINK, payload=payload, payload_class=LinkPayload,
                              payload_version="1")  # fmt: skip
-    assert draft.source(PACKET) is ConfidenceSource.AGENT  # the method's by default
+    assert draft.confidence_source is METHOD_SOURCE
     own = ObservationDraft(kind=ObservationKind.LINK, payload=payload, payload_class=LinkPayload,
                            payload_version="1",
                            confidence_source=ConfidenceSource.RULES)  # fmt: skip
-    assert own.source(PACKET) is ConfidenceSource.RULES
+    assert own.confidence_source is ConfidenceSource.RULES
     with pytest.raises(TypeError, match="not the named"):
         ObservationDraft(kind=ObservationKind.LINK, payload=payload,
                          payload_class=AuthorMarkupPayload,
@@ -307,8 +226,14 @@ def test_method_settings_hold_only_their_declared_fields(monkeypatch: pytest.Mon
     from pydantic_settings import BaseSettings
 
     assert not issubclass(MethodSettings, BaseSettings)
-    ctx = MethodContext(unit().run, unit().run.reader, settings, logging.getLogger("stub"))
-    assert ctx.settings is settings
+
+
+def test_resources_keep_explicit_worker_and_positive_bounds() -> None:
+    resource = Resources(worker="encoder", batch_size=4, max_concurrency=2)
+    assert (resource.worker, resource.batch_size, resource.max_concurrency) == ("encoder", 4, 2)
+    for batch_size, max_concurrency in ((0, 1), (1, -1)):
+        with pytest.raises(ValueError, match="at least 1"):
+            Resources(batch_size=batch_size, max_concurrency=max_concurrency)
 
 
 # --- Configuration references ------------------------------------------------------------------

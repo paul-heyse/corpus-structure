@@ -1618,27 +1618,6 @@ enums:
       adjudicate: {}
       identity: {}
       gaps: {}
-  RunKind:
-    description: "`ops.run.kind`."
-    annotations: {ci:lifecycle: static}
-    permissible_values:
-      ingest: {}
-      full: {}
-      slice: {}
-      experiment: {}
-      rescore: {}
-      golden: {}
-  RunStatus:
-    description: "`ops.run.status`."
-    annotations: {ci:lifecycle: static}
-    permissible_values:
-      created: {}
-      running: {}
-      awaiting_agent: {}
-      consolidating: {}
-      finished: {}
-      failed: {}
-      cancelled: {}
   TaskUnitType:
     description: "Current method and native task unit kinds."
     annotations: {ci:lifecycle: static}

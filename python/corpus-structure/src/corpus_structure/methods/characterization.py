@@ -2,60 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Literal
-
-from pydantic import BaseModel, ConfigDict, model_validator
+from typing import ClassVar
 
 from corpus_structure.semantic.characterization_ports import execute_view_profile
 from corpus_structure.semantic.enriched_document_products import (
     EnrichedDocumentProduct,
     RetainedCharacterizationProduct,
 )
-from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_products import FrozenNativeSource
-
-
-class ComposeViewConfig(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    characterization_base_document: dict[str, Any] | None = None
-    characterization_source_scope: dict[str, Any] | None = None
-    characterization_layers: tuple[dict[str, Any], ...] = ()
-    characterization_active_layers: tuple[dict[str, Any], ...] | None = None
-    characterization_profile: Literal["source_only", "selected_layers", "full_characterization"] = (
-        "source_only"
-    )
-
-    @model_validator(mode="after")
-    def exact_selection(self):
-        if self.characterization_base_document is not None:
-            ProductReference(**self.characterization_base_document)
-        pins = [ProductReference(**value) for value in self.characterization_layers]
-        if len(set(pins)) != len(pins):
-            raise ValueError("composition requires distinct exact layer pins")
-        active = (
-            pins
-            if self.characterization_active_layers is None
-            else [ProductReference(**value) for value in self.characterization_active_layers]
-        )
-        if len(set(active)) != len(active) or not set(active) <= set(pins):
-            raise ValueError(
-                "active layer selection must be a distinct subset of dependency closure"
-            )
-        if bool(active) != bool(pins):
-            raise ValueError("analytical composition requires active layers")
-        if (self.characterization_profile == "source_only") != (not pins):
-            raise ValueError("source_only requires no layers; selected_layers requires layers")
-        return self
-
-    def require_selection(self):
-        if (
-            self.characterization_base_document is None
-            or self.characterization_source_scope is None
-        ):
-            raise ValueError("composition requires an explicit base document and source scope")
-        return ProductReference(
-            **self.characterization_base_document
-        ), self.characterization_source_scope
 
 
 class PreparedCompositionReceiver:
