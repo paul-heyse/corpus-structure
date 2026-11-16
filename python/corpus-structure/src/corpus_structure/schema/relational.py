@@ -450,7 +450,7 @@ def render_typed_columns(
     bindings: Mapping[str, Mapping[str, str]] | None = None,
     imports: Iterable[str] = (),
     type_model_id: str | None = None,
-    identifiers_module: str = "._operation_ids",
+    identifiers_module: str,
 ) -> str:
     """Generate declarations and typed views of existing model-owned Core tables."""
     out = [
