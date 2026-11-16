@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.semantic.clause_products import retained_clause_functions
+from corpus_structure.semantic.clause_products import declared_clause_focus, retained_clause_functions
 from corpus_structure.semantic.contributions import contribution_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import (
@@ -141,6 +141,80 @@ def test_context_question_cannot_substitute_for_exact_clause_and_wrong_pair_refu
     changed[1]["operations"][0]["report_digest"] = "different-observation"
     with pytest.raises(ValueError, match="exact request/reply pair"):
         retained_clause_functions(prepared, frame, focus, (7, 13), (changed,))
+
+
+def current_focus_inputs():
+    from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
+    from corpus_structure.semantic.structural_products import (
+        DeclaredClauseFocusSelection,
+        StructuralPassage,
+    )
+    from methods.declared_primary_fixture import selected_source
+
+    text = " " * 20 + "Before. Focus. Next."
+    _, frame, context = selected_source(text)
+    contribution_id = "source-contribution:" + "a" * 64
+    selection = DeclaredClauseFocusSelection(
+        passage_id="sample",
+        frame=DeclaredContributionRef(
+            product_id="unadmitted:predicate-product",
+            member_id="unadmitted:predicate-member",
+            contribution_id=contribution_id,
+            kind_contract="unadmitted:predicate-kind",
+            project_id=context.project_id,
+            subject=context.subject,
+            subject_definition=context.subject_definition,
+            original_source=context.original_source,
+            analyzed_scope_meaning=frame.pin.values()["analyzed_scope_meaning"],
+        ),
+    )
+    passage = StructuralPassage(
+        passage_id="sample", source_ref="source", start=20, end=40,
+        text="Before. Focus. Next.", scope="sample",
+    )
+    contributions = [dict(
+        contribution_id=contribution_id,
+        pin=frame.pin.values(),
+        component=dict(
+            kind="predicate_frame", focus_state="exact", scope="sample",
+            frame_members=[dict(role="focus", outcome="complete", extents=[dict(start=28,end=33)])],
+            block="native-block",
+        ),
+    )]
+    canonical = dict(members=[
+        dict(member_id=name, body=dict(record_type="sentence", block_id="native-block", start=lo, end=hi))
+        for name, lo, hi in (("before",20,27),("focus",28,34),("after",35,40))
+    ])
+    return selection, passage, frame, contributions, canonical
+
+
+@pytest.mark.parametrize("policy", ["exact_focus", "adjacent_sentences"])
+def test_declared_clause_focus_preserves_original_extent_and_source_owned_context(policy):
+    args = current_focus_inputs()
+    focus, preceding, following, members = declared_clause_focus(*args, context_policy=policy)
+    assert (focus.start, focus.end, focus.text) == (28, 33, "Focus")
+    if policy == "adjacent_sentences":
+        assert preceding is not None and following is not None
+        assert (preceding.start, preceding.end, preceding.text) == (20, 27, "Before.")
+        assert (following.start, following.end, following.text) == (35, 40, "Next.")
+        assert members == ("before", "focus", "after")
+    else:
+        assert preceding is None and following is None
+        assert members == ("focus",)
+
+
+@pytest.mark.parametrize("change", ["partial", "foreign-source", "ambiguous-frame"])
+def test_declared_clause_focus_refuses_partial_foreign_and_ambiguous_retained_frames(change):
+    selection, passage, frame, contributions, canonical = current_focus_inputs()
+    if change == "partial":
+        contributions[0]["component"]["focus_state"] = "partial"
+    elif change == "foreign-source":
+        contributions[0]["pin"] = dict(frame.pin.values(), source_product="unadmitted:foreign-source")
+    else:
+        contributions.append(deepcopy(contributions[0]))
+    with pytest.raises(ValueError, match="exactly one|actual retained native predicate scope"):
+        declared_clause_focus(selection, passage, frame, contributions, canonical,
+            context_policy="adjacent_sentences")
 
 
 def test_target_clause_inventory_keeps_unknown_frames_and_historical_empty_refusal():

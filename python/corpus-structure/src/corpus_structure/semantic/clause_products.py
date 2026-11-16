@@ -19,7 +19,6 @@ _ROOT = Path(__file__).parents[1]
 _PATHS = (
     "methods/clause_classification_declared.py",
     "semantic/clause_products.py",
-    "methods/clause_classification.py",
     "semantic/learned_primary.py",
     "methods/pm2_gliner_classification.py",
     "methods/pm2_interpretation_products.py",

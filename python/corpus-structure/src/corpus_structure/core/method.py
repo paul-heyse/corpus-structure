@@ -42,11 +42,8 @@ if typing.TYPE_CHECKING:
         LayerManifest,
         LayerReport,
     )
-    from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
     from corpus_structure.semantic.product_reference import ProductReference
-    from corpus_structure.semantic.source_contexts import SourceContextRead, SourceContextRequest
     from corpus_structure.semantic.source_views import PreparedSourceView
-    from corpus_structure.semantic.structural_products import StructuralInput
     from corpus_structure.semantic.types import PreparedRelease
 
 
@@ -253,22 +250,6 @@ class SourceObservationReference:
             raise ValueError("source reference requires stable observation identity and role")
 
 
-@dataclass(frozen=True)
-class RetainedSourceResult:
-    """Authenticated historical producer input and exact selected-source correspondence."""
-
-    selected_task_id: int
-    task_id: int
-    run_id: int
-    release_id: str
-    body_digest: str
-    prepared: PreparedRelease
-    configuration: Mapping[str, Any]
-    result: Mapping[str, Any]
-    source_views: tuple[PreparedSourceView, ...]
-    source_bindings: tuple[Mapping[str, Any], ...]
-
-
 class Reader(Protocol):
     """What a method reads, already scoped to its run: upstream outputs only through reuse and the
     run's selected source views."""
@@ -320,96 +301,6 @@ class Reader(Protocol):
 
     def documents(self, originals: Sequence[str]) -> tuple[UnitRef, ...]:
         """Owned document references under the frozen corpus and original-source selection."""
-        ...
-
-
-class SourcePreparationReader(Protocol):
-    """Additional owned reads for consumers of reusable source preparation.
-
-    Ordinary source methods keep the Reader contract. Only consumers that actually
-    retrieve related contexts or consume persisted preparation require this capability.
-    """
-
-    def validate_structural_inputs(self, inputs: StructuralInput) -> None:
-        """Authenticate complete original foreign-source inputs in a settled short read."""
-        ...
-
-    def context_sources(
-        self,
-        source_view_id: int,
-        request: SourceContextRequest,
-        *,
-        limit: int,
-        read_budget: PublishedReadBudget,
-    ) -> SourceContextRead:
-        """Return owned same-product relation sources after metadata/body admission."""
-        ...
-
-    def source_result(
-        self,
-        source_view_id: int,
-        method: str,
-        *,
-        occurrence_ids: tuple[str, ...] = (),
-        semantic_types: tuple[str, ...] = (),
-    ) -> Mapping[str, Any] | None:
-        """Read the selected upstream envelope or its exact, bound occurrence projection."""
-        ...
-
-    def retained_source_result(
-        self, source_view_id: int, task_id: int, method: str
-    ) -> RetainedSourceResult:
-        """Explicit historical input; authenticate archived task and exact source closure."""
-        ...
-
-    def structural_source_frame(self, inputs: Any, source_ref: str) -> Any:
-        """Detach an exact selected native frame from authenticated structural inputs."""
-        ...
-
-    def structural_source_annotations(self, inputs: Any, source_ref: str, profile: Any) -> Any:
-        """Detach authenticated original source and unchanged retained annotation products."""
-        ...
-
-    def retained_definition_component(self, reference: Any) -> Mapping[str, Any]:
-        """Detach authenticated retained component and original source manifest."""
-        ...
-
-    def retained_source_contribution(self, reference: Any) -> Mapping[str, Any]:
-        """Resolve original retained contribution, endpoint closure and source projections."""
-        ...
-
-    def retained_structural_report(self, reference: Any) -> Mapping[str, Any]:
-        """Authenticate an exact predecessor and its protected public assertions."""
-        ...
-
-    def resolve_definition_component(self, reference: Any) -> Mapping[str, Any]:
-        """Read an authenticated retained definition component with original source custody."""
-        ...
-
-    def retained_relationship_decision(self, reference: Any) -> Mapping[str, Any]:
-        """Authenticate an actual retained relationship selection and its source endpoints."""
-        ...
-
-    def component_semantic_targets(self, targets: Sequence[Any]) -> Mapping[str, Any]:
-        """Authenticate and detach source-resolved target meanings before encoder work."""
-        ...
-
-    def retained_component_section(self, reference: Any, work_digest: str) -> str | None:
-        """Locate a retained component in its authenticated native section."""
-        ...
-
-    def contextual_section_headings(
-        self,
-        sources: Sequence[Any],
-        source_view_id: int,
-        scope: str,
-        effective_version: str | None,
-    ) -> Mapping[str, Any]:
-        """Detach the complete bounded selected heading inventory and its coverage."""
-        ...
-
-    def source_context_membership(self, source_view_id: int) -> str:
-        """Digest the selected same-product source universe without hydrating bodies."""
         ...
 
 
