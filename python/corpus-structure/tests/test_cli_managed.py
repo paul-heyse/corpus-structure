@@ -307,13 +307,21 @@ def test_recover_private_empty_residue_keeps_original_outcome(tmp_path, monkeypa
             "classification.json": {"status": "failed"},
             "pytest.process.json": {"finished": 1, "owned_group_cleanup": cleanup},
             "private-cohort.process.json": {
-                "finished": 2, "returncode": 130, "interruption": "SIGINT",
+                "finished": 2,
+                "returncode": 130,
+                "interruption": "SIGINT",
                 "owned_group_cleanup": cleanup,
                 "cleanup_error": "private PostgreSQL ownership remains unconfirmed",
                 "private_temporary_cleanup": {
-                    "state": "retained", "reason": "pg_virtualenv left owned temporary residue"}},
+                    "state": "retained",
+                    "reason": "pg_virtualenv left owned temporary residue",
+                },
+            },
             "private-host-child-settlement.json": {
-                "state": "settled", "pending": {}, "owned_groups": {"pytest": child.pid}},
+                "state": "settled",
+                "pending": {},
+                "owned_groups": {"pytest": child.pid},
+            },
         }
         for name, value in originals.items():
             (lane / name).write_text(json.dumps(value))
@@ -340,5 +348,8 @@ def test_recover_private_empty_residue_keeps_original_outcome(tmp_path, monkeypa
     assert all((lane / name).read_bytes() == body for name, body in before.items())
     observation = json.loads((lane / "private-host-cleanup-recovery.json").read_text())
     assert observation["original_interruption"] == "SIGINT"
-    assert observation["original_cleanup_error"] == originals["private-cohort.process.json"]["cleanup_error"]
+    assert (
+        observation["original_cleanup_error"]
+        == originals["private-cohort.process.json"]["cleanup_error"]
+    )
     assert store.recover(result.id).settled == recovered.settled

@@ -442,12 +442,15 @@ class ContractUnavailable(ValueError):
 
 def _member_key(value):
     from corpus_structure.semantic.data_product_reference import (
-        DataProductMemberReference, DataProductReference,
+        DataProductMemberReference,
+        DataProductReference,
     )
 
     if not isinstance(value, dict) or set(value) != {"product_id", "member_id"}:
         raise ContractUnavailable("task graph requires an exact current member reference")
-    reference = DataProductMemberReference(DataProductReference(value["product_id"]), value["member_id"])
+    reference = DataProductMemberReference(
+        DataProductReference(value["product_id"]), value["member_id"]
+    )
     return reference.product.product_id, reference.member_id
 
 

@@ -155,8 +155,6 @@ def test_assembly_publishes_with_native_identity_and_scoped_source_support(
         assert len(conn.execute(select(table("data.occurrence_establishment"))).all()) == 3
 
 
-
-
 def test_non_utc_instants_publish_with_equivalent_identity(commit_db_engine, commit_writer_engine):
     from datetime import UTC, datetime, timedelta, timezone
 

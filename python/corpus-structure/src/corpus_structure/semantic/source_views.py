@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from functools import cached_property
 from hashlib import sha256
@@ -694,12 +693,6 @@ def read_native_source(conn, request):
     from corpus_structure.serve.native_source import inspect_native_source
 
     return inspect_native_source(conn, request)
-
-
-
-
-
-
 
 
 def scope_source_views(conn: Connection, selected, scope):

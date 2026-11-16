@@ -55,7 +55,9 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
     )
 
     literals = ("We define variance as spread.", "We define mass as inertia.")
-    with current_pdf_source_factory(tuple(("text", text, text, None) for text in literals)) as source:
+    with current_pdf_source_factory(
+        tuple(("text", text, text, None) for text in literals)
+    ) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         retained, _, products, _ = produce_source_reports(source, kernel, NAMED, text=literals[0])
         original_kind = kernel.identities[
@@ -73,7 +75,10 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
         assert len(originals) == 2
         reports = tuple(
             selected_for_source(
-                kernel, products, "urn:corpus:structural:DeclaredDefinitionComponentsReport", original
+                kernel,
+                products,
+                "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+                original,
             )[0]
             for original in originals
         )
@@ -96,7 +101,9 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
             (component,) = report.body["definition_components"]["components"]
             # Independent literal endpoint checks are separate from assigned C labels.
             expected = (
-                ("variance", "spread") if original.body["text"] == literals[0] else ("mass", "inertia")
+                ("variance", "spread")
+                if original.body["text"] == literals[0]
+                else ("mass", "inertia")
             )
             assert (component["term"]["text"], component["content"]["text"]) == expected
             selector = SelectedDefinitionEvent(
@@ -151,7 +158,9 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
             project_context(kernel),
             originals=(fact,),
             source_sets=(
-                FrozenSourceSet("operation-event-reports", tuple(report.entry() for report in reports)),
+                FrozenSourceSet(
+                    "operation-event-reports", tuple(report.entry() for report in reports)
+                ),
                 FrozenSourceSet(
                     "operation-event-sources", tuple(original.entry() for original in originals)
                 ),
@@ -208,6 +217,7 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
             spec=spec,
             question=question,
         )
+
 
 def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private_basis(
     operation_event_journey,

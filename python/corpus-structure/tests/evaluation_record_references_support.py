@@ -4,10 +4,9 @@ from copy import deepcopy
 from dataclasses import replace
 from functools import cache
 
-from evaluation_record_alignment_support import MODEL, ROOT, frame, reading
+from evaluation_record_alignment_support import frame, reading
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.observations import observation_inputs
+from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.record_contracts import (
     interpretation_identity,
     record_family_contract,

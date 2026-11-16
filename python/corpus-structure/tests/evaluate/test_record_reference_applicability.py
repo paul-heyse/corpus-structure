@@ -6,13 +6,13 @@ from functools import cache
 
 import pytest
 import yaml
-from evaluation_record_references_support import bundle, fixture, model, prepared
 from evaluation_record_alignment_support import PIN, role
+from evaluation_record_references_support import bundle, fixture, model, prepared
 
 from corpus_structure.evaluate.record_alignment import (
     RecordSide,
-    align_records,
     align_independent_references,
+    align_records,
     reference_contract,
     whole_reading_correct,
 )
@@ -75,7 +75,11 @@ def successor_preparation(change="unrelated"):
 def successor_reading(reference, contexts, binding):
     """An independently validated prediction fixture with distinct release/alias IDs."""
     target, target_model = successor_preparation()
-    pin = dict(binding.pin, source=canonical_bytes(["product:actual-successor", "member:organized-source"]).decode(), source_product="product:actual-successor")
+    pin = dict(
+        binding.pin,
+        source=canonical_bytes(["product:actual-successor", "member:organized-source"]).decode(),
+        source_product="product:actual-successor",
+    )
     prediction = deepcopy(reference)
     prediction["pin"] = pin
     anchors = {}
@@ -359,7 +363,10 @@ def test_related_attributed_header_preserves_separate_pin_and_requires_explicit_
         value for value in row["evidence_sets"] if value["set_id"] in header["evidence_sets"]
     )
     related_pin = dict(
-        PIN, source=canonical_bytes(["product:related-header", "member:organized-source"]).decode(), source_product="product:related-header", section_pointer="#/header"
+        PIN,
+        source=canonical_bytes(["product:related-header", "member:organized-source"]).decode(),
+        source_product="product:related-header",
+        section_pointer="#/header",
     )
     replacements = {}
     for anchor in row["anchors"]:
@@ -386,11 +393,16 @@ def test_related_attributed_header_preserves_separate_pin_and_requires_explicit_
         anchor_ids=frozenset(value["anchor_id"] for value in row["anchors"]),
         related_pins=(related_pin,),
     )
+
     def compare(frame):
         return align_independent_references(
-            RecordSide(frame, (row,)), RecordSide(frame, (row,)), prepared(),
-            coordinate_texts=contexts, model=model(),
+            RecordSide(frame, (row,)),
+            RecordSide(frame, (row,)),
+            prepared(),
+            coordinate_texts=contexts,
+            model=model(),
         )
+
     assert compare(binding).counts["full"].matched == 1
     with pytest.raises(ValueError, match="source pin"):
         compare(replace(binding, related_pins=()))
@@ -404,17 +416,25 @@ def test_independent_agreement_does_not_adopt_a_production_acceptance_policy():
     binding = replace(binding, prediction_policy_version="independent-production-policy-2")
     original = deepcopy(row)
     got = align_independent_references(
-        RecordSide(binding, (row,)), RecordSide(binding, (row,)), prepared(),
-        coordinate_texts=contexts, model=model(),
+        RecordSide(binding, (row,)),
+        RecordSide(binding, (row,)),
+        prepared(),
+        coordinate_texts=contexts,
+        model=model(),
     )
     assert got.counts["full"].matched == 1
     assert got.prediction_policy_version == binding.reference_policy_version
-    assert row == original and binding.prediction_policy_version == "independent-production-policy-2"
+    assert (
+        row == original and binding.prediction_policy_version == "independent-production-policy-2"
+    )
     wrong = deepcopy(row)
     wrong["policy_version"] = binding.prediction_policy_version
     wrong["interpretation_id"] = interpretation_identity(wrong)
     with pytest.raises(ValueError, match="acceptance policy"):
         align_independent_references(
-            RecordSide(binding, (row,)), RecordSide(binding, (wrong,)), prepared(),
-            coordinate_texts=contexts, model=model(),
+            RecordSide(binding, (row,)),
+            RecordSide(binding, (wrong,)),
+            prepared(),
+            coordinate_texts=contexts,
+            model=model(),
         )

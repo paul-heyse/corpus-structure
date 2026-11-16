@@ -1,36 +1,19 @@
 """Independent adversarial expectations for characterization assessment, no model calls."""
 
-import json
 from copy import deepcopy
 from typing import Any
 
 import pytest
+
 from corpus_structure.evaluate.characterization_assessment import (
     LayerProjection,
     graph_equal,
     output_key,
 )
-
 from corpus_structure.semantic.refusals import ReferenceError
 
 PIN = {"product_id": "product:characterization-control"}
 EXTENT = dict(source_view_id=23, projection="c" * 64, native_pointer="#/texts/0", start=0, end=20)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def graph() -> dict[str, Any]:
@@ -123,25 +106,11 @@ def test_graph_projection_keeps_same_spelling_binders_distinct_and_linear():
     assert len(actual["nodes"]) == 3
     assert actual["nodes"][0]["edges"][0]["target"] != actual["nodes"][0]["edges"][1]["target"]
     assert (
-        output_key(dict(product_id=PIN["product_id"], collection="coverage", member_id="native.tokens"))[-1]
+        output_key(
+            dict(product_id=PIN["product_id"], collection="coverage", member_id="native.tokens")
+        )[-1]
         == "native.tokens"
     )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def test_semantic_graph_projection_is_frozen_and_ignores_incidental_evidence():
@@ -268,8 +237,6 @@ def test_semantic_choice_and_prerequisite_order_is_not_incidental_identity():
     assert not graph_equal(actual, crossed, "source_semantics")
 
 
-
-
 def test_named_binding_graph_alpha_renames_generated_refs_but_keeps_head_direction():
     def layer(prefix):
         def local(name):
@@ -346,14 +313,22 @@ def test_named_binding_graph_alpha_renames_generated_refs_but_keeps_head_directi
         dict(product_id=PIN["product_id"], collection="annotations", member_id=root["member_id"])
     )["graph"]
     expected = LayerProjection(lambda _: right).project(
-        dict(product_id=PIN["product_id"], collection="annotations", member_id=expected_root["member_id"])
+        dict(
+            product_id=PIN["product_id"],
+            collection="annotations",
+            member_id=expected_root["member_id"],
+        )
     )["graph"]
     assert graph_equal(actual, expected, "source_semantics")
     right["annotations"][-1]["named_match"]["bindings"][0]["head"] = dict(
         product_id=PIN["product_id"], member_id="independent-token1"
     )
     reversed_head = LayerProjection(lambda _: right).project(
-        dict(product_id=PIN["product_id"], collection="annotations", member_id=expected_root["member_id"])
+        dict(
+            product_id=PIN["product_id"],
+            collection="annotations",
+            member_id=expected_root["member_id"],
+        )
     )["graph"]
     assert not graph_equal(actual, reversed_head, "source_semantics")
 
@@ -432,7 +407,9 @@ def test_formal_graph_keeps_source_link_and_meaning_without_generated_input_ids(
     assert not graph_equal(actual, wrong, "source_semantics")
     wrong_correspondence = LayerProjection(
         lambda _: layer("independent-", correspondence_source="other")
-    ).project(dict(product_id=PIN["product_id"], collection="annotations", member_id="independent-token"))["graph"]
+    ).project(
+        dict(product_id=PIN["product_id"], collection="annotations", member_id="independent-token")
+    )["graph"]
     assert not graph_equal(actual, wrong_correspondence, "source_semantics")
 
 
@@ -482,7 +459,11 @@ def test_navigation_graph_lifts_real_role_token_and_source_label_references():
                     dict(role="cue", occurrences=[prefix + "o1"]),
                 ],
                 native_tokens=[
-                    dict(name="head", index=0, native_node=dict(product_id=PIN["product_id"], member_id=prefix + "t0"))
+                    dict(
+                        name="head",
+                        index=0,
+                        native_node=dict(product_id=PIN["product_id"], member_id=prefix + "t0"),
+                    )
                 ],
                 source_labels=[
                     dict(kind="numbering_namespace", value="Eq", occurrences=[prefix + "o0"])
@@ -500,33 +481,27 @@ def test_navigation_graph_lifts_real_role_token_and_source_label_references():
         )
 
     actual = LayerProjection(lambda _: layer("producer-")).project(
-        dict(product_id=PIN["product_id"], collection="annotations", member_id="producer-navigation")
+        dict(
+            product_id=PIN["product_id"], collection="annotations", member_id="producer-navigation"
+        )
     )["graph"]
     expected = LayerProjection(lambda _: layer("independent-")).project(
-        dict(product_id=PIN["product_id"], collection="annotations", member_id="independent-navigation")
+        dict(
+            product_id=PIN["product_id"],
+            collection="annotations",
+            member_id="independent-navigation",
+        )
     )["graph"]
     assert graph_equal(actual, expected, "source_semantics")
     assert not graph_equal(actual, expected, "native_fidelity")
     wrong = LayerProjection(lambda _: layer("independent-", subject=1)).project(
-        dict(product_id=PIN["product_id"], collection="annotations", member_id="independent-navigation")
+        dict(
+            product_id=PIN["product_id"],
+            collection="annotations",
+            member_id="independent-navigation",
+        )
     )["graph"]
     assert not graph_equal(actual, wrong, "source_semantics")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def test_author_witness_graph_enforces_budget_before_full_closure():
@@ -535,21 +510,33 @@ def test_author_witness_graph_enforces_budget_before_full_closure():
         LayerProjection(lambda pin: body).graph(PIN, "term", max_bytes=32, witness_closure=True)
 
 
-@pytest.mark.parametrize("provider,column,value", [
-    ("spacy", "pos", "VERB"), ("spacy", "lemma", "run"),
-    ("spacy", "dependency", "ROOT"), ("hanlp", "tag", "VBZ"),
-    ("spacy", "morphology", {}),
-])
-def test_current_member_projection_preserves_native_column_provider_and_empty_value(provider, column, value):
+@pytest.mark.parametrize(
+    "provider,column,value",
+    [
+        ("spacy", "pos", "VERB"),
+        ("spacy", "lemma", "run"),
+        ("spacy", "dependency", "ROOT"),
+        ("hanlp", "tag", "VBZ"),
+        ("spacy", "morphology", {}),
+    ],
+)
+def test_current_member_projection_preserves_native_column_provider_and_empty_value(
+    provider, column, value
+):
     from corpus_structure.evaluate.characterization_assessment import _matches
 
     # Controlled transport values establish projection fidelity, not provider execution.
     native = dict(native_run="run", scheme="provider-native", **{column: value})
-    body = dict(annotations=[dict(local_id="token", kind="native_token", native_token=native)],
-                native_runs=[dict(local_id="run", provider=provider)])
+    body = dict(
+        annotations=[dict(local_id="token", kind="native_token", native_token=native)],
+        native_runs=[dict(local_id="run", provider=provider)],
+    )
     output = dict(product_id=PIN["product_id"], member_id="token", collection="annotations")
     actual = LayerProjection(lambda pin: body).project(output, include_graph=False)
-    expected = dict(native_provider=provider, value=dict(native_token={column: value, "scheme": "provider-native"}))
+    expected = dict(
+        native_provider=provider,
+        value=dict(native_token={column: value, "scheme": "provider-native"}),
+    )
     assert _matches(actual, expected)
     assert not _matches(actual, dict(native_provider="other-provider"))
     assert not _matches(actual, dict(value=dict(native_token=dict(scheme="other-scheme"))))
@@ -560,8 +547,17 @@ def test_current_member_projection_preserves_native_column_provider_and_empty_va
 
 
 def test_current_graph_semantics_keeps_label_independent_of_native_score():
-    body = dict(annotations=[dict(local_id="token", kind="native_token", vocabulary="native",
-                                native_label="VERB", scores=[dict(value=0.9)])])
+    body = dict(
+        annotations=[
+            dict(
+                local_id="token",
+                kind="native_token",
+                vocabulary="native",
+                native_label="VERB",
+                scores=[dict(value=0.9)],
+            )
+        ]
+    )
     before = LayerProjection(lambda pin: body).graph(PIN, "token")
     body["annotations"][0]["scores"] = [dict(value=0.1)]
     changed_score = LayerProjection(lambda pin: body).graph(PIN, "token")

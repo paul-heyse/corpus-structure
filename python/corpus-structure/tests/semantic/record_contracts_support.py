@@ -9,6 +9,8 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
+from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
 from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
@@ -25,15 +27,22 @@ ROOT = Path(__file__).resolve().parents[4]
 MODEL = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic"
 
 
-from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
-from corpus_structure.semantic.data_operation_model import SubjectContext
-
 PIN = DeclaredRecordSource(
-    "document:table", "b" * 64, "#/", "descendants",
-    SubjectContext("project:table", "subject:table", "document:table", b"{}", subject_definition="original-source-view"),
-    "product:table", "member:table", "kind:source",
+    "document:table",
+    "b" * 64,
+    "#/",
+    "descendants",
+    SubjectContext(
+        "project:table",
+        "subject:table",
+        "document:table",
+        b"{}",
+        subject_definition="original-source-view",
+    ),
+    "product:table",
+    "member:table",
+    "kind:source",
 ).pin()
-
 
 
 @cache

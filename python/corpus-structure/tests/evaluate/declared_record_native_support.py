@@ -360,7 +360,10 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
                 key = document_key(PROJECT, path.name, sha256(content).hexdigest())
                 originals.append(
                     acquire_original_document_selection(
-                        connection, project_id=PROJECT, document_key=key, name=f"policy-original-{ordinal}"
+                        connection,
+                        project_id=PROJECT,
+                        document_key=key,
+                        name=f"policy-original-{ordinal}",
                     )
                 )
                 path.unlink()

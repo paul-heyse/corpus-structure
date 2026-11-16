@@ -16,14 +16,14 @@ from corpus_structure.methods.gliner import GlinerPack, GlinerRefused
 from corpus_structure.methods.m1_source import _retained_report
 from corpus_structure.methods.record_assembly import NativeRecordGroup, RoleInput, assemble_records
 from corpus_structure.methods.record_packs import family_pack
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     PreparedNativeSources,
-    source_slice,
     SyntheticText,
+    source_slice,
 )
 from methods.record_assembly_support import context, release, report, source, span
 from methods.record_assembly_support import model as record_model
@@ -213,8 +213,10 @@ def test_captured_native_header_association_is_independent_of_value_presence(bla
         value + "mean",
         pieces=pieces,
         items=[
-            dict(label='table',
-                self_ref="#/tables/0", data=dict(table_cells=[dict(text=value), dict(text="mean")])
+            dict(
+                label="table",
+                self_ref="#/tables/0",
+                data=dict(table_cells=[dict(text=value), dict(text="mean")]),
             )
         ],
     )
@@ -475,7 +477,10 @@ def test_synthetic_gap_never_becomes_continuous_quote():
             dict(kind="native_text", item_ref="#/texts/1", start=0, end=3, source_field="text"),
             dict(kind="native_text", item_ref="#/texts/2", start=3, end=6, source_field="text"),
         ],
-        items=[dict(label='text', self_ref="#/texts/1", text="one"), dict(label='text', self_ref="#/texts/2", text="two")],
+        items=[
+            dict(label="text", self_ref="#/texts/1", text="one"),
+            dict(label="text", self_ref="#/texts/2", text="two"),
+        ],
     )
     ctx = NativeSourceContext(
         primary,
@@ -488,7 +493,8 @@ def test_synthetic_gap_never_becomes_continuous_quote():
         "definition",
         "test-policy",
         "explicit pieces",
-        version=2, preparation=PreparedNativeSources((primary,)),
+        version=2,
+        preparation=PreparedNativeSources((primary,)),
     )
     pack = definition_pack()
     native = report(ctx, pack, "definition", [{"term": span(0, 7, "one two")}])
@@ -503,7 +509,10 @@ def test_multi_piece_native_evidence_preserves_real_order():
             dict(kind="native_text", item_ref="#/texts/1", start=0, end=3, source_field="text"),
             dict(kind="native_text", item_ref="#/texts/2", start=3, end=6, source_field="text"),
         ],
-        items=[dict(label='text', self_ref="#/texts/1", text="one"), dict(label='text', self_ref="#/texts/2", text="two")],
+        items=[
+            dict(label="text", self_ref="#/texts/1", text="one"),
+            dict(label="text", self_ref="#/texts/2", text="two"),
+        ],
     )
     pack = definition_pack()
     batch = adapt_report(
@@ -525,18 +534,30 @@ def test_multi_piece_native_evidence_preserves_real_order():
 def test_contexts_share_governed_source_occurrence_without_merging_observations():
     pack = definition_pack()
     primary = source(
-        "Xterm", identity=2,
+        "Xterm",
+        identity=2,
         pieces=[
             dict(kind="native_text", item_ref="#/texts/2", start=0, end=1, source_field="text"),
             dict(kind="native_text", item_ref="#/texts/1", start=1, end=5, source_field="text"),
         ],
-        items=[dict(label="text", self_ref="#/texts/2", text="X"), dict(label="text", self_ref="#/texts/1", text="term")],
+        items=[
+            dict(label="text", self_ref="#/texts/2", text="X"),
+            dict(label="text", self_ref="#/texts/1", text="term"),
+        ],
     )
+
     def selected(start):
         return NativeSourceContext(
-            primary, (), (source_slice(primary, start, 5),), "independent reading", "test-policy", "explicit source selection",
-            version=2, preparation=PreparedNativeSources((primary,)),
+            primary,
+            (),
+            (source_slice(primary, start, 5),),
+            "independent reading",
+            "test-policy",
+            "explicit source selection",
+            version=2,
+            preparation=PreparedNativeSources((primary,)),
         )
+
     ctx, wider = selected(1), selected(0)
     a = adapt_report(
         report(ctx, pack, "definition", [{"term": span(0, 4, "term")}]),
@@ -613,8 +634,6 @@ def test_zero_output_and_unsupported_top_level_shape_have_population_rows():
     assert bad.operations[0]["report_digest"] == sha256(native.raw_json.encode()).hexdigest()
 
 
-
-
 def test_adapter_batch_uses_released_binding_and_authentic_source_coordinates():
     from corpus_structure.semantic.contributions import bind_contributions
 
@@ -657,7 +676,8 @@ def test_table_attachment_is_separate_candidate_with_exact_closed_endpoints():
             ),
         ],
         items=[
-            dict(label='table',
+            dict(
+                label="table",
                 self_ref="#/tables/0",
                 data=dict(
                     table_cells=[
@@ -799,8 +819,8 @@ def test_actual_blank_native_cell_retains_inspection_subject_without_text_occurr
     ctx = context(
         "context",
         items=[
-            dict(label='text', self_ref="#/texts/1", text="context"),
-            dict(label='table', self_ref="#/tables/0", data=dict(table_cells=[dict(text="")])),
+            dict(label="text", self_ref="#/texts/1", text="context"),
+            dict(label="table", self_ref="#/tables/0", data=dict(table_cells=[dict(text="")])),
         ],
     )
     groups = native_table_groups(

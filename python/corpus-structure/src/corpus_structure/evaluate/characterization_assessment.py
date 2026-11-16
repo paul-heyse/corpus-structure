@@ -10,7 +10,7 @@ contracts in native_scoring, separately from these field/graph comparisons.
 
 from __future__ import annotations
 
-from collections import Counter, deque
+from collections import deque
 from collections.abc import Mapping
 from typing import Any
 
@@ -44,12 +44,15 @@ def pin_key(value):
 
 def output_key(value):
     from corpus_structure.semantic.data_product_reference import (
-        DataProductMemberReference, DataProductReference,
+        DataProductMemberReference,
+        DataProductReference,
     )
 
     if not isinstance(value, Mapping) or set(value) != {"product_id", "member_id", "collection"}:
         raise ReferenceError("assessment output requires typed product/member/collection identity")
-    reference = DataProductMemberReference(DataProductReference(value["product_id"]), value["member_id"])
+    reference = DataProductMemberReference(
+        DataProductReference(value["product_id"]), value["member_id"]
+    )
     if value["collection"] not in COLLECTIONS:
         raise ReferenceError("assessment output requires an actual declared collection")
     return (*pin_key(reference.product.values()), value["collection"], reference.member_id)
@@ -628,8 +631,11 @@ class LayerProjection:
             qualified = (
                 dict(product_id=current_pin["product_id"], member_id=identity)
                 if isinstance(identity, str)
-                else dict(product_id=current_pin["product_id"], member_id=identity[1],
-                          path=["named_match", "bindings", identity[2]])
+                else dict(
+                    product_id=current_pin["product_id"],
+                    member_id=identity[1],
+                    path=["named_match", "bindings", identity[2]],
+                )
             )
             if collection not in ASSESSMENT_NODE_KINDS:
                 raise ReferenceError(

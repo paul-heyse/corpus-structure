@@ -18,15 +18,14 @@ from corpus_structure.methods.record_assembly import (
     reconcile_record_candidates,
 )
 from corpus_structure.methods.record_packs import family_pack
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.source_contexts import (
     ContextRelationship,
     NativeSourceContext,
-    RelatedNativeSource,
     PreparedNativeSources,
-    source_slice,
+    RelatedNativeSource,
     SyntheticText,
+    source_slice,
 )
 from methods.record_assembly_support import (
     context as context,
@@ -97,13 +96,14 @@ def test_native_table_adapter_reads_actual_structure_and_declared_inheritance():
         text,
         pieces=pieces,
         items=[
-            dict(label='table',
+            dict(
+                label="table",
                 self_ref="#/tables/0",
                 data=dict(
                     table_cells=[dict(text="A"), dict(text="mean"), dict(text="0"), dict(text="")]
                 ),
             ),
-            dict(label='text', self_ref="#/texts/2", text="note"),
+            dict(label="text", self_ref="#/texts/2", text="note"),
         ],
     )
     groups = native_table_groups(
@@ -180,7 +180,8 @@ def rich_header_context():
         ),
     ]
     items = [
-        dict(label='table',
+        dict(
+            label="table",
             self_ref="#/tables/0",
             data=dict(
                 table_cells=[
@@ -195,8 +196,8 @@ def rich_header_context():
             label="unspecified",
             children=[{"$ref": "#/texts/1"}, {"$ref": "#/texts/2"}],
         ),
-        dict(label='text', self_ref="#/texts/1", text="Binomial"),
-        dict(label='text', self_ref="#/texts/2", text="n = 100"),
+        dict(label="text", self_ref="#/texts/1", text="Binomial"),
+        dict(label="text", self_ref="#/texts/2", text="n = 100"),
     ]
     return context(text, pieces=pieces, items=items)
 
@@ -246,8 +247,12 @@ def test_rich_header_requires_every_canonical_child_not_summary_or_equal_foreign
         assert isinstance(primary, DeclaredNativeFrameSource)
         native = json.loads(primary.native_context)
         native["items"][1]["children"][1] = {"$ref": "#/texts/missing"}
-        primary = source(primary.text, pieces=native["pieces"], items=native["items"],
-                         ancestors=tuple(item["self_ref"] for item in native["ancestors"]))
+        primary = source(
+            primary.text,
+            pieces=native["pieces"],
+            items=native["items"],
+            ancestors=tuple(item["self_ref"] for item in native["ancestors"]),
+        )
         ctx = replace(whole, primary=primary, preparation=PreparedNativeSources((primary,)))
     else:
         middle = (SyntheticText("n = 100", "unattributed replacement is not source evidence"),)
@@ -262,7 +267,8 @@ def test_rich_header_requires_every_canonical_child_not_summary_or_equal_foreign
             "reading",
             "policy",
             "explicit bounded context",
-            version=2, preparation=PreparedNativeSources((whole.primary,)),
+            version=2,
+            preparation=PreparedNativeSources((whole.primary,)),
         )
     group = rich_header_groups(ctx)[0]
     header = next(field for field in group.fields if field.role == "header_path")
@@ -381,11 +387,13 @@ def test_native_formula_adapter_uses_existing_occurrence_and_separate_declaratio
             dict(kind="native_text", item_ref="#/texts/2", start=3, end=12, source_field="text"),
         ],
         items=[
-            dict(label='text', self_ref="#/texts/1", orig="x=1", text="x = 1"),
-            dict(label='text', self_ref="#/texts/2", text="x is mean"),
+            dict(label="text", self_ref="#/texts/1", orig="x=1", text="x = 1"),
+            dict(label="text", self_ref="#/texts/2", text="x is mean"),
         ],
     )
-    occurrence = formula_occurrence(ctx.primary, dict(self_ref="#/texts/1", text="x = 1", orig="x=1"), "succeeded")
+    occurrence = formula_occurrence(
+        ctx.primary, dict(self_ref="#/texts/1", text="x = 1", orig="x=1"), "succeeded"
+    )
     group = native_formula_group(
         ctx,
         occurrence,
@@ -644,7 +652,8 @@ def test_native_table_full_header_note_shared_and_blank_is_neither_zero_nor_miss
     text = "Group APopulationmean0hypothetical"
     lengths = [(0, 7), (7, 17), (17, 21), (21, 22), (22, 34)]
     pieces = [
-        dict(source_field="text",
+        dict(
+            source_field="text",
             kind="native_text",
             item_ref="#/tables/0" if i < 4 else "#/texts/2",
             start=start,
@@ -656,7 +665,8 @@ def test_native_table_full_header_note_shared_and_blank_is_neither_zero_nor_miss
         for i, (start, end) in enumerate(lengths)
     ]
     items = [
-        dict(label='table',
+        dict(
+            label="table",
             self_ref="#/tables/0",
             data=dict(
                 table_cells=[
@@ -668,7 +678,7 @@ def test_native_table_full_header_note_shared_and_blank_is_neither_zero_nor_miss
                 ]
             ),
         ),
-        dict(label='text', self_ref="#/texts/2", text="hypothetical"),
+        dict(label="text", self_ref="#/texts/2", text="hypothetical"),
     ]
     ctx = context(text, pieces=pieces, items=items)
     common = (
@@ -865,7 +875,7 @@ def test_missing_native_cell_is_unlocated_and_dash_remains_literal():
                 cell_index=0,
             )
         ],
-        items=[dict(label='table', self_ref="#/tables/0", data=dict(table_cells=[dict(text="-")]))],
+        items=[dict(label="table", self_ref="#/tables/0", data=dict(table_cells=[dict(text="-")]))],
     )
     result = assemble_native_records(
         release(),
@@ -971,7 +981,8 @@ def test_synthetic_crossing_and_nonpresent_without_inspection_remain_unresolved(
         "reading",
         "policy",
         "explicit",
-        version=2, preparation=PreparedNativeSources((primary,)),
+        version=2,
+        preparation=PreparedNativeSources((primary,)),
     )
     result = assemble_native_records(
         release(),
@@ -1005,7 +1016,8 @@ def test_related_source_mapping_retains_independent_pin_and_primary_occurrence()
         "reading",
         "policy",
         "explicit",
-        version=2, preparation=PreparedNativeSources((primary, related)),
+        version=2,
+        preparation=PreparedNativeSources((primary, related)),
     )
     result = assemble_native_records(
         release(),
@@ -1028,14 +1040,17 @@ def test_related_source_mapping_retains_independent_pin_and_primary_occurrence()
     row = result.records[0].model_dump()
     anchors = {anchor["anchor_id"]: anchor for anchor in row["anchors"]}
     related_anchor = next(
-        anchor for anchor in anchors.values() if anchor["pin"]["source_member"] == "member:section:2"
+        anchor
+        for anchor in anchors.values()
+        if anchor["pin"]["source_member"] == "member:section:2"
     )
     assert related_anchor["source_piece"] == "average"
     assert related_anchor["binding"] == dict(
         version=2, relationship="selected_context", policy="attributed-selected-source-2"
     )
     assert all(
-        anchors[identity]["pin"]["source_member"] == "member:section:1" for identity in row["occurrence_anchors"]
+        anchors[identity]["pin"]["source_member"] == "member:section:1"
+        for identity in row["occurrence_anchors"]
     )
     assert {item["pin"]["source_member"]: item["text"] for item in result.coordinate_texts} == {
         "member:section:1": "mean",

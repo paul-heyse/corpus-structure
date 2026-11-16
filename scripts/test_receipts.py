@@ -938,7 +938,9 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
     prerequisite_exit = (
         "blocked" in statuses
         and all(status in {"passed", "blocked", "inapplicable"} for status in statuses)
-        and any(_failed_prerequisite(report) for node in nodes.values() for report in node["reports"])
+        and any(
+            _failed_prerequisite(report) for node in nodes.values() for report in node["reports"]
+        )
     )
     session_failures = [
         event

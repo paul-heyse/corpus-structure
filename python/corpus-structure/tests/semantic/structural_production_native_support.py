@@ -122,7 +122,11 @@ def produce_source_reports(source, kernel, target, *, text):
         and item.body["source"]["membership"] == "descendants"
     ]
     assert len(originals) == 1, [
-        (item.row["kind_contract"], item.body.get("source", {}).get("section_pointer"), item.body.get("text", "")[:80])
+        (
+            item.row["kind_contract"],
+            item.body.get("source", {}).get("section_pointer"),
+            item.body.get("text", "")[:80],
+        )
         for item in products
         if isinstance(item.body, dict)
     ]

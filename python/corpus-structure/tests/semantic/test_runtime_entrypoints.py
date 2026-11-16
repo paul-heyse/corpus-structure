@@ -68,19 +68,32 @@ def test_current_archive_admission_refuses_schema_only_release_before_effects(co
     with commit_db_engine.begin() as conn:
         # Pure schema preparation grants no executable operation model. Refusal
         # occurs at the actual current archive admission boundary, before effects.
-        with pytest.raises(
-            ReleaseConflict, match="execution projection requires current declared data operations"
-        ), conn.begin_nested():
+        with (
+            pytest.raises(
+                ReleaseConflict,
+                match="execution projection requires current declared data operations",
+            ),
+            conn.begin_nested(),
+        ):
             persist_release(conn, bundle, dependencies, profile, prepared)
         releases = table("sem.release")
-        assert conn.scalar(
-            select(releases.c.release_id).where(releases.c.release_id == prepared.release_id)
-        ) is None
+        assert (
+            conn.scalar(
+                select(releases.c.release_id).where(releases.c.release_id == prepared.release_id)
+            )
+            is None
+        )
         projects = table("data.project")
-        assert conn.scalar(
-            select(projects.c.project_id).where(projects.c.project_id == "unbound-execution")
-        ) is None
+        assert (
+            conn.scalar(
+                select(projects.c.project_id).where(projects.c.project_id == "unbound-execution")
+            )
+            is None
+        )
         demands = table("ops.data_demand")
-        assert conn.execute(
-            select(demands.c.id).where(demands.c.project_id == "unbound-execution")
-        ).all() == []
+        assert (
+            conn.execute(
+                select(demands.c.id).where(demands.c.project_id == "unbound-execution")
+            ).all()
+            == []
+        )

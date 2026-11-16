@@ -6,7 +6,6 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
-
 if TYPE_CHECKING:
     from corpus_structure.semantic.product_reference import ProductReference
 

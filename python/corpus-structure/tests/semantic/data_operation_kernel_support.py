@@ -523,7 +523,11 @@ def _original_recipe(*, pdf_capability):
         id="urn:original-fact-test:consume",
         behavior="source-value-consumer-v1",
         subject="original-document",
-        subject_definition={"id": "original-document", "identifier_kind": "string", "scope": "original-document"},
+        subject_definition={
+            "id": "original-document",
+            "identifier_kind": "string",
+            "scope": "original-document",
+        },
     )
     operation["roles"][0].update(maximum=1, collection="scalar")
     if pdf_capability:

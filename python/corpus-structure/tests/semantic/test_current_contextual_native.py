@@ -70,8 +70,10 @@ class ContextualCase:
 def current_contextual_case(scenario_seeds, tmp_path_factory):
     directory = tmp_path_factory.mktemp("current-contextual")
     rows = (("text", TEXT, TEXT, None), ("text", TEXT, TEXT, None))
+
     def stream(worker, original, **options):
         return _section_stream(rows, worker, original, **options)
+
     with (
         pytest.MonkeyPatch.context() as patch,
         _current_pdf_source(

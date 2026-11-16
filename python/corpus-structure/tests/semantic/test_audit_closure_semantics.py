@@ -6,7 +6,6 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from corpus_structure.semantic.analysis_policies import prepare_placement_policy
 from corpus_structure.semantic.identity import claim_source_item
 from corpus_structure.semantic.refusals import (
     SemanticOperationRefusal,
@@ -16,7 +15,6 @@ from corpus_structure.semantic.refusals import (
 from corpus_structure.semantic.rule_views import project_rule_value
 from corpus_structure.semantic.unicode_identity import identity_casefold
 from semantic.proposals_support import batch, prepared
-from semantic.proposals_support import native_frame as frame
 
 
 def test_source_subset_is_narrower_than_storage_and_generated_boundary():
@@ -58,12 +56,6 @@ def test_expression_projection_keeps_declared_enum_and_expression_form():
         == "missing"
     )
     assert project_rule_value(release, "Value", None) is None
-
-
-
-
-
-
 
 
 def test_reason_identity_does_not_depend_on_human_wording():
@@ -129,10 +121,6 @@ classes:
         "caption",
         "alternate_names",
     ]
-
-
-
-
 
 
 def test_logical_reading_dimensions_are_owned_by_the_archived_rule_schema():
@@ -211,8 +199,6 @@ def test_rule_scalar_enum_and_complete_qualification_projection_share_binding_me
         'claim.qualification_values["role"].declared_range == "StatementRole"',
     )
     assert rule.evaluate({"claim": SimpleNamespace(qualification_values={"role": projected})})
-
-
 
 
 def test_folding_requirement_comes_from_prepared_identity_qualification_and_class_bindings():

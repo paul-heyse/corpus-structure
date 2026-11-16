@@ -44,32 +44,56 @@ def observation_inputs(
     if module is not None and model_content is not None and module.content != model_content:
         raise ValueError("reserved observation module name already supplied with another meaning")
     canonical = _MODEL.read_bytes()
-    content = (module.content if module is not None else canonical) if model_content is None else model_content
+    content = (
+        (module.content if module is not None else canonical)
+        if model_content is None
+        else model_content
+    )
     expected = yaml.safe_load(canonical)["classes"]
     supplied = yaml.safe_load(content)
     classes = supplied.get("classes", {}) if isinstance(supplied, dict) else {}
     if classes.get("RecordSourcePin") != expected["RecordSourcePin"]:
         raise ValueError("observation inputs refuse an independently changed current source pin")
     operations = classes.get("SourceContributionOperation", {}).get("attributes", {})
-    if ("primary_layers" in operations or operations.get("primary_products") != expected["SourceContributionOperation"]["attributes"]["primary_products"]
-        or any(name in classes for name in ("CharacterizationProductReference", "CharacterizationQualifiedReference"))):
+    if (
+        "primary_layers" in operations
+        or operations.get("primary_products")
+        != expected["SourceContributionOperation"]["attributes"]["primary_products"]
+        or any(
+            name in classes
+            for name in ("CharacterizationProductReference", "CharacterizationQualifiedReference")
+        )
+    ):
         raise ValueError("observation inputs require current semantic product/member references")
     if names & {"observations", "observation-root"}:
         from .prepare import _view
 
-        if (module is None or module.content != content
-            or "SourceObservation" not in _view(bundle, profile).all_classes()):
-            raise ValueError("reserved observation module name already supplied with another meaning")
+        if (
+            module is None
+            or module.content != content
+            or "SourceObservation" not in _view(bundle, profile).all_classes()
+        ):
+            raise ValueError(
+                "reserved observation module name already supplied with another meaning"
+            )
         current = bundle
     else:
         current = SourceBundle(
             "observation-root",
-            (*bundle.sources, SourceArtifact("observations", content), SourceArtifact(
-                "observation-root", yaml.safe_dump(dict(
-                    id="https://corpus-structure.dev/semantic/observation-root",
-                    name="semantic_observation_root", imports=[bundle.root, "observations"],
-                )).encode(),
-            )),
+            (
+                *bundle.sources,
+                SourceArtifact("observations", content),
+                SourceArtifact(
+                    "observation-root",
+                    yaml.safe_dump(
+                        dict(
+                            id="https://corpus-structure.dev/semantic/observation-root",
+                            name="semantic_observation_root",
+                            imports=[bundle.root, "observations"],
+                        )
+                    ).encode(),
+                ),
+            ),
         )
     # The report ancestor is present before reference composition, so the existing
     # reference owner can complete its dependency without recursive acquisition.
@@ -105,7 +129,9 @@ def prepare_source_inputs(
         current = observation_inputs(bundle, model_content=model_content, profile=profile)
     else:
         if model_content is not None and existing.content != model_content:
-            raise ValueError("reserved observation module name already supplied with another meaning")
+            raise ValueError(
+                "reserved observation module name already supplied with another meaning"
+            )
         # Augmentation preserves the explicitly supplied schema authority; it
         # does not reacquire a default merely to compose additional modules.
         current = bundle

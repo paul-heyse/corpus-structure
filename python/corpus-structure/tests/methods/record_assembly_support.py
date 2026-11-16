@@ -6,39 +6,46 @@ from pathlib import Path
 
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.observations import observation_inputs
-from corpus_structure.semantic.source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
-from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
-from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.data_operation_model import BoundRoleMember
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+from corpus_structure.semantic.observations import observation_inputs
+from corpus_structure.semantic.source_contexts import (
+    NativeSourceContext,
+    PreparedNativeSources,
+    source_slice,
+)
+from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
 
 ROOT = Path(__file__).resolve().parents[4]
 
 
 @cache
 def bundle():
-    return source_product_inputs(observation_inputs(
-        SourceBundle(
-            "statistics_semantic",
-            (
-                SourceArtifact(
-                    "statistics_semantic", (ROOT / "domains/statistics/semantic.yaml").read_bytes()
+    return source_product_inputs(
+        observation_inputs(
+            SourceBundle(
+                "statistics_semantic",
+                (
+                    SourceArtifact(
+                        "statistics_semantic",
+                        (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
+                    ),
+                    SourceArtifact(
+                        "statistics_terminology",
+                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
+                    ),
+                    SourceArtifact(
+                        "semantic_core",
+                        (
+                            ROOT
+                            / "python/corpus-structure/src/corpus_structure"
+                            / "model/semantic/core.yaml"
+                        ).read_bytes(),
+                    ),
                 ),
-                SourceArtifact(
-                    "statistics_terminology",
-                    (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                ),
-                SourceArtifact(
-                    "semantic_core",
-                    (
-                        ROOT
-                        / "python/corpus-structure/src/corpus_structure"
-                        / "model/semantic/core.yaml"
-                    ).read_bytes(),
-                ),
-            ),
+            )
         )
-    ))
+    )
 
 
 @cache
@@ -63,18 +70,33 @@ def source(text, *, identity=1, pieces=None, items=None, ancestors=("#/groups/1"
             source_field="text",
         )
     ]
-    items = items or [dict(label='text', self_ref=f"#/texts/{identity}", text=text)]
+    items = items or [dict(label="text", self_ref=f"#/texts/{identity}", text=text)]
     native = FrozenNativeSource.from_projection(
-        release(), document="document:record-fixture", section_pointer="#/groups/1", membership="direct",
-        text=text, pieces=pieces, items=items,
-        ancestors=[dict(label='group', self_ref=pointer) for pointer in ancestors],
+        release(),
+        document="document:record-fixture",
+        section_pointer="#/groups/1",
+        membership="direct",
+        text=text,
+        pieces=pieces,
+        items=items,
+        ancestors=[dict(label="group", self_ref=pointer) for pointer in ancestors],
     )
     member = BoundRoleMember(
-        f"product:record-source:{identity}", "kind:native-source", f"subject:section:{identity}",
-        "document:record-fixture", b"{}", b"{}", (), b"{}", member=f"member:section:{identity}",
-        subject_definition="original-source-view", support_references=(),
+        f"product:record-source:{identity}",
+        "kind:native-source",
+        f"subject:section:{identity}",
+        "document:record-fixture",
+        b"{}",
+        b"{}",
+        (),
+        b"{}",
+        member=f"member:section:{identity}",
+        subject_definition="original-source-view",
+        support_references=(),
     )
-    return DeclaredNativeFrameSource.acquire(release(), native.value, member, project="project:record-fixture")
+    return DeclaredNativeFrameSource.acquire(
+        release(), native.value, member, project="project:record-fixture"
+    )
 
 
 def context(text, **kwargs):
@@ -86,7 +108,8 @@ def context(text, **kwargs):
         "independent reading",
         "test-policy",
         "explicit source selection",
-        version=2, preparation=PreparedNativeSources((primary,)),
+        version=2,
+        preparation=PreparedNativeSources((primary,)),
     )
 
 

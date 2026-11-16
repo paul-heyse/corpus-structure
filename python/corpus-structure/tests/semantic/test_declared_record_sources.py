@@ -1,6 +1,5 @@
 """Independent original-relative pin expectations; no producer or native-admission claim."""
 
-from corpus_structure.semantic.observations import observation_inputs
 from dataclasses import replace
 from pathlib import Path
 
@@ -12,6 +11,7 @@ from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_record_sources import (
     DeclaredRecordSource,
 )
+from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
@@ -62,10 +62,22 @@ def test_canonical_observation_schema_governs_source_and_primary_addresses():
     assert supplied == raw
     model = yaml.safe_load(supplied)
     pin = model["classes"]["RecordSourcePin"]["attributes"]
-    assert not {"native_product_task_id", "source_view_id", "product_key", "recipe_digest"} & pin.keys()
-    for required in ("document", "source_product", "kind_contract", "project_id", "analyzed_scope_meaning"):
+    assert (
+        not {"native_product_task_id", "source_view_id", "product_key", "recipe_digest"}
+        & pin.keys()
+    )
+    for required in (
+        "document",
+        "source_product",
+        "kind_contract",
+        "project_id",
+        "analyzed_scope_meaning",
+    ):
         assert pin[required]["required"]
-    assert model["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"] == "DdoSemanticMemberReference"
+    assert (
+        model["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"]
+        == "DdoSemanticMemberReference"
+    )
     operation = model["classes"]["SourceContributionOperation"]["attributes"]
     assert "primary_layers" not in operation
     assert operation["primary_products"]["range"] == "DdoSemanticProductReference"

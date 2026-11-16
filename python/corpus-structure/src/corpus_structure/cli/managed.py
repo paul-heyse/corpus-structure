@@ -712,7 +712,9 @@ class ResultStore:
             invocation.publish(lane, directory / lane)
             invocation.confirm_settlement()
             invocation.settle(
-                manifest.outcome if manifest.outcome in {"failed", "interrupted"} else "interrupted",
+                manifest.outcome
+                if manifest.outcome in {"failed", "interrupted"}
+                else "interrupted",
                 next_action=next_action,
                 recovered_lane=lane,
                 prior_settled=manifest.settled,
@@ -1031,7 +1033,9 @@ def _deliver_entry(fd: int, destination: Path) -> None:
 _TEST_LANES = ("ordinary", "fault")
 
 
-def _require_drained_test_lane(directory: Path, lane: str, *, recover_private: bool = False) -> None:
+def _require_drained_test_lane(
+    directory: Path, lane: str, *, recover_private: bool = False
+) -> None:
     try:
         with _directory_fd(directory) as fd:
             invocation = json.loads(_read_file(fd, "invocation.json"))
@@ -1059,7 +1063,10 @@ def _require_drained_test_lane(directory: Path, lane: str, *, recover_private: b
 
                     args = ("--recover",) if recover_private else ()
                     process = _supervisor(
-                        "private-temporary", "--receipt-dir", str(directory), *args,
+                        "private-temporary",
+                        "--receipt-dir",
+                        str(directory),
+                        *args,
                         opened={directory: fd},
                     )
                 cleanup = process.get("owned_group_cleanup") or {}

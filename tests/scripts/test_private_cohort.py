@@ -400,18 +400,28 @@ def test_uncertain_or_nonempty_tree_is_retained_whole(owned_private_residue, res
 
 def _interrupted_private_receipts(receipt):
     process = {
-        "finished": 2, "returncode": 130, "interruption": "SIGINT",
+        "finished": 2,
+        "returncode": 130,
+        "interruption": "SIGINT",
         "cleanup_error": "private PostgreSQL ownership remains unconfirmed",
         "private_temporary_cleanup": {
-            "state": "retained", "reason": "pg_virtualenv left owned temporary residue"},
+            "state": "retained",
+            "reason": "pg_virtualenv left owned temporary residue",
+        },
         "owned_group_cleanup": {"group": 101, "group_present_after_cleanup": False},
     }
     values = {
         "private-cohort.process.json": process,
-        "pytest.process.json": {"finished": 1, "returncode": -15,
-            "owned_group_cleanup": {"group": 102, "group_present_after_cleanup": False}},
+        "pytest.process.json": {
+            "finished": 1,
+            "returncode": -15,
+            "owned_group_cleanup": {"group": 102, "group_present_after_cleanup": False},
+        },
         "private-host-child-settlement.json": {
-            "state": "settled", "pending": {}, "owned_groups": {"pytest": 102}},
+            "state": "settled",
+            "pending": {},
+            "owned_groups": {"pytest": 102},
+        },
     }
     for name, value in values.items():
         (receipt / name).write_text(json.dumps(value))
@@ -425,8 +435,10 @@ def test_recovery_preserves_original_interruption_and_receipts(owned_private_res
     (temporary / "torchinductor_paul").mkdir()
     process = _interrupted_private_receipts(receipt)
     before = {path.name: path.read_bytes() for path in receipt.iterdir()}
+
     def absent(group, sig):
         raise ProcessLookupError()
+
     monkeypatch.setattr(os, "killpg", absent)
     recovery = recover_private_temporary(receipt)
     assert not temporary.exists()
@@ -454,15 +466,28 @@ def test_recovery_refuses_uncertain_settlement_or_nonempty_residue(
 
     receipt, temporary = owned_private_residue
     _interrupted_private_receipts(receipt)
+
     def absent(group, sig):
         raise ProcessLookupError()
-    monkeypatch.setattr(os, "killpg", (lambda group, sig: None) if uncertainty == "active_group" else absent)
+
+    monkeypatch.setattr(
+        os, "killpg", (lambda group, sig: None) if uncertainty == "active_group" else absent
+    )
     if uncertainty == "pending":
-        (receipt / "private-host-child-settlement.json").write_text(json.dumps({
-            "state": "pending", "pending": {"pytest": 102}, "owned_groups": {"pytest": 102}}))
+        (receipt / "private-host-child-settlement.json").write_text(
+            json.dumps(
+                {"state": "pending", "pending": {"pytest": 102}, "owned_groups": {"pytest": 102}}
+            )
+        )
     elif uncertainty == "different_child":
-        (receipt / "pytest.process.json").write_text(json.dumps({"finished": 1,
-            "owned_group_cleanup": {"group": 103, "group_present_after_cleanup": False}}))
+        (receipt / "pytest.process.json").write_text(
+            json.dumps(
+                {
+                    "finished": 1,
+                    "owned_group_cleanup": {"group": 103, "group_present_after_cleanup": False},
+                }
+            )
+        )
     elif uncertainty == "data":
         (temporary / "private-data").write_text("retain")
     with pytest.raises(ValueError):

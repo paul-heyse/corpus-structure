@@ -572,8 +572,6 @@ def test_output_first_witnesses_do_not_authorize_unselected_context_claims():
     )
 
 
-
-
 def test_conditional_role_assertions_preserve_their_own_choice_prerequisite():
     wire = body(wrapped=False)
     wire["terms"][-1]["required_choices"] = ["a"]
@@ -869,7 +867,10 @@ def test_literal_source_cue_kind_and_empty_closed_slot_have_explicit_meaning():
 def test_multi_root_population_shares_exact_witness_nodes_without_merging_roots():
     wire = body()
     projection = LayerProjection(lambda pin: wire)
-    refs = [dict(product_id=PIN["product_id"], collection="terms", member_id=identity) for identity in ("p", "s")]
+    refs = [
+        dict(product_id=PIN["product_id"], collection="terms", member_id=identity)
+        for identity in ("p", "s")
+    ]
     rows = [projection.project(ref, include_graph=False) for ref in refs]
     shared = projection.graph_many([(PIN, "p"), (PIN, "s")])
     assert len(shared["roots"]) == 2 and shared["roots"][0] != shared["roots"][1]
@@ -888,7 +889,8 @@ def test_scalar_capture_does_not_build_graphs_it_cannot_consume(monkeypatch):
     monkeypatch.setattr(LayerProjection, "graph", forbidden)
     monkeypatch.setattr(LayerProjection, "graph_many", forbidden)
     result = LayerProjection(lambda pin: body()).project(
-        dict(product_id=PIN["product_id"], member_id="p", collection="terms"), include_graph=False,
+        dict(product_id=PIN["product_id"], member_id="p", collection="terms"),
+        include_graph=False,
     )
     assert result["value"]["kind"] == "predicate" and "graph" not in result
 
@@ -1239,7 +1241,8 @@ def test_unknown_positive_support_remains_unassessed_in_case_grading():
     ]
     result = score_task(
         reference(mode="witness", complete_slots=[]),
-        "construction.predication", predictions(wire),
+        "construction.predication",
+        predictions(wire),
     )
     assert result["status"] == "unavailable" and result["exact_match"] is None
     assert result["reason"] == "witness_support_unknown"
@@ -1274,7 +1277,8 @@ def test_output_first_choice_cannot_substitute_correct_unselected_witness_group(
     def selected(group):
         projection = LayerProjection(lambda pin: wire)
         row = projection.project(
-            dict(product_id=PIN["product_id"], collection="choices", member_id=group), include_graph=False
+            dict(product_id=PIN["product_id"], collection="choices", member_id=group),
+            include_graph=False,
         )
         graph = projection.graph_many([(PIN, group)], witness_closure=True)
         row["task_graph"], row["task_graph_root"] = graph, graph["roots"][0]
@@ -1557,7 +1561,9 @@ def test_candidate_choice_prerequisite_preserves_full_term_root_not_normalized_h
         )
     ]
     question = wire["annotations"][-1]
-    question["external_premises"].append(dict(product_id=PIN["product_id"], member_id="host-member"))
+    question["external_premises"].append(
+        dict(product_id=PIN["product_id"], member_id="host-member")
+    )
     frozen = question["model_answer"]["native_answer"]["request"]["interpretation"][
         "frozen_candidates"
     ]

@@ -305,8 +305,6 @@ def independent_pdf_address(conn, run_id, key, *, start=None, end=None, pointer=
     return "pdf:" + json.dumps(address, sort_keys=True, separators=(",", ":"))
 
 
-
-
 def stage_complete_native(engine, build, directory, *, cell_coverage="unknown", region=False):
     document = DoclingDocument(name="frozen fixture")
     document.add_page(page_no=1, size=Size(width=200, height=300))

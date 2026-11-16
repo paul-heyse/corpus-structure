@@ -137,8 +137,13 @@ def test_binding_preserves_record_memberships_and_retry_identity():
     assert product["records"][0]["record_id"] == record["record_id"]
     # Source meaning uses current governed members, never physical view aliases.
     moved = deepcopy(record)
-    moved["pin"].update(source='["product:another","member:table"]', source_product="product:another")
-    assert record_identity(record_family_contract(record_model(), moved["contract"]), moved) != record["record_id"]
+    moved["pin"].update(
+        source='["product:another","member:table"]', source_product="product:another"
+    )
+    assert (
+        record_identity(record_family_contract(record_model(), moved["contract"]), moved)
+        != record["record_id"]
+    )
     kwargs["result"] = UnitResult(
         ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "view"), outcome=ObservationOutcome.EMPTY
     )

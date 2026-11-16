@@ -10,11 +10,8 @@ import pytest
 
 from corpus_structure.semantic.archive_reader import reconstruct_release
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.record_contracts import interpretation_identity
 from corpus_structure.semantic.record_projection import (
     ARTIFACT,
-    CALIBRATION,
-    RECORD_ROW_TYPES,
     index_record_projection,
     project_record_reports,
     read_record_projection,
@@ -148,8 +145,6 @@ def candidate(factory):
     raw, coordinates = factory()
     raw["standing"] = "candidate"
     return bind(raw, coordinates)
-
-
 
 
 def test_numeric_original_ordered_evidence_and_private_assertions_are_not_relabelled():

@@ -16,11 +16,11 @@ from corpus_structure.evaluate.selected_references import (
     author_selected_references,
     evaluate_selected_references,
 )
+from corpus_structure.semantic._data_operation_wire import WireCutSelection
 from corpus_structure.semantic.composed import (
     data_operation_dependencies,
     read_data_operation_inputs,
 )
-from corpus_structure.semantic._data_operation_wire import WireCutSelection
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext, json_context_meaning
 from corpus_structure.semantic.data_operation_service import execute_data_demand

@@ -73,11 +73,7 @@ def _basis_projection(content: bytes, characterization: bytes) -> bytes:
     def retarget(value: Any) -> Any:
         if isinstance(value, dict):
             return {
-                key: (
-                    target(item)
-                    if key == "range" and item in family
-                    else retarget(item)
-                )
+                key: (target(item) if key == "range" and item in family else retarget(item))
                 for key, item in value.items()
             }
         if isinstance(value, list):

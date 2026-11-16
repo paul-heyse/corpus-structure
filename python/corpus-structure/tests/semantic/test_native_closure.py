@@ -82,8 +82,6 @@ def test_restricted_complete_archive_replay_and_immutable_closure(
             )
 
 
-
-
 def test_restricted_activation_cas_and_deployment_record(
     commit_db_engine, commit_admitter_engine, monkeypatch
 ):

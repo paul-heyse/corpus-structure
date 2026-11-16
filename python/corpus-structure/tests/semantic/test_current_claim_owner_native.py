@@ -15,8 +15,8 @@ from sqlalchemy import text
 from corpus_structure.orchestrate.data_operations import NativeRequestClaim
 from corpus_structure.semantic._data_operation_wire import (
     WirePublishDataDerivationRequest,
-    WireRetainDataCompletionIntentRequest,
     WireRenewDataRequestRequest,
+    WireRetainDataCompletionIntentRequest,
 )
 from corpus_structure.semantic.claim_lifetime import (
     ClaimFenceLost,
@@ -44,7 +44,9 @@ def acquired(kernel):
 
     def publish(connection):
         return DataOperationStorage(connection).publish_data_derivation(
-            cast(WirePublishDataDerivationRequest, {**owned.fence, "intent_id": intent["intent_id"]})
+            cast(
+                WirePublishDataDerivationRequest, {**owned.fence, "intent_id": intent["intent_id"]}
+            )
         )
 
     return owned, intent, publish
@@ -124,10 +126,13 @@ def test_current_lost_commit_response_replays_one_real_publication_before_retiri
     assert published["replayed"] is True
     assert not owner.active and not owner.uncertain
     with ddo_kernel["engine"].connect() as connection:
-        assert connection.scalar(
-            text("SELECT count(*) FROM ops.data_derivation WHERE request_id=:id"),
-            {"id": owned.request_id},
-        ) == 1
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM ops.data_derivation WHERE request_id=:id"),
+                {"id": owned.request_id},
+            )
+            == 1
+        )
 
 
 def test_current_uncertain_publication_keeps_exact_callback_and_recovers_native_receipt(ddo_kernel):
@@ -146,7 +151,10 @@ def test_current_uncertain_publication_keeps_exact_callback_and_recovers_native_
     assert published["replayed"] is True
     assert not owner.active and not owner.uncertain
     with ddo_kernel["engine"].connect() as connection:
-        assert connection.scalar(
-            text("SELECT count(*) FROM ops.data_derivation WHERE request_id=:id"),
-            {"id": owned.request_id},
-        ) == 1
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM ops.data_derivation WHERE request_id=:id"),
+                {"id": owned.request_id},
+            )
+            == 1
+        )

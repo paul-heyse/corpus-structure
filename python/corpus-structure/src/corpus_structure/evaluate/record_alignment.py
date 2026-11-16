@@ -22,8 +22,8 @@ from corpus_structure.semantic.record_contracts import (
     bind_record_candidates,
     validate_record_declarations,
 )
-from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.semantic.refusals import ReferenceError
+from corpus_structure.semantic.types import PreparedRelease
 
 from .semantic_alignment import TierCounts
 
@@ -44,11 +44,7 @@ def reference_contract(prepared: PreparedRelease) -> dict[str, Any]:
     names = {"SourceRecord", "RecordSourcePin", "RecordCoordinateText"}
     names.update(family["contract"] for family in projection["families"])
     # Independent reference authoring may be absent from a pure alignment release.
-    names.update(
-        name
-        for name in ("DdoRecordAnchorScope",)
-        if f"json_schema/{name}" in artifacts
-    )
+    names.update(name for name in ("DdoRecordAnchorScope",) if f"json_schema/{name}" in artifacts)
     schemas = {name: json.loads(artifacts[f"json_schema/{name}"]) for name in sorted(names)}
     consumed = names | {name for schema in schemas.values() for name in schema.get("$defs", {})}
     definitions = sorted(

@@ -113,8 +113,6 @@ def test_private_profile_preserves_model_metadata_nullability_and_fresh_encoders
         encoder.finish()
 
 
-
-
 def test_unselected_nanosecond_truncation_cannot_enter_inferred_write_profile():
     with pytest.raises(ArrowTransferError, match="explicit exact write normalization"):
         profile(pa.schema([pa.field("time", pa.timestamp("ns"))]), ["timestamp"])

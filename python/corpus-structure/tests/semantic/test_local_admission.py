@@ -1,6 +1,5 @@
 """Independent local-event expectations; exact quotes do not establish roles."""
 
-
 import pytest
 from methods.record_assembly_support import context, release, report, span
 

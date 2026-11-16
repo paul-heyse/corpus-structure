@@ -78,13 +78,15 @@ def test_native_score_function_preserves_proven_empty_inventory(native_rollback)
     numerics = default_retrieval_numerics()
     actual = native_scores(native_rollback.connection, values, numerics)
     assert actual["membership"] == actual["hits"] == []
-    assert json_bytes(actual) == json_bytes(query_contextual_scores(
-        native_rollback.connection,
-        acquired,
-        values["query"],
-        values["policy"],
-        numerical_policy=numerics,
-    ))
+    assert json_bytes(actual) == json_bytes(
+        query_contextual_scores(
+            native_rollback.connection,
+            acquired,
+            values["query"],
+            values["policy"],
+            numerical_policy=numerics,
+        )
+    )
 
 
 def test_native_score_refuses_another_backend_policy(native_rollback):
@@ -165,10 +167,12 @@ def test_unicode_target_ids_use_canonical_c_ties_for_all_native_channels(native_
         assert [
             (row["target_id"], row["rank"]) for row in actual["hits"] if row["channel"] == channel
         ] == list(zip(expected_order, range(1, 6), strict=True))
-    assert json_bytes(actual) == json_bytes(query_contextual_scores(
-        native_rollback.connection,
-        acquired,
-        values["query"],
-        values["policy"],
-        numerical_policy=numerics,
-    ))
+    assert json_bytes(actual) == json_bytes(
+        query_contextual_scores(
+            native_rollback.connection,
+            acquired,
+            values["query"],
+            values["policy"],
+            numerical_policy=numerics,
+        )
+    )

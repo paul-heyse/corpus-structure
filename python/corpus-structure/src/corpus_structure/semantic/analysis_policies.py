@@ -81,8 +81,6 @@ class PlacementPolicyDefinition:
     refine_timeout: str
 
 
-
-
 @dataclass(frozen=True)
 class ScientificQuestionRule:
     question: str

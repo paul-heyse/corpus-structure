@@ -75,8 +75,6 @@ class DeclaredRecordSource:
         }
 
 
-
-
 @dataclass(frozen=True)
 class DeclaredSourcePin:
     content: str

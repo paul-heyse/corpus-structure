@@ -615,15 +615,15 @@ def discover(
             "context": {
                 "subject_definition": ddo_kernel["model"].operation("urn:child").subject,
                 **(
-                member_body_contexts[position]
-                if member_body_contexts is not None
-                else member_contexts[position]
-                if member_contexts is not None
-                else {
-                    "subject": f"item:{value}",
-                    "original_source": "source:test",
-                    "analyzed_scope": scope,
-                }
+                    member_body_contexts[position]
+                    if member_body_contexts is not None
+                    else member_contexts[position]
+                    if member_contexts is not None
+                    else {
+                        "subject": f"item:{value}",
+                        "original_source": "source:test",
+                        "analyzed_scope": scope,
+                    }
                 ),
             },
             "body": {"value": value, "document_subject": "doc"},
@@ -657,7 +657,9 @@ def discover(
                                         {
                                             **packet,
                                             "context": {
-                                                "subject_definition": ddo_kernel["model"].operation("urn:child").subject,
+                                                "subject_definition": ddo_kernel["model"]
+                                                .operation("urn:child")
+                                                .subject,
                                                 **member_contexts[position],
                                             }
                                             if member_contexts is not None

@@ -1,6 +1,7 @@
 """Unicode admission uses the actual current release manifest."""
 
 import pytest
+
 from semantic.test_rich_knowledge_identity import release
 
 

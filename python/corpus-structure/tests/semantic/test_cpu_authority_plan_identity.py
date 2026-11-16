@@ -22,8 +22,9 @@ from corpus_structure.semantic.python_operation_sources import PythonSource, Pyt
 @pytest.fixture(scope="module")
 def actual_nominal_identity():
     path = Path(__file__).parents[2] / "src/corpus_structure/semantic/identity.py"
-    sources = PythonSourceCollection((PythonSource(
-        "corpus_structure.semantic.identity", path.read_bytes(), str(path)),))
+    sources = PythonSourceCollection(
+        (PythonSource("corpus_structure.semantic.identity", path.read_bytes(), str(path)),)
+    )
     model = compile_data_operations(python_sources=sources)
     operation = model.operations[0]
     identity = python_port_identity(model, sources, operation.semantic_id)
@@ -32,7 +33,9 @@ def actual_nominal_identity():
     return model, operation, identity
 
 
-@pytest.mark.parametrize("variant", ("declaration", "applicability", "learned", "named", "artifact", "fixture"))
+@pytest.mark.parametrize(
+    "variant", ("declaration", "applicability", "learned", "named", "artifact", "fixture")
+)
 def test_cpu_plans_use_actual_nominal_recipe_identity(actual_nominal_identity, variant):
     from corpus_structure.semantic.artifact_products import ArtifactCallPlan
     from corpus_structure.semantic.definition_applicability_products import ApplicabilityCallPlan
@@ -45,16 +48,36 @@ def test_cpu_plans_use_actual_nominal_recipe_identity(actual_nominal_identity, v
     from semantic.contextual_native_fixture import FixtureCallPlan, execute_cue_kernel
 
     model, operation, identity = actual_nominal_identity
-    context = SubjectContext("unadmitted:project", "unadmitted:source", None, b"{}", subject_definition="source")
+    context = SubjectContext(
+        "unadmitted:project", "unadmitted:source", None, b"{}", subject_definition="source"
+    )
     input_role = next(role for role in operation.roles if role.direction == "input")
     member = BoundRoleMember(
-        "unadmitted:product", input_role.kind, context.subject, None, b"{}", b"{}", (), b"{}",
-        subject_definition=context.subject_definition, support_references=(),
+        "unadmitted:product",
+        input_role.kind,
+        context.subject,
+        None,
+        b"{}",
+        b"{}",
+        (),
+        b"{}",
+        subject_definition=context.subject_definition,
+        support_references=(),
     )
     binding = BindingResult(
-        operation.semantic_id, context.subject, (ResolvedRoleBinding(input_role.name, "present", (member,)),),
-        "ready", (), canonical_bytes(semantic_value({})), b"{}", model.version,
-        identity.definition, identity.eligibility, (), subject_context=context, replicate=None,
+        operation.semantic_id,
+        context.subject,
+        (ResolvedRoleBinding(input_role.name, "present", (member,)),),
+        "ready",
+        (),
+        canonical_bytes(semantic_value({})),
+        b"{}",
+        model.version,
+        identity.definition,
+        identity.eligibility,
+        (),
+        subject_context=context,
+        replicate=None,
     )
 
     # Dispatch is deliberately stopped before the CPU boundary. The generic real operation
@@ -74,8 +97,14 @@ def test_cpu_plans_use_actual_nominal_recipe_identity(actual_nominal_identity, v
     elif variant == "applicability":
         plan = ApplicabilityCallPlan(prepared)
     elif variant in {"learned", "named"}:
-        plan = DefinitionComponentsCallPlan(prepared, kernel=(
-            definition_components_kernel if variant == "learned" else named_definition_components_kernel))
+        plan = DefinitionComponentsCallPlan(
+            prepared,
+            kernel=(
+                definition_components_kernel
+                if variant == "learned"
+                else named_definition_components_kernel
+            ),
+        )
     elif variant == "artifact":
         plan = ArtifactCallPlan(prepared)
     else:
@@ -87,7 +116,9 @@ def test_cpu_plans_use_actual_nominal_recipe_identity(actual_nominal_identity, v
         # The finite fixture's role is explicitly named source.
         binding = binding.__replace__(roles=(binding.roles[0].__replace__(role="source"),))
         arguments = SimpleNamespace(arguments={"source": 7})
-    execution = plan.plan(arguments, binding=binding, check_active=lambda: None, execution_owner=None)
+    execution = plan.plan(
+        arguments, binding=binding, check_active=lambda: None, execution_owner=None
+    )
     basis = decode_semantic_value(next(execution))
     assert basis["recipe"] == identity.recipe
     assert basis["roles"][0]["body"] == 7
