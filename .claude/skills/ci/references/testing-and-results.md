@@ -60,6 +60,8 @@ uv run ci test scheduling RESULT_ID --limit 20 --json
   teardown failure remains a separate failed event.
   A child failure before pytest starts has a separate bounded, redacted startup diagnostic;
   it does not invent a test node or pytest native traceback.
+  Add `--process-diagnostic` for bounded, redacted stderr from a settled pytest lane, including
+  watchdog output. This is an unparsed whole-lane stream, without per-test attribution.
   Add `--native-traceback --diagnostic-chars 32768` for retained pytest file locations and native
   chain descriptions. Source listings, locals and captured streams are excluded; unsupported
   native-only representations remain explicitly unavailable/partial. This view cannot recover

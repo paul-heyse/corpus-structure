@@ -763,6 +763,54 @@ def test_installed_native_traceback_marks_rendered_only_format_unavailable(tmp_p
     assert item["native_traceback"]["omissions"][0]["native_path"] == "$.longrepr"
 
 
+def test_installed_process_diagnostic_is_explicit_redacted_and_not_native_attribution(tmp_path):
+    store = ResultStore(tmp_path / "results")
+    with store.operation("test", scope={"lane": "ordinary"}) as result:
+        directory = result.directory / "ordinary"
+        _receipt(directory, ["tests/test_worker.py::test_a", "tests/test_worker.py::test_b"], fail=True)
+        stderr = "Timeout (0:15:00)!\nprocess-only diagnostic password='fixture-stream-secret'\n"
+        (directory / "pytest.stderr").write_text(stderr)
+        result.publish("ordinary", directory)
+        result.settle("failed", lanes={"ordinary": "failed"})
+    original = json.loads(_run(store, "failures", result.id, "--json").stdout)
+    assert "process_diagnostic" not in original["lanes"]["ordinary"]
+    assert "process-only diagnostic" not in json.dumps(original)
+    response = json.loads(_run(
+        store, "failures", result.id, "--process-diagnostic", "--diagnostic-chars", "2000", "--json"
+    ).stdout)
+    process = response["lanes"]["ordinary"]["process_diagnostic"]
+    assert process["availability"] == "available"
+    assert process["format"] == "unparsed_process_stream"
+    assert process["scope"] == "whole_lane_not_one_test"
+    assert process["source_bytes"] == len(stderr.encode())
+    assert "Timeout (0:15:00)!" in process["diagnostic"]
+    assert "fixture-stream-secret" not in json.dumps(response)
+    assert "**********" in process["diagnostic"]
+    assert all("process_diagnostic" not in item for item in response["items"])
+    assert response["outcome"] == "failed"
+
+
+@pytest.mark.parametrize("source", ["oversized", "symlink"])
+def test_process_diagnostic_refuses_unbounded_or_external_streams(tmp_path, source):
+    store = ResultStore(tmp_path / "results")
+    with store.operation("test", scope={"lane": "ordinary"}) as result:
+        directory = result.directory / "ordinary"
+        _receipt(directory, ["tests/test_worker.py::test_a"], fail=True)
+        if source == "oversized":
+            (directory / "pytest.stderr").write_bytes(b"x" * 65537)
+        else:
+            outside = tmp_path / "unrelated.txt"
+            outside.write_text("unrelated bytes must not be read")
+            (directory / "pytest.stderr").symlink_to(outside)
+        result.publish("ordinary", directory)
+        result.settle("failed", lanes={"ordinary": "failed"})
+    response = json.loads(_run(store, "failures", result.id, "--process-diagnostic", "--json").stdout)
+    process = response["lanes"]["ordinary"]["process_diagnostic"]
+    assert process["availability"] == ("omitted" if source == "oversized" else "unavailable")
+    assert process["diagnostic"] is None
+    assert "unrelated bytes must not be read" not in json.dumps(response)
+
+
 def test_observation_journal_is_ancillary_to_test_receipts_coverage_and_retry(tmp_path, cli):
     from contextlib import ExitStack
 

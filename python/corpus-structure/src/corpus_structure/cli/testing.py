@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json as jsonlib
 import os
+import stat
 from collections import Counter
 from contextlib import ExitStack
 from pathlib import Path
@@ -232,6 +233,51 @@ class StartupDiagnostic(BaseModel):
     reason: str | None = None
 
 
+class ProcessDiagnostic(BaseModel):
+    source: Literal["pytest.stderr"] = "pytest.stderr"
+    format: Literal["unparsed_process_stream"] = "unparsed_process_stream"
+    scope: Literal["whole_lane_not_one_test"] = "whole_lane_not_one_test"
+    availability: Literal["available", "omitted", "unavailable"]
+    diagnostic: str | None = None
+    diagnostic_truncated: bool = False
+    source_bytes: int | None = None
+    reason: str | None = None
+
+
+def _process_diagnostic(directory_fd: int, *, settled: bool, chars: int) -> ProcessDiagnostic:
+    """Read a bounded complete stream; never interpret rendered stderr as native frames."""
+    if not settled:
+        return ProcessDiagnostic(availability="unavailable", reason="process custody is unsettled")
+    try:
+        descriptor = os.open(
+            "pytest.stderr", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd
+        )
+        with os.fdopen(descriptor, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                return ProcessDiagnostic(availability="unavailable", reason="stderr is not a regular file")
+            if info.st_size > 65536:
+                return ProcessDiagnostic(
+                    availability="omitted", source_bytes=info.st_size,
+                    reason="complete process stderr exceeds the 64KiB diagnostic limit",
+                )
+            content = stream.read(65537)
+            if len(content) != info.st_size or os.fstat(stream.fileno()).st_size != info.st_size:
+                return ProcessDiagnostic(availability="unavailable", reason="process stderr changed during read")
+    except OSError:
+        return ProcessDiagnostic(availability="unavailable", reason="process stderr is missing or inaccessible")
+    # Redact the complete bounded input before clipping so a credential cannot
+    # escape redaction merely because the display boundary cuts through it.
+    text = safe_text(content.decode("utf-8", errors="replace")).strip()
+    return ProcessDiagnostic(
+        availability="available" if text else "unavailable",
+        diagnostic=text[:chars] if text else None,
+        diagnostic_truncated=len(text) > chars,
+        source_bytes=len(content),
+        reason=None if text else "process stderr is empty",
+    )
+
+
 class DeploymentObservation(BaseModel):
     head: str
     key: str
@@ -343,6 +389,7 @@ class FailureLane(BaseModel):
     reporting_errors_truncated: bool = False
     rust: RustEvidence | None = None
     startup: StartupDiagnostic | None = None
+    process_diagnostic: ProcessDiagnostic | None = Field(default=None, exclude_if=lambda value: value is None)
     selection_change: RetrySelectionChange | None = None
 
 
@@ -507,6 +554,12 @@ def _render_failures(report: Failures) -> Group:
                     or evidence.startup.reason
                     or evidence.startup.availability
                 ),
+            )
+        if evidence.process_diagnostic is not None:
+            process = evidence.process_diagnostic
+            rows.add_row(
+                "Unparsed lane stderr",
+                _literal(process.diagnostic or process.reason or process.availability),
             )
         if evidence.reporting_errors_omitted:
             rows.add_row("Reporting omitted", Text(str(evidence.reporting_errors_omitted)))
@@ -1362,6 +1415,13 @@ def failures(
             ),
         ),
     ] = False,
+    process_diagnostic: Annotated[
+        bool,
+        typer.Option(
+            "--process-diagnostic",
+            help="Include bounded redacted settled pytest stderr for the whole lane; no parsed frame or per-test attribution.",
+        ),
+    ] = False,
     json: JsonOpt = False,
 ) -> None:
     """Read pytest failures and separate unresolved native provenance from a retained attempt."""
@@ -1440,6 +1500,9 @@ def failures(
                 startup=StartupDiagnostic.model_validate(report["startup"])
                 if report.get("startup") is not None
                 else None,
+                process_diagnostic=_process_diagnostic(
+                    fd, settled=not report["custody_unsettled"], chars=diagnostic_chars
+                ) if process_diagnostic else None,
                 selection_change=RetrySelectionChange.model_validate(change)
                 if (change := manifest.details.get("retry_selection_changes", {}).get(name))
                 is not None
