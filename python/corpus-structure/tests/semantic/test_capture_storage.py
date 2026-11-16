@@ -6,10 +6,8 @@ import pyarrow as pa
 import pytest
 
 from corpus_structure.semantic.capture_storage import (
-    CaptureOwner,
     FileRelation,
     LogicalRows,
-    store_relation,
 )
 
 
@@ -36,54 +34,21 @@ def test_logical_digest_preserves_float_sign_decimal_and_nanosecond_without_batc
     assert whole.digest != other.digest
 
 
-def test_spooled_empty_schema_file_integrity_and_lease(tmp_path):
-    owner = CaptureOwner(tmp_path)
+def test_detached_empty_file_keeps_exact_schema_and_refuses_corrupt_bytes(tmp_path):
+    from hashlib import file_digest
+
+    import pyarrow.parquet as pq
+
     schema = pa.schema([pa.field("id", pa.string())], metadata={b"identity": b"bound"})
-    relation, _descriptor = store_relation(owner, "empty", schema, [], ("id",), [0], 100)
-    assert isinstance(relation, FileRelation)
+    path = tmp_path / "empty.parquet"
+    pq.write_table(pa.Table.from_batches([], schema=schema), path, store_schema=True)
+    with path.open("rb") as stream:
+        digest = file_digest(stream, "sha256").hexdigest()
+    logical = LogicalRows(schema)
+    relation = FileRelation(path, schema, 0, digest, logical.digest)
     relation.verify()
     assert relation.num_rows == 0 and relation.schema.equals(schema, check_metadata=True)
-    owner.acquire()
-    owner.close()
-    assert relation.path.exists()
-    with pytest.raises(RuntimeError, match="closed"):
-        owner.acquire()
-    owner.release()
-    assert not relation.path.exists()
-
-
-def test_resident_limit_refuses_and_corrupt_file_refuses(tmp_path):
-    table = pa.table({"id": ["a", "b"]})
-    with pytest.raises(ValueError, match="spooled"):
-        store_relation(None, "rows", table.schema, table.to_batches(), ("id",), [0], 1)
-    owner = CaptureOwner(tmp_path)
-    relation, _ = store_relation(owner, "rows", table.schema, table.to_batches(), ("id",), [0], 1)
-    assert isinstance(relation, FileRelation)
-    relation.path.write_bytes(b"corrupt")
+    assert list(relation.iter_batches()) == []
+    path.write_bytes(b"corrupt")
     with pytest.raises(ValueError, match="integrity"):
         relation.verify()
-    owner.close()
-
-
-def test_writer_cleanup_preserves_cancellation(monkeypatch, tmp_path):
-    from corpus_structure.semantic import capture_storage
-
-    class BrokenWriter:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def write_batch(self, batch):
-            raise KeyboardInterrupt("write cancelled")
-
-        def close(self):
-            raise ValueError("cleanup failed")
-
-    monkeypatch.setattr(capture_storage.pq, "ParquetWriter", BrokenWriter)
-    owner = CaptureOwner(tmp_path)
-    rows = pa.table({"id": ["a"]})
-    try:
-        with pytest.raises(KeyboardInterrupt, match="write cancelled") as failure:
-            store_relation(owner, "rows", rows.schema, rows.to_batches(), ("id",), [0], 1)
-        assert any("cleanup failed" in note for note in failure.value.__notes__)
-    finally:
-        owner.close()

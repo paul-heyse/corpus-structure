@@ -305,23 +305,6 @@ def independent_pdf_address(conn, run_id, key, *, start=None, end=None, pointer=
     return "pdf:" + json.dumps(address, sort_keys=True, separators=(",", ":"))
 
 
-def native_evidence_sources(inputs):
-    from corpus_structure.semantic.domain_operations import NativeEvidenceLink
-    from corpus_structure.semantic.publication import EvidenceSourceRow
-
-    result = []
-    for evidence_id, link in inputs.source_links.items():
-        assert isinstance(link, NativeEvidenceLink)
-        result.append(
-            EvidenceSourceRow(
-                evidence_id,
-                link.observation_id,
-                None,
-                source_view_id=link.source_view_id,
-                native_address=link.native_address,
-            )
-        )
-    return tuple(result)
 
 
 def stage_complete_native(engine, build, directory, *, cell_coverage="unknown", region=False):

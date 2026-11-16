@@ -1,6 +1,5 @@
 """Independent local-event expectations; exact quotes do not establish roles."""
 
-from dataclasses import replace
 
 import pytest
 from methods.record_assembly_support import context, release, report, span
@@ -78,50 +77,3 @@ def test_item_level_or_captured_mapping_is_not_exact_native_proof():
         {"source_piece": "wrong"},
     ):
         assert exact_source_event(dict(occurrence, anchors=(dict(anchor, **change),))) is None
-
-
-def test_contribution_only_cut_publishes_local_quote_without_record_projection(monkeypatch):
-    from corpus_structure.semantic import record_assertions
-    from corpus_structure.semantic.domain_operations import _project_cut
-    from semantic.semantic_reason_producers_support import release as composed_release
-
-    _, report = source_report()
-    prepared = composed_release()
-    prepared = replace(
-        prepared,
-        artifacts=tuple(
-            artifact for artifact in prepared.artifacts if artifact.kind != "record_projection.json"
-        ),
-    )
-    assert not any(artifact.kind == "record_projection.json" for artifact in prepared.artifacts)
-    monkeypatch.setattr(
-        record_assertions,
-        "lower_record_assertions",
-        lambda *_: pytest.fail("local source claim required whole-record lowering"),
-    )
-    job = dict(
-        id=1,
-        project_id="local-only",
-        release_id=prepared.release_id,
-        input_realization_id="input",
-        input_revision=0,
-    )
-    projected = _project_cut(
-        prepared,
-        job,
-        {"id": 7},
-        [],
-        {},
-        [],
-        [],
-        "local-only-output",
-        {},
-        {},
-        record_reports=(report,),
-    )
-    assert not projected.batch.source_record and not projected.batch.record_assertion
-    assert {row.event for row in projected.batch.local_assertion} == {
-        "source_occurrence",
-        "source_literal_quote",
-    }
-    assert {row.literal_pieces_json for row in projected.batch.local_assertion} == {'["term"]'}

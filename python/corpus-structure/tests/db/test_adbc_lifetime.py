@@ -301,65 +301,6 @@ def test_operation_request_before_publication_refuses_atomic_effect():
         pytest.fail("a canceled operation cannot publish")
 
 
-def test_capture_registers_actual_binding_queries_before_bulk_acquisition(
-    infrastructure_engine, monkeypatch
-):
-    from corpus_structure.core.db.cancellation import OperationCancellation
-    from corpus_structure.semantic import analytics, query
-
-    owner = OperationCancellation(timeout=2)
-    entered = Event()
-    failures = []
-    backend = []
-
-    def bind(conn, *args):
-        backend.append(conn.scalar(text("SELECT pg_backend_pid()")))
-        entered.set()
-        conn.execute(text("SELECT pg_sleep(20)"))
-        raise AssertionError("capture must cancel before binding can return")
-
-    monkeypatch.setattr(query, "bind_realization", bind)
-    monkeypatch.setattr(
-        analytics,
-        "open_adbc_connection",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("metadata cancellation must not acquire bulk transport")
-        ),
-    )
-
-    def capture():
-        try:
-            analytics.capture_packet(infrastructure_engine, "unbound", "unused", cancellation=owner)
-        except Exception as error:
-            failures.append(error)
-
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(capture)
-        assert entered.wait(timeout=10)
-        deadline = monotonic() + 10
-        while True:
-            with infrastructure_engine.connect() as control:
-                active = control.scalar(
-                    text(
-                        "SELECT count(*) FROM pg_stat_activity WHERE pid=:pid "
-                        "AND state='active' AND wait_event='PgSleep'"
-                    ),
-                    {"pid": backend[0]},
-                )
-            if active:
-                break
-            assert monotonic() < deadline, "binding query did not become active"
-            sleep(0.02)
-        owner.request_cancel()
-        future.result(timeout=10)
-    assert len(failures) == 1
-    assert "cancel" in str(failures[0]).lower()
-    assert owner.cleanup_failures == []
-    owner.request_cancel()
-    with infrastructure_engine.connect() as conn:
-        assert conn.scalar(text("SELECT 73")) == 73
-
-
 @pytest.mark.parametrize("primary", [RuntimeError("body"), KeyboardInterrupt("body")])
 def test_child_retirement_preserves_body_and_all_nested_cleanup(primary):
     calls = []

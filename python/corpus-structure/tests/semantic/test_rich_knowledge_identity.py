@@ -17,7 +17,7 @@ from corpus_structure.semantic.rich_knowledge import (
     RichKnownEntityIdentity,
     resolve_rich_entities,
 )
-from semantic.identity_resolution_support import source
+from semantic.identity_resolution_support import source_values
 
 
 @lru_cache(maxsize=4)
@@ -67,7 +67,7 @@ def selected(
 ):
     # Only source-authored semantic entity/exclusion values are reused here. There
     # is no run/task/observation or historical batch in the current kernel input.
-    values = source(keyed=keyed, located=located)["payload"]
+    values = source_values(keyed=keyed, located=located)
     return RichEntitySource(
         reference,
         source_context(project=project, document=document),

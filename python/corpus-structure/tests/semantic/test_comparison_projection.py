@@ -2,10 +2,7 @@
 
 import json
 from dataclasses import replace
-from hashlib import sha256
-from types import SimpleNamespace
 
-import duckdb
 import pytest
 import yaml
 
@@ -15,7 +12,6 @@ from corpus_structure.semantic.comparison_projection import (
     ComparisonProjection,
     comparison_projection,
 )
-from corpus_structure.semantic.domain_operations import ReleasedRulesPolicy
 from corpus_structure.semantic.identity import canonical_bytes, fact_key
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.releases import _products
@@ -246,85 +242,3 @@ def test_historical_projection_refuses_instead_of_reinterpreting_archived_lists(
         comparison_projection(historical)
     row = next(r for r in rows if r.kind == "operation_property" and r.name == "Thing/owns")
     assert json.loads(row.body)["cs:qualifiers"] == "measure missing"
-
-
-def test_scientific_consumer_uses_projection_preserving_group_keys_and_occurrences():
-    prepared = prepare_release(comparison_bundle())
-    policy = object.__new__(ReleasedRulesPolicy)
-    policy.prepared = prepared
-    policy.definitions = {d.name: d for d in prepared.definitions}
-    policy.metadata = {}
-    policy.comparison_projection = comparison_projection(prepared)
-    candidates = tuple(
-        SimpleNamespace(
-            class_name="Thing",
-            predicate="https://example.org/owns",
-            qualification_class="Qualification",
-            qualification={"interval": "2020", "attribution": who, "measure": value},
-            subject="owner",
-            statement="statement",
-            object="land",
-            fact_id=f"fact:{who}",
-            occurrence_id=f"occ:{who}",
-        )
-        for who, value in (("Alice", "1"), ("Bob", "2"))
-    )
-    with duckdb.connect() as connection:
-        captured = []
-
-        def disagreements(relation):
-            captured.extend(relation.to_arrow_table().to_pylist())
-            return relation.query(
-                "meaning_rows",
-                "SELECT key FROM meaning_rows GROUP BY key HAVING count(DISTINCT meaning)>1",
-            )
-
-        scope = SimpleNamespace(connection=connection, operation_disagreements=disagreements)
-        generated, unresolved, equivalent, assessments = policy.scientific_decisions(
-            SimpleNamespace(candidates=candidates, batch=SimpleNamespace(occurrence=())), scope
-        )
-    expected_key = sha256(
-        canonical_bytes(
-            [
-                "sequence",
-                [
-                    ["string", "owner"],
-                    ["string", "https://example.org/owns"],
-                    ["string", "statement"],
-                    ["string", "land"],
-                    ["mapping", [["interval", ["string", "2020"]]]],
-                ],
-            ]
-        )
-    ).hexdigest()
-    assert [r["key"] for r in captured] == [expected_key, expected_key]
-    assert [json.loads(r["meaning"]) for r in captured] == [
-        [
-            "mapping",
-            [
-                ["bindings", ["sequence", []]],
-                [
-                    "qualifiers",
-                    [
-                        "mapping",
-                        [["attribution", ["string", "Alice"]], ["measure", ["string", "1"]]],
-                    ],
-                ],
-            ],
-        ],
-        [
-            "mapping",
-            [
-                ["bindings", ["sequence", []]],
-                [
-                    "qualifiers",
-                    ["mapping", [["attribution", ["string", "Bob"]], ["measure", ["string", "2"]]]],
-                ],
-            ],
-        ],
-    ]
-    assert dict(generated) == {
-        "occ:Alice": {"disagreement:" + expected_key},
-        "occ:Bob": {"disagreement:" + expected_key},
-    }
-    assert not unresolved and not equivalent and not assessments

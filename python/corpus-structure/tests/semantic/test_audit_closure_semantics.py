@@ -7,11 +7,6 @@ import pytest
 from pydantic import ValidationError
 
 from corpus_structure.semantic.analysis_policies import prepare_placement_policy
-from corpus_structure.semantic.domain_operations import (
-    CandidateContextIndex,
-    _entity_mappings,
-    _project_cut,
-)
 from corpus_structure.semantic.identity import claim_source_item
 from corpus_structure.semantic.refusals import (
     SemanticOperationRefusal,
@@ -20,8 +15,6 @@ from corpus_structure.semantic.refusals import (
 )
 from corpus_structure.semantic.rule_views import project_rule_value
 from corpus_structure.semantic.unicode_identity import identity_casefold
-from semantic.identity_resolution_support import release as identity_release
-from semantic.identity_resolution_support import source
 from semantic.proposals_support import batch, prepared
 from semantic.proposals_support import native_frame as frame
 
@@ -67,135 +60,10 @@ def test_expression_projection_keeps_declared_enum_and_expression_form():
     assert project_rule_value(release, "Value", None) is None
 
 
-def test_candidate_indexes_preserve_global_premises_and_duplicate_symbol_owners():
-    release = prepared()
-    candidates = (
-        SimpleNamespace(
-            occurrence_id="a", statement="s", statement_role="premise", statement_kind="theorem"
-        ),
-        SimpleNamespace(
-            occurrence_id="b", statement="s", statement_role="premise", statement_kind="theorem"
-        ),
-        SimpleNamespace(
-            occurrence_id="g",
-            statement="other",
-            statement_role="premise",
-            statement_kind="assumption",
-        ),
-        SimpleNamespace(
-            occurrence_id="x",
-            statement="other",
-            statement_role="conclusion",
-            statement_kind="theorem",
-        ),
-    )
-    index = CandidateContextIndex.prepare(release, candidates, {"a": {"v", "self"}, "b": {"v"}})
-    assert index.statement_premises(candidates[0]) == ("b", "g")
-    assert index.statement_premises(candidates[3]) == ("g",)
-    assert index.given_by_others("a") == ("v",)
-    assert index.given_by_others("b") == ("self", "v")
 
 
-def test_ambiguous_anchors_and_incomplete_keys_have_explicit_provisional_decisions():
-    observed = source()
-    observed["payload"]["identity_exclusions"] = []
-    known = {
-        key: {"class_iris": ("https://example.org/Person",), "label": "Alice", "fields": {}}
-        for key in ("known:one", "known:two")
-    }
-    mappings, _, decisions = _entity_mappings(
-        identity_release(), [observed], "out", known, {9: ({}, ())}
-    )
-    assert all(
-        row.basis == "global_label" and row.outcome == "ambiguous_anchor" for row in decisions
-    )
-    assert all(row.entity_id == mappings[9][row.local_id] for row in decisions)
-    assert len(set(mappings[9].values())) == 3
-    assert all(
-        '"known:one"' in row.candidates and '"known:two"' in row.candidates for row in decisions
-    )
-    incomplete = source()
-    incomplete["payload"]["identity_exclusions"] = []
-    _, _, decisions = _entity_mappings(
-        identity_release(True), [incomplete], "out", {}, {9: ({}, ())}
-    )
-    assert all(row.basis == "declared_key" and row.outcome == "incomplete_key" for row in decisions)
 
 
-def test_each_attribute_keeps_own_qualification_and_support_without_claim_borrowing():
-    from corpus_structure.semantic.proposals import locate_proposal
-
-    release = prepared()
-    raw = batch()
-    raw["statements"] = []
-    raw["claims"][0].pop("statement")
-    raw["claims"][0].pop("statement_role")
-    evidence = raw["claims"][0]["evidence"][0]
-    raw["entities"][0]["attributes"] = [
-        {
-            "predicate": "https://example.org/name",
-            "value": {"kind": "text", "text": "Alice"},
-            "qualification": {"modality": "supposed", "polarity": False},
-            "establishment": "agent_asserted",
-            "evidence": [dict(evidence), {**evidence, "role": "supporting"}],
-        }
-    ]
-    located = locate_proposal(release, raw, frame(), placement_policy=prepare_placement_policy())
-    payload = located.stored.model_dump(mode="python", exclude_unset=True)
-    observation = {
-        "id": 9,
-        "observation_key": "observation:attributes",
-        "payload_definition": "AgentStoredBatch",
-        "payload": payload,
-    }
-    descriptor = {
-        "math": {},
-        "content": {"macros": {}},
-        "text": frame().text,
-        "source_uri": "doc:test",
-        "provider": "agent.test",
-        "version": "7",
-        "frame": frame(),
-    }
-    job = {
-        "id": 1,
-        "project_id": "project:test",
-        "release_id": release.release_id,
-        "input_realization_id": "in",
-        "input_revision": 0,
-    }
-    cut = _project_cut(
-        release, job, {"id": 1}, [observation], {9: descriptor}, [], [], "out", {}, {}
-    )
-    attribute_occurrences = [
-        row for row in cut.batch.occurrence if row.item.startswith("entities/")
-    ]
-    assert len(attribute_occurrences) == 1  # no generated id or display-only label occurrence
-    attribute = attribute_occurrences[0]
-    support = [
-        row for row in cut.batch.occurrence_evidence if row.occurrence_id == attribute.occurrence_id
-    ]
-    claim = next(row for row in cut.batch.occurrence if row.item == "claims/0")
-    claim_support = {
-        row.evidence_id
-        for row in cut.batch.occurrence_evidence
-        if row.occurrence_id == claim.occurrence_id
-    }
-    assert len(support) == 2 and not claim_support.intersection(row.evidence_id for row in support)
-    qual_roles = {
-        row.role: row.child_value_id
-        for row in cut.batch.value_role
-        if row.parent_value_id == attribute.report_qualification_value_id
-    }
-    values = {row.value_id: row for row in cut.batch.typed_value}
-    assert values[qual_roles["modality"]].text_value == "supposed"
-    assert values[qual_roles["polarity"]].boolean_value is False
-    establishment = next(
-        row
-        for row in cut.batch.occurrence_establishment
-        if row.occurrence_id == attribute.occurrence_id
-    )
-    assert establishment.establishment == "agent_asserted"
 
 
 def test_reason_identity_does_not_depend_on_human_wording():
@@ -263,96 +131,8 @@ classes:
     ]
 
 
-def test_ungrounded_identity_cycle_retains_explicit_dependencies():
-    release = identity_release(True)
-    definition = next(d for d in release.definitions if d.name == "Person")
-    definition = replace(
-        definition,
-        properties=tuple(
-            replace(p, range="Person") if p.name == "serial" else p for p in definition.properties
-        ),
-    )
-    release = replace(
-        release,
-        definitions=tuple(definition if d.name == "Person" else d for d in release.definitions),
-    )
-    observed = source(keyed=True)
-    observed["payload"]["identity_exclusions"] = []
-    for entity, target in zip(observed["payload"]["entities"], ("b", "c", "a"), strict=True):
-        entity["attributes"][0]["value"] = {"kind": "entity", "target": target}
-    mappings, _, decisions = _entity_mappings(release, [observed], "out", {}, {9: ({}, ())})
-    assert len(set(mappings[9].values())) == 3
-    assert all(
-        row.basis == "declared_key" and row.outcome == "ungrounded_cycle" for row in decisions
-    )
-    assert {row.dependencies for row in decisions} == {'[[9,"a"]]', '[[9,"b"]]', '[[9,"c"]]'}
 
 
-def test_unexpected_comparison_value_error_remains_a_failure(monkeypatch):
-    import pyarrow as pa
-
-    from corpus_structure.semantic import domain_operations as owner
-    from corpus_structure.semantic import scientific_evidence
-
-    release = prepared()
-    definition = next(d for d in release.definitions if d.name == "Person")
-    prop = next(p for p in definition.properties if p.name == "name")
-    definition = replace(
-        definition,
-        properties=tuple(
-            replace(p, constraint_scope="accepted_value") if p == prop else p
-            for p in definition.properties
-        ),
-    )
-    policy = object.__new__(owner.ReleasedRulesPolicy)
-    policy.prepared = release
-    policy.definitions = {"Person": definition}
-    policy.metadata = {("Person", prop.iri): {"cs:role": "predicate"}}
-    from corpus_structure.semantic.comparison_projection import comparison_projection
-
-    policy.comparison_projection = comparison_projection(release)
-    candidate = owner.ClaimCandidate(
-        "fact:a",
-        "occ:a",
-        "source",
-        "a",
-        "entity:p",
-        "Person",
-        prop.iri,
-        "one",
-        {},
-        "stated",
-        None,
-        None,
-        None,
-        (),
-        1,
-        {},
-    )
-    inputs = SimpleNamespace(
-        candidates=(
-            candidate,
-            replace(candidate, fact_id="fact:b", occurrence_id="occ:b", object="two"),
-        ),
-        batch=SimpleNamespace(occurrence=()),
-    )
-    scope = SimpleNamespace(
-        connection=SimpleNamespace(from_arrow=lambda table: table),
-        operation_disagreements=lambda relation: SimpleNamespace(
-            to_arrow_table=lambda: pa.table({"key": pa.array([], type=pa.string())})
-        ),
-    )
-
-    class BrokenComparator:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def compare(self, *args, **kwargs):
-            raise ValueError("programming defect injected")
-
-    monkeypatch.setattr(scientific_evidence, "SemanticComparator", BrokenComparator)
-    with pytest.raises(ValueError, match="programming defect injected"):
-        policy.scientific_decisions(inputs, scope)
 
 
 def test_logical_reading_dimensions_are_owned_by_the_archived_rule_schema():
@@ -433,56 +213,6 @@ def test_rule_scalar_enum_and_complete_qualification_projection_share_binding_me
     assert rule.evaluate({"claim": SimpleNamespace(qualification_values={"role": projected})})
 
 
-def test_new_released_role_member_drives_premise_behavior_and_generated_schema():
-    from pathlib import Path
-
-    import yaml
-
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-    from corpus_structure.semantic.proposals import proposal_inputs
-
-    core = yaml.safe_load(
-        (Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml").read_bytes()
-    )
-    core["enums"]["StatementRole"]["permissible_values"]["axiom"] = {
-        "in_subset": ["participates_as_premise"]
-    }
-    domain = b"""id: https://example.org/role
-name: role
-imports: [core]
-prefixes: {ex: 'https://example.org/'}
-default_prefix: ex
-classes:
-  Thing:
-    is_a: Entity
-    attributes: {note: {}}
-"""
-    release = prepare_release(
-        proposal_inputs(
-            SourceBundle(
-                "role",
-                (
-                    SourceArtifact("role", domain),
-                    SourceArtifact("core", yaml.safe_dump(core).encode()),
-                ),
-            )
-        )
-    )
-    assert release.member_has_behavior("StatementRole", "axiom", "participates_as_premise")
-    assert "axiom" in release.enum_members("AgentStatementRole")
-    assert "axiom" in str(release.json_schema("AgentAuthoredBatch"))
-    candidate = SimpleNamespace(
-        occurrence_id="axiom:1", statement="s", statement_role="axiom", statement_kind="theorem"
-    )
-    conclusion = SimpleNamespace(
-        occurrence_id="conclusion:1",
-        statement="s",
-        statement_role="conclusion",
-        statement_kind="theorem",
-    )
-    assert CandidateContextIndex.prepare(release, (candidate, conclusion), {}).statement_premises(
-        conclusion
-    ) == ("axiom:1",)
 
 
 def test_folding_requirement_comes_from_prepared_identity_qualification_and_class_bindings():
@@ -601,111 +331,3 @@ def test_new_expression_form_spelling_uses_released_symbol_behavior():
     assert projected.expression_form == "assignment" and projected.defined_symbol == "x"
     symbol = {**definition, "expression": "x"}
     assert binding_symbols(release, "Value", (symbol,)) == {"x"}
-
-
-@pytest.mark.parametrize("endpoint", [False, True])
-def test_declared_endpoint_and_isolate_keep_membership_without_attribute_facts(endpoint):
-    release = prepared()
-    raw = batch()
-    raw["statements"] = []
-    raw["claims"][0].pop("statement")
-    raw["claims"][0].pop("statement_role")
-    raw["entities"].append({"id": "q", "class_iri": "https://example.org/Person", "label": "Bob"})
-    if endpoint:
-        raw["claims"][0]["predicate"] = "https://example.org/friend"
-        raw["claims"][0]["object"] = {"kind": "entity", "target": "q"}
-    projected = _declaration_projection(release, raw)
-    declarations = {row.local_id: row.entity_id for row in projected.batch.entity_source}
-    assert set(declarations) == {"p", "q"}
-    assert len(projected.batch.membership) == 2
-    member = next(row for row in projected.batch.membership if row.entity_id == declarations["q"])
-    assert member.class_id == "https://example.org/Person"
-    assert member.establishment == "agent_asserted"
-    assert not [
-        row for row in projected.batch.membership_support if row.entity_id == member.entity_id
-    ]
-    assert not [row for row in projected.batch.fact if row.subject_id == member.entity_id]
-    assert {row.item for row in projected.batch.occurrence} == {"claims/0"}
-    assert {row.property_id for row in projected.batch.fact} == {
-        "https://example.org/friend" if endpoint else "https://example.org/name"
-    }
-
-
-def test_incomplete_declared_identity_does_not_gain_membership():
-    release = identity_release(keyed=True)
-    raw = batch()
-    raw["statements"] = []
-    raw["claims"] = []
-    projected = _declaration_projection(release, raw)
-    assert projected.batch.entity_source
-    assert not projected.batch.membership
-    assert not projected.batch.fact
-    assert any(
-        "required identifying fields" in (row.reason or "") for row in projected.batch.coverage
-    )
-
-
-def _declaration_projection(release, raw):
-    from corpus_structure.semantic.proposals import locate_proposal
-
-    payload = locate_proposal(
-        release, raw, frame(), placement_policy=prepare_placement_policy()
-    ).stored.model_dump(mode="python", exclude_unset=True)
-    observation = {
-        "id": 9,
-        "observation_key": "observation:declarations",
-        "payload_definition": "AgentStoredBatch",
-        "payload": payload,
-    }
-    descriptor = {
-        "math": {},
-        "content": {"macros": {}},
-        "text": frame().text,
-        "source_uri": "doc:test",
-        "provider": "agent.test",
-        "version": "7",
-        "frame": frame(),
-    }
-    job = {
-        "id": 1,
-        "project_id": "project:test",
-        "release_id": release.release_id,
-        "input_realization_id": "in",
-        "input_revision": 0,
-    }
-    return _project_cut(
-        release, job, {"id": 1}, [observation], {9: descriptor}, [], [], "out", {}, {}
-    )
-
-
-def test_historical_proposal_without_native_frame_retains_report_and_partial_standing():
-    from semantic.proposals_support import frame as historical_frame
-
-    release = prepared()
-    observation = dict(
-        id=9,
-        observation_key="historical:proposal",
-        payload_definition="AgentStoredBatch",
-        payload={"historical_payload": "not reinterpreted by the current schema"},
-    )
-    descriptor = dict(
-        frame=historical_frame(),
-        math={"constants": "historical unparsed config"},
-        content={"macros": {"old": "unparsed"}},
-    )
-    job = dict(
-        id=1,
-        project_id="project:test",
-        release_id=release.release_id,
-        input_realization_id="in",
-        input_revision=0,
-    )
-    cut = _project_cut(
-        release, job, {"id": 1}, [observation], {9: descriptor}, [], [], "out", {}, {}
-    )
-    assert cut.reports == (observation,)
-    assert cut.candidates == () and not cut.source_links
-    assert not cut.batch.entity and not cut.batch.occurrence
-    assert any(
-        row.family == "claim_proposal" and row.outcome == "partial" for row in cut.batch.coverage
-    )

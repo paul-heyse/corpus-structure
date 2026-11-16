@@ -210,12 +210,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "2",
     },
-    "capture_analytics": {
-        "effects": ("materialize_same_snapshot_before_source_close",),
-        "implementation": "capture",
-        "transitions": {},
-        "version": "1",
-    },
     "capture_cut": {
         "effects": ("final_cut_seals_source_atomically", "immutable_cut"),
         "implementation": "cut",
@@ -232,29 +226,6 @@ SUPPORTED_EFFECTS = {
             "task_reclaim_held": (),
         },
         "version": "2",
-    },
-    "close_analysis": {
-        "effects": ("attempt_every_owned_teardown", "preserve_failure_and_cancellation"),
-        "implementation": "analysis_close",
-        "transitions": {
-            "analysis_close_candidate": (
-                "invalidate_borrowed_handles",
-                "preserve_independently_detached_values",
-                "release_owned_resources",
-            ),
-            "analysis_close_captured": (
-                "invalidate_borrowed_handles",
-                "preserve_independently_detached_values",
-                "release_owned_resources",
-            ),
-        },
-        "version": "1",
-    },
-    "compile_projection": {
-        "effects": (),
-        "implementation": "projection",
-        "transitions": {},
-        "version": "1",
     },
     "complete": {
         "effects": ("atomic_terminal_result_and_reports",),
@@ -306,12 +277,6 @@ SUPPORTED_EFFECTS = {
     "graph_validate": {
         "effects": (),
         "implementation": "graph_validate",
-        "transitions": {},
-        "version": "1",
-    },
-    "open_analysis": {
-        "effects": ("own_engine_readers_registrations_scratch",),
-        "implementation": "analysis",
         "transitions": {},
         "version": "1",
     },
