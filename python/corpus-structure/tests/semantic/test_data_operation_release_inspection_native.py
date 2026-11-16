@@ -72,16 +72,16 @@ def test_read_inspection_refuses_actual_missing_changed_and_extra_rows(ddo_kerne
         elif mutation == "changed-operation":
             connection.execute(
                 text(
-                    "UPDATE sem.data_operation_definition SET support_contract=support_contract||'{\"inspection_counterfeit\":true}'::jsonb WHERE release_id=:release"
+                    "UPDATE sem.data_operation_definition SET support_contract=support_contract||CAST(:counterfeit AS jsonb) WHERE release_id=:release"
                 ),
-                {"release": release},
+                {"release": release, "counterfeit": '{"inspection_counterfeit":true}'},
             )
         else:
             connection.execute(
                 text(
-                    "INSERT INTO sem.data_operation_definition SELECT release_id,'unexpected:inspection',subject_definition,recipe||':unexpected',profile,implementation_revision,input_roles,output_roles,support_contract FROM sem.data_operation_definition WHERE release_id=:release ORDER BY operation_id LIMIT 1"
+                    "INSERT INTO sem.data_operation_definition SELECT release_id,'unexpected:inspection',subject_definition,recipe||:suffix,profile,implementation_revision,input_roles,output_roles,support_contract FROM sem.data_operation_definition WHERE release_id=:release ORDER BY operation_id LIMIT 1"
                 ),
-                {"release": release},
+                {"release": release, "suffix": ":unexpected"},
             )
     try:
         with kernel.purpose("read").begin() as connection:

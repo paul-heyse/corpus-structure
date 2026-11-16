@@ -45,7 +45,7 @@ artifact/catalog drift refusals and no fabricated release or ordinary-purpose ad
 route is integrated; its final-source application qualification and development adoption remain open.
 
 Compiler14–21 reading, inspection/vocabulary v1 fallbacks and unfinalized archive reconstruction are
-removed; source regeneration uses current compiler22 and normal archive opening requires protected
+removed; source regeneration uses current compiler23 and normal archive opening requires protected
 finalization. The old run-based structural/journey/gap/dossier reader tails are removed in favor of
 the actual selected implementations. Independent citation expectations consume the current member
 projection. Current fixture helpers verify installed frozen custody rather than authoring DDL.

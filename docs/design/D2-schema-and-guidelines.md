@@ -246,10 +246,10 @@ a compiler number alone does not establish their compatibility. AC13 owns the co
 transition and final applicability evidence. Older numbered compiler descriptions below record
 their dated realization only and do not select a competing present runtime.
 
-The current producing and readable semantic compiler is22. Historical bytes remain evidence;
-their sources can be regenerated on the current basis without claiming identical judgments. Execution
-compiler28, RuleValue ABI2 and query coverage recipe4 are separate contracts. The exact recognized
-coverage recipe3 retains its historical producer universe. Native source inspection/search use
+The current producing and readable semantic compiler is23. Historical bytes remain evidence;
+their sources can be regenerated on the current basis without claiming identical judgments. Compiler23 retires the unused run-query coverage artifact; its changed artifact set receives a
+distinct release identity. Historical execution-compiler and run-query coverage readers are removed.
+RuleValue ABI2 retains its independent contract. Native source inspection/search use
 request/cursor version4; incompatible old requests and query bindings refuse. These version
 declarations do not establish final native, provider or assembled consumer qualification.
 Operational reference subsets derive from the supplied execution schema and are archived in its

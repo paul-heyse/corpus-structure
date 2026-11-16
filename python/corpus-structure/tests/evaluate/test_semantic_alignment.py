@@ -57,7 +57,7 @@ class AlignmentFixture:
         )
         return PreparedRelease(
             "fixture:alignment",
-            b'{"profile":{"version":"semantic-2","compiler_version":"22"}}',
+            b'{"profile":{"version":"semantic-2","compiler_version":"23"}}',
             self.definitions,
             (),
             self.registry_rows,

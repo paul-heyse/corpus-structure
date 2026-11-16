@@ -117,7 +117,6 @@ def defining_text_feature_values(
     )
 
 
-
 class EventContract(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 

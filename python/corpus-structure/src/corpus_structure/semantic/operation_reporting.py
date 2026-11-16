@@ -93,11 +93,12 @@ if TYPE_CHECKING:
 @lru_cache(maxsize=1)
 def _report_sources() -> SourceBundle:
     """Registration and invocation share one immutable process-owned source closure."""
+    from .data_product_reference import reference_inputs
     from .types import SourceArtifact, SourceBundle
 
     root = files("corpus_structure").joinpath("model", "semantic")
     modules = ("operation-reports", "pdf-products", "observations", "characterization", "core")
-    return SourceBundle(
+    bundle = SourceBundle(
         "report_root",
         (
             *(
@@ -110,6 +111,8 @@ def _report_sources() -> SourceBundle:
             ),
         ),
     )
+
+    return reference_inputs(bundle)
 
 
 @lru_cache(maxsize=1)

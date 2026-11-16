@@ -702,7 +702,7 @@ runtime authority.
 ## Effective execution closure
 
 **Implemented current archive boundary; assembled qualification remains open · 2026-11-16.**
-Supported immutable archive opening consumes current compiler22 products. Full verification belongs
+Supported immutable archive opening consumes current compiler23 products. Full verification belongs
 to persistence, activation and explicit replay, rather than compiler reconstruction on every ordinary
 read. Historical compiler readers, vocabulary fallbacks and unfinalized reconstruction are removed.
 In-memory schema preparation remains useful without conferring native archive standing: native

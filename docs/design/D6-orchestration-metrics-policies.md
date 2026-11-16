@@ -2,12 +2,12 @@
 
 ## Native demand and request execution
 
-**Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one
+**Implemented foundations; assembled consumer/provider qualification remains open · 2026-11-16.** The DDO target uses one
 effective model for declaration-owned and implementation-owned operations, canonical semantic values
 and admitted implementation-slice recipe determinants. Native products/derivations/support and frozen
 demands/requests preserve original source, permissions, explicit selection and authentic runtime
-provenance. Preparation/identity foundations do not activate the replacement native ABI or retire
-legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
+provenance. The registered current root supplies the replacement native ABI. Remaining legacy
+consumers are retirement obligations. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
 **Accepted target; integration/qualification Proposed · 2026-11-15.** The existing typed CPU
@@ -820,8 +820,16 @@ of the task it points at (D4 M02). In phase 0 M02 writes character and math feat
 
 ### 7.1 Language
 
-A domain's `policies.yaml` holds ordered **chains**, one per routing point. Each entry has a
-condition (a rule-engine expression over the unit context, §7.2) and an action:
+**Current executable boundary · 2026-11-16.** Declared operation selection, typed inputs,
+outcome/fate contracts and admitted policy assets govern current demands. The unmounted run-chain
+loader and its `policies.yaml` files are removed. Current rich/scientific policy owners and the
+shared expression engine remain independent. The earlier chain syntax and phase examples below
+describe a superseded executable format; they do not select an installed loader or a compatibility
+obligation. Any future routing capability must be expressed through the current declared model.
+
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
+
+The superseded format expressed ordered conditions and actions as follows:
 
 ```yaml
 version: 0.1.0

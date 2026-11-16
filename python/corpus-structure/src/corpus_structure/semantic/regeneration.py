@@ -112,7 +112,6 @@ def acquire_pack(pack: Path) -> PackInputs:
         for filename in (
             "methods.yaml",
             "guideline.md",
-            "policies.yaml",
             "slices.yaml",
             "interpretation-questions.yaml",
             "pm2-definition-policy.json",

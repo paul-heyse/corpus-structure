@@ -373,7 +373,8 @@ def test_actual_database_check_preserves_native_admission_diagnostic(
         assert refused.exit_code == 1, refused.output
         error = json.loads(refused.stdout)["error"]
         assert error["code"] == "ExecutionAdmissionError"
-        assert "native execution deployment differs" in error["message"]
+        assert "native execution deployment or archived binding is incompatible" in error["message"]
+        assert "ops.inspect_data_operation_release(jsonb)" in error["message"]
     finally:
         with kernel.engine.begin() as connection:
             connection.exec_driver_sql(

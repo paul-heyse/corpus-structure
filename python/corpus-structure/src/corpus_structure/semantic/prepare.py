@@ -892,7 +892,6 @@ def _prepare_release_uncached(
     primitive_tokens = {typ: name for name, typ in _PRIMITIVES.items()}
     # Normalize duplicate Python primitive spellings without changing their runtime meaning.
     primitive_tokens.update({str: "string", float: "float"})
-    from .coverage_contract import coverage_recipe
 
     boundary_recipe = {
         "abi": "semantic-boundary-" + BOUNDARY_ABI_VERSION,
@@ -952,7 +951,6 @@ def _prepare_release_uncached(
     artifacts = [
         PreparedArtifact("definitions.json", canonical_bytes([asdict(d) for d in definitions])),
         PreparedArtifact("boundary_recipe.json", canonical_bytes(boundary_recipe)),
-        PreparedArtifact("query_coverage.json", canonical_bytes(coverage_recipe())),
         PreparedArtifact("effective_bindings.json", canonical_bytes(effective_bindings)),
     ]
     if data_operations is not None:
