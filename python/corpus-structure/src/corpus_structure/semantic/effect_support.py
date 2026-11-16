@@ -24,12 +24,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "read_source_contributions": {
-        "effects": (),
-        "implementation": "read_source_contributions",
-        "transitions": {},
-        "version": "1",
-    },
     "read_source_records": {
         "effects": (),
         "implementation": "read_source_records",

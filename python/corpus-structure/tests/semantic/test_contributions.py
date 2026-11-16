@@ -14,8 +14,11 @@ from corpus_structure.semantic.contributions import (
     contribution_identity,
     occurrence_identity,
 )
+from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
 from corpus_structure.semantic.observations import bind_result, observation_inputs
 from corpus_structure.semantic.record_contracts import anchor_identity
+from semantic.record_contracts_support import PIN
 
 
 @pytest.fixture(scope="module")
@@ -26,16 +29,8 @@ def prepared():
     )
 
 
-def pieces(start=0, source="source"):
-    pin = dict(
-        source=source,
-        native_product_task_id=1,
-        product_key="native",
-        product_digest="a" * 64,
-        projection_digest="b" * 64,
-        recipe_digest="c" * 64,
-        source_view_id=1,
-    )
+def pieces(start=0):
+    pin = dict(PIN)
     anchor = dict(
         pin=pin,
         space="native",
@@ -91,7 +86,7 @@ def test_physical_occurrence_is_independent_of_observation_and_role(prepared):
     assert first["occurrence_id"] != elsewhere["occurrence_id"]
     _, bound = bind_contributions(
         prepared,
-        source="source",
+        source=PIN["source"],
         operations=(operation(4),),
         contributions=(first, repeated, elsewhere, proposal),
         coordinate_texts=(coordinate,),
@@ -111,7 +106,7 @@ def test_recordless_batch_and_empty_operation_are_distinct_from_absence(prepared
         contribution_coordinate_texts=(coordinate,),
     )
     kwargs = dict(
-        source="source",
+        source=PIN["source"],
         method="extract",
         operation_version="1",
         configuration_hash="config",
@@ -145,7 +140,7 @@ def test_endpoint_closure_piece_order_and_false_zero_refuse(prepared):
     with pytest.raises(ValueError, match="unavailable"):
         bind_contributions(
             prepared,
-            source="source",
+            source=PIN["source"],
             operations=(operation(1),),
             contributions=(bad,),
             coordinate_texts=(coordinate,),
@@ -155,7 +150,7 @@ def test_endpoint_closure_piece_order_and_false_zero_refuse(prepared):
     with pytest.raises(ValueError, match="score availability"):
         bind_contributions(
             prepared,
-            source="source",
+            source=PIN["source"],
             operations=(operation(1),),
             contributions=(bad,),
             coordinate_texts=(coordinate,),
@@ -167,27 +162,39 @@ def test_endpoint_closure_piece_order_and_false_zero_refuse(prepared):
     with pytest.raises(ValueError, match="reverse order"):
         bind_contributions(
             prepared,
-            source="source",
+            source=PIN["source"],
             operations=(operation(1),),
             contributions=(bad,),
             coordinate_texts=(coordinate,),
         )
 
 
-def test_occurrence_is_stable_across_view_alias_and_native_task_identity():
+def test_occurrence_is_stable_across_selected_product_member_and_subject_alias():
     pin, a, _ = pieces()
     b = dict(
         a,
-        pin=dict(
-            pin,
-            source="another-window",
-            source_view_id=19,
-            native_product_task_id=9,
-            projection_digest="d" * 64,
-        ),
+        pin=DeclaredRecordSource(
+            pin["document"],
+            pin["projection_digest"],
+            pin["section_pointer"],
+            pin["membership"],
+            SubjectContext(
+                pin["project_id"],
+                "subject:another-selection",
+                pin["original_source"],
+                b'{"selected":true}',
+                subject_definition=pin["subject_definition"],
+            ),
+            "product:another-selection",
+            "member:another-selection",
+            pin["kind_contract"],
+        ).pin(),
     )
     b["anchor_id"] = anchor_identity(b)
     assert occurrence_identity((a,)) == occurrence_identity((b,))
+    changed_projection = dict(a, pin=dict(pin, projection_digest="d" * 64))
+    changed_projection["anchor_id"] = anchor_identity(changed_projection)
+    assert occurrence_identity((a,)) != occurrence_identity((changed_projection,))
 
 
 def test_unsupported_effect_refuses_preparation():
@@ -212,12 +219,12 @@ def test_unlocated_proposal_cannot_spoof_occurrence(prepared):
     row["contribution_id"] = contribution_identity(row)
     with pytest.raises(ValueError, match="unlocated contribution cannot claim"):
         bind_contributions(
-            prepared, source="source", operations=(operation(1),), contributions=(row,)
+            prepared, source=PIN["source"], operations=(operation(1),), contributions=(row,)
         )
     row.pop("occurrence_id")
     row["contribution_id"] = contribution_identity(row)
     _, bound = bind_contributions(
-        prepared, source="source", operations=(operation(1),), contributions=(row,)
+        prepared, source=PIN["source"], operations=(operation(1),), contributions=(row,)
     )
     assert "occurrence_id" not in bound[0]
 
@@ -232,7 +239,7 @@ def test_two_operations_keep_distinct_observations_of_one_physical_occurrence(pr
     )
     _, rows = bind_contributions(
         prepared,
-        source="source",
+        source=PIN["source"],
         operations=operations,
         contributions=(first, second),
         coordinate_texts=(coordinate,),
@@ -252,7 +259,7 @@ def test_local_question_report_binds_actual_contributions_without_record(prepare
     assert "question_id" not in local["local_interpretation"]
     operations, output = bind_contributions(
         prepared,
-        source="source",
+        source=PIN["source"],
         operations=(operation(1), local),
         contributions=(row,),
         coordinate_texts=(coordinate,),
@@ -278,7 +285,7 @@ def test_local_question_forged_input_closure_refuses(prepared):
     with pytest.raises(ValueError, match="unavailable"):
         bind_contributions(
             prepared,
-            source="source",
+            source=PIN["source"],
             operations=(operation(1), local),
             contributions=(row,),
             coordinate_texts=(coordinate,),
@@ -313,7 +320,7 @@ def test_released_located_component_retains_independent_roles_and_basis(prepared
     row["contribution_id"] = contribution_identity(row)
     _, bound = bind_contributions(
         prepared,
-        source="source",
+        source=PIN["source"],
         operations=(operation(1),),
         contributions=(row,),
         coordinate_texts=(coordinate,),
@@ -333,7 +340,7 @@ def test_released_located_component_retains_independent_roles_and_basis(prepared
     with pytest.raises(ValueError, match="operation question"):
         bind_contributions(
             prepared,
-            source="source",
+            source=PIN["source"],
             operations=(operation(1),),
             contributions=(bad,),
             coordinate_texts=(coordinate,),
@@ -364,7 +371,7 @@ def test_component_endpoint_signature_is_released_and_not_generic_cardinality(pr
     row["contribution_id"] = contribution_identity(row)
     _, bound = bind_contributions(
         prepared,
-        source="source",
+        source=PIN["source"],
         operations=(operation(3),),
         contributions=(term, content, row),
         coordinate_texts=(coordinate,),
@@ -378,7 +385,7 @@ def test_component_endpoint_signature_is_released_and_not_generic_cardinality(pr
     with pytest.raises(ValueError, match="released role signature"):
         bind_contributions(
             prepared,
-            source="source",
+            source=PIN["source"],
             operations=(operation(3),),
             contributions=(term, content, row),
             coordinate_texts=(coordinate,),
