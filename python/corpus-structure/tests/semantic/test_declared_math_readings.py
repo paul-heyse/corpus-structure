@@ -4,8 +4,8 @@ import pytest
 
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.declared import declared_math_readings, selected_formula_inputs
-from corpus_structure.semantic.declared_math_products import DeclaredMathOptions
 from corpus_structure.semantic.data_operation_model import BoundRoleMember, SubjectContext
+from corpus_structure.semantic.declared_math_products import DeclaredMathOptions
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions
 from corpus_structure.semantic.identity import canonical_bytes

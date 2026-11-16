@@ -3,7 +3,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.evidence import MacroDef
-
 from corpus_structure.semantic.constructions.math_scope import NativeDomainRule
 
 

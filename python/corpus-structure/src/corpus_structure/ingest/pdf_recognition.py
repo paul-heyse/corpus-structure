@@ -898,7 +898,9 @@ def recognition_observation_values(
                 outcome=(
                     "unknown"
                     if "raw_response" not in row
-                    else "capped" if row.get("finish_reason") == "length" else "partial"
+                    else "capped"
+                    if row.get("finish_reason") == "length"
+                    else "partial"
                 ),
                 detail=("Request output only; completion does not establish source completeness."),
                 supports=[],

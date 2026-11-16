@@ -7,8 +7,11 @@ from sqlalchemy import text
 
 from corpus_structure.semantic.pdf_record_reader import published_record_reader
 from corpus_structure.semantic.pdf_storage import (
-    NativeDocumentUnavailable, read_pdf_artifact, read_pdf_manifest,
-    read_pdf_product, trace_pdf_occurrence,
+    NativeDocumentUnavailable,
+    read_pdf_artifact,
+    read_pdf_manifest,
+    read_pdf_product,
+    trace_pdf_occurrence,
 )
 from semantic.current_pdf_integration_support import RICH_RESPONSE, current_integration_journey
 from semantic.pdf_native_source_support import IMAGE
@@ -20,7 +23,10 @@ def test_current_rich_integration_retains_separate_claims_inventory_and_original
     # Trailing provider whitespace is still retained verbatim, across byte pages.
     raw = RICH_RESPONSE + b"\n" * 70000
     with current_integration_journey(
-        scenario_seeds, tmp_path, monkeypatch, native_settings,
+        scenario_seeds,
+        tmp_path,
+        monkeypatch,
+        native_settings,
         raw_responses=(raw, raw),
     ) as case:
         assert "source.pdf_integrated/reconcile" in case.values
@@ -41,16 +47,29 @@ def test_current_rich_integration_retains_separate_claims_inventory_and_original
             assert cells
             assert any("/meta/tabular_chart/" in row["occurrence_id"] for row in cells)
             assert any(row.get("text") == "y+2" and row["kind"] == "formula" for row in occurrences)
-            for reference, observed in case.observations:
+            for reference, _observed in case.observations:
                 retained = read_pdf_product(connection, **reference.values(), include_body=True)
-                assert retained["body"]["observation"]["raw_response_digest"] == sha256(raw).hexdigest()
-                assert retained["body"]["observation"]["image"]["artifact_digest"] == sha256(IMAGE).hexdigest()
+                assert (
+                    retained["body"]["observation"]["raw_response_digest"]
+                    == sha256(raw).hexdigest()
+                )
+                assert (
+                    retained["body"]["observation"]["image"]["artifact_digest"]
+                    == sha256(IMAGE).hexdigest()
+                )
                 assert retained["body"]["inputs"] == [{**organized.values(), "role": "structural"}]
             chart = next(row for row in cells if "/meta/tabular_chart/" in row["occurrence_id"])
-            trace = trace_pdf_occurrence(connection, **selected.values(), occurrence_id=chart["occurrence_id"])
+            trace = trace_pdf_occurrence(
+                connection, **selected.values(), occurrence_id=chart["occurrence_id"]
+            )
             assert trace["complete"] is True
-            assert any(node["product_key"] == case.observations[0][0].product_key for node in trace["nodes"])
-            assert all(node["artifact_digest"] == case.original.content_hash for node in trace["nodes"])
+            assert any(
+                node["product_key"] == case.observations[0][0].product_key
+                for node in trace["nodes"]
+            )
+            assert all(
+                node["artifact_digest"] == case.original.content_hash for node in trace["nodes"]
+            )
             with pytest.raises(ValueError, match="exceeds requested row budget"):
                 trace_pdf_occurrence(
                     connection, **selected.values(), occurrence_id=chart["occurrence_id"], limit=1
@@ -59,12 +78,18 @@ def test_current_rich_integration_retains_separate_claims_inventory_and_original
                 connection, **selected.values(), occurrence_id=chart["occurrence_id"]
             )
             assert "body" not in scoped and "content" not in scoped["descriptor"]
-            assert [row["occurrence_id"] for row in scoped["occurrences"]] == [chart["occurrence_id"]]
-            assert all(row["body"]["scope"] in {"whole_document", "page:1"} for row in scoped["coverage"])
+            assert [row["occurrence_id"] for row in scoped["occurrences"]] == [
+                chart["occurrence_id"]
+            ]
+            assert all(
+                row["body"]["scope"] in {"whole_document", "page:1"} for row in scoped["coverage"]
+            )
             # Page the actual manifest independently of the scoped companion read.
             coverage, after = [], ""
             while True:
-                page = read_pdf_manifest(connection, **selected.values(), collection="coverage", after=after, limit=1)
+                page = read_pdf_manifest(
+                    connection, **selected.values(), collection="coverage", after=after, limit=1
+                )
                 coverage.extend(page["rows"])
                 if page["cursor"] is None:
                     break
@@ -74,18 +99,33 @@ def test_current_rich_integration_retains_separate_claims_inventory_and_original
             }
             parts, offset = [], 0
             while True:
-                page = read_pdf_artifact(connection, **selected.values(), artifact_digest=sha256(raw).hexdigest(), offset=offset)
+                page = read_pdf_artifact(
+                    connection,
+                    **selected.values(),
+                    artifact_digest=sha256(raw).hexdigest(),
+                    offset=offset,
+                )
                 assert len(page["content"]) <= 65536 and page["total_bytes"] == len(raw)
                 parts.append(page["content"])
                 if page["next_offset"] is None:
                     break
                 offset = page["next_offset"]
             assert len(parts) > 1 and b"".join(parts) == raw
-            assert read_pdf_artifact(connection, **selected.values(), artifact_digest=sha256(IMAGE).hexdigest())["content"] == IMAGE
+            assert (
+                read_pdf_artifact(
+                    connection, **selected.values(), artifact_digest=sha256(IMAGE).hexdigest()
+                )["content"]
+                == IMAGE
+            )
             with pytest.raises(NativeDocumentUnavailable, match="custody"):
                 read_pdf_artifact(connection, **selected.values(), artifact_digest="0" * 64)
             with pytest.raises(ValueError, match="byte length"):
-                read_pdf_artifact(connection, **selected.values(), artifact_digest=sha256(raw).hexdigest(), offset=len(raw) + 1)
+                read_pdf_artifact(
+                    connection,
+                    **selected.values(),
+                    artifact_digest=sha256(raw).hexdigest(),
+                    offset=len(raw) + 1,
+                )
             with pytest.raises(NativeDocumentUnavailable):
                 read_pdf_product(connection, **{**selected.values(), "content_digest": "0" * 64})
 
@@ -94,8 +134,13 @@ def test_current_failed_later_request_keeps_prior_observation_without_completed_
     scenario_seeds, tmp_path, monkeypatch, native_settings
 ):
     with current_integration_journey(
-        scenario_seeds, tmp_path, monkeypatch, native_settings,
-        raw_responses=(RICH_RESPONSE, None), outcome="failed", expect_unresolved_page=True,
+        scenario_seeds,
+        tmp_path,
+        monkeypatch,
+        native_settings,
+        raw_responses=(RICH_RESPONSE, None),
+        outcome="failed",
+        expect_unresolved_page=True,
     ) as case:
         assert case.failure is not None
         assert "integrated" not in case.publications
@@ -108,15 +153,29 @@ def test_current_failed_later_request_keeps_prior_observation_without_completed_
             succeeded = read_pdf_product(connection, **first[0].values(), include_body=True)
             failed = read_pdf_product(connection, **later[0].values(), include_body=True)
             assert succeeded["body"]["observation"]["outcome"] == "succeeded"
-            assert succeeded["body"]["observation"]["raw_response_digest"] == sha256(RICH_RESPONSE).hexdigest()
+            assert (
+                succeeded["body"]["observation"]["raw_response_digest"]
+                == sha256(RICH_RESPONSE).hexdigest()
+            )
             assert succeeded["occurrences"]
             assert failed["body"]["observation"]["outcome"] == "failed"
             assert "raw_response_digest" not in failed["body"]["observation"]
             assert failed["occurrences"] == []
-            assert failed["coverage"] and all(row["body"]["outcome"] == "unknown" for row in failed["coverage"])
-            assert failed["body"]["observation"]["diagnostic"] == "controlled connection closed before response"
+            assert failed["coverage"] and all(
+                row["body"]["outcome"] == "unknown" for row in failed["coverage"]
+            )
+            assert (
+                failed["body"]["observation"]["diagnostic"]
+                == "controlled connection closed before response"
+            )
             assert all(row["body"]["outcome"] != "complete" for row in succeeded["coverage"])
         with case.clone.admin.connect() as connection:
-            assert connection.scalar(text(
-                "SELECT count(*) FROM ops.pdf_product WHERE task_id=:task AND kind='integrated'"
-            ), {"task": first[0].task_id}) == 0
+            assert (
+                connection.scalar(
+                    text(
+                        "SELECT count(*) FROM ops.pdf_product WHERE task_id=:task AND kind='integrated'"
+                    ),
+                    {"task": first[0].task_id},
+                )
+                == 0
+            )

@@ -7,7 +7,7 @@ one transaction with task completion; no inference or publication occurs on read
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field

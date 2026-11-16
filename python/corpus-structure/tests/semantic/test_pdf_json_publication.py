@@ -1,7 +1,6 @@
 """Current native PDF companion shapes and exact registered descriptor custody."""
 
 from copy import deepcopy
-from dataclasses import replace
 
 import psycopg
 import pytest
@@ -27,8 +26,10 @@ def test_every_current_integrated_companion_is_closed_under_its_real_claim(
 
         cases = []
         classes = {
-            "input": "PdfProductInput", "occurrence": "PdfProductOccurrence",
-            "relation": "PdfProductRelation", "mapping_report": "PdfMappingDisposition",
+            "input": "PdfProductInput",
+            "occurrence": "PdfProductOccurrence",
+            "relation": "PdfProductRelation",
+            "mapping_report": "PdfMappingDisposition",
             "coverage": "PdfProductCoverage",
         }
         for family in classes:
@@ -49,25 +50,45 @@ def test_every_current_integrated_companion_is_closed_under_its_real_claim(
             with engine.begin() as connection:
                 with pytest.raises(DBAPIError) as error, connection.begin_nested():
                     build = begin_pdf_build(
-                        connection, task_id=claim.task_id, attempt=claim.attempt, holder=holder,
+                        connection,
+                        task_id=claim.task_id,
+                        attempt=claim.attempt,
+                        holder=holder,
                         source_digest=sha256(draft.original).hexdigest(),
                         recipe_digest=sha256(draft.recipe_bytes).hexdigest(),
                         schema_digest=sha256(draft.schema_bytes).hexdigest(),
                         replay_key="closed-shape-probe:" + label,
                     )
-                    local = str(body.get({
-                        "occurrence": "occurrence_id", "relation": "relation_id",
-                        "coverage": "coverage_id",
-                    }.get(family, ""), 0))
-                    connection.execute(text(
-                        "SELECT ops.adopt_pdf_companion(:build,:task,:attempt,:holder,:family,:local,"
-                        "CAST(:body AS jsonb),:key,0,'{}'::jsonb)"
-                    ), dict(build=build.build_id, task=claim.task_id, attempt=claim.attempt,
-                            holder=holder, family=family, local=local,
-                            body=canonical_bytes(body).decode(), key="negative:" + label))
+                    local = str(
+                        body.get(
+                            {
+                                "occurrence": "occurrence_id",
+                                "relation": "relation_id",
+                                "coverage": "coverage_id",
+                            }.get(family, ""),
+                            0,
+                        )
+                    )
+                    connection.execute(
+                        text(
+                            "SELECT ops.adopt_pdf_companion(:build,:task,:attempt,:holder,:family,:local,"
+                            "CAST(:body AS jsonb),:key,0,'{}'::jsonb)"
+                        ),
+                        dict(
+                            build=build.build_id,
+                            task=claim.task_id,
+                            attempt=claim.attempt,
+                            holder=holder,
+                            family=family,
+                            local=local,
+                            body=canonical_bytes(body).decode(),
+                            key="negative:" + label,
+                        ),
+                    )
                 assert isinstance(error.value.orig, psycopg.Error)
                 assert (error.value.orig.sqlstate, error.value.orig.diag.message_primary) == (
-                    "23514", "parsing record shape differs: " + classes[family],
+                    "23514",
+                    "parsing record shape differs: " + classes[family],
                 )
             refused.append(label)
 
@@ -80,14 +101,21 @@ def test_every_current_integrated_companion_is_closed_under_its_real_claim(
                 connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build"))
             assert error.value.orig.sqlstate == "42501"
         with case.clone.admin.connect() as connection:
-            assert connection.scalar(text(
-                "SELECT count(*) FROM ops.pdf_stage_build WHERE task_id=:task AND replay_key LIKE 'closed-shape-probe:%'"
-            ), {"task": case.publications["integrated"].task_id}) == 0
+            assert (
+                connection.scalar(
+                    text(
+                        "SELECT count(*) FROM ops.pdf_stage_build WHERE task_id=:task AND replay_key LIKE 'closed-shape-probe:%'"
+                    ),
+                    {"task": case.publications["integrated"].task_id},
+                )
+                == 0
+            )
 
 
 def test_descriptor_helper_is_part_of_exact_current_native_catalog(commit_db_engine):
     from corpus_structure.semantic.execution_admission import (
-        ExecutionAdmissionError, verify_deployment_catalog,
+        ExecutionAdmissionError,
+        verify_deployment_catalog,
     )
     from corpus_structure.semantic.migrations import current_revision
 

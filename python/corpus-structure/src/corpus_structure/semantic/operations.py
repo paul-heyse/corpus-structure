@@ -7,7 +7,7 @@ release, method input and source item; task attempts and sequence IDs do not ent
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 

@@ -10,7 +10,6 @@ from dataclasses import dataclass, replace
 from itertools import pairwise
 from typing import Any
 
-
 from corpus_structure.core.evidence import Segment
 from corpus_structure.core.vocab import ParseOutcome
 

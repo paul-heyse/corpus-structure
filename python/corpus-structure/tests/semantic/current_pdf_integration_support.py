@@ -6,6 +6,7 @@ not Docling/Nemotron accuracy or verified external provider execution.
 """
 
 import json
+import sys
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
@@ -13,42 +14,49 @@ from pathlib import Path
 from typing import Any
 
 from conftest import settings_for_native_clone
-from sqlalchemy import select
 
 from corpus_structure.core.method import MethodSettings
-from corpus_structure.ingest.pdf_recognition import RecognitionPage
+from corpus_structure.ingest.pdf import PdfRecipe
+from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
+from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
+from corpus_structure.ingest.pdf_recognition import NemotronRecipe, RecognitionPage
 from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.orchestrate.source_operation import run_source_operation
 from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
+from corpus_structure.semantic.composed import data_operation_dependencies
+from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import read_data_demand
-from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.data_operation_storage import (
+    native_operation_declarations,
+    native_protocol_sources,
+)
+from corpus_structure.semantic.pdf_capture import pdf_capture_inputs, pdf_capture_operation_sources
+from corpus_structure.semantic.pdf_domain import pdf_domain_dependencies
+from corpus_structure.semantic.pdf_transforms import (
+    PdfEnrichmentOptions,
+    PdfIntegrationOptions,
+    PdfRecognitionResources,
+    pdf_transform_operation_sources,
+)
+from corpus_structure.semantic.pdf_views import pdf_views_operation_sources
+from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.runtime import open_runtime_engine
-from semantic.data_operation_kernel_support import Kernel
+from corpus_structure.semantic.source_discovery import source_discovery_inputs
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
+from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
 from semantic.data_operation_original_support import OriginalSeedRecipe
 from semantic.pdf_native_source_support import IMAGE, make_native_source
 
-import sys
-
-from corpus_structure.ingest.pdf import PdfRecipe
-from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
-from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
-from corpus_structure.ingest.pdf_recognition import NemotronRecipe
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies, SourceArtifact, SourceBundle
-from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
-from corpus_structure.semantic.data_operation_storage import native_operation_declarations, native_protocol_sources
-from corpus_structure.semantic.pdf_capture import pdf_capture_inputs, pdf_capture_operation_sources
-from corpus_structure.semantic.pdf_domain import pdf_domain_dependencies
-from corpus_structure.semantic.pdf_transforms import PdfEnrichmentOptions, PdfIntegrationOptions, PdfRecognitionResources, pdf_transform_operation_sources
-from corpus_structure.semantic.pdf_views import pdf_views_operation_sources
-from corpus_structure.semantic.primary_operations import combine_primary_sources
-from corpus_structure.semantic.source_discovery import source_discovery_inputs
-from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
-
 ROOT = Path(__file__).resolve().parents[4]
+
 
 def current_pdf_recipe(directory):
     native = PdfRecipe(
@@ -137,7 +145,6 @@ def current_pdf_recipe(directory):
     )
 
 
-
 RICH_RESPONSE = (
     b"<x_0.05><y_0.03>equal<x_0.30><y_0.07><class_Text>"
     b"<x_0.05><y_0.13>equal<x_0.30><y_0.17><class_Text>"
@@ -175,9 +182,15 @@ class CurrentPdfIntegration:
 
 @contextmanager
 def current_integration_journey(
-    scenario_seeds, tmp_path, monkeypatch, native_settings, *,
+    scenario_seeds,
+    tmp_path,
+    monkeypatch,
+    native_settings,
+    *,
     raw_responses=(RICH_RESPONSE, RICH_RESPONSE),
-    outcome="succeeded", before_draft=None, before_observation=None,
+    outcome="succeeded",
+    before_draft=None,
+    before_observation=None,
     expect_unresolved_page=False,
 ):
     from corpus_structure.ingest import pdf_recognition, pdf_worker
@@ -186,14 +199,29 @@ def current_integration_journey(
 
     target = OriginalSeedRecipe(current_pdf_recipe(tmp_path))
     with scenario_seeds.commit_clone(target) as clone, monkeypatch.context() as patches:
-        kernel = Kernel(clone.admin, clone.stage.kernel.preparation,
-                        clone.stage.kernel.identities, target.target, clone)
+        kernel = Kernel(
+            clone.admin,
+            clone.stage.kernel.preparation,
+            clone.stage.kernel.identities,
+            target.target,
+            clone,
+        )
         original = clone.stage.original.reference
         settings = settings_for_native_clone(native_settings, clone.admin.url.database)
         case = CurrentPdfIntegration(kernel, clone, original, settings, tmp_path)
 
-        def controlled_stream(self, source, *, spool_root, record_root, build_id,
-                              release_id, on_replay, check_active, **options):
+        def controlled_stream(
+            self,
+            source,
+            *,
+            spool_root,
+            record_root,
+            build_id,
+            release_id,
+            on_replay,
+            check_active,
+            **options,
+        ):
             from docling_core.types.doc import DoclingDocument
 
             check_active()
@@ -206,16 +234,24 @@ def current_integration_journey(
             # The independent fixture retains equal text in distinct native cells.
             assert document.tables[0].data.table_cells[0].text == "equal"
             streamed = StreamingPdfResult(
-                document, PdfStreamSpool(spool_root, check_active=check_active),
-                "success", (), self.recipe.to_bytes(), (),
+                document,
+                PdfStreamSpool(spool_root, check_active=check_active),
+                "success",
+                (),
+                self.recipe.to_bytes(),
+                (),
             )
             occurrences = streamed.write_native_occurrence_batches(
                 record_root.with_name(record_root.name + "-occurrences"),
-                build_id=build_id, on_batch=on_replay,
+                build_id=build_id,
+                on_batch=on_replay,
             )
             records = streamed.write_record_batches(
-                record_root, build_id=build_id, release_id=release_id,
-                source_digest=source.digest, on_batch=on_replay,
+                record_root,
+                build_id=build_id,
+                release_id=release_id,
+                source_digest=source.digest,
+                on_batch=on_replay,
             )
             return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
@@ -227,10 +263,14 @@ def current_integration_journey(
             (directory / "submitted.png").write_bytes(IMAGE)
             for ordinal, raw in enumerate(raw_responses):
                 row = dict(
-                    ordinal=ordinal, stage="fullpage" if ordinal == 0 else "detection",
+                    ordinal=ordinal,
+                    stage="fullpage" if ordinal == 0 else "detection",
                     outcome="succeeded" if raw is not None else "failed",
-                    submitted_image="submitted.png", submitted_digest=sha256(IMAGE).hexdigest(),
-                    width=4, height=6, prompt="Independent finite controlled recognition",
+                    submitted_image="submitted.png",
+                    submitted_digest=sha256(IMAGE).hexdigest(),
+                    width=4,
+                    height=6,
+                    prompt="Independent finite controlled recognition",
                     settings={},
                 )
                 if raw is not None:
@@ -241,12 +281,25 @@ def current_integration_journey(
                     row["diagnostic"] = "controlled connection closed before response"
                 (directory / f"request-{ordinal:03d}.json").write_text(json.dumps(row))
             check_active()
-            yield RecognitionPage(1, directory, {"outcome": outcome}, dict(
-                status="coarse", normalization="none", source_space="pdf_points",
-                target_space="submitted_pixels", page_width=200.0, page_height=300.0,
-                page_rotation=0, crop_left=0.0, crop_top=0.0, crop_right=200.0,
-                crop_bottom=300.0, affine=[0.02, 0.0, 0.0, 0.02, 0.0, 0.0],
-            ))
+            yield RecognitionPage(
+                1,
+                directory,
+                {"outcome": outcome},
+                dict(
+                    status="coarse",
+                    normalization="none",
+                    source_space="pdf_points",
+                    target_space="submitted_pixels",
+                    page_width=200.0,
+                    page_height=300.0,
+                    page_rotation=0,
+                    crop_left=0.0,
+                    crop_top=0.0,
+                    crop_right=200.0,
+                    crop_bottom=300.0,
+                    affine=[0.02, 0.0, 0.0, 0.02, 0.0, 0.0],
+                ),
+            )
 
         publish_observation = pdf_integrated.store_pdf_observation
 
@@ -255,9 +308,12 @@ def current_integration_journey(
                 before_observation(case, connection, arguments)
             digest = publish_observation(connection, **arguments)
             product = arguments["product"]
-            case.observations.append((ProductReference(
-                arguments["task_id"], product.values()["product_key"], digest
-            ), product))
+            case.observations.append(
+                (
+                    ProductReference(arguments["task_id"], product.values()["product_key"], digest),
+                    product,
+                )
+            )
             return digest
 
         publish_draft = pdf_streaming.publish_pdf_record_draft
@@ -265,9 +321,12 @@ def current_integration_journey(
         def retained_draft(engine, claim, holder, draft, **arguments):
             # A small finite fixture materializes its actual Arrow journal once.
             # Publication still consumes the same rows through the real writer.
-            draft = replace(draft, companions={
-                family: tuple(rows) for family, rows in (draft.companions or {}).items()
-            })
+            draft = replace(
+                draft,
+                companions={
+                    family: tuple(rows) for family, rows in (draft.companions or {}).items()
+                },
+            )
             case.claims[draft.product_key] = claim
             case.drafts[draft.product_key] = draft
             if before_draft is not None:
@@ -279,23 +338,35 @@ def current_integration_journey(
             return publication
 
         patches.setattr(pdf_worker.PdfWorker, "stream", controlled_stream)
-        patches.setattr(pdf_recognition.RecognitionWorker, "_recognize_pages", controlled_recognition)
+        patches.setattr(
+            pdf_recognition.RecognitionWorker, "_recognize_pages", controlled_recognition
+        )
         patches.setattr(pdf_integrated, "store_pdf_observation", retain_observation)
         patches.setattr(pdf_streaming, "publish_pdf_record_draft", retained_draft)
         request = SourceRunRequest(
-            project_id=original.project_id, release_id=kernel.prepared.release_id,
-            runtime_id=kernel.runtime, domain="toy", workflow="capture",
-            selection=WholeDocument(), documents=(original.document_key,),
-            pdf_mode="integrated", recognition_pages=(1,),
+            project_id=original.project_id,
+            release_id=kernel.prepared.release_id,
+            runtime_id=kernel.runtime,
+            domain="toy",
+            workflow="capture",
+            selection=WholeDocument(),
+            documents=(original.document_key,),
+            pdf_mode="integrated",
+            recognition_pages=(1,),
             targets=("source.pdf_integrated_views/discovery",),
         )
-        with open_runtime_engine(settings, "current-rich-pdf-integration", purpose="write", max_size=6) as engine:
+        with open_runtime_engine(
+            settings, "current-rich-pdf-integration", purpose="write", max_size=6
+        ) as engine:
             from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
 
             try:
                 result = run_source_operation(
-                    engine, request, MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-                    source_root=ROOT, admission_engine=kernel.purpose("admit"),
+                    engine,
+                    request,
+                    MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+                    source_root=ROOT,
+                    admission_engine=kernel.purpose("admit"),
                 )
             except NativeDemandExecutionError as error:
                 if not expect_unresolved_page:

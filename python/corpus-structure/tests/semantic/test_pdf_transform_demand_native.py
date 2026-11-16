@@ -1,7 +1,6 @@
 """Controlled-provider native PDF effects; this is not provider qualification."""
 
 import json
-import sys
 from copy import deepcopy
 from dataclasses import asdict
 from hashlib import sha256
@@ -14,23 +13,12 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import MethodSettings
-from corpus_structure.ingest.pdf import PdfRecipe
-from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 from corpus_structure.ingest.pdf_enrichment import PdfEnrichmentResult
-from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
-from corpus_structure.ingest.pdf_recognition import NemotronRecipe, RecognitionPage
+from corpus_structure.ingest.pdf_recognition import RecognitionPage
 from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.orchestrate.source_operation import run_source_operation
 from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
-from corpus_structure.semantic import (
-    PreparationProfile,
-    ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
-)
-from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_service import (
@@ -38,13 +26,7 @@ from corpus_structure.semantic.data_operation_service import (
     execute_data_demand,
     read_data_demand,
 )
-from corpus_structure.semantic.data_operation_storage import (
-    native_operation_declarations,
-    native_protocol_sources,
-)
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.pdf_capture import pdf_capture_inputs, pdf_capture_operation_sources
-from corpus_structure.semantic.pdf_domain import pdf_domain_dependencies
 from corpus_structure.semantic.pdf_effect_contract import (
     PDF_ENRICHMENT_EFFECT,
     PDF_ENRICHMENT_FACTORY,
@@ -53,24 +35,13 @@ from corpus_structure.semantic.pdf_effect_contract import (
     PDF_ORGANIZATION_EFFECT,
     PDF_ORGANIZATION_FACTORY,
 )
-from corpus_structure.semantic.pdf_transforms import (
-    PdfEnrichmentOptions,
-    PdfIntegrationOptions,
-    PdfRecognitionResources,
-    pdf_transform_operation_sources,
-)
-from corpus_structure.semantic.pdf_views import pdf_views_operation_sources
-from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.runtime import open_runtime_engine
-from corpus_structure.semantic.source_discovery import source_discovery_inputs
-from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
+from semantic.current_pdf_integration_support import current_pdf_recipe
+from semantic.data_operation_kernel_support import Kernel
 from semantic.data_operation_original_support import OriginalSeedRecipe
 from semantic.pdf_native_source_support import IMAGE
-from semantic.current_pdf_integration_support import current_pdf_recipe
 
 ROOT = Path(__file__).resolve().parents[4]
-
-
 
 
 def test_native_organization_enrichment_and_integration_keep_real_receipts_and_exact_resume(
