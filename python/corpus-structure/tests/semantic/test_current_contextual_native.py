@@ -70,7 +70,7 @@ class ContextualCase:
 @pytest.fixture(scope="module")
 def current_contextual_case(scenario_seeds, tmp_path_factory):
     directory = tmp_path_factory.mktemp("current-contextual")
-    rows = (("1 First", TEXT), ("2 Second", TEXT))
+    rows = (("text", TEXT, TEXT, None), ("text", TEXT, TEXT, None))
     stream = partial(_section_stream, rows)
     with (
         pytest.MonkeyPatch.context() as patch,
@@ -179,6 +179,37 @@ def test_current_contextual_native_positive_ranking_source_scope_and_private_sta
                 )
                 >= 1
             )
+
+
+def test_native_score_currentness_detects_known_linguistic_change_without_replacing_observations(
+    current_contextual_case,
+):
+    """A rolled-back catalog change exercises the actual ordinary support guard."""
+    case = current_contextual_case
+    demand, _ = run_intent(case.kernel, retrieval_intent(case.kernel, case.selection, budget=17))
+    (scores,) = retained_products(case.kernel, demand, "DdoContextualNativeScores")
+    score_episode = scores.row["derivation_id"]
+    target_episode = case.targets[0].row["derivation_id"]
+    valid = text("SELECT ops.ddo_support_valid(:episode)")
+    payload = text("SELECT i.payload FROM ops.data_completion_intent i JOIN ops.data_derivation d "
+        "ON d.intent_id=i.id WHERE d.id=:episode")
+    with case.kernel.engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            assert connection.scalar(valid, {"episode": score_episode}) is True
+            assert connection.scalar(valid, {"episode": target_episode}) is True
+            original = connection.scalar(payload, {"episode": score_episode})
+            changed = connection.execute(text("UPDATE pg_catalog.pg_ts_dict SET dictinitoption = "
+                "dictinitoption || ', controlled_option = ''different''' "
+                "WHERE dictname='english_stem' AND dictnamespace='pg_catalog'::regnamespace"))
+            assert changed.rowcount == 1
+            assert connection.scalar(valid, {"episode": score_episode}) is False
+            assert connection.scalar(valid, {"episode": target_episode}) is True
+            assert connection.scalar(payload, {"episode": score_episode}) == original
+        finally:
+            transaction.rollback()
+    with case.kernel.engine.connect() as connection:
+        assert connection.scalar(valid, {"episode": score_episode}) is True
 
 
 def test_changed_registry_reuses_actual_original_target_episodes_and_keeps_profile_boundary(

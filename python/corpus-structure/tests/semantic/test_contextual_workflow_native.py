@@ -123,7 +123,7 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
             scenario_seeds,
             directory,
             patch,
-            stream=partial(_section_stream, (("1 Definition", TEXT),)),
+            stream=partial(_section_stream, (("text", TEXT, TEXT, None),)),
             sections=("#/groups/0",),
         ) as source,
     ):
