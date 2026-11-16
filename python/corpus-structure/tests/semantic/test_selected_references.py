@@ -355,6 +355,17 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
             native.update(
                 demand_id=demand_id,
                 scope=scope,
+                selection=dict(
+                    version="data-demand-intent-v1",
+                    model="model:test",
+                    execution_profile="test",
+                    inference="none",
+                    targets=["op:A"],
+                    root_operations=["op:A"],
+                    operations=[],
+                    roots=[],
+                    discovery=[],
+                ),
                 release_id="release:reference"
                 if demand_id == "demand:reference"
                 else "release:prediction",

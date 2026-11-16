@@ -102,10 +102,8 @@ def build_evaluator_server(
             report = evaluate_selected_references(connection, request)
         replay = request.model_copy(
             update=dict(
-                reference_read_id=report["reference"]["cut"]["read_id"],
-                reference_cut_id=report["reference"]["cut_id"],
-                prediction_read_id=report["prediction"]["cut"]["read_id"],
-                prediction_cut_id=report["prediction"]["cut_id"],
+                reference_cut=report["reference"]["cut"],
+                prediction_cut=report["prediction"]["cut"],
             )
         )
         return ExactReferenceComparison(

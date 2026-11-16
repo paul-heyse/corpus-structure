@@ -333,7 +333,7 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
             .mappings()
             .one()
         )
-        assert context["run_id"] is None
+        assert "run_id" not in context
         assert context["request_id"] == claim["request_id"]
         assert context["generation"] == claim["generation"]
         assert context["document_id"] == document.id

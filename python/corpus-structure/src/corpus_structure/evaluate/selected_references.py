@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from corpus_structure.semantic._data_operation_wire import WireCutSelection
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import json_context_meaning
@@ -205,11 +206,22 @@ class SelectedReferenceEvaluationRequest(BaseModel):
     prediction_product_id: str = Field(min_length=1)
     assignments: dict[str, str]
     applicability: ReferenceApplicability
-    reference_read_id: str | None = None
-    reference_cut_id: str | None = None
-    prediction_read_id: str | None = None
-    prediction_cut_id: str | None = None
+    reference_cut: WireCutSelection | None = None
+    prediction_cut: WireCutSelection | None = None
     max_bytes: int = Field(default=8388608, ge=1024, le=67108864)
+
+    @model_validator(mode="after")
+    def validate_cut_bindings(self):
+        for pin, demand in (
+            (self.reference_cut, self.reference_demand_id),
+            (self.prediction_cut, self.prediction_demand_id),
+        ):
+            if pin is not None and (pin["project_id"], pin["demand_id"]) != (
+                self.project_id,
+                demand,
+            ):
+                raise ValueError("reference comparison cut belongs to another project or demand")
+        return self
 
 
 def _score_selected_native_block(
@@ -423,8 +435,28 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
 
     from .characterization_assessment import LayerProjection, _matches, graph_equal
 
-    reference_scope = {"product_ids": [request.reference_product_id]}
-    prediction_scope = {"product_ids": [request.prediction_product_id]}
+    # A pin owns its original scope. Narrowing it while retaining its read ID
+    # would silently substitute a different native selection.
+    reference_pin = (
+        CutSelection.from_native(request.reference_cut)
+        if request.reference_cut is not None
+        else None
+    )
+    prediction_pin = (
+        CutSelection.from_native(request.prediction_cut)
+        if request.prediction_cut is not None
+        else None
+    )
+    reference_scope = (
+        reference_pin.record["scope"]
+        if reference_pin is not None
+        else {"product_ids": [request.reference_product_id]}
+    )
+    prediction_scope = (
+        prediction_pin.record["scope"]
+        if prediction_pin is not None
+        else {"product_ids": [request.prediction_product_id]}
+    )
     if request.reference_demand_id == request.prediction_demand_id:
         raise SelectedReferenceRefusal(
             "reference and prediction require their separate native selections"
@@ -434,8 +466,8 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
         request.reference_demand_id,
         project_id=request.project_id,
         scope=reference_scope,
-        read_id=request.reference_read_id,
-        expected_cut=request.reference_cut_id,
+        read_id=reference_pin.record["read_id"] if reference_pin is not None else None,
+        expected_cut=reference_pin.identity if reference_pin is not None else None,
         max_bytes=request.max_bytes,
     ) as (reference_cut, references):
         reference_row, reference = _body(references, request.reference_product_id)
@@ -519,8 +551,8 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
             request.prediction_demand_id,
             project_id=request.project_id,
             scope=prediction_scope,
-            read_id=request.prediction_read_id,
-            expected_cut=request.prediction_cut_id,
+            read_id=prediction_pin.record["read_id"] if prediction_pin is not None else None,
+            expected_cut=prediction_pin.identity if prediction_pin is not None else None,
             max_bytes=request.max_bytes,
         ) as (prediction_cut, predictions):
             _, prediction = _body(predictions, request.prediction_product_id)

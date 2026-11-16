@@ -308,8 +308,8 @@ def persist_release(
     and never recompiles while writing projection rows. The caller commits or rolls back.
     """
     _validate_manifest(bundle, dependencies, profile, prepared)
-    # Pure schema artifacts may be archived without granting execution authority.
-    # Current executable releases additionally require the trusted native archive fence.
+    # Schema-only preparation grants no native archive authority. Finalization below
+    # requires the current declared-operation projection and the trusted archive fence.
     if profile.compiler_version != SEMANTIC_COMPILER_VERSION:
         raise ReleaseConflict(f"unsupported archive compiler {profile.compiler_version}")
     from .prepare import prepare_release

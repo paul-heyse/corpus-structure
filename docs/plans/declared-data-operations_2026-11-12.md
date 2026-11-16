@@ -42,7 +42,7 @@ passed `2d476e22f58b4d45be7905178347d79e`, including the real PUBLIC ACL drift r
 definition completion/currentness hooks. Native-only managed preview/apply/candidate/inspection/
 registration/deploy2 passed at worker source `66aa1e4f347e4f85bf155105158c0f27`, including env/frozen
 artifact/catalog drift refusals and no fabricated release or ordinary-purpose admission. The normal
-route is integrated; its final-source qualification and registered application root remain open.
+route is integrated; its final-source application qualification and development adoption remain open.
 
 Compiler14–21 reading, inspection/vocabulary v1 fallbacks and unfinalized archive reconstruction are
 removed; source regeneration uses current compiler22 and normal archive opening requires protected
@@ -63,9 +63,11 @@ with genuine selected report/component frames, independent C labels and finite s
 authority. This is implementation in progress, not fitted scientific or native qualification.
 Current component CPU-body correspondence, applicability-source isolation, contextual linguistic
 premises, selected native annotation scoring and event fit/authority consumers remain active work.
-The fixed catalog has32 variants remaining/60 removed; genuine caller closure, not this count,
-determines retirement. Remaining old scientific/finalizer fixtures must migrate or retire with
-preserved independent expectations. No legacy reader will be kept merely for historical data.
+The old analytics/domain-operation/finalizer, retained export, reference/gap/evaluation and
+fixed semantic-1 inference/Arrow runtimes are removed. Remaining fixed-catalog/source-view consumers
+still require actual caller closure, preserving useful independent scientific expectations. Current
+rich rules/graph kernels do not claim equivalence to the retired inference engine; no current admitted
+automatic property-rule fixed-point inference profile is supplied. No legacy reader will be kept merely for historical data.
 
 The native-only normal preview/apply and rollback-only root candidate have now run on the owned
 empty stage (`264a9a24186b4bd9a62645dbf7748bdd`, `516cf3eee46246d4a26194d6271c7672`,
@@ -85,6 +87,24 @@ I09 remains open for the current fixture baseline, full supported consumer readi
 recovery/fencing and development adoption.
 I02/I04/I05/I06 retain common authority, source/body/lineage and native/provider integration.
 DDO-12 remains open for the final-source functional/provider/fault/nonfunctional union.
+
+Current actual kernel qualification covers55 selected admission, binding, population, witness,
+provider-contract, pinned-reuse, context-fanin, transitive-read and original-source cases. Original
+`ae76c36a60334377ada79c6d1e4ca0c6` passed29/55; corrected current identity/context/JSON fixtures
+passed4/26 in `be7cdd07baca487e9a13a3ebbeb2411d`, then21/22 in
+`d37710e91c0f4610a27ef3d9d4121b40`. Final runless-context expectation retry
+`ed72632278844748917740587fd84646` passed1. These establish the bounded kernel union at its
+recorded sources; original failures remain retained, and this is not DDO-12 completion.
+
+The actual whole-block spaCy reference/scoring journey passed
+`cf96fad70bba434280bf49511ee9390b` after source-frontdoor discovery and complete-cut reuse were
+corrected. Existing read IDs retain their exact scope and cut; evaluator/MCP replay carry complete
+typed cuts rather than narrowing a pinned acquisition. Original stale PDF transport, wrong source
+fixture and read-scope failures remain retained. This establishes that controlled native journey,
+not linguistic accuracy, the remaining artifact/event consumers or final-source provider coverage.
+Current PDF transport digests were regenerated through their existing generator; native custody
+guards remain strict. The remaining real CLI inspection mismatch and actual archive-query controls
+are under repair at their owners; no archive compatibility facade is restored.
 
 ## Integrated execution · 2026-11-15
 

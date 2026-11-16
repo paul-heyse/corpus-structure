@@ -20,6 +20,7 @@ from corpus_structure.semantic.composed import (
     data_operation_dependencies,
     read_data_operation_inputs,
 )
+from corpus_structure.semantic._data_operation_wire import WireCutSelection
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext, json_context_meaning
 from corpus_structure.semantic.data_operation_service import execute_data_demand
@@ -221,8 +222,7 @@ def test_native_whole_block_questions_keep_exact_custody_and_missing_populations
                 reference_product_id=protected["product_id"],
                 prediction_demand_id=retained["demand_id"],
                 prediction_product_id=annotations.row["product_id"],
-                prediction_read_id=selected.cut.record["read_id"],
-                prediction_cut_id=selected.cut.identity,
+                prediction_cut=cast(WireCutSelection, selected.cut.record),
                 assignments={name: block["member_id"] for name in questions},
                 applicability=ReferenceApplicability(
                     reference_source_release_id=kernel.prepared.release_id,

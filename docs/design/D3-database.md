@@ -2,12 +2,14 @@
 
 ## One current native installation basis
 
-**Accepted target; normal-route implementation/adoption Proposed · 2026-11-16.** Canonical current
+**Implemented; normal route and owned-stage installation scoped Tested · 2026-11-16;
+development adoption and assembled qualification remain open.** Canonical current
 physical/PDF declarations replace runtime target filtering and historical defaults. One immutable
 current Alembic root and exact frozen-state successors govern normal authoring, registration and
 installation; historical semantic migration files remain records, not a selectable normal route.
 Current DDO/native guards retain schema, source, catalog, privilege and byte custody without old
-realization/selected-fact expectations. No persistent switch is performed by this decision. DDO owns
+realization/selected-fact expectations. The owned stage has the registered current root installed;
+the working development database has not switched. DDO owns
 current consumer/fixture migration, qualification, recovery and separately recorded development
 adoption; optional import never requires historical compatibility code.
 
@@ -15,12 +17,12 @@ adoption; optional import never requires historical compatibility code.
 
 ## Native semantic product and support target
 
-**Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one
+**Implemented foundations; consumer/provider qualification remains open · 2026-11-16.** The DDO target uses one
 effective model for declaration-owned and implementation-owned operations, canonical semantic values
 and admitted implementation-slice recipe determinants. Native products/derivations/support and frozen
 demands/requests preserve original source, permissions, explicit selection and authentic runtime
-provenance. Preparation/identity foundations do not activate the replacement native ABI or retire
-legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
+provenance. The current native root supplies the replacement ABI. Consumer migration and retirement
+remain explicit obligations. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
 **Accepted target; native integration Proposed · 2026-11-13.** Release archive transport uses
@@ -681,73 +683,60 @@ remain external references and are not upgraded by this retirement.
 
 ## Governed derived publication
 
-**Implemented, 2026-10-29; scoped verification belongs to [SP-I07](../plans/semantic-model-pivot/release-and-consumer-consolidation.md#SP-I07).**
-Frozen semantic_0032 is a forward routine delta over 0031 with unchanged physical tables. Derived
-publication v2 consumes the admitted operation/projection policy and a versioned binding containing
-the semantic contract, compiled projection, cut and arithmetic profile. The existing intent text
-field stores its canonical envelope. Exact receipt replay precedes new-write checks; the old ABI
-is replay-only. Evaluation binds the sealed cut, source revision and designated output; inference
-binds the exact accepted universe and publishes proof-bearing selected conclusions. The explicit
-fixed semantic-1 inference protocol does not rebind old products to the current execution model.
-Identity-exclusion version checks consume the archived operation policy_version, with version
-and located-custody failures diagnosed separately. Keyed collections require mappings with
-matching member identifiers; unkeyed multivalues require
-sequences. Both use the same effective property constraints. Historical migration bytes remain
-frozen. The lightweight pool package does not import historical physical metadata; retained
-historical consumers name their legacy metadata owner explicitly.
+**Implemented current authority; assembled qualification remains open · 2026-11-16.** Current
+publication binds the admitted data-operation definition, exact typed intent, runtime, selected
+support and physical execution fences. The native completion and immutable receipt owners enforce
+atomic publication and original-source custody; a current read does not confer new-write authority.
+The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns consumer readiness and
+qualification.
 
+The old governed-publication Python/Arrow runtime and fixed semantic-1 inference engine are retired.
+There is no current admitted automatic property-rule fixed-point inference profile. Current rich
+rules, graph traversal, proof products and numerical kernels retain their own contracts; they do not
+claim equivalence to that retired inference engine. Rich rule execution refuses unsupported derive
+requests. Historical frozen migration bytes and stored records remain inert and confer no current
+runtime authority.
+
+> Decision: [ADR-0118](../adr/0118-current-target-installation.md)
 
 ## Effective execution closure
 
-**Accepted target, 2026-10-29; implementation and qualification are separately scoped.**
-[ADR-0031](../adr/0031-semantic-execution-closure.md) replaces mandatory current-compiler
-reconstruction on ordinary archive reads with supported immutable product opening. Full verification
-remains required at persistence/replay, activation, run start and explicit request. Compiler-10
-read boundaries retain their recorded semantics and cannot authorize new writes.
-Restricted admission replaces administrator-backed release publication and selection in ordinary
-regeneration. Intrinsic archive closure is distinct from immutable deployment-specific admission;
-activation retains live posture validation and parent/generation CAS. The native profile admits
-shape and accepted-value integrity placements; patterns and occurrence/context integrity refuse.
-This explicitly revises the initial profile promise; all supported behavior must remain model governed.
-The [execution package](../plans/semantic-model-pivot/model-execution-closure.md) owns remaining work.
+**Implemented current archive boundary; assembled qualification remains open · 2026-11-16.**
+Supported immutable archive opening consumes current compiler22 products. Full verification belongs
+to persistence, activation and explicit replay, rather than compiler reconstruction on every ordinary
+read. Historical compiler readers, vocabulary fallbacks and unfinalized reconstruction are removed.
+In-memory schema preparation remains useful without conferring native archive standing: native
+archive publication requires the complete current DDO projection and protected finalization fence.
 
-> Decision: ADR-0031
+Intrinsic archive closure remains distinct from deployment-specific admission. Activation checks
+installed native posture and retains parent/generation CAS. Exact catalog, privilege, source and
+byte custody remain authoritative. No old execution catalog or historical read success authorizes
+current writes. The DDO coordinator owns the remaining integration obligations.
+
+> Decision: [ADR-0031](../adr/0031-semantic-execution-closure.md), [ADR-0118](../adr/0118-current-target-installation.md)
 
 ## Release-scoped execution projections
 
-**Implemented, 2026-10-29; complete qualification remains owned by the pivot coordinator.**
-The trusted physical LinkML model defines fixed `sem.execution_operation`,
-`sem.execution_transition`, `sem.execution_edge`, `sem.operation_effect`, `sem.transition_effect`,
-`sem.operation_property_role` and `sem.scientific_decision_rule` relations. The existing complete
-archive publication projects immutable release-scoped rows and compares them exactly with the
-archived execution, role and scientific products. Effect requirements retain identity and version;
-independent owned implementation profiles govern admission. Unknown, moved or incompatible effects
-refuse before descriptor rebasing. Descriptor/body hashes establish custody, not semantic meaning.
+**Implemented current projection; consumer qualification remains open · 2026-11-16.** The trusted
+current physical model declares release-scoped data-operation definitions and kind contracts,
+including `sem.data_operation_definition` and `sem.data_kind_release`. Complete archive publication
+projects immutable rows and checks their exact correspondence with the archived current native
+projection. Recipe, source and implementation-slice commitments establish custody; hashes do not
+substitute for semantic meaning.
 
-Current lifecycle guards query release-scoped edges and operation bindings. Protected complete
-operations retain atomic publication, attempt/holder and source/proof fences. Set-based claim and
-protected run-lock helpers replace writer lifecycle UPDATE authority without per-item calls.
-Effective property-role rows feed Core filtering before hydration; scientific decision rows enforce
-persisted reference evidence-to-policy mappings. Their traversal layout derives from the trusted
-LinkML constructor model and must match the deployed supported layout at admission and persistence;
-archived path labels cannot authorize an empty or moved check. Owned Python operations consume their bound recipe;
-detached analytical inputs carry it and check open/close contracts before acquiring resources.
+Current request, derivation, demand-use, original-support and completion-receipt relations carry
+execution and selection. Physical task/attempt/holder/lease fences retain actual execution custody.
+The old `sem.execution_*` model and run-based Python operation/finalizer paths are superseded;
+remaining consumers are retirement obligations, not supported alternatives. Genuine property-role,
+scientific-rule and numerical semantics retain their owning current model/kernel contracts.
 
-`schema derive` emits Core physical/view DDL, retained complete transport/publication products,
-stable row consumers, candidate row products and ordered deployment metadata into new output only.
-A transport shape without physical targets refuses before output. Frozen `semantic_0033` introduces
-the seven tables once; subsequent supported finite variation becomes release rows. Compiler 13,
-execution compiler 4, boundary ABI 12 and archive envelope 3 are separate compatibility decisions.
-Historical migration bytes, finalized archive contents and supported reader ABIs remain unchanged;
-old read success never authorizes current writes or activation.
+Owned prepared operations consume admitted recipes, typed inputs and exact source contexts.
+Detached analytical work checks its original frame and parameter authority without ambient rebinding.
+The current root and exact frozen successors govern physical changes; historical migration series
+are not a normal installation or archive-reader route.
 
-Forward `semantic_0034` changes reference insertion/grading routines to use immutable source
-frames from completed cuts, preserving empty producer work. It adds no tables or domain DDL.
-Pglast-derived native body/layout commitments change with the reviewed routines; exact existing
-archives must be reverified and admitted against that deployment before protected writes resume.
-This does not alter their release/result identity or authorize historical database migration.
+> Decision: [ADR-0118](../adr/0118-current-target-installation.md)
 
-> Decision: ADR-0033
 
 ## Native test deployment equivalence
 

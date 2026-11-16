@@ -110,6 +110,14 @@ programmatic legacy review-bundle/export/replay cluster is removed; current sele
 detached delivery. Historical evaluation consumers retain their owning DDO migration obligations.
 Reader retirement does not establish native qualification of the selected replacements.
 
+**Implemented; actual whole-block native scoring scoped Tested · 2026-11-16.** Reference
+comparison accepts complete typed reference/prediction cuts when reusing pinned reads. Each cut
+must name the request's project and demand; acquisition preserves its exact scope, read identity
+and cut digest. A first acquisition may select the requested product, but an existing cut cannot
+be narrowed under the same read identity. MCP resource replay retains those complete cuts rather
+than reconstructing scope from loose IDs. This bounded provider journey does not establish
+linguistic accuracy or enclosing DDO qualification.
+
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
 > Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md)
