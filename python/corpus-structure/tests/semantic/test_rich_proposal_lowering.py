@@ -192,7 +192,9 @@ classes:
         prepared,
         model,
         inputs=RichKernelInputs.from_basis(
-            RichKernelInputs("actual-rich-core", context, roles, parameters=b'["mapping",[]]', replicate=None).basis()
+            RichKernelInputs(
+                "actual-rich-core", context, roles, parameters=b'["mapping",[]]', replicate=None
+            ).basis()
         ),
         check_active=lambda: None,
     )
@@ -235,7 +237,13 @@ classes:
             prepared,
             model,
             inputs=RichKernelInputs.from_basis(
-                RichKernelInputs("actual-rich-core", context, variant_roles, parameters=b'["mapping",[]]', replicate=None).basis()
+                RichKernelInputs(
+                    "actual-rich-core",
+                    context,
+                    variant_roles,
+                    parameters=b'["mapping",[]]',
+                    replicate=None,
+                ).basis()
             ),
             check_active=lambda: None,
         )

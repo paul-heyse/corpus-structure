@@ -42,7 +42,8 @@ def retained(operation):
         "definition:one",
         "eligibility:one",
         (b"{}",),
-    replicate=None)
+        replicate=None,
+    )
 
 
 def test_retained_handoff_preserves_exact_roles_and_refuses_another_operation():

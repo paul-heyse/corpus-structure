@@ -4,6 +4,7 @@ import json
 from dataclasses import asdict
 from hashlib import sha256
 
+from ._data_operation_wire import WireAttemptFailure, WireAttemptFence
 from .identity import canonical_bytes
 
 
@@ -15,15 +16,15 @@ class D1KnownLimitation(ValueError):
         self.diagnostic = diagnostic
         self.receipt = receipt
 
-    def failure(self, *, fence, runtime_id):
+    def failure(self, *, fence: WireAttemptFence, runtime_id: str) -> WireAttemptFailure:
         from .data_operation_execution_evidence import bind_execution_evidence
         from .data_operation_wire import validate_native_wire
 
         diagnostic = json.loads(self.diagnostic)
         diagnostic["execution_evidence"] = bind_execution_evidence(
-            None, fence=fence, runtime_id=runtime_id, provider_content=self.receipt
+            None, fence=dict(fence), runtime_id=runtime_id, provider_content=self.receipt
         )
-        failure = {
+        failure: WireAttemptFailure = {
             "code": "d1-known-limitation",
             "message": "native D1 question inspection was limited",
             "d1_limitation": diagnostic,
@@ -117,7 +118,9 @@ def classify_d1_limitation(request, native, reply, *, pin, selection, member_ind
     return D1KnownLimitation(canonical_bytes(diagnostic), canonical_bytes([asdict(receipt)]))
 
 
-def known_d1_failure(error, *, fence, runtime_id):
+def known_d1_failure(
+    error: BaseException, *, fence: WireAttemptFence, runtime_id: str
+) -> WireAttemptFailure | None:
     """Select only this attempt's diagnostic, including an enclosing batch error."""
     if isinstance(error, BaseExceptionGroup):
         values = [

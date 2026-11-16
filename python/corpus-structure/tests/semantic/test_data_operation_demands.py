@@ -383,7 +383,8 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
         "definition:one",
         "eligibility:one",
         (),
-    replicate=None)
+        replicate=None,
+    )
 
     def request():
         return ReadyDataRequest(

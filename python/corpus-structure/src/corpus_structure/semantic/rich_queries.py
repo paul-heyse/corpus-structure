@@ -157,7 +157,9 @@ class RichQueryRow:
     position: str | dict
 
 
-def ownership_applicability(interval: dict | None, at: Date) -> Literal["established", "not_applicable", "unknown"]:
+def ownership_applicability(
+    interval: dict | None, at: Date
+) -> Literal["established", "not_applicable", "unknown"]:
     """Source-stated bounds only: partial/symbolic dates and unknown inclusivity stay unknown."""
     if interval is None:
         return "unknown"
@@ -504,10 +506,16 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                 if not query.include_suppositions and qualification.get("modality") == "supposed":
                     continue
                 interval = qualification.get("valid_time")
-                yield RichQueryRow(dict(claim=index.claim_record(key),
-                    occurrence=occurrence.model_dump(mode="python"),
-                    qualification=semantic_value(qualification), interval=semantic_value(interval),
-                    applicability=ownership_applicability(interval, query.date)), occurrence.occurrence_id)
+                yield RichQueryRow(
+                    dict(
+                        claim=index.claim_record(key),
+                        occurrence=occurrence.model_dump(mode="python"),
+                        qualification=semantic_value(qualification),
+                        interval=semantic_value(interval),
+                        applicability=ownership_applicability(interval, query.date),
+                    ),
+                    occurrence.occurrence_id,
+                )
     elif isinstance(query, StatementQuery):
         key = canonical_bytes([query.product_id, query.member_id]).decode()
         claims = [

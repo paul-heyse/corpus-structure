@@ -303,7 +303,8 @@ def _authored_result(roles, *, status: BindingStatus = "ready", reasons=(), choi
         admission_evidence=(b'{"trust":"pinned"}',),
         source_sets=b"{}",
         subject_context=None,
-    replicate=None)
+        replicate=None,
+    )
 
 
 def _cardinality(role):

@@ -4,10 +4,10 @@ from dataclasses import dataclass, field
 
 from .data_operation_cpu_basis import CPUInputRole, cpu_input_basis
 from .data_operation_identity import decode_semantic_value, semantic_value
-from .identity import canonical_bytes
 from .data_operation_json import json_bytes
 from .data_operation_model import SubjectContext
 from .data_operation_support import read_support_references
+from .identity import canonical_bytes
 from .rich_knowledge_contracts import DdoRichSelectedMember
 
 
@@ -73,7 +73,13 @@ class RichKernelInputs:
                     support=read_support_references(role["support"]),
                 )
             )
-        result = cls(value["recipe"], _context(value["context"]), tuple(roles), parameters=canonical_bytes(semantic_value(value["parameters"])), replicate=value["replicate"])
+        result = cls(
+            value["recipe"],
+            _context(value["context"]),
+            tuple(roles),
+            parameters=canonical_bytes(semantic_value(value["parameters"])),
+            replicate=value["replicate"],
+        )
         if result.basis() != meaning:
             raise ValueError(
                 "rich child basis differs from the inputs actually reconstructed for computation"
@@ -81,7 +87,13 @@ class RichKernelInputs:
         return result
 
     def basis(self):
-        return cpu_input_basis(self.recipe, self.context, self.roles, parameters=self.parameters, replicate=self.replicate)
+        return cpu_input_basis(
+            self.recipe,
+            self.context,
+            self.roles,
+            parameters=self.parameters,
+            replicate=self.replicate,
+        )
 
     def selected(self, role: str):
         return tuple(value for value in self.roles if value.role == role)

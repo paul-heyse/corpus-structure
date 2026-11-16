@@ -331,7 +331,9 @@ def test_public_downstream_acquires_private_reading_resolution_without_model_sel
     }
 
 
-def test_public_encoder_without_downstream_acquires_target_and_selection_families(tmp_path, monkeypatch):
+def test_public_encoder_without_downstream_acquires_target_and_selection_families(
+    tmp_path, monkeypatch
+):
     from corpus_structure.methods import contextual_embeddings
 
     root = primary_profile_inputs(tmp_path)
@@ -356,9 +358,14 @@ def test_public_encoder_without_downstream_acquires_target_and_selection_familie
     assert json.loads(retrieval.numerical_policy.body)["postgres_version_num"] == 180008
     target = model.operation("retrieve.contextual_target_vector/declared")
     assert target.dependencies == ("retrieve.contextual_target/declared",)
-    for identity in (encoder.semantic_id, target.semantic_id, *target.dependencies,
-        "retrieve.contextual_targets/curated", "retrieve.contextual_targets/components",
-        "retrieve.contextual_vectors/selection"):
+    for identity in (
+        encoder.semantic_id,
+        target.semantic_id,
+        *target.dependencies,
+        "retrieve.contextual_targets/curated",
+        "retrieve.contextual_targets/components",
+        "retrieve.contextual_vectors/selection",
+    ):
         assert callable(resolve_prepared_factory(model, sources, identity))
     assert "structure.dossier/declared" not in {item.semantic_id for item in model.operations}
 

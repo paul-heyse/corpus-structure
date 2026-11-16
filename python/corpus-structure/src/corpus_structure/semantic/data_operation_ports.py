@@ -212,16 +212,27 @@ class BatchPortCompletion:
 
 def logical_batch_signature(signature):
     """One explicit tuple population corresponds to one logical argument/result."""
+
     def element(annotation):
         args = get_args(annotation)
         if get_origin(annotation) is not tuple or len(args) != 2 or args[1] is not Ellipsis:
             raise PortRefusal("native batch fields require tuple[T, ...] annotations")
         return args[0]
 
-    if any(parameter.default is not inspect.Parameter.empty for parameter in signature.parameters.values()):
-        raise PortRefusal("native batch callable defaults require explicit per-member correspondence")
-    return signature.replace(parameters=[parameter.replace(annotation=element(parameter.annotation))
-        for parameter in signature.parameters.values()], return_annotation=element(signature.return_annotation))
+    if any(
+        parameter.default is not inspect.Parameter.empty
+        for parameter in signature.parameters.values()
+    ):
+        raise PortRefusal(
+            "native batch callable defaults require explicit per-member correspondence"
+        )
+    return signature.replace(
+        parameters=[
+            parameter.replace(annotation=element(parameter.annotation))
+            for parameter in signature.parameters.values()
+        ],
+        return_annotation=element(signature.return_annotation),
+    )
 
 
 def project_product_members(

@@ -40,7 +40,14 @@ class CPUInputRole:
     support: tuple[SupportReference, ...]
 
 
-def cpu_input_basis(recipe: str, context: SubjectContext, roles: tuple[CPUInputRole, ...], *, parameters: bytes, replicate: str | None) -> list:
+def cpu_input_basis(
+    recipe: str,
+    context: SubjectContext,
+    roles: tuple[CPUInputRole, ...],
+    *,
+    parameters: bytes,
+    replicate: str | None,
+) -> list:
     """Reconstruct the exact basis with context and typed-value number semantics."""
     parameter_values = decode_semantic_value(json.loads(parameters))
     if not isinstance(parameter_values, dict):
@@ -124,7 +131,13 @@ def cpu_input_basis_from_binding(
                     member.support_references,
                 )
             )
-    return cpu_input_basis(recipe, binding.subject_context, tuple(roles), parameters=binding.parameters, replicate=binding.replicate)
+    return cpu_input_basis(
+        recipe,
+        binding.subject_context,
+        tuple(roles),
+        parameters=binding.parameters,
+        replicate=binding.replicate,
+    )
 
 
 def cpu_authority_reply(input_basis: list, output: Any) -> dict:
@@ -155,17 +168,35 @@ def cpu_authority_value(content: bytes, *, expected_basis: list) -> Any:
 
 def _require_current_basis(basis):
     value = decode_semantic_value(basis)
-    if not isinstance(value, dict) or set(value) != {"version", "recipe", "context", "roles", "parameters", "replicate"} or (
-        value["version"] != CPU_INPUT_BASIS_VERSION or not isinstance(value["parameters"], dict)
-        or (value["replicate"] is not None and (type(value["replicate"]) is not str or not value["replicate"]))
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"version", "recipe", "context", "roles", "parameters", "replicate"}
+        or (
+            value["version"] != CPU_INPUT_BASIS_VERSION
+            or not isinstance(value["parameters"], dict)
+            or (
+                value["replicate"] is not None
+                and (type(value["replicate"]) is not str or not value["replicate"])
+            )
+        )
     ):
         raise ValueError("CPU authority requires the current exact input basis")
 
 
 def _producer_fence(producer):
-    if not isinstance(producer, dict) or set(producer) != {"request_id", "generation", "task_id", "attempt", "holder"} or (
-        any(type(producer[name]) is not int or producer[name] < 1 for name in ("generation", "task_id", "attempt"))
-        or any(type(producer[name]) is not str or not producer[name] for name in ("request_id", "holder"))
+    if (
+        not isinstance(producer, dict)
+        or set(producer) != {"request_id", "generation", "task_id", "attempt", "holder"}
+        or (
+            any(
+                type(producer[name]) is not int or producer[name] < 1
+                for name in ("generation", "task_id", "attempt")
+            )
+            or any(
+                type(producer[name]) is not str or not producer[name]
+                for name in ("request_id", "holder")
+            )
+        )
     ):
         raise ValueError("CPU batch member requires its exact original producer fence")
     return producer
@@ -173,15 +204,20 @@ def _producer_fence(producer):
 
 def _batch_members(members):
     members = tuple(members)
-    if not members or any(not isinstance(value, dict) or set(value) != {"member", "producer", "input_basis"}
-        or type(value["member"]) is not str or not value["member"] for value in members):
+    if not members or any(
+        not isinstance(value, dict)
+        or set(value) != {"member", "producer", "input_basis"}
+        or type(value["member"]) is not str
+        or not value["member"]
+        for value in members
+    ):
         raise ValueError("CPU batch requires its explicit ordered logical membership")
     for value in members:
         _producer_fence(value["producer"])
         _require_current_basis(value["input_basis"])
-    if len({value["member"] for value in members}) != len(members) or len({
-        (value["producer"]["request_id"], value["producer"]["generation"]) for value in members
-    }) != len(members):
+    if len({value["member"] for value in members}) != len(members) or len(
+        {(value["producer"]["request_id"], value["producer"]["generation"]) for value in members}
+    ) != len(members):
         raise ValueError("CPU batch repeats a logical member or producing request generation")
     return members
 
@@ -191,28 +227,45 @@ def cpu_authority_batch_reply(members, outputs) -> dict:
     members, outputs = _batch_members(members), tuple(outputs)
     if len(outputs) != len(members):
         raise ValueError("CPU batch output population differs from its actual cohort")
-    return {"version": CPU_AUTHORITY_BATCH_REPLY_VERSION, "members": [
-        {"member": member["member"], "producer": dict(member["producer"]),
-         "input_basis_digest": sha256(canonical_bytes(member["input_basis"])).hexdigest(),
-         "output": semantic_value(output)}
-        for member, output in zip(members, outputs, strict=True)
-    ]}
+    return {
+        "version": CPU_AUTHORITY_BATCH_REPLY_VERSION,
+        "members": [
+            {
+                "member": member["member"],
+                "producer": dict(member["producer"]),
+                "input_basis_digest": sha256(canonical_bytes(member["input_basis"])).hexdigest(),
+                "output": semantic_value(output),
+            }
+            for member, output in zip(members, outputs, strict=True)
+        ],
+    }
 
 
 def cpu_authority_batch_values(content: bytes, *, expected_members) -> tuple[Any, ...]:
     """Scatter only the original whole reply; never mint a per-member receipt."""
     expected_members = _batch_members(expected_members)
     reply = json.loads(content)
-    if not isinstance(reply, dict) or set(reply) != {"version", "members"} or (
-        reply["version"] != CPU_AUTHORITY_BATCH_REPLY_VERSION or not isinstance(reply["members"], list)
-        or len(reply["members"]) != len(expected_members)
+    if (
+        not isinstance(reply, dict)
+        or set(reply) != {"version", "members"}
+        or (
+            reply["version"] != CPU_AUTHORITY_BATCH_REPLY_VERSION
+            or not isinstance(reply["members"], list)
+            or len(reply["members"]) != len(expected_members)
+        )
     ):
         raise ValueError("CPU batch reply differs from its actual ordered membership")
     values = []
     for actual, expected in zip(reply["members"], expected_members, strict=True):
-        if not isinstance(actual, dict) or set(actual) != {"member", "producer", "input_basis_digest", "output"} or (
-            actual["member"] != expected["member"] or actual["producer"] != expected["producer"]
-            or actual["input_basis_digest"] != sha256(canonical_bytes(expected["input_basis"])).hexdigest()
+        if (
+            not isinstance(actual, dict)
+            or set(actual) != {"member", "producer", "input_basis_digest", "output"}
+            or (
+                actual["member"] != expected["member"]
+                or actual["producer"] != expected["producer"]
+                or actual["input_basis_digest"]
+                != sha256(canonical_bytes(expected["input_basis"])).hexdigest()
+            )
         ):
             raise ValueError("CPU batch reply differs from its original member/fence/input basis")
         values.append(decode_semantic_value(actual["output"]))
@@ -367,4 +420,6 @@ BEGIN
  END IF;
 END $cpu$;
 REVOKE ALL ON FUNCTION ops.ddo_cpu_reply_output(ops.data_request,jsonb) FROM PUBLIC;
-""".replace("__CPU_AUTHORITY_REPLY_VERSION__", CPU_AUTHORITY_REPLY_VERSION).replace("__CPU_AUTHORITY_BATCH_REPLY_VERSION__", CPU_AUTHORITY_BATCH_REPLY_VERSION)
+""".replace("__CPU_AUTHORITY_REPLY_VERSION__", CPU_AUTHORITY_REPLY_VERSION).replace(
+        "__CPU_AUTHORITY_BATCH_REPLY_VERSION__", CPU_AUTHORITY_BATCH_REPLY_VERSION
+    )

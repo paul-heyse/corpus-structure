@@ -171,10 +171,17 @@ def execute_target_encoder_kernel(target, profile_record, model_path, artifacts,
     from .contextual_target_products import target_encoding_input
     from .observations import source_python, source_value
 
-    descriptor = TypeAdapter(TargetRepresentation).validate_python(source_python(target["descriptor"]))
+    descriptor = TypeAdapter(TargetRepresentation).validate_python(
+        source_python(target["descriptor"])
+    )
     profile = TypeAdapter(EncoderProfile).validate_python(profile_record)
-    result = encode_contexts((target_encoding_input(descriptor),), profile,
-        model_path=model_path, artifact_hashes=artifacts, check_active=check_active)
+    result = encode_contexts(
+        (target_encoding_input(descriptor),),
+        profile,
+        model_path=model_path,
+        artifact_hashes=artifacts,
+        check_active=check_active,
+    )
     if result.limited_query_ids or len(result.vectors) != 1 or len(result.inputs) != 1:
         raise ValueError("target encoder did not produce its one exact target")
     return {
@@ -486,20 +493,31 @@ class ContextualTargetEncoderPlan:
 
         if binding is None or binding.subject_context is None:
             raise ValueError("target encoder requires its acquired target context")
-        target = self.prepared.validate_json("DdoContextualTarget",
-            json_bytes(arguments.arguments["target"])).model_dump(mode="python", exclude_unset=True)
+        target = self.prepared.validate_json(
+            "DdoContextualTarget", json_bytes(arguments.arguments["target"])
+        ).model_dump(mode="python", exclude_unset=True)
         materialize_target(target, context=binding.subject_context)
         signature = inspect.signature(execute_target_encoder_kernel, eval_str=True)
-        bound = signature.bind(target=target, profile_record=asdict(self.selection.profile),
-            model_path=str(self.selection.model_path), artifacts=self.selection.artifacts,
-            check_active=check_active)
-        reply = yield from self.port.plan_cpu_reply(execute_target_encoder_kernel, bound,
+        bound = signature.bind(
+            target=target,
+            profile_record=asdict(self.selection.profile),
+            model_path=str(self.selection.model_path),
+            artifacts=self.selection.artifacts,
+            check_active=check_active,
+        )
+        reply = yield from self.port.plan_cpu_reply(
+            execute_target_encoder_kernel,
+            bound,
             contextual_encoder_operation_sources(self.selection, include_dependencies=False),
-            execution_owner=execution_owner, check_active=check_active)
+            execution_owner=execution_owner,
+            check_active=check_active,
+        )
         result = self.prepared.validate_json("DdoContextualTargetVector", reply.content).model_dump(
-            mode="python", exclude_unset=True)
-        return PreparedCallResult(result,
-            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+            mode="python", exclude_unset=True
+        )
+        return PreparedCallResult(
+            result, cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record())
+        )
 
 
 def resolve_contextual_encoder_port(
@@ -529,7 +547,11 @@ def resolve_contextual_encoder_port(
     owners = {surface.exposed.rsplit(".", 1)[0] for surface in selected.callable_surfaces}
     classes = tuple(
         kind
-        for kind in (ContextualEncodingOperation, SelectedContextEncodingOperation, ContextualTargetEncodingOperation)
+        for kind in (
+            ContextualEncodingOperation,
+            SelectedContextEncodingOperation,
+            ContextualTargetEncodingOperation,
+        )
         if kind.__module__ + "." + kind.__qualname__ in owners
     )
     if len(classes) != 1 or not selection.artifacts:
@@ -537,8 +559,13 @@ def resolve_contextual_encoder_port(
     receiver_type = classes[0]
     receiver = receiver_type(None)
     target_encoding = receiver_type is ContextualTargetEncodingOperation
-    plan = (ContextualTargetEncoderPlan(prepared, selection) if target_encoding else
-        ContextualEncoderPlan(prepared, selection, selected_context=receiver_type is SelectedContextEncodingOperation))
+    plan = (
+        ContextualTargetEncoderPlan(prepared, selection)
+        if target_encoding
+        else ContextualEncoderPlan(
+            prepared, selection, selected_context=receiver_type is SelectedContextEncodingOperation
+        )
+    )
     kernel = execute_target_encoder_kernel if target_encoding else execute_contextual_encoder_kernel
     port = PreparedOriginalCallPort(
         identity,

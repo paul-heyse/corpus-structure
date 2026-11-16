@@ -200,7 +200,11 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
         "release_id": "release:actual",
         "operation_id": "rich.admit",
         "recipe": "recipe:actual",
-        "binding": {"inputs": inputs, "support": [*supports, supports[0]], "parameters": semantic_value({"parameters": parameters, "replicate": None})},
+        "binding": {
+            "inputs": inputs,
+            "support": [*supports, supports[0]],
+            "parameters": semantic_value({"parameters": parameters, "replicate": None}),
+        },
     }
     expected = {
         "version": "cpu-input-basis-2",
@@ -243,4 +247,10 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
         )
         for row in rows
     )
-    assert cpu_input_basis("recipe:actual", subject(context), processed, parameters=json_bytes(semantic_value(parameters)), replicate=None) == semantic_value(expected)
+    assert cpu_input_basis(
+        "recipe:actual",
+        subject(context),
+        processed,
+        parameters=json_bytes(semantic_value(parameters)),
+        replicate=None,
+    ) == semantic_value(expected)

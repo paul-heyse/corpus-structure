@@ -27,12 +27,15 @@ def question_recipe(*, graph_pattern=False):
             attributes=dict(
                 family=dict(range="string", required=True, pattern="^(table|measurement)$"),
                 variant=dict(
-                    range="string", required=True,
+                    range="string",
+                    required=True,
                     pattern="^(standard|unresolved-value-alternative)$",
                 ),
             )
         ),
-        QuestionPanel=dict(attributes=dict(question=dict(range="Question", inlined=True, required=True))),
+        QuestionPanel=dict(
+            attributes=dict(question=dict(range="Question", inlined=True, required=True))
+        ),
     )
     if graph_pattern:
         schema["classes"]["GraphOnly"] = dict(
@@ -44,7 +47,9 @@ def question_recipe(*, graph_pattern=False):
         STORAGE,
         name="question-constraint-custody" + ("-graph" if graph_pattern else ""),
         schema_text=yaml.safe_dump(schema),
-        declaration_content=canonical_bytes(dict(version=STORAGE.model_version, operations=[operation])),
+        declaration_content=canonical_bytes(
+            dict(version=STORAGE.model_version, operations=[operation])
+        ),
     )
 
 
@@ -65,15 +70,12 @@ def test_current_question_projection_preserves_exact_patterns_and_class_ownershi
     assert kinds[panel]["category"] == "class"
     rows = _projection_rows(prepared)["property_applicability"]
     assert any(
-        row["class_id"] == panel and row["range_name"] == "Question"
+        row["class_id"] == panel
+        and row["range_name"] == "Question"
         and row["constraints"]["inlined"] is True
         for row in rows
     )
-    constraints = {
-        row["property_id"]: row
-        for row in rows
-        if row["class_id"] == question
-    }
+    constraints = {row["property_id"]: row for row in rows if row["class_id"] == question}
     assert {row["constraint_scope"] for row in constraints.values()} == {"shape"}
     assert {
         prop.name: constraints[prop.iri]["constraints"]["pattern"]
@@ -100,9 +102,12 @@ def test_native_current_question_patterns_are_enforced_after_release_admission(d
     kernel = ddo_kernel
     panel = kernel.prepared.index.definitions["QuestionPanel"].iri
     context = dict(
-        project_id="ddo-test", release_id=kernel.prepared.release_id,
-        subject="question:one", subject_definition=kernel.model.operations[0].subject,
-        original_source="source:one", analyzed_scope={},
+        project_id="ddo-test",
+        release_id=kernel.prepared.release_id,
+        subject="question:one",
+        subject_definition=kernel.model.operations[0].subject,
+        original_source="source:one",
+        analyzed_scope={},
     )
     statement = text(
         "SELECT ops.ddo_install_product_context(CAST(:context AS jsonb),"
@@ -110,16 +115,24 @@ def test_native_current_question_patterns_are_enforced_after_release_admission(d
     )
 
     def packet(family, variant):
-        return json.dumps(dict(
-            kind_contract=kernel.identities[panel, "kind"], members=[],
-            body=semantic_value(dict(question=dict(family=family, variant=variant))),
-        ))
+        return json.dumps(
+            dict(
+                kind_contract=kernel.identities[panel, "kind"],
+                members=[],
+                body=semantic_value(dict(question=dict(family=family, variant=variant))),
+            )
+        )
 
     with kernel.engine.begin() as connection:
         arguments = dict(context=json.dumps(context), release=kernel.prepared.release_id)
-        assert connection.scalar(statement, {**arguments, "product": packet("measurement", "standard")})
+        assert connection.scalar(
+            statement, {**arguments, "product": packet("measurement", "standard")}
+        )
         for family, variant in (("unrequested", "standard"), ("table", "invented-variant")):
-            with pytest.raises(DBAPIError, match="body violates kind contract"), connection.begin_nested():
+            with (
+                pytest.raises(DBAPIError, match="body violates kind contract"),
+                connection.begin_nested(),
+            ):
                 connection.execute(statement, {**arguments, "product": packet(family, variant)})
 
 
@@ -127,7 +140,9 @@ def test_native_unprojected_graph_pattern_is_still_refused(scenario_seeds):
     # A current DDO release is essential here: the obsolete execution-model
     # refusal must not mask whether the actual graph requirement was enforced.
     with (
-        pytest.raises(ExecutionAdmissionError, match="unsupported required native constraint scope or pattern"),
+        pytest.raises(
+            ExecutionAdmissionError, match="unsupported required native constraint scope or pattern"
+        ),
         scenario_seeds.commit_clone(question_recipe(graph_pattern=True)),
     ):
         pytest.fail("unsupported ordinary graph pattern was admitted")
@@ -140,21 +155,44 @@ def test_native_json_kind_does_not_grant_graph_pattern_support(ddo_kernel, graph
     release = kernel.prepared.release_id
     question = kernel.prepared.index.definitions["Question"].iri
     with kernel.engine.begin() as connection:
-        connection.execute(insert(table("data.realization")).values(
-            realization_id="question-graph", project_id="ddo-test", release_id=release,
-        ))
+        connection.execute(
+            insert(table("data.realization")).values(
+                realization_id="question-graph",
+                project_id="ddo-test",
+                release_id=release,
+            )
+        )
         common = dict(realization_id="question-graph", release_id=release)
         if graph_use == "membership":
-            connection.execute(insert(table("data.entity")).values(**common, entity_id="question:one"))
-            connection.execute(insert(table("data.membership")).values(
-                **common, entity_id="question:one", class_id=question, establishment="asserted",
-            ))
+            connection.execute(
+                insert(table("data.entity")).values(**common, entity_id="question:one")
+            )
+            connection.execute(
+                insert(table("data.membership")).values(
+                    **common,
+                    entity_id="question:one",
+                    class_id=question,
+                    establishment="asserted",
+                )
+            )
         else:
-            connection.execute(insert(table("data.typed_value")).values(
-                **common, value_id="question:value", kind="record", datatype=question,
-            ))
-        with pytest.raises(DBAPIError, match="unsupported required native graph constraint scope or pattern"), connection.begin_nested():
-            connection.execute(text("SELECT data.validate_state(:r,:z)"), dict(r=release, z="question-graph"))
+            connection.execute(
+                insert(table("data.typed_value")).values(
+                    **common,
+                    value_id="question:value",
+                    kind="record",
+                    datatype=question,
+                )
+            )
+        with (
+            pytest.raises(
+                DBAPIError, match="unsupported required native graph constraint scope or pattern"
+            ),
+            connection.begin_nested(),
+        ):
+            connection.execute(
+                text("SELECT data.validate_state(:r,:z)"), dict(r=release, z="question-graph")
+            )
         # The transaction deliberately contains rejected graph input, never a
         # published fact or candidate. Roll it back before deferred validation.
         connection.rollback()

@@ -20,6 +20,7 @@ from corpus_structure.methods.model_observation import (
     pm2_member_digest,
 )
 from corpus_structure.methods.native_host import NativeExecutionReceipt, payload_digest
+from corpus_structure.semantic._data_operation_wire import wire_attempt_fence
 from corpus_structure.semantic.d1_limitation import (
     classify_d1_limitation,
     known_d1_failure,
@@ -140,7 +141,9 @@ def test_known_limitation_retains_ordered_input_and_original_refusal_without_can
     controlled,
 ):
     limited = classify(controlled)
+    assert limited is not None
     failure = known_d1_failure(limited, fence=controlled.fence, runtime_id="runtime:one")
+    assert failure is not None
     diagnostic = failure["d1_limitation"]
     assert diagnostic["request_json"] == controlled.request.content.decode()
     assert diagnostic["request_json"].index('"second"') < diagnostic["request_json"].index(
@@ -219,7 +222,7 @@ def test_batched_failure_never_attributes_another_attempt_diagnostic(controlled,
     assert (
         known_d1_failure(
             ExceptionGroup("batch", [ValueError("other"), limited]),
-            fence=other,
+            fence=wire_attempt_fence(other),
             runtime_id="runtime:one",
         )
         is None
@@ -229,6 +232,7 @@ def test_batched_failure_never_attributes_another_attempt_diagnostic(controlled,
         fence=controlled.fence,
         runtime_id="runtime:one",
     )
+    assert selected is not None
     assert selected["code"] == "d1-known-limitation"
     assert "protected exception text" not in json.dumps(selected)
 
@@ -247,9 +251,12 @@ def test_batched_failure_never_attributes_another_attempt_diagnostic(controlled,
     ],
 )
 def test_native_attempt_wire_preserves_closed_unperformed_diagnostic(controlled, mutation):
-    failure = known_d1_failure(
-        classify(controlled), fence=controlled.fence, runtime_id="runtime:one"
-    )
+    limited = classify(controlled)
+    assert limited is not None
+    typed_failure = known_d1_failure(limited, fence=controlled.fence, runtime_id="runtime:one")
+    assert typed_failure is not None
+    # Malformations are untrusted external JSON, not values of the checked DTO.
+    failure = json.loads(json.dumps(typed_failure))
     request = {**controlled.fence, "physical_retirement": "confirmed", "failure": failure}
     assert validate_native_wire("release_data_attempt", "input", request) == request
     diagnostic = failure["d1_limitation"]
@@ -304,7 +311,7 @@ def test_read_only_undisclosed_diagnostic_keeps_authorized_failure_metadata(cont
         "$ref": "#/definitions/attempt_failure_observation",
         "definitions": output["definitions"],
     }
-    failure = dict(
+    failure: dict[str, Any] = dict(
         code="d1-known-limitation",
         message="native D1 question inspection was limited",
         d1_limitation_disclosure="undisclosed",
@@ -322,8 +329,10 @@ def test_read_only_undisclosed_diagnostic_keeps_authorized_failure_metadata(cont
             "input",
             dict(**controlled.fence, physical_retirement="confirmed", failure=failure),
         )
-    failure["d1_limitation"] = known_d1_failure(
-        classify(controlled), fence=controlled.fence, runtime_id="runtime:one"
-    )["d1_limitation"]
+    limited = classify(controlled)
+    assert limited is not None
+    typed_failure = known_d1_failure(limited, fence=controlled.fence, runtime_id="runtime:one")
+    assert typed_failure is not None
+    failure["d1_limitation"] = typed_failure["d1_limitation"]
     with pytest.raises(ValueError):
         validate_wire_schema(schema, row)

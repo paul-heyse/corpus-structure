@@ -223,7 +223,13 @@ def actual_inputs():
         "https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization",
         auth.model_dump(mode="python"),
     )
-    inputs = RichKernelInputs("recipe:rich", context, (raw_role, read_role, auth_role), parameters=b'["mapping",[]]', replicate=None)
+    inputs = RichKernelInputs(
+        "recipe:rich",
+        context,
+        (raw_role, read_role, auth_role),
+        parameters=b'["mapping",[]]',
+        replicate=None,
+    )
     selected = select_rich_readings(prepared, inputs)
     assert len(selected) == 1 and selected[0].row is not None
     values = RichValueGraph(prepared, model)

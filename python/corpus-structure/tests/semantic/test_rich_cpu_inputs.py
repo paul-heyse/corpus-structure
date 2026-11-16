@@ -44,7 +44,9 @@ def test_actual_child_inputs_reconstruct_exact_scope_typed_body_and_support_afte
         {"signed": -0.0, "fraction": Decimal("1e-300")},
         supports,
     )
-    meaning = cpu_input_basis("recipe:actual", context, (role,), parameters=b'["mapping",[]]', replicate=None)
+    meaning = cpu_input_basis(
+        "recipe:actual", context, (role,), parameters=b'["mapping",[]]', replicate=None
+    )
     adapter = TypeAdapter(list)
     returned = adapter.validate_json(adapter.dump_json(meaning))
     inputs = RichKernelInputs.from_basis(returned)
@@ -66,25 +68,53 @@ def test_actual_child_inputs_reconstruct_exact_scope_typed_body_and_support_afte
 
 def test_shared_cpu_basis_distinguishes_exact_parameters_with_same_roles_and_context():
     from hashlib import sha256
-    from corpus_structure.semantic.data_operation_cpu_basis import cpu_authority_reply, cpu_authority_value
+
+    from corpus_structure.semantic.data_operation_cpu_basis import (
+        cpu_authority_reply,
+        cpu_authority_value,
+    )
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
 
-    context = SubjectContext("project", "knowledge", None, b"{}", subject_definition="knowledge-universe")
-    variants = ({}, {"selected": None}, {"selected": 1}, {"selected": 1.0},
-        {"selected": Decimal("1")}, {"selected": Decimal("0.12345678901234567890123456789")})
-    bases = [cpu_input_basis("same-recipe", context, (), parameters=canonical_bytes(semantic_value(value)), replicate=None)
-        for value in variants]
+    context = SubjectContext(
+        "project", "knowledge", None, b"{}", subject_definition="knowledge-universe"
+    )
+    variants = (
+        {},
+        {"selected": None},
+        {"selected": 1},
+        {"selected": 1.0},
+        {"selected": Decimal("1")},
+        {"selected": Decimal("0.12345678901234567890123456789")},
+    )
+    bases = [
+        cpu_input_basis(
+            "same-recipe",
+            context,
+            (),
+            parameters=canonical_bytes(semantic_value(value)),
+            replicate=None,
+        )
+        for value in variants
+    ]
     assert len({sha256(canonical_bytes(basis)).hexdigest() for basis in bases}) == len(variants)
     for expected, basis in zip(variants, bases, strict=True):
         actual = decode_semantic_value(basis)
         assert actual["version"] == "cpu-input-basis-2"
         assert actual["parameters"] == expected
-        assert canonical_bytes(semantic_value(actual["parameters"])) == canonical_bytes(semantic_value(expected))
+        assert canonical_bytes(semantic_value(actual["parameters"])) == canonical_bytes(
+            semantic_value(expected)
+        )
     reply = canonical_bytes(cpu_authority_reply(bases[0], {"result": "actual"}))
     assert cpu_authority_value(reply, expected_basis=bases[0]) == {"result": "actual"}
     with pytest.raises(ValueError, match="input basis"):
         cpu_authority_value(reply, expected_basis=bases[1])
-    replicated = cpu_input_basis("same-recipe", context, (), parameters=b'["mapping",[]]', replicate="independent-observation-B")
+    replicated = cpu_input_basis(
+        "same-recipe",
+        context,
+        (),
+        parameters=b'["mapping",[]]',
+        replicate="independent-observation-B",
+    )
     with pytest.raises(ValueError, match="input basis"):
         cpu_authority_value(reply, expected_basis=replicated)

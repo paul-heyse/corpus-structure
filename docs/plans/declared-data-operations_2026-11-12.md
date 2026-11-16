@@ -228,12 +228,39 @@ literal evidence; large diagnostics traverse the actual controlled CPU output. I
 `d10a40d52`; these precede subsequent correspondence repairs and do not establish qualification.
 All settled transferred worker receipts are root-held/read. Fully merged earlier worktrees are
 removed; three isolated workers retain unmerged current scope.
-Two bounded investigations remain with I02/I05/I06: preserve truthful D1 limited-result inspection
-without manufacturing successful/empty candidates, and migrate legacy record publication/support/
-alternative controls through the actual rich CPU/native ports. An unresolved record-field value
-alternative with independent literal evidence is distinct from numerical rich-value disagreement;
-large diagnostics must traverse the actual current controlled producer/admission path. Useful old
-scientific expectations do not justify preserving their storage/protocol shells.
+Current integrations for I02/I04/I05/I06 preserve typed D1 limitation attempts as exact
+unperformed-question evidence, replace old PM2 native fixtures with actual current requests,
+and carry rich publication/support/alternatives plus independently specified T1/T2/T4/toy/quantity/
+filing/attribution/valid-time cases. The current ownership query replaces the isolated legacy toy
+query. No historical decoder or success-shaped limitation product is retained. Scalar canonical
+target/vector scope and shared CPU basis2/batch correspondence are integrated as unqualified source;
+common authority/disclosure/scoring integration and native capture remain open.
+
+Assembled pure76 **passed** `887937beea58453aa9b02dd935ec0d14`; D1/constraint follow-up28
+**passed** `50a3ef770563425eb949af245947cdfb`. Current statistics/toy external recipe
+preparation2 **passed** on coherent main, `7f863c2473ae434e95d139ca88c5c0b5`, clearing worker
+editable-source refusal `9899f5becc33463e90a8e8e9787bff11` without granting provider/native
+execution credit. Pyrefly **passed** `b9c021ebc23141a5a630a1f85f1a785f`; Ruff **passed**
+`3db17bd9f46e499bb895213a3182976f` before subsequent CLI changes. Native current question
+patterns are preserved; legacy graph capability refusal is scoped to actual graph responsibility,
+with an independent refusal if a JSON-owned class is used in graph storage. Four new native
+controls and the original authored failure await the successor.
+
+The fresh-install investigation confirms current tasks/PDF custody must survive while legacy
+run/method/source-view dependencies retire. The worker's target-only seam remains unselected:
+new script location/root, request-only task declaration/guards, direct current descriptor,
+current metadata/native definitions, maintained PDF actions and exact archive inputs must compose
+before target installation can qualify. No force-stamp, frozen edit or assumption that a fresh
+root alone establishes a clean target is permitted. I09 remains open, including verified recovery,
+maintained normal-route selection, adoption and old installation/code retirement.
+
+The CLI exposed a bounded reporting defect during this work: exact retry of an old unparameterized
+identity against two new parameterized identities correctly refused execution, but its failure view
+provided no selection mismatch and recommended the same stale retry. The repair reports exact
+collection counts, keeps execution **not_run**, and directs current-identity inspection rather than
+silently broadening scope. Original `ee793b0eb1474f8fbe0006c461bd4707` remains failed; targeted
+installed-command verification is pending. This is reporting repair owned by the active increment,
+not native/provider or enclosing qualification.
 
 **Accepted integration target; implementation/qualification Proposed · 2026-11-15.**
 [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md) retains the promised

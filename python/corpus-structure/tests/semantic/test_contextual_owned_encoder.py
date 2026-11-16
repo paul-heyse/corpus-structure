@@ -113,7 +113,9 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
     assert primary.support is not None
     assert primary.support.source_set == "query-context-primary" and primary.minimum == 1
     assert len(selected.output_witnesses) == 2
-    assert all(value.complete for value in model.implementation_slices), [(value.root, value.unknowns) for value in model.implementation_slices if not value.complete]
+    assert all(value.complete for value in model.implementation_slices), [
+        (value.root, value.unknowns) for value in model.implementation_slices if not value.complete
+    ]
     assert {name for name, _ in selection.artifacts} == {"config.json", "modules.json"}
     from corpus_structure.semantic.data_operation_demands import (
         OperationSelection,

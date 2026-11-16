@@ -364,7 +364,8 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
         port.identity.definition,
         port.identity.eligibility,
         (),
-    replicate=None)
+        replicate=None,
+    )
     values = (PythonRoleValue("index", kind(model, "index"), 7),)
     from corpus_structure.semantic.data_operation_model import SubjectContext
 

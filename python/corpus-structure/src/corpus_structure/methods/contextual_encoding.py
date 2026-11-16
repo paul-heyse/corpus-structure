@@ -60,7 +60,6 @@ class ContextualEncodingOperation:
                     "identity_requirements": ["episode"],
                 },
             },
-
             {
                 "name": "query",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualQuery",
@@ -329,7 +328,6 @@ class SelectedContextEncodingOperation:
                     "identity_requirements": ["episode"],
                 },
             },
-
             {
                 "name": "primary",
                 "parameter": "primary",
@@ -564,71 +562,111 @@ class SelectedContextEncodingOperation:
 
 
 class ContextualTargetEncodingOperation:
-    __data_operation__: ClassVar[dict] = {'id': 'retrieve.contextual_target_vector/declared',
- 'profile': 'derivation',
- 'subject': 'contextual-target',
- 'subject_definition': {'id': 'contextual-target', 'identifier_kind': 'string', 'scope': 'project'},
- 'discovery_relation': 'role-associated',
- 'context': ['exact-target-local-source', 'explicit-selected-population'],
- 'entrypoints': ['run'],
- 'roles': [{'name': 'target',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTarget',
-            'direction': 'input',
-            'minimum': 1,
-            'maximum': 1,
-            'collection': 'scalar',
-            'presence': 'required',
-            'parameter': 'target',
-            'support': {'provenance': 'value_substitution',
-                        'source': 'explicit-authentic-selected-target',
-                        'coverage': {'role': 'target',
-                                     'description': 'exact-selected-target-value'},
-                        'identity_requirements': []}},
-           {'name': 'result',
-            'kind': 'https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTargetVector',
-            'direction': 'output',
-            'minimum': 1,
-            'maximum': 1,
-            'collection': 'scalar',
-            'presence': 'required'}],
- 'applicability': [{'kind': 'documentation', 'text': 'explicit-retained-target-values'}],
- 'invariants': [{'kind': 'documentation',
-                 'text': 'preserve-original-source-and-derived-support-without-new-inference'}],
- 'coverage': {'binding': 'self',
-              'result_owners': [{'kind': 'implementation', 'reference': 'self'}],
-              'description': 'exact-selected-target-population'},
- 'outcomes': ['success'],
- 'precision_description': None,
- 'dependencies': ['retrieve.contextual_target/declared'],
- 'effects': [],
- 'capabilities': {'forms': ['scalar'],
-                  'preparation': 'resource',
-                  'prepared_factory': 'acquire_port',
-                  'cancellation': 'cooperative',
-                  'ownership': 'invocation-owned-reusable-cpu-worker'},
- 'behavior': 'retrieve.contextual_target_vector/declared-2',
- 'parameters': {},
- 'binding': {'operator': 'scan', 'roles': ['target']},
- 'opaque': [{'reference': 'corpus_structure.semantic.contextual_encoder.execute_target_encoder_profile',
-             'contract': 'contextual/encoder-assets',
-             'role': 'original-acquired-target-local-cpu-encoding'}],
- 'assets': [{'reference': 'target-projections',
-             'contract': 'contextual/encoder-assets',
-             'role': 'actual-target-and-vector-meaning'}],
- 'replicate_policy': 'explicit-replicates',
- 'numerical_policy': {'asset': 'contextual/encoder-assets',
-                      'pointer': '/numerical_policy',
-                      'kind': 'urn:corpus:kind:contextual-encoder:NumericalPolicy'}}
+    __data_operation__: ClassVar[dict] = {
+        "id": "retrieve.contextual_target_vector/declared",
+        "profile": "derivation",
+        "subject": "contextual-target",
+        "subject_definition": {
+            "id": "contextual-target",
+            "identifier_kind": "string",
+            "scope": "project",
+        },
+        "discovery_relation": "role-associated",
+        "context": ["exact-target-local-source", "explicit-selected-population"],
+        "entrypoints": ["run"],
+        "roles": [
+            {
+                "name": "target",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTarget",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "parameter": "target",
+                "support": {
+                    "provenance": "value_substitution",
+                    "source": "explicit-authentic-selected-target",
+                    "coverage": {"role": "target", "description": "exact-selected-target-value"},
+                    "identity_requirements": [],
+                },
+            },
+            {
+                "name": "result",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTargetVector",
+                "direction": "output",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            },
+        ],
+        "applicability": [{"kind": "documentation", "text": "explicit-retained-target-values"}],
+        "invariants": [
+            {
+                "kind": "documentation",
+                "text": "preserve-original-source-and-derived-support-without-new-inference",
+            }
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-selected-target-population",
+        },
+        "outcomes": ["success"],
+        "precision_description": None,
+        "dependencies": ["retrieve.contextual_target/declared"],
+        "effects": [],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "resource",
+            "prepared_factory": "acquire_port",
+            "cancellation": "cooperative",
+            "ownership": "invocation-owned-reusable-cpu-worker",
+        },
+        "behavior": "retrieve.contextual_target_vector/declared-2",
+        "parameters": {},
+        "binding": {"operator": "scan", "roles": ["target"]},
+        "opaque": [
+            {
+                "reference": "corpus_structure.semantic.contextual_encoder.execute_target_encoder_profile",
+                "contract": "contextual/encoder-assets",
+                "role": "original-acquired-target-local-cpu-encoding",
+            }
+        ],
+        "assets": [
+            {
+                "reference": "target-projections",
+                "contract": "contextual/encoder-assets",
+                "role": "actual-target-and-vector-meaning",
+            }
+        ],
+        "replicate_policy": "explicit-replicates",
+        "numerical_policy": {
+            "asset": "contextual/encoder-assets",
+            "pointer": "/numerical_policy",
+            "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy",
+        },
+    }
 
     def __init__(self, execute):
         self.execute = execute
 
     def run(self, target: dict) -> dict:
         from corpus_structure.semantic.contextual_encoder import execute_target_encoder_profile
+
         return execute_target_encoder_profile(self, target)
 
     @staticmethod
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
         from corpus_structure.semantic.contextual_encoder import resolve_contextual_encoder_port
-        return resolve_contextual_encoder_port(prepared, model, operation, identity=identity,
-            authorize=authorize, custody=custody, sources=sources)
+
+        return resolve_contextual_encoder_port(
+            prepared,
+            model,
+            operation,
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
+        )

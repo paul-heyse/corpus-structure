@@ -94,7 +94,8 @@ def contextual_retrieval_assets():
                         name,
                         (
                             admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
-                            if name in ("methods/contextual_declared.py", "methods/contextual_targets.py")
+                            if name
+                            in ("methods/contextual_declared.py", "methods/contextual_targets.py")
                             else (_ROOT / name).read_bytes().hex()
                         ),
                     )
@@ -155,7 +156,11 @@ def contextual_operation_sources(numerical_policy=None, *, neighborhood_policy=N
                 (_ROOT / name).read_bytes(),
                 str((_ROOT / name).resolve()),
             )
-            for name in (*_FILES[:3], "methods/contextual_targets.py", "semantic/contextual_target_products.py")
+            for name in (
+                *_FILES[:3],
+                "methods/contextual_targets.py",
+                "semantic/contextual_target_products.py",
+            )
         ),
         boundary_contracts=(
             contextual_retrieval_assets(),

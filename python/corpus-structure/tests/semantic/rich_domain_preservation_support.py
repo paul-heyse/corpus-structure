@@ -1,7 +1,7 @@
 """Independent domain inputs over current rich contracts, without synthetic CPU evidence."""
 
-from pathlib import Path
 from decimal import Decimal
+from pathlib import Path
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
@@ -10,8 +10,8 @@ from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.rich_fact_graph import RichFactGraph
 from corpus_structure.semantic.rich_graph_validation import read_rich_graph
 from corpus_structure.semantic.rich_knowledge_contracts import (
-    DdoRichAuthoredPacket,
     DdoRichAuthoredBody,
+    DdoRichAuthoredPacket,
     DdoRichAuthoredProposition,
     DdoRichAuthoredPropositions,
     DdoRichContext,
@@ -27,27 +27,47 @@ def domain_source(domain):
     from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.record_policy_authority import record_policy_kind_declarations
     from corpus_structure.semantic.rich_invocations import rich_knowledge_operation_sources
-    from corpus_structure.semantic.rich_knowledge_sources import rich_knowledge_declarations, rich_knowledge_inputs
+    from corpus_structure.semantic.rich_knowledge_sources import (
+        rich_knowledge_declarations,
+        rich_knowledge_inputs,
+    )
     from corpus_structure.semantic.types import ResolvedDependencies
 
     qualification = "StatisticsQualification" if domain == "statistics" else "ToyQualification"
     sources = [
-        SourceArtifact(domain + "_semantic", (ROOT / "domains" / domain / "semantic.yaml").read_bytes()),
-        SourceArtifact("semantic_core", (ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml").read_bytes()),
+        SourceArtifact(
+            domain + "_semantic", (ROOT / "domains" / domain / "semantic.yaml").read_bytes()
+        ),
+        SourceArtifact(
+            "semantic_core",
+            (
+                ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
+            ).read_bytes(),
+        ),
     ]
     if domain == "statistics":
-        sources.append(SourceArtifact("statistics_terminology", (ROOT / "domains/statistics/terminology.yaml").read_bytes()))
+        sources.append(
+            SourceArtifact(
+                "statistics_terminology",
+                (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
+            )
+        )
     bundle, deps = rich_knowledge_inputs(
-        SourceBundle(domain + "_semantic", tuple(sources)), ResolvedDependencies(),
+        SourceBundle(domain + "_semantic", tuple(sources)),
+        ResolvedDependencies(),
         domain_rules=(ROOT / "domains" / domain / "schema/rules.yaml").read_bytes(),
         core_rules=(ROOT / "domains/core/schema/rules.yaml").read_bytes(),
-        context_profile=acquire_analysis_context_profile(), qualification_class=qualification,
+        context_profile=acquire_analysis_context_profile(),
+        qualification_class=qualification,
         statement_class="SourceStatement" if domain == "statistics" else "ToySourceStatement",
     )
     prepared = prepare_release(bundle, deps)
-    model = compile_data_operations(bundle,
+    model = compile_data_operations(
+        bundle,
         declarations=(*rich_knowledge_declarations(deps), record_policy_kind_declarations()),
-        python_sources=rich_knowledge_operation_sources(), vocabularies=prepared.vocabularies)
+        python_sources=rich_knowledge_operation_sources(),
+        vocabularies=prepared.vocabularies,
+    )
     return prepared, model, qualification
 
 
@@ -56,20 +76,39 @@ class DomainGraph:
 
     def __init__(self, source, entities, *, context=None):
         self.prepared, self.model, self.qualification_class = source
-        self.context = context or SubjectContext("domain-controls", "domain-knowledge", None, b"{}",
-            subject_definition="knowledge-universe")
+        self.context = context or SubjectContext(
+            "domain-controls",
+            "domain-knowledge",
+            None,
+            b"{}",
+            subject_definition="knowledge-universe",
+        )
         self.classes = entities
-        self.kinds = {item.owner: item.key for item in self.model.identities if item.domain == "kind"}
-        self.lower = RichFactGraph(self.prepared, self.model, context=self.context,
-            entities={key: frozenset({self.prepared.index.definitions[cls].iri}) for key, cls in entities.items()},
-            known_fact_ids=frozenset())
+        self.kinds = {
+            item.owner: item.key for item in self.model.identities if item.domain == "kind"
+        }
+        self.lower = RichFactGraph(
+            self.prepared,
+            self.model,
+            context=self.context,
+            entities={
+                key: frozenset({self.prepared.index.definitions[cls].iri})
+                for key, cls in entities.items()
+            },
+            known_fact_ids=frozenset(),
+        )
         self.results = {}
         self._state = None
 
     def add(self, key, subject, prop, value, *, qualification=None):
-        result = self.lower.add_property_fact(subject_entity=subject, class_name=self.classes[subject],
-            property_name=prop, value=value, qualification=qualification or {"modality": "asserted", "polarity": True},
-            qualification_class=self.qualification_class)
+        result = self.lower.add_property_fact(
+            subject_entity=subject,
+            class_name=self.classes[subject],
+            property_name=prop,
+            value=value,
+            qualification=qualification or {"modality": "asserted", "polarity": True},
+            qualification_class=self.qualification_class,
+        )
         self.results[key] = result
         self._state = None
         return result
@@ -78,27 +117,64 @@ class DomainGraph:
         members: dict[str, DdoRichAuthoredBody] = {}
         for identifier, cls in self.classes.items():
             contract = self.kinds[self.prepared.index.definitions[cls].iri]
-            members[identifier] = DdoRichEntity(member_type="entity", entity_id=identifier,
-                class_contracts=(contract,), identities=(dict(class_contract=contract, fields=(),
-                    source_context=None, label=identifier),), source_members=())
+            members[identifier] = DdoRichEntity(
+                member_type="entity",
+                entity_id=identifier,
+                class_contracts=(contract,),
+                identities=(
+                    dict(class_contract=contract, fields=(), source_context=None, label=identifier),
+                ),
+                source_members=(),
+            )
         for result in self.results.values():
             members[result.fact.fact_id] = result.fact
-            identifier = canonical_identity("rich-authored-proposition", [self.context.identity_record,
-                result.fact.fact_id, result.observed_qualification_value, []]).key
-            members[identifier] = DdoRichAuthoredProposition(member_type="authored-proposition",
-                proposition_id=identifier, fact_id=result.fact.fact_id,
-                observed_qualification_value=result.observed_qualification_value, dependencies=())
+            identifier = canonical_identity(
+                "rich-authored-proposition",
+                [
+                    self.context.identity_record,
+                    result.fact.fact_id,
+                    result.observed_qualification_value,
+                    [],
+                ],
+            ).key
+            members[identifier] = DdoRichAuthoredProposition(
+                member_type="authored-proposition",
+                proposition_id=identifier,
+                fact_id=result.fact.fact_id,
+                observed_qualification_value=result.observed_qualification_value,
+                dependencies=(),
+            )
         members.update((value.value_id, value) for value in self.lower.values)
-        return DdoRichAuthoredPropositions(version="rich-authored-propositions-1", standing="authored-propositions",
-            macros={}, members=tuple(DdoRichAuthoredPacket(member_id=key,
-                kind_contract=self.kinds[NS + type(body).__name__],
-                context=DdoRichContext(subject=self.context.subject, subject_definition=self.context.subject_definition,
-                    original_source=None, analyzed_scope={}), body=body) for key, body in sorted(members.items())))
+        return DdoRichAuthoredPropositions(
+            version="rich-authored-propositions-1",
+            standing="authored-propositions",
+            macros={},
+            members=tuple(
+                DdoRichAuthoredPacket(
+                    member_id=key,
+                    kind_contract=self.kinds[NS + type(body).__name__],
+                    context=DdoRichContext(
+                        subject=self.context.subject,
+                        subject_definition=self.context.subject_definition,
+                        original_source=None,
+                        analyzed_scope={},
+                    ),
+                    body=body,
+                )
+                for key, body in sorted(members.items())
+            ),
+        )
 
     def state(self):
         if self._state is None:
-            self._state = read_rich_graph(self.prepared, self.model, context=self.context,
-                graph=self.propositions(), inputs=(), whole_inputs=())
+            self._state = read_rich_graph(
+                self.prepared,
+                self.model,
+                context=self.context,
+                graph=self.propositions(),
+                inputs=(),
+                whole_inputs=(),
+            )
         return self._state
 
     def object(self, key):
@@ -116,17 +192,39 @@ def formula(expression, *bindings, kind="formula"):
 
 
 def inspection():
-    return dict(kind="inspection", inspector="inspector", custodian="custodian",
-        details=dict(condition="intact", measured_quantity=dict(kind="quantity", number=Decimal("12.3400"), unit="kg", basis="dry-mass")))
+    return dict(
+        kind="inspection",
+        inspector="inspector",
+        custodian="custodian",
+        details=dict(
+            condition="intact",
+            measured_quantity=dict(
+                kind="quantity", number=Decimal("12.3400"), unit="kg", basis="dry-mass"
+            ),
+        ),
+    )
 
 
 def t1(graph):
-    positive = dict(kind="member", x=formula("b", dict(kind="family_param", symbol="b", entity="scale")),
-        set=formula("(0, \\infty)", kind="set"))
-    graph.add("construction", "LS", "construction_formula",
-        formula("a + b Z", dict(kind="free", symbol="a"), dict(kind="family_param", symbol="b", entity="scale"),
-            dict(kind="variable", symbol="Z", entity="Z")),
-        qualification=dict(modality="defined", polarity=True, base_variable="Z", condition=positive))
+    positive = dict(
+        kind="member",
+        x=formula("b", dict(kind="family_param", symbol="b", entity="scale")),
+        set=formula("(0, \\infty)", kind="set"),
+    )
+    graph.add(
+        "construction",
+        "LS",
+        "construction_formula",
+        formula(
+            "a + b Z",
+            dict(kind="free", symbol="a"),
+            dict(kind="family_param", symbol="b", entity="scale"),
+            dict(kind="variable", symbol="Z", entity="Z"),
+        ),
+        qualification=dict(
+            modality="defined", polarity=True, base_variable="Z", condition=positive
+        ),
+    )
     graph.add("scale", "LS", "has_parameter", "scale")
     graph.add("scale-family", "scale", "family", "LS")
     graph.add("scale-name", "scale", "canonical_name", "scale")
@@ -146,11 +244,36 @@ def t4(graph):
     for name in ("mu", "sigma", "exp_mu_scale"):
         graph.add("lognormal-" + name, "lognormal", "has_parameter", name)
         graph.add(name + "-family", name, "family", "lognormal")
-        graph.add(name + "-name", name, "canonical_name", "scale" if name == "exp_mu_scale" else name)
+        graph.add(
+            name + "-name", name, "canonical_name", "scale" if name == "exp_mu_scale" else name
+        )
     graph.add("sigma-role", "sigma", "parameter_role", "shape")
-    graph.add("scale-derived", "exp_mu_scale", "derived_parameter",
-        formula("e^\\mu", dict(kind="constant", symbol="e"), dict(kind="family_param", symbol="\\mu", entity="mu")))
-    graph.add("transformation", "lognormal", "transformation_of", "normal",
-        qualification=dict(modality="defined", polarity=True,
-            transform=formula("e^Y", dict(kind="constant", symbol="e"), dict(kind="variable", symbol="Y", entity="Y")),
-            param_mapping={"mu": dict(key="mu", value="mean"), "sigma": dict(key="sigma", value="standard_deviation")}))
+    graph.add(
+        "scale-derived",
+        "exp_mu_scale",
+        "derived_parameter",
+        formula(
+            "e^\\mu",
+            dict(kind="constant", symbol="e"),
+            dict(kind="family_param", symbol="\\mu", entity="mu"),
+        ),
+    )
+    graph.add(
+        "transformation",
+        "lognormal",
+        "transformation_of",
+        "normal",
+        qualification=dict(
+            modality="defined",
+            polarity=True,
+            transform=formula(
+                "e^Y",
+                dict(kind="constant", symbol="e"),
+                dict(kind="variable", symbol="Y", entity="Y"),
+            ),
+            param_mapping={
+                "mu": dict(key="mu", value="mean"),
+                "sigma": dict(key="sigma", value="standard_deviation"),
+            },
+        ),
+    )

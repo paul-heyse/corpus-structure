@@ -12,7 +12,6 @@ from corpus_structure.semantic.contextual_encoder import (
     execute_contextual_encoder_kernel,
     prepare_selected_query_context,
 )
-from corpus_structure.semantic.contextual_retrieval import freeze_inventory
 from corpus_structure.semantic.contributions import occurrence_identity
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import (
@@ -26,7 +25,6 @@ from corpus_structure.semantic.data_operation_source_sets import (
     source_sets_record,
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
-from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin
 
@@ -229,9 +227,6 @@ def test_selected_encoder_uses_exact_shared_recipe_and_vector_identity(recipe, m
     )
     profile = embeddings.EncoderProfile(
         "controlled-query12", "a" * 40, 2, "query: ", "document: ", "mean"
-    )
-    inventory = freeze_inventory(
-        (), source_selection="explicit-empty-target-population", scope="source-scope"
     )
     result = execute_contextual_encoder_kernel(
         frame.record,

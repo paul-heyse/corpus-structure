@@ -1,6 +1,5 @@
 """Actual spawned closed Python calls share bounded CPU custody and exact types."""
 
-import copy
 import json
 import os
 import time
@@ -18,9 +17,13 @@ from corpus_structure.semantic.data_operation_ports import (
     PythonRoleValue,
     resolve_python_port,
 )
-from corpus_structure.semantic.identity import claim_source_item__data_operation__
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
-from semantic.data_operation_port_support import controlled_port_declaration, fixture_source, kind, scope
+from semantic.data_operation_port_support import (
+    controlled_port_declaration,
+    fixture_source,
+    kind,
+    scope,
+)
 
 
 def run(port, cpu, values):
