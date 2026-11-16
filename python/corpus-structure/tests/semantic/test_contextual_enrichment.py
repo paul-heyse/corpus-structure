@@ -5,7 +5,6 @@ from math import sqrt
 from threading import Event
 
 import pytest
-from sqlalchemy.dialects import postgresql
 
 from corpus_structure.methods.contextual_embeddings import (
     E5,
@@ -28,7 +27,6 @@ from corpus_structure.semantic.contextual_retrieval import (
     fuse_candidates,
 )
 from corpus_structure.semantic.contextual_storage import (
-    eligible_vector_relation,
     enrichment_report,
     interpretation_candidates,
 )
@@ -333,12 +331,6 @@ def test_interpretation_inventory_preserves_equal_labels_and_exact_rank():
     report["candidate_lists"][0]["candidates"][0]["target_id"] = "foreign"
     with pytest.raises(ValueError, match="identity differs"):
         interpretation_candidates(report, candidate_list.list_id, "occ", anchors)
-
-
-def test_read_projection_is_task_bound_and_uses_native_vector_type():
-    relation = eligible_vector_relation(7)
-    sql = str(relation.select().compile(dialect=postgresql.dialect()))
-    assert "task_id" in sql and "contextual_target_vector" in sql
 
 
 def test_profile_versions_and_curated_descriptor_reuse_boundaries():

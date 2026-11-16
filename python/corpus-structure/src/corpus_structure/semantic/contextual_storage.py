@@ -7,7 +7,6 @@ from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
-from sqlalchemy import select
 
 from corpus_structure.methods.contextual_embeddings import (
     EncodedVector,
@@ -394,16 +393,6 @@ def enrichment_report(
     )
     assert isinstance(cleaned, dict)
     return cleaned
-
-
-def eligible_vector_relation(task_id: int):
-    """Owned task pin prevents a foreign run's inventory ID from changing retrieval inputs."""
-    from corpus_structure.semantic.metadata import table
-
-    relation = table("kb.contextual_target_vector")
-    if type(task_id) is not int or task_id <= 0:
-        raise ValueError("vector relation requires an actual producing task")
-    return select(relation).where(relation.c.task_id == task_id).subquery("owned_target_vectors")
 
 
 def lexical_target_rows(inventory):

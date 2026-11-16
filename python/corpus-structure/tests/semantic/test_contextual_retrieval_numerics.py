@@ -25,6 +25,46 @@ from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.test_declared_contextual_operations import inputs
 
 
+def test_transient_native_channels_keep_exact_vectors_empty_hits_and_identity_ties(native_rollback):
+    """Controlled numerical inputs exercise PostgreSQL, not publication authority.
+
+    The separate current-demand cohort supplies actual CPU/native custody and
+    atomic-refusal controls. These fixed vectors give independent score values.
+    """
+    from copy import deepcopy
+
+    from corpus_structure.semantic.observations import source_python, source_value
+
+    connection = native_rollback.connection
+    values = inputs()
+
+    def channels(selected):
+        acquired = prepare_contextual_retrieval(**selected)
+        result = query_contextual_retrieval(
+            connection, acquired, selected["query"], selected["policy"]
+        )
+        return {channel.channel: channel.hits for channel in result.channel_results}
+
+    actual = channels(values)
+    assert [(hit.target_id, hit.score) for hit in actual["dense"]] == [
+        ("one", 1.0), ("two", 0.0)
+    ]
+    assert [hit.target_id for hit in actual["alias"]] == ["one", "two"]
+    assert [hit.target_id for hit in actual["lexical"]] == ["one", "two"]
+    quiet = deepcopy(values)
+    quiet["query"]["lexical_query"] = "absentlexemezz"
+    empty = channels(quiet)
+    assert empty["alias"] == empty["lexical"] == ()
+    assert empty["dense"] == actual["dense"]
+    tied = deepcopy(values)
+    vectors = source_python(tied["vectors"]["vectors"])
+    vectors[2]["values"] = [1.0, 0.0]
+    tied["vectors"]["vectors"] = source_value(vectors)
+    assert [(hit.target_id, hit.score) for hit in channels(tied)["dense"]] == [
+        ("one", 1.0), ("two", 1.0)
+    ]
+
+
 def test_selected_backend_changes_retrieval_recipe_without_salting_inventory():
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = contextual_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
