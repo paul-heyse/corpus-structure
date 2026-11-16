@@ -87,26 +87,14 @@ class DataProductMemberReference:
         return "member:" + sha256(canonical_bytes(self.values())).hexdigest()
 
 
-def member_reference(product, member_id):
-    """Keep legacy archive addressing only for an actual legacy input."""
-    from .characterization import AnnotationReference
-    from .product_reference import ProductReference
-
-    if isinstance(product, DataProductReference):
-        return DataProductMemberReference(product, member_id)
-    if isinstance(product, ProductReference):
-        return AnnotationReference(product, member_id)
-    raise TypeError("member reference requires an admitted product reference")
+def member_reference(product: DataProductReference, member_id: str) -> DataProductMemberReference:
+    """Address an actual semantic member within its immutable governed product."""
+    return DataProductMemberReference(product, member_id)
 
 
-def read_member_reference(value):
-    from .characterization import AnnotationReference
-    from .product_reference import ProductReference
+def read_member_reference(value) -> DataProductMemberReference:
+    from collections.abc import Mapping
 
-    if set(value) == {"product_id", "member_id"}:
-        return DataProductMemberReference(
-            DataProductReference(value["product_id"]), value["member_id"]
-        )
-    if set(value) == {"layer", "local_id"}:
-        return AnnotationReference(ProductReference(**value["layer"]), value["local_id"])
-    raise ValueError("member reference is not an exact semantic or legacy address")
+    if not isinstance(value, Mapping) or set(value) != {"product_id", "member_id"}:
+        raise ValueError("member reference is not an exact semantic address")
+    return DataProductMemberReference(DataProductReference(value["product_id"]), value["member_id"])

@@ -8,7 +8,7 @@ from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_rele
 from corpus_structure.semantic.data_product_reference import (
     DataProductMemberReference,
     DataProductReference,
-    reference_inputs,
+    reference_inputs, member_reference, read_member_reference,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 
@@ -30,3 +30,19 @@ def test_shared_reference_schema_matches_actual_addresses_and_refuses_unqualifie
             prepared.validate_json("DdoSemanticMemberReference", canonical_bytes(value))
     other = DataProductMemberReference(DataProductReference("product:other"), "token:one")
     assert member.identity != other.identity
+
+
+def test_member_decoder_retains_qualified_identity_and_refuses_other_address_spaces():
+    left = member_reference(DataProductReference("product:left"), "token:one")
+    right = member_reference(DataProductReference("product:right"), "token:one")
+    assert left != right and left.identity != right.identity
+    assert read_member_reference(left.values()) == left
+    assert left.values() == {"product_id": "product:left", "member_id": "token:one"}
+    for value in (
+        {"layer": {"task_id": 9, "product_key": "report", "content_digest": "a" * 64}, "local_id": "token:one"},
+        {**left.values(), "local_id": "token:one"},
+        {"product_id": "product:left", "member_id": ""},
+        {"product_id": True, "member_id": "token:one"},
+    ):
+        with pytest.raises(ValueError):
+            read_member_reference(value)
