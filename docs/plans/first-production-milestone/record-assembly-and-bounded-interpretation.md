@@ -25,10 +25,10 @@ scientific truth, causal validity or a proof. Ordered procedures remain shadow o
 The target develops [WP3/WP4](../../target-pipeline-design/first-production-milestone.md#delivery-and-exit-evidence)
 and [O03/O04](../../functional_reviews/m1-target-design_2026-11-03.md#O03).
 
-The existing [consolidation `assemble`](../../../python/corpus-structure/src/corpus_structure/semantic/consolidation.py)
+The existing [consolidation `assemble`](https://github.com/paul-heyse/corpus-structure/blob/52129373be64f4efbaec9452734bd9a93cf23657/python/corpus-structure/src/corpus_structure/semantic/consolidation.py)
 lowers typed source values into facts and separate source occurrences; its selected facts are
 policy selections, not confidence cutoffs. Existing
-[publication rows](../../../python/corpus-structure/src/corpus_structure/semantic/publication.py)
+[publication rows](https://github.com/paul-heyse/corpus-structure/blob/52129373be64f4efbaec9452734bd9a93cf23657/python/corpus-structure/src/corpus_structure/semantic/publication.py)
 include occurrence evidence, evidence roles, assessments, alternatives and derivation premises.
 These are foundations to extend under M1-02/M1-03, rather than five independent stores.
 [`derive` (historical source)](../../README.md#historical-recovery) computes

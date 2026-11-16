@@ -80,7 +80,7 @@ is needed. Record ineligible, eligible-unscheduled, limited, failed, cancelled,
 successful-empty and successful-nonempty as distinct states. Input coverage and
 availability of aligned output are independent. A valid disjoint extent may
 retain ordered pieces when the role permits them. Partial atoms and fabricated
-spans yield diagnostics. [Completion owner](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py) ·
+spans yield diagnostics. [Completion owner](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py) ·
 [Private read owner (historical source)](../../README.md#historical-recovery)
 
 | CI operation and universe | Method and precision | Work, effects and evidence boundary |
@@ -98,7 +98,7 @@ rule can consume unchanged work where that contract permits it. A changed
 effective request or runtime needs a new producer origin. A successful evaluation
 comparison cannot authorize reuse across release identities. [Dependency
 projection](../../../python/corpus-structure/src/corpus_structure/semantic/sql/task_dependency_scope.sql) ·
-[Task and reuse owner](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py)
+[Task and reuse owner](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py)
 
 ## 5. Scenarios
 

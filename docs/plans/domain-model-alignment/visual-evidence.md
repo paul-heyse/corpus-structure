@@ -71,7 +71,7 @@ parser accepts the current policy literal, and ordinary reuse keys on
 the whole runtime. Explicit raw replay establishes its narrower route.
 [Cue aggregation](../../../python/corpus-structure/src/corpus_structure/semantic/visual_routing.py#L783) ·
 [Nomination resume](../../../python/corpus-structure/src/corpus_structure/semantic/visual_dispatch.py#L79) ·
-[Ordinary reuse](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L293)
+[Ordinary reuse](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py#L293)
 
 <a id="DMA-10"></a>
 

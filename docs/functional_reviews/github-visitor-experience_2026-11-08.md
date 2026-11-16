@@ -150,7 +150,7 @@ a few questions raised by the examples.
 
 | Reader question | Current entry points |
 |---|---|
-| Where do source locations come from? | [PDF section views](../../python/corpus-structure/src/corpus_structure/ingest/pdf_section_views.py) · [Source-view SQL](../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) |
+| Where do source locations come from? | [PDF section views](../../python/corpus-structure/src/corpus_structure/ingest/pdf_section_views.py) · [Source-view SQL](https://github.com/paul-heyse/corpus-structure/blob/115248de546a2b0d186215d23eba94759bfd8620/python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) |
 | How are observations and links produced? | [GLiNER method](../../python/corpus-structure/src/corpus_structure/methods/gliner.py) · [Contextual links](../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py) |
 | How do readers inspect and assess results? | [Operation assessment (historical recovery)](../README.md#historical-recovery) · [Reader queries](../design/D8-agent-and-query-interfaces.md) · [MCP CLI](../../python/corpus-structure/src/corpus_structure/cli/mcp.py) |
 

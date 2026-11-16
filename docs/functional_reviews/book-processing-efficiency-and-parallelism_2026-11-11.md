@@ -65,7 +65,7 @@ The validity scope includes selected release, compiler/runtime, configuration an
 <a id="O02"></a>
 ### O02 · Carry bounded authenticated regional state across producers
 
-**Recommend with O01.** [LayerReport](../../python/corpus-structure/src/corpus_structure/semantic/characterization.py), lines225–245, decodes on every payload access and hashes for reference access. Stage selection repeatedly requests payloads. [BoundReader.characterization_layers](../../python/corpus-structure/src/corpus_structure/semantic/operations.py), around1075, reloads upstream reports; new validation contexts recursively reconstruct dependency validity.
+**Recommend with O01.** [LayerReport](../../python/corpus-structure/src/corpus_structure/semantic/characterization.py), lines225–245, decodes on every payload access and hashes for reference access. Stage selection repeatedly requests payloads. [BoundReader.characterization_layers](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py), around1075, reloads upstream reports; new validation contexts recursively reconstruct dependency validity.
 
 Own a bounded preparation for each admitted region: authenticated source values, immutable decoded views, exact dependency pins, source/occurrence indexes and scoped validation results. Reuse sufficient source hydration and dependency preparation across its consumers. Release large bodies after their last consumer; retain compact manifests/pins for document composition.
 
@@ -80,7 +80,7 @@ Source reads are already selective; the change is lifetime and ownership, not wh
 
 One coordinator retains run supervision, task registration, claims, renewal, completion preparation and publication. Register dependent tasks only after their immutable predecessor pins exist: those pins determine actual task configuration/input identity. Keep existing stage-run boundaries initially; changing their number is not required to obtain cross-unit overlap.
 
-Existing database claims enforce recorded dependencies, but this is not a general cross-run DAG already waiting to be enabled. Current [source dependency admission](../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql), lines498–519, admits specific same-run relationships. General placeholder products or cross-run blocked-task registration would be an additional contract extension, not part of this recommendation.
+Existing database claims enforce recorded dependencies, but this is not a general cross-run DAG already waiting to be enabled. Current [source dependency admission](https://github.com/paul-heyse/corpus-structure/blob/115248de546a2b0d186215d23eba94759bfd8620/python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql), lines498–519, admits specific same-run relationships. General placeholder products or cross-run blocked-task registration would be an additional contract extension, not part of this recommendation.
 
 Use completion-driven readiness with stable source ordinals for final assembly. Transient physical dispatch belongs under existing durable work ownership; it does not need another database queue, broker or workflow engine. H2/H8/H21–25.
 

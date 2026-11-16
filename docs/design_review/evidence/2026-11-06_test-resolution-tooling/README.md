@@ -124,8 +124,8 @@ also direct temporary-relation reads
 ([native_products.py lines238–255](../../../../python/corpus-structure/src/corpus_structure/semantic/native_products.py#L238)).
 Only afterward, at line95, does it call `data.publish_contract_batch`, whose
 publisher ownership/relation-shape verification precedes reads
-([transport.sql lines10–13](../../../../python/corpus-structure/src/corpus_structure/semantic/sql/transport.sql#L10);
-[routines.py lines17–38](../../../../python/corpus-structure/src/corpus_structure/semantic/routines.py#L17)).
+([transport.sql lines10–13](https://github.com/paul-heyse/corpus-structure/blob/52129373be64f4efbaec9452734bd9a93cf23657/python/corpus-structure/src/corpus_structure/semantic/sql/transport.sql#L10);
+[routines.py lines17–38](https://github.com/paul-heyse/corpus-structure/blob/52129373be64f4efbaec9452734bd9a93cf23657/python/corpus-structure/src/corpus_structure/semantic/routines.py#L17)).
 This is a real pre-verification surface for caller-created temporary relations or
 views if generic TEMP is enabled and the admission restriction is relaxed. It is
 a source-identified trust gap, **not an executed privilege-escalation exploit**.

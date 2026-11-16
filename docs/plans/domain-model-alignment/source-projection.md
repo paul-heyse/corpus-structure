@@ -33,7 +33,7 @@ interpretations and detached verification to the same immutable projection.
 Make historical retention and current execution eligibility separate
 under DMA-13.
 [Projector](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_hierarchy.py) ·
-[Native publication and frame guard](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) ·
+[Native publication and frame guard](https://github.com/paul-heyse/corpus-structure/blob/115248de546a2b0d186215d23eba94759bfd8620/python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) ·
 [Review F02](../../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F02)
 
 **Closure.** From a fresh first publication, omit one nonempty prose field

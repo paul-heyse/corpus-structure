@@ -52,7 +52,7 @@ examined source population. Reader selection uses the completed cut and
 explicit operation or task identity. Its one-result convenience method
 has different cardinality. Claim adapter (`orchestrate/pm2.py:26`) ·
 [Contribution validation](../../../python/corpus-structure/src/corpus_structure/semantic/contributions.py#L69) ·
-[Source result cardinality](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L1302)
+[Source result cardinality](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py#L1302)
 
 | Native capability | Application and material limit |
 | --- | --- |
@@ -138,7 +138,7 @@ release, realization revision, runtime, method configuration, unit and
 input. The contribution Reader accepts explicit selected task identity.
 These are source findings. Fresh native inference, retained-result and reuse
 checks were `not_run` in this assessment. Runner (`orchestrate/pm2_stage.py`) ·
-[Task admission](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L267) ·
+[Task admission](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py#L267) ·
 [Contribution Reader (historical source)](../../README.md#historical-recovery)
 
 | Review question | Observed implementation and remaining obligation |

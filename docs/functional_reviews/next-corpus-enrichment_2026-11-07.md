@@ -82,7 +82,7 @@ outside that membership. Keep the first increment within existing membership. Fo
 caption attached only by reference outside the selection, retain it as an unresolved association
 in that view and investigate explicit selected-membership semantics separately. Scope, body
 layer, owner identity and source text must be authenticated before admitting such a piece.
-[Native publication guard](../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql)
+[Native publication guard](https://github.com/paul-heyse/corpus-structure/blob/115248de546a2b0d186215d23eba94759bfd8620/python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql)
 
 Publish both builders under one new projection recipe identity and regenerate affected source
 views and consumers of their offsets. Reuse the immutable native product. Retained annotations
@@ -91,7 +91,7 @@ substitutable, with explicit correspondence for any remap. Regenerate changed vi
 passages, and downstream products where those premises differ. Expose each recovered caption
 through bounded structural passage selection so existing discovery and `ArtifactCitation`
 construction can consume it. Compare by native occurrence and exact text before comparing
-shifted projection offsets. [Structural source preparation](../../python/corpus-structure/src/corpus_structure/semantic/structural_sources.py) ·
+shifted projection offsets. [Structural source preparation](https://github.com/paul-heyse/corpus-structure/blob/5b32926ce3f74276caffdd531afc5d2e2ee17327/python/corpus-structure/src/corpus_structure/semantic/structural_sources.py) ·
 [Artifact discovery](../../python/corpus-structure/src/corpus_structure/methods/artifact_identity.py) ·
 [Current-only migration](../adr/0067-witnessed-current-only-cutover.md)
 

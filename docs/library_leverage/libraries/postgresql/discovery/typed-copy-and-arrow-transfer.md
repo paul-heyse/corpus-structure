@@ -12,7 +12,7 @@ leads, not applicability verdicts or selected replacements.
 nullability and metadata-sensitive batch schema; it prepares stable facts and creates a fresh pgpq
 encoder for each stream. It explicitly handles UTF8/LargeUTF8/StringView JSONB, refuses undeclared
 nanosecond normalization and requires Decimal128 for numeric writes. Partial encoder output is not
-published after failure. [Row publication](../../../../../python/corpus-structure/src/corpus_structure/semantic/publication.py) uses Psycopg set_types()
+published after failure. [Row publication](https://github.com/paul-heyse/corpus-structure/blob/52129373be64f4efbaec9452734bd9a93cf23657/python/corpus-structure/src/corpus_structure/semantic/publication.py) uses Psycopg set_types()
 for genuine Python rows, on the same borrowed Core transaction.
 [Analytics (historical source)](../../../../README.md#historical-recovery) and [Companion export](../../../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py)
 own separate ADBC snapshot reads, normalization and reader cleanup. The former bulk-pool loader

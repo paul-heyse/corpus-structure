@@ -46,7 +46,7 @@ Semantic meaning stays with D1/D2, persistence with D3, interpretation/publicati
 with [D8](../../design/D8-agent-and-query-interfaces.md). Durable authority updates belong to
 M1-00/M1-02 before activation; companion plans do not amend accepted ADRs by implication.
 
-Current [publication](../../../python/corpus-structure/src/corpus_structure/semantic/publication.py)
+Current [publication](https://github.com/paul-heyse/corpus-structure/blob/52129373be64f4efbaec9452734bd9a93cf23657/python/corpus-structure/src/corpus_structure/semantic/publication.py)
 already has `PublicationBatch`, source occurrences, evidence/roles, support, alternatives,
 assessments, coverage and proof premises. Current
 [`consolidate_cut` (historical source)](../../README.md#historical-recovery)

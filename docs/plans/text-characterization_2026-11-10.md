@@ -182,7 +182,7 @@ lexicons, and still emits `linguistic.predicate_frame` (288) and `linguistic.qua
 `ci run parsers`. Current readers of those products are
 [contribution composition](../../python/corpus-structure/src/corpus_structure/serve/contribution_composition.py):191–253,
 the retained declaration parser in
-[operations](../../python/corpus-structure/src/corpus_structure/semantic/operations.py):1422,
+[operations](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py):1422,
 source-contribution admission (`source_contributions.sql`:2285) and contextual query (TC-E10).
 `hanlp_condition_groups` in `methods/m1_source_capture.py` has no production caller; only the
 2026-11-09 evidence replay imports it. Closure is one of two routes: migrate these readers to

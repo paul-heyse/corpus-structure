@@ -73,7 +73,7 @@ including a qualified part that survives sibling failure.
 <a id="F04"></a>
 
 **F04 · Ordinary release assembly (PM2-12).** The
-[retained reader](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py)
+[retained reader](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py)
 authenticates archived producer meaning, while
 interpretation preparation (`orchestrate/pm2_stage.py`)
 also requires the selected project and release. Bind exact task, origin, cut, view, question

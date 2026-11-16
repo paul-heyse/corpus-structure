@@ -34,7 +34,7 @@ series. [Current checkpoint](../../STATUS.md) ·
 | The finite interpreter has bounded exact enumeration and existing table policy arms. The fitter has protected frames and finite typed outputs, but its existing event is distinct from the group-derived definition attachment. | Keep the existing interpreter and prior/logistic fitter as the first realizations. The new shared correspondence owns its source-derived factors. Define a new event meaning and extend existing availability, fit and read operations through protected custody. |
 
 [Projection code](../../python/corpus-structure/src/corpus_structure/ingest/pdf_hierarchy.py) ·
-[Native source admission](../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) ·
+[Native source admission](https://github.com/paul-heyse/corpus-structure/blob/115248de546a2b0d186215d23eba94759bfd8620/python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) ·
 [Knowledge representation](../design/D1-knowledge-representation.md) ·
 [Native structural validation](../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) ·
 [Operation fitting](../../python/corpus-structure/src/corpus_structure/evaluate/operation_fitting.py)

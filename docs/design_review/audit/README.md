@@ -467,7 +467,7 @@ Test-assessment 1.2 informs the use of retained verification evidence.
   selects by operation or selected task. Multiple parser scopes per view require
   that distinction to reach the consumer (FP-05/06, DP-04/09, CI-08/13).
   [Source custody](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L2) ·
-  [Result cardinality](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L1302) ·
+  [Result cardinality](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py#L1302) ·
   [Reader selection (historical source)](../../README.md#historical-recovery)
 - **Distinct Dipo input universes.** Interface-checked against installed
   `dipo==0.2.1`. Raw parsing reconstructs EDUs through `edus_from_breaks`,

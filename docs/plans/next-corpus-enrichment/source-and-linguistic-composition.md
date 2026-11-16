@@ -38,7 +38,7 @@ and source field. Keep synthetic separators separate. Retain separate occurrence
 different pointers and separate view citations for a shared occurrence. Do not assign the caption a
 table cell index. Ensure the native publication guard checks the same selected membership and exact
 source content. Give the two builders one shared new projection recipe identity derived from the
-same semantic inputs. [Native publication guard](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql)
+same semantic inputs. [Native publication guard](https://github.com/paul-heyse/corpus-structure/blob/115248de546a2b0d186215d23eba94759bfd8620/python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql)
 
 Admit bounded caption passages in structural source preparation and exercise existing artifact
 discovery and `ArtifactCitation`. Regenerate the affected selected views and downstream offset-dependent products
@@ -46,7 +46,7 @@ against the archived native input. Explicitly prove unchanged text, input identi
 mapping before reusing an annotation or model result. Treat shifted offsets as a new projection even
 when native occurrence and text are identical. Keep reprocessing to affected views and consumers.
 The link companion consumes recovered citations and separately owns new nomination/selection
-semantics. [Structural source preparation](../../../python/corpus-structure/src/corpus_structure/semantic/structural_sources.py) · [Artifact discovery](../../../python/corpus-structure/src/corpus_structure/methods/artifact_identity.py)
+semantics. [Structural source preparation](https://github.com/paul-heyse/corpus-structure/blob/5b32926ce3f74276caffdd531afc5d2e2ee17327/python/corpus-structure/src/corpus_structure/semantic/structural_sources.py) · [Artifact discovery](../../../python/corpus-structure/src/corpus_structure/methods/artifact_identity.py)
 
 **Acceptance.** Verify exact text and pointer for all three captions, one projected occurrence per
 selected view, unchanged rich-cell positions relative to the cell sequence, and parity across
@@ -189,7 +189,7 @@ caption guard when those bytes declare v8. A different recipe identifier can byp
 guard on a fresh publication. Bind new publications to the selected recipe and preserve
 exact historical reuse. Exercise omitted and duplicate captions, a substituted recipe,
 and an unchanged retry through the public native writer. The historical caption probe
-called the private helper directly. [Native writer](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql#L104) ·
+called the private helper directly. [Native writer](https://github.com/paul-heyse/corpus-structure/blob/115248de546a2b0d186215d23eba94759bfd8620/python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql#L104) ·
 [Caption probe](../../design_review/evidence/2026-11-07_nce-source-linguistics/check_caption_admission.py).
 
 **2026-11-07 execution.** Both builders and the native publisher authenticate the
