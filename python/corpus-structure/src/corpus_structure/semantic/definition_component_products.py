@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
 from .types import SourceArtifact
@@ -270,8 +271,8 @@ def _component_authority_kernel(
 
 def definition_components_kernel(
     arguments: dict,
-    roles: tuple,
-    context: Any,
+    roles: tuple[ResolvedRoleBinding, ...],
+    context: SubjectContext,
     input_basis: list,
     *,
     prepared: Any,
@@ -642,8 +643,8 @@ def execute_named_definition_components(receiver, source, annotations, construct
 
 def named_definition_components_kernel(
     arguments: dict,
-    roles: tuple,
-    context: Any,
+    roles: tuple[ResolvedRoleBinding, ...],
+    context: SubjectContext,
     input_basis: list,
     *,
     prepared: Any,

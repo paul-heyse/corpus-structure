@@ -1,5 +1,7 @@
 """Exact input/dispatch wrappers; controlled projections establish no scientific evidence."""
 
+import inspect
+import json
 from copy import deepcopy
 from dataclasses import replace
 
@@ -139,7 +141,36 @@ def test_definition_wrappers_bind_actual_values_parameters_and_support_before_di
             if variant == "named"
             else components.definition_components_kernel
         )
-    reply = kernel(
+    # Use the real prepared-kernel packet encoder and child ingress. Direct
+    # Python calls cannot detect erased role/context types at the JSON boundary.
+    from corpus_structure.semantic.data_operation_cpu import (
+        PythonCPUDescriptor,
+        execute_python_call,
+    )
+
+    sources = (
+        declaration.definition_operation_sources()
+        if variant == "declaration"
+        else applicability.applicability_operation_sources()
+        if variant == "applicability"
+        else components.definition_component_operation_sources(include_learned=variant == "learned")
+    )
+    descriptor = PythonCPUDescriptor(
+        tuple((source.module, source.filename, source.content) for source in sources.sources),
+        kernel.__module__ + "." + kernel.__qualname__,
+        (), verification="prepared-kernel", control_parameter="check_active",
+        prepared_parameter="prepared", prepared_release_id=prepared_workflow.release_id,
+    )
+    signature = inspect.signature(kernel, eval_str=True)
+
+    def invoke(*args, **kwargs):
+        bound = signature.bind(*args, **kwargs)
+        return json.loads(execute_python_call(
+            descriptor.packet(bound.arguments, signature), lambda: None,
+            prepared_releases={prepared_workflow.release_id: prepared_workflow},
+        ))
+
+    reply = invoke(
         arguments, roles, context, basis, prepared=prepared_workflow, check_active=lambda: None
     )
     actual = cpu_authority_value(canonical_bytes(reply), expected_basis=basis)
@@ -150,7 +181,7 @@ def test_definition_wrappers_bind_actual_values_parameters_and_support_before_di
     assert isinstance(source_body, dict)
     source_body["position"] = 99
     with pytest.raises(ValueError, match="exact input basis"):
-        kernel(
+        invoke(
             changed, roles, context, basis, prepared=prepared_workflow, check_active=lambda: None
         )
     altered_role = replace(
@@ -166,7 +197,7 @@ def test_definition_wrappers_bind_actual_values_parameters_and_support_before_di
         ),
     )
     with pytest.raises(ValueError, match="exact input basis"):
-        kernel(
+        invoke(
             arguments,
             (altered_role, *roles[1:]),
             context,
@@ -177,7 +208,7 @@ def test_definition_wrappers_bind_actual_values_parameters_and_support_before_di
     if parameters:
         changed = dict(arguments, start=1)
         with pytest.raises(ValueError, match="exact input basis"):
-            kernel(
+            invoke(
                 changed,
                 roles,
                 context,

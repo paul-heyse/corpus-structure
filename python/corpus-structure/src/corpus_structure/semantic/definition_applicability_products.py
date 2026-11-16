@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .declared_structural_references import DeclaredComponentRef, DeclaredRelationshipRef
 from .identity import canonical_bytes
 from .structural_products import ApplicabilityPremise, DeclaredLocatedDefinitionComponent
@@ -85,15 +86,15 @@ def applicability_operation_sources():
 @dataclass(frozen=True)
 class PreparedApplicabilityInputs:
     prepared: Any
-    roles: tuple
-    context: Any
+    roles: tuple[ResolvedRoleBinding, ...]
+    context: SubjectContext
     check_active: Any
 
 
 def applicability_kernel(
     arguments: dict,
-    roles: tuple,
-    context: Any,
+    roles: tuple[ResolvedRoleBinding, ...],
+    context: SubjectContext,
     input_basis: list,
     *,
     prepared: Any,
