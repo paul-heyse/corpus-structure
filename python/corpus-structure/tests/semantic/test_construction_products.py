@@ -282,20 +282,16 @@ def test_multi_source_view_keeps_each_projection_local_coordinate(profiles):
     }
 
 
-def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(profiles):
+def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(monkeypatch):
     from spacy.attrs import IS_ALPHA, IS_PUNCT, IS_QUOTE, IS_SPACE, LIKE_NUM, LOWER
     from spacy.tokens import Doc
     from spacy.vocab import Vocab
 
-    from corpus_structure.semantic.construction_products import CharacterizationSnapshot
     from corpus_structure.semantic.constructions.matching import (
         retained_native_documents,
         retained_native_vocab,
     )
-    from corpus_structure.semantic.identity import canonical_bytes
 
-    formal, _ = profiles
-    source = selected(formal, "Alpha.")
     original = Doc(
         Vocab(
             lex_attr_getters={
@@ -315,40 +311,29 @@ def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(p
         heads=[0, 0],
         deps=["ROOT", "punct"],
     )
-    identifiers = ("a" * 64, "b" * 64)
-    tokens = [
-        dict(
-            record_type="token",
-            local_id=identifiers[token.i],
-            block_id="#/texts/0",
-            ordinal=token.i,
-            start=token.idx,
-            end=token.idx + len(token),
-            lemma=token.lemma_,
-            pos=token.pos_,
-            tag=token.tag_,
-            morphology=[],
-            dependency=token.dep_,
-            head_ref=identifiers[token.head.i],
-            sent_start=bool(token.is_sent_start),
-            lower=token.lower_,
-            is_alpha=token.is_alpha,
-            is_space=token.is_space,
-            is_punct=token.is_punct,
-            is_quote=token.is_quote,
-            like_num=token.like_num,
-        )
-        for token in original
-    ]
-    native = CharacterizationSnapshot(
-        "product:controlled",
-        canonical_bytes(
-            dict(
-                members=[dict(body=token) for token in tokens],
-                annotation_columns=[dict(block_id="#/texts/0", start=0, end=6)],
-            )
-        ),
-    )
+    import json
+    from annotation_support import ControlledPipeline, selected_item
+    from methods.declared_primary_fixture import retained_source_annotations
+    from corpus_structure.ingest import annotations as annotation_owner
+    from corpus_structure.ingest.annotations import AnnotationProfile, annotate
+    from corpus_structure.semantic.sentence_products import source_annotation_packets, validate_source_annotations
+
+    controlled = ControlledPipeline()
+    request, source, frame, context = selected_item(controlled, "Alpha.", start=0, block_id="#/texts/1")
+    monkeypatch.setattr(annotation_owner, "pipeline", lambda _: controlled)
+    annotation_profile = AnnotationProfile(execution_profile=controlled.selection().native.fingerprint)
+    (annotation,) = annotate((request,), annotation_profile, processed_docs=(original,), require_complete=False)
+    native = retained_source_annotations(source, frame, context, (annotation,), annotation_profile)
+    value = json.loads(native.content)
+    value["blocks"][0]["lexemes"] = [dict(
+        lower=token.lower_, is_alpha=token.is_alpha, is_space=token.is_space,
+        is_punct=token.is_punct, is_quote=token.is_quote, like_num=token.like_num,
+        sent_start=token.is_sent_start,
+    ) for token in original]
+    value["members"] = source_annotation_packets(native.prepared, native.model, value)
+    native = validate_source_annotations(native.prepared, native.model, value, source,
+        configuration=annotation_profile.configuration, subject_context=context)
+    assert len(native.inventory("token")) == 2
     vocab = retained_native_vocab(source, native)
     _, doc, _, start, end = next(retained_native_documents(source, native, vocab))
     assert (start, end, doc.text) == (0, 6, "Alpha.")
@@ -576,12 +561,31 @@ def test_statistics_named_rule_configuration_belongs_to_construction_profile():
     from corpus_structure.semantic.construction_products import load_construction_options
 
     options = load_construction_options(Path(__file__).resolve().parents[4] / "domains/statistics")
-    assert len(options.annotation_rules) == 15
-    assert {
+    assert {(rule.rule, rule.variant) for rule in options.annotation_rules} == {
         ("defining", "active_as"),
+        ("defining", "active_as_term_attachment"),
+        ("defining", "active_as_marked_nominal"),
+        ("defining", "passive_as"),
+        ("defining", "active_to_be"),
+        ("defining", "passive_to_be"),
+        ("naming", "active_called_term"),
         ("naming", "passive_called_term"),
+        ("defining", "passive_following_display"),
+        ("defining", "active_following_display"),
+        ("explanation", "given_following_display"),
+        ("definition_context", "numbered_label"),
+        ("definition_context", "labelled_copula_display"),
+        ("defining", "nominal_follows"),
+        ("defining", "constructive_copula"),
+        ("symbol_declaration", "denotes"),
         ("condition_exception", "marked_clause"),
-    } <= {(rule.rule, rule.variant) for rule in options.annotation_rules}
+    }
+    added = {rule.variant: rule for rule in options.annotation_rules if rule.variant in {"active_as_term_attachment", "active_as_marked_nominal"}}
+    for rule in added.values():
+        assert set(rule.bindings) == {"defining_cue", "defined_term", "defining_content"}
+        assert rule.bindings["defined_term"].node == "term"
+        assert rule.bindings["defining_content"].node == "content"
+    assert added["active_as_marked_nominal"].bindings["defining_content"].exclude_nodes == ("as",)
 
 
 def test_target_math_scope_keeps_unavailable_native_coverage_open(profiles):

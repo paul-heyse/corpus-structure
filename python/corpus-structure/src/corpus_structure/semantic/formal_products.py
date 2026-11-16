@@ -250,14 +250,16 @@ def validate_formal_product(
                 raise ValueError("formal choice member repeats local identity")
             all_nodes[member["local_id"]] = member
             choices[member["local_id"]] = group
+    from .source_products import source_extent_selected
+
+    selector_index = source.selector_index()
+    original_items = {item["self_ref"]: item for item in selected["items"]}
     for occurrence in data["occurrences"]:
         if occurrence["local_id"] != occurrence_id(checked["source"], occurrence["extents"]):
             raise ValueError("formal occurrence differs from original semantic source address")
         for extent in occurrence["extents"]:
             pointer = extent["native_pointer"]
-            original = next(
-                (item for item in selected["items"] if item["self_ref"] == pointer), None
-            )
+            original = original_items.get(pointer)
             if original is None:
                 raise ValueError("formal occurrence has no original native atom")
             if "page" in extent and {row["page_no"] for row in original.get("prov", ())} != {
@@ -281,14 +283,7 @@ def validate_formal_product(
                 ):
                     raise ValueError("formal occurrence escapes its original native piece")
 
-                if not any(
-                    source.selector_index().matches(selector, pointer) is True
-                    and selector.get("start", 0)
-                    <= a
-                    < b
-                    <= selector.get("end", len(selected["text"]))
-                    for selector in selected["selectors"]
-                ):
+                if not source_extent_selected(selected, extent, selector_index=selector_index):
                     raise ValueError("formal occurrence escapes the selected examined scope")
     if any(
         not any(region["selector"] == selector for region in checked["lexicon"])

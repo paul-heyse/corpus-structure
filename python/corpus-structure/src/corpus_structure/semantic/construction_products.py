@@ -36,7 +36,9 @@ from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
 from .identity import canonical_bytes
 from .sentence_products import SourceAnnotationReadings, SourceAnnotations, sentence_product_inputs
-from .source_products import FrozenNativeSource, source_subject
+from .source_products import (
+    FrozenNativeSource, selected_source_ranges, selected_source_unprojected_atoms, source_extent_selected, source_subject,
+)
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-constructions.yaml"
@@ -621,12 +623,13 @@ def validate_interpreted_product(
                 raise ValueError("construction repeats a packed choice identity")
             choices[member["local_id"]] = group
             all_nodes[member["local_id"]] = member
+    selector_index = source.selector_index()
     for occurrence in inventory["occurrences"]:
         if occurrence["local_id"] != occurrence_id(selected["source"], occurrence["extents"]):
             raise ValueError("construction occurrence changes original source identity")
         for extent in occurrence["extents"]:
             if (
-                extent["projection"] != selected["source"]["projection"]
+                not source_extent_selected(selected, extent, selector_index=selector_index)
                 or extent["text"] != selected["text"][extent["start"] : extent["end"]]
                 or not any(
                     piece.get("item_ref") == extent["native_pointer"]
@@ -636,20 +639,25 @@ def validate_interpreted_product(
             ):
                 raise ValueError("construction occurrence changes original positioned source")
     external = {
-        (product.semantic_id, packet["member_id"])
+        (product.semantic_id, packet["member_id"]): packet["body"]["record_type"]
         for product in formal
         for packet in json.loads(product.content)["members"]
     }
+    external_choices = {key for key, kind in external.items() if kind == "choice_member"}
     for node in all_nodes.values():
         basis = node.get("basis", {})
         for ref in (
             *node.get("external_premises", ()),
-            *node.get("required_external_choices", ()),
             *basis.get("external_premises", ()),
-            *basis.get("required_external_choices", ()),
         ):
             if (ref["product_id"], ref["member_id"]) not in external:
                 raise ValueError("construction has dangling primary semantic member premise")
+        for ref in (
+            *node.get("required_external_choices", ()),
+            *basis.get("required_external_choices", ()),
+        ):
+            if (ref["product_id"], ref["member_id"]) not in external_choices:
+                raise ValueError("construction requires an actual primary choice alternative")
     dependencies = {product.semantic_id: json.loads(product.content) for product in formal}
     for annotation in inventory["annotations"]:
         named = annotation.get("named_match")
@@ -703,6 +711,16 @@ def validate_interpreted_product(
 
     validate_navigation_evidence(indexes)
     validate_inventory_graph(inventory, indexes, all_nodes, choices, validate_basis)
+    covered_families = {row["family"] for row in checked["coverage"]}
+    if len(covered_families) != len(checked["coverage"]):
+        raise ValueError("construction repeats family coverage")
+    analytical_families = {
+        item["family"]
+        for name in ("annotations", "memberships", "roles", "terms", "choices")
+        for item in inventory[name]
+    }
+    if not analytical_families <= covered_families:
+        raise ValueError("construction analytical family lacks declared coverage")
     for row in checked["coverage"]:
         if row["outcome"] in {"complete", "empty"} and (
             row["availability"] != "available"
@@ -710,6 +728,13 @@ def validate_interpreted_product(
             or (row["eligible"] and not row["examined"])
         ):
             raise ValueError("complete or empty family requires available examined coverage")
+        if row["outcome"] in {"complete", "empty"}:
+            eligible = selected_source_ranges(selected, row["eligible"], selector_index=selector_index, include_unknown=True)
+            examined = selected_source_ranges(selected, row["examined"], selector_index=selector_index)
+            eligible_atoms = selected_source_unprojected_atoms(selected, row["eligible"], selector_index=selector_index, include_unknown=True)
+            examined_atoms = selected_source_unprojected_atoms(selected, row["examined"], selector_index=selector_index)
+            if not eligible_atoms <= examined_atoms or any(not any(c <= a and b <= d for c, d in examined) for a, b in eligible):
+                raise ValueError("complete or empty family leaves eligible source scope unexamined")
         if row["outcome"] == "empty" and any(
             item["family"] == row["family"]
             for name in ("annotations", "memberships", "roles", "terms", "choices")

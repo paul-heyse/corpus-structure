@@ -1,6 +1,6 @@
 """Independent literal graphs validated as actual current nominal products."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import pytest
@@ -15,6 +15,7 @@ from corpus_structure.semantic.construction_products import (
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
 from corpus_structure.semantic.source_products import FrozenNativeSource
+from corpus_structure.semantic.identity import canonical_bytes
 
 
 @dataclass(frozen=True)
@@ -23,8 +24,13 @@ class GraphSource:
     context: SubjectContext
 
 
-def selected_graph(text="all", **kwargs):
+def selected_graph(text="all", *, selectors=None, **kwargs):
     selected, _frame, context = selected_source(text, **kwargs)
+    if selectors is not None:
+        value = selected.value
+        value["selectors"] = [dict(projection=value["source"]["projection"], **row) for row in selectors]
+        selected = FrozenNativeSource.acquire(profiles()[1].prepared, value)
+        context = replace(context, analyzed_scope=canonical_bytes(dict(source=value["source"], selectors=value["selectors"])))
     return GraphSource(selected, context)
 
 
