@@ -357,13 +357,51 @@ passed `2f263f8740454c3d82fbd2c75696cfe4`. Native retries on the corrected profi
 Canonical model0.6.7 preview/apply passed `1454bcd0df8b4e999e6c32942d298536` /
 `173bc583fd9d499694112f4fa8ea7d33`; current source retirement and SQL need fresh capture.
 
-## Source-only wrap-up · 2026-11-16
+## Registered complete-support and stable-read renewal successor · 2026-11-16
 
-The prepared [next request](stable-read-renewal-successor.yaml) is not previewed, authored,
-registered or deployed. Model0.6.7, later source/fixture retirement, renewal trust locking and
-selected-input support changes require coherent recapture and actual qualification. The installed
-stage remains `semantic_ddo_observation_split`; development remains unchanged. Bounded pure
-controls and copied receipts do not establish native source correspondence.
+**passed:** preview `967f6c7afa7a4d9cb64383ce16347ede`, exact apply
+`c8765b91ba1a4e3ba8d4deedcdc2cb4f`, rollback-only candidate
+`dc1ce8df5aac40649ce2acd7345343ca`, registration `7e3bdf2ba340474399ae6985d2dc0f02`
+and stage deployment `db038bb2bd13455daea097cca08f18e5`. The
+[request](stable-read-renewal-successor.yaml) binds source `e889e833c`, predecessor
+`semantic_ddo_observation_split` and new revision `semantic_ddo_stable_read_renewal`.
+The exact four frozen files are committed at `ef2a03f1a`. Separate maintenance status reacquired
+unchanged stage OID130661481/system7701811359771751232 with revision=head. No application
+release/runtime/activation was fabricated for native-only installation; development adoption remains open.
+
+Root and independent inspection covered all42 native transitions, the sole ordinary statement,
+zero separate privilege operations, exact wrapper/upgrade/admission/catalog/source bindings and
+all397 descriptor function entries. Two old five-argument support helpers retire; five new private
+helpers preserve publisher-only ownership, fixed paths and PUBLIC revocation. Existing function
+ACLs/owners remain unchanged. Full wire comparison changes only six intended contracts: complete
+explicit support episode sets, expected generation and immutable original execution-basis metadata.
+CPU basis uses exact selected support and canonical complete ordering; attach/claim preserve the
+original release/runtime/binding even after the creating demand is cancelled. Renewal takes shared
+trust barriers while retaining request/task locks and exact holder/lease/withdrawal fences. Physical
+PDF inputs retain explicit singleton support, and consumer checks use the selected input's complete set.
+
+Candidate hashes: `e19ebf42de830e74c4d75fc7780ba2a446a7dc206b9de0de2a94b3279a253813`
+(native candidate), `f4fecfb977c66e7bae91005319e29ba74bbc2fdb0cc2623ad40d6931824a8609`
+(operations), `8491b90790c4b996b0db2747526e39bd46fae54608744dcf0fcb583d2d7d376e`
+(admission). Every captured current source hash matches. The native digest changes
+`5dfed0dc…`→`e7852e01d7525d50a5fb06565a77b453a537a45488ae7601493edc9a5a5842f1`;
+PDF contract is `c5289bd9870c777e5f7fc4e05c58afced11198053b8ec01aefec7a0696e9a125`.
+
+The ordinary statement recustodies173 unchanged physical checks under
+`physical:712bb15e4d66153ca86e006bfa383aa8233d34b02f81162b755912293cc4a2e2`, with unchanged
+source digest `940c9bd736be942589dc680f56daf4b82a4724fa525a1be84e4c18aed5a2cc8f`.
+Relations97, indexes17, privilege/readers101 each, triggers107, views4 and scientific layout2 remain.
+Alembic's source_x/y computed-default warnings do not correspond to a layout transition: frozen
+before/after stored generated expressions are identical and match current CASE/numrange metadata.
+No locator-column alteration appears in the candidate. Rollback authoring includes configured
+PL/pgSQL static checks; neither that nor deployment establishes application/provider qualification.
+
+Current actual qualification is separate: selected-support/CPU/renewal/cross-release/PDF controls
+`8fb9142eb165422f84cc62b5010d3db7` and the fresh three-consumer journey
+`3c561753db7a4983aabf9abddc9fc8a6` own their outcomes. The latter revisits original failure
+`b07d0f2ef784439e89f740f177bd5b43` at the new source/head. Original failed receipts remain held;
+no result is inferred from starting these invocations. Remaining providers/public reads, recovery,
+development adoption, whole-document interruption/resume and final DDO-12 union stay open.
 
 ## Acceptance still required
 

@@ -276,18 +276,23 @@ Pure30 passed `9b35e5fa7d884b848b44a19fa35bae4c`; native3 collection
 owner (`99a17eaf7`), exact8 passed `0b85ea272ac044228b49cbd85787c626` without weaker assertions.
 Actual compute/reconcile/race journeys and fresh native capture remain open.
 
-Subsequent milestones retain their prerequisite order: settle this source/capacity increment and
-current wires/PDF products; review/register/deploy the exact native successor; retry selected-support,
-renewal, security and failed consumer journeys; qualify actual providers and selected CLI/MCP/export
-reads; recover/fence and adopt the current development target; execute the retained whole-document
-demand with interruption/resume; establish the final-source functional/provider/fault/nonfunctional
-union. Already implemented coverage, graph, neighborhood, source-migration and rich consumer
+Source closure and coherent native capture are integrated. The exact stable-read/complete-support
+successor is registered at `ef2a03f1a` and deployed/verified on the owned stage
+`db038bb2bd13455daea097cca08f18e5`, revision `semantic_ddo_stable_read_renewal`. Preview/apply/
+candidate/registration and full42-native/one-ordinary/zero-privilege inspection are retained in the
+[native evidence owner](../design_review/evidence/2026-11-16_ddo-current-native/README.md#registered-complete-support-and-stable-read-renewal-successor--2026-11-16).
+Actual selected-support/CPU/renewal/cross-release/PDF cohort `8fb9142eb165422f84cc62b5010d3db7`
+and fresh three-consumer journey `3c561753db7a4983aabf9abddc9fc8a6` own their outcomes;
+starting them establishes no pass. Next settle actual native/security/failed consumer journeys,
+qualify actual providers and selected CLI/MCP/export reads, recover/fence and adopt the current
+development target, execute the retained whole-document demand with interruption/resume, then
+establish the final-source functional/provider/fault/nonfunctional union. Already implemented coverage, graph, neighborhood, source-migration and rich consumer
 capabilities need remaining integration/qualification, not replacement implementations. Optional graph
 algorithms and new stream declarations remain conditional. Historical data may be retained or migrated;
 no legacy reader or compatibility runtime is required. Development is unchanged pending verified adoption.
 
-**Implemented; qualification in progress.** The owned stage retains root and seven exact
-successors through `semantic_ddo_observation_split`, with unchanged OID/system and verified head;
+**Implemented; qualification in progress.** The owned stage retains root and eight exact
+successors through `semantic_ddo_stable_read_renewal`, with unchanged OID/system and verified head;
 the detailed lifecycle and later pending source changes are below. Earlier
 `semantic_ddo_consumer_fixes` (`ac8686197`, deployment `e9c5e6ea56254675890cd27ee058d59c`)
 restored genuine current PDF retention and evaluator failed-attempt cleanup through18 reviewed
@@ -1105,7 +1110,7 @@ coherent integrated native source; prior previews establish only their recorded 
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
 | DDO-09 | Source currentness/impact and graph foundations implemented within bounded receipts | I03 deliberate fate partition; I05 full rich cut/policy/standing/contracts and reuse consumers; copied-task/twin/stale-cut retirement; CA-11/12 Python repairs have scoped controls; actual native journeys remain. |
 | DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection within focused receipts | I06 literals/typed artifact reader/variant association; rich named-query/reference/grading callers; target model difference distinct from source drift/currentness; old reader retirement; CA-12 selected graph pin repair has scoped controls; native continuation remains to qualify. |
-| DDO-11 | Current root and exact inspection/compiler23/consumer-fixes successors registered and installed on owned stage; persistent development remains located_v2, no adoption | I09 selected current-root route; classify useful import/regeneration, verify recovery, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
+| DDO-11 | Current root and eight exact successors through stable_read_renewal registered and installed on owned stage; persistent development remains located_v2, no adoption | I09 selected current-root route; classify useful import/regeneration, verify recovery, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
 First settle decision records and shared I01/I03 contracts; operation classification and shared-port
