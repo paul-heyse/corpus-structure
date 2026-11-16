@@ -14,11 +14,13 @@ conditional fragments and immutable archive already make this considerably more 
 schema-to-documentation generation. Native LinkML support and actual executable support
 remain different facts: `_UNSUPPORTED` and the allowed profile are deliberate admission boundaries.
 
-[operation_call_generation.py](../../../../../python/corpus-structure/src/corpus_structure/semantic/operation_call_generation.py)
-also prepares a supplied multi-module SchemaView, normalizes source attribute ranges/URIs,
-then maps effective ranges to native call kinds. Its current dirty changes add correspondence
-checks. That path is evidence of meaningful reuse and also a concrete place to investigate
-whether normalized preparation facts can serve more than one compiler.
+[operation_call_generation.py (historical source)](../../../../README.md#historical-recovery)
+previously prepared a supplied multi-module SchemaView, normalized source attribute ranges/URIs,
+then mapped effective ranges to native call kinds. DDO retired that execution-catalog generator
+on2026-11-16. Current native transport generation remains in
+[native_call_generation.py](../../../../../python/corpus-structure/src/corpus_structure/semantic/native_call_generation.py);
+declared operation compilation and captured ports own DDO semantics. The older example remains
+evidence of reuse, not a current competing compiler to extend.
 
 <a id="ddm-01"></a>
 

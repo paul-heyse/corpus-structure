@@ -144,6 +144,86 @@ artifact/spaCy/event, record-policy and archive/CAS cohorts are running against 
 source. Remaining old operation/publication/source-view runtime and fixture closure, final typing,
 recovery/adoption and DDO-12 qualification remain required.
 
+### Current consumer integration and discovered defects · 2026-11-16
+
+**Implemented; qualification in progress.** The exact current native successor
+`semantic_ddo_consumer_fixes` is registered at `ac8686197` and deployed on the owned stage
+(`e9c5e6ea56254675890cd27ee058d59c`). Separate maintenance observation confirms the same
+OID/system and revision=head. Its reviewed18 native operations restore genuine current PDF
+retention before dependent inputs and give the actual evaluator failed-attempt cleanup authority,
+with existing universe/task/output guards retained. One ordinary operation registers173 physical
+checks without changing table layout. The [native evidence owner](../design_review/evidence/2026-11-16_ddo-current-native/README.md#consumer-publication-and-evaluator-retirement-successor--2026-11-16)
+retains the exact lifecycle and inspection boundary. Development adoption remains open.
+
+Actual six-case consumer cohort `b3d0e284fc7d487ab9c99ff9ec397f1c` **failed**: one spaCy case
+passed, two artifact cases refused scalar hydration, two event cases failed typed CPU ingress and
+one restricted-frame worker crashed with incomplete reporting. No crash cause or passing affected
+case is inferred. Definition component/applicability CPU inputs now retain nominal role/context
+types through packet decoding; focused actual CPU controls13 passed at worker source
+`13acf73925de471287d15e88df6899d6`. Artifact diagnostics now identify operation, role and count;
+their original cardinality remains required. Fresh native consumer qualification remains open.
+
+Record cohort `4495ffc7e3e543058a4f47fd4fbee1c9` **failed** actual source-free hydration and
+evaluator cleanup. Complete pin joins now compare nullable original sources with SQL null-safe
+equality. Independent source-free/non-null controls21 passed
+`1b1b98eebc5f43d3b20d495a9d9151d1`; genuine cross-context fan-in hydration passed
+`08af34cd12854c56b5627ff4db1f2b54` with its existing context filters, which remain required.
+The actual evaluator regression first failed `293dfd03d61f4f20a7a097da0e54afa1`; the successor
+captures its grant correction. These repairs need actual native retries, not wider pin matching.
+
+The maintained statistics package now supplies explicit current declarations, pinned ontology
+assets, provider profiles and runtime inputs. Worker preparation acquired102 operations/7681 kinds
+and a73759635-byte runtime archive; six provider metadata preflights performed no inference or
+weight loading. Focused acquisition26, ontology4 and exact source-reuse2 passed
+`af792a55ca3c4c19a1be62429a7e9cc7` / `8ca2084d4121421796a270dadf6622e5` /
+`cec16a83dda047e3a96ed5209d9d211f`. These are preparation evidence, not actual application/native
+or provider qualification; integrated source changes require reacquiring release/runtime identities.
+The normal deployment bootstrap retains exact prepared runtime bytes and atomically admits runtime
+and release, with read-only postconditions. Actual maintained-package CLI/private-native qualification
+passed `439649f3e277422ea67b44a71b610579`: preview/apply/candidate, exact runtime larger than64MiB,
+actual admitter/reader principals, rollback after an actual runtime insert, normal admission/runtime
+registration, read-only byte equality and idempotent redeployment. Original
+`bc42d1960aef482bba539ffdd80d5149` refused a missing registered predecessor in its test checkout;
+the retry copies the real frozen chain without changing guards. This establishes the worker's
+coherent package/CPU source, including passive M1 configuration removal, not provider inference,
+future-main source applicability or persistent application adoption. Native binding observation
+unknowns and the new private host incarnation remain explicit in coverage.
+
+Old graph/run publication tests are retired with independent conditional/schema/map/scoped-identity,
+UTC and Decimal criteria retained in current owners (67 passed at worker source
+`518f7af877f24f89a053cb3e331bb3c2`). Native rich source/support/replay/cut counterparts remain
+required; collection or a pure replacement is not their execution evidence. Grouped failures now
+retain bounded qualified exception types/messages and causal paths in managed reports;148 reporting
+controls passed `fa8a94fc38624bb29117deb31a2c434b`. Earlier partial reports stay partial.
+
+The artifact retry `6f8c75086b9d409289604d33b7d2b64f` **failed** with a specific executor
+handoff defect: `text.constructions/source-native/sentences` has an admitted empty optional role,
+which the executor treats as a required one-member scalar. Six discriminating handoff controls plus
+two retained consumer controls had7passed/1failed `dc5e42e1efc84d28ad3212dbe457a6f1`, isolating
+that optional omission. Required and populated scalar cardinality must remain exact. The fix waits
+for current shared-source native cohorts to settle; their captured execution source must not be
+changed mid-run. This is an I02/I04 integration correction, not a binding/cardinality relaxation.
+
+PDF independent contract/reconciliation53 passed `d0f93bb1610c4072a641e38587e866a0`, and generated
+decomposed cardinality executed against PostgreSQL passed1 `0c9ebe92ea3e43debeef558d574dfc90`.
+Physical-record15 had10passed/5failed `cc0b8566adc249a2a7797ec0ce40dec8`; exact retry5 passed
+`011ed7ecb3b244a494b78c3613b384cf` after genuine current archive/admission and explicit target
+metadata replaced deleted fixture authorities. Native constraint, artifact-part, graph-cell and ACL
+drift expectations remain independent. Remaining PDF integration/recognition criteria are being
+migrated to actual separate current commands before old single-run fixture retirement; no synthetic
+capture task supplies integration authority.
+
+Read-only [original-source inventory](../design_review/evidence/2026-11-16_ddo-current-native/README.md#original-source-adoption-inventory--2026-11-16)
+found all29 original registrations at28 existing local paths with exact recorded SHA256. This
+provides a regeneration basis; no generated/protected bodies were read and no development mutation
+occurred. Actual faithful registration, recovery/fencing and current regeneration remain required.
+
+Remaining execution: finish obsolete operation/publication/source-view/runtime caller closure;
+qualify the actual artifact, event, PDF, protected record and large application routes; settle
+current typing; verify recovery and adopt the current development target; then run the complete
+DDO-12 functional/provider/fault/nonfunctional union on the final source. No package closure follows
+from the bounded controls above.
+
 ## Integrated execution · 2026-11-15
 
 **In progress; implementation and qualification remain separate.** The operator authorized the
@@ -541,7 +621,7 @@ coherent integrated native source; prior previews establish only their recorded 
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
 | DDO-09 | Source currentness/impact and graph foundations implemented within bounded receipts | I03 deliberate fate partition; I05 full rich cut/policy/standing/contracts and reuse consumers; copied-task/twin/stale-cut retirement; CA-11/12 Python repairs have scoped controls; actual native journeys remain. |
 | DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection within focused receipts | I06 literals/typed artifact reader/variant association; rich named-query/reference/grading callers; target model difference distinct from source drift/currentness; old reader retirement; CA-12 selected graph pin repair has scoped controls; native continuation remains to qualify. |
-| DDO-11 | Current root and exact inspection/compiler23 successors registered and installed on owned stage; persistent development remains located_v2, no adoption | I09 choose supported physical route, selective faithful import/regeneration, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
+| DDO-11 | Current root and exact inspection/compiler23/consumer-fixes successors registered and installed on owned stage; persistent development remains located_v2, no adoption | I09 selected current-root route; classify useful import/regeneration, verify recovery, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
 First settle decision records and shared I01/I03 contracts; operation classification and shared-port

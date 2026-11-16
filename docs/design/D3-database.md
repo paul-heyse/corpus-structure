@@ -259,17 +259,23 @@ obligation in the [WCE plan](../plans/witnessed-corpus-enrichment_2026-11-05.md#
 
 ## Semantic releases and runtime custody
 
-**Implemented; bounded native and preservation controls Tested,2026-11-05.** A semantic
-release is a closed immutable interpretation archive. Exact executable provenance is stored once
-in `sem.runtime_binding`, with a same-release immutable `ops.run.runtime_id` pin. New run creation
-authenticates the runtime archive and supported contract; execution compares the installed runtime
-and task reuse preserves its compatibility. Start/claim read compact pins rather than repeatedly
-hydrating the source archive. Existing native deployment/body/owner/ACL/effect guards remain.
+**Implemented; current application qualification in progress,2026-11-16.** A semantic release
+is a closed immutable interpretation archive. Exact executable provenance is retained separately
+in `sem.runtime_binding`; current DDO requests and producing episodes pin their actual release,
+runtime and recipe. Claims consume compact authenticated pins, and reuse preserves original
+producing provenance. A reader never substitutes today's executable package for retained bytes.
+Historical run-shaped archives can remain inert without a current compatibility reader.
 
-Historical runs retain their exact embedded source provenance. A reader does not substitute the
-current executable package or alter the old release to populate a missing runtime pin. This
-transition changes the forward model/ABI once; incidental later operational repairs do not change
-the meaning or identity of data. Actual acceptance is owned by the PCE coordinator.
+An application deployment explicitly selects its logical execution profile and retains the exact
+prepared runtime manifest/archive bytes through preview, candidate and deployment. Metadata
+preflight and `observed={}` describe prepared, unobserved execution; neither establishes a provider
+run. The actual admission principal commits checked DDO admission and runtime registration in one
+transaction. Lost-acknowledgement reconciliation compares their exact retained content. The final
+reader postcondition uses a read-only snapshot and authenticates the same release/runtime, while
+private deployment catalog inspection remains on the maintenance route. Native-only/schema-only
+installation needs no fabricated application runtime. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md#current-consumer-integration-and-discovered-defects--2026-11-16)
+owns current large-application, consumer and adoption qualification; earlier native controls retain
+their original scope. Existing body/owner/ACL/effect guards remain.
 
 **Implemented (2026-11-08), forward deployment.** Model change verifies the acquired
 endpoint, purpose and exact frozen predecessor before migration. It verifies the

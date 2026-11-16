@@ -16,6 +16,13 @@ later classification covered417 pending manifests and73 identifier occurrences. 
 current counts nor migration completeness requirements. Do not alter finalized records to reflect the
 new policy. Original source and protected answer bodies were not read for that census.
 
+**Read-only adoption inventory,2026-11-16.** The [current native evidence owner](../../design_review/evidence/2026-11-16_ddo-current-native/README.md#original-source-adoption-inventory--2026-11-16)
+records29 original document registrations at28 existing local paths; every file matches its recorded
+SHA256. This establishes a concrete normal original-registration/regeneration basis without old
+application readers. It does not establish correspondence for generated interpretations, protected
+judgments, completed demand receipts or accepted standing. The old database remains unchanged;
+writer fencing, faithful current registration, regeneration and development adoption remain open.
+
 The operator now requires complete freedom from legacy code and prefers faithful target-native data
 migration where practical. Preserve useful data through import when actual evidence suffices;
 regenerate/reassess when it does not. Inert old bytes can remain without supported readers. Disposal

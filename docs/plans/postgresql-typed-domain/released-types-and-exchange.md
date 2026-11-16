@@ -11,7 +11,7 @@ Consumes [O01/O02/O08](../../functional_reviews/postgresql-typed-domain_2026-11-
 SQLAlchemy is derived relational realization and PostgreSQL the instance authority. The existing
 [schema renderer](../../../python/corpus-structure/src/corpus_structure/schema/relational.py)
 reduces Core columns to python_type, nullable primitives and JsonValue. In contrast,
-[operation-call generation](../../../python/corpus-structure/src/corpus_structure/semantic/operation_call_generation.py)
+[operation-call generation (historical source)](../../README.md#historical-recovery)
 already carries semantic_type-derived IDs and closed members. Extend its existing binding facts
 into selected Core/companion surfaces; do not create another independently authored ID vocabulary.
 Column.info's enum/pattern/bounds are useful but do not themselves supply every semantic reference.

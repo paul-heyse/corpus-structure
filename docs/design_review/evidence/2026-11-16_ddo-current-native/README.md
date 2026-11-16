@@ -136,6 +136,52 @@ progress. Original capture/import failures are preserved. PDF capture/view/trans
 now include the moved health/hierarchy dependencies;13 pure custody controls passed
 `8483925b21154236b822239234fc9c57`, with all97 native protocol source hashes unchanged.
 
+## Consumer publication and evaluator-retirement successor · 2026-11-16
+
+**passed:** preview `a105903990b34b318d595ba812c83888`, exact apply
+`8d3d65c614ba41d1ba2908ddc2e0d89c`, rollback-only candidate
+`e3284e47848b4816ae5e7e9ea16ae0b6`, registration `88e3f1bcac384b569230a7fa5a9a1fbb`
+and deployment `e9c5e6ea56254675890cd27ee058d59c`. The
+[request](consumer-fixes-successor.yaml) binds `semantic_ddo_compiler23` as predecessor.
+Registration committed the exact frozen `semantic_ddo_consumer_fixes` files at `ac8686197`.
+Separate maintenance status reacquired the same stage OID130661481/system7701811359771751232,
+principal `paul`, readable migration table and revision=head=`semantic_ddo_consumer_fixes`.
+
+The reviewed18 native operations restore current PDF product/body/artifact retention before
+dependent inputs and permit the actual evaluator to retire its own failed attempt. Request/universe,
+task/attempt, PNG/recipe/dimension, coverage/usage and transform guards remain enforced. Other native
+operations recustody dependent source hashes and the catalog; there are no owner/signature changes.
+The sole ACL extension adds evaluator execution to `ops.release_data_attempt(jsonb)`.
+
+The one ordinary operation inserts the current physical contract with173 checks into
+`sem.physical_contract`, under `corpus_sem_publisher`; it changes no physical table layout.
+Its29386-byte SQL has SHA256 `d87f3a3c503df1019dcdd94f9f1d736d77bfcd3a6ae32160e906ecb62b85e998`.
+The new managed `ci model change inspect-candidate ID --view ordinary --json` authenticates and
+exposes complete frozen Python/Alembic statements without executing or translating arbitrary Python.
+Its39 controls passed `4ef1fc1fd3134402b27d80b4a3702975`; actual candidate inspection established
+one statement at upgrade ordinal19. That CLI repair was integrated **after** deployment because
+its source participates in generator fingerprinting; the existing staleness fence was preserved.
+
+Native installation establishes neither application admission nor successful consumer execution.
+Focused actual evaluator/PDF/record and artifact retries are pending. Development remains unchanged.
+
+## Original-source adoption inventory · 2026-11-16
+
+**Verified read-only observation.** [The bounded inventory](original-source-inventory.json)
+reacquired unchanged development OID25921445/system7701811359771751232 and read only original
+document metadata plus filesystem SHA256. All29 registered documents resolve to28 existing local
+paths, and every file matches its recorded content hash. No generated interpretation or protected
+answer body was read, and no database/file mutation affected those originals. A separate session
+observation found no other backend connected to that development database at the observation time;
+this is not a durable writer fence.
+
+These original bytes can enter the normal current registration path and support regeneration with
+new release/runtime/demand identities. Generated historical products and judgments stay inert in
+the retained old database unless a useful population has independently sufficient target meaning;
+no observation here establishes that correspondence or accepted scientific standing. Faithful
+original registration and actual current regeneration still need execution at adoption. This
+inventory is not a database backup, restore demonstration, activation or development cutover.
+
 ## Acceptance still required
 
 - Preserve exact registered root custody and qualify any required native successor discovered by

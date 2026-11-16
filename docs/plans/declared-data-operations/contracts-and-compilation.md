@@ -84,9 +84,11 @@ validates a LinkML ExecutionCatalog before structuring immutable dataclasses (`:
 (`:1516–1733`); their existing representations are not sufficient justification for omitting
 new role/scope/support distinctions.
 
-[Generated call bindings](../../../python/corpus-structure/src/corpus_structure/semantic/operation_call_generation.py)
-resolve qualified field sources and nominal identifiers (`:158–175,351–435`) and emit concrete
-request/result signatures (`:675–895`). Extend that mechanism with operation-shaped ports.
+Current [native call generation](../../../python/corpus-structure/src/corpus_structure/semantic/native_call_generation.py)
+owns the native transport boundary, while DDO compilation and captured Python ports own declared
+operation semantics and invocation. The former fixed execution-catalog generator is retired;
+its qualified-field/nominal/signature examples are [historical source](../../README.md#historical-recovery),
+not a second current operation authority.
 Do not reinterpret the existing call-correspondence digest as a semantic kind or recipe digest.
 
 The shared [physical metadata](../../../python/corpus-structure/src/corpus_structure/semantic/metadata.py)
