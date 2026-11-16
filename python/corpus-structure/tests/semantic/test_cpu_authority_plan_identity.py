@@ -93,3 +93,20 @@ def test_cpu_plans_use_actual_nominal_recipe_identity(actual_nominal_identity, v
     assert basis["roles"][0]["body"] == 7
     assert basis["context"] == context.identity_record
     execution.close()
+
+
+@pytest.mark.parametrize("owner", ("contextual", "structural_fixture"))
+def test_actual_prepared_adapter_is_in_its_consumer_source_closure(owner):
+    import inspect
+
+    from corpus_structure.semantic.contextual_operations import contextual_operation_sources
+    from corpus_structure.semantic.data_operation_prepared_call import PreparedOriginalCallPort
+    from semantic.structural_native_fixture import operation_sources
+
+    sources = contextual_operation_sources() if owner == "contextual" else operation_sources()
+    adapter = PreparedOriginalCallPort
+    selected = [source for source in sources.sources if source.module == adapter.__module__]
+    assert len(selected) == 1
+    path = Path(inspect.getfile(adapter)).resolve()
+    assert Path(selected[0].filename).resolve() == path
+    assert selected[0].content == path.read_bytes()

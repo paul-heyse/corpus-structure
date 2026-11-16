@@ -442,12 +442,18 @@ def assets():
 
 
 def operation_sources():
+    from corpus_structure.semantic import data_operation_prepared_call
     from corpus_structure.semantic.python_operation_sources import (
         PythonSource,
         PythonSourceCollection,
     )
 
     path = Path(__file__).resolve()
+    adapter = Path(data_operation_prepared_call.__file__).resolve()
     return PythonSourceCollection(
-        (PythonSource(MODULE, path.read_bytes(), str(path)),), boundary_contracts=(assets(),)
+        (
+            PythonSource(MODULE, path.read_bytes(), str(path)),
+            PythonSource(data_operation_prepared_call.__name__, adapter.read_bytes(), str(adapter)),
+        ),
+        boundary_contracts=(assets(),),
     )

@@ -179,6 +179,7 @@ def contextual_operation_sources(numerical_policy=None, *, neighborhood_policy=N
                 "semantic/contextual_scores.py",
                 "methods/contextual_witnesses.py",
                 "semantic/contextual_witnesses.py",
+                "semantic/data_operation_prepared_call.py",
             )
         ),
         boundary_contracts=(
