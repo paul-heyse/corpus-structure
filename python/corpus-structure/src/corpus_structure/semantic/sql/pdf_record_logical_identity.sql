@@ -1,4 +1,4 @@
--- pdf-publication-records-v2 over the pdf-record-sha256-fold-v1 algorithm.
+-- pdf-publication-records-v3 over the unchanged pdf-record-sha256-fold-v1 algorithm.
 -- Only bounded per-record arrays are constructed; the ordered relation cursor spills normally.
 CREATE OR REPLACE FUNCTION ops.pdf_identity_text(p_value text)
 RETURNS bytea LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
@@ -118,6 +118,106 @@ BEGIN
  RETURN ops.pdf_identity_inline(p_body->p_field);
 END $$;
 
+-- Physical pins select immutable, authenticated bodies; they do not salt logical
+-- meaning. No DDO canonical product is needed: capture can publish raw and then
+-- organized records in the same completion. The extant publication DAG is the
+-- authority, not a caller-supplied logical hash.
+CREATE OR REPLACE FUNCTION ops.pdf_identity_published_target(
+ p_task bigint,p_key text,p_digest text)
+RETURNS jsonb LANGUAGE plpgsql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE root_ ops.pdf_product; pin_ ops.pdf_product; revision_ ops.pdf_published_revision;
+ body_ ops.pdf_product_body; item_ jsonb; pending_ jsonb; next_ jsonb; resolved_ jsonb:='{}';
+ key_ text; root_key_ text; target_ jsonb; inputs_ jsonb; input_ record; selected_ jsonb;
+ ready_ boolean; progress_ boolean; state_ bytea; frame_ bytea;
+BEGIN
+ SELECT * INTO STRICT root_ FROM ops.pdf_product
+ WHERE task_id=p_task AND product_key=p_key AND content_digest=p_digest;
+ root_key_:=data.canonical_json(jsonb_build_array(p_task,p_key,p_digest));
+ -- UNION deduplicates shared A/B/C predecessors by exact physical identity;
+ -- neither paths nor nested ancestor bodies are expanded. Sealed native/integrated
+ -- digests terminate traversal: an endpoint never expands a whole-book input DAG.
+ -- Only bounded target descriptors are carried forward; original ordered edges
+ -- are folded once for each distinct observation.
+ WITH RECURSIVE lineage(task_id,product_key,content_digest) AS (
+  SELECT p_task,p_key,p_digest
+  UNION
+  SELECT edge.input_task_id,edge.input_product_key,edge.input_content_digest
+  FROM ops.pdf_product_input edge JOIN lineage parent
+  ON edge.task_id=parent.task_id AND edge.product_key=parent.product_key
+  JOIN ops.pdf_product parent_product ON parent_product.task_id=parent.task_id
+   AND parent_product.product_key=parent.product_key
+   AND parent_product.content_digest=parent.content_digest
+   AND parent_product.kind='recognition_observation'
+ )
+ SELECT jsonb_agg(to_jsonb(product) ORDER BY product.task_id,product.product_key COLLATE "C")
+ INTO pending_ FROM lineage JOIN ops.pdf_product product USING(task_id,product_key,content_digest);
+ WHILE jsonb_array_length(pending_)>0 LOOP
+  next_:='[]'; progress_:=false;
+  FOR item_ IN SELECT value FROM jsonb_array_elements(pending_) LOOP
+   pin_:=jsonb_populate_record(NULL::ops.pdf_product,item_);
+   key_:=data.canonical_json(jsonb_build_array(pin_.task_id,pin_.product_key,pin_.content_digest));
+   IF pin_.artifact_digest IS DISTINCT FROM root_.artifact_digest THEN
+    RAISE EXCEPTION 'logical PDF target changes original source' USING ERRCODE='23514'; END IF;
+   -- This exact captured contract includes the current record profile. Older
+   -- releases stay physically addressable but are never reinterpreted by v3.
+   PERFORM ops.pdf_contract_input(pin_.release_id,'implementation/pdf/staging-model.yaml');
+   IF pin_.kind IN ('native','integrated') THEN
+    SELECT published.* INTO STRICT revision_
+    FROM ops.pdf_published_revision published JOIN ops.pdf_build_validation validation
+    ON validation.build_id=published.build_id AND validation.frozen_digest=published.frozen_digest
+    AND validation.logical_digest=published.logical_digest AND validation.native_callbacks
+    WHERE published.task_id=pin_.task_id AND published.product_key=pin_.product_key
+    AND published.logical_digest=pin_.content_digest AND published.kind=pin_.kind
+    AND published.release_id=pin_.release_id AND published.source_digest=pin_.artifact_digest
+    AND validation.contract_digest=pin_.contract_digest
+    AND encode(sha256(ops.pdf_contract_input(published.release_id,
+     'implementation/pdf/docling-validation.schema.json')),'hex')=published.schema_digest;
+    target_:=jsonb_build_object('version','pdf-published-target-v1','kind',revision_.kind,
+     'source_digest',revision_.source_digest,'schema_digest',revision_.schema_digest,
+     'recipe_digest',revision_.recipe_digest,'logical_digest',revision_.logical_digest);
+   ELSIF pin_.kind='recognition_observation' THEN
+    SELECT * INTO STRICT body_ FROM ops.pdf_product_body
+    WHERE task_id=pin_.task_id AND product_key=pin_.product_key
+    AND encode(sha256(payload),'hex')=pin_.content_digest
+    AND encode(sha256(ops.pdf_contract_input(pin_.release_id,'schema/pdf_products')),'hex')=pin_.contract_digest;
+    inputs_:='[]'; ready_:=true;
+    FOR input_ IN SELECT * FROM ops.pdf_product_input
+     WHERE task_id=pin_.task_id AND product_key=pin_.product_key ORDER BY input_index LOOP
+     selected_:=resolved_->data.canonical_json(jsonb_build_array(
+      input_.input_task_id,input_.input_product_key,input_.input_content_digest));
+     IF selected_ IS NULL THEN ready_:=false; EXIT; END IF;
+     IF input_.input_index<>jsonb_array_length(inputs_) THEN
+      RAISE EXCEPTION 'logical PDF target input inventory is not contiguous' USING ERRCODE='23514'; END IF;
+     inputs_:=inputs_||jsonb_build_array(jsonb_build_object(
+      'ordinal',input_.input_index,'role',input_.role,'target_meaning',selected_));
+    END LOOP;
+    IF NOT ready_ THEN next_:=next_||jsonb_build_array(item_); CONTINUE; END IF;
+    IF NOT EXISTS(SELECT FROM ops.pdf_product_input edge WHERE edge.task_id=pin_.task_id
+     AND edge.product_key=pin_.product_key AND edge.role='structural') THEN
+     RAISE EXCEPTION 'logical observation lacks authentic raw lineage' USING ERRCODE='23514'; END IF;
+    state_:=ops.pdf_identity_fold_start('records');
+    frame_:=ops.pdf_identity_record_frame(pin_.contract_digest,'observation','root',
+     ARRAY['profile','source','recipe','meaning','inputs'],ARRAY[
+      ops.pdf_identity_text('pdf-published-target-v1'),ops.pdf_identity_text(pin_.artifact_digest),
+      ops.pdf_identity_text(body_.recipe_digest),ops.pdf_identity_text(data.canonical_json(
+       data.ddo_json_meaning(ops.pdf_observation_meaning(body_.payload)))),
+      ops.pdf_identity_text(data.canonical_json(inputs_))]);
+    state_:=ops.pdf_identity_fold_step(state_,0,frame_);
+    target_:=jsonb_build_object('version','pdf-published-target-v1','kind',pin_.kind,
+     'source_digest',pin_.artifact_digest,'schema_digest',pin_.contract_digest,
+     'recipe_digest',body_.recipe_digest,
+     'logical_digest',encode(ops.pdf_identity_fold_finish(state_,1,octet_length(frame_)),'hex'));
+   ELSE RAISE EXCEPTION 'unsupported logical PDF target kind %',pin_.kind USING ERRCODE='23514';
+   END IF;
+   resolved_:=jsonb_set(resolved_,ARRAY[key_],target_); progress_:=true;
+  END LOOP;
+  IF NOT progress_ THEN
+   RAISE EXCEPTION 'logical PDF target has missing or cyclic input custody' USING ERRCODE='23514'; END IF;
+  pending_:=next_;
+ END LOOP;
+ RETURN resolved_->root_key_;
+END $$;
+
 -- Published proof reads and admission fold the same ordered frame stream.
 CREATE OR REPLACE FUNCTION ops.pdf_record_identity_frames(
  p_product text,p_revision text,p_fold boolean)
@@ -129,10 +229,11 @@ DECLARE header_ ops.pdf_record_document; row_ record; node_ kb.pdf_record_native
  state_ bytea:=ops.pdf_identity_fold_start('records'); count_ bigint:=0; length_ bigint:=0;
 BEGIN
  SELECT * INTO STRICT header_ FROM ops.pdf_record_document WHERE product_id=p_product AND revision_id=p_revision;
+ PERFORM ops.pdf_contract_input(header_.release_id,'implementation/pdf/staging-model.yaml');
  frame_:=ops.pdf_identity_record_frame(header_.native_schema_digest,'@context','@context',
- ARRAY['protocol','release','source'],ARRAY[
+ ARRAY['protocol','record_profile','source'],ARRAY[
  ops.pdf_identity_scalar('s',convert_to('pdf-record-sha256-fold-v1','UTF8')),
- ops.pdf_identity_scalar('s',convert_to(header_.release_id,'UTF8')),
+ ops.pdf_identity_scalar('s',convert_to('pdf-publication-records-v3','UTF8')),
  ops.pdf_identity_scalar('s',convert_to(header_.source_digest,'UTF8'))]);
  IF p_fold THEN
   state_:=ops.pdf_identity_fold_step(state_,count_,frame_);
@@ -228,6 +329,11 @@ BEGIN
      p_product,p_revision,companion_.family,companion_.local_id,companion_.body)
     ELSE companion_.body
    END;
+   IF companion_.family='input' THEN
+    body_:=jsonb_build_object('role',companion_.body->'role','target_meaning',
+     ops.pdf_identity_published_target((companion_.body->>'task_id')::bigint,
+      companion_.body->>'product_key',companion_.body->>'content_digest'));
+   END IF;
    names_:=ARRAY['body','ordinal'];
    values_:=ARRAY[ops.pdf_identity_text(data.canonical_json(body_)),
     ops.pdf_identity_scalar('i',convert_to(companion_.ordinal::text,'UTF8'))];
@@ -239,12 +345,16 @@ BEGIN
    END IF;
 
   ELSIF row_.family='endpoint' THEN
-   names_:=ARRAY['relation_id','ordinal','target_task_id','target_product_key','target_content_digest','occurrence_id','role'];
+   names_:=ARRAY['relation_id','ordinal','target_meaning','occurrence_id','role'];
    endpoint_:=row_.endpoint;
+   IF endpoint_.target_task_id=0 AND
+    ROW(endpoint_.target_product_key,endpoint_.target_content_digest) IS DISTINCT FROM ROW('@self'::text,'@self'::text) THEN
+    RAISE EXCEPTION 'logical PDF self endpoint differs from canonical physical sentinel' USING ERRCODE='23514'; END IF;
    values_:=ARRAY[ops.pdf_identity_text(endpoint_.relation_id),
     ops.pdf_identity_scalar('i',convert_to(endpoint_.ordinal::text,'UTF8')),
-    ops.pdf_identity_scalar('i',convert_to(endpoint_.target_task_id::text,'UTF8')),
-    ops.pdf_identity_text(endpoint_.target_product_key),ops.pdf_identity_text(endpoint_.target_content_digest),
+    ops.pdf_identity_text(CASE WHEN endpoint_.target_task_id=0 THEN '@self' ELSE
+     data.canonical_json(ops.pdf_identity_published_target(endpoint_.target_task_id,
+      endpoint_.target_product_key,endpoint_.target_content_digest)) END),
     ops.pdf_identity_text(endpoint_.occurrence_id),ops.pdf_identity_text(endpoint_.role)];
   END IF;
   frame_:=ops.pdf_identity_record_frame(header_.native_schema_digest,row_.family,row_.key,names_,values_);
@@ -303,4 +413,5 @@ $$;
 REVOKE ALL ON FUNCTION ops.pdf_identity_text(text),ops.pdf_identity_inline(jsonb),ops.pdf_identity_ascii_string(text),
  ops.pdf_identity_stream_scalar(text,text,text),
  ops.pdf_identity_companion_scalar(text,text,text,text,text,jsonb),
+ ops.pdf_identity_published_target(bigint,text,text),
  ops.pdf_record_identity_frames(text,text,boolean),ops.pdf_record_logical_identity(text,text,text),ops.pdf_record_logical_identity(text,text) FROM PUBLIC;

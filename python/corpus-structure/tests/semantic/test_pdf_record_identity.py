@@ -21,6 +21,7 @@ from corpus_structure.semantic.pdf_record_identity import (
     ArtifactPin,
     IdentityFold,
     LogicalIdentity,
+    LogicalPin,
     Scalar,
     byte_root,
     canonical_blocks,
@@ -117,22 +118,30 @@ def test_exact_type_presence_decimal_and_unicode_distinctions() -> None:
         canonical_scalar(cast(Scalar, {}))
 
 
-def test_logical_order_and_context_are_meaning_bearing() -> None:
-    def identity(fields=(("value", 1),), *, release="r", source="1" * 64):
-        digest = LogicalIdentity("schema:v1", release, source)
+def test_logical_order_source_and_schema_are_meaning_bearing() -> None:
+    def identity(fields=(("value", 1),), *, release="r", source="1" * 64, schema="schema:v1"):
+        digest = LogicalIdentity(schema, release, source)
         digest.add_record("native", "stable-root", fields)
         return digest.pin()
 
     pin = identity()
     assert pin == identity()
+    other_release = identity(release="r2")
+    assert pin.logical_digest == other_release.logical_digest
+    assert pin.release_id != other_release.release_id
+    assert pin.record_profile == "pdf-publication-records-v3"
+    with pytest.raises(ValueError, match="current record profile"):
+        LogicalPin("schema:v1", "r", "1" * 64, pin.logical_digest, record_profile="pdf-publication-records-v2")
+    with pytest.raises(ValueError, match="release/source differs"):
+        pin.require_context(schema_id="schema:v1", release_id="r2", source_digest="1" * 64)
     assert (
         len(
             {
                 pin,
                 identity((("value", 2),)),
                 identity((("value", ABSENT),)),
-                identity(release="r2"),
                 identity(source="2" * 64),
+                identity(schema="schema:v2"),
             }
         )
         == 5

@@ -23,6 +23,7 @@ from hashlib import sha256
 from typing import BinaryIO, Final
 
 PROTOCOL: Final = "pdf-record-sha256-fold-v1"
+RECORD_PROFILE: Final = "pdf-publication-records-v3"
 BLOCK_BYTES: Final = 65_536
 MAX_FRAME_BYTES: Final = 65_536
 _MAX_LENGTH: Final = (1 << 63) - 1
@@ -231,10 +232,16 @@ class LogicalPin:
     source_digest: str
     logical_digest: str
     protocol: str = PROTOCOL
+    record_profile: str = RECORD_PROFILE
 
     def __post_init__(self) -> None:
-        if self.protocol != PROTOCOL or not self.schema_id or not self.release_id:
-            raise ValueError("logical pin requires supported protocol, schema and release")
+        if (
+            self.protocol != PROTOCOL
+            or self.record_profile != RECORD_PROFILE
+            or not self.schema_id
+            or not self.release_id
+        ):
+            raise ValueError("logical pin requires current record profile, protocol, schema and release")
         if not _HEX.fullmatch(self.source_digest) or not _HEX.fullmatch(self.logical_digest):
             raise ValueError("logical pin requires qualified source and logical digests")
 
@@ -248,7 +255,7 @@ class LogicalPin:
 
 
 class LogicalIdentity:
-    """Streaming ordered records, qualified by schema, semantic release and source."""
+    """Current logical records; release qualifies custody without salting meaning."""
 
     def __init__(self, schema_id: str, release_id: str, source_digest: str) -> None:
         LogicalPin(schema_id, release_id, source_digest, "0" * 64)
@@ -259,7 +266,7 @@ class LogicalIdentity:
                 schema_id,
                 "@context",
                 "@context",
-                (("protocol", PROTOCOL), ("release", release_id), ("source", source_digest)),
+                (("protocol", PROTOCOL), ("record_profile", RECORD_PROFILE), ("source", source_digest)),
             )
         )
         self._previous: tuple[bytes, bytes] | None = None

@@ -9,6 +9,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication_native import pdf_record_logical_identity_sql
 from corpus_structure.semantic.pdf_record_identity import canonical_scalar
+from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.pdf_staging_support import private_build as private_build
 
 
@@ -108,9 +109,7 @@ def test_actual_record_cursor_matches_independent_logical_fields(
         (
             ("relation_id", "r1"),
             ("ordinal", 0),
-            ("target_task_id", private_build.task_id),
-            ("target_product_key", "native"),
-            ("target_content_digest", "1" * 64),
+            ("target_meaning", "@self"),
             ("occurrence_id", "before"),
             ("role", "input"),
         ),
@@ -147,22 +146,6 @@ def test_actual_record_cursor_matches_independent_logical_fields(
     sql = pdf_record_logical_identity_sql()
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-        # Before publication migration these two relations are not yet in the foundation.
-        # Minimal identity-only tables let this independent protocol vector run against0064.
-        conn.exec_driver_sql(
-            "CREATE TABLE IF NOT EXISTS kb.pdf_record_companion(product_id text,"
-            "revision_id text,family text,local_id text,body jsonb,ordinal bigint)"
-        )
-        conn.exec_driver_sql(
-            "CREATE TABLE IF NOT EXISTS kb.pdf_record_endpoint(product_id text,"
-            "revision_id text,relation_id text,ordinal bigint,target_task_id bigint,"
-            "target_product_key text,target_content_digest text,occurrence_id text,"
-            "role text)"
-        )
-        conn.exec_driver_sql(
-            "CREATE TABLE IF NOT EXISTS ops.pdf_frozen_build(build_id text,"
-            "frozen_digest text,kind text)"
-        )
         conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
 
         def execute(statement, parameters=None):
@@ -262,8 +245,7 @@ def test_actual_record_cursor_matches_independent_logical_fields(
         )
         execute(
             "INSERT INTO kb.pdf_record_endpoint VALUES "
-            "('p','r','r1',0,%(task)s,'native',%(digest)s,'before','input')",
-            {"task": private_build.task_id, "digest": "1" * 64},
+            "('p','r','r1',0,0,'@self','@self','before','input')",
         )
         execute(
             "INSERT INTO kb.pdf_record_companion VALUES "
@@ -417,3 +399,82 @@ def test_complete_identity_verifies_shared_and_unreferenced_streams(
                 else:
                     actual = conn.execute(statement, params | {"prior": predecessor}).scalar_one()
                     assert actual == expected.pin().logical_digest
+
+
+def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
+    create_private_build, commit_writer_engine, commit_db_engine, tmp_path
+):
+    """Actual raw receipts work before any DDO canonical output is published."""
+    from pdf_acceptance_support import stage_complete_native
+
+    from corpus_structure.semantic.pdf_publication import (
+        adopt_pdf_companion_batch,
+        freeze_pdf_build,
+        prepare_pdf_build,
+        seal_pdf_build,
+        validate_pdf_build,
+    )
+
+    def publish(case, key, input_publication=None):
+        build = create_private_build(case=case)
+        stage_complete_native(commit_writer_engine, build, tmp_path / key)
+        with commit_writer_engine.begin() as conn:
+            adopt_pdf_companion_batch(conn, build, "occurrence", [{
+                "occurrence_id": "item", "kind": "text", "address_space": "native_item",
+                "precision": "item", "pointer": "#/texts/0",
+            }], "item")
+            if input_publication is not None:
+                adopt_pdf_companion_batch(conn, build, "input", [{
+                    "role": "structural", "task_id": input_publication.task_id,
+                    "product_key": input_publication.product_key,
+                    "content_digest": input_publication.logical_digest,
+                }], "structural")
+                adopt_pdf_companion_batch(conn, build, "relation", [{
+                    "relation_id": "selection", "kind": "decision", "outcome": "selected",
+                    "comparison": "text", "policy": "controlled-exact-source-v1",
+                    "evidence": "same retained text in distinct authentic publications",
+                    "endpoints": [
+                        {"input_index": 0, "occurrence_id": "item", "role": "input"},
+                        {"occurrence_id": "item", "role": "output"},
+                    ],
+                }], "selection")
+            frozen = freeze_pdf_build(conn, build, kind="native")
+            prepare_pdf_build(conn, frozen)
+        validate_pdf_build(commit_writer_engine, frozen)
+        with commit_writer_engine.begin() as conn:
+            return seal_pdf_build(conn, frozen, key)
+
+    first = publish("default", "raw-a")
+    second = publish("partial-cell-coverage", "raw-b")
+    publications = (first, second)
+    # These use distinct source task/key pins and external endpoints, while the
+    # actual source meaning and all relationship/occurrence fields are identical.
+    consumer_a = publish("unknown-cell-coverage", "selected-a", first)
+    consumer_b = publish("integer-region-coordinates", "selected-b", second)
+    assert consumer_a.task_id != consumer_b.task_id
+    assert consumer_a.logical_digest == consumer_b.logical_digest
+    assert consumer_a.logical_digest != first.logical_digest
+    assert first.task_id != second.task_id and first.product_key != second.product_key
+    assert first.logical_digest == second.logical_digest
+    expected = {
+        "version": "pdf-published-target-v1",
+        "kind": "native",
+        "source_digest": first.source_digest,
+        "schema_digest": first.schema_digest,
+        "recipe_digest": first.recipe_digest,
+        "logical_digest": first.logical_digest,
+    }
+    query = text("SELECT ops.pdf_identity_published_target(:task,:key,:digest)")
+    with commit_db_engine.begin() as conn:
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        for publication in publications:
+            assert conn.scalar(
+                query,
+                {"task": publication.task_id, "key": publication.product_key,
+                 "digest": publication.logical_digest},
+            ) == expected
+        with conn.begin_nested() as savepoint:
+            with pytest.raises(DBAPIError):
+                conn.scalar(query, {"task": first.task_id, "key": first.product_key,
+                                    "digest": "0" * 64})
+            savepoint.rollback()
