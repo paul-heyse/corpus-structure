@@ -113,6 +113,12 @@ def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel)
         assert [product["body"] for product in use["products"]] == [["string", "claims/7"]]
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 2
         assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 2
+        assert connection.scalar(text("SELECT to_regclass('ops.run')")) is None
         assert (
-            connection.scalar(text("SELECT count(*) FROM ops.task WHERE run_id IS NOT NULL")) == 0
+            connection.scalar(
+                text(
+                    "SELECT count(*) FROM ops.task WHERE data_request_id IS NULL OR data_generation IS NULL"
+                )
+            )
+            == 0
         )

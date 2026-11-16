@@ -184,6 +184,34 @@ no observation here establishes that correspondence or accepted scientific stand
 original registration and actual current regeneration still need execution at adoption. This
 inventory is not a database backup, restore demonstration, activation or development cutover.
 
+## Captured recognition and source-alignment successor · 2026-11-16
+
+**passed:** `ci model change preview` result `ad874092cba74d2da5779a896d2be448`, exact
+apply `8b1d62c9460a48d4a5a6c15e9c6ddce8`, rollback-only candidate
+`74ba0420524e4b5d9708abb55e00e4e1`, registration `36de38a3d4bd4be2a86246eaff7657cc`
+and deployment `597f65822cdc4497a1a5e44086e2aed3`. The
+[request](captured-recognition-successor.yaml) binds `semantic_ddo_consumer_fixes` as predecessor.
+The earlier preview `68fc8f0cbb694617ad8951e99c19c999` was superseded before apply when additional
+coherent source changes landed; it remains retained. Registration committed the exact four frozen
+files at `0833d6daf`. Separate `ci db status --maintenance --json` reacquired the same stage
+OID130661481/system7701811359771751232 with revision=head=`semantic_ddo_capture_lineage`.
+
+Root and independent read-only review inspected all13 native operations, complete ordinary view
+(zero operations), ACLs and descriptor changes. Physical c634 and97 relations remain unchanged.
+The new `ops.record_captured_recognition_text(bigint,text,text,text,jsonb)` body equals the captured
+PDF SQL body: publisher owner, fixed search path, stable security definer, PUBLIC revoked and only
+reader/writer/evaluator execution. Exact selected decision endpoints, retained provider body digest
+and original coarse precision remain required. It reads captured authoring bytes rather than an
+ambient file during realization. Remaining transitions recapture native digest020606…→73b5… and
+PDF helper contract961a…→cb63…. The admission change only distinguishes a missing/incompatible
+archived projection inside the unchanged rejection branch. The nested descriptor changes match
+these exact bodies and captured inputs; no unrelated physical, privilege or ABI changes occurred.
+
+Rollback-only authoring passed actual PL/pgSQL checks and exact rendered-candidate native/catalog
+admission. Deployment establishes installation, not consumer acceptance. The prior artifact,
+Docling, event and record refusals now require fresh execution against the matching head.
+Development remains unchanged; application release/runtime and activation remain absent on stage.
+
 ## Acceptance still required
 
 - Preserve exact registered root custody and qualify any required native successor discovered by

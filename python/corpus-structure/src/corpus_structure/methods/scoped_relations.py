@@ -44,9 +44,7 @@ class ScopedRelationsConfig(StructuralValue):
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
     work_bindings: tuple[SourceWorkBinding, ...] = ()
-    interpretation_mode: Literal["feasibility", "independent", "coupled"] = (
-        "coupled"
-    )
+    interpretation_mode: Literal["feasibility", "independent", "coupled"] = "coupled"
     interpretation_weight_scale: float = Field(default=1.0, strict=True)
     sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     formula_seconds: float = Field(default=0.5, gt=0)

@@ -200,9 +200,31 @@ The artifact retry `6f8c75086b9d409289604d33b7d2b64f` **failed** with a specific
 handoff defect: `text.constructions/source-native/sentences` has an admitted empty optional role,
 which the executor treats as a required one-member scalar. Six discriminating handoff controls plus
 two retained consumer controls had7passed/1failed `dc5e42e1efc84d28ad3212dbe457a6f1`, isolating
-that optional omission. Required and populated scalar cardinality must remain exact. The fix waits
-for current shared-source native cohorts to settle; their captured execution source must not be
-changed mid-run. This is an I02/I04 integration correction, not a binding/cardinality relaxation.
+that optional omission. The repair preserves exact required/populated scalar cardinality; current
+consumer/port/compiler88 passed `71822ce223314730955bbc8213abd842`. Maintained non-scalar method
+inputs use the executor's immutable tuple contract without weakening strict Python/JSON ports.
+Actual retries refused stale native source before computation, including artifact
+`f474a68ac5254e47b9749e41ee10aa5c`, Docling `db0dfbcd8b4f49ff83150b3060c8512e`, event
+`9978d57a2a114bc2927506a59cdc403a` and record `a8a9c863b3204c3e83a44ae292e4fa97`.
+The record refusal came from a missing digest-gated constraint closure, not demonstrated unsupported
+patterns. Its rejection-only diagnostic now reports that prerequisite precisely.
+
+Normal native successor `semantic_ddo_capture_lineage` is registered at `0833d6daf` and deployed
+with `597f65822cdc4497a1a5e44086e2aed3`; independent maintenance confirms the same stage identity
+at head. Reviewed13 native/zero ordinary transitions add the genuine captured-recognition reader,
+recapture current source/helper digests and improve that diagnostic. Actual PL/pgSQL/rendered
+candidate admission passed, with unchanged physical layout and existing ACLs. The new helper's
+publisher ownership and reader/writer/evaluator grants preserve its exact lineage/body guards.
+The [native evidence owner](../design_review/evidence/2026-11-16_ddo-current-native/README.md#captured-recognition-and-source-alignment-successor--2026-11-16)
+retains lifecycle, source boundaries and superseded preview. Fresh actual consumer retries remain
+required; no enclosing completion follows from installation.
+
+Legacy correspondence's run/Reader operation, obsolete configuration, three SQL bodies and their
+mechanism-only native tests are removed. Its independently useful explicit-hypothesis matcher stays
+with `table_interpretation`/`interpret_local`;21 numerical/binding/cancellation/limit controls passed
+`4775c038ff8941b3b3db6d25451d9f86`. Current band policy does not acquire observed↔schematic
+producer semantics from this removal; that unselected producer is not claimed or required by the
+accepted DDO scope. The supporting cutover and qualification paragraphs retain this distinction.
 
 PDF independent contract/reconciliation53 passed `d0f93bb1610c4072a641e38587e866a0`, and generated
 decomposed cardinality executed against PostgreSQL passed1 `0c9ebe92ea3e43debeef558d574dfc90`.

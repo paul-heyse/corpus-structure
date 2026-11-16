@@ -86,7 +86,20 @@ def test_actual_callable_publishes_and_settled_resume_does_not_recompute(executa
         assert conn.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
         assert conn.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
         assert conn.scalar(text("SELECT canonical_body FROM kb.data_product")) == ["integer", "7"]
-        assert conn.scalar(text("SELECT count(*) FROM ops.task WHERE run_id IS NOT NULL")) == 0
+        assert conn.scalar(text("SELECT to_regclass('ops.run')")) is None
+        assert (
+            conn.scalar(
+                text(
+                    "SELECT count(*) FROM ops.task WHERE data_request_id IS NULL OR data_generation IS NULL"
+                )
+            )
+            == 0
+        )
+        assert not conn.scalar(
+            text(
+                "SELECT EXISTS(SELECT FROM pg_attribute WHERE attrelid='ops.task'::regclass AND attname='run_id' AND NOT attisdropped)"
+            )
+        )
 
 
 def test_retained_demand_service_executes_archived_inputs_without_a_run_anchor(executable):
@@ -116,7 +129,7 @@ def test_retained_demand_service_executes_archived_inputs_without_a_run_anchor(e
     assert resumed.receipt_count == 0
     with engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
-        assert conn.scalar(text("SELECT count(*) FROM ops.run")) == 0
+        assert conn.scalar(text("SELECT to_regclass('ops.run')")) is None
 
 
 @pytest.mark.parametrize("project", ["execution", "another-project"])
@@ -175,7 +188,7 @@ def test_run_frontdoor_executes_only_the_retained_demand_project(
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == (
             1 if project == "execution" else 0
         )
-        assert connection.scalar(text("SELECT count(*) FROM ops.run")) == 0
+        assert connection.scalar(text("SELECT to_regclass('ops.run')")) is None
 
 
 def test_failed_request_keeps_later_page_siblings_and_bounded_native_receipts(executable):
@@ -264,10 +277,12 @@ def test_six_native_contexts_claim_only_the_bounded_window_and_preserve_settled_
                     )
                     assert (
                         connection.scalar(
-                            text("SELECT run_id FROM ops.task WHERE id=:task"),
+                            text(
+                                "SELECT (t.data_request_id,t.data_generation)=(r.id,r.generation) FROM ops.task t JOIN ops.data_request r ON r.id=t.data_request_id WHERE t.id=:task"
+                            ),
                             {"task": claim.task_id},
                         )
-                        is None
+                        is True
                     )
             return answer
 
