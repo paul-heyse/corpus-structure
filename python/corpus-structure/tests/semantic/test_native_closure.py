@@ -47,7 +47,7 @@ def test_restricted_complete_archive_replay_and_immutable_closure(
         "DELETE FROM sem.artifact",
         "TRUNCATE sem.input",
         "INSERT INTO sem.input SELECT * FROM sem.input LIMIT 1",
-        "SELECT * FROM eval.reference_set",
+        "SELECT * FROM ops.data_request",
     ):
         with commit_admitter_engine.begin() as conn, native_refusal("42501"), conn.begin_nested():
             conn.execute(text(sql))
@@ -69,7 +69,7 @@ def test_restricted_complete_archive_replay_and_immutable_closure(
 
 
 def test_restricted_activation_cas_and_deployment_record(
-    commit_db_engine, commit_admitter_engine, monkeypatch
+    commit_db_engine, commit_admitter_engine, commit_application_settings
 ):
     from corpus_structure.semantic.releases import ActivationConflict, activate_release
     from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
@@ -107,14 +107,13 @@ def test_restricted_activation_cas_and_deployment_record(
     from typer.testing import CliRunner
 
     from corpus_structure.cli.app import app
+    from corpus_structure.cli.output import CliState
 
-    monkeypatch.setenv(
-        "CORPUS_DATABASE__URL",
-        commit_db_engine.url.set(
-            drivername="postgresql", username="corpus_sem_writer"
-        ).render_as_string(hide_password=False),
+    report = CliRunner().invoke(
+        app,
+        ["db", "check", "--release", prepared.release_id, "--json"],
+        obj=CliState(settings_factory=lambda: commit_application_settings),
     )
-    report = CliRunner().invoke(app, ["db", "check", "--release", prepared.release_id, "--json"])
     assert report.exit_code == 0, (report.output, report.exception)
     with commit_db_engine.connect() as conn:
         assert (
@@ -301,24 +300,21 @@ def test_alembic_current_physical_comparison(commit_db_engine):
 
     from corpus_structure.semantic.migrations import alembic_config
     from corpus_structure.semantic.native_objects import NativeAuthoring
+    from corpus_structure.semantic.metadata import metadata
 
     with commit_db_engine.connect() as conn:
         config = alembic_config(conn)
+        config.attributes["target_metadata"] = metadata
         config.attributes["native_authoring"] = NativeAuthoring(())
         command.check(config)
 
 
 def test_live_cross_purpose_privilege_drift_refuses(
-    commit_db_engine, commit_reader_engine, commit_admitter_engine
+    commit_db_engine, commit_reader_engine, commit_admitter_engine, commit_application_settings
 ):
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.settings import Settings
-
-    owner_url = commit_db_engine.url.set(drivername="postgresql").render_as_string(
-        hide_password=False
-    )
     with (
-        open_runtime_engine(Settings(database={"url": owner_url}), purpose="read") as restricted,
+        open_runtime_engine(commit_application_settings, purpose="read") as restricted,
         restricted.connect() as read,
     ):
         assert read.execute(text("SELECT session_user")).scalar_one() == "corpus_sem_reader"
@@ -335,13 +331,24 @@ def test_live_cross_purpose_privilege_drift_refuses(
                     "GRANT EXECUTE ON FUNCTION ops.initialize_source_project(jsonb) TO corpus_sem_reader"
                 )
             )
-            admin.execute(text("GRANT SELECT ON eval.reference_set TO corpus_sem_admitter"))
         with (
             commit_reader_engine.begin() as reader,
             pytest.raises(DBAPIError, match="purpose contract"),
         ):
             reader.execute(text("SELECT data.require_runtime_principal('read')"))
-        with pytest.raises(DBAPIError, match="unrestricted admission caller"), admission.begin():
+        with commit_db_engine.begin() as admin:
+            admin.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
+            admin.execute(
+                text("REVOKE EXECUTE ON FUNCTION ops.initialize_source_project(jsonb) FROM corpus_sem_reader")
+            )
+            admin.execute(
+                text("GRANT EXECUTE ON FUNCTION ops.read_selected_feature_fit_frame(jsonb) TO corpus_sem_admitter")
+            )
+        with admission.begin(), pytest.raises(DBAPIError, match="purpose contract"):
+            admission.execute(text("SELECT data.require_runtime_principal('admit')"))
+        from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
+
+        with pytest.raises(ExecutionAdmissionError, match="native deployment catalog differs"), admission.begin():
             persist_release(admission, bundle, deps, profile, prepared)
 
 
