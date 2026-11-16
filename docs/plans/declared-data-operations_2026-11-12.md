@@ -364,6 +364,38 @@ complete current function/trigger static checks; no installation pass is claimed
 trigger-context controls11 **passed** `4061463e25d0416583c9e6e4ec3233d3`; fresh schema/ACL
 comparison repair and complete installation/runtime controls remain open.
 
+### Integrated current target and witness source · 2026-11-15
+
+**Implemented; bounded Tested; normal adoption open.** Actual private fresh target installation97
+**passed** `90709918970a4aa2a7662d09af7616ca` through `ci test retry`: current source/native
+normalization and explicit trigger contexts, rendered replay, Alembic base installation, strict
+native/schema/table/default/ACL guards, same-head idempotence, runtime TEMP denial/publisher
+scratch, restricted-reader APIs and deliberate kernel/PUBLIC-grant refusals. This is the unselected
+target seam; it is neither normal-route adoption nor current producer/provider qualification.
+All earlier actual failed stages stay retained. Source-declared defaults normalize through the
+existing PostgreSQL catalog owner; target admission has no inherited historical owner grant.
+Current database TEMP policy is explicit and all current application purposes remain restricted.
+
+Current release archive bootstrap/publication and activation use existing typed native owners;
+their three legacy fixed operations/captures/effects are removed without changing native ABI or
+grants. Worker21 **passed** `581a107303b44046bde91c5d87a94d26`; native/archive/CAS40
+collection **passed** `dc7a5dea300a4ebf941486b7c28e5bdc`, execution **not_run**. The catalog
+now has32 fixed variants (60 removed). Current characterization summaries and graph refusals no
+longer import the old store/evaluator. Worker40 **passed** `64cfa7f54eba496f8ad30442b4e896b1`;
+selected-reference/graph/scientific106 **passed** `a6aa3cf067a3448bbd5a2a6b00df952b`.
+The orphan detached PM2 replay adapter is removed; genuine PM2 scientific kernels remain.
+
+ADR-0116 source now retains exact query carrier, explicit private authored witness binding and
+with-witnesses retrieval with exact selected-cut acquisition and definition-applicability input.
+Both private witness helpers are captured in the shared native owner, with no public grants or
+parallel authority. Worker semantic/acquisition/actual CPU14 **passed**
+`9df91010be9040ce9aaacf22f984bb59`; nominal/CPU2 **passed** `fa1fff34b91e4616b71a01d462cc33b5`.
+Actual witness/same-span/component native execution and old consumer retirement remain open.
+Older source-witness controls in the borrowed worktree refused the editable-environment lock
+(74passed/21failed `fad1e39d5b0349d28594e55049e3c552`); retain that refusal and rerun affected
+identities on coherent main without bypassing provider custody. Final v10 capture waits for this
+coherent integrated native source; prior previews establish only their recorded source/scope.
+
 ## Current state and execution order
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |

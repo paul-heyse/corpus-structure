@@ -2,7 +2,7 @@
 
 
 def contextual_witness_native_sql() -> str:
-    return r'''
+    return r"""
 CREATE OR REPLACE FUNCTION ops.ddo_contextual_input_reference(row_meaning jsonb,contribution boolean)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $witness$
 DECLARE context_ jsonb:=data.ddo_field(row_meaning,'context'); result jsonb;
@@ -133,4 +133,4 @@ BEGIN
 END $witness$;
 REVOKE ALL ON FUNCTION ops.ddo_contextual_input_reference(jsonb,boolean),
  ops.ddo_contextual_witness_inputs(ops.data_request,jsonb) FROM PUBLIC;
-'''
+"""

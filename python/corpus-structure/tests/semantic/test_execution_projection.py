@@ -86,7 +86,11 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
     bindings = {b["id"]: b for b in catalog["implementations"]}
     if change == "unknown":
         catalog["effect_definitions"].append(
-            {"id": "delete_characterization", "version": "1", "meaning": "delete published characterization"}
+            {
+                "id": "delete_characterization",
+                "version": "1",
+                "meaning": "delete published characterization",
+            }
         )
         operations["publish_characterization"]["effects"] = ["delete_characterization"]
         bindings["publish_characterization"]["effects"] = ["delete_characterization"]

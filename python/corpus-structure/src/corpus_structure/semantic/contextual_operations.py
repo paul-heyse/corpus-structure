@@ -110,7 +110,8 @@ def contextual_retrieval_assets():
                                 "methods/contextual_declared.py",
                                 "methods/contextual_targets.py",
                                 "methods/contextual_scoring.py",
-                                "methods/contextual_witnesses.py",                            )
+                                "methods/contextual_witnesses.py",
+                            )
                             else (_ROOT / name).read_bytes().hex()
                         ),
                     )
@@ -285,7 +286,9 @@ def prepare_contextual_retrieval(query, inventory, vectors, policy, *, check_act
     )
     constraints = _CONSTRAINTS.validate_python(source_python(policy["constraints"]))
     if "witnesses" in policy:
-        raise ValueError("authored relationship hypotheses require the explicit native witness binding")
+        raise ValueError(
+            "authored relationship hypotheses require the explicit native witness binding"
+        )
     witnesses = ()
     exclusions = _EXCLUSIONS.validate_python(source_python(policy["exclusions"]))
     return ContextualRetrievalInputs(
@@ -414,7 +417,8 @@ class ContextualRetrievalPlan:
         bound = inspect.signature(kernel).bind(
             input_basis=basis,
             numerical_policy=self.numerical_policy.model_dump(mode="json"),
-            witnessed=self.witnessed, check_active=check_active,
+            witnessed=self.witnessed,
+            check_active=check_active,
         )
         reply = yield from self.port.plan_cpu_reply(
             kernel,
@@ -425,7 +429,10 @@ class ContextualRetrievalPlan:
         )
         product = cpu_authority_value(reply.content, expected_basis=basis)
         checked = self.prepared.validate_json(
-            "DdoContextualWitnessedRetrievalProduct" if self.witnessed else "DdoContextualRetrievalProduct", json_bytes(product)
+            "DdoContextualWitnessedRetrievalProduct"
+            if self.witnessed
+            else "DdoContextualRetrievalProduct",
+            json_bytes(product),
         ).model_dump(mode="python", exclude_unset=True)
         contextual_interpretation_candidates(checked)
         return PreparedCallResult(
@@ -435,7 +442,9 @@ class ContextualRetrievalPlan:
         )
 
 
-def execute_witnessed_retrieval_profile(receiver, query, inventory, vectors, policy, scores, witnesses):
+def execute_witnessed_retrieval_profile(
+    receiver, query, inventory, vectors, policy, scores, witnesses
+):
     return receiver.execute(query, inventory, vectors, policy, scores, witnesses)
 
 
@@ -448,14 +457,21 @@ def resolve_retrieval_port(prepared, model, operation, *, identity, authorize, c
     from .data_operation_prepared_call import PreparedOriginalCallPort
 
     selected = model.operation(operation)
-    owners = {kind.__data_operation__["id"]: kind for kind in (ContextualRetrievalOperation, ContextualWitnessedRetrievalOperation)}
+    owners = {
+        kind.__data_operation__["id"]: kind
+        for kind in (ContextualRetrievalOperation, ContextualWitnessedRetrievalOperation)
+    }
     if selected.semantic_id not in owners:
         raise PortRefusal("contextual retrieval factory belongs to another operation")
     receiver = owners[selected.semantic_id](None)
     if selected.numerical_policy is None:
         raise PortRefusal("contextual retrieval lacks its checked numerical policy")
     numerical_policy = RetrievalNumericalPolicy.model_validate_json(selected.numerical_policy.body)
-    plan = ContextualRetrievalPlan(prepared, numerical_policy, witnessed=selected.semantic_id == "retrieve.contextual/with-witnesses")
+    plan = ContextualRetrievalPlan(
+        prepared,
+        numerical_policy,
+        witnessed=selected.semantic_id == "retrieve.contextual/with-witnesses",
+    )
     port = PreparedOriginalCallPort(
         identity,
         model,

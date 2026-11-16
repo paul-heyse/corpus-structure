@@ -14,9 +14,7 @@ from .operation_value_types import native_result_scope
 from .prepared_sql import prepare_sql
 
 _release_id = TypeAdapter(ReleaseId)
-_prepare_archive = select(
-    func.sem.prepare_release_archive(bindparam("release_id", type_=Text()))
-)
+_prepare_archive = select(func.sem.prepare_release_archive(bindparam("release_id", type_=Text())))
 _publish_archive = select(
     func.sem.publish_release_archive(bindparam("release_id", type_=Text()), type_=Text())
 )

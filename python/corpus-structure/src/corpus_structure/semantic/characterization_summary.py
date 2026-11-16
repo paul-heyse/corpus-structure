@@ -35,5 +35,3 @@ class RetainedProviderSummary(BaseModel):
     configuration_digest: str
     availability: tuple[ProviderAvailabilitySummary, ...] = Field(max_length=32)
     availability_omitted: int = Field(ge=0)
-
-

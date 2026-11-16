@@ -15,13 +15,13 @@ from sqlalchemy import Connection
 from sqlalchemy.exc import DBAPIError
 
 from ._operation_ids import RunId, SourceViewId, TaskAttempt, TaskId
-from .characterization_summary import FamilyOutcomeSummary, RetainedProviderSummary
 from .characterization import (
     EnrichedDocumentView,
     LayerManifest,
     LayerReport,
     _published_layer_manifest,
 )
+from .characterization_summary import FamilyOutcomeSummary, RetainedProviderSummary
 from .identity import canonical_bytes
 from .product_reference import ProductReference
 

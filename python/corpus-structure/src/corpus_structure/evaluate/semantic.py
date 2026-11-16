@@ -20,8 +20,8 @@ from sqlalchemy import Connection, select, text
 from corpus_structure.semantic.contracts import require_bound_operation, require_database_operation
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import NativeProposalFrame, ProposalFrame, locate_proposal
-from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.refusals import ReferenceError as ReferenceError
+from corpus_structure.semantic.releases import open_release
 
 from .semantic_alignment import SemanticSide, TierCounts, align_semantic
 from .semantic_values import entity_references, rewrite_references

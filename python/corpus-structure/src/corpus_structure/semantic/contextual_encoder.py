@@ -237,6 +237,7 @@ def execute_query_encoder_authority_kernel(
         raise ValueError("query encoder requires its exact source and retained occurrence")
     source = contextual_input_role(roles["source"][0])
     from .contextual_cpu import checked_frame_source
+
     frame = checked_frame_source(frame_record, source)
     occurrence = roles["occurrence"][0]["body"]
     parameters = decode_semantic_value(input_basis)["parameters"]
@@ -265,13 +266,19 @@ def execute_query_encoder_authority_kernel(
         context_inputs=context_inputs,
     )
     from .declared_structural_references import DeclaredContributionRef
+
     occurrence_input = contextual_input_role(roles["occurrence"][0])
     result["query"]["carrier"] = DeclaredContributionRef(
-        product_id=occurrence_input.product_id, member_id=occurrence_input.member_id,
-        kind_contract=occurrence_input.kind_contract, project_id=occurrence_input.context.project_id,
-        subject=occurrence_input.context.subject, subject_definition=occurrence_input.context.subject_definition,
+        product_id=occurrence_input.product_id,
+        member_id=occurrence_input.member_id,
+        kind_contract=occurrence_input.kind_contract,
+        project_id=occurrence_input.context.project_id,
+        subject=occurrence_input.context.subject,
+        subject_definition=occurrence_input.context.subject_definition,
         original_source=occurrence_input.context.original_source,
-        analyzed_scope_meaning=json_context_meaning(occurrence_input.context.analyzed_scope).decode(),
+        analyzed_scope_meaning=json_context_meaning(
+            occurrence_input.context.analyzed_scope
+        ).decode(),
         contribution_id=occurrence["contribution_id"],
     ).model_dump(mode="python", exclude_none=True)
     return cpu_authority_reply(input_basis, result)

@@ -45,6 +45,7 @@ def native_protocol_sources(
     from .authority_leaf import NativeAuthorityLeaf
     from .contextual_admission_native import contextual_admission_native_sql
     from .contextual_scoring_native import contextual_scoring_native_sql
+    from .contextual_witness_native import contextual_witness_native_sql
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
@@ -131,6 +132,13 @@ def native_protocol_sources(
         SourceArtifact(
             "native/data-operation-contextual-score-query.py",
             Path(__file__).with_name("contextual_retrieval.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-witness.sql", contextual_witness_native_sql().encode()
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-witness.py",
+            Path(__file__).with_name("contextual_witness_native.py").read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-source-values.sql",
@@ -308,6 +316,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-contextual-scoring.sql",
         "native/data-operation-contextual-scoring.py",
         "native/data-operation-contextual-score-query.py",
+        "native/data-operation-contextual-witness.sql",
+        "native/data-operation-contextual-witness.py",
         "native/data-operation-source-values.sql",
         "native/data-operation-execution-evidence-leaf.sql",
         "native/data-operation-execution-evidence-leaf.json",
@@ -462,6 +472,7 @@ def native_sql(sources=None) -> str:
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
             "native/data-operation-contextual-scoring.sql",
+            "native/data-operation-contextual-witness.sql",
             "native/data-operation-contextual-admission.sql",
             "native/data-operation-execution-evidence-leaf.sql",
             "native/data-operation-structural-admission.sql",
