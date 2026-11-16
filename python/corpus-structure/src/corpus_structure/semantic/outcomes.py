@@ -32,9 +32,6 @@ TransactionOutcome = Literal[
     "infrastructure_failure",
 ]
 QueryKnowledgeOutcome = Literal["observed", "absent", "unknown"]
-SubmissionDisposition = Literal[
-    "held", "completed_accepted", "completed_refused", "refused_context"
-]
 
 
 @dataclass(frozen=True)
@@ -46,7 +43,6 @@ class CoverageConversion:
 
 
 ReadinessOutcome = Literal["source_ready", "awaiting_agent"]
-HoldOutcome = Literal["held", "proceed"]
 AssessmentFinding = Literal["warning", "refuted"]
 SelectionOutcome = Literal["accepted", "rejected", "candidate", "ambiguous"]
 ReadOutcome = Literal["source_ready", "missing", "invalid", "unsupported"]
@@ -71,11 +67,9 @@ CODE_OUTCOME_DOMAINS = {
     "continuation": get_args(ContinuationOutcome),
     "read": get_args(ReadOutcome),
     "readiness": get_args(ReadinessOutcome),
-    "hold_decision": get_args(HoldOutcome),
     "assessment_finding": get_args(AssessmentFinding),
     "selection": get_args(SelectionOutcome),
     "protocol": get_args(TaskProtocolOutcome),
-    "submission": get_args(SubmissionDisposition),
     "source_coverage": get_args(SourceCoverageOutcome),
     "semantic_coverage": get_args(SemanticCoverageOutcome),
     "scientific": get_args(ScientificOutcome),

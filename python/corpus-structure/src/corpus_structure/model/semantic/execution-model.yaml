@@ -7,23 +7,48 @@ concepts:
 - id: SourceRecordInterpretation
   family: source
   scope: realization
-  meaning: Released source record occurrence and immutable interpretation, projected as finite relations without graph product membership
-  identity: Original record_id and interpretation_id; private assertion strings never become canonical fact ids
+  meaning: Released source record occurrence and immutable interpretation, projected
+    as finite relations without graph product membership
+  identity: Original record_id and interpretation_id; private assertion strings never
+    become canonical fact ids
   attributes:
-  - {name: record_id, range: text, required: true, multivalued: false}
-  - {name: interpretation_id, range: text, required: true, multivalued: false}
-  relationships: [record_source_membership, record_candidate_admission]
+  - name: record_id
+    range: text
+    required: true
+    multivalued: false
+  - name: interpretation_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - record_source_membership
+  - record_candidate_admission
 - id: SourceRecordAdmission
   family: source
   scope: realization
-  meaning: Candidate-only m1-candidate-only version 1 retention with not_calibrated standing; accepted decisions and public assertion links refuse
-  identity: Released record occurrence and interpretation in the same publication receipt
+  meaning: Candidate-only m1-candidate-only version 1 retention with not_calibrated
+    standing; accepted decisions and public assertion links refuse
+  identity: Released record occurrence and interpretation in the same publication
+    receipt
   attributes:
-  - {name: decision, range: text, required: true, multivalued: false}
-  - {name: policy_id, range: text, required: true, multivalued: false}
-  - {name: policy_version, range: text, required: true, multivalued: false}
-  - {name: calibration, range: text, required: true, multivalued: false}
-  relationships: [record_candidate_admission]
+  - name: decision
+    range: text
+    required: true
+    multivalued: false
+  - name: policy_id
+    range: text
+    required: true
+    multivalued: false
+  - name: policy_version
+    range: text
+    required: true
+    multivalued: false
+  - name: calibration
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - record_candidate_admission
 - id: IdentityExclusion
   family: knowledge
   scope: realization
@@ -404,7 +429,6 @@ concepts:
   - task_belongs
   - task_reuses
   - attempt_owns
-  - held_submission
   - measurement_context
   - cut_origin
 - id: Attempt
@@ -428,7 +452,6 @@ concepts:
     multivalued: false
   relationships:
   - attempt_owns
-  - held_submission
 - id: MethodDefinition
   family: execution
   scope: run
@@ -581,8 +604,7 @@ concepts:
     range: json
     required: true
     multivalued: false
-  relationships:
-  - packet_obligations
+  relationships: []
 - id: SourceObservation
   family: source
   scope: run
@@ -689,67 +711,7 @@ concepts:
     range: ReferenceDescriptor
     required: true
     multivalued: true
-  relationships:
-  - packet_obligations
-  - held_submission
-- id: ReadObligation
-  family: source
-  scope: run
-  meaning: ReadObligation in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label
-    identity
-  attributes:
-  - name: id
-    range: text
-    required: true
-    multivalued: false
-  - name: reference
-    range: text
-    required: true
-    multivalued: false
-  - name: fulfilled
-    range: boolean
-    required: true
-    multivalued: false
-  relationships:
-  - packet_obligations
-- id: SubmissionResult
-  family: source
-  scope: run
-  meaning: SubmissionResult in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label
-    identity
-  attributes:
-  - name: disposition
-    range: text
-    required: true
-    multivalued: false
-  - name: diagnostics
-    range: json
-    required: true
-    multivalued: true
   relationships: []
-- id: HeldSubmission
-  family: source
-  scope: run
-  meaning: HeldSubmission in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label
-    identity
-  attributes:
-  - name: attempt
-    range: integer
-    required: true
-    multivalued: false
-  - name: packet_digest
-    range: text
-    required: true
-    multivalued: false
-  - name: checked_result
-    range: SubmissionResult
-    required: true
-    multivalued: false
-  relationships:
-  - held_submission
 - id: TaskResultEnvelope
   family: source
   scope: run
@@ -2458,33 +2420,54 @@ concepts:
 - id: PreparedMathInput
   family: source
   scope: run
-  meaning: Positioned mathematical spelling and explicit prepared source interpretation context
+  meaning: Positioned mathematical spelling and explicit prepared source interpretation
+    context
   identity: Qualified selected source occurrence, spelling and context digest
   attributes:
-  - {name: latex, range: text, required: true, multivalued: false}
-  - {name: context_digest, range: text, required: true, multivalued: false}
+  - name: latex
+    range: text
+    required: true
+    multivalued: false
+  - name: context_digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: MathInterpretation
   family: interpretation
   scope: run
-  meaning: Positioned mathematical syntax and interpretation result under explicit source context
+  meaning: Positioned mathematical syntax and interpretation result under explicit
+    source context
   identity: Qualified source occurrence, prepared context and algorithm revision
   attributes:
-  - {name: latex, range: text, required: true, multivalued: false}
-  - {name: status, range: text, required: true, multivalued: false}
+  - name: latex
+    range: text
+    required: true
+    multivalued: false
+  - name: status
+    range: text
+    required: true
+    multivalued: false
   relationships: []
-
 - id: MathAssessment
   family: interpretation
   scope: run
   meaning: Scientific question result with coverage and explicit definedness conditions
   identity: Qualified source occurrence, prepared context and algorithm revision
   attributes:
-  - {name: question, range: text, required: true, multivalued: false}
-  - {name: outcome, range: text, required: true, multivalued: false}
-  - {name: coverage, range: text, required: true, multivalued: false}
+  - name: question
+    range: text
+    required: true
+    multivalued: false
+  - name: outcome
+    range: text
+    required: true
+    multivalued: false
+  - name: coverage
+    range: text
+    required: true
+    multivalued: false
   relationships: []
-
 - id: ParsingAdapterSupport
   family: source
   scope: run
@@ -2532,12 +2515,15 @@ concepts:
 - id: TextCapture
   family: interpretation
   scope: run
-  meaning: Immutable lexical partition and positioned syntax of selected native source text
+  meaning: Immutable lexical partition and positioned syntax of selected native source
+    text
   identity: Qualified source occurrence, prepared context and algorithm revision
   attributes:
-  - {name: text, range: text, required: true, multivalued: false}
+  - name: text
+    range: text
+    required: true
+    multivalued: false
   relationships: []
-
 - id: PdfNativeEnvelope
   family: interpretation
   scope: global
@@ -2545,7 +2531,10 @@ concepts:
     custody
   identity: Original, native schema, recipe and producing-task qualified occurrence
   attributes:
-  - {name: artifact_digest, range: text, required: true, multivalued: false}
+  - name: artifact_digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PreparedPdfProduct
   family: interpretation
@@ -2554,7 +2543,10 @@ concepts:
     and recipe bytes
   identity: Original, native schema, recipe and producing-task qualified occurrence
   attributes:
-  - {name: payload, range: bytes, required: true, multivalued: false}
+  - name: payload
+    range: bytes
+    required: true
+    multivalued: false
   relationships: []
 - id: SourceView
   family: interpretation
@@ -2571,9 +2563,15 @@ concepts:
 - id: SourceObservationBatch
   family: source
   scope: run
-  meaning: Immutable terminal source report containing private contribution and operation populations
-  identity: Producing invocation, operation version, input, configuration and selected source
-  attributes: [{name: report, range: text, required: true, multivalued: false}]
+  meaning: Immutable terminal source report containing private contribution and operation
+    populations
+  identity: Producing invocation, operation version, input, configuration and selected
+    source
+  attributes:
+  - name: report
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PreparedRecognitionSource
   family: source
@@ -2581,39 +2579,59 @@ concepts:
   meaning: Once-hashed immutable original PDF custody shared by finite page recognition
   identity: Qualified original, physical page and exact recipe
   attributes:
-  - {name: digest, range: text, required: true, multivalued: false}
+  - name: digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PdfRecognitionRecipe
   family: source
   scope: run
-  meaning: Effective pinned NVIDIA triple-pass recipe including decoding, render/crop and named recovery policy
+  meaning: Effective pinned NVIDIA triple-pass recipe including decoding, render/crop
+    and named recovery policy
   identity: Qualified original, physical page and exact recipe
   attributes:
-  - {name: recipe_digest, range: text, required: true, multivalued: false}
+  - name: recipe_digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PdfRecognitionPage
   family: source
   scope: run
-  meaning: Retained actual request sequence and public merge/crop decisions for one physical page
+  meaning: Retained actual request sequence and public merge/crop decisions for one
+    physical page
   identity: Qualified original, physical page and exact recipe
   attributes:
-  - {name: page_no, range: integer, required: true, multivalued: false}
+  - name: page_no
+    range: integer
+    required: true
+    multivalued: false
   relationships: []
 - id: ChandraSubmittedFrame
   family: source
   scope: run
-  meaning: Opaque RGB raster prepared for one source-qualified Chandra recognition request
-  identity: Original digest, physical page or crop, submitted frame digest and exact runtime recipe
+  meaning: Opaque RGB raster prepared for one source-qualified Chandra recognition
+    request
+  identity: Original digest, physical page or crop, submitted frame digest and exact
+    runtime recipe
   attributes:
-  - {name: digest, range: text, required: true, multivalued: false}
+  - name: digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: ChandraNativePrediction
   family: source
   scope: run
-  meaning: Adapter-returned prediction and provider completion standing for one submitted frame
+  meaning: Adapter-returned prediction and provider completion standing for one submitted
+    frame
   identity: Submitted frame, exact runtime recipe and producing attempt
   attributes:
-  - {name: text, range: text, required: true, multivalued: false}
+  - name: text
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PdfIntegratedProduct
   family: interpretation
@@ -2621,7 +2639,10 @@ concepts:
   meaning: Immutable multi-input observation or integrated Docling companion bundle
   identity: Producing task/product key/digest and archived release contract
   attributes:
-  - {name: content_digest, range: text, required: true, multivalued: false}
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PreparedIntegratedPdfProduct
   family: interpretation
@@ -2629,15 +2650,22 @@ concepts:
   meaning: Validated canonical bundle and all retained artifacts
   identity: Producing task/product key/digest and archived release contract
   attributes:
-  - {name: content_digest, range: text, required: true, multivalued: false}
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PdfObservationProduct
   family: interpretation
   scope: run
-  meaning: Validated immutable recognition observation and retained response/image artifacts; no document graph
+  meaning: Validated immutable recognition observation and retained response/image
+    artifacts; no document graph
   identity: Producing task/product key/digest and archived release contract
   attributes:
-  - {name: content_digest, range: text, required: true, multivalued: false}
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PdfProductReference
   family: interpretation
@@ -2645,7 +2673,10 @@ concepts:
   meaning: Exact immutable task/key/digest pin
   identity: Producing task/product key/digest and archived release contract
   attributes:
-  - {name: content_digest, range: text, required: true, multivalued: false}
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PdfProductReadResult
   family: interpretation
@@ -2653,13 +2684,18 @@ concepts:
   meaning: Bounded selected product projections and qualified lineage
   identity: Producing task/product key/digest and archived release contract
   attributes:
-  - {name: content_digest, range: text, required: true, multivalued: false}
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
   relationships: []
 - id: PdfFrozenBuild
   family: execution
   scope: run
-  meaning: Immutable actual candidate inventory and declared native or integrated kind
-  identity: Build, frozen inventory, source/release/schema/recipe and publication kind
+  meaning: Immutable actual candidate inventory and declared native or integrated
+    kind
+  identity: Build, frozen inventory, source/release/schema/recipe and publication
+    kind
   attributes:
   - name: build_id
     range: text
@@ -2670,7 +2706,8 @@ concepts:
   family: execution
   scope: run
   meaning: Native conformance and independent server closure over the same fixed candidate
-  identity: Frozen inventory and archived native validation contract; exact logical recordset
+  identity: Frozen inventory and archived native validation contract; exact logical
+    recordset
   attributes:
   - name: build_id
     range: text
@@ -2681,7 +2718,8 @@ concepts:
   family: execution
   scope: run
   meaning: Atomically visible immutable native graph and typed evidence companions
-  identity: Qualified versioned logical pin, declared kind, source/schema/release and revision
+  identity: Qualified versioned logical pin, declared kind, source/schema/release
+    and revision
   attributes:
   - name: build_id
     range: text
@@ -2721,40 +2759,13 @@ concepts:
     required: true
     multivalued: false
   relationships: []
-- id: OperatorDirection
-  family: execution
-  scope: run
-  meaning: An immutable authored operator guidance event for one selected active run; recorded input,
-    not a semantic model assertion
-  identity: Run-bound append event; native sequence locates this event without merging repeated authored
-    guidance
-  attributes:
-  - name: id
-    range: integer
-    required: true
-    multivalued: false
-  - name: run_id
-    range: integer
-    required: true
-    multivalued: false
-  - name: actor
-    range: text
-    required: true
-    multivalued: false
-  - name: session_ref
-    range: text
-    required: true
-    multivalued: false
-  - name: body
-    range: json
-    required: true
-    multivalued: false
-  relationships: []
 - id: ReferenceOriginGroup
   family: decision
   scope: unit
-  meaning: Immutable credible source-origin partition declaration; copies, editions and overlapping windows share their origin
-  identity: Project and explicit source origin or URI; never a chapter-independence claim
+  meaning: Immutable credible source-origin partition declaration; copies, editions
+    and overlapping windows share their origin
+  identity: Project and explicit source origin or URI; never a chapter-independence
+    claim
   attributes:
   - name: project_id
     range: text
@@ -2777,8 +2788,10 @@ concepts:
 - id: ReferenceOriginSource
   family: decision
   scope: unit
-  meaning: Immutable credible source-origin partition declaration; copies, editions and overlapping windows share their origin
-  identity: Project and explicit source origin or URI; never a chapter-independence claim
+  meaning: Immutable credible source-origin partition declaration; copies, editions
+    and overlapping windows share their origin
+  identity: Project and explicit source origin or URI; never a chapter-independence
+    claim
   attributes:
   - name: project_id
     range: text
@@ -2797,8 +2810,10 @@ concepts:
 - id: SourceRecordProjection
   family: read
   scope: snapshot
-  meaning: Detached finite record relations and report-to-source membership from one immutable completed result
-  identity: Archived release, completed run, cut, output realization revision and record projection digest
+  meaning: Detached finite record relations and report-to-source membership from one
+    immutable completed result
+  identity: Archived release, completed run, cut, output realization revision and
+    record projection digest
   attributes:
   - name: run_id
     range: integer
@@ -2832,7 +2847,10 @@ concepts:
     with exact qualified layer closure
   identity: Producing task, kind-qualified content key and canonical payload SHA256
   attributes:
-  - {name: payload, range: bytes, required: true, multivalued: false}
+  - name: payload
+    range: bytes
+    required: true
+    multivalued: false
   relationships: []
 - id: EnrichedDocumentView
   family: source
@@ -2841,37 +2859,72 @@ concepts:
     with exact qualified layer closure
   identity: Producing task, kind-qualified content key and canonical payload SHA256
   attributes:
-  - {name: payload, range: bytes, required: true, multivalued: false}
+  - name: payload
+    range: bytes
+    required: true
+    multivalued: false
   relationships: []
 relationships:
 - id: record_source_membership
   kind: association
   direction: directed
   endpoints:
-  - {role: interpretation, concept: SourceRecordInterpretation, minimum: 1, maximum: 1, ordered: false, unresolved: false}
-  - {role: cut, concept: InputCut, minimum: 1, maximum: 1, ordered: false, unresolved: false}
-  cardinality_scope: Per interpretation in the selected sealed cut and publication receipt
+  - role: interpretation
+    concept: SourceRecordInterpretation
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: cut
+    concept: InputCut
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per interpretation in the selected sealed cut and publication
+    receipt
   identity_kind: ordered_roles
-  identity_roles: [interpretation, cut]
-  identity_context: [release, realization]
+  identity_roles:
+  - interpretation
+  - cut
+  identity_context:
+  - release
+  - realization
   qualifications: []
   multiplicity: set
   reference_scope: same_realization
-  invariants: [qualified_reference]
+  invariants:
+  - qualified_reference
 - id: record_candidate_admission
   kind: association
   direction: directed
   endpoints:
-  - {role: interpretation, concept: SourceRecordInterpretation, minimum: 1, maximum: 1, ordered: false, unresolved: false}
-  - {role: admission, concept: SourceRecordAdmission, minimum: 1, maximum: 1, ordered: false, unresolved: false}
-  cardinality_scope: Per interpretation in the selected sealed cut and publication receipt
+  - role: interpretation
+    concept: SourceRecordInterpretation
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: admission
+    concept: SourceRecordAdmission
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per interpretation in the selected sealed cut and publication
+    receipt
   identity_kind: ordered_roles
-  identity_roles: [interpretation, admission]
-  identity_context: [release, realization]
+  identity_roles:
+  - interpretation
+  - admission
+  identity_context:
+  - release
+  - realization
   qualifications: []
   multiplicity: set
   reference_scope: same_realization
-  invariants: [qualified_reference]
+  invariants:
+  - qualified_reference
 - id: bundle_contains
   kind: ownership
   direction: directed
@@ -3287,82 +3340,6 @@ relationships:
   reference_scope: execution
   invariants:
   - completed_source
-- id: packet_obligations
-  kind: ownership
-  direction: nary
-  endpoints:
-  - role: packet
-    concept: WorkPacket
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: frame
-    concept: SourceFrame
-    minimum: 1
-    ordered: false
-    unresolved: false
-  - role: obligation
-    concept: ReadObligation
-    minimum: 1
-    ordered: false
-    unresolved: false
-  cardinality_scope: per subject in the declared bound context
-  identity_kind: ordered_roles
-  identity_roles:
-  - packet
-  - frame
-  - obligation
-  identity_context:
-  - binding
-  qualifications: []
-  multiplicity: set
-  reference_scope: execution
-  invariants:
-  - packet_reads
-- id: held_submission
-  kind: ownership
-  direction: nary
-  endpoints:
-  - role: invocation
-    concept: TaskInvocation
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: attempt
-    concept: Attempt
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: packet
-    concept: WorkPacket
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: result
-    concept: HeldSubmission
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  cardinality_scope: per subject in the declared bound context
-  identity_kind: ordered_roles
-  identity_roles:
-  - invocation
-  - attempt
-  - packet
-  - result
-  identity_context:
-  - binding
-  qualifications: []
-  multiplicity: set
-  reference_scope: execution
-  invariants:
-  - attempt_fence
-  - packet_reads
 - id: measurement_context
   kind: measurement
   direction: nary
@@ -4863,7 +4840,9 @@ relationships:
     maximum: 1
     ordered: false
     unresolved: false
-  cardinality_scope: Record references freeze a named sealed source cut plus explicit membership at reference-set creation; legacy references retain completed-result binding
+  cardinality_scope: Record references freeze a named sealed source cut plus explicit
+    membership at reference-set creation; legacy references retain completed-result
+    binding
   identity_kind: qualified
   identity_roles:
   - subject
@@ -4965,19 +4944,22 @@ invariants:
   subjects:
   - TaskInvocation
   - Attempt
-  - HeldSubmission
   relationships:
   - attempt_owns
-  - held_submission
   scope: lifecycle
   failure_code: execution.attempt_fence
   implementation: claim
   observable: true
   diagnostics:
-  - {operation: claim, kind: guard, sqlstate: '23514', guard: execution_task, guard_version: '2'}
+  - operation: claim
+    kind: guard
+    sqlstate: '23514'
+    guard: execution_task
+    guard_version: '2'
   required_capability: execution.lifecycle.v1
 - id: published_document_address
-  meaning: Selected document addresses belong to the exact published product pin and its resolved native build and revision
+  meaning: Selected document addresses belong to the exact published product pin and
+    its resolved native build and revision
   subjects:
   - SourceView
   - SourceArtifact
@@ -4988,10 +4970,29 @@ invariants:
   implementation: publish_source_view
   observable: true
   diagnostics:
-  - {operation: complete, kind: guard, sqlstate: '23514', guard: native_source_address, guard_version: '2'}
-  - {operation: publish_source_view, kind: constraint, sqlstate: '23503', schema_name: kb, table_name: source_view, constraint_name: fk_source_view_native_build_id_native_task_id_native_pr_bef7}
-  - {operation: publish_source_view, kind: constraint, sqlstate: '23503', schema_name: kb, table_name: source_view, constraint_name: fk_source_view_native_build_id_native_revision_id_secti_79ff}
-  - {operation: publish_source_view, kind: constraint, sqlstate: '23514', schema_name: kb, table_name: source_view, constraint_name: ck_source_view_physical_73dfcc4ba8}
+  - operation: complete
+    kind: guard
+    sqlstate: '23514'
+    guard: native_source_address
+    guard_version: '2'
+  - operation: publish_source_view
+    kind: constraint
+    sqlstate: '23503'
+    schema_name: kb
+    table_name: source_view
+    constraint_name: fk_source_view_native_build_id_native_task_id_native_pr_bef7
+  - operation: publish_source_view
+    kind: constraint
+    sqlstate: '23503'
+    schema_name: kb
+    table_name: source_view
+    constraint_name: fk_source_view_native_build_id_native_revision_id_secti_79ff
+  - operation: publish_source_view
+    kind: constraint
+    sqlstate: '23514'
+    schema_name: kb
+    table_name: source_view
+    constraint_name: ck_source_view_physical_73dfcc4ba8
 - id: terminal_result
   meaning: Terminal task envelopes and outcome agree and are immutable
   subjects:
@@ -5014,18 +5015,6 @@ invariants:
   failure_code: execution.completed_source
   implementation: complete_unit
   required_capability: execution.lifecycle.v1
-- id: packet_reads
-  meaning: Packet identity, read obligations and source location checks precede submission
-  subjects:
-  - WorkPacket
-  - ReadObligation
-  - SubmissionResult
-  relationships:
-  - packet_obligations
-  - held_submission
-  scope: relational
-  failure_code: execution.packet_reads
-  implementation: submission
 - id: measurement_scope
   meaning: Metric type, subject scope and producing method/input context agree; measurements
     do not assert facts
@@ -5281,16 +5270,16 @@ operations:
   transitions: []
   projections: []
 - id: prepare
-  inputs: &id001
+  inputs:
   - SourceBundle
   - ResolvedDependencies
   - PreparationProfile
-  results: &id002
+  results:
   - PreparationResult
   - SemanticRelease
   applicability: []
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id003 []
+  effects: &id004 []
   outcomes:
   - prepared
   - invalid
@@ -5307,14 +5296,14 @@ operations:
   transitions: []
   projections: []
 - id: archive
-  inputs: &id004
+  inputs:
   - SemanticRelease
-  results: &id005
+  results:
   - Archive
   applicability:
   - exact_archive
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id006
+  effects: &id005
   - persist_exact_archive
   outcomes:
   - applied
@@ -5361,14 +5350,14 @@ operations:
     ordered: false
     order_by: []
 - id: reload
-  inputs: &id007
+  inputs:
   - Archive
-  results: &id008
+  results:
   - SemanticRelease
   applicability:
   - exact_archive
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id009 []
+  effects: &id006 []
   outcomes:
   - applied
   - conflict
@@ -5383,17 +5372,17 @@ operations:
   transitions: []
   projections: []
 - id: activate
-  inputs: &id010
+  inputs:
   - Project
   - SemanticRelease
   - ActivationToken
-  results: &id011
+  results:
   - Project
   - ActivationToken
   applicability:
   - activation_cas
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id012
+  effects: &id007
   - atomic_parent_generation_cas
   outcomes:
   - applied
@@ -5441,14 +5430,14 @@ operations:
     ordered: false
     order_by: []
 - id: start_run
-  inputs: &id016
+  inputs:
   - RunBinding
-  results: &id017
+  results:
   - Run
   applicability:
   - immutable_binding
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id018
+  effects: &id008
   - construct_new_run
   outcomes:
   - applied
@@ -5462,7 +5451,8 @@ operations:
   - implementation_version
   precision: Exact authored/canonical values; no implicit rounding
   implementation: start_run
-  transitions: [run_begin]
+  transitions:
+  - run_begin
   projections: []
   calls:
   - id: create_run
@@ -5541,16 +5531,16 @@ operations:
     cardinality: one
     ordered: false
 - id: configure_method
-  inputs: &id019
+  inputs:
   - MethodDefinition
   - MethodConfiguration
-  results: &id020
+  results:
   - MethodDefinition
   - MethodConfiguration
   applicability:
   - immutable_binding
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id021
+  effects: &id009
   - freeze_method_configuration
   outcomes:
   - applied
@@ -6112,18 +6102,18 @@ operations:
     result_class: RecordedMethodConfig
     json_read: json-text-v1
 - id: schedule
-  inputs: &id022
+  inputs:
   - Run
   - MethodDefinition
   - MethodConfiguration
   - TaskUnit
-  results: &id023
+  results:
   - TaskInvocation
   applicability:
   - immutable_binding
   - reuse_origin
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id024
+  effects: &id010
   - schedule_pending_or_reused_or_skipped
   outcomes:
   - applied
@@ -6161,20 +6151,20 @@ operations:
     cardinality: one
     ordered: false
 - id: claim
-  inputs: &id025
+  inputs:
   - Run
   - TaskInvocation
   - Attempt
-  results: &id026
+  results:
   - TaskInvocation
   - Attempt
   applicability:
   - attempt_fence
   - immutable_binding
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id027
+  effects: &id011
   - atomic_attempt_holder_deadline_change
-  outcomes: &id115
+  outcomes: &id036
   - applied
   - replay
   - conflict
@@ -6190,28 +6180,80 @@ operations:
   - id: claim_tasks
     symbol: ops.claim_tasks
     parameters:
-    - {name: run_id, native_parameter: p_run, source: 'physical:ops.run.id', nullable: false, semantic_type: RunId}
-    - {name: config_id, native_parameter: p_config, source: 'physical:ops.method_config.id', nullable: false, semantic_type: MethodConfigId}
-    - {name: holder, native_parameter: p_holder, source: 'physical:ops.task.claimed_by', nullable: false}
-    - {name: limit, native_parameter: p_limit, source: 'primitive:integer', nullable: false, default_json: '1'}
-    - {name: agent, native_parameter: p_agent, source: 'primitive:boolean', nullable: false, default_json: 'false'}
+    - name: run_id
+      native_parameter: p_run
+      source: physical:ops.run.id
+      nullable: false
+      semantic_type: RunId
+    - name: config_id
+      native_parameter: p_config
+      source: physical:ops.method_config.id
+      nullable: false
+      semantic_type: MethodConfigId
+    - name: holder
+      native_parameter: p_holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+    - name: limit
+      native_parameter: p_limit
+      source: primitive:integer
+      nullable: false
+      default_json: '1'
+    - name: agent
+      native_parameter: p_agent
+      source: primitive:boolean
+      nullable: false
+      default_json: 'false'
     result_class: ClaimedTask
     cardinality: many
     ordered: false
     result_fields:
-    - {name: task_id, source: 'physical:ops.task.id', nullable: false, semantic_type: TaskId}
-    - {name: run_id, source: 'physical:ops.task.run_id', nullable: false, semantic_type: RunId}
-    - {name: release_id, source: 'physical:ops.task.release_id', nullable: false, semantic_type: ReleaseId}
-    - {name: method_config_id, source: 'physical:ops.task.method_config_id', nullable: false, semantic_type: MethodConfigId}
-    - {name: unit_type, source: 'physical:ops.task.unit_type', nullable: false, transform: task_unit_type}
-    - {name: unit_id, source: 'physical:ops.task.unit_id', nullable: true}
-    - {name: unit_key, source: 'physical:ops.task.unit_key', nullable: true}
-    - {name: packet_hash, source: 'physical:ops.task.packet_hash', nullable: true}
-    - {name: attempt, source: 'physical:ops.task.attempt', nullable: false, semantic_type: TaskAttempt}
-    - {name: holder, source: 'physical:ops.task.claimed_by', nullable: false}
-    - {name: deadline, source: 'physical:ops.task.lease_until', nullable: false}
-    - {name: invocation_key, source: 'physical:ops.task.invocation_key', nullable: false}
-    - {name: held_progress, source: 'physical:ops.task.error', nullable: true, transform: held_progress}
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      semantic_type: TaskId
+    - name: run_id
+      source: physical:ops.task.run_id
+      nullable: false
+      semantic_type: RunId
+    - name: release_id
+      source: physical:ops.task.release_id
+      nullable: false
+      semantic_type: ReleaseId
+    - name: method_config_id
+      source: physical:ops.task.method_config_id
+      nullable: false
+      semantic_type: MethodConfigId
+    - name: unit_type
+      source: physical:ops.task.unit_type
+      nullable: false
+      transform: task_unit_type
+    - name: unit_id
+      source: physical:ops.task.unit_id
+      nullable: true
+    - name: unit_key
+      source: physical:ops.task.unit_key
+      nullable: true
+    - name: packet_hash
+      source: physical:ops.task.packet_hash
+      nullable: true
+    - name: attempt
+      source: physical:ops.task.attempt
+      nullable: false
+      semantic_type: TaskAttempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+    - name: deadline
+      source: physical:ops.task.lease_until
+      nullable: false
+    - name: invocation_key
+      source: physical:ops.task.invocation_key
+      nullable: false
+    - name: held_progress
+      source: physical:ops.task.error
+      nullable: true
+      transform: held_progress
   transitions:
   - task_claim
   - task_reclaim
@@ -6219,12 +6261,12 @@ operations:
   - task_claim_held
   projections: []
 - id: complete
-  inputs: &id028
+  inputs:
   - Run
   - TaskInvocation
   - Attempt
   - TaskResultEnvelope
-  results: &id029
+  results:
   - TaskResultEnvelope
   - SourceObservation
   - SourceCoverage
@@ -6233,16 +6275,20 @@ operations:
   - attempt_fence
   - terminal_result
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id030
+  effects: &id012
   - atomic_terminal_result_and_reports
-  outcomes: &id117
+  outcomes: &id037
   - done
   - empty
   - failed
   outcome_domain: protocol
   result_dimensions:
-  - {id: protocol, field: receipt.protocol, outcome_domain: protocol}
-  - {id: transaction, field: transaction, outcome_domain: transaction}
+  - id: protocol
+    field: receipt.protocol
+    outcome_domain: protocol
+  - id: transaction
+    field: transaction
+    outcome_domain: transaction
   dependencies:
   - semantic_release
   - execution_model
@@ -6294,12 +6340,12 @@ operations:
     cardinality: one
     ordered: false
 - id: complete_unit
-  inputs: &id031
+  inputs:
   - Run
   - TaskInvocation
   - Attempt
   - TaskResultEnvelope
-  results: &id032
+  results:
   - TaskResultEnvelope
   - SourceObservation
   - Measurement
@@ -6309,7 +6355,7 @@ operations:
   - completed_source
   - measurement_scope
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id033
+  effects: &id013
   - persist_typed_source_and_measurement_reports
   outcomes:
   - done
@@ -6317,8 +6363,12 @@ operations:
   - failed
   outcome_domain: protocol
   result_dimensions:
-  - {id: protocol, field: receipt.protocol, outcome_domain: protocol}
-  - {id: transaction, field: transaction, outcome_domain: transaction}
+  - id: protocol
+    field: receipt.protocol
+    outcome_domain: protocol
+  - id: transaction
+    field: transaction
+    outcome_domain: transaction
   dependencies:
   - semantic_release
   - execution_model
@@ -6351,103 +6401,21 @@ operations:
       semantic_type: RunId
     cardinality: one
     ordered: false
-- id: hold_submission
-  inputs: &id034
-  - TaskInvocation
-  - Attempt
-  - WorkPacket
-  - SubmissionResult
-  results: &id035
-  - HeldSubmission
-  - SubmissionResult
-  applicability:
-  - attempt_fence
-  - packet_reads
-  universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id036
-  - durable_checked_progress
-  - renew_deadline
-  outcomes: &id116
-  - held
-  - proceed
-  outcome_domain: hold_decision
-  result_dimensions:
-  - {id: decision, field: disposition, outcome_domain: hold_decision}
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored/canonical values; no implicit rounding
-  implementation: hold
-  transitions:
-  - task_hold
-  - submission_hold
-  projections: []
-  calls:
-  - id: hold_agent_result
-    symbol: ops.hold_agent_result
-    parameters:
-    - name: task_id
-      source: physical:ops.task.id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: physical:ops.task.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: physical:ops.task.claimed_by
-      nullable: false
-      native_parameter: p_holder
-    - name: packet_hash
-      source: physical:ops.task.packet_hash
-      nullable: false
-      native_parameter: p_packet
-    - name: clean
-      source: primitive:boolean
-      nullable: false
-      native_parameter: p_clean
-    - name: result
-      source: primitive:json_payload
-      nullable: false
-      native_parameter: p_result
-    result_mode: scalar
-    result_fields:
-    - name: held
-      source: primitive:boolean
-      nullable: false
-    cardinality: one
-    ordered: false
-  - id: lock_input_snapshot
-    symbol: ops.lock_input_snapshot
-    parameters:
-    - name: run_id
-      source: physical:ops.run.id
-      nullable: false
-      native_parameter: p_run
-      semantic_type: RunId
-    result_mode: void
-    result_fields: []
-    cardinality: none
-    ordered: false
 - id: capture_cut
-  inputs: &id037
+  inputs:
   - Run
   - TaskInvocation
-  results: &id038
+  results:
   - InputCut
   - FinalCut
   applicability:
   - final_cut_barrier
   - reuse_origin
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id039
+  effects: &id014
   - immutable_cut
   - final_cut_seals_source_atomically
-  outcomes: &id112
+  outcomes: &id033
   - applied
   - replay
   - conflict
@@ -6489,19 +6457,19 @@ operations:
     cardinality: one
     ordered: false
 - id: end_run
-  inputs: &id043
+  inputs:
   - Run
   - TaskInvocation
-  results: &id044
+  results:
   - Run
   - TaskInvocation
   applicability:
   - immutable_binding
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id045
+  effects: &id015
   - coordinated_run_and_task_terminalization
   - retain_held_diagnostics
-  outcomes: &id114
+  outcomes: &id035
   - applied
   - replay
   - conflict
@@ -6541,20 +6509,22 @@ operations:
     cardinality: one
     ordered: false
 - id: read_original
-  inputs: &id049
+  inputs:
   - Document
-  results: &id050
+  results:
   - SourceArtifact
   applicability: []
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id051 []
+  effects: &id016 []
   outcomes:
   - source_ready
   - missing
   - invalid
   outcome_domain: read
   result_dimensions:
-  - {id: outcome, field: outcome, outcome_domain: read}
+  - id: outcome
+    field: outcome
+    outcome_domain: read
   dependencies:
   - semantic_release
   - execution_model
@@ -6604,17 +6574,17 @@ operations:
     requires_context: false
     json_read: json-text-v1
 - id: bind_report
-  inputs: &id058
+  inputs:
   - TaskResultEnvelope
   - SourceObservation
-  results: &id059
+  results:
   - TaskResultEnvelope
   - SourceObservation
   applicability:
   - completed_source
   - terminal_result
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id060 []
+  effects: &id017 []
   outcomes:
   - done
   - empty
@@ -6629,69 +6599,12 @@ operations:
   implementation: bind_report
   transitions: []
   projections: []
-- id: make_packet
-  inputs: &id061
-  - SourceFrame
-  - SnapshotBinding
-  results: &id062
-  - WorkPacket
-  - ReadObligation
-  applicability:
-  - same_snapshot
-  - packet_reads
-  universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id063 []
-  outcomes:
-  - applied
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored/canonical values; no implicit rounding
-  implementation: packet
-  transitions: []
-  projections: []
-- id: check_submission
-  inputs: &id064
-  - WorkPacket
-  - Attempt
-  - SubmissionResult
-  results: &id065
-  - SubmissionResult
-  - SourceObservation
-  applicability:
-  - packet_reads
-  - attempt_fence
-  universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id066 []
-  outcomes: &id118
-  - held
-  - completed_accepted
-  - completed_refused
-  - refused_context
-  outcome_domain: submission
-  result_dimensions:
-  - {id: disposition, field: disposition, outcome_domain: submission}
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored/canonical values; no implicit rounding
-  implementation: submission
-  transitions:
-  - submission_clean
-  - submission_resubmit
-  projections: []
 - id: assemble
-  inputs: &id067
+  inputs:
   - InputCut
   - SourceObservation
   - Qualification
-  results: &id068
+  results:
   - Entity
   - SemanticFact
   - AssertionOccurrence
@@ -6700,7 +6613,7 @@ operations:
   - qualified_reference
   - source_authorization
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id069
+  effects: &id018
   - private_canonical_assembly
   outcomes:
   - applied
@@ -6720,11 +6633,11 @@ operations:
   - fact
 - id: evaluate
   policy_version: semantic-domain-3
-  inputs: &id070
+  inputs:
   - FinalCut
   - RunBinding
   - OperationPolicy
-  results: &id071
+  results:
   - EvaluationResult
   - Realization
   - PublicationReceipt
@@ -6737,10 +6650,10 @@ operations:
   - verified_lineage
   - completed_result
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id072
+  effects: &id019
   - private_compute
   - atomic_source_proof_result_publication
-  outcomes: &id113
+  outcomes: &id034
   - applied
   - replay
   - conflict
@@ -6827,18 +6740,18 @@ operations:
     json_read: json-text-v1
 - id: scientific_policy
   policy_version: semantic-domain-3
-  inputs: &id073
+  inputs:
   - CandidateInput
   - OperationPolicy
   - ScientificContext
-  results: &id074
+  results:
   - Assessment
   - Selection
   - AlternativeGroup
   applicability:
   - scientific_selection
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id075 []
+  effects: &id020 []
   outcomes:
   - accepted
   - rejected
@@ -6846,9 +6759,15 @@ operations:
   - ambiguous
   outcome_domain: selection
   result_dimensions:
-  - {id: finding, field: assessment.outcome, outcome_domain: assessment_finding}
-  - {id: selection, field: selection.outcome, outcome_domain: selection}
-  - {id: comparison, field: assessment.comparison, outcome_domain: scientific_comparison}
+  - id: finding
+    field: assessment.outcome
+    outcome_domain: assessment_finding
+  - id: selection
+    field: selection.outcome
+    outcome_domain: selection
+  - id: comparison
+    field: assessment.comparison
+    outcome_domain: scientific_comparison
   dependencies:
   - semantic_release
   - execution_model
@@ -6860,17 +6779,17 @@ operations:
   projections:
   - candidate
 - id: derive
-  inputs: &id076
+  inputs:
   - SnapshotBinding
   - InferenceRule
-  results: &id077
+  results:
   - Derivation
   - SemanticFact
   applicability:
   - positive_grounding
   - same_snapshot
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id078
+  effects: &id021
   - private_finite_positive_proof
   outcomes:
   - applied
@@ -6941,17 +6860,17 @@ operations:
     ordered: false
     order_by: []
 - id: publish_inference
-  inputs: &id079
+  inputs:
   - SnapshotBinding
   - Derivation
-  results: &id080
+  results:
   - PublicationReceipt
   applicability:
   - positive_grounding
   - exact_replay
   - writable_output
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id081
+  effects: &id022
   - protected_proof_publication
   outcomes:
   - applied
@@ -6966,14 +6885,15 @@ operations:
   precision: Exact authored/canonical values; no implicit rounding
   implementation: publish_inference
   transitions: []
-  projections: [accepted]
+  projections:
+  - accepted
 - id: publish
-  inputs: &id082
+  inputs:
   - Realization
   - Entity
   - SemanticFact
   - AssertionOccurrence
-  results: &id083
+  results:
   - PublicationReceipt
   applicability:
   - qualified_reference
@@ -6981,7 +6901,7 @@ operations:
   - writable_output
   - exact_replay
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id084
+  effects: &id023
   - atomic_native_publication
   - monotone_revision
   outcomes:
@@ -7037,14 +6957,14 @@ operations:
     ordered: false
     order_by: []
 - id: admit
-  inputs: &id085
+  inputs:
   - SemanticRelease
-  results: &id086
+  results:
   - SemanticRelease
   applicability:
   - qualified_reference
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id087 []
+  effects: &id024 []
   outcomes:
   - admissible
   - unsupported
@@ -7078,15 +6998,15 @@ operations:
     ordered: false
     order_by: []
 - id: open_read
-  inputs: &id088
+  inputs:
   - Realization
-  results: &id089
+  results:
   - SnapshotBinding
   - QueryHandle
   applicability:
   - same_snapshot
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id090 []
+  effects: &id025 []
   outcomes:
   - applied
   - conflict
@@ -7104,11 +7024,11 @@ operations:
   - fact
   - accepted
 - id: query
-  inputs: &id091
+  inputs:
   - SnapshotBinding
   - QueryDefinition
   - QueryHandle
-  results: &id092
+  results:
   - QueryResult
   - SemanticCoverage
   - PageCompleteness
@@ -7116,7 +7036,7 @@ operations:
   - same_snapshot
   - coverage_lowering
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id093 []
+  effects: &id026 []
   outcomes:
   - observed
   - absent
@@ -7135,16 +7055,16 @@ operations:
   - fact
   - accepted
 - id: explain
-  inputs: &id094
+  inputs:
   - SnapshotBinding
   - SemanticFact
-  results: &id095
+  results:
   - Explanation
   applicability:
   - same_snapshot
   - qualified_reference
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id096 []
+  effects: &id027 []
   outcomes:
   - applied
   - conflict
@@ -7160,16 +7080,16 @@ operations:
   projections:
   - explanation
 - id: compile_projection
-  inputs: &id097
+  inputs:
   - SemanticRelease
   - SnapshotBinding
-  results: &id098
+  results:
   - ProjectionProfile
   - ArithmeticProfile
   applicability:
   - projection_fidelity
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id099 []
+  effects: &id028 []
   outcomes:
   - compiled
   - invalid
@@ -7187,17 +7107,17 @@ operations:
   projections:
   - captured
 - id: capture_analytics
-  inputs: &id100
+  inputs:
   - SnapshotBinding
   - ProjectionProfile
   - ArithmeticProfile
-  results: &id101
+  results:
   - CapturedPacket
   applicability:
   - same_snapshot
   - projection_fidelity
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id102
+  effects: &id029
   - materialize_same_snapshot_before_source_close
   outcomes:
   - captured
@@ -7215,11 +7135,11 @@ operations:
   projections:
   - captured
 - id: open_analysis
-  inputs: &id103
+  inputs:
   - CapturedPacket
   - CandidateInput
   - ProjectionProfile
-  results: &id104
+  results:
   - AnalysisScope
   - BorrowedResult
   - DetachedResult
@@ -7227,7 +7147,7 @@ operations:
   - projection_fidelity
   - analysis_lifetime
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id105
+  effects: &id030
   - own_engine_readers_registrations_scratch
   outcomes:
   - opened
@@ -7247,7 +7167,7 @@ operations:
   - captured
   - candidate
 - id: close_analysis
-  inputs: &id106
+  inputs:
   - AnalysisScope
   - AnalysisResult
   results:
@@ -7255,7 +7175,7 @@ operations:
   applicability:
   - analysis_lifetime
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id107
+  effects: &id031
   - attempt_every_owned_teardown
   - preserve_failure_and_cancellation
   outcomes:
@@ -7274,17 +7194,17 @@ operations:
   - analysis_close_candidate
   projections: []
 - id: publish_arrow
-  inputs: &id108
+  inputs:
   - AppendPublication
   - SnapshotDerivedPublication
-  results: &id109
+  results:
   - PublicationReceipt
   applicability:
   - derived_revision
   - exact_replay
   - writable_output
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id110
+  effects: &id032
   - protected_copy_same_transaction
   outcomes:
   - applied
@@ -7846,9 +7766,7 @@ operations:
     outcome remain independent
   transitions: []
   projections: []
-
   implementation: assess_parsing_math
-
 - id: convert_pdf
   inputs:
   - SourceArtifact
@@ -7875,15 +7793,28 @@ operations:
   projections: []
   implementation: convert_pdf
 - id: enrich_pdf_math
-  inputs: [PdfNativeEnvelope]
-  results: [PdfNativeEnvelope]
+  inputs:
+  - PdfNativeEnvelope
+  results:
+  - PdfNativeEnvelope
   applicability: []
-  universe: Explicit selected section views and necessary same-product ancestor context over a pinned native original
+  universe: Explicit selected section views and necessary same-product ancestor context
+    over a pinned native original
   effects: []
-  outcomes: [complete, partial, unknown, unsupported, failed]
+  outcomes:
+  - complete
+  - partial
+  - unknown
+  - unsupported
+  - failed
   outcome_domain: source_coverage
-  dependencies: [semantic_release, execution_model, input_binding, implementation_version]
-  precision: Native cell classification, recognized LaTeX, source ranges and PDF geometry remain distinct; unresolved recognition cannot satisfy complete coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native cell classification, recognized LaTeX, source ranges and PDF geometry
+    remain distinct; unresolved recognition cannot satisfy complete coverage
   transitions: []
   projections: []
   implementation: enrich_pdf_math
@@ -8077,52 +8008,6 @@ operations:
   transitions: []
   projections: []
   implementation: read_native_source
-- id: capture_native_source_frame
-  inputs:
-  - TaskInvocation
-  - SourceView
-  results:
-  - SourceView
-  applicability: []
-  universe: Pinned native original/product and section/item universe with explicit
-    named dependencies
-  effects:
-  - atomic_native_publication
-  outcomes:
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Native page geometry, recognized text and projected offsets remain distinct
-  transitions: []
-  projections: []
-  implementation: capture_native_source_frame
-  calls:
-  - id: capture_native_source_frame
-    symbol: ops.capture_native_source_frame
-    parameters:
-    - name: task_id
-      source: physical:ops.task.id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: packet_hash
-      source: physical:ops.native_source_frame.packet_hash
-      nullable: false
-      native_parameter: p_hash
-    - name: frame
-      source: primitive:json_payload
-      nullable: false
-      native_parameter: p_frame
-    result_mode: void
-    result_fields: []
-    cardinality: none
-    ordered: false
 - id: prepare_integrated_pdf
   inputs:
   - PdfIntegratedProduct
@@ -8130,8 +8015,8 @@ operations:
   results:
   - PreparedIntegratedPdfProduct
   applicability: []
-  universe: Exact original and all immutable already-published qualified inputs; no forward references or ambient
-    latest selection
+  universe: Exact original and all immutable already-published qualified inputs; no
+    forward references or ambient latest selection
   effects: []
   outcomes:
   - complete
@@ -8147,8 +8032,8 @@ operations:
   - implementation_version
   - source_representation
   - adapter_revision
-  precision: Address spaces, source coverage, structural admission and recognition outcomes remain independent;
-    I10/I11 fine provider geometry unadmitted
+  precision: Address spaces, source coverage, structural admission and recognition
+    outcomes remain independent; I10/I11 fine provider geometry unadmitted
   transitions: []
   projections: []
   implementation: prepare_integrated_pdf
@@ -8159,8 +8044,8 @@ operations:
   results:
   - PdfProductReference
   applicability: []
-  universe: One validated recognition_observation bundle and exact original/input custody; generic document
-    writes are unavailable
+  universe: One validated recognition_observation bundle and exact original/input
+    custody; generic document writes are unavailable
   effects:
   - atomic_native_publication
   outcomes:
@@ -8175,8 +8060,8 @@ operations:
   - implementation_version
   - source_representation
   - adapter_revision
-  precision: Raw response bytes, image/frame geometry, recognition outcome and native document structure
-    remain distinct
+  precision: Raw response bytes, image/frame geometry, recognition outcome and native
+    document structure remain distinct
   transitions: []
   projections: []
   implementation: publish_pdf_observation
@@ -8186,8 +8071,8 @@ operations:
   results:
   - PdfProductReadResult
   applicability: []
-  universe: Exact original and all immutable already-published qualified inputs; no forward references or ambient
-    latest selection
+  universe: Exact original and all immutable already-published qualified inputs; no
+    forward references or ambient latest selection
   effects: []
   outcomes:
   - complete
@@ -8203,7 +8088,11 @@ operations:
   - implementation_version
   - source_representation
   - adapter_revision
-  precision: Read ABI 1 consumes immutable admitted PdfIntegratedProduct body version 1 and its qualified relational projections under exact archived contract and native schema pins. Implementation helper or formatting changes preserve this ABI; changed body meaning requires a new qualified binding. Address spaces, source coverage and recognition outcomes remain independent.
+  precision: Read ABI 1 consumes immutable admitted PdfIntegratedProduct body version
+    1 and its qualified relational projections under exact archived contract and native
+    schema pins. Implementation helper or formatting changes preserve this ABI; changed
+    body meaning requires a new qualified binding. Address spaces, source coverage
+    and recognition outcomes remain independent.
   transitions: []
   projections: []
   implementation: read_pdf_product
@@ -8214,7 +8103,8 @@ operations:
   results:
   - PdfRecognitionPage
   applicability: []
-  universe: Explicit finite page selection from immutable PDF original, exact model/tokenizer/package pins and effective recipe; DB-free owned worker
+  universe: Explicit finite page selection from immutable PDF original, exact model/tokenizer/package
+    pins and effective recipe; DB-free owned worker
   effects:
   - external_model_requests
   - retain_recognition_artifacts
@@ -8230,18 +8120,19 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Actual A/B/C requests retain submitted image bytes, raw native tokens and failure/cancellation evidence; completion never establishes source absence
+  precision: Actual A/B/C requests retain submitted image bytes, raw native tokens
+    and failure/cancellation evidence; completion never establishes source absence
   transitions: []
   projections: []
   implementation: recognize_pdf_observation
-
 - id: recognize_chandra_observation
   inputs:
   - ChandraSubmittedFrame
   results:
   - ChandraNativePrediction
   applicability: []
-  universe: One qualified original PDF frame and the exact local Chandra model and decoding recipe
+  universe: One qualified original PDF frame and the exact local Chandra model and
+    decoding recipe
   effects:
   - external_model_requests
   outcomes:
@@ -8255,18 +8146,19 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Native text and completion evidence belong to the submitted frame; source fidelity is separate
+  precision: Native text and completion evidence belong to the submitted frame; source
+    fidelity is separate
   transitions: []
   projections: []
   implementation: recognize_chandra_observation
-
 - id: map_pdf_observation
   inputs:
   - PdfIntegratedProduct
   results:
   - PdfIntegratedProduct
   applicability: []
-  universe: Retained raw coordinate/class observations, sparse page correspondences and versioned selection policy
+  universe: Retained raw coordinate/class observations, sparse page correspondences
+    and versioned selection policy
   effects: []
   outcomes:
   - complete
@@ -8278,7 +8170,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Coarse transformed blocks and inherited parent witnesses never confer glyph or native cell precision
+  precision: Coarse transformed blocks and inherited parent witnesses never confer
+    glyph or native cell precision
   transitions: []
   projections: []
   implementation: map_pdf_observation
@@ -8288,7 +8181,8 @@ operations:
   results:
   - PdfIntegratedProduct
   applicability: []
-  universe: Retained raw coordinate/class observations, sparse page correspondences and versioned selection policy
+  universe: Retained raw coordinate/class observations, sparse page correspondences
+    and versioned selection policy
   effects: []
   outcomes:
   - complete
@@ -8300,7 +8194,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Coarse transformed blocks and inherited parent witnesses never confer glyph or native cell precision
+  precision: Coarse transformed blocks and inherited parent witnesses never confer
+    glyph or native cell precision
   transitions: []
   projections: []
   implementation: compare_pdf_occurrences
@@ -8310,7 +8205,8 @@ operations:
   results:
   - PdfIntegratedProduct
   applicability: []
-  universe: Retained raw coordinate/class observations, sparse page correspondences and versioned selection policy
+  universe: Retained raw coordinate/class observations, sparse page correspondences
+    and versioned selection policy
   effects: []
   outcomes:
   - complete
@@ -8322,7 +8218,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Coarse transformed blocks and inherited parent witnesses never confer glyph or native cell precision
+  precision: Coarse transformed blocks and inherited parent witnesses never confer
+    glyph or native cell precision
   transitions: []
   projections: []
   implementation: select_pdf_integration
@@ -8350,7 +8247,8 @@ operations:
   - implementation_version
   precision: Exact frozen inventory, complete native validation and atomic publication
   implementation: freeze_pdf_build
-  transitions: [pdf_private_freeze]
+  transitions:
+  - pdf_private_freeze
   projections: []
 - id: prepare_pdf_build
   inputs:
@@ -8428,7 +8326,8 @@ operations:
   - implementation_version
   precision: Exact frozen inventory, complete native validation and atomic publication
   implementation: seal_pdf_build
-  transitions: [pdf_private_publish]
+  transitions:
+  - pdf_private_publish
   projections: []
 - id: inspect_pdf_build
   inputs:
@@ -8609,9 +8508,9 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Only the owning attempt and holder are rebound. State, exact private values,
-    frozen inventory and frozen digest remain unchanged; no append, reopening or publication
-    capability follows from rebinding.
+  precision: Only the owning attempt and holder are rebound. State, exact private
+    values, frozen inventory and frozen digest remain unchanged; no append, reopening
+    or publication capability follows from rebinding.
   implementation: resume_pdf_build
   transitions: []
   projections: []
@@ -8724,61 +8623,6 @@ operations:
   implementation: stage_pdf_producer
   transitions: []
   projections: []
-- id: record_direction
-  inputs:
-  - Run
-  - OperatorDirection
-  results:
-  - OperatorDirection
-  applicability:
-  - qualified_reference
-  - immutable_binding
-  universe: Exact selected active run and its producing release; no project-active-release substitution
-  effects:
-  - atomic_protected_insert
-  outcomes:
-  - applied
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact supplied text, scope, actor, session and resolved project retained as authored provenance
-  implementation: record_direction
-  transitions: []
-  projections: []
-  calls:
-  - id: record_direction
-    symbol: ops.record_direction
-    parameters:
-    - name: run_id
-      source: physical:ops.intervention.run_id
-      nullable: false
-      native_parameter: p_run
-      semantic_type: RunId
-    - name: actor
-      source: physical:ops.intervention.actor
-      nullable: false
-      native_parameter: p_actor
-    - name: session_ref
-      source: physical:ops.intervention.session_ref
-      nullable: false
-      native_parameter: p_session
-    - name: body
-      source: physical:ops.intervention.body
-      nullable: false
-      native_parameter: p_body
-    result_fields:
-    - name: intervention_id
-      source: physical:ops.intervention.id
-      nullable: false
-      semantic_type: InterventionId
-    result_mode: scalar
-    cardinality: one
-    ordered: false
-    order_by: []
 - id: reference_record_set
   inputs:
   - ReferenceSet
@@ -8789,7 +8633,8 @@ operations:
   - ReferenceSet
   applicability:
   - reference_binding
-  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  universe: Frozen independent source-origin partition, completed cut, guideline,
+    primary and related frames; no production acceptance authority
   effects:
   - protected_independent_reference_operation
   outcomes:
@@ -8802,7 +8647,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  precision: Exact authored record readings, occurrence and attributed coordinates;
+    final quality remains unestablished
   implementation: reference_record_set
   transitions: []
   projections: []
@@ -8816,7 +8662,8 @@ operations:
   - ReferenceSet
   applicability:
   - reference_binding
-  universe: Frozen independent source-only operation frame, guideline and source-origin partition; no prediction-derived population or publication authority
+  universe: Frozen independent source-only operation frame, guideline and source-origin
+    partition; no prediction-derived population or publication authority
   effects:
   - protected_independent_reference_operation
   outcomes:
@@ -8829,7 +8676,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  precision: Exact authored record readings, occurrence and attributed coordinates;
+    final quality remains unestablished
   implementation: reference_operation_set
   transitions: []
   projections: []
@@ -8842,7 +8690,8 @@ operations:
   - ReferenceCitationFrame
   applicability:
   - reference_binding
-  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  universe: Frozen independent source-origin partition, completed cut, guideline,
+    primary and related frames; no production acceptance authority
   effects:
   - protected_independent_reference_operation
   outcomes:
@@ -8855,7 +8704,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  precision: Exact authored record readings, occurrence and attributed coordinates;
+    final quality remains unestablished
   implementation: reference_record_pass
   transitions: []
   projections: []
@@ -8868,7 +8718,8 @@ operations:
   - ReferenceCitationFrame
   applicability:
   - reference_binding
-  universe: Frozen independent source-only operation frame, guideline and source-origin partition; no prediction-derived population or publication authority
+  universe: Frozen independent source-only operation frame, guideline and source-origin
+    partition; no prediction-derived population or publication authority
   effects:
   - protected_independent_reference_operation
   outcomes:
@@ -8881,7 +8732,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  precision: Exact authored record readings, occurrence and attributed coordinates;
+    final quality remains unestablished
   implementation: reference_operation_pass
   transitions: []
   projections: []
@@ -8893,7 +8745,8 @@ operations:
   - ReferenceEvaluation
   applicability:
   - reference_binding
-  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  universe: Frozen independent source-origin partition, completed cut, guideline,
+    primary and related frames; no production acceptance authority
   effects:
   - protected_independent_reference_operation
   outcomes:
@@ -8906,7 +8759,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  precision: Exact authored record readings, occurrence and attributed coordinates;
+    final quality remains unestablished
   implementation: reference_record_grade
   transitions: []
   projections: []
@@ -8918,7 +8772,8 @@ operations:
   - ReferenceEvaluation
   applicability:
   - reference_binding
-  universe: Frozen independent source-only operation frame, guideline and source-origin partition; no prediction-derived population or publication authority
+  universe: Frozen independent source-only operation frame, guideline and source-origin
+    partition; no prediction-derived population or publication authority
   effects:
   - protected_independent_reference_operation
   outcomes:
@@ -8931,7 +8786,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  precision: Exact authored record readings, occurrence and attributed coordinates;
+    final quality remains unestablished
   implementation: reference_operation_grade
   transitions: []
   projections: []
@@ -8943,7 +8799,9 @@ operations:
   - OperationEventFit
   applicability:
   - reference_binding
-  universe: Immutable independently graded emitted operation events on the same development corpus; in-sample diagnostics and finite runtime parameters confer no source truth or publication authority
+  universe: Immutable independently graded emitted operation events on the same development
+    corpus; in-sample diagnostics and finite runtime parameters confer no source truth
+    or publication authority
   effects:
   - protected_independent_reference_operation
   outcomes:
@@ -8956,7 +8814,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  precision: Exact authored record readings, occurrence and attributed coordinates;
+    final quality remains unestablished
   implementation: reference_operation_fit
   transitions: []
   projections: []
@@ -8969,7 +8828,8 @@ operations:
   - ReferenceOriginSource
   applicability:
   - reference_binding
-  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  universe: Frozen independent source-origin partition, completed cut, guideline,
+    primary and related frames; no production acceptance authority
   effects:
   - protected_independent_reference_operation
   outcomes:
@@ -8982,7 +8842,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  precision: Exact authored record readings, occurrence and attributed coordinates;
+    final quality remains unestablished
   implementation: reference_record_partition
   transitions: []
   projections: []
@@ -8994,7 +8855,8 @@ operations:
   - ReferenceCitationFrame
   applicability:
   - reference_binding
-  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  universe: Frozen independent source-origin partition, completed cut, guideline,
+    primary and related frames; no production acceptance authority
   effects: []
   outcomes:
   - applied
@@ -9006,33 +8868,60 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  precision: Exact authored record readings, occurrence and attributed coordinates;
+    final quality remains unestablished
   implementation: reference_record_fit
   transitions: []
   projections: []
 - id: read_source_records
-  inputs: [EvaluationResult, SourceRecordInterpretation, SourceRecordAdmission]
-  results: [SourceRecordProjection]
-  applicability: [immutable_binding, same_snapshot]
-  universe: One immutable completed publication and its archived finite record projection; never a moving selected default
+  inputs:
+  - EvaluationResult
+  - SourceRecordInterpretation
+  - SourceRecordAdmission
+  results:
+  - SourceRecordProjection
+  applicability:
+  - immutable_binding
+  - same_snapshot
+  universe: One immutable completed publication and its archived finite record projection;
+    never a moving selected default
   effects: []
-  outcomes: [applied, conflict]
+  outcomes:
+  - applied
+  - conflict
   outcome_domain: transaction
-  dependencies: [semantic_release, execution_model, input_binding, implementation_version]
-  precision: Exact released field states, lexical values, ordered evidence, alternatives and admission standing; no new acceptance decision
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact released field states, lexical values, ordered evidence, alternatives
+    and admission standing; no new acceptance decision
   implementation: read_source_records
   transitions: []
   projections: []
 - id: read_source_contributions
-  inputs: [InputCut, SourceView]
-  results: [SourceObservationBatch]
-  applicability: [immutable_binding]
-  universe: Exact selected source task population, including missing and explicitly empty private contribution products
+  inputs:
+  - InputCut
+  - SourceView
+  results:
+  - SourceObservationBatch
+  applicability:
+  - immutable_binding
+  universe: Exact selected source task population, including missing and explicitly
+    empty private contribution products
   effects: []
-  outcomes: [applied, conflict]
+  outcomes:
+  - applied
+  - conflict
   outcome_domain: transaction
-  dependencies: [semantic_release, execution_model, input_binding, implementation_version]
-  precision: Private source contribution and operation identities, preserved source coordinate precision and independent semantic axes
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Private source contribution and operation identities, preserved source
+    coordinate precision and independent semantic axes
   implementation: read_source_contributions
   transitions: []
   projections: []
@@ -9130,17 +9019,17 @@ operations:
   - id: read_characterization_product
     symbol: ops.read_characterization_product
     parameters:
-    - &tc02id001
+    - &id001
       name: task_id
       source: physical:ops.characterization_product.task_id
       nullable: false
       native_parameter: p_task
-    - &tc02id002
+    - &id002
       name: product_key
       source: physical:ops.characterization_product.product_key
       nullable: false
       native_parameter: p_key
-    - &tc02id003
+    - &id003
       name: content_digest
       source: physical:ops.characterization_product.content_digest
       nullable: false
@@ -9153,7 +9042,10 @@ operations:
       source: physical:ops.run.id
       nullable: true
       native_parameter: p_run
-    - {name: max_bytes, source: primitive:integer, nullable: false, native_parameter: p_max_bytes}
+    - name: max_bytes
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_max_bytes
     result_mode: scalar
     result_fields:
     - name: result
@@ -9164,22 +9056,30 @@ operations:
   - id: read_characterization_layer_manifest
     symbol: ops.read_characterization_layer_manifest
     parameters:
-    - *tc02id001
-    - *tc02id002
-    - *tc02id003
-    - {name: run_id, source: physical:ops.run.id, nullable: true, native_parameter: p_run}
-    - {name: max_bytes, source: primitive:integer, nullable: false, native_parameter: p_max_bytes}
+    - *id001
+    - *id002
+    - *id003
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: true
+      native_parameter: p_run
+    - name: max_bytes
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_max_bytes
     result_mode: scalar
     result_fields:
-    - {name: result, source: primitive:json_payload, nullable: false}
+    - name: result
+      source: primitive:json_payload
+      nullable: false
     cardinality: one
     ordered: false
   - id: read_characterization_memberships
     symbol: ops.read_characterization_memberships
     parameters:
-    - *tc02id001
-    - *tc02id002
-    - *tc02id003
+    - *id001
+    - *id002
+    - *id003
     - name: groups
       source: primitive:json_payload
       nullable: false
@@ -9188,10 +9088,22 @@ operations:
       source: physical:ops.run.id
       nullable: true
       native_parameter: p_run
-    - {name: after, source: primitive:json_payload, nullable: true, native_parameter: p_after}
-    - {name: layer_key, source: primitive:string, nullable: true, native_parameter: p_layer_key}
-    - {name: limit, source: primitive:integer, nullable: false, native_parameter: p_limit}
-    - {name: max_bytes, source: primitive:integer, nullable: false, native_parameter: p_max_bytes}
+    - name: after
+      source: primitive:json_payload
+      nullable: true
+      native_parameter: p_after
+    - name: layer_key
+      source: primitive:string
+      nullable: true
+      native_parameter: p_layer_key
+    - name: limit
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_limit
+    - name: max_bytes
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_max_bytes
     result_mode: scalar
     result_fields:
     - name: result
@@ -9346,9 +9258,13 @@ implementations:
   symbol: enrich_selected_pdf
   version: '2'
   placement: core
-  input_concepts: [PdfNativeEnvelope]
-  result_concepts: [PdfNativeEnvelope]
-  features: [typed_bound_inputs, explicit_outcomes]
+  input_concepts:
+  - PdfNativeEnvelope
+  result_concepts:
+  - PdfNativeEnvelope
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
   effects: []
   required_capabilities: []
 - id: organize_pdf
@@ -9423,22 +9339,6 @@ implementations:
   - explicit_outcomes
   effects: []
   required_capabilities: []
-- id: capture_native_source_frame
-  owner: semantic.source_views
-  symbol: store_native_source_frame
-  version: '1'
-  placement: core
-  input_concepts:
-  - TaskInvocation
-  - SourceView
-  result_concepts:
-  - SourceView
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects:
-  - atomic_native_publication
-  required_capabilities: []
 - id: resolve_identity
   owner: semantic.domain_operations
   symbol: _entity_mappings
@@ -9463,48 +9363,62 @@ implementations:
   symbol: prepare_release
   version: '1'
   placement: pure
-  input_concepts: *id001
-  result_concepts: *id002
+  input_concepts:
+  - SourceBundle
+  - ResolvedDependencies
+  - PreparationProfile
+  result_concepts:
+  - PreparationResult
+  - SemanticRelease
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id003
+  effects: *id004
   required_capabilities: []
 - id: archive
   owner: semantic.releases
   symbol: persist_release
   version: '1'
   placement: core
-  input_concepts: *id004
-  result_concepts: *id005
+  input_concepts:
+  - SemanticRelease
+  result_concepts:
+  - Archive
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id006
+  effects: *id005
   required_capabilities: []
 - id: reload
   owner: semantic.releases
   symbol: load_release
   version: '1'
   placement: core
-  input_concepts: *id007
-  result_concepts: *id008
+  input_concepts:
+  - Archive
+  result_concepts:
+  - SemanticRelease
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id009
+  effects: *id006
   required_capabilities: []
 - id: activate
   owner: semantic.releases
   symbol: activate_release
   version: '1'
   placement: core
-  input_concepts: *id010
-  result_concepts: *id011
+  input_concepts:
+  - Project
+  - SemanticRelease
+  - ActivationToken
+  result_concepts:
+  - Project
+  - ActivationToken
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id012
+  effects: *id007
   required_capabilities:
   - execution.lifecycle.v1
 - id: start_run
@@ -9512,12 +9426,14 @@ implementations:
   symbol: create_run
   version: '2'
   placement: core
-  input_concepts: *id016
-  result_concepts: *id017
+  input_concepts:
+  - RunBinding
+  result_concepts:
+  - Run
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id018
+  effects: *id008
   required_capabilities:
   - execution.lifecycle.v1
 - id: method
@@ -9525,24 +9441,33 @@ implementations:
   symbol: record_method
   version: '1'
   placement: core
-  input_concepts: *id019
-  result_concepts: *id020
+  input_concepts:
+  - MethodDefinition
+  - MethodConfiguration
+  result_concepts:
+  - MethodDefinition
+  - MethodConfiguration
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id021
+  effects: *id009
   required_capabilities: []
 - id: schedule
   owner: semantic.operations
   symbol: create_task
   version: '1'
   placement: core
-  input_concepts: *id022
-  result_concepts: *id023
+  input_concepts:
+  - Run
+  - MethodDefinition
+  - MethodConfiguration
+  - TaskUnit
+  result_concepts:
+  - TaskInvocation
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id024
+  effects: *id010
   required_capabilities:
   - execution.lifecycle.v1
 - id: claim
@@ -9550,12 +9475,17 @@ implementations:
   symbol: claim_tasks
   version: '2'
   placement: core
-  input_concepts: *id025
-  result_concepts: *id026
+  input_concepts:
+  - Run
+  - TaskInvocation
+  - Attempt
+  result_concepts:
+  - TaskInvocation
+  - Attempt
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id027
+  effects: *id011
   required_capabilities:
   - execution.lifecycle.v1
 - id: complete
@@ -9563,12 +9493,19 @@ implementations:
   symbol: complete_task
   version: '2'
   placement: core
-  input_concepts: *id028
-  result_concepts: *id029
+  input_concepts:
+  - Run
+  - TaskInvocation
+  - Attempt
+  - TaskResultEnvelope
+  result_concepts:
+  - TaskResultEnvelope
+  - SourceObservation
+  - SourceCoverage
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id030
+  effects: *id012
   required_capabilities:
   - execution.lifecycle.v1
 - id: complete_unit
@@ -9576,25 +9513,19 @@ implementations:
   symbol: complete_unit_result
   version: '2'
   placement: core
-  input_concepts: *id031
-  result_concepts: *id032
+  input_concepts:
+  - Run
+  - TaskInvocation
+  - Attempt
+  - TaskResultEnvelope
+  result_concepts:
+  - TaskResultEnvelope
+  - SourceObservation
+  - Measurement
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id033
-  required_capabilities:
-  - execution.lifecycle.v1
-- id: hold
-  owner: semantic.operations
-  symbol: hold_agent_result
-  version: '2'
-  placement: core
-  input_concepts: *id034
-  result_concepts: *id035
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id036
+  effects: *id013
   required_capabilities:
   - execution.lifecycle.v1
 - id: cut
@@ -9602,26 +9533,33 @@ implementations:
   symbol: seal_cut
   version: '1'
   placement: core
-  input_concepts: *id037
-  result_concepts: *id038
+  input_concepts:
+  - Run
+  - TaskInvocation
+  result_concepts:
+  - InputCut
+  - FinalCut
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id039
+  effects: *id014
   required_capabilities:
   - execution.lifecycle.v1
-
 - id: end_run
   owner: semantic.operations
   symbol: end_source_run
   version: '1'
   placement: core
-  input_concepts: *id043
-  result_concepts: *id044
+  input_concepts:
+  - Run
+  - TaskInvocation
+  result_concepts:
+  - Run
+  - TaskInvocation
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id045
+  effects: *id015
   required_capabilities:
   - execution.lifecycle.v1
 - id: read_original
@@ -9629,84 +9567,70 @@ implementations:
   symbol: read_original
   version: '1'
   placement: core
-  input_concepts: *id049
-  result_concepts: *id050
+  input_concepts:
+  - Document
+  result_concepts:
+  - SourceArtifact
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id051
+  effects: *id016
   required_capabilities: []
 - id: bind_report
   owner: semantic.observations
   symbol: bind_result
   version: '2'
   placement: pure
-  input_concepts: *id058
-  result_concepts: *id059
+  input_concepts:
+  - TaskResultEnvelope
+  - SourceObservation
+  result_concepts:
+  - TaskResultEnvelope
+  - SourceObservation
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id060
-  required_capabilities: []
-- id: packet
-  owner: semantic.proposals
-  symbol: proposal_packet
-  version: '1'
-  placement: pure
-  input_concepts: *id061
-  result_concepts: *id062
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id063
-  required_capabilities: []
-- id: locate
-  owner: semantic.proposals
-  symbol: locate_proposal
-  version: '1'
-  placement: pure
-  input_concepts: *id064
-  result_concepts: *id065
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id066
-  required_capabilities: []
-- id: submission
-  owner: intervene.semantic
-  symbol: ProposalSession.commit
-  version: '1'
-  placement: core
-  input_concepts: *id064
-  result_concepts: *id065
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id066
+  effects: *id017
   required_capabilities: []
 - id: assemble
   owner: semantic.consolidation
   symbol: assemble
   version: '1'
   placement: pure
-  input_concepts: *id067
-  result_concepts: *id068
+  input_concepts:
+  - InputCut
+  - SourceObservation
+  - Qualification
+  result_concepts:
+  - Entity
+  - SemanticFact
+  - AssertionOccurrence
+  - Support
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id069
+  effects: *id018
   required_capabilities: []
 - id: evaluate
   owner: semantic.domain_operations
   symbol: consolidate_cut
   version: '1'
   placement: core
-  input_concepts: *id070
-  result_concepts: *id071
+  input_concepts:
+  - FinalCut
+  - RunBinding
+  - OperationPolicy
+  result_concepts:
+  - EvaluationResult
+  - Realization
+  - PublicationReceipt
+  - Assessment
+  - Selection
+  - AlternativeGroup
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id072
+  effects: *id019
   required_capabilities:
   - execution.lifecycle.v1
 - id: scientific_policy
@@ -9714,48 +9638,66 @@ implementations:
   symbol: ReleasedRulesPolicy.evaluate
   version: '1'
   placement: core
-  input_concepts: *id073
-  result_concepts: *id074
+  input_concepts:
+  - CandidateInput
+  - OperationPolicy
+  - ScientificContext
+  result_concepts:
+  - Assessment
+  - Selection
+  - AlternativeGroup
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id075
+  effects: *id020
   required_capabilities: []
 - id: derive
   owner: semantic.inference
   symbol: derive
   version: '1'
   placement: core
-  input_concepts: *id076
-  result_concepts: *id077
+  input_concepts:
+  - SnapshotBinding
+  - InferenceRule
+  result_concepts:
+  - Derivation
+  - SemanticFact
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id078
+  effects: *id021
   required_capabilities: []
 - id: publish_inference
   owner: semantic.inference
   symbol: publish_inference
   version: '1'
   placement: core
-  input_concepts: *id079
-  result_concepts: *id080
+  input_concepts:
+  - SnapshotBinding
+  - Derivation
+  result_concepts:
+  - PublicationReceipt
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id081
+  effects: *id022
   required_capabilities: []
 - id: publish
   owner: semantic.publication
   symbol: publish_batch
   version: '1'
   placement: core
-  input_concepts: *id082
-  result_concepts: *id083
+  input_concepts:
+  - Realization
+  - Entity
+  - SemanticFact
+  - AssertionOccurrence
+  result_concepts:
+  - PublicationReceipt
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id084
+  effects: *id023
   required_capabilities:
   - execution.lifecycle.v1
 - id: native_admission
@@ -9763,109 +9705,142 @@ implementations:
   symbol: admit_release
   version: '1'
   placement: core
-  input_concepts: *id085
-  result_concepts: *id086
+  input_concepts:
+  - SemanticRelease
+  result_concepts:
+  - SemanticRelease
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id087
+  effects: *id024
   required_capabilities: []
 - id: read
   owner: semantic.query
   symbol: read_session
   version: '1'
   placement: core
-  input_concepts: *id088
-  result_concepts: *id089
+  input_concepts:
+  - Realization
+  result_concepts:
+  - SnapshotBinding
+  - QueryHandle
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id090
+  effects: *id025
   required_capabilities: []
 - id: query
   owner: semantic.query
   symbol: ReadSession.query
   version: '1'
   placement: core
-  input_concepts: *id091
-  result_concepts: *id092
+  input_concepts:
+  - SnapshotBinding
+  - QueryDefinition
+  - QueryHandle
+  result_concepts:
+  - QueryResult
+  - SemanticCoverage
+  - PageCompleteness
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id093
+  effects: *id026
   required_capabilities: []
 - id: explain
   owner: semantic.query
   symbol: ReadSession.explain
   version: '1'
   placement: core
-  input_concepts: *id094
-  result_concepts: *id095
+  input_concepts:
+  - SnapshotBinding
+  - SemanticFact
+  result_concepts:
+  - Explanation
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id096
+  effects: *id027
   required_capabilities: []
 - id: projection
   owner: semantic.analytics
   symbol: compile_projection
   version: '1'
   placement: pure
-  input_concepts: *id097
-  result_concepts: *id098
+  input_concepts:
+  - SemanticRelease
+  - SnapshotBinding
+  result_concepts:
+  - ProjectionProfile
+  - ArithmeticProfile
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id099
+  effects: *id028
   required_capabilities: []
 - id: capture
   owner: semantic.analytics
   symbol: capture_packet
   version: '1'
   placement: core
-  input_concepts: *id100
-  result_concepts: *id101
+  input_concepts:
+  - SnapshotBinding
+  - ProjectionProfile
+  - ArithmeticProfile
+  result_concepts:
+  - CapturedPacket
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id102
+  effects: *id029
   required_capabilities: []
 - id: analysis
   owner: semantic.analytics
   symbol: AnalysisScope
   version: '1'
   placement: analytical
-  input_concepts: *id103
-  result_concepts: *id104
+  input_concepts:
+  - CapturedPacket
+  - CandidateInput
+  - ProjectionProfile
+  result_concepts:
+  - AnalysisScope
+  - BorrowedResult
+  - DetachedResult
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id105
+  effects: *id030
   required_capabilities: []
 - id: analysis_close
   owner: semantic.analytics
   symbol: AnalysisScope.close
   version: '1'
   placement: analytical
-  input_concepts: *id106
+  input_concepts:
+  - AnalysisScope
+  - AnalysisResult
   result_concepts:
   - AnalysisScope
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id107
+  effects: *id031
   required_capabilities: []
 - id: publish_arrow
   owner: semantic.arrow_publication
   symbol: publish_arrow
   version: '1'
   placement: core
-  input_concepts: *id108
-  result_concepts: *id109
+  input_concepts:
+  - AppendPublication
+  - SnapshotDerivedPublication
+  result_concepts:
+  - PublicationReceipt
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id110
+  effects: *id032
   required_capabilities:
   - execution.lifecycle.v1
 - id: renew_claim
@@ -10035,7 +10010,6 @@ implementations:
   - explicit_outcomes
   effects: []
   required_capabilities: []
-
 - id: retain_pdf_original
   owner: semantic.pdf_contracts
   symbol: store_pdf_original
@@ -10113,7 +10087,6 @@ implementations:
   - explicit_outcomes
   effects: []
   required_capabilities: []
-
 - id: prepare_integrated_pdf
   owner: semantic.pdf_integrated
   symbol: prepare_integrated_pdf_product
@@ -10471,23 +10444,6 @@ implementations:
   effects:
   - atomic_private_pdf_stage
   required_capabilities: []
-- id: record_direction
-  owner: intervene.directions
-  symbol: record_direction
-  version: '1'
-  placement: core
-  input_concepts:
-  - Run
-  - OperatorDirection
-  result_concepts:
-  - OperatorDirection
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects:
-  - atomic_protected_insert
-  required_capabilities:
-  - execution.lifecycle.v1
 - id: reference_record_set
   owner: evaluate.record_references
   symbol: create_reference_set
@@ -10652,9 +10608,15 @@ implementations:
   symbol: read_completed_record_projection
   version: '1'
   placement: core
-  input_concepts: [EvaluationResult, SourceRecordInterpretation, SourceRecordAdmission]
-  result_concepts: [SourceRecordProjection]
-  features: [typed_bound_inputs, explicit_outcomes]
+  input_concepts:
+  - EvaluationResult
+  - SourceRecordInterpretation
+  - SourceRecordAdmission
+  result_concepts:
+  - SourceRecordProjection
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
   effects: []
   required_capabilities: []
 - id: read_source_contributions
@@ -10662,9 +10624,14 @@ implementations:
   symbol: read_source_contributions
   version: '1'
   placement: core
-  input_concepts: [InputCut, SourceView]
-  result_concepts: [SourceObservationBatch]
-  features: [typed_bound_inputs, explicit_outcomes]
+  input_concepts:
+  - InputCut
+  - SourceView
+  result_concepts:
+  - SourceObservationBatch
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
   effects: []
   required_capabilities: []
 - id: publish_characterization
@@ -10718,13 +10685,35 @@ implementations:
   required_capabilities: []
 projections:
 - id: source_record_candidate
-  sources: [SourceRecordInterpretation, SourceRecordAdmission, InputCut]
-  relationships: [record_source_membership, record_candidate_admission]
-  universe: Every completed selected task report in the sealed cut, including absent records and explicitly empty record collections
-  preserves: [source_record_identity, interpretation_identity, released_family_roles, field_states, evidence_status, exact_numeric_spelling, original_pieces, ordered_evidence, field_alternatives, computation_dependencies, selected_origin_task_provenance, private_assertion_strings]
-  omissions: [accepted_record_decisions, public_assertion_bindings]
-  precision: Genuine native and attributed source coordinates retain their actual precision; no synthetic locator
-  collections: Finite positioned field, alternative, anchor, set, membership, premise and dependency relations
+  sources:
+  - SourceRecordInterpretation
+  - SourceRecordAdmission
+  - InputCut
+  relationships:
+  - record_source_membership
+  - record_candidate_admission
+  universe: Every completed selected task report in the sealed cut, including absent
+    records and explicitly empty record collections
+  preserves:
+  - source_record_identity
+  - interpretation_identity
+  - released_family_roles
+  - field_states
+  - evidence_status
+  - exact_numeric_spelling
+  - original_pieces
+  - ordered_evidence
+  - field_alternatives
+  - computation_dependencies
+  - selected_origin_task_provenance
+  - private_assertion_strings
+  omissions:
+  - accepted_record_decisions
+  - public_assertion_bindings
+  precision: Genuine native and attributed source coordinates retain their actual
+    precision; no synthetic locator
+  collections: Finite positioned field, alternative, anchor, set, membership, premise
+    and dependency relations
   completeness: Exact comparison with immutable selected cut task-result envelopes
   lifetime: transaction
   implementation: evaluate
@@ -10949,7 +10938,11 @@ projections:
     precision: exact_literals
     collections: positions_and_multiplicity
     lifetime: snapshot
-    node_kinds: [entity, evidence, direct, record]
+    node_kinds:
+    - entity
+    - evidence
+    - direct
+    - record
   sources:
   - QualifiedGraphProjection
   - QualifiedGraphReference
@@ -11354,7 +11347,6 @@ lifecycles:
   - task_reclaim
   - task_reclaim_held
   - task_claim_held
-  - task_hold
   - task_complete
   - task_complete_held
   - task_cancel
@@ -11364,72 +11356,6 @@ lifecycles:
   - terminal_result
   - immutable_binding
   - reuse_origin
-- id: submission
-  subject: SubmissionResult
-  dimensions:
-  - id: progress
-    values:
-    - none
-    - held
-  - id: disposition
-    values:
-    - none
-    - held
-    - completed_accepted
-    - completed_refused
-    - refused_context
-  states:
-  - id: new
-    values:
-    - dimension: progress
-      value: none
-    - dimension: disposition
-      value: none
-    terminal: false
-  - id: held
-    values:
-    - dimension: progress
-      value: held
-    - dimension: disposition
-      value: held
-    terminal: false
-  - id: clean
-    values:
-    - dimension: progress
-      value: none
-    - dimension: disposition
-      value: completed_accepted
-    terminal: true
-  - id: accepted
-    values:
-    - dimension: progress
-      value: held
-    - dimension: disposition
-      value: completed_accepted
-    terminal: true
-  - id: refused
-    values:
-    - dimension: progress
-      value: held
-    - dimension: disposition
-      value: completed_refused
-    terminal: true
-  - id: context_refused
-    values:
-    - dimension: progress
-      value: none
-    - dimension: disposition
-      value: refused_context
-    terminal: true
-  initial_states:
-  - new
-  transitions:
-  - submission_hold
-  - submission_clean
-  - submission_resubmit
-  invariants:
-  - attempt_fence
-  - packet_reads
 - id: cut
   subject: InputCut
   dimensions:
@@ -11648,30 +11574,48 @@ lifecycles:
       value: open
     terminal: false
   - id: frozen
-    values: [{dimension: status, value: frozen}]
+    values:
+    - dimension: status
+      value: frozen
     terminal: false
   - id: published
-    values: [{dimension: status, value: published}]
+    values:
+    - dimension: status
+      value: published
     terminal: true
   - id: abandoned
     values:
     - dimension: status
       value: abandoned
     terminal: true
-  initial_states: [open]
-  invariants: [attempt_fence]
-  transitions: [pdf_private_abandon, pdf_private_freeze, pdf_private_publish]
-
+  initial_states:
+  - open
+  invariants:
+  - attempt_fence
+  transitions:
+  - pdf_private_abandon
+  - pdf_private_freeze
+  - pdf_private_publish
 transitions:
 - id: run_begin
   lifecycle: run
   operation: start_run
-  from_states: [created]
-  to_states: [running]
-  immutable_bindings: [release, input_revision, method_configuration, invocation_identity]
-  invariants: [immutable_binding]
+  from_states:
+  - created
+  to_states:
+  - running
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - immutable_binding
   effects: []
-  outcomes: [applied, replay, conflict]
+  outcomes:
+  - applied
+  - replay
+  - conflict
 - id: run_final_cut
   lifecycle: run
   operation: capture_cut
@@ -11690,7 +11634,7 @@ transitions:
   effects:
   - capture_final_cut
   - seal_source_production
-  outcomes: *id112
+  outcomes: *id033
 - id: run_finish
   lifecycle: run
   operation: evaluate
@@ -11708,7 +11652,7 @@ transitions:
   - final_cut_barrier
   effects:
   - publish_receipts_and_completed_result_atomically
-  outcomes: *id113
+  outcomes: *id034
 - id: run_fail_open
   lifecycle: run
   operation: end_run
@@ -11726,7 +11670,7 @@ transitions:
   invariants:
   - immutable_binding
   effects: []
-  outcomes: *id114
+  outcomes: *id035
 - id: run_fail_sealed
   lifecycle: run
   operation: end_run
@@ -11743,7 +11687,7 @@ transitions:
   invariants:
   - immutable_binding
   effects: []
-  outcomes: *id114
+  outcomes: *id035
 - id: task_claim
   lifecycle: task
   operation: claim
@@ -11760,7 +11704,7 @@ transitions:
   invariants:
   - attempt_fence
   effects: []
-  outcomes: *id115
+  outcomes: *id036
 - id: task_reclaim
   lifecycle: task
   operation: claim
@@ -11776,7 +11720,7 @@ transitions:
   invariants:
   - attempt_fence
   effects: []
-  outcomes: *id115
+  outcomes: *id036
 - id: task_reclaim_held
   lifecycle: task
   operation: claim
@@ -11792,24 +11736,7 @@ transitions:
   invariants:
   - attempt_fence
   effects: []
-  outcomes: *id115
-- id: task_hold
-  lifecycle: task
-  operation: hold_submission
-  from_states:
-  - running
-  to_states:
-  - running_held
-  immutable_bindings:
-  - release
-  - input_revision
-  - method_configuration
-  - invocation_identity
-  invariants:
-  - attempt_fence
-  - packet_reads
-  effects: []
-  outcomes: *id116
+  outcomes: *id036
 - id: task_complete
   lifecycle: task
   operation: complete
@@ -11828,7 +11755,7 @@ transitions:
   - attempt_fence
   - terminal_result
   effects: []
-  outcomes: *id117
+  outcomes: *id037
 - id: task_complete_held
   lifecycle: task
   operation: complete
@@ -11847,7 +11774,7 @@ transitions:
   - attempt_fence
   - terminal_result
   effects: []
-  outcomes: *id117
+  outcomes: *id037
 - id: task_cancel
   lifecycle: task
   operation: end_run
@@ -11865,7 +11792,7 @@ transitions:
   invariants:
   - attempt_fence
   effects: []
-  outcomes: *id114
+  outcomes: *id035
 - id: task_cancel_held
   lifecycle: task
   operation: end_run
@@ -11882,60 +11809,7 @@ transitions:
   invariants:
   - attempt_fence
   effects: []
-  outcomes: *id114
-- id: submission_hold
-  lifecycle: submission
-  operation: hold_submission
-  from_states:
-  - new
-  to_states:
-  - held
-  immutable_bindings:
-  - release
-  - input_revision
-  - method_configuration
-  - invocation_identity
-  invariants:
-  - attempt_fence
-  - packet_reads
-  effects: []
-  outcomes: *id116
-- id: submission_clean
-  lifecycle: submission
-  operation: check_submission
-  from_states:
-  - new
-  to_states:
-  - clean
-  - context_refused
-  immutable_bindings:
-  - release
-  - input_revision
-  - method_configuration
-  - invocation_identity
-  invariants:
-  - attempt_fence
-  - packet_reads
-  effects: []
-  outcomes: *id118
-- id: submission_resubmit
-  lifecycle: submission
-  operation: check_submission
-  from_states:
-  - held
-  to_states:
-  - accepted
-  - refused
-  immutable_bindings:
-  - release
-  - input_revision
-  - method_configuration
-  - invocation_identity
-  invariants:
-  - attempt_fence
-  - packet_reads
-  effects: []
-  outcomes: *id118
+  outcomes: *id035
 - id: realization_complete
   lifecycle: realization
   operation: evaluate
@@ -11952,7 +11826,7 @@ transitions:
   - writable_output
   - completed_result
   effects: []
-  outcomes: *id113
+  outcomes: *id034
 - id: result_publish
   lifecycle: evaluation_result
   operation: evaluate
@@ -11968,7 +11842,7 @@ transitions:
   invariants:
   - completed_result
   effects: []
-  outcomes: *id113
+  outcomes: *id034
 - id: task_renew_claim
   lifecycle: task
   operation: renew_claim
@@ -12212,7 +12086,9 @@ transitions:
 outcome_domains:
 - id: source_request
   authority: code
-  values: [source_ready, failed]
+  values:
+  - source_ready
+  - failed
 - id: preparation
   authority: code
   values:
@@ -12229,13 +12105,6 @@ outcome_domains:
   - reused
   - skipped
   - cancelled
-- id: submission
-  authority: code
-  values:
-  - held
-  - completed_accepted
-  - completed_refused
-  - refused_context
 - id: source_coverage
   authority: code
   values:
@@ -12253,7 +12122,10 @@ outcome_domains:
   - failed
 - id: scientific_comparison
   authority: code
-  values: [equivalent, different, undecided]
+  values:
+  - equivalent
+  - different
+  - undecided
 - id: scientific
   authority: code
   values:
@@ -12330,16 +12202,21 @@ outcome_domains:
   - runtime_failure
 - id: readiness
   authority: code
-  values: [source_ready, awaiting_agent]
-- id: hold_decision
-  authority: code
-  values: [held, proceed]
+  values:
+  - source_ready
+  - awaiting_agent
 - id: assessment_finding
   authority: code
-  values: [warning, refuted]
+  values:
+  - warning
+  - refuted
 - id: selection
   authority: code
-  values: [accepted, rejected, candidate, ambiguous]
+  values:
+  - accepted
+  - rejected
+  - candidate
+  - ambiguous
 - id: continuation
   authority: code
   values:
@@ -12491,7 +12368,8 @@ native_guards:
 - id: native_source_address
   symbol: ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb)
   version: '2'
-  invariants: [published_document_address]
+  invariants:
+  - published_document_address
 - id: execution_edge
   symbol: ops.execution_edge(text,text,text)
   version: '1'
@@ -12534,133 +12412,136 @@ native_guards:
   - reference_binding
 effect_definitions:
 - id: atomic_attempt_holder_deadline_change
-  version: "1"
+  version: '1'
   meaning: atomic attempt holder deadline change
 - id: external_model_requests
   version: '1'
-  meaning: Owned finite external model requests with cancellation and retained failure evidence
+  meaning: Owned finite external model requests with cancellation and retained failure
+    evidence
 - id: retain_recognition_artifacts
   version: '1'
-  meaning: Exact submitted images, raw provider responses and public union/crop decisions retained for replay
+  meaning: Exact submitted images, raw provider responses and public union/crop decisions
+    retained for replay
 - id: atomic_native_publication
-  version: "1"
+  version: '1'
   meaning: atomic native publication
 - id: atomic_parent_generation_cas
-  version: "1"
+  version: '1'
   meaning: atomic parent generation cas
 - id: atomic_protected_insert
-  version: "1"
+  version: '1'
   meaning: atomic protected insert
 - id: atomic_source_proof_result_publication
-  version: "1"
+  version: '1'
   meaning: atomic source proof result publication
 - id: atomic_terminal_result_and_reports
-  version: "1"
+  version: '1'
   meaning: atomic terminal result and reports
 - id: attempt_every_owned_teardown
-  version: "1"
+  version: '1'
   meaning: attempt every owned teardown
 - id: capture_final_cut
-  version: "1"
+  version: '1'
   meaning: capture final cut
 - id: construct_new_run
-  version: "2"
-  meaning: Register immutable implementation provenance and construct a new run pinned to that same-release runtime binding
+  version: '2'
+  meaning: Register immutable implementation provenance and construct a new run pinned
+    to that same-release runtime binding
 - id: coordinated_run_and_task_terminalization
-  version: "1"
+  version: '1'
   meaning: coordinated run and task terminalization
 - id: durable_checked_progress
-  version: "1"
+  version: '1'
   meaning: durable checked progress
 - id: final_cut_seals_source_atomically
-  version: "1"
+  version: '1'
   meaning: final cut seals source atomically
 - id: freeze_method_configuration
-  version: "1"
+  version: '1'
   meaning: freeze method configuration
 - id: immutable_cut
-  version: "1"
+  version: '1'
   meaning: immutable cut
 - id: initialize_project_and_empty_writable_realization
-  version: "1"
+  version: '1'
   meaning: initialize project and empty writable realization
 - id: invalidate_borrowed_handles
-  version: "1"
+  version: '1'
   meaning: invalidate borrowed handles
 - id: materialize_same_snapshot_before_source_close
-  version: "1"
+  version: '1'
   meaning: materialize same snapshot before source close
 - id: monotone_revision
-  version: "1"
+  version: '1'
   meaning: monotone revision
 - id: own_engine_readers_registrations_scratch
-  version: "1"
+  version: '1'
   meaning: own engine readers registrations scratch
 - id: persist_exact_archive
-  version: "1"
+  version: '1'
   meaning: persist exact archive
 - id: persist_typed_source_and_measurement_reports
-  version: "1"
+  version: '1'
   meaning: persist typed source and measurement reports
 - id: preserve_exact_authored_and_context_bytes
-  version: "1"
+  version: '1'
   meaning: preserve exact authored and context bytes
 - id: preserve_failure_and_cancellation
-  version: "1"
+  version: '1'
   meaning: preserve failure and cancellation
 - id: preserve_identity_exclusions
-  version: "1"
+  version: '1'
   meaning: preserve identity exclusions
 - id: preserve_independently_detached_values
-  version: "1"
+  version: '1'
   meaning: preserve independently detached values
 - id: preserve_original_bytes
-  version: "1"
+  version: '1'
   meaning: preserve original bytes
 - id: preserve_original_normalized_distinction
-  version: "1"
+  version: '1'
   meaning: preserve original normalized distinction
 - id: private_canonical_assembly
-  version: "1"
+  version: '1'
   meaning: private canonical assembly
 - id: private_compute
-  version: "1"
+  version: '1'
   meaning: private compute
 - id: private_finite_positive_proof
-  version: "1"
+  version: '1'
   meaning: private finite positive proof
 - id: protected_copy_same_transaction
-  version: "1"
+  version: '1'
   meaning: protected copy same transaction
 - id: protected_independent_reference_operation
-  version: "1"
+  version: '1'
   meaning: protected independent reference operation
 - id: protected_proof_publication
-  version: "1"
+  version: '1'
   meaning: protected proof publication
 - id: publish_receipts_and_completed_result_atomically
-  version: "1"
+  version: '1'
   meaning: publish receipts and completed result atomically
 - id: release_current_attempt_preserving_held_progress
-  version: "1"
+  version: '1'
   meaning: release current attempt preserving held progress
 - id: release_owned_resources
-  version: "1"
+  version: '1'
   meaning: release owned resources
 - id: renew_current_attempt_deadline
-  version: "1"
+  version: '1'
   meaning: renew current attempt deadline
 - id: renew_deadline
-  version: "1"
+  version: '1'
   meaning: renew deadline
 - id: retain_held_diagnostics
-  version: "1"
+  version: '1'
   meaning: retain held diagnostics
 - id: schedule_pending_or_reused_or_skipped
-  version: "2"
+  version: '2'
   meaning: schedule pending or reused or skipped
 - id: seal_source_production
-  version: "1"
+  version: '1'
   meaning: seal source production
 - id: atomic_private_pdf_stage
   version: '1'
@@ -12680,60 +12561,246 @@ effect_definitions:
 analysis_profiles:
 - id: mathematical-interpretation
   version: '6'
-  invocation_policy: {logical_recipe: invocation-logical-1, executable_recipe: invocation-packet-1, dependencies: [release, source, configuration, policy, unit], skipped_packet: absent, executable_packet: required}
-  capture_policy: {modes: [resident, spooled], manifest: semantic-capture-1, digest: canonical-rows-1, ordering: primary-key-c, completeness: full-spine, storage: parquet}
-  text_policy: {recipe: canonical-token-layout-1, offsets: codepoints, atoms: math-reference, segmentation: configured-spacy}
-  alignment_policy: {recipe: semantic-alignment-1, max_iterations: 8, solver: scipy-dense, topology: networkx, ambiguity: refuse-equal-best}
-  placement_policy: {recipe: citation-cascade-2, candidate_limit: 5, token_cutoff: 80, token_pad: 3, char_cutoff: 85, char_pad: '0.30', char_errors: '0.15', pick_cutoff: 80, regex_timeout: '1.0', refine_timeout: '0.2'}
-  mathematical_conventions: [naturals-zero-1, set-builder-real-domain-1]
+  invocation_policy:
+    logical_recipe: invocation-logical-1
+    executable_recipe: invocation-packet-1
+    dependencies:
+    - release
+    - source
+    - configuration
+    - policy
+    - unit
+    skipped_packet: absent
+    executable_packet: required
+  capture_policy:
+    modes:
+    - resident
+    - spooled
+    manifest: semantic-capture-1
+    digest: canonical-rows-1
+    ordering: primary-key-c
+    completeness: full-spine
+    storage: parquet
+  text_policy:
+    recipe: canonical-token-layout-1
+    offsets: codepoints
+    atoms: math-reference
+    segmentation: configured-spacy
+  alignment_policy:
+    recipe: semantic-alignment-1
+    max_iterations: 8
+    solver: scipy-dense
+    topology: networkx
+    ambiguity: refuse-equal-best
+  placement_policy:
+    recipe: citation-cascade-2
+    candidate_limit: 5
+    token_cutoff: 80
+    token_pad: 3
+    char_cutoff: 85
+    char_pad: '0.30'
+    char_errors: '0.15'
+    pick_cutoff: 80
+    regex_timeout: '1.0'
+    refine_timeout: '0.2'
+  mathematical_conventions:
+  - naturals-zero-1
+  - set-builder-real-domain-1
   grammar_recipe: extended-lark-3
   transformer_recipe: sympy-transform-3
-  shared_consumers: [normalize.formula, extract.math]
+  shared_consumers:
+  - normalize.formula
+  - extract.math
   scientific_questions:
-  - {question: definedness, prerequisites: [interpretation], result_basis: [definedness]}
-  - {question: predicate, prerequisites: [symbolic], result_basis: [definedness, symbolic]}
-  - {question: refine, prerequisites: [symbolic], result_basis: [definedness, symbolic]}
-  - {question: free_symbols, prerequisites: [symbolic], result_basis: [definedness, symbolic]}
-  - {question: calculate, prerequisites: [symbolic], result_basis: [definedness, symbolic]}
+  - question: definedness
+    prerequisites:
+    - interpretation
+    result_basis:
+    - definedness
+  - question: predicate
+    prerequisites:
+    - symbolic
+    result_basis:
+    - definedness
+    - symbolic
+  - question: refine
+    prerequisites:
+    - symbolic
+    result_basis:
+    - definedness
+    - symbolic
+  - question: free_symbols
+    prerequisites:
+    - symbolic
+    result_basis:
+    - definedness
+    - symbolic
+  - question: calculate
+    prerequisites:
+    - symbolic
+    result_basis:
+    - definedness
+    - symbolic
   scientific_profiles:
-  - {policy_id: consolidation-evidence-2, symbolic_method: domain-targeted-then-simplify-2, numeric_method: xreplace-evalf, backend: direct, simplify_seconds: '5.0', points: 12, max_draws: 4000, minimum_valid_points: 6, relative_tolerance: '1e-9', absolute_tolerance: '1e-12', seed: canonical-restrictions, numeric_requires: interpreted-conditions}
-  - {policy_id: reference-evidence-2, symbolic_method: domain-targeted-then-simplify-2, numeric_method: evalf-subs, backend: direct, simplify_seconds: '5.0', points: 12, max_draws: 12, minimum_valid_points: 12, relative_tolerance: '1e-9', absolute_tolerance: '0', seed: raw-operands, numeric_requires: no-restrictions}
+  - policy_id: consolidation-evidence-2
+    symbolic_method: domain-targeted-then-simplify-2
+    numeric_method: xreplace-evalf
+    backend: direct
+    simplify_seconds: '5.0'
+    points: 12
+    max_draws: 4000
+    minimum_valid_points: 6
+    relative_tolerance: 1e-9
+    absolute_tolerance: 1e-12
+    seed: canonical-restrictions
+    numeric_requires: interpreted-conditions
+  - policy_id: reference-evidence-2
+    symbolic_method: domain-targeted-then-simplify-2
+    numeric_method: evalf-subs
+    backend: direct
+    simplify_seconds: '5.0'
+    points: 12
+    max_draws: 12
+    minimum_valid_points: 12
+    relative_tolerance: 1e-9
+    absolute_tolerance: '0'
+    seed: raw-operands
+    numeric_requires: no-restrictions
   demands:
   - id: lexical
     prerequisites: []
-    dependencies: [grammar, profile, kind, macros]
+    dependencies:
+    - grammar
+    - profile
+    - kind
+    - macros
   - id: structure
-    prerequisites: [lexical]
-    dependencies: [grammar, profile, kind, macros]
+    prerequisites:
+    - lexical
+    dependencies:
+    - grammar
+    - profile
+    - kind
+    - macros
   - id: syntax
-    prerequisites: [lexical]
-    dependencies: [grammar, profile, kind, macros]
+    prerequisites:
+    - lexical
+    dependencies:
+    - grammar
+    - profile
+    - kind
+    - macros
   - id: occurrences
-    prerequisites: [syntax]
-    dependencies: [grammar, profile, kind, macros, declarations, scope, missing_declarations]
+    prerequisites:
+    - syntax
+    dependencies:
+    - grammar
+    - profile
+    - kind
+    - macros
+    - declarations
+    - scope
+    - missing_declarations
   - id: interpretation
-    prerequisites: [occurrences]
-    dependencies: [grammar, transformer, profile, kind, macros, declarations, scope, assumptions, missing_declarations]
+    prerequisites:
+    - occurrences
+    dependencies:
+    - grammar
+    - transformer
+    - profile
+    - kind
+    - macros
+    - declarations
+    - scope
+    - assumptions
+    - missing_declarations
   - id: symbolic
-    prerequisites: [interpretation]
-    dependencies: [grammar, transformer, profile, kind, macros, declarations, scope, assumptions, missing_declarations]
+    prerequisites:
+    - interpretation
+    dependencies:
+    - grammar
+    - transformer
+    - profile
+    - kind
+    - macros
+    - declarations
+    - scope
+    - assumptions
+    - missing_declarations
   - id: scientific
-    prerequisites: [symbolic]
-    dependencies: [grammar, transformer, profile, kind, macros, declarations, scope, assumptions, missing_declarations, conditions, precision, sampling, decision_policy]
+    prerequisites:
+    - symbolic
+    dependencies:
+    - grammar
+    - transformer
+    - profile
+    - kind
+    - macros
+    - declarations
+    - scope
+    - assumptions
+    - missing_declarations
+    - conditions
+    - precision
+    - sampling
+    - decision_policy
   binding_roles:
-  - {kind: variable, role: variable}
-  - {kind: family_param, role: variable}
-  - {kind: free, role: variable}
-  - {kind: constant, role: constant}
-  builtin_functions: [Gamma]
-  local_declaration_rules: [function-definition-1]
+  - kind: variable
+    role: variable
+  - kind: family_param
+    role: variable
+  - kind: free
+    role: variable
+  - kind: constant
+    role: constant
+  builtin_functions:
+  - Gamma
+  local_declaration_rules:
+  - function-definition-1
   ownership:
-  - {id: comparison, concept: CandidateInput, operation: evaluate, lifetime: scope, dependencies: [release, snapshot, universe, policy]}
-  - {id: publication, concept: AppendPublication, operation: publish, lifetime: operation, dependencies: [release, snapshot, content]}
-  - {id: capture, concept: CapturedPacket, operation: capture_analytics, lifetime: detached, dependencies: [release, snapshot, projection, content]}
-  - {id: invocation, concept: WorkPacket, operation: schedule, lifetime: operation, dependencies: [release, source, configuration, policy]}
-  - {id: read, concept: Archive, operation: reload, lifetime: scope, dependencies: [release, archive, boundary]}
-
+  - id: comparison
+    concept: CandidateInput
+    operation: evaluate
+    lifetime: scope
+    dependencies:
+    - release
+    - snapshot
+    - universe
+    - policy
+  - id: publication
+    concept: AppendPublication
+    operation: publish
+    lifetime: operation
+    dependencies:
+    - release
+    - snapshot
+    - content
+  - id: capture
+    concept: CapturedPacket
+    operation: capture_analytics
+    lifetime: detached
+    dependencies:
+    - release
+    - snapshot
+    - projection
+    - content
+  - id: invocation
+    concept: WorkPacket
+    operation: schedule
+    lifetime: operation
+    dependencies:
+    - release
+    - source
+    - configuration
+    - policy
+  - id: read
+    concept: Archive
+    operation: reload
+    lifetime: scope
+    dependencies:
+    - release
+    - archive
+    - boundary
 parsing_adapters:
 - adapter_id: docling-pdf-source-1
   provenance_universe: canonical_output
@@ -12743,7 +12810,11 @@ parsing_adapters:
   repair_policy: native-normalize-before-identity
   ambiguity_policy: explicit-partial
   lifetime: operation
-  capabilities: [source/native-document, source/native-items, source/pdf-regions, source/section-projection]
+  capabilities:
+  - source/native-document
+  - source/native-items
+  - source/pdf-regions
+  - source/section-projection
 - adapter_id: lark-structure-1
   provenance_universe: canonical_output
   implementation_revision: text-structure-2
@@ -12752,7 +12823,10 @@ parsing_adapters:
   repair_policy: strict-malformed
   ambiguity_policy: explicit-partial
   lifetime: operation
-  capabilities: [text/lexical-partition, text/parse-view, tex/structure]
+  capabilities:
+  - text/lexical-partition
+  - text/parse-view
+  - tex/structure
 - adapter_id: lark-math-3
   provenance_universe: canonical_output
   implementation_revision: prepared-math-3
@@ -12762,5 +12836,9 @@ parsing_adapters:
   repair_policy: refuse-invalid
   ambiguity_policy: explicit-alternatives
   lifetime: operation
-  capabilities: [math/lexical, math/structure, math/syntax, math/interpretation, math/assessment]
-
+  capabilities:
+  - math/lexical
+  - math/structure
+  - math/syntax
+  - math/interpretation
+  - math/assessment

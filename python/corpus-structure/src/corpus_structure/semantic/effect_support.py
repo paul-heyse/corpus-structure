@@ -90,12 +90,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "record_direction": {
-        "effects": ("atomic_protected_insert",),
-        "implementation": "record_direction",
-        "transitions": {},
-        "version": "1",
-    },
     "begin_pdf_build": {
         "effects": ("atomic_private_pdf_stage",),
         "implementation": "begin_pdf_build",
@@ -165,12 +159,6 @@ SUPPORTED_EFFECTS = {
     "read_native_source": {
         "effects": (),
         "implementation": "read_native_source",
-        "transitions": {},
-        "version": "1",
-    },
-    "capture_native_source_frame": {
-        "effects": ("atomic_native_publication",),
-        "implementation": "capture_native_source_frame",
         "transitions": {},
         "version": "1",
     },
@@ -244,12 +232,6 @@ SUPPORTED_EFFECTS = {
         "effects": ("final_cut_seals_source_atomically", "immutable_cut"),
         "implementation": "cut",
         "transitions": {"run_final_cut": ("capture_final_cut", "seal_source_production")},
-        "version": "1",
-    },
-    "check_submission": {
-        "effects": (),
-        "implementation": "submission",
-        "transitions": {"submission_clean": (), "submission_resubmit": ()},
         "version": "1",
     },
     "claim": {
@@ -350,13 +332,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "hold_submission": {
-        "effects": ("durable_checked_progress", "renew_deadline"),
-        "implementation": "hold",
-        "transitions": {"submission_hold": (), "task_hold": ()},
-        "version": "2",
-    },
-    "make_packet": {"effects": (), "implementation": "packet", "transitions": {}, "version": "1"},
     "open_analysis": {
         "effects": ("own_engine_readers_registrations_scratch",),
         "implementation": "analysis",

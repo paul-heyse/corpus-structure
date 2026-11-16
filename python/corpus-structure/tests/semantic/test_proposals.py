@@ -5,10 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 from pydantic import ValidationError
-from sqlalchemy import create_engine
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic._operation_ids import TaskAttempt, TaskId
 from corpus_structure.semantic.proposals import (
     ProposalRefused,
     locate_proposal,
@@ -113,8 +111,7 @@ def test_alternatives_unsupported_and_declared_unresolved_endpoints_survive_loca
         locate_proposal(release, raw, frame())
 
 
-def test_served_packet_pins_release_schema_configuration_and_complete_part_reading():
-    from corpus_structure.intervene.semantic import ProposalSession
+def test_packet_pins_release_schema_configuration_and_guideline():
     from corpus_structure.semantic.proposals import proposal_packet
 
     release = prepared()
@@ -142,25 +139,9 @@ def test_served_packet_pins_release_schema_configuration_and_complete_part_readi
             configuration={"model": "declared-agent", "mode": "extract"},
         ).hash
     )
-    session = ProposalSession(release, packet, TaskId(1), TaskAttempt(1), "agent:test")
-    with pytest.raises(ProposalRefused, match="read every"):
-        session.check(batch(), packet_hash=packet.hash, schema_hash=packet.schema_hash)
-    for part in session.manifest()["parts"]:
-        for page in range(1, part["pages"] + 1):
-            assert isinstance(session.read(part["name"], page), str)
-    checked = session.check(batch(), packet_hash=packet.hash, schema_hash=packet.schema_hash)
-    assert checked.clean
-    with pytest.raises(ProposalRefused, match="packet/schema"):
-        session.check(batch(), packet_hash="stale", schema_hash=packet.schema_hash)
-    with (
-        create_engine("sqlite://").connect() as conn,
-        pytest.raises(ProposalRefused, match="served session"),
-    ):
-        session.commit(conn, locate_proposal(release, batch(), frame()))
 
 
-def test_unit_packet_cap_splits_without_losing_source_text_and_requires_every_page():
-    from corpus_structure.intervene.semantic import ProposalSession
+def test_unit_packet_cap_splits_without_losing_source_text():
     from corpus_structure.semantic.proposals import proposal_packet
 
     release = prepared()
@@ -171,16 +152,6 @@ def test_unit_packet_cap_splits_without_losing_source_text_and_requires_every_pa
     pages = packet.part_pages(unit)
     assert len(pages) > 1 and all(len(page) <= 20 for page in pages)
     assert "".join(pages) == unit.text
-    session = ProposalSession(release, packet, TaskId(1), TaskAttempt(1), "agent:test")
-    for part in packet.parts():
-        for page in range(1, len(packet.part_pages(part)) + 1):
-            if part.name != "unit" or page == 1:
-                session.read(part.name, page)
-    with pytest.raises(ProposalRefused, match="read every"):
-        session.check(batch(), packet_hash=packet.hash, schema_hash=packet.schema_hash)
-    for page in range(2, len(pages) + 1):
-        session.read("unit", page)
-    assert session.check(batch(), packet_hash=packet.hash, schema_hash=packet.schema_hash).clean
 
 
 def test_binary_entity_relation_preserves_declared_unresolved_endpoint():

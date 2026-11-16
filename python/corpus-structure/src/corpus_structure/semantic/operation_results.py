@@ -12,14 +12,8 @@ from ._operation_ids import RunId as RunId
 from ._operation_ids import TaskAttempt as TaskAttempt
 from ._operation_ids import TaskId as TaskId
 from .operation_value_types import HeldProgress as HeldProgress
-from .operation_value_types import OperationResult
 
 
-class HoldDecision(OperationResult):
-    task_id: TaskId
-    attempt: TaskAttempt
-    packet_hash: str
-    disposition: Literal["held", "proceed"]
 
 
 def validate_result_dimension(
@@ -87,37 +81,6 @@ def _result_adapter(
     return TypeAdapter(literal[tuple(members)])
 
 
-def validate_task_result_dimension(
-    conn, task_id: int, operation: str, dimension: str, value: str
-) -> None:
-    """Resolve the task's immutable release, never the project's current interpretation."""
-    from sqlalchemy import select
-
-    from .metadata import table
-
-    tasks, runs, registry = table("ops.task"), table("ops.run"), table("sem.registry_row")
-    content = conn.execute(
-        select(registry.c.body)
-        .select_from(
-            tasks.join(runs, tasks.c.run_id == runs.c.id).join(
-                registry, registry.c.release_id == runs.c.release_id
-            )
-        )
-        .where(tasks.c.id == task_id, registry.c.kind == "execution_model")
-    ).scalar_one_or_none()
-    if content is None:
-        from .outcomes import CODE_OUTCOME_DOMAINS
-
-        if (
-            operation == "hold_submission"
-            and dimension == "decision"
-            and value in CODE_OUTCOME_DOMAINS["hold_decision"]
-        ):
-            return
-        raise ValueError("task has no bound operation result contract")
-    validate_product_result_dimension(
-        bytes(content), operation, dimension, value, field="disposition"
-    )
 
 
 def validate_method_dimension(prepared, method: str, dimension: str, value: str | None) -> None:

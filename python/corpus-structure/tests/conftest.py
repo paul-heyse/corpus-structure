@@ -102,9 +102,6 @@ DB_FIXTURES = frozenset(
     {
         "domain_default_case",
         "domain_formula_source",
-        "resubmission_case",
-        "resubmission_historical_source",
-        "resubmission_application_settings",
         "exclusion_case",
         "exclusion_read_case",
         "exclusion_literal_case",

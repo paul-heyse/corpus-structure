@@ -41,7 +41,6 @@ from .metadata import table
 from .operation_results import (
     ClaimedTask,
     CompletionResult,
-    HoldDecision,
 )
 from .refusals import OperationConflict, SourceReadRefused
 from .types import PreparedRelease
@@ -2392,64 +2391,8 @@ def end_source_run(
     )
 
 
-def lock_input_snapshot(conn: Connection, run_id: int) -> None:
-    """Fence packet input reads until this queue/serve transaction ends; no agent wait lock."""
-    try:
-        from ._operation_calls import lock_input_snapshot as invoke
-
-        invoke(conn, run_id=RunId(run_id))
-    except Exception as exc:
-        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
-            raise OperationConflict("packet input snapshot changed") from exc
-        raise
 
 
-def hold_agent_result(
-    conn: Connection,
-    *,
-    task_id: TaskId,
-    attempt: TaskAttempt,
-    holder: str,
-    packet_hash: str,
-    clean: bool,
-    result: Mapping[str, JsonValue],
-    prepared: PreparedRelease | None = None,
-) -> HoldDecision:
-    """Lock one live submission; persist only its first well-typed uncertain result."""
-    from ._operation_calls import TaskAttempt, TaskId
-    from ._operation_calls import hold_agent_result as invoke
-
-    try:
-        held = invoke(
-            conn,
-            task_id=TaskId(task_id),
-            attempt=TaskAttempt(attempt),
-            holder=holder,
-            packet_hash=packet_hash,
-            clean=clean,
-            result=dict(result),
-        )
-        from .operation_results import validate_result_dimension, validate_task_result_dimension
-
-        disposition = "held" if held else "proceed"
-        if prepared is not None:
-            validate_result_dimension(
-                prepared, "hold_submission", "decision", disposition, field="disposition"
-            )
-        else:
-            validate_task_result_dimension(
-                conn, task_id, "hold_submission", "decision", disposition
-            )
-        return HoldDecision(
-            task_id=task_id,
-            attempt=attempt,
-            packet_hash=packet_hash,
-            disposition=disposition,
-        )
-    except Exception as exc:
-        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
-            raise OperationConflict("agent submission attempt lost or run sealed") from exc
-        raise
 
 
 def renew_claim(conn: Connection, *, task_id: TaskId, attempt: TaskAttempt, holder: str) -> None:

@@ -143,34 +143,6 @@ def test_postgresql_preflight_admits_only_requested_page_and_refuses_body_transf
         assert "count(*)" in statements[0]
 
 
-def test_interactive_packet_propagates_one_budget_and_refuses_whole_packet(monkeypatch):
-    from corpus_structure.methods.math import native
-    from corpus_structure.orchestrate import semantic_references
-    from corpus_structure.semantic import operations
-    from corpus_structure.semantic import retained_agent_packets as semantic
-
-    budget = PublishedReadBudget(10, 10)
-    config = {"mode": "extract"}
-    reader = SimpleNamespace(read_budget=budget, characterization_selection=())
-    view = SimpleNamespace(reader=reader, options={"agent_configs": {"extract": config}})
-    monkeypatch.setattr(operations, "lock_input_snapshot", lambda *args: None)
-    run_view = Mock(return_value=view)
-    monkeypatch.setattr(semantic, "run_view", run_view)
-    monkeypatch.setattr(
-        semantic, "_unit", lambda *args: SimpleNamespace(source_view_id=7, document_id=3)
-    )
-    references = Mock(return_value=())
-    monkeypatch.setattr(semantic_references, "document_references", references)
-    monkeypatch.setattr(
-        native,
-        "native_proposal_packet",
-        lambda *args, **kwargs: SimpleNamespace(parts=lambda: [SimpleNamespace(text="x" * 11)]),
-    )
-    with pytest.raises(ReadLimit) as caught:
-        semantic._packet_for_unit(Mock(), 1, Mock(), "unit", config, read_budget=budget)
-    assert caught.value.reason == "oversized_item"
-    assert run_view.call_args.kwargs["read_budget"] is budget
-    assert references.call_args.kwargs["read_budget"] is budget
 
 
 @pytest.mark.parametrize("bytes_limit,oversized", [(1048576, False), (2048, True)])

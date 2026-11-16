@@ -4,7 +4,6 @@ from typing import Literal, NewType
 
 CutId = NewType("CutId", int)
 DocumentId = NewType("DocumentId", int)
-InterventionId = NewType("InterventionId", int)
 MethodConfigId = NewType("MethodConfigId", int)
 MethodId = NewType("MethodId", int)
 ProjectId = NewType("ProjectId", str)

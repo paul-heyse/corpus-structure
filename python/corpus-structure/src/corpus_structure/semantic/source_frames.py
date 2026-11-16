@@ -2,24 +2,13 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Connection, Engine, func, select
+from sqlalchemy import Connection, func, select
 
 from .metadata import table
-from .proposals import NativeProposalFrame, ProposalPacket
+from .proposals import NativeProposalFrame
 from .refusals import OperationConflict
 
 
-def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket) -> None:
-    """Capture exact packet coordinates through the protected native append-only routine."""
-    if not isinstance(packet.frame, NativeProposalFrame):
-        raise OperationConflict("source-frame capture requires a pinned PDF SourceView")
-    from dataclasses import asdict
-
-    from .source_views import store_native_source_frame
-
-    store_native_source_frame(
-        conn, task_id=task_id, packet_hash=packet.hash, frame=asdict(packet.frame)
-    )
 
 
 def load_source_frames(conn: Connection, task_ids) -> dict[int, NativeProposalFrame]:
@@ -57,37 +46,3 @@ def packet_bound_source_tasks(run_id: int, *, cut_id: int | None = None):
     return query.join(
         tasks, origin.c.id == func.coalesce(tasks.c.reused_task_id, tasks.c.id)
     ).where(tasks.c.run_id == run_id)
-
-
-def backfill_source_frames(engine: Engine, run_id: int) -> int:
-    """Append missing origin frames after rebuilding and verifying their original packet hash."""
-    from .releases import open_release
-    from .retained_agent_packets import retained_agent_packet
-
-    tasks, cuts, frames = map(table, ("ops.task", "ops.input_cut", "ops.native_source_frame"))
-    with engine.begin() as conn:
-        cut = conn.execute(
-            select(cuts.c.id).where(cuts.c.run_id == run_id, cuts.c.final)
-        ).scalar_one_or_none()
-        origin = packet_bound_source_tasks(run_id, cut_id=cut).subquery()
-        missing = (
-            conn.execute(
-                select(origin.c.id)
-                .outerjoin(frames, frames.c.task_id == origin.c.id)
-                .where(frames.c.task_id.is_(None))
-                .distinct()
-                .order_by(origin.c.id)
-            )
-            .scalars()
-            .all()
-        )
-        for task_id in missing:
-            task = conn.execute(
-                select(tasks.c.run_id, tasks.c.release_id).where(tasks.c.id == task_id)
-            ).one()
-            prepared = open_release(conn, task.release_id)
-            # The sealed selection and original packet hash are both required.
-            retained_agent_packet(
-                conn, task.run_id, task_id, prepared, sealed_context_run_id=run_id
-            )
-        return len(missing)

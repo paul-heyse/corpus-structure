@@ -50,6 +50,14 @@ source-interface and operation interpreters retire rather than imposing historic
 Native trust, effect fencing, source fidelity and evaluation independence remain required.
 Implementation/qualification is owned by the DDO coordinator.
 
+**Implemented source · 2026-11-15; qualification pending.** The historical run-bound
+`ProposalSession`, retained packet reconstruction/backfill and `ci direct` direction store are
+removed. Current external work uses declared task-owned packets, exact complete-part reads and
+native result/receipt custody; source proposal/locator kernels remain independent CPU owners.
+The current DDO plan has no direction-log obligation, and the old run-only store had no current
+consumer. Existing stored bytes may remain inert pending verified backup/adoption. This retirement
+does not qualify native execution or establish provider/scientific accuracy.
+
 **Implemented; scoped controls Tested · 2026-11-15; native qualification pending:** the
 completed-integer-run `ci promote`, `retained-query` and `retained-explain` adapters are removed.
 Current selected-result interfaces require explicit project/demand/read/cut references. Eleven
@@ -889,8 +897,8 @@ session test golden items, test alignments or test errors other than as aggregat
 
 ### 2.3 Knowledge-level proposals and decisions
 
-From phase 1, except `record_direction`, which phase 0 has together with `ci direct` (§4). In
-phase 0 schema v0 and guideline v1 are frozen (D7 §9), so phase 0 adopts no proposal.
+From phase 1. The current DDO boundary above retires the former phase-0 run-only direction store.
+In phase 0 schema v0 and guideline v1 are frozen (D7 §9), so phase 0 adopts no proposal.
 > Status: **Proposed** (2026-10-28)
 
 | Tool | Input | Effect |
@@ -899,7 +907,6 @@ phase 0 schema v0 and guideline v1 are frozen (D7 §9), so phase 0 adopts no pro
 | `propose_guideline_change` | patch to `guideline.md`, class (`clarification`, `rule`), rationale, `direction_id?` | Clarification: new guideline version immediately; rule: pending until it cites a direction or the operator acks |
 | `propose_policy` | patch to `policies.yaml`, rationale | Pending policy version; enters through an experiment |
 | `decide_experiment` | `experiment_id`, decision, rationale | Records the decision (D7 §7); the operator may veto |
-| `record_direction` | text in the operator's words, `scope?` | Direction intervention and direction-log entry (used when the operator dictates in the session) |
 
 ### 2.4 Inspection (read-only)
 
@@ -1011,7 +1018,7 @@ The phase 0 command table below describes its original interface.
 | `ci golden split`, `ci golden create --label L --split S --size N --run RUN [--seed K]`, `ci golden status` | Page split assignment; unit sampling, which creates the golden set, its units, the `golden` run and the pass A and B tasks (D7 §3.1, §2.2); `RUN`, the golden run's parent, is the run whose renditions and M13 output the golden packets read; authoring progress |
 | `ci experiment new|show|list` | Experiments (D7 §7) |
 | `ci digest` | The operator digest |
-| `ci direct "TEXT" [--scope S]`, `ci ack CHANGE`, `ci veto EXPERIMENT` | The operator's outer-loop actions; `ci ack` and `ci veto` from phase 1 |
+| `ci ack CHANGE`, `ci veto EXPERIMENT` | Proposed phase-1 operator outer-loop actions |
 | `ci promote RUN` | Manual promotion (normally by experiment decision); shows the pre-registered readings (D7 §7 item 5) and asks the operator to confirm |
 | `ci export claims|statements --format jsonl|parquet [--run RUN]` | Exports (§6) |
 

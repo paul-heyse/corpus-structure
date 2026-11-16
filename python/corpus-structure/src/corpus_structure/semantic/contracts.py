@@ -199,8 +199,6 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("invocation/native-call-sources.py", "semantic/native_call_sources.py"),
     ("invocation/operation-calls.py", "semantic/_operation_calls.py"),
     ("invocation/operation-identifiers.py", "semantic/_operation_ids.py"),
-    ("capture/directions.sql", "semantic/sql/directions.sql"),
-    ("invocation/directions.py", "intervene/directions.py"),
     ("invocation/operation-value-types.py", "semantic/operation_value_types.py"),
     ("invocation/operation-reporting.py", "semantic/operation_reporting.py"),
     ("invocation/contract-inspection.py", "semantic/contract_inspection.py"),
@@ -333,8 +331,6 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.ingest.pdf_selected_enrichment import enrich_selected_pdf
     from corpus_structure.ingest.pdf_stream_reconciliation import reconcile_pdf_stream
     from corpus_structure.ingest.pdf_streaming import StreamingPdfProducer
-    from corpus_structure.intervene.directions import record_direction
-    from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
     from corpus_structure.orchestrate.pdf_streaming import run_private_pdf_build
 
@@ -356,7 +352,6 @@ def approved_implementations() -> Mapping[str, Any]:
         pdf_staging,
         pdf_storage,
         prepare,
-        proposals,
         publication,
         query,
         record_queries,
@@ -381,8 +376,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "release_claim": operations.release_claim,
             "complete": operations.complete_task,
             "complete_unit": operations.complete_unit_result,
-            "hold": operations.hold_agent_result,
-            "record_direction": record_direction,
             "cut": operations.seal_cut,
             "end_run": operations.end_source_run,
             "read_original": operations.read_original,
@@ -424,11 +417,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "publish_source_view": source_views.store_source_view,
             "read_source_view": source_views.load_source_view,
             "read_native_source": source_views.read_native_source,
-            "capture_native_source_frame": source_views.store_native_source_frame,
             "bind_report": observations.bind_result,
-            "packet": proposals.proposal_packet,
-            "locate": proposals.locate_proposal,
-            "submission": ProposalSession.commit,
             "assemble": consolidation.assemble,
             "evaluate": domain_operations.consolidate_cut,
             "resolve_identity": domain_operations._entity_mappings,

@@ -375,38 +375,6 @@ BEGIN
 END $sources$;
 REVOKE ALL ON FUNCTION ops.validate_native_source_frame(bigint,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.capture_native_source_frame(p_task bigint,p_hash text,p_frame jsonb) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $frame$
-DECLARE job ops.task; view kb.source_view; source jsonb; sentence jsonb; source_id bigint; handle text; ordinal integer:=0; previous jsonb;
-BEGIN
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
- PERFORM sem.require_execution_operation(job.release_id,'capture_native_source_frame');
- PERFORM ops.validate_native_source_frame(job.run_id,p_frame);
- SELECT * INTO STRICT view FROM kb.source_view WHERE id=(p_frame->>'source_view_id')::bigint;
- IF job.unit_type<>'source_view' OR job.unit_id<>view.id OR job.packet_hash IS DISTINCT FROM p_hash OR job.unit_key IS DISTINCT FROM p_frame->>'unit_ref' THEN
- RAISE EXCEPTION 'native packet frame differs from selected task' USING ERRCODE='23514'; END IF;
- SELECT source_frame INTO previous FROM ops.native_source_frame WHERE task_id=p_task;
- IF FOUND THEN
-  IF previous IS DISTINCT FROM p_frame OR NOT EXISTS(SELECT FROM ops.native_source_frame WHERE task_id=p_task AND packet_hash=p_hash) THEN
-   RAISE EXCEPTION 'immutable native frame replay differs' USING ERRCODE='23514'; END IF;
-  RETURN;
- END IF;
- INSERT INTO ops.native_source_frame(task_id,packet_hash,unit_ref,source_view_id,product_task_id,product_key,product_digest,projection_digest,recipe_digest,context_json,source_frame)
- VALUES(p_task,p_hash,view.key,view.id,view.native_task_id,view.native_product_key,view.native_content_digest,view.projection_digest,view.recipe_digest,(p_frame->>'native_context')::jsonb,p_frame);
- FOR source IN SELECT p_frame-'context_sources' UNION ALL SELECT value FROM jsonb_array_elements(COALESCE(p_frame->'context_sources','[]')) LOOP
-  source_id:=(source->>'source_view_id')::bigint;
-  INSERT INTO ops.native_source_frame_source(task_id,unit_ref,source_view_id,product_task_id,product_key,product_digest,projection_digest,recipe_digest,section_pointer,membership,role,context_json)
-  VALUES(p_task,source->>'unit_ref',source_id,(source->'native_product'->>'task_id')::bigint,source->'native_product'->>'product_key',source->'native_product'->>'content_digest',source->>'projection_digest',source->>'recipe_digest',source->>'section_pointer',source->>'membership',CASE WHEN source_id=view.id THEN 'primary' ELSE 'ancestor_context' END,(source->>'native_context')::jsonb);
-  FOR sentence IN SELECT value FROM jsonb_array_elements(source->'sentences') LOOP
-   handle:=CASE WHEN source_id=view.id THEN sentence->>'id' ELSE 'native_context:'||source_id::text||':'||(sentence->>'id') END;
-   INSERT INTO ops.native_source_frame_sentence(task_id,sentence_id,locator,start_offset,end_offset,source_view_id)
-   VALUES(p_task,handle,sentence->>'locator',(sentence->>'start')::bigint,(sentence->>'end')::bigint,source_id);
-  END LOOP;
- END LOOP;
-END $frame$;
-REVOKE ALL ON FUNCTION ops.capture_native_source_frame(bigint,text,jsonb) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.capture_native_source_frame(bigint,text,jsonb) TO corpus_sem_writer;
-
 CREATE OR REPLACE FUNCTION ops.select_source_view(p_run bigint,p_source_run bigint,p_view bigint) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $select$
 DECLARE target ops.run; origin ops.run; source_ref jsonb;

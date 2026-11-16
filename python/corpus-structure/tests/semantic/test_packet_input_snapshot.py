@@ -1,53 +1,16 @@
-"""The packet's short read transaction serializes a concurrent native input publication."""
+"""Remaining legacy method configuration must match its immutable task snapshot."""
 
 import pytest
-from psycopg import Error as PsycopgError
-from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.operations import (
     OperationBinding,
-    OperationConflict,
     create_run,
-    lock_input_snapshot,
 )
-from corpus_structure.semantic.publication import (
-    PublicationBatch,
-    publish_batch,
-    publish_on_connection,
-)
+
 from semantic.operation_scenario_support import prepare_operation_scenario
 
 
-def test_native_packet_read_blocks_input_publication_then_rejects_stale_run(
-    commit_db_engine, commit_writer_engine
-):
-    prepared = prepare_operation_scenario(commit_db_engine)
-    engine = commit_writer_engine
-    with engine.begin() as conn:
-        run = create_run(
-            conn,
-            project_id="p",
-            binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
-            kind="full",
-            options={},
-            code_commit="test",
-        )
-    batch = PublicationBatch(prepared.release_id, "z", "advance-input")
-    with engine.begin() as packet:
-        lock_input_snapshot(packet, run)
-        with (
-            pytest.raises(DBAPIError) as conflict,
-            engine.connect().execution_options(isolation_level="SERIALIZABLE") as publication,
-            publication.begin(),
-        ):
-            publication.execute(text("SET LOCAL lock_timeout='100ms'"))
-            publish_on_connection(publication, batch)
-        assert isinstance(conflict.value.orig, PsycopgError)
-        assert conflict.value.orig.sqlstate == "55P03"
-    assert publish_batch(engine, batch).data_revision == 1
-    with pytest.raises(OperationConflict, match="snapshot changed"), engine.begin() as conn:
-        lock_input_snapshot(conn, run)
 
 
 def test_native_task_configuration_matches_frozen_params_and_version(

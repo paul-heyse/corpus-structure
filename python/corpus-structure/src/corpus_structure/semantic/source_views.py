@@ -646,26 +646,6 @@ def store_source_view(
         raise
 
 
-def store_native_source_frame(
-    conn: Connection, *, task_id: int, packet_hash: str, frame: dict[str, Any]
-) -> None:
-    from .pdf_contracts import pdf_context_for_task
-
-    context = pdf_context_for_task(conn, task_id)
-    value = context.boundary.validate_json("PdfNativeProposalFrame", json.dumps(frame))
-    from ._operation_calls import TaskId
-    from ._operation_calls import capture_native_source_frame as invoke
-    from .releases import open_release
-
-    if context.release_id is None:
-        raise ValueError("native source frame requires its bound task release")
-    invoke(
-        conn,
-        task_id=TaskId(task_id),
-        packet_hash=packet_hash,
-        frame=value.model_dump(mode="json"),
-        projection_context=open_release(conn, context.release_id),
-    )
 
 
 def load_native_source_frames(conn: Connection, task_ids):
