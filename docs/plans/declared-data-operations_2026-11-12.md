@@ -205,8 +205,26 @@ encoded condition fields, passed1 `f7759100e0ca4d64b20679842485ac33`. Current qu
 `fc0d904f5a3f4bf8906a45909aadd2fd` and codec attempt
 `3493f037c86a4f7f94dca7844c1dc16a` remain retained. Identity/preparation51 passed
 `acd15d24165f45f18117ccbf64c31cc4` after removing the meaning compatibility alias
-(`ab8f4726d`). Remaining legacy structural/artifact DTOs and observation transport are being
-closed against actual callers; useful scientific kernels remain.
+(`ab8f4726d`). Structural closure (`5c7c0c565`, `fd3292894`) now removes historical report,
+external source/task/run/cut references, dual composition/admission branches, the observation-batch
+structural transport, orphan references and sealed fixture owners. Current declared report parsing
+and source-resolved statement kernels remain. The18-file affected cohort passed150/failed2
+`4ce102c47bb54ad0900c36a871d57ef5`; the two stale base-parser fixture reads now use the current
+discriminated reader, exact2 passed `c31bce20b3c34b418b4feb7eeffadcf6`. Scoped typing passed.
+Full ordinary collection passed7952 identities `768447fb04c94bfa92bc301e7a4328a3`, functional
+execution not_run. Earlier58-node fixture failures and their14-node exact retry remain held
+`9e90ce1513724260bf34aa6226c032f3` / `bed87d8165274ad4a6e70d68b70d2dbd`.
+
+Artifact closure (`e4985332e`) removes legacy DTOs and constructor/callback injection while
+preserving scientific scoring/route/reference kernels. Its18 pure controls passed
+`2d9548e5c34444a4978c77644ef7bd00`; scoped typing passed. Root removed the old structural
+observation/publication LinkML subtree (`8f8031b7f`:81classes/33enums) while preserving live
+record/contribution/observation schemas. Composed `ci schema check --json` compilation passed;
+its optional projection analysis remains unassessed, not an independent semantic validation claim.
+The old layer/view/native-run LinkML subtree is also removed (13classes), preserving the35 current
+shared characterization classes. Generated report schemas track the exact semantic source bytes.
+Current-loader assessment/native-evidence residual cleanup is the final bounded source increment;
+provider profile/attestation stays with actual native source products, not an orphan layer-run join.
 
 Cross-release request execution (`c0e1b6f4d`, `f5ac9e2a3`, `726a411bc`) uses authenticated attach
 metadata and the exact original generation release/runtime/binding before capacity reservation.
