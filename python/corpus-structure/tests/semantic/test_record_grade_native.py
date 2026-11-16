@@ -39,6 +39,7 @@ def grade_guard_connection(semantic_bare_engine):
         "ops.data_demand",
         "ops.data_demand_read",
         "ops.data_derivation",
+        "ops.data_completion_intent",
         "sem.data_operation_definition",
     )
     with semantic_bare_engine.begin() as connection:

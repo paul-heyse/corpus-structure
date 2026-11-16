@@ -169,9 +169,19 @@ END $grade$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_record_grade_dependency_scopes(episode text)
 RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE r ops.data_request;
+DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
 BEGIN
- SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
+ SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
+ IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
+ AND request_id=producing.request_id AND generation=producing.generation;
+ IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN
+ RAISE EXCEPTION 'grade dependency scopes differ from original producer fences' USING ERRCODE='23514'; END IF;
+ r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
+ r.recipe:=producing.recipe; r.generation:=producing.generation;
+ r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
  RETURN QUERY SELECT * FROM ops.ddo_record_grade_completion_scopes(r);
 END $grade$;
 
@@ -382,19 +392,26 @@ END $grade$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_record_grade_dependencies_valid(episode text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE r ops.data_request; completion jsonb; captured record;
+DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent; captured record;
 BEGIN
- SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
+ SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
  IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN true; END IF;
- SELECT intent.payload INTO STRICT completion FROM ops.data_derivation producer
- JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
- JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=intent.id WHERE producer.id=episode;
+ SELECT original.* INTO STRICT intent FROM ops.data_completion_intent original
+ JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producing.id AND receipt.intent_id=original.id
+ WHERE original.id=producing.intent_id AND original.request_id=producing.request_id AND original.generation=producing.generation;
+ IF intent.payload->>'outcome' IS DISTINCT FROM producing.outcome OR
+ (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN RETURN false; END IF;
+ r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
+ r.recipe:=producing.recipe; r.generation:=producing.generation;
+ r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
  -- The original native receipt seals the complete immutable frame checks. A
  -- different kernel requires reassessment instead of trusting an old guard.
- IF NOT EXISTS(SELECT FROM sem.artifact artifact WHERE artifact.release_id=r.release_id
+ IF NOT EXISTS(SELECT FROM sem.artifact artifact WHERE artifact.release_id=producing.release_id
  AND artifact.artifact_name='data_operation_native_definitions.json'
  AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
- PERFORM ops.ddo_record_grade_require_producer(r,completion);
+ PERFORM ops.ddo_record_grade_require_producer(r,intent.payload);
  FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
  PERFORM ops.ddo_record_grade_require_cut(r.project_id,captured.cut_text,captured.cut_id);
  END LOOP;

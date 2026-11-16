@@ -144,9 +144,13 @@ BEGIN
  AND EXISTS(SELECT FROM jsonb_array_elements(completion->'support') support WHERE support->>'derivation_id'=producer.id)
  AND (selected->>'support_derivation_id' IS NULL OR selected->>'support_derivation_id'=producer.id);
  SELECT operation.* INTO STRICT fit_definition FROM sem.data_operation_definition operation
- JOIN ops.data_request request ON request.release_id=operation.release_id AND request.operation_id=operation.operation_id
- WHERE request.id=producing.request_id AND request.project_id=r.project_id;
- SELECT * INTO STRICT fit_intent FROM ops.data_completion_intent WHERE id=producing.intent_id;
+ JOIN ops.data_request request ON request.operation_id=operation.operation_id
+ WHERE request.id=producing.request_id AND request.project_id=r.project_id AND operation.release_id=producing.release_id;
+ SELECT * INTO STRICT fit_intent FROM ops.data_completion_intent WHERE id=producing.intent_id
+ AND request_id=producing.request_id AND generation=producing.generation;
+ IF (fit_intent.producer_task_id,fit_intent.producer_attempt,fit_intent.runtime_id) IS DISTINCT FROM
+ (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN
+ RAISE EXCEPTION 'policy fit basis differs from original producer fences' USING ERRCODE='23514'; END IF;
  IF fit_definition.operation_id IS DISTINCT FROM 'record_policy.fit' OR fit_definition.profile IS DISTINCT FROM 'derivation'
  OR fit_definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
  OR fit_definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM 'corpus_structure.methods.declared_record_policy.RecordPolicyFit.acquire_port'
@@ -157,6 +161,9 @@ BEGIN
  OR producing.recipe IS DISTINCT FROM fit_definition.recipe THEN
  RAISE EXCEPTION 'policy basis is not the actual admitted protected CPU fit implementation' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT fit_request FROM ops.data_request WHERE id=producing.request_id AND project_id=r.project_id;
+ fit_request.release_id:=producing.release_id; fit_request.runtime_id:=producing.runtime_id;
+ fit_request.recipe:=producing.recipe; fit_request.generation:=producing.generation;
+ fit_request.binding:=fit_request.binding||jsonb_build_object('inputs',fit_intent.payload->'inputs','support',fit_intent.payload->'support');
  -- Issuance rechecks the actual original fit inputs, even for a receipt sealed
  -- before this guard existed. A same-kind/self-consistent body cannot substitute
  -- another legitimate request's grades or typed fitting specification.
@@ -317,9 +324,19 @@ END $fit$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_record_fit_dependency_scopes(episode text)
 RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
-DECLARE r ops.data_request;
+DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
 BEGIN
- SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
+ SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
+ IF r.operation_id IS DISTINCT FROM 'record_policy.fit' THEN RETURN; END IF;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
+ AND request_id=producing.request_id AND generation=producing.generation;
+ IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN
+ RAISE EXCEPTION 'fit dependency scopes differ from original producer fences' USING ERRCODE='23514'; END IF;
+ r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
+ r.recipe:=producing.recipe; r.generation:=producing.generation;
+ r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
  RETURN QUERY SELECT * FROM ops.ddo_record_fit_completion_scopes(r);
 END $fit$;
 
@@ -351,9 +368,13 @@ BEGIN
  OR (chosen->>'support_derivation_id' IS NOT NULL AND chosen->>'support_derivation_id' IS DISTINCT FROM p_derivation) THEN
  RAISE EXCEPTION 'fit grade selection differs from actual bound input product and producing episode' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT producer FROM ops.data_derivation WHERE id=p_derivation AND outcome='success';
- SELECT operation.* INTO STRICT definition FROM sem.data_operation_definition operation JOIN ops.data_request request ON request.release_id=operation.release_id AND request.operation_id=operation.operation_id
- WHERE request.id=producer.request_id AND request.project_id=r.project_id;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producer.intent_id;
+ SELECT operation.* INTO STRICT definition FROM sem.data_operation_definition operation JOIN ops.data_request request ON request.operation_id=operation.operation_id
+ WHERE request.id=producer.request_id AND request.project_id=r.project_id AND operation.release_id=producer.release_id;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producer.intent_id
+ AND request_id=producer.request_id AND generation=producer.generation;
+ IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (producer.producer_task_id,producer.producer_attempt,producer.runtime_id) THEN
+ RAISE EXCEPTION 'fit grade differs from original producer fences' USING ERRCODE='23514'; END IF;
  IF definition.operation_id IS DISTINCT FROM 'record_policy.grade' OR definition.profile IS DISTINCT FROM 'derivation'
  OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
  OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM 'corpus_structure.methods.declared_record_policy.RecordPolicyGrade.acquire_port'
@@ -428,16 +449,23 @@ END $fit$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_record_fit_dependencies_valid(episode text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
-DECLARE r ops.data_request; selected record; completion jsonb;
+DECLARE r ops.data_request; selected record; producing ops.data_derivation; intent ops.data_completion_intent;
 BEGIN
- SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
+ SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
  IF r.operation_id IS DISTINCT FROM 'record_policy.fit' THEN RETURN true; END IF;
  IF NOT EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
  JOIN sem.artifact artifact ON artifact.release_id=producer.release_id AND artifact.artifact_name='data_operation_native_definitions.json'
  WHERE producer.id=episode AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
- SELECT intent.payload INTO STRICT completion FROM ops.data_derivation producer
- JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id WHERE producer.id=episode;
- PERFORM ops.ddo_record_fit_require_producer(r,completion);
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
+ AND request_id=producing.request_id AND generation=producing.generation;
+ IF intent.payload->>'outcome' IS DISTINCT FROM producing.outcome OR
+ (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN RETURN false; END IF;
+ r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
+ r.recipe:=producing.recipe; r.generation:=producing.generation;
+ r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
+ PERFORM ops.ddo_record_fit_require_producer(r,intent.payload);
  FOR selected IN SELECT * FROM ops.ddo_record_fit_selections(r) LOOP
  PERFORM ops.ddo_record_fit_require_selection(r,selected.role_name,selected.selection,false);
  END LOOP;
