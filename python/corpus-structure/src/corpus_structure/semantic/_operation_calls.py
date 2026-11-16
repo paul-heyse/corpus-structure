@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import (
     Annotated,
@@ -203,64 +202,6 @@ def create_run(
     with native_result_scope("start_run", "create_run"):
         row = _native_result.one()
         return materialize_create_run(row)
-
-
-BEGIN_RUN_CONTRACT_DIGEST = "e74eff9a2ea3158315b9d75287edba5474c39965d5a23fe84507a31452d44792"
-
-
-class _begin_runRequest(OperationResult):
-    run_id: Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
-
-
-_begin_run_function = func.ops.begin_run(
-    bindparam("run_id", type_=BigInteger()),
-    type_=BigInteger(),
-)
-_begin_run_statement = select(_begin_run_function)
-
-
-def prepare_begin_run(
-    *,
-    run_id: RunId,
-    projection_context: PreparedRelease | None = None,
-) -> Select[int]:
-    _request = _begin_runRequest(
-        run_id=run_id,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context, "start_run", "begin_run", BEGIN_RUN_CONTRACT_DIGEST
-        )
-    return _begin_run_statement.params(
-        **{
-            "run_id": _request.run_id,
-        }
-    )
-
-
-_begin_run_adapter = TypeAdapter(RunId)
-
-
-def materialize_begin_run(row: tuple[int]) -> RunId:
-    with native_result_scope("start_run", "begin_run", "run_id"):
-        checked = _begin_run_adapter.validate_python(row[0], strict=True)
-        return checked
-
-
-def begin_run(
-    conn: Connection,
-    *,
-    run_id: RunId,
-    projection_context: PreparedRelease | None = None,
-) -> RunId:
-    _statement = prepare_begin_run(
-        run_id=run_id,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("start_run", "begin_run"):
-        row = _native_result.one()
-        return materialize_begin_run(row)
 
 
 METHOD_DEFINITION_CONTRACT_DIGEST = (
@@ -2328,91 +2269,6 @@ def renew_claim(
     with native_result_scope("renew_claim", "renew_claim"):
         _native_result.scalar_one()
     return None
-
-
-RELEASE_CLAIM_CONTRACT_DIGEST = "10719671de78ec6b90ec203c52d4e53cd88b15a0fb62fead69bdf83bb60175c5"
-
-
-@dataclass(frozen=True)
-class ReleasedClaim:
-    task_id: TaskId
-    attempt: TaskAttempt
-    reason: str
-
-
-class _release_claimRequest(OperationResult):
-    task_id: Annotated[
-        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
-    ]
-    attempt: Annotated[
-        TaskAttempt,
-        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
-    ]
-    holder: str
-    reason: str
-
-
-_release_claim_function = func.ops.release_claim(
-    bindparam("task_id", type_=BigInteger()),
-    bindparam("attempt", type_=BigInteger()),
-    bindparam("holder", type_=Text()),
-    bindparam("reason", type_=Text()),
-)
-_release_claim_statement = select(_release_claim_function)
-
-
-def prepare_release_claim(
-    *,
-    task_id: TaskId,
-    attempt: TaskAttempt,
-    holder: str,
-    reason: str,
-    projection_context: PreparedRelease | None = None,
-) -> Select[None]:
-    _request = _release_claimRequest(
-        task_id=task_id,
-        attempt=attempt,
-        holder=holder,
-        reason=reason,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context, "release_claim", "release_claim", RELEASE_CLAIM_CONTRACT_DIGEST
-        )
-    return _release_claim_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-            "reason": _request.reason,
-        }
-    )
-
-
-def release_claim(
-    conn: Connection,
-    *,
-    task_id: TaskId,
-    attempt: TaskAttempt,
-    holder: str,
-    reason: str,
-    projection_context: PreparedRelease | None = None,
-) -> ReleasedClaim:
-    _statement = prepare_release_claim(
-        task_id=task_id,
-        attempt=attempt,
-        holder=holder,
-        reason=reason,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("release_claim", "ReleasedClaim"):
-        _native_result.scalar_one()
-    return ReleasedClaim(
-        task_id=task_id,
-        attempt=attempt,
-        reason=reason,
-    )
 
 
 PUBLISH_SOURCE_VIEW_CONTRACT_DIGEST = (

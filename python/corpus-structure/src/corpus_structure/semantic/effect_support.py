@@ -341,15 +341,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "release_claim": {
-        "effects": ("release_current_attempt_preserving_held_progress",),
-        "implementation": "release_claim",
-        "transitions": {
-            "task_release_claim": ("release_current_attempt_preserving_held_progress",),
-            "task_release_claim_held": ("release_current_attempt_preserving_held_progress",),
-        },
-        "version": "1",
-    },
     "reload": {"effects": (), "implementation": "reload", "transitions": {}, "version": "1"},
     "renew_claim": {
         "effects": ("renew_current_attempt_deadline",),
@@ -425,7 +416,6 @@ SUPPORTED_EFFECT_VERSIONS = {
     "protected_independent_reference_operation": "1",
     "protected_proof_publication": "1",
     "publish_receipts_and_completed_result_atomically": "1",
-    "release_current_attempt_preserving_held_progress": "1",
     "release_owned_resources": "1",
     "renew_current_attempt_deadline": "1",
     "renew_deadline": "1",

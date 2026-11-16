@@ -25,9 +25,8 @@ from corpus_structure.core.method import (
     SourceViewRef,
     UnitResult,
 )
-from corpus_structure.core.vocab import RunKind, TaskUnitType
+from corpus_structure.core.vocab import TaskUnitType
 
-from ._operation_calls import ReleasedClaim as ReleasedClaim
 from ._operation_ids import (
     CutId,
     DocumentId,
@@ -146,19 +145,6 @@ def _require_run_runtime(
     if selected.runtime_id is None or selected.runtime_id != installed_runtime_id(prepared):
         raise RuntimeBindingError("installed runtime differs from the archived execution pin")
     return prepared
-
-
-def start_run(conn: Connection, run_id: RunId, *, prepared: PreparedRelease | None = None) -> int:
-    """Activate a bound native run; an exact running replay is harmless."""
-    _require_run_runtime(conn, run_id, prepared)
-    try:
-        from ._operation_calls import begin_run as invoke
-
-        return invoke(conn, run_id=run_id)
-    except Exception as exc:
-        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
-            raise OperationConflict("run no longer accepts activation") from exc
-        raise
 
 
 def binding_of(conn: Connection, run_id: int) -> OperationBinding:
@@ -589,21 +575,6 @@ def seal_cut(conn: Connection, run_id: RunId, name: str, *, final: bool = False)
     return invoke(conn, run_id=run_id, name=name, final=final)
 
 
-def cut_observations(conn: Connection, cut_id: CutId) -> list[dict[str, Any]]:
-    o = table("kb.observation")
-    c = table("ops.cut_task")
-    return [
-        dict(row)
-        for row in conn.execute(
-            select(o)
-            .join(c, o.c.task_id == c.c.origin_task_id)
-            .where(c.c.cut_id == cut_id)
-            .distinct()
-            .order_by(o.c.observation_key)
-        ).mappings()
-    ]
-
-
 def _source_read_outcome(prepared: PreparedRelease | None, operation: str, outcome: str) -> None:
     from .operation_results import validate_result_dimension
 
@@ -949,18 +920,6 @@ def complete_unit_result(
         source=source,
         records=records,
     ).apply(conn)
-
-
-@dataclass(frozen=True)
-class BoundRunView:
-    run_id: int
-    kind: RunKind
-    phase: int
-    reference_run_id: int | None
-    binding: OperationBinding
-    prepared: PreparedRelease
-    options: Mapping[str, JsonValue]
-    reader: Reader
 
 
 @dataclass(frozen=True)
@@ -2332,41 +2291,6 @@ class BoundReader:
         return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
 
 
-def run_view(
-    conn: Connection,
-    run_id: int,
-    prepared: PreparedRelease,
-    *,
-    cut_id: int | None = None,
-    read_budget=None,
-    cpu_execution=None,
-) -> BoundRunView:
-    from corpus_structure.core.vocab import RunKind
-
-    r = table("ops.run")
-    row = conn.execute(select(r).where(r.c.id == run_id)).mappings().one()
-    binding = binding_of(conn, run_id)
-    if binding.release_id != prepared.release_id:
-        raise OperationConflict("reader release differs from run")
-    return BoundRunView(
-        run_id,
-        RunKind(row["kind"]),
-        row["phase"],
-        None,
-        binding,
-        prepared,
-        row["options"],
-        BoundReader(
-            conn,
-            run_id,
-            prepared,
-            cut_id,
-            read_budget=read_budget,
-            cpu_execution=cpu_execution,
-        ),
-    )
-
-
 def renew_claim(conn: Connection, *, task_id: int, attempt: int, holder: str) -> None:
     """Renew only the current attempt through the protected native ownership guard."""
     try:
@@ -2378,27 +2302,3 @@ def renew_claim(conn: Connection, *, task_id: int, attempt: int, holder: str) ->
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("task ownership changed before renewal") from exc
         raise
-
-
-def release_claim(
-    conn: Connection, *, task_id: TaskId, attempt: TaskAttempt, holder: str, reason: str
-) -> ReleasedClaim:
-    """Release the current agent attempt while retaining durable held submission progress."""
-    if not reason:
-        raise ValueError("claim release requires a reason")
-    try:
-        from ._operation_calls import TaskAttempt, TaskId
-        from ._operation_calls import release_claim as invoke
-
-        released = invoke(
-            conn,
-            task_id=TaskId(task_id),
-            attempt=TaskAttempt(attempt),
-            holder=holder,
-            reason=reason,
-        )
-    except Exception as exc:
-        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
-            raise OperationConflict("task ownership changed before release") from exc
-        raise
-    return released
