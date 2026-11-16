@@ -404,22 +404,6 @@ def test_request_equivalence_is_separate_from_mutable_admission_and_runtime_cust
     assert artifact == runtime_artifact_identity({"executable": "sha256:binary"})
 
 
-def test_actual_unbound_runtime_cache_consumes_separate_artifact_identity():
-    import sys
-
-    from corpus_structure.semantic.runtime_bindings import runtime_fingerprint
-
-    captured = (("module.py", "a" * 64), ("asset", "b" * 64))
-    expected = runtime_artifact_identity({"python": sys.version, "inputs": tuple(sorted(captured))})
-    assert runtime_fingerprint(digests=captured) == "runtime-code:" + expected.digest
-    assert runtime_fingerprint(digests=tuple(reversed(captured))) == runtime_fingerprint(
-        digests=captured
-    )
-    assert runtime_fingerprint(digests=(("module.py", "c" * 64),)) != runtime_fingerprint(
-        digests=captured
-    )
-
-
 def test_request_context_is_complete_and_immutable():
     def key(project="project", source="original", scope=b'{"page":1}'):
         return SemanticRequestKey(

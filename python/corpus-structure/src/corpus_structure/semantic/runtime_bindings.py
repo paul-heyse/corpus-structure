@@ -26,27 +26,6 @@ def _inputs(inputs: tuple[SourceArtifact, ...] | None) -> tuple[SourceArtifact, 
     return tuple(sorted(inputs, key=lambda item: item.name))
 
 
-def runtime_implementation_digests(
-    inputs: tuple[SourceArtifact, ...] | None = None,
-) -> tuple[tuple[str, str], ...]:
-    return tuple((item.name, item.digest) for item in _inputs(inputs))
-
-
-def runtime_fingerprint(
-    inputs: tuple[SourceArtifact, ...] | None = None,
-    *,
-    digests: tuple[tuple[str, str], ...] | None = None,
-) -> str:
-    """Unbound computation/cache identity; it never replaces the semantic release identity."""
-    if inputs is not None and digests is not None:
-        raise ValueError("supply runtime inputs or their digests, not both")
-    captured = runtime_implementation_digests(inputs) if digests is None else tuple(sorted(digests))
-    from .data_operation_identity import runtime_artifact_identity
-
-    artifact = runtime_artifact_identity({"python": sys.version, "inputs": captured})
-    return "runtime-code:" + artifact.digest
-
-
 def _execution(prepared: PreparedRelease):
     from .contracts import bound_execution_model, execution_payload
 

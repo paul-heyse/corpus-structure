@@ -1066,100 +1066,6 @@ class BoundReader:
 
         return read_private_record_report(self, task_id)
 
-    def pm2_scope_coverage(self):
-        from .pm2_coverage import scope_coverage
-
-        run = table("ops.run")
-        options = self.conn.execute(
-            select(run.c.options["pm2_scope_intents"]).where(
-                run.c.id == self.run_id, run.c.release_id == self.prepared.release_id
-            )
-        ).scalar_one()
-        intents = options
-        return None if intents is None else scope_coverage(self.conn, self.run_id, intents)
-
-    def pm2_projection_locations(self, task_id: int, *, max_bytes: int = 8_388_608):
-        """Read selected-projection evidence without creating a physical occurrence."""
-        from sqlalchemy import Text
-
-        from .contracts import require_bound_operation
-        from .observations import source_python
-        from .proposals import native_source_frame
-        from .source_contexts import (
-            NativeSourceContext,
-            PreparedNativeSources,
-            SourceSlice,
-            evidence_anchor,
-        )
-
-        require_bound_operation(self.prepared, "read_source_contributions")
-        if self.cut_id is None or task_id <= 0 or not 0 < max_bytes <= 8_388_608:
-            raise ValueError("PM2 projection read requires a selected cut and bounded detail")
-        selected, origin, result, member = (
-            table("ops.task"),
-            table("ops.task").alias("pm2_origin"),
-            table("ops.task_result"),
-            table("ops.cut_task"),
-        )
-        detail = result.c.body["parse_detail"]
-        size = func.octet_length(cast(detail, Text))
-        statement = (
-            select(detail)
-            .select_from(selected)
-            .join(member, member.c.task_id == selected.c.id)
-            .join(origin, origin.c.id == member.c.origin_task_id)
-            .join(result, result.c.task_id == origin.c.id)
-            .where(
-                selected.c.id == task_id,
-                selected.c.run_id == self.run_id,
-                selected.c.release_id == self.prepared.release_id,
-                origin.c.release_id == self.prepared.release_id,
-                origin.c.id == func.coalesce(selected.c.reused_task_id, selected.c.id),
-                member.c.cut_id == self.cut_id,
-                selected.c.unit_type == "source_view",
-            )
-        )
-        length = self.conn.scalar(statement.with_only_columns(size))
-        if length is None:
-            return None
-        if length > max_bytes:
-            raise ValueError("PM2 projection detail exceeds read budget")
-        payload, view_id, unit_key = self.conn.execute(
-            statement.with_only_columns(detail, selected.c.unit_id, selected.c.unit_key)
-        ).one()
-        decoded = source_python(payload)
-        native = decoded.get("pm2_native") if isinstance(decoded, dict) else None
-        if not isinstance(native, dict):
-            return None
-        locations = native["locations"]
-        if not isinstance(locations, dict):
-            raise ValueError("retained PM2 locations have an invalid shape")
-        source = None
-        preparation = None
-        for location in locations.values():
-            for anchor in location.get("selected_projection", ()):
-                if source is None:
-                    source = replace(
-                        native_source_frame(self.source_view(view_id), ()), unit_ref=unit_key
-                    )
-                    preparation = PreparedNativeSources((source,))
-                start, end, literal = anchor["start"], anchor["end"], anchor["source_piece"]
-                context = NativeSourceContext(
-                    source,
-                    (),
-                    (SourceSlice(view_id, start, end),),
-                    "pm2_projection_read",
-                    "exact_retained_piece",
-                    "verify_selected_projection",
-                    max_chars=65_536,
-                    preparation=preparation,
-                )
-                (piece,) = context.map_span(0, end - start, literal=literal)
-                expected, _ = evidence_anchor(context, piece)
-                if anchor != expected:
-                    raise ValueError("retained PM2 location differs from the selected source piece")
-        return locations
-
     def source_views(self):
         cached = getattr(self, "_native_view_refs", None)
         if cached is not None:
@@ -1972,29 +1878,6 @@ class BoundReader:
             )
         raise OperationConflict("current native input requires a published record")
 
-    def native_section_drafts(
-        self, reference, *, document_id, selections, membership, scope, consumer_release
-    ):
-        from corpus_structure.ingest.pdf_hierarchy import section_text_policy
-        from corpus_structure.ingest.pdf_section_views import published_section_drafts
-
-        _, _, reader = self._native_product_input(reference)
-        if consumer_release != self.prepared.release_id:
-            raise OperationConflict("section projection consumer release differs from its reader")
-        if reader is None:
-            raise OperationConflict(
-                "current source preparation requires a record-backed publication"
-            )
-        return published_section_drafts(
-            reader,
-            document_id=document_id,
-            selections=selections,
-            membership=membership,
-            scope=scope,
-            consumer_release=consumer_release,
-            projection_policy=section_text_policy(self.prepared),
-        )
-
     def capture_pdf_candidates(self, reference, directory):
         """Detach selected-product IPC custody before releasing the database borrower."""
         from dataclasses import replace
@@ -2028,13 +1911,6 @@ class BoundReader:
                 logical_digest=payload.logical_digest,
             )
         return ReplayCandidatePageSource(replays, family)
-
-    def native_product_reference(self, document_id: int, product_key: str, digest: str):
-        from .product_reference import ProductReference
-
-        if document_id not in self.source_tasks:
-            raise OperationConflict("native product requires real claimed source task")
-        return ProductReference(self.source_tasks[document_id], product_key, digest)
 
     def pdf_context(self):
         from .pdf_contracts import pdf_context_for_task
@@ -2087,12 +1963,6 @@ class BoundReader:
         if permitted is None:
             raise OperationConflict("original source is outside the bound run/project")
         return read_original(self.conn, DocumentId(permitted), prepared=self.prepared)
-
-    def bind_source_tasks(self, tasks: Mapping[int, int]) -> None:
-        """Bind one claimed batch; task identity never comes from a fabricated placeholder."""
-        if any(document < 1 or task < 1 for document, task in tasks.items()):
-            raise ValueError("source task binding requires real document/task identities")
-        self.source_tasks = dict(tasks)
 
     def source_observations(self, source_view_id: int, method: str, kind: str):
         self.source_view(source_view_id)
@@ -2274,21 +2144,6 @@ class BoundReader:
             .order_by(documents.c.key)
         ).all()
         return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
-
-    def source_view_documents(self):
-        from corpus_structure.core.method import UnitRef
-        from corpus_structure.core.vocab import TaskUnitType
-
-        ids = {view.document_id for view in self.source_views()}
-        documents, runs = table("kb.document"), table("ops.run")
-        rows = self.conn.execute(
-            select(documents.c.id, documents.c.key)
-            .join(runs, runs.c.project_id == documents.c.project_id)
-            .where(runs.c.id == self.run_id, documents.c.id.in_(ids))
-            .order_by(documents.c.id)
-        ).all()
-        return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
-
 
 def renew_claim(conn: Connection, *, task_id: int, attempt: int, holder: str) -> None:
     """Renew only the current attempt through the protected native ownership guard."""

@@ -380,17 +380,6 @@ class Reader(Protocol):
         self, reference: ProductReference, *, include_candidate_pages: bool = True
     ) -> PreparedPdfProduct: ...
 
-    def native_section_drafts(
-        self,
-        reference: ProductReference,
-        *,
-        document_id: int,
-        selections: tuple[str, ...],
-        membership: Literal["direct", "descendants"],
-        scope: Any,
-        consumer_release: str,
-    ) -> tuple[SourceViewDraft, ...]: ...
-
     def capture_pdf_candidates(
         self, reference: ProductReference, directory: Path
     ) -> CandidatePageSource: ...
@@ -402,10 +391,6 @@ class Reader(Protocol):
     def source_view_coverage(
         self, source_view_id: int, method: str
     ) -> tuple[SourceCoverageReading, ...]: ...
-
-    def native_product_reference(
-        self, document_id: int, product_key: str, digest: str
-    ) -> ProductReference: ...
 
     def prepare_pdf_product(
         self, payload: Mapping[str, Any], original: bytes, schema_bytes: bytes, recipe_bytes: bytes
@@ -430,11 +415,6 @@ class Reader(Protocol):
     def documents(self, originals: Sequence[str]) -> tuple[UnitRef, ...]:
         """Owned document references under the frozen corpus and original-source selection."""
         ...
-
-    def source_view_documents(self) -> tuple[UnitRef, ...]:
-        """Owned distinct selected-view documents, in document identity order."""
-        ...
-
 
 class SourcePreparationReader(Protocol):
     """Additional owned reads for consumers of reusable source preparation.
