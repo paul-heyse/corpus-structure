@@ -46,3 +46,39 @@ def model_checkout(tmp_path):
         check=True,
     )
     return tmp_path, location
+
+
+@pytest.fixture
+def current_native_model_checkout(model_checkout):
+    """Review the exact current owners in a private native model workspace."""
+    import shutil
+
+    from corpus_structure.schema import generate
+
+    root, _ = model_checkout
+    # Review exactly the production owners, without a second implementation or
+    # historical migration checkout. The loaded code and captured files agree.
+    for name in ("semantic", "schema", "model"):
+        shutil.copytree(
+            generate.PACKAGE / name,
+            root / preparation.PACKAGE_PATH / name,
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+        )
+    subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.test",
+            "commit",
+            "-qm",
+            "current native source basis",
+        ],
+        check=True,
+    )
+    return model_checkout

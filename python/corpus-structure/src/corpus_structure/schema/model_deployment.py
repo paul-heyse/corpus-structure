@@ -525,14 +525,18 @@ def _verify_installed_revision(root: Path, binding: Candidate) -> dict[str, byte
 @contextmanager
 def _verified_script_location(root: Path, binding: Candidate) -> Generator[Path | None]:
     frozen = _verify_installed_revision(root, binding)
-    if binding.deployment_base is not None:
-        if binding.deployment_base.predecessor != binding.predecessor:
+    base = binding.deployment_base
+    if base is None and binding.predecessor is not None:
+        base = registered_base(_versions().parent, binding.predecessor, binding.predecessor)
+    if base is not None:
+        if base.predecessor != binding.predecessor:
             raise ModelError(["deployment base has a different candidate predecessor"])
-        verify_registered_base(_versions().parent, binding.deployment_base)
-        for relative, digest in binding.deployment_base.files:
+        verify_registered_base(_versions().parent, base)
+        for relative, digest in base.files:
             if relative == "env.py":
                 continue
-            content = (_versions().parent / relative).read_bytes()
+            path = checked_path(root, (_versions().parent / relative).relative_to(root).as_posix())
+            content = path.read_bytes()
             if sha256(content).hexdigest() != digest:
                 raise ModelError(["registered native chain changed during acquisition"])
             frozen[Path(relative).name] = content
@@ -551,14 +555,11 @@ def _verified_script_location(root: Path, binding: Candidate) -> Generator[Path 
         if sha256(environment).hexdigest() != binding.files.get(relative_environment):
             raise ModelError(["current migration environment differs from the reviewed candidate"])
         if (
-            binding.deployment_base is not None
-            and sha256(environment).hexdigest() != dict(binding.deployment_base.files)["env.py"]
+            base is not None
+            and sha256(environment).hexdigest() != dict(base.files)["env.py"]
         ):
             raise ModelError(["registered migration environment changed during acquisition"])
         (location / "env.py").write_bytes(environment)
-        for file in source.iterdir():
-            if binding.deployment_base is None and file.name not in frozen and file.is_file():
-                (versions / file.name).symlink_to(file)
         for name, content in frozen.items():
             (versions / name).write_bytes(content)
         yield location

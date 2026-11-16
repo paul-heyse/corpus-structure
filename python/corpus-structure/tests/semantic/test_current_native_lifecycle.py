@@ -1,18 +1,17 @@
 """Current native-only root uses the ordinary managed model lifecycle on an empty target."""
 
 import json
-import shutil
-import subprocess
 
 import pytest
 import yaml
 from conftest import settings_for_native_clone
+from model_change_support import current_native_model_checkout as current_native_model_checkout
 from model_change_support import model_checkout as model_checkout
 from sqlalchemy import text
 
 
 def test_native_only_current_root_preview_register_deploy_and_refusals(
-    cli, semantic_bare_engine, native_settings, model_checkout, monkeypatch
+    cli, semantic_bare_engine, semantic_absent_database, native_server, native_settings, current_native_model_checkout, monkeypatch
 ):
     from typer.testing import CliRunner
 
@@ -20,37 +19,12 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
     from corpus_structure.cli.app import app
     from corpus_structure.cli.managed import ResultStore
     from corpus_structure.cli.output import CliState
-    from corpus_structure.schema import generate, preparation
+    from corpus_structure.schema import preparation
     from corpus_structure.schema.model_deployment import Candidate
     from corpus_structure.semantic import migrations, runtime
     from corpus_structure.semantic.execution_admission import verify_deployment_catalog
 
-    root, _ = model_checkout
-    # Review exactly the production owners, without a second implementation or
-    # historical migration checkout. The loaded code and captured files agree.
-    for name in ("semantic", "schema", "model"):
-        shutil.copytree(
-            generate.PACKAGE / name,
-            root / preparation.PACKAGE_PATH / name,
-            dirs_exist_ok=True,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-        )
-    subprocess.run(["git", "-C", str(root), "add", "."], check=True)
-    subprocess.run(
-        [
-            "git",
-            "-C",
-            str(root),
-            "-c",
-            "user.name=Fixture",
-            "-c",
-            "user.email=fixture@example.test",
-            "commit",
-            "-qm",
-            "current native source basis",
-        ],
-        check=True,
-    )
+    root, _ = current_native_model_checkout
     location = root / preparation.PACKAGE_PATH.parents[1] / "target_alembic"
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
     monkeypatch.setattr(recipes, "checkout", lambda _: root)
@@ -158,6 +132,53 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
     refused = run("preview", "-", input=yaml.safe_dump({"native_revision": "another_root"}))
     assert refused.exit_code == 1
     assert "fresh native authoring requires an empty target" in refused.stdout
+
+    # An empty owned authoring stage may replay only the exact registered root,
+    # then normalize a successor entirely within its rollback transaction.
+    from corpus_structure.cli.schema import author_native_candidate
+    from corpus_structure.semantic.migration_chain import registered_base
+
+    stage_settings = settings_for_native_clone(native_settings, semantic_absent_database.name)
+    made = cli("db", "init", "--creation-only", "--creation-token", semantic_absent_database.token,
+               "--json", settings=lambda: stage_settings)
+    assert made.exit_code == 0, made.output
+    base = registered_base(location, None, "current_root_control")
+    report, products = author_native_candidate(
+        stage_settings, None, expected_predecessor="current_root_control", native_base=base
+    )
+    assert report.acquired_revision is None and report.predecessor == "current_root_control"
+    assert products["native_operations.json"]
+    with native_server.connect(semantic_absent_database.name) as connection:
+        assert migrations.current_revision(connection) is None
+        assert connection.scalar(text("SELECT to_regnamespace('sem')")) is None
+
+    with semantic_bare_engine.begin() as connection:
+        connection.exec_driver_sql("INSERT INTO data.project(project_id) VALUES('current-successor-control')")
+    from corpus_structure.schema import preparation
+
+    physical = yaml.safe_load((root / preparation.MODEL_PATH / "semantic/physical.yaml").read_bytes())
+    physical["classes"]["project"]["attributes"]["installation_note"] = {"range": "string"}
+    successor = success(run("preview", "-", input=yaml.safe_dump({
+        "native_revision": "current_successor_control", "native_predecessor": "current_root_control",
+        "physical": yaml.safe_dump(physical),
+    })))
+    success(run("apply", successor["result_id"]))
+    candidate = success(run("candidate", successor["result_id"]))
+    success(run("register", candidate["result_id"]))
+    with semantic_bare_engine.connect() as connection:
+        # The genuine registered but unapplied successor must not redirect the
+        # deployed root's frozen catalog contract.
+        verify_deployment_catalog(connection)
+    success(run("deploy", candidate["result_id"]))
+    with semantic_bare_engine.connect() as connection:
+        assert migrations.current_revision(connection) == "current_successor_control"
+        assert connection.execute(text("SELECT project_id,installation_note FROM data.project")).one() == ("current-successor-control", None)
+        assert connection.scalar(text("SELECT count(*) FROM sem.release")) == 0
+        verify_deployment_catalog(connection)
+    stale = run("preview", "-", input=yaml.safe_dump({
+        "native_revision": "stale_successor", "native_predecessor": "current_root_control",
+    }))
+    assert stale.exit_code == 1
 
 
 def test_creation_only_bootstrap_status_distinguishes_absent_from_unreadable_revision(
