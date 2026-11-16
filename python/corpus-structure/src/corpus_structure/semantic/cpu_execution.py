@@ -130,7 +130,10 @@ def _worker_release(reference: _CapsuleReference):
     try:
         if memory.size != reference.size:
             raise ValueError("CPU shared capsule extent differs from acquired archive")
-        content = bytes(memory.buf)
+        buffer = memory.buf
+        if buffer is None:
+            raise RuntimeError("CPU shared capsule buffer is closed")
+        content = bytes(buffer)
     finally:
         memory.close()
     if sha256(content).hexdigest() != reference.digest:
@@ -711,7 +714,10 @@ class CPUExecutionScope:
                     owned = _SharedCapsule(memory, reference)
                     self._release_capsules[prepared.release_id] = owned
                     self._capsule_bytes += memory.size
-                    memory.buf[:] = content
+                    buffer = memory.buf
+                    if buffer is None:
+                        raise RuntimeError("CPU shared capsule buffer closed during preparation")
+                    buffer[:] = content
                     owned.ready = True
                 finally:
                     del content
