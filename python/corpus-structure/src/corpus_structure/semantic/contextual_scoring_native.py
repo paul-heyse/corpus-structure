@@ -49,7 +49,7 @@ DECLARE inventory_ jsonb:=data.record_source_json(p_inventory->'inventory');
 BEGIN
  FOR target IN SELECT value FROM jsonb_array_elements(inventory_->'targets') LOOP
  SELECT value INTO STRICT observed FROM jsonb_array_elements(p_vectors->'vectors'->'items')
- WHERE data.report_field(value,'object_id')->>'text'=target->>'target_id';
+ WHERE (data.report_field(value,'object_id')->>'text') COLLATE "C"=(target->>'target_id') COLLATE "C";
  IF data.report_field(observed,'source_binding')->>'text' IS DISTINCT FROM target->>'source_binding'
  OR data.report_field(observed,'representation_digest')->>'text' IS DISTINCT FROM target->>'representation_digest' THEN
  RAISE EXCEPTION 'native score target differs from exact frozen representation' USING ERRCODE='23514'; END IF;
@@ -58,7 +58,7 @@ BEGIN
  target_id:=target->>'target_id'; vector:=ops.ddo_contextual_observed_vector(observed);
  SELECT value->>'search_text',ARRAY(SELECT jsonb_array_elements_text(value->'exact_forms'))
  INTO STRICT search_text,exact_forms FROM jsonb_array_elements(data.record_source_json(p_vectors->'lexical_targets'))
- WHERE value->>'target_id'=target_id;
+ WHERE (value->>'target_id') COLLATE "C"=target_id COLLATE "C";
  RETURN NEXT;
  END LOOP;
 END $score$;
@@ -67,13 +67,14 @@ CREATE OR REPLACE FUNCTION ops.ddo_contextual_native_scores(p_query jsonb,p_inve
 RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $score$
 DECLARE inventory_ jsonb:=data.record_source_json(p_inventory->'inventory');
  inventory_key text:=inventory_->>'inventory_id'; profile_key text;
- target_keys text[]:=ARRAY(SELECT value->>'target_id' FROM jsonb_array_elements(inventory_->'targets') ORDER BY value->>'target_id');
+ target_keys text[]:=ARRAY(SELECT value->>'target_id' FROM jsonb_array_elements(inventory_->'targets') ORDER BY (value->>'target_id') COLLATE "C");
  query_vector public.vector; observed jsonb; lexical_query text:=p_query->>'lexical_query';
  channel_budget integer:=(p_policy->>'channel_budget')::integer;
  text_configuration text:=numerics->>'text_configuration'; membership jsonb; hits jsonb;
 BEGIN
  IF (current_setting('server_version_num')::integer IS DISTINCT FROM (numerics->>'postgres_version_num')::integer)
  OR (SELECT extversion FROM pg_extension WHERE extname='vector') IS DISTINCT FROM numerics->>'pgvector_extension_version'
+ OR numerics->>'target_collation' IS DISTINCT FROM 'C'
  OR text_configuration IS DISTINCT FROM 'pg_catalog.english'
  OR numerics->>'distance_operator' IS DISTINCT FROM 'pgvector-vector-cosine'
  OR numerics->>'score_transport' IS DISTINCT FROM 'postgres-float8'
@@ -81,14 +82,14 @@ BEGIN
  OR (1<=(p_policy->>'budget')::integer AND (p_policy->>'budget')::integer<=channel_budget) IS NOT TRUE THEN
  RAISE EXCEPTION 'native score backend/query/budgets differ from exact declared policy' USING ERRCODE='23514'; END IF;
  SELECT value INTO STRICT observed FROM jsonb_array_elements(p_vectors->'vectors'->'items')
- WHERE data.report_field(value,'object_id')->>'text'=p_query->>'occurrence_id'
+ WHERE (data.report_field(value,'object_id')->>'text') COLLATE "C"=(p_query->>'occurrence_id') COLLATE "C"
  AND data.report_field(value,'vector_id')->>'text'=p_query->>'query_vector_id';
  query_vector:=ops.ddo_contextual_observed_vector(observed);
  profile_key:=data.report_field(observed,'profile_id')->>'text';
  WITH score_rows AS (__AUTHORITATIVE_CORE_QUERY__)
- SELECT coalesce(jsonb_agg(to_jsonb(target_id) ORDER BY target_id) FILTER(WHERE kind='membership'),'[]'),
+ SELECT coalesce(jsonb_agg(to_jsonb(target_id) ORDER BY target_id COLLATE "C") FILTER(WHERE kind='membership'),'[]'),
  coalesce(jsonb_agg(jsonb_build_object('channel',channel,'target_id',target_id,'rank',rank,
- 'score_float8_hex',encode(float8send(score),'hex')) ORDER BY channel,rank,target_id) FILTER(WHERE kind='hit'),'[]')
+ 'score_float8_hex',encode(float8send(score),'hex')) ORDER BY channel COLLATE "C",rank,target_id COLLATE "C") FILTER(WHERE kind='hit'),'[]')
  INTO membership,hits FROM score_rows;
  IF membership IS DISTINCT FROM to_jsonb(target_keys) THEN
  RAISE EXCEPTION 'native scoring membership is incomplete or duplicated' USING ERRCODE='23514'; END IF;

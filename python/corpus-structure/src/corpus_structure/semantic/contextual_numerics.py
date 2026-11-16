@@ -27,6 +27,7 @@ class RetrievalNumericalPolicy(BaseModel):
     python_version: Annotated[str, StringConstraints(pattern=r"^\S+$")] = Field(
         default_factory=python_version
     )
+    target_collation: Literal["C"] = "C"
     text_configuration: Literal["pg_catalog.english"] = "pg_catalog.english"
     distance_operator: Literal["pgvector-vector-cosine"] = "pgvector-vector-cosine"
     reciprocal_rank_offset: Literal[60] = 60

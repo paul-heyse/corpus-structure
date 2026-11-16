@@ -402,14 +402,13 @@ def contextual_score_statement(
         .where(
             relation.c.inventory_id == inventory_id,
             relation.c.profile_id == profile_id,
-            relation.c.target_id == any_(target_ids),
+            relation.c.target_id.collate("C") == any_(target_ids),
         )
         .cte("eligible_concept_vectors")
         .prefix_with("MATERIALIZED")
     )
-    distance = eligible.c.vector.op("OPERATOR(public.<=>)", return_type=DOUBLE_PRECISION)(
-        query_vector
-    )
+    target_order = eligible.c.target_id.collate("C")
+    distance = eligible.c.vector.op("OPERATOR(public.<=>)", return_type=DOUBLE_PRECISION)(query_vector)
     config = text_configuration.cast(REGCONFIG)
     tsquery = func.websearch_to_tsquery(config, lexical_query)
     tsvector = func.to_tsvector(config, eligible.c.search_text)
@@ -423,17 +422,17 @@ def contextual_score_statement(
     )
     branches = [membership]
     for name, score, ordering, predicate in (
-        ("dense", 1 - distance, (distance, eligible.c.target_id), None),
+        ("dense", 1 - distance, (distance, target_order), None),
         (
             "lexical",
             lexical_score,
-            (lexical_score.desc(), eligible.c.target_id),
+            (lexical_score.desc(), target_order),
             tsvector.op("@@")(tsquery),
         ),
         (
             "alias",
             literal(1.0),
-            (eligible.c.target_id,),
+            (target_order,),
             func.lower(lexical_query) == any_(eligible.c.exact_forms),
         ),
     ):
@@ -455,9 +454,8 @@ def contextual_score_statement(
             )
         )
     combined = union_all(*branches).subquery("retrieval_rows")
-    return select(combined).order_by(
-        combined.c.kind.desc(), combined.c.channel, combined.c.rank, combined.c.target_id
-    )
+    return select(combined).order_by(combined.c.kind.desc(), combined.c.channel,
+        combined.c.rank, combined.c.target_id.collate("C"))
 
 
 def retrieve_candidates(
