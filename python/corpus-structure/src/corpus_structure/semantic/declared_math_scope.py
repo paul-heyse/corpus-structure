@@ -93,7 +93,6 @@ def execute_scope(
                 continue
             basis = record["context"]
             context = profile.prepare_context(
-                profile.prepared,
                 macros=profile.options.section().macro_table(),
                 constants=profile.options.constants,
                 source_id=basis["source_id"],

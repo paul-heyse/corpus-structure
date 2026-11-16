@@ -70,7 +70,7 @@ def declared_math_readings(
     prepare_context,
     inherited=(),
     context_issues=(),
-    blocks=(),
+    blocks=None,
     check_active=lambda: None,
 ):
     """Run the original occurrence kernel without a Reader or reparsing.
@@ -84,7 +84,7 @@ def declared_math_readings(
     frozen = FrozenNativeSource.acquire(prepared, source.value)
     retained = SourceNativeMathReadings(frozen, tuple(formal))
     section = configuration.section()
-    if section.native_domain_rules and not blocks:
+    if section.native_domain_rules and blocks is None:
         raise ValueError("native domain rules require explicitly bound primary scope blocks")
     selected, clipped = selected_formula_inputs(frozen)
     value = frozen.value
@@ -127,7 +127,7 @@ def declared_math_readings(
         topology=topology,
         inherited=inherited,
         context_issues=issues,
-        blocks=blocks,
+        blocks=() if blocks is None else blocks,
         occurrence=lambda item: formula_occurrence(source, item, health[item["self_ref"]]),
         retain_syntax=retain,
         selected=lambda item: item["self_ref"] in selected,

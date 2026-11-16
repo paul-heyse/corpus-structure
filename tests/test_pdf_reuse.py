@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import json
-from hashlib import sha256
-from types import SimpleNamespace
 from typing import cast
 
 import pytest
 from docling_core.types.doc import DocItemLabel, DoclingDocument
 
-from corpus_structure.core.method import SourceViewDraft
-from corpus_structure.ingest.pdf_hierarchy import _section_text_policy_bytes, organize, snapshot
+from corpus_structure.ingest.pdf_hierarchy import organize, snapshot
 from corpus_structure.ingest.pdf_methods import PdfIngestConfig, _drafts
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
@@ -161,84 +158,58 @@ def test_enrichment_recipe_changes_with_actual_captured_classification_policy():
     assert json.loads(changed.recipe_bytes())["crop_padding_points"] == 2
 
 
-@pytest.mark.parametrize("historical_aggregate", [False, True])
-def test_selected_publication_projection_does_not_hydrate_whole_native(
-    monkeypatch, historical_aggregate
-):
-    from corpus_structure.ingest import pdf_section_views
-    from corpus_structure.semantic.operations import BoundReader, OperationConflict
+@pytest.mark.parametrize("source_scope", ["whole_document", "selected_section"])
+def test_selected_publication_projection_does_not_hydrate_whole_native(source_scope):
+    from corpus_structure.ingest.pdf_section_views import published_section_projections
 
-    pin = ProductReference(3, "organized", "a" * 64)
-    draft = SourceViewDraft(
-        "selected",
-        1,
-        pin,
-        "#/groups/0",
-        "direct",
-        "text",
-        ({"start": 0, "end": 4, "kind": "native_text", "item_ref": "#/texts/0"},),
-        ("#/groups/0", "#/texts/0"),
-        (),
-        {"conversion": "success"},
-        b"{}",
-    )
-    requests = []
-    published = object()
-    reader = object.__new__(BoundReader)
-    from corpus_structure.semantic.types import PreparedRelease
+    document = DoclingDocument(name="Current selected projection")
+    item = document.add_text(label=DocItemLabel.TEXT, text="Selected source Ω")
+    requested = []
 
-    reader.prepared = cast(
-        PreparedRelease,
-        SimpleNamespace(
-            release_id="consumer",
-            manifest=json.dumps(
-                {
-                    "dependencies": [
-                        [
-                            "execution/implementation/pdf/section-text-recipe.json",
-                            sha256(_section_text_policy_bytes()).hexdigest(),
-                        ]
-                    ]
-                }
-            ),
-        ),
-    )
+    class SelectedRows:
+        reference = ProductReference(3, "native", "a" * 64)
+        revision = {"source_digest": "b" * 64}
 
-    def selected(reference):
-        assert reference == pin
-        return None, None, None if historical_aggregate else published
+        def sections(self):
+            return []
 
-    monkeypatch.setattr(reader, "_native_product_input", selected)
+        def iter_companions(self, family):
+            assert family == "health"
+            yield {"source_scope": source_scope, "conversion": "success"}
 
-    def forbidden(*args, **kwargs):
-        raise AssertionError("selected publication projection cannot hydrate a whole document")
+        def has_native_metadata(self, kind):
+            assert kind == "recognition_coverage"
+            return False
 
-    monkeypatch.setattr(reader, "native_document", forbidden)
+        def section_nodes(self, section, membership):
+            assert section == "#/body" and membership == "direct"
+            requested.append(section)
+            return [
+                {"pointer": node.self_ref, "role": "selected", "native_json": node.model_dump(mode="json", by_alias=True)}
+                for node in (document.body, item)
+            ]
 
-    def project(actual, **options):
-        assert actual is published
-        requests.append(options)
-        return (draft,)
+        def section_reports(self, pointers, sections):
+            return []
 
-    monkeypatch.setattr(pdf_section_views, "published_section_drafts", project)
-    if historical_aggregate:
-        with pytest.raises(OperationConflict, match="record-backed publication"):
-            reader.native_section_drafts(
-                pin,
-                document_id=1,
-                selections=(),
-                membership="direct",
-                scope=None,
-                consumer_release="consumer",
-            )
-        assert requests == []
+        def hydrate_document(self):
+            pytest.fail("section projection hydrated an entire native document")
+
+        def native_product_values(self, **kwargs):
+            pytest.fail("section projection hydrated an entire native product")
+
+    from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
+
+    reader = cast(PublishedPdfReader, SelectedRows())
+    if source_scope == "selected_section":
+        with pytest.raises(ValueError, match="whole PDF product"):
+            published_section_projections(reader, selections=(), membership="direct", scope=None)
+        assert requested == []
     else:
-        assert reader.native_section_drafts(
-            pin,
-            document_id=1,
-            selections=(),
-            membership="direct",
-            scope=None,
-            consumer_release="consumer",
-        ) == (draft,)
-        assert requests[0]["document_id"] == 1
+        (projection,) = published_section_projections(
+            reader, selections=(), membership="direct", scope=None
+        )
+        assert projection.text == "Selected source Ω"
+        assert projection.section_pointer == "#/body"
+        assert projection.membership == "direct"
+        assert requested == ["#/body"]
