@@ -36,6 +36,24 @@ adds no attestation registry; model encoder batching requires explicit policy an
 
 > Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
 
+**Implemented; bounded pure controls Tested · 2026-11-16; native qualification remains open.**
+Cross-release coalescing executes the stored generation's immutable release, runtime and exact
+binding/read. Authenticated attach metadata supplies that basis before capacity admission; claim
+requires the expected generation and refuses a replaced basis. Cancelling the creating demand
+does not erase a still-useful shared request. Target-demand authorization remains distinct from
+the original execution, input/support hydration, retained reply and reconciliation custody.
+
+The existing invocation-wide CPU owner retains each execution-basis capsule in authenticated
+shared memory. Capsule creation charges serialized and shared bytes together; submissions carry a
+bounded descriptor rather than another full copy. Workers verify extent, digest and release before
+caching the exact descriptor. The creator owns unlinking after proven pool retirement; uncertain
+retirement retains capsule capacity and ownership. All target native profiles are declared before
+serving starts. An archived basis that cannot join the frozen residency is refused before claim;
+the executor never substitutes a target profile or starts a second historical execution owner.
+The [CPU scope](../../python/corpus-structure/src/corpus_structure/semantic/cpu_execution.py) and
+[demand executor](../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py)
+own these mechanics; the coordinator records actual native qualification and its limitations.
+
 **Implemented; scoped native Tested · 2026-11-14.** A discovery selection can explicitly
 associate a target input role with its selected parent product/member. The planner filters that role
 to authenticated population membership before cardinality; native admission independently checks

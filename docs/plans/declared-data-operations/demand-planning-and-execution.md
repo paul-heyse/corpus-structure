@@ -347,6 +347,16 @@ through inference or a capacity wait. Renewal has its own finite database operat
 wait behind provider work. Current byte/count settings are the baseline to evaluate, not a reason
 to preserve overlapping per-layer budgets or a stage permit after stage-run semantics disappear.
 
+**Implemented; bounded pure Tested,2026-11-16; native acceptance open.** The shared CPU scope
+retains one authenticated SharedMemory capsule per exact admitted execution basis. Charge the
+serialized preparation and shared bytes during creation, then retain the capsule charge through
+pool retirement. Per-request submissions carry bounded descriptors; workers verify extent, digest
+and release before caching. The creator owns unlink/release after proven retirement, while a
+quarantined pool retains ownership and capacity. Declare the complete target native-profile
+closure before serving, including later ready pages. An incompatible archived profile refuses
+before claim rather than altering frozen residency or using the adopter's runtime. These are
+the existing owner's mechanisms, not a second pool, persistent registry or memory estimator.
+
 Each submission has a request identity, admitted provider/profile and supervisor/host generation
 before the transport call. A normal capacity refusal returns explicit temporary backpressure.
 A transport/pool exception is a failure. If acceptance is uncertain and no future is returned,
