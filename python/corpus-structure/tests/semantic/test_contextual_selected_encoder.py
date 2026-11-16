@@ -236,7 +236,6 @@ def test_selected_encoder_uses_exact_shared_recipe_and_vector_identity(recipe, m
     result = execute_contextual_encoder_kernel(
         frame.record,
         occurrence,
-        dict(inventory=source_value(asdict(inventory))),
         asdict(profile),
         "",
         (),
@@ -246,24 +245,19 @@ def test_selected_encoder_uses_exact_shared_recipe_and_vector_identity(recipe, m
     )
     assert expected in calls[0][1][0]
     assert result["query"]["context"] == context
-    vectors = __import__(
-        "corpus_structure.semantic.observations", fromlist=["source_python"]
-    ).source_python(result["vectors"]["vectors"])
-    assert vectors[0]["representation_digest"] == context["representation_digest"]
+    vector = result["vector"]["vector"]
+    assert vector["representation_digest"] == context["representation_digest"]
     lexical = execute_contextual_encoder_kernel(
         frame.record,
         occurrence,
-        dict(inventory=source_value(asdict(inventory))),
         asdict(profile),
         "",
         (),
         check_active=lambda: None,
     )
     assert lexical["query"]["context"]["recipe"] == "lexical-native-1"
-    lexical_vectors = __import__(
-        "corpus_structure.semantic.observations", fromlist=["source_python"]
-    ).source_python(lexical["vectors"]["vectors"])
-    assert lexical_vectors[0]["vector_id"] != vectors[0]["vector_id"]
+    lexical_vector = lexical["vector"]["vector"]
+    assert lexical_vector["vector_id"] != vector["vector_id"]
 
 
 def test_requested_context_refuses_wrong_member_source_dependency_and_missing_population():

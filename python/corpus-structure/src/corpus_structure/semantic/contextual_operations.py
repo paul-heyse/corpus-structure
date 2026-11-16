@@ -34,6 +34,9 @@ _FILES = (
     "semantic/contextual_links.py",
     "semantic/contextual_storage.py",
     "methods/contextual_embeddings.py",
+    "methods/contextual_targets.py",
+    "semantic/contextual_target_products.py",
+    "semantic/structural_products.py",
 )
 
 _INVENTORY = TypeAdapter(FrozenInventory)
@@ -91,7 +94,7 @@ def contextual_retrieval_assets():
                         name,
                         (
                             admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
-                            if name in ("methods/contextual_declared.py",)
+                            if name in ("methods/contextual_declared.py", "methods/contextual_targets.py")
                             else (_ROOT / name).read_bytes().hex()
                         ),
                     )
@@ -114,6 +117,7 @@ def contextual_operation_declarations():
     from .contextual_neighborhood import NeighborhoodNumericalPolicy
     from .data_operation_model import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
+    from .structural_products import DeclaredDefinitionComponentsReport
 
     return SourceArtifact(
         "contextual/retrieval-numerical-kinds",
@@ -129,6 +133,11 @@ def contextual_operation_declarations():
                     NeighborhoodNumericalPolicy.model_json_schema(),
                     namespace="urn:corpus:kind:contextual-neighborhood:",
                     root_name="NumericalPolicy",
+                )
+                + nominal_schema_kinds(
+                    DeclaredDefinitionComponentsReport.model_json_schema(),
+                    namespace="urn:corpus:structural:",
+                    root_name="DeclaredDefinitionComponentsReport",
                 ),
             }
         ),
@@ -146,7 +155,7 @@ def contextual_operation_sources(numerical_policy=None, *, neighborhood_policy=N
                 (_ROOT / name).read_bytes(),
                 str((_ROOT / name).resolve()),
             )
-            for name in _FILES[:3]
+            for name in (*_FILES[:3], "methods/contextual_targets.py", "semantic/contextual_target_products.py")
         ),
         boundary_contracts=(
             contextual_retrieval_assets(),

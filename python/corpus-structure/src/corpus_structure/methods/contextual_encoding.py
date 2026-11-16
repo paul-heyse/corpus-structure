@@ -10,7 +10,7 @@ from corpus_structure.semantic.contextual_encoder import (
 
 class ContextualEncodingOperation:
     __data_operation__: ClassVar[dict] = {
-        "id": "retrieve.contextual_vectors/declared",
+        "id": "retrieve.contextual_query/declared",
         "profile": "derivation",
         "subject": "selected-native-source",
         "subject_definition": {
@@ -22,7 +22,7 @@ class ContextualEncodingOperation:
         "context": [
             "original-source",
             "retained-exact-occurrence",
-            "frozen-inventory",
+            "inventory-independent-query",
             "acquired-cpu-encoder",
         ],
         "entrypoints": ["run"],
@@ -60,25 +60,7 @@ class ContextualEncodingOperation:
                     "identity_requirements": ["episode"],
                 },
             },
-            {
-                "name": "inventory",
-                "parameter": "inventory",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualInventory",
-                "direction": "input",
-                "minimum": 1,
-                "maximum": 1,
-                "collection": "scalar",
-                "presence": "required",
-                "support": {
-                    "provenance": "value_substitution",
-                    "source": "selected-inventory",
-                    "coverage": {
-                        "role": "inventory",
-                        "description": "complete-eligible-population",
-                    },
-                    "identity_requirements": [],
-                },
-            },
+
             {
                 "name": "query",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualQuery",
@@ -89,8 +71,8 @@ class ContextualEncodingOperation:
                 "presence": "required",
             },
             {
-                "name": "vectors",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualVectors",
+                "name": "vector",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualQueryVector",
                 "direction": "output",
                 "minimum": 1,
                 "maximum": 1,
@@ -101,7 +83,7 @@ class ContextualEncodingOperation:
         "applicability": [
             {
                 "kind": "documentation",
-                "text": "one-exact-native-query-carrier-and-complete-inventory",
+                "text": "one-exact-native-query-carrier",
             }
         ],
         "invariants": [
@@ -114,7 +96,7 @@ class ContextualEncodingOperation:
         "coverage": {
             "binding": "self",
             "result_owners": [{"kind": "implementation", "reference": "self"}],
-            "description": "complete-selected-query-and-inventory",
+            "description": "one-exact-selected-query",
         },
         "outcomes": ["success", "failed"],
         "precision_description": None,
@@ -124,7 +106,7 @@ class ContextualEncodingOperation:
             "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy",
         },
         "replicate_policy": "explicit-replicates",
-        "dependencies": ["retrieve.contextual_inventory/declared"],
+        "dependencies": [],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -135,8 +117,8 @@ class ContextualEncodingOperation:
         },
         "behavior": "original-contextual-encoder-on-shared-cpu-owner-with-genuine-physical-receipt",
         "parameters": {},
-        "binding": {"operator": "scan", "roles": ["source", "occurrence", "inventory"]},
-        "result_fields": {"query": "query", "vectors": "vectors"},
+        "binding": {"operator": "scan", "roles": ["source", "occurrence"]},
+        "result_fields": {"query": "query", "vector": "vector"},
         "output_witnesses": [
             {
                 "output_role": "query",
@@ -273,8 +255,8 @@ class ContextualEncodingOperation:
     def __init__(self, execute):
         self.execute = execute
 
-    def run(self, source: dict, occurrence: dict, inventory: dict) -> dict[str, dict]:
-        return execute_contextual_encoder_profile(self, source, occurrence, inventory)
+    def run(self, source: dict, occurrence: dict) -> dict[str, dict]:
+        return execute_contextual_encoder_profile(self, source, occurrence)
 
     @staticmethod
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
@@ -295,7 +277,7 @@ class SelectedContextEncodingOperation:
     """The three explicit located primary recipes; no lexical fallback or provider inference."""
 
     __data_operation__: ClassVar[dict] = {
-        "id": "retrieve.contextual_vectors/selected-context",
+        "id": "retrieve.contextual_query/selected-context",
         "profile": "derivation",
         "subject": "selected-native-source",
         "subject_definition": {
@@ -307,7 +289,7 @@ class SelectedContextEncodingOperation:
         "context": [
             "original-source",
             "retained-exact-occurrence",
-            "frozen-inventory",
+            "inventory-independent-query",
             "acquired-cpu-encoder",
             "exact-selected-primary-closure",
             "explicit-context-recipe-and-member",
@@ -347,25 +329,7 @@ class SelectedContextEncodingOperation:
                     "identity_requirements": ["episode"],
                 },
             },
-            {
-                "name": "inventory",
-                "parameter": "inventory",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualInventory",
-                "direction": "input",
-                "minimum": 1,
-                "maximum": 1,
-                "collection": "scalar",
-                "presence": "required",
-                "support": {
-                    "provenance": "value_substitution",
-                    "source": "selected-inventory",
-                    "coverage": {
-                        "role": "inventory",
-                        "description": "complete-eligible-population",
-                    },
-                    "identity_requirements": [],
-                },
-            },
+
             {
                 "name": "primary",
                 "parameter": "primary",
@@ -397,8 +361,8 @@ class SelectedContextEncodingOperation:
                 "presence": "required",
             },
             {
-                "name": "vectors",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualVectors",
+                "name": "vector",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualQueryVector",
                 "direction": "output",
                 "minimum": 1,
                 "maximum": 1,
@@ -409,7 +373,7 @@ class SelectedContextEncodingOperation:
         "applicability": [
             {
                 "kind": "documentation",
-                "text": "one-exact-native-query-carrier-and-complete-inventory",
+                "text": "one-exact-native-query-carrier",
             }
         ],
         "invariants": [
@@ -424,7 +388,7 @@ class SelectedContextEncodingOperation:
         "coverage": {
             "binding": "self",
             "result_owners": [{"kind": "implementation", "reference": "self"}],
-            "description": "complete-selected-query-and-inventory",
+            "description": "one-exact-selected-query",
         },
         "outcomes": ["success", "failed"],
         "precision_description": None,
@@ -434,7 +398,7 @@ class SelectedContextEncodingOperation:
             "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy",
         },
         "replicate_policy": "explicit-replicates",
-        "dependencies": ["retrieve.contextual_inventory/declared"],
+        "dependencies": [],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -452,11 +416,11 @@ class SelectedContextEncodingOperation:
         "binding": {
             "operator": "all",
             "children": [
-                {"operator": "scan", "roles": ["source", "occurrence", "inventory"]},
+                {"operator": "scan", "roles": ["source", "occurrence"]},
                 {"operator": "collection", "roles": ["primary"], "collection": "sequence"},
             ],
         },
-        "result_fields": {"query": "query", "vectors": "vectors"},
+        "result_fields": {"query": "query", "vector": "vector"},
         "output_witnesses": [
             {
                 "output_role": "query",
@@ -577,12 +541,11 @@ class SelectedContextEncodingOperation:
         self,
         source: dict,
         occurrence: dict,
-        inventory: dict,
         primary: tuple[dict, ...],
         context_selection: dict,
     ) -> dict[str, dict]:
         return execute_selected_context_encoder_profile(
-            self, source, occurrence, inventory, primary, context_selection
+            self, source, occurrence, primary, context_selection
         )
 
     @staticmethod
@@ -598,3 +561,74 @@ class SelectedContextEncodingOperation:
             custody=custody,
             sources=sources,
         )
+
+
+class ContextualTargetEncodingOperation:
+    __data_operation__: ClassVar[dict] = {'id': 'retrieve.contextual_target_vector/declared',
+ 'profile': 'derivation',
+ 'subject': 'contextual-target',
+ 'subject_definition': {'id': 'contextual-target', 'identifier_kind': 'string', 'scope': 'project'},
+ 'discovery_relation': 'role-associated',
+ 'context': ['exact-target-local-source', 'explicit-selected-population'],
+ 'entrypoints': ['run'],
+ 'roles': [{'name': 'target',
+            'kind': 'https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTarget',
+            'direction': 'input',
+            'minimum': 1,
+            'maximum': 1,
+            'collection': 'scalar',
+            'presence': 'required',
+            'parameter': 'target',
+            'support': {'provenance': 'value_substitution',
+                        'source': 'explicit-authentic-selected-target',
+                        'coverage': {'role': 'target',
+                                     'description': 'exact-selected-target-value'},
+                        'identity_requirements': []}},
+           {'name': 'result',
+            'kind': 'https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTargetVector',
+            'direction': 'output',
+            'minimum': 1,
+            'maximum': 1,
+            'collection': 'scalar',
+            'presence': 'required'}],
+ 'applicability': [{'kind': 'documentation', 'text': 'explicit-retained-target-values'}],
+ 'invariants': [{'kind': 'documentation',
+                 'text': 'preserve-original-source-and-derived-support-without-new-inference'}],
+ 'coverage': {'binding': 'self',
+              'result_owners': [{'kind': 'implementation', 'reference': 'self'}],
+              'description': 'exact-selected-target-population'},
+ 'outcomes': ['success'],
+ 'precision_description': None,
+ 'dependencies': ['retrieve.contextual_target/declared'],
+ 'effects': [],
+ 'capabilities': {'forms': ['scalar'],
+                  'preparation': 'resource',
+                  'prepared_factory': 'acquire_port',
+                  'cancellation': 'cooperative',
+                  'ownership': 'invocation-owned-reusable-cpu-worker'},
+ 'behavior': 'retrieve.contextual_target_vector/declared-2',
+ 'parameters': {},
+ 'binding': {'operator': 'scan', 'roles': ['target']},
+ 'opaque': [{'reference': 'corpus_structure.semantic.contextual_encoder.execute_target_encoder_profile',
+             'contract': 'contextual/encoder-assets',
+             'role': 'original-acquired-target-local-cpu-encoding'}],
+ 'assets': [{'reference': 'target-projections',
+             'contract': 'contextual/encoder-assets',
+             'role': 'actual-target-and-vector-meaning'}],
+ 'replicate_policy': 'explicit-replicates',
+ 'numerical_policy': {'asset': 'contextual/encoder-assets',
+                      'pointer': '/numerical_policy',
+                      'kind': 'urn:corpus:kind:contextual-encoder:NumericalPolicy'}}
+
+    def __init__(self, execute):
+        self.execute = execute
+
+    def run(self, target: dict) -> dict:
+        from corpus_structure.semantic.contextual_encoder import execute_target_encoder_profile
+        return execute_target_encoder_profile(self, target)
+
+    @staticmethod
+    def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
+        from corpus_structure.semantic.contextual_encoder import resolve_contextual_encoder_port
+        return resolve_contextual_encoder_port(prepared, model, operation, identity=identity,
+            authorize=authorize, custody=custody, sources=sources)

@@ -20,6 +20,79 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       inventory: {range: SourceValue, inlined: true, required: true}
+  DdoContextualTarget:
+    is_a: SourceRecordProduct
+    attributes:
+      original_source: {}
+      descriptor: {range: SourceValue, inlined: true, required: true}
+      semantic_target: {range: SourceValue, inlined: true, required: true}
+  DdoContextualTargetMember:
+    is_a: SourceRecordProduct
+    attributes:
+      original_source: {}
+      descriptor: {range: SourceValue, inlined: true, required: true}
+      semantic_target: {range: SourceValue, inlined: true, required: true}
+  DdoContextualTargetScope:
+    is_a: SourceRecordProduct
+    attributes:
+      target_id: {required: true}
+      source_binding: {required: true}
+  DdoContextualTargetContext:
+    is_a: SourceRecordProduct
+    attributes:
+      subject: {required: true}
+      subject_definition: {required: true}
+      original_source: {}
+      analyzed_scope: {range: DdoContextualTargetScope, inlined: true, required: true}
+  DdoContextualTargetPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+      kind_contract: {required: true}
+      context: {range: DdoContextualTargetContext, inlined: true, required: true}
+      body: {range: DdoContextualTargetMember, inlined: true, required: true}
+  DdoContextualTargetPopulation:
+    is_a: SourceRecordProduct
+    attributes:
+      complete: {range: boolean, required: true}
+      members: {range: DdoContextualTargetPacket, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  DdoCuratedContextualTargets:
+    is_a: SourceRecordProduct
+    attributes:
+      targets: {range: SourceValue, inlined: true, required: true}
+  DdoContextualVector:
+    is_a: SourceRecordProduct
+    attributes:
+      vector_id: {required: true}
+      object_id: {required: true}
+      source_binding: {required: true}
+      profile_id: {required: true}
+      input_digest: {required: true}
+      representation_digest: {required: true}
+      values: {range: float, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoContextualRenderedInput:
+    is_a: SourceRecordProduct
+    attributes:
+      object_id: {required: true}
+      source_binding: {required: true}
+      role: {required: true, pattern: "^(query|document)$"}
+      text: {required: true}
+      final_input_digest: {required: true}
+      truncated: {range: boolean, required: true}
+      representation_digest: {required: true}
+  DdoContextualVectorProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      original_source: {}
+      profile: {range: SourceValue, inlined: true, required: true}
+      vector: {range: DdoContextualVector, inlined: true, required: true}
+      rendered: {range: DdoContextualRenderedInput, inlined: true, required: true}
+  DdoContextualTargetVector:
+    is_a: DdoContextualVectorProduct
+    attributes:
+      target: {range: DdoContextualTarget, inlined: true, required: true}
+  DdoContextualQueryVector:
+    is_a: DdoContextualVectorProduct
   DdoContextualVectors:
     is_a: SourceRecordProduct
     attributes:

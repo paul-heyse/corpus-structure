@@ -30,6 +30,7 @@ _FILES = (
     "methods/contextual_query.py",
     "methods/pm2_dipo_products.py",
     "semantic/declared_formal_readings.py",
+    "semantic/contextual_target_products.py",
     "semantic/characterization.py",
     "semantic/data_product_reference.py",
 )
@@ -147,14 +148,42 @@ def contextual_encoder_operation_sources(
     return combine_primary_sources(contextual_operation_sources(numerical_policy), own)
 
 
-def execute_contextual_encoder_profile(receiver, source, occurrence, inventory):
-    return receiver.execute(source, occurrence, inventory)
+def execute_contextual_encoder_profile(receiver, source, occurrence):
+    return receiver.execute(source, occurrence)
 
 
 def execute_selected_context_encoder_profile(
-    receiver, source, occurrence, inventory, primary, context_selection
+    receiver, source, occurrence, primary, context_selection
 ):
-    return receiver.execute(source, occurrence, inventory, primary, context_selection)
+    return receiver.execute(source, occurrence, primary, context_selection)
+
+
+def execute_target_encoder_profile(receiver, target):
+    return receiver.execute(target)
+
+
+def execute_target_encoder_kernel(target, profile_record, model_path, artifacts, *, check_active):
+    from pydantic import TypeAdapter
+
+    from corpus_structure.methods.contextual_embeddings import encode_contexts
+
+    from .contextual_retrieval import TargetRepresentation
+    from .contextual_target_products import target_encoding_input
+    from .observations import source_python, source_value
+
+    descriptor = TypeAdapter(TargetRepresentation).validate_python(source_python(target["descriptor"]))
+    profile = TypeAdapter(EncoderProfile).validate_python(profile_record)
+    result = encode_contexts((target_encoding_input(descriptor),), profile,
+        model_path=model_path, artifact_hashes=artifacts, check_active=check_active)
+    if result.limited_query_ids or len(result.vectors) != 1 or len(result.inputs) != 1:
+        raise ValueError("target encoder did not produce its one exact target")
+    return {
+        "original_source": target.get("original_source"),
+        "target": target,
+        "profile": source_value(asdict(profile)),
+        "vector": asdict(result.vectors[0]),
+        "rendered": asdict(result.inputs[0]),
+    }
 
 
 def prepare_selected_query_context(frame, occurrence, primary, *, binding, recipe, evidence):
@@ -294,7 +323,6 @@ def checked_encoded_query_context(context) -> EncodedQueryContext:
 def execute_contextual_encoder_kernel(
     frame_record: dict,
     occurrence: dict,
-    inventory: dict,
     profile_record: dict,
     model_path: str,
     artifacts: tuple[tuple[str, str], ...],
@@ -308,7 +336,6 @@ def execute_contextual_encoder_kernel(
     from corpus_structure.methods.contextual_candidates import retained_occurrences
     from corpus_structure.methods.contextual_embeddings import ContextInput, encode_contexts
 
-    from .contextual_operations import admitted_contextual_inventory
     from .contributions import operation_identity
     from .declared_record_sources import DeclaredNativeFrameSource
     from .observations import source_value
@@ -332,7 +359,6 @@ def execute_contextual_encoder_kernel(
     if len(products) != 1 or len(contexts) != 1:
         raise ValueError("contextual encoder requires exactly one retained native occurrence")
     text, start, end, mention = contexts[occurrence["occurrence_id"]]
-    selected = admitted_contextual_inventory(inventory)
     profile = TypeAdapter(EncoderProfile).validate_python(profile_record)
     query_context = checked_encoded_query_context(query_context_record)
     if (query_context_record is None) != (not context_inputs):
@@ -350,22 +376,6 @@ def execute_contextual_encoder_kernel(
             query_context=query_context["rendered"] if query_context_record is not None else None,
         )
     ]
-    for target in selected.targets:
-        inputs.append(
-            ContextInput(
-                target.target_id,
-                target.source_binding,
-                "document",
-                target.label,
-                target.label + "\n" + target.description,
-                0,
-                len(target.label),
-                parent=target.parent or "",
-                heading=("Aliases: " + ", ".join(target.aliases)) if target.aliases else "",
-                type_name=target.type_name,
-                representation_digest=target.representation_digest,
-            )
-        )
     encoded = encode_contexts(
         inputs, profile, model_path=model_path, artifact_hashes=artifacts, check_active=check_active
     )
@@ -384,9 +394,11 @@ def execute_contextual_encoder_kernel(
             "context": query_context,
             "context_inputs": list(context_inputs),
         },
-        "vectors": {
+        "vector": {
+            "original_source": pin["original_source"],
             "profile": source_value(asdict(profile)),
-            "vectors": source_value([asdict(value) for value in encoded.vectors]),
+            "vector": asdict(query),
+            "rendered": asdict(encoded.inputs[0]),
         },
     }
 
@@ -411,9 +423,6 @@ class ContextualEncoderPlan:
         occurrence = self.prepared.validate_json(
             "DdoCandidateSourceContribution", json_bytes(arguments.arguments["occurrence"])
         ).model_dump(mode="python", exclude_unset=True)
-        inventory = self.prepared.validate_json(
-            "DdoContextualInventory", json_bytes(arguments.arguments["inventory"])
-        ).model_dump(mode="python", exclude_unset=True)
         members = next(role.members for role in binding.roles if role.role == "source")
         if len(members) != 1 or members[0].multiplicity != 1:
             raise ValueError("contextual encoder source differs from its one selected member")
@@ -434,7 +443,6 @@ class ContextualEncoderPlan:
         bound = signature.bind(
             frame_record=frame.record,
             occurrence=occurrence,
-            inventory=inventory,
             profile_record=asdict(self.selection.profile),
             model_path=str(self.selection.model_path),
             artifacts=self.selection.artifacts,
@@ -457,7 +465,7 @@ class ContextualEncoderPlan:
             )
             for name, class_name in (
                 ("query", "DdoContextualQuery"),
-                ("vectors", "DdoContextualVectors"),
+                ("vector", "DdoContextualQueryVector"),
             )
         }
         return PreparedCallResult(
@@ -465,11 +473,41 @@ class ContextualEncoderPlan:
         )
 
 
+@dataclass
+class ContextualTargetEncoderPlan:
+    prepared: Any
+    selection: ContextualEncoderSelection
+    port: Any = None
+
+    def plan(self, arguments, *, binding, check_active, execution_owner):
+        from .contextual_target_products import materialize_target
+        from .data_operation_json import json_bytes
+        from .data_operation_prepared_call import PreparedCallResult
+
+        if binding is None or binding.subject_context is None:
+            raise ValueError("target encoder requires its acquired target context")
+        target = self.prepared.validate_json("DdoContextualTarget",
+            json_bytes(arguments.arguments["target"])).model_dump(mode="python", exclude_unset=True)
+        materialize_target(target, context=binding.subject_context)
+        signature = inspect.signature(execute_target_encoder_kernel, eval_str=True)
+        bound = signature.bind(target=target, profile_record=asdict(self.selection.profile),
+            model_path=str(self.selection.model_path), artifacts=self.selection.artifacts,
+            check_active=check_active)
+        reply = yield from self.port.plan_cpu_reply(execute_target_encoder_kernel, bound,
+            contextual_encoder_operation_sources(self.selection, include_dependencies=False),
+            execution_owner=execution_owner, check_active=check_active)
+        result = self.prepared.validate_json("DdoContextualTargetVector", reply.content).model_dump(
+            mode="python", exclude_unset=True)
+        return PreparedCallResult(result,
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+
+
 def resolve_contextual_encoder_port(
     prepared, model, operation, *, identity, authorize, custody, sources
 ):
     from corpus_structure.methods.contextual_encoding import (
         ContextualEncodingOperation,
+        ContextualTargetEncodingOperation,
         SelectedContextEncodingOperation,
     )
 
@@ -491,18 +529,17 @@ def resolve_contextual_encoder_port(
     owners = {surface.exposed.rsplit(".", 1)[0] for surface in selected.callable_surfaces}
     classes = tuple(
         kind
-        for kind in (ContextualEncodingOperation, SelectedContextEncodingOperation)
+        for kind in (ContextualEncodingOperation, SelectedContextEncodingOperation, ContextualTargetEncodingOperation)
         if kind.__module__ + "." + kind.__qualname__ in owners
     )
     if len(classes) != 1 or not selection.artifacts:
         raise PortRefusal("contextual encoder factory differs from its acquired operation/model")
     receiver_type = classes[0]
     receiver = receiver_type(None)
-    plan = ContextualEncoderPlan(
-        prepared,
-        selection,
-        selected_context=receiver_type is SelectedContextEncodingOperation,
-    )
+    target_encoding = receiver_type is ContextualTargetEncodingOperation
+    plan = (ContextualTargetEncoderPlan(prepared, selection) if target_encoding else
+        ContextualEncoderPlan(prepared, selection, selected_context=receiver_type is SelectedContextEncodingOperation))
+    kernel = execute_target_encoder_kernel if target_encoding else execute_contextual_encoder_kernel
     port = PreparedOriginalCallPort(
         identity,
         model,
@@ -511,14 +548,14 @@ def resolve_contextual_encoder_port(
         custody,
         receiver.run,
         plan.plan,
-        "corpus_structure.semantic.contextual_encoder.ContextualEncoderPlan.plan",
+        "corpus_structure.semantic.contextual_encoder." + type(plan).__name__ + ".plan",
         authorize,
         (contextual_encoder_assets(selection), contextual_encoder_custody(selection)),
         contextual_encoder_operation_sources(selection, include_dependencies=False),
         functions=(
             (
-                "corpus_structure.semantic.contextual_encoder.execute_contextual_encoder_kernel",
-                execute_contextual_encoder_kernel,
+                "corpus_structure.semantic.contextual_encoder." + kernel.__name__,
+                kernel,
             ),
         ),
         requires_prepared_schema=True,

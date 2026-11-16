@@ -163,7 +163,7 @@ def test_full_source_profile_recurses_declared_options_and_preserves_explicit_ch
 def test_source_operation_options_preserve_authoritative_encoder_replicate():
     from corpus_structure.orchestrate.source_operation import _default_profile_selections
 
-    identifier = "retrieve.contextual_vectors/declared"
+    identifier = "retrieve.contextual_query/declared"
     selection = DemandOperationSelection(operation=identifier, replicate="operator-sample-2026-A")
     original = request(targets=(identifier,), selections=(selection,))
     restored = SourceRunRequest.model_validate_json(original.model_dump_json())

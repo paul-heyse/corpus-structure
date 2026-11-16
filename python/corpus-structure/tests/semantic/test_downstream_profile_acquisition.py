@@ -84,6 +84,10 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         "text.compose_view/full-native",
         "locate.definition_terms/declared",
         "retrieve.contextual_inventory/declared",
+        "retrieve.contextual_targets/curated",
+        "retrieve.contextual_targets/components",
+        "retrieve.contextual_target/declared",
+        "retrieve.contextual_vectors/selection",
         "retrieve.contextual_neighborhood/declared",
         "resolve.m1_readings/declared",
         "segment.sentences/source-native",
@@ -327,7 +331,7 @@ def test_public_downstream_acquires_private_reading_resolution_without_model_sel
     }
 
 
-def test_public_encoder_without_downstream_acquires_its_inventory_dependency(tmp_path, monkeypatch):
+def test_public_encoder_without_downstream_acquires_target_and_selection_families(tmp_path, monkeypatch):
     from corpus_structure.methods import contextual_embeddings
 
     root = primary_profile_inputs(tmp_path)
@@ -345,12 +349,16 @@ def test_public_encoder_without_downstream_acquires_its_inventory_dependency(tmp
 
     monkeypatch.setattr(contextual_embeddings, "encode_contexts", forbidden)
     model, sources = _compiled_acquisition(root)
-    encoder = model.operation("retrieve.contextual_vectors/declared")
-    assert encoder.dependencies == ("retrieve.contextual_inventory/declared",)
+    encoder = model.operation("retrieve.contextual_query/declared")
+    assert encoder.dependencies == ()
     retrieval = model.operation("retrieve.contextual/declared")
     assert retrieval.numerical_policy is not None
     assert json.loads(retrieval.numerical_policy.body)["postgres_version_num"] == 180008
-    for identity in (encoder.semantic_id, *encoder.dependencies):
+    target = model.operation("retrieve.contextual_target_vector/declared")
+    assert target.dependencies == ("retrieve.contextual_target/declared",)
+    for identity in (encoder.semantic_id, target.semantic_id, *target.dependencies,
+        "retrieve.contextual_targets/curated", "retrieve.contextual_targets/components",
+        "retrieve.contextual_vectors/selection"):
         assert callable(resolve_prepared_factory(model, sources, identity))
     assert "structure.dossier/declared" not in {item.semantic_id for item in model.operations}
 

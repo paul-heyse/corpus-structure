@@ -104,7 +104,7 @@ def test_contextual_retrieval_captures_factory_and_source_witness():
     operation = model.operation("retrieve.contextual/declared")
     assert operation.capabilities.prepared_factory is not None
     assert len(operation.output_witnesses) == 1
-    assert all(item.complete for item in model.implementation_slices)
+    assert all(item.complete for item in model.implementation_slices), [(value.root, value.unknowns) for value in model.implementation_slices if not value.complete]
 
 
 def test_contextual_native_ranking_preserves_equal_labels_and_private_standing(native_rollback):
