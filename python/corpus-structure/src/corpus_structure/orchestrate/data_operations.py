@@ -355,6 +355,8 @@ class _InvocationExecution:
             executor.budget, executor.policy, native_group=self.native_hosts
         )
         self.executor = executor
+        self._selected_operations = None
+        self._target_ports = ()
 
     def __enter__(self):
         self.executor._preparation_bytes = 0
@@ -362,17 +364,36 @@ class _InvocationExecution:
             context.cpu, context.prepared_schema = None, False
         return self
 
-    def select_operations(self, operations, context=None):
-        context = self.executor._target_context if context is None else context
-        """Prepare the claimed basis closure before admitting physical request work."""
+    def declare_operations(self, operations, context):
+        """Declare frozen native profiles before the shared host starts serving."""
+        ports = []
         for operation in operations:
             selected = context.model.operation(operation)
             if operation in self.executor.capability_factories or selected.capabilities.prepared_factory is not None:
                 port = self.executor._port(operation, context)
                 self.native_hosts.declare(port.native_selections)
-                if getattr(port, "requires_prepared_schema", False) and not context.prepared_schema:
-                    context.cpu = self.cpu.for_release(context.basis.prepared)
-                    context.prepared_schema = True
+                ports.append(port)
+        return tuple(ports)
+
+    def declare_target_operations(self, operations):
+        """Keep one frozen target closure; archived bindings cannot expand it."""
+        selected = tuple(sorted(operations))
+        if self._selected_operations is not None:
+            if selected != self._selected_operations:
+                raise PortRefusal("native demand changed its frozen operation closure")
+            return self._target_ports
+        self._target_ports = self.declare_operations(selected, self.executor._target_context)
+        self._selected_operations = selected
+        return self._target_ports
+
+    def select_operations(self, operations, context=None):
+        """Prepare the attached basis closure before admitting physical request work."""
+        ports = self.declare_target_operations(operations) if context is None else self.declare_operations(operations, context)
+        context = self.executor._target_context if context is None else context
+        for port in ports:
+            if getattr(port, "requires_prepared_schema", False) and not context.prepared_schema:
+                context.cpu = self.cpu.for_release(context.basis.prepared, request_bytes=self.executor.reservation)
+                context.prepared_schema = True
         if context.cpu is None:
             context.cpu = self.cpu
         self.cpu.prepare()
@@ -665,8 +686,8 @@ class NativeDemandExecutor:
                 if continuation is None:
                     raise PortRefusal("claimed generation lacks its original pinned obligation")
                 request = dict(continuation)
-            snapshot = {**snapshot, "obligations": obligations}
-            candidates = tuple(DemandPlanner(context.model, storage).bound_requests(snapshot, authorization=authorization, retained=True))
+            binding_snapshot = {**snapshot, "obligations": obligations}
+            candidates = tuple(DemandPlanner(context.model, storage).bound_requests(binding_snapshot, authorization=authorization, retained=True))
         if len(candidates) != 1 or candidates[0].request_id != request_id or canonical_bytes(wire_json_loads(candidates[0].binding)) != canonical_bytes(binding):
             raise PortRefusal("claimed generation differs from its original frozen binding")
         bound = candidates[0]
@@ -675,14 +696,13 @@ class NativeDemandExecutor:
             request=bound.request, admission=bound.admission, native=ready.native,
             binding=bound.binding, resolved=bound.resolved, binding_result=bound.binding_result,
         )
-        operations = tuple(row["operation"] for row in snapshot["selection"]["operations"])
-        return original, operations
+        return original, (bound.operation,)
 
     def _prepare_ready(self, ready, authorization):
         native = wire_json_loads(ready.native)
+        context = self._ready_context(ready)
         if native["action"] == "reconcile":
             return ready
-        context = self._ready_context(ready)
         original, operations = self._generation_ready(ready, native["request_id"], native, context, authorization)
         self._physical.select_operations(operations, context)
         return original
@@ -1170,6 +1190,8 @@ class NativeDemandExecutor:
                 self._failed_requests.add((json.loads(item.native)["request_id"], json.loads(item.native).get("generation")))
                 error.add_note("native obligation: " + item.obligation)
                 failures.append(error)
+        if not prepared:
+            return (), selected, fulfilled, tuple(failures)
 
         def plan():
             groups = {}
@@ -1352,6 +1374,9 @@ class NativeDemandExecutor:
                                             )
                                             seen_discovered.add(identity)
                                             progress = True
+                        physical.declare_target_operations(
+                            item["operation"] for item in page["selection"]["operations"]
+                        )
                         settled, selected, fulfilled, errors = self._drive_page(
                             page, authorization, owner
                         )
@@ -1377,4 +1402,6 @@ class NativeDemandExecutor:
                 raise NativeDemandExecutionError(result, tuple(self._member_failures))
             return result
         finally:
+            if not self._quarantined:
+                self._contexts = {self._target_context.basis.key: self._target_context}
             self._invocation.release()

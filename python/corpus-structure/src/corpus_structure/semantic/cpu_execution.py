@@ -103,6 +103,45 @@ def release_capsule(prepared: PreparedRelease) -> bytes:
     )
 
 
+@dataclass(frozen=True)
+class _CapsuleReference:
+    name: str
+    size: int
+    digest: str
+    release_id: str
+
+
+@dataclass
+class _SharedCapsule:
+    memory: Any
+    reference: _CapsuleReference
+    ready: bool = False
+
+
+def _worker_release(reference: _CapsuleReference):
+    """Authenticate one shared archive, then reuse the existing worker release cache."""
+    from multiprocessing.shared_memory import SharedMemory
+
+    cache_key = "shared-capsule:" + sha256(canonical_bytes(vars(reference))).hexdigest()
+    prepared = _WORKER_RELEASES.get(cache_key)
+    if prepared is not None:
+        return prepared
+    memory = SharedMemory(name=reference.name, track=False)
+    try:
+        if memory.size != reference.size:
+            raise ValueError("CPU shared capsule extent differs from acquired archive")
+        content = bytes(memory.buf)
+    finally:
+        memory.close()
+    if sha256(content).hexdigest() != reference.digest:
+        raise ValueError("CPU shared capsule bytes differ from acquired archive")
+    prepared = hydrate_capsule(content)
+    if prepared.release_id != reference.release_id:
+        raise ValueError("CPU shared capsule differs from the exact admitted release")
+    _WORKER_RELEASES[cache_key] = prepared
+    return prepared
+
+
 def hydrate_capsule(content: bytes) -> PreparedRelease:
     """Rehydrate private trusted-parent transport, never admit an arbitrary archive.
 
@@ -261,7 +300,7 @@ def _dispatch(
     generation: int,
     profile: Literal["formal-source-native", "closed-python", "closed-python-stream"],
     stream_connection=None,
-    capsule: bytes | None = None,
+    capsule: _CapsuleReference | None = None,
 ) -> CPUReply:
     import os
 
@@ -271,7 +310,7 @@ def _dispatch(
     try:
         _worker_active()
         if capsule is not None:
-            prepared = hydrate_capsule(capsule)
+            prepared = _worker_release(capsule)
             releases = {prepared.release_id: prepared}
         if profile == "formal-source-native":
             return _compute_formal(content, max_reply_bytes)
@@ -639,18 +678,47 @@ class CPUExecutionScope:
         """Retain the one schema capsule before request credits consume capacity."""
         self._executor()
 
-    def for_release(self, prepared: PreparedRelease):
-        """Retain a bounded authenticated capsule; never create another physical pool."""
+    def for_release(self, prepared: PreparedRelease, *, request_bytes: int | None = None):
+        """Retain one shared archive; submit only its bounded authenticated descriptor."""
+        from multiprocessing.shared_memory import SharedMemory
+
         with self._lock:
             if self._closed:
                 raise RuntimeError("CPU invocation is closed")
-            capsule = self._release_capsules.get(prepared.release_id)
-            if capsule is None:
-                capsule = release_capsule(prepared)
-                self.budget.reserve(len(capsule))
-                self._capsule_bytes += len(capsule)
-                self._release_capsules[prepared.release_id] = capsule
-            return _ReleaseCPUView(self, capsule)
+            owned = self._release_capsules.get(prepared.release_id)
+            if owned is None:
+                content = release_capsule(prepared)
+                size = len(content)
+                required = self.policy.max_packet_bytes + self.policy.max_reply_bytes if request_bytes is None else request_bytes
+                if self._capsule_bytes + size + required > self.policy.max_owned_bytes:
+                    del content
+                    raise CapacityExceeded("native preparation and one complete request exceed owned capacity")
+                # The temporary serialized buffer and native block coexist during
+                # transfer. Both are owned until that copy has completed.
+                try:
+                    self.budget.reserve(size)
+                except BaseException:
+                    del content
+                    raise
+                try:
+                    self.budget.reserve(size)
+                    try:
+                        memory = SharedMemory(create=True, size=size)
+                    except BaseException:
+                        self.budget.release(size)
+                        raise
+                    reference = _CapsuleReference(memory.name, memory.size, sha256(content).hexdigest(), prepared.release_id)
+                    owned = _SharedCapsule(memory, reference)
+                    self._release_capsules[prepared.release_id] = owned
+                    self._capsule_bytes += memory.size
+                    memory.buf[:] = content
+                    owned.ready = True
+                finally:
+                    del content
+                    self.budget.release(size)
+            if not owned.ready:
+                raise RuntimeError("CPU shared capsule preparation did not complete")
+            return _ReleaseCPUView(self, owned.reference)
 
     @property
     def preparation_bytes(self) -> int:
@@ -926,14 +994,24 @@ class CPUExecutionScope:
                             self.release_admission(permit)
                         except BaseException as error:
                             failures.append(error)
-                    if self._capsule_bytes:
+                    for release_id, capsule in tuple(self._release_capsules.items()):
+                        try:
+                            capsule.memory.close()
+                            capsule.memory.unlink()
+                        except BaseException as error:
+                            self._physical_retired = False
+                            failures.append(error)
+                        else:
+                            self.budget.release(capsule.reference.size)
+                            self._capsule_bytes -= capsule.reference.size
+                            del self._release_capsules[release_id]
+                    if self._capsule_bytes and not self._release_capsules:
                         try:
                             self.budget.release(self._capsule_bytes)
                         except BaseException as error:
                             failures.append(error)
                         else:
                             self._capsule_bytes = 0
-                            self._release_capsules.clear()
                 if failures:
                     self._close_error = BaseExceptionGroup("CPU cleanup failed", failures)
                 self._close_finished = True

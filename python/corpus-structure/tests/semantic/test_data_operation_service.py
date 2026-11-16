@@ -204,7 +204,7 @@ def test_execution_basis_acquisition_uses_exact_retained_pins_and_explicit_root(
     runtime = SimpleNamespace(release_id="release:original", runtime_id="runtime:original")
     dependencies = SimpleNamespace(artifacts=("captured-contract",))
     sources = PythonSourceCollection((PythonSource("owned.source", b"VALUE = 1\n", "owned/source.py"),))
-    observed = []
+    observed: list[tuple[object, ...]] = []
 
     def load(connection, release_id):
         observed.append(("release", connection, release_id))

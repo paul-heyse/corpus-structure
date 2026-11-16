@@ -31,14 +31,15 @@ def attached_basis():
 
 
 @pytest.mark.parametrize("state", ["claimed", "no-work"])
-def test_claim_uses_authenticated_expected_generation_and_original_basis(monkeypatch, state):
+def test_claim_uses_authenticated_expected_generation_and_original_basis(monkeypatch, state, prepared):
     metadata = attached_basis()
     seen, claims = [], []
     executor = object.__new__(NativeDemandExecutor)
-    executor.engine = SimpleNamespace(begin=lambda: nullcontext(None))
+    monkeypatch.setattr(executor, "engine", SimpleNamespace(begin=lambda: nullcontext(None)), raising=False)
     executor.holder = "owner"
-    executor.prepared = SimpleNamespace(release_id="release:target")
-    executor.runtime = SimpleNamespace(runtime_id="runtime:target")
+    from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
+    executor.prepared = prepared
+    executor.runtime = RuntimeBinding(prepared.release_id, "runtime:target", b"", b"")
 
     def claim(payload):
         seen.append(payload)
@@ -59,9 +60,9 @@ def test_claim_uses_authenticated_expected_generation_and_original_basis(monkeyp
 
 def test_reconstructed_binding_consumes_original_pinned_read_without_attachment(monkeypatch):
     metadata = attached_basis()
-    seen = []
+    seen: list[tuple[object, ...]] = []
     executor = object.__new__(NativeDemandExecutor)
-    executor.engine = SimpleNamespace(begin=lambda: nullcontext(None))
+    monkeypatch.setattr(executor, "engine", SimpleNamespace(begin=lambda: nullcontext(None)), raising=False)
     context = SimpleNamespace(model=object())
     snapshot = dict(
         read_id="read:original", demand_id="demand:original",
@@ -141,10 +142,14 @@ classes: {Other: {}}
     monkeypatch.syspath_prepend(str(tmp_path))
     function = importlib.import_module("basis_kernel").release
     signature = inspect.signature(function)
-    scope = CPUExecutionScope(prepared, policy_for(prepared, credits=4), retain_schema=False)
+    from dataclasses import replace
+    scope = CPUExecutionScope(prepared, replace(policy_for(prepared, credits=4), workers=1), retain_schema=False)
     try:
         views = [scope.for_release(value) for value in (prepared, other)]
         assert scope.preparation_bytes == len(release_capsule(prepared)) + len(release_capsule(other))
+        import pickle
+        names = [view.capsule.name for view in views]
+        assert all(len(pickle.dumps(view.capsule)) < 1024 for view in views)
         pools = []
         for view, value in zip(views, (prepared, other), strict=True):
             descriptor = PythonCPUDescriptor(
@@ -160,6 +165,78 @@ classes: {Other: {}}
             pools.append(scope._pool)
             assert handle.retire()
         assert pools[0] is pools[1] and pools[0] is not None
+    finally:
+        scope.close()
+    assert scope.budget.used_bytes == 0
+    from multiprocessing.shared_memory import SharedMemory
+    for name in names:
+        with pytest.raises(FileNotFoundError):
+            SharedMemory(name=name, track=False)
+
+
+@pytest.mark.parametrize("phase", ["startup", "submit"])
+def test_shared_capsule_stays_owned_through_unacknowledged_pool_failure(monkeypatch, prepared, phase):
+    from multiprocessing.shared_memory import SharedMemory
+    from corpus_structure.semantic import cpu_execution
+
+    scope = CPUExecutionScope(prepared, policy_for(prepared, credits=4), retain_schema=False)
+    view = scope.for_release(prepared)
+    name = view.capsule.name
+    retained = scope.preparation_bytes
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("controlled unacknowledged " + phase)
+
+    try:
+        if phase == "startup":
+            monkeypatch.setattr(cpu_execution, "ProcessPoolExecutor", fail)
+            with pytest.raises(RuntimeError, match="unacknowledged startup"):
+                scope.prepare()
+        else:
+            scope.prepare()
+            assert scope._pool is not None
+            monkeypatch.setattr(scope._pool, "submit", fail)
+            admission = view.try_admit()
+            assert admission is not None
+            with pytest.raises(RuntimeError, match="unacknowledged submit"):
+                view.submit_closed_python(admission, b"no acknowledged child", lambda: None)
+        assert scope.budget.used_bytes >= retained > 0
+        memory = SharedMemory(name=name, track=False)
+        memory.close()
+    finally:
+        scope.close()
+    assert scope.budget.used_bytes == 0
+    with pytest.raises(FileNotFoundError):
+        SharedMemory(name=name, track=False)
+
+
+def test_shared_capsule_descriptor_rejects_changed_archive_digest(prepared):
+    from dataclasses import replace
+
+    scope = CPUExecutionScope(prepared, replace(policy_for(prepared, credits=4), workers=1), retain_schema=False)
+    view = scope.for_release(prepared)
+    try:
+        # The valid descriptor loads its release before the deliberately invalid
+        # call body fails. The next request must not trust a changed descriptor.
+        first = scope.try_admit()
+        assert first is not None
+        primed = view.submit_closed_python(first, b"{}", lambda: None)
+        original_reply = primed.future.result(timeout=30)
+        with pytest.raises(ValueError):
+            primed.collect()
+        assert primed.retire()
+        admission = scope.try_admit()
+        assert admission is not None
+        handle = scope._submit(
+            admission, b"{}", lambda: None, "closed-python",
+            capsule=replace(view.capsule, digest="0" * 64),
+        )
+        changed_reply = handle.future.result(timeout=30)
+        assert changed_reply.pid == original_reply.pid
+        with pytest.raises(ValueError, match="shared capsule bytes differ"):
+            handle.collect()
+        assert handle.retire()
+        assert scope.budget.used_bytes == scope.preparation_bytes > 0
     finally:
         scope.close()
     assert scope.budget.used_bytes == 0

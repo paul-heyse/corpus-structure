@@ -126,7 +126,7 @@ def test_executor_scalar_handoff_preserves_optional_omission_and_exact_cardinali
             policy=SimpleNamespace(max_packet_bytes=1024),
         ),
     )
-    executor._target_context = SimpleNamespace(model=executor.model, consumer_selectors={})
+    context = SimpleNamespace(model=executor.model, consumer_selectors={})
     ready = cast(
         ReadyDataRequest,
         SimpleNamespace(
@@ -137,8 +137,8 @@ def test_executor_scalar_handoff_preserves_optional_omission_and_exact_cardinali
     )
     if not accepted:
         with pytest.raises(PortRefusal, match="scalar input requires one admitted member"):
-            NativeDemandExecutor._hydrate(executor, ready)
+            NativeDemandExecutor._hydrate(executor, ready, context=context)
     else:
-        values = NativeDemandExecutor._hydrate(executor, ready)
+        values = NativeDemandExecutor._hydrate(executor, ready, context=context)
         assert [item.value for item in values] == ([] if count == 0 else [{"value": 7}])
         assert binding.roles[0].state == "present"
