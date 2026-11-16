@@ -108,6 +108,15 @@ No test count or earlier successful campaign substitutes for the declared union.
 | PostgreSQL realization | Protocol-only structural/nominal changes at real callers; exact recursive/Decimal/absent/null fidelity; selected versus necessary population verification; actual renewal/port acquisition and once-only physical initialization; honest rollback versus uncertain-effect recovery; complete public/reference migration and live Arrow/helper/historical-import retirement. Conditional Arrow/SQL cross-check cases join only when triggered and selected. |
 | Generality | Independently specified non-statistics context involving attributed/quoted material and meaningful relationships; no page/corpus-specific planner logic |
 
+**Finite correspondence boundary · 2026-11-16.** The retired run/Reader/native observed-to-schematic
+operation is dispositioned in [DDO-08](operations-and-adapter-cutover.md).
+Independent pure controls retain the competing M/local-choice model, 65-weight/27-positive-state
+reference example, union-once event probability, disjoint mask, foreign input refusals and bounded
+cancellation/limits. Those controls establish numerical meaning only; they do not qualify source
+extraction, native admission or a current correspondence producer. The distinct current table-band
+profile and its required scientific/native controls remain unchanged. No new producer or registry is
+required solely to preserve the retired native fixtures.
+
 **Closeout verification obligations · 2026-11-15.** Retiring the old run/task fixture chains
 must not erase the independent behaviors they attempted to verify. Current source-export controls
 now use actual selected DDO publication references: whole Docling structure, exact selected formula

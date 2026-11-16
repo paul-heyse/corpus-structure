@@ -103,6 +103,17 @@ finite interpretations and structural comparison/dossier/qualification. Reuse pr
 the algorithm's contract consumes them; this redesign does not authorize private language
 recognizers or change what an existing provider assertion means.
 
+**Implemented; pure numerical controls Tested · 2026-11-16.** The old run/Reader observed-to-schematic table correspondence operation is retired, including
+`ops.table_correspondence_band(jsonb,jsonb,jsonb,text,text,text,numeric)`,
+`ops.table_correspondence_requests(kb.source_view,jsonb,numeric,jsonb)` and
+`ops.prepare_table_correspondence(bigint,bigint,jsonb,numeric,jsonb)`.
+The pure `methods.table_interpretation.table_correspondence_request` and shared finite executor retain
+explicit competing/fixed hypotheses, local choice, disjoint masks, exact/overlap weighting and
+union-once numerical meaning over caller-supplied evidence. They perform no source lookup or native
+admission. The current declared table-band profile has its own semantics; it does not implement this
+source correspondence operation. No current source-derived correspondence producer is selected.
+A future declared producer requires an actual consumer or functional requirement.
+
 Run-unit structural inputs become immutable authored selections with exact passage/reading roles,
 not giant identity-bearing Config objects. Parameters select semantic policy; input pins and
 population membership form the binding. Distinct but equal-spelled occurrences remain distinct.

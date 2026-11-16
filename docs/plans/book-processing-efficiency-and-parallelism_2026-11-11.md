@@ -172,7 +172,7 @@ non-null default graph and registry supplied by `_phase0()`.
 [The command owner (historical source)](../README.md#historical-recovery):194
 therefore marks it non-ordinary and skips automatic capture→primary demand→view binding at379–389.
 Default mathematical methods then require primary pins that the stock configurations do not contain
-([math methods](../../python/corpus-structure/src/corpus_structure/methods/math/methods.py):138–139).
+([math methods (historical source)](../README.md#historical-recovery):138–139).
 Direct Python default callers reach the route; the ordinary CLI consumer does not. Deliver that
 actual default CLI composition while preserving deliberate custom-graph/registry authority and
 explicit retained selections. Qualification must exercise the real CLI composition, not only direct

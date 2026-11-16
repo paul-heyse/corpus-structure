@@ -40,7 +40,7 @@ def build_scoped_result(
 
     if (ref.unit_id, ref.unit_key) != (view.ref.id, view.ref.key):
         raise ValueError("sealed scoped fixture requires its exact selected source unit")
-    if cfg.classification_refs or cfg.interpretation_mode == "correspondence":
+    if cfg.classification_refs:
         raise ValueError(
             "sealed scoped fixture requires explicit separately prepared model/correspondence output"
         )

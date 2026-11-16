@@ -1164,28 +1164,6 @@ class BoundReader:
                     validate_parser_members(row, population)
         return retained
 
-    def prepare_table_correspondence(self, source_view_id, contributions, weight_scale):
-        """Detach the canonical finite questions for an exact selected native view."""
-        from .identity import canonical_bytes
-
-        self.source_view_ref(source_view_id)
-        return self.conn.execute(
-            text(
-                "SELECT ops.prepare_table_correspondence("
-                ":run, :view, CAST(:rows AS jsonb), "
-                "CAST(:scale AS numeric), CAST(:layers AS jsonb))"
-            ),
-            {
-                "run": self.run_id,
-                "view": source_view_id,
-                "rows": canonical_bytes(contributions).decode(),
-                "scale": weight_scale,
-                "layers": canonical_bytes(
-                    [pin.values() for pin in self.characterization_selection]
-                ).decode(),
-            },
-        ).scalar_one()
-
     def retained_component_section(self, reference, work_digest):
         """Read a native section designator from the original component's own source."""
         import json

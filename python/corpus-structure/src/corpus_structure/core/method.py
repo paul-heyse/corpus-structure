@@ -409,12 +409,6 @@ class SourcePreparationReader(Protocol):
         """Resolve original retained contribution, endpoint closure and source projections."""
         ...
 
-    def prepare_table_correspondence(
-        self, source_view_id: int, contributions: Sequence[Mapping[str, Any]], weight_scale: float
-    ) -> Sequence[Mapping[str, Any]]:
-        """Detach canonical finite questions from the exact selected native table source."""
-        ...
-
     def retained_structural_report(self, reference: Any) -> Mapping[str, Any]:
         """Authenticate an exact predecessor and its protected public assertions."""
         ...

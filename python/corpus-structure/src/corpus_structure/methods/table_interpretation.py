@@ -5,13 +5,11 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from functools import cache
 from itertools import product
-from math import log, prod
+from math import isfinite, log, prod
 from threading import Event
 from typing import Any, Literal
 
-from pydantic import TypeAdapter
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
@@ -44,78 +42,129 @@ _INAPPLICABLE = "does_not_apply"
 
 @dataclass(frozen=True)
 class TableCorrespondenceBinding:
+    """One explicitly supplied correspondence hypothesis; no publication authority."""
+
     alignment: Literal["exact", "overlap"]
     dependencies: tuple[str, ...]
-    observed_anchor: str
-    schematic_anchor: str
-    declaration_anchor: str
 
 
 @dataclass(frozen=True)
 class TableCorrespondencePremise:
     identity: str
     standing: Literal["fixed", "alternative"]
-    source_revision: str
-    source_view_id: int
-    source_projection: str
-    source_recipe: str
-    observed_table: str
-    schematic_table: str
-    observed_caption: str
-    schematic_caption: str
-    declaration_pointer: str
     bindings: dict[str, TableCorrespondenceBinding]
 
 
 @dataclass(frozen=True)
 class TableCorrespondenceRequest(LocalInterpretationRequest):
     correspondence_premises: tuple[TableCorrespondencePremise, ...] = ()
-    correspondence_status: Literal["fixed", "ambiguous", "unavailable"] = "unavailable"
-    correspondence_reason: str | None = None
+    correspondence_status: Literal["fixed", "ambiguous"] = "fixed"
 
 
-@cache
-def _correspondence_request_adapter() -> TypeAdapter[TableCorrespondenceRequest]:
-    return TypeAdapter(TableCorrespondenceRequest)
-
-
-def execute_table_correspondence(
-    contributions: Sequence[Mapping[str, Any]],
-    prepared: Sequence[Mapping[str, Any]],
+def table_correspondence_request(
+    edges: Sequence[Mapping[str, Any]],
+    premises: Sequence[TableCorrespondencePremise],
     *,
-    cancellation: Event | None = None,
-    check_active: Callable[[], None] | None = None,
-) -> tuple[dict[str, Any], ...]:
-    """Hydrate native requests and run the finite executor over their frozen support."""
-    by_id = {row["contribution_id"]: row for row in contributions}
-    operations = []
-    for question in prepared:
-        if check_active is not None:
-            check_active()
-        retained = tuple(by_id[key] for key in question["contribution_ids"])
-        dependencies = tuple(question["dependencies"])
-        raw_request = question["request"]
-        request = (
-            _correspondence_request_adapter().validate_python(raw_request)
-            if raw_request is not None
-            else None
-        )
-        operation = local_question_operation(
-            question=question["question"],
-            contributions=retained,
-            dependency_ids=dependencies,
-            request=request,
-            cancellation=cancellation,
-            check_active=check_active,
-            unavailable_policy_version=CORRESPONDENCE_POLICY_VERSION,
-            unavailable_reason=question["reason"],
-        )
-        if operation["operation_key"] != question["scope_id"]:
-            raise ValueError("prepared table correspondence differs from the selected band")
-        operations.append(operation)
-    if check_active is not None:
-        check_active()
-    return tuple(operations)
+    source_revision: str,
+    source_projection: str,
+    scope_id: str,
+    dependency_ids: tuple[str, ...],
+    weight_scale: float = 1,
+) -> TableCorrespondenceRequest | None:
+    """Pure finite matching over explicit hypotheses, never a native source reader.
+
+    Callers own source selection and the meaning of the supplied evidence. No current
+    declared producer consumes this helper. Missing correspondence stays unavailable;
+    the retained numerical kernel cannot manufacture source or admission authority.
+    """
+    if not isfinite(weight_scale) or weight_scale <= 0:
+        raise ValueError("correspondence weight must be finite and positive")
+    if len(set(dependency_ids)) != len(dependency_ids) or not all(dependency_ids):
+        raise ValueError("correspondence evidence requires distinct nonempty references")
+    edge_ids = {edge["id"] for edge in edges}
+    if len(edge_ids) != len(edges) or not all(edge_ids) or edge_ids & {_UNRESOLVED, _INAPPLICABLE}:
+        raise ValueError("correspondence edges require distinct actual candidate references")
+    declared = set(dependency_ids)
+    axes: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for edge in edges:
+        if (not edge["axis"] or edge["axis"] == "M" or edge["role"] not in _RELATIONS
+            or type(edge["direct"]) is not bool or type(edge["disjoint"]) is not bool
+            or not set(edge["evidence"]) <= declared):
+            raise ValueError("correspondence edge has foreign evidence or invalid axis/role")
+        axes[edge["axis"]].append(edge)
+    if len({p.identity for p in premises}) != len(premises) or any(
+        not p.identity or p.standing not in {"fixed", "alternative"} for p in premises
+    ):
+        raise ValueError("correspondence premises require distinct explicit references")
+    for premise in premises:
+        if not premise.bindings:
+            raise ValueError("correspondence premise requires actual candidate bindings")
+        if not premise.bindings.keys() <= edge_ids:
+            raise ValueError("correspondence binding names a foreign candidate")
+        if any(binding.alignment not in {"exact", "overlap"}
+               or not binding.dependencies or not set(binding.dependencies) <= declared
+               for binding in premise.bindings.values()):
+            raise ValueError("correspondence binding names foreign or absent evidence")
+    if not premises:
+        return None
+    policy = f"table-policy:{CORRESPONDENCE_POLICY_VERSION}:correspondence:{weight_scale:g}"
+    model, ontology = "table-model:"+source_revision, "table-ontology:scoped-table-roles"
+    weight = weight_scale * log(2)
+    ambiguous = len(premises) != 1 or premises[0].standing != "fixed"
+    decisions, potentials, constraints, dependence = [], [], [], []
+    if ambiguous:
+        decisions.append(Decision("M", (Candidate(_UNRESOLVED, CandidateKind.UNRESOLVED,
+            "shared correspondence unresolved within retained evidence"),
+            *(Candidate(p.identity) for p in premises))))
+        potentials.append(LogPotential("shared-correspondence-evidence",("M",),
+            (0, *(weight for _ in premises)),tuple(sorted({p.identity for p in premises}|{policy}))))
+    events: dict[str, list[tuple[Choice, ...]]] = defaultdict(list)
+    for axis, members in sorted(axes.items()):
+        members = sorted(members,key=lambda edge:edge["id"])
+        roles = {edge["role"] for edge in members}
+        if len(roles) != 1:
+            raise ValueError("correspondence axis has competing role meanings")
+        role = next(iter(roles))
+        candidates = [Candidate(_UNRESOLVED,CandidateKind.UNRESOLVED,"retained scope incomplete")]
+        if role in {"note","unit"}:
+            candidates.append(Candidate(_INAPPLICABLE))
+        candidates.extend(Candidate(edge["id"]) for edge in members)
+        decisions.append(Decision(axis,tuple(candidates)))
+        by_id = {edge["id"]:edge for edge in members}
+        evidence = {ref for edge in members for ref in edge["evidence"]}
+        potentials.append(LogPotential("source-choice:"+axis,(axis,),tuple(
+            weight if (edge:=by_id.get(candidate.key)) is not None and edge["direct"]
+            and not edge["disjoint"] else 0 for candidate in candidates),tuple(sorted(evidence|{policy}))))
+        selected = [(p,b) for p in premises for key,b in p.bindings.items() if key in by_id]
+        if selected:
+            order = (None,*premises) if ambiguous else tuple(premises)
+            values = tuple(0 if premise is None or candidate.key not in premise.bindings else
+                weight if premise.bindings[candidate.key].alignment == "exact" else weight/2
+                for premise in order for candidate in candidates)
+            deps = tuple(sorted({p.identity for p,_ in selected}|{d for _,b in selected for d in b.dependencies}|{policy}))
+            scope = ("M",axis) if ambiguous else (axis,)
+            potentials.append(LogPotential("correspondence-role:"+axis,scope,values,deps))
+            if ambiguous:
+                dependence.append(DependenceScope(scope,deps,"One source correspondence conditions this local role reading"))
+        if any(edge["disjoint"] for edge in members):
+            constraints.append(HardConstraint("source-disjoint:"+axis,(axis,),tuple(
+                not by_id.get(candidate.key,{}).get("disjoint",False) for candidate in candidates),
+                tuple(sorted({d for edge in members if edge["disjoint"] for d in edge["evidence"]}|{ontology}))))
+        events[role].extend((Choice(axis,edge["id"]),) for edge in members if not edge["disjoint"])
+    return TableCorrespondenceRequest(
+        decisions=tuple(decisions),potentials=tuple(potentials),constraints=tuple(constraints),
+        dependencies=(*(Dependency(d,DependencyKind.OBSERVATION,source_revision) for d in dependency_ids),
+            *(Dependency(p.identity,DependencyKind.CONTEXT,source_projection) for p in premises),
+            Dependency(model,DependencyKind.MODEL,source_revision),
+            Dependency(ontology,DependencyKind.ONTOLOGY,CORRESPONDENCE_POLICY_VERSION),
+            Dependency(policy,DependencyKind.POLICY,CORRESPONDENCE_POLICY_VERSION)),
+        selection=CandidateSelection(scope_id,dependency_ids,exclusions=tuple(sorted(
+            "source-disjoint:"+edge["id"] for edge in edges if edge["disjoint"]))),
+        model_dependency_id=model,ontology_dependency_id=ontology,policy_dependency_id=policy,
+        events=tuple(CompositeEvent("any-"+role,"At least one retained "+role+" reading applies in this table row",tuple(derivations))
+            for role,derivations in sorted(events.items())),dependence_scopes=tuple(dependence),
+        correspondence_premises=tuple(premises),correspondence_status="ambiguous" if ambiguous else "fixed",
+    )
 
 
 @dataclass(frozen=True)
