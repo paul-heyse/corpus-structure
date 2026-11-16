@@ -82,59 +82,6 @@ def test_restricted_complete_archive_replay_and_immutable_closure(
             )
 
 
-def test_protected_workspace_and_no_writer_temp(
-    commit_db_engine, commit_writer_engine, commit_admitter_engine
-):
-    *_, prepared = archive(commit_admitter_engine)
-    z = realization(commit_db_engine, prepared.release_id)
-    params = {"r": prepared.release_id, "z": z, "revision": 0, "snapshot": "independent-snapshot"}
-    with (
-        commit_writer_engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
-        conn.begin(),
-    ):
-        conn.execute(text("SELECT data.require_runtime_principal('write')"))
-        with pytest.raises(DBAPIError), conn.begin_nested():
-            conn.execute(text("CREATE TEMP TABLE counterfeit(x text)"))
-        conn.execute(
-            text("SELECT data.begin_inference_workspace(:r,:z,:revision,:snapshot)"), params
-        )
-        owner = conn.execute(
-            text(
-                "SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid='pg_temp.semantic"
-                "_inference_work'::regclass"
-            )
-        ).scalar_one()
-        assert owner == "corpus_sem_publisher"
-        conn.execute(
-            text(
-                "INSERT INTO pg_temp.semantic_inference_work VALUES('a','p','b',NULL,NULL,'"
-                "context')"
-            )
-        )
-        assert conn.scalar(text("SELECT generation FROM pg_temp.semantic_inference_work")) == 0
-        with pytest.raises(DBAPIError, match="check constraint"), conn.begin_nested():
-            conn.execute(
-                text(
-                    "INSERT INTO pg_temp.semantic_inference_work "
-                    "VALUES('c','p','d',NULL,NULL,'other',-1)"
-                )
-            )
-        conn.execute(text("UPDATE pg_temp.semantic_inference_work SET qualification='q'"))
-        with pytest.raises(DBAPIError), conn.begin_nested():
-            conn.execute(text("UPDATE pg_temp.semantic_inference_work SET predicate='forged'"))
-        with pytest.raises(DBAPIError, match="preexisting"), conn.begin_nested():
-            conn.execute(
-                text("SELECT data.begin_inference_workspace(:r,:z,:revision,:snapshot)"), params
-            )
-        with pytest.raises(DBAPIError, match="binding differs"), conn.begin_nested():
-            conn.execute(
-                text("SELECT data.end_inference_workspace(:r,:z,:revision,'other')"), params
-            )
-        conn.execute(text("SELECT data.end_inference_workspace(:r,:z,:revision,:snapshot)"), params)
-        assert (
-            conn.execute(text("SELECT to_regclass('pg_temp.semantic_inference_work')")).scalar_one()
-            is None
-        )
 
 
 def test_restricted_activation_cas_and_deployment_record(

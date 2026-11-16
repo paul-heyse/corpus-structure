@@ -251,12 +251,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "derive": {
-        "effects": ("private_finite_positive_proof",),
-        "implementation": "derive",
-        "transitions": {},
-        "version": "1",
-    },
     "evaluate": {
         "effects": ("atomic_source_proof_result_publication", "private_compute"),
         "implementation": "evaluate",
@@ -291,12 +285,6 @@ SUPPORTED_EFFECTS = {
     "publish_arrow": {
         "effects": ("protected_copy_same_transaction",),
         "implementation": "publish_arrow",
-        "transitions": {},
-        "version": "1",
-    },
-    "publish_inference": {
-        "effects": ("protected_proof_publication",),
-        "implementation": "publish_inference",
         "transitions": {},
         "version": "1",
     },

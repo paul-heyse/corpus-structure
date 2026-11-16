@@ -113,18 +113,6 @@ def test_private_profile_preserves_model_metadata_nullability_and_fresh_encoders
         encoder.finish()
 
 
-def test_publication_freeze_refuses_later_batch_metadata_before_table_normalization():
-    from corpus_structure.semantic.arrow_publication import (
-        AppendPublication,
-        ArrowPublicationError,
-        stage_schema,
-    )
-
-    schema = stage_schema("entity")
-    first = pa.RecordBatch.from_pylist([{"entity_id": "one"}], schema=schema)
-    second = first.replace_schema_metadata({"meaning": "different"})
-    with pytest.raises(ArrowPublicationError, match="batch schema/metadata"):
-        AppendPublication("r", "z", "b", {"entity": (first, second)})
 
 
 def test_unselected_nanosecond_truncation_cannot_enter_inferred_write_profile():

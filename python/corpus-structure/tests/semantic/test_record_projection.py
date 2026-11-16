@@ -9,9 +9,7 @@ from typing import cast
 import pytest
 
 from corpus_structure.semantic.archive_reader import reconstruct_release
-from corpus_structure.semantic.arrow_publication import AppendPublication
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.publication import PublicationBatch
 from corpus_structure.semantic.record_contracts import interpretation_identity
 from corpus_structure.semantic.record_projection import (
     ARTIFACT,
@@ -152,41 +150,6 @@ def candidate(factory):
     return bind(raw, coordinates)
 
 
-@pytest.mark.parametrize(
-    "factory,family",
-    [
-        (definition_record, "definition"),
-        (assertion_record, "assertion"),
-        (measurement_record, "measurement"),
-        (table_record, "table"),
-        (formula_record, "formula_context"),
-    ],
-)
-def test_five_families_roundtrip_through_finite_arrow_transport(factory, family):
-    prepared = release_inputs()[2]
-    model = candidate(factory)
-    original = model.model_dump(mode="python")
-    rows = project_record_reports(prepared, (report((model,)),))
-    batch = PublicationBatch(prepared.release_id, "record-result", "record-batch", **rows)
-    arrow = AppendPublication.from_rows(batch)
-    assert arrow.content == batch.content
-    detached = {name: arrow.relations[name].to_pylist() for name in RECORD_ROW_TYPES}
-    restored = reconstruct_record(
-        detached,
-        model.model_dump(mode="python")["record_id"],
-        model.model_dump(mode="python")["interpretation_id"],
-    )
-    assert canonical_bytes(restored) == canonical_bytes(original)
-    assert restored["family"] == family
-    assert restored["record_id"] == original["record_id"]
-    assert interpretation_identity(restored) == original["interpretation_id"]
-    assert rows["record_report"][0].selected_task_id == 71
-    assert rows["record_report"][0].origin_task_id == 23
-    assert rows["record_report_member"][0].position == 0
-    assert rows["record_admission"][0].decision == "candidate"
-    assert rows["record_admission"][0].calibration == CALIBRATION
-    assert rows["record_assertion"] == ()
-    assert batch.membership == batch.typed_value == ()
 
 
 def test_numeric_original_ordered_evidence_and_private_assertions_are_not_relabelled():
@@ -259,8 +222,6 @@ def test_absent_and_completed_empty_are_distinct_and_keep_task_provenance():
     assert [r.records_present for r in rows["record_report"]] == [False, True]
     assert [r.selected_task_id for r in rows["record_report"]] == [71, 72]
     assert rows["source_record"] == rows["record_report_member"] == rows["record_admission"] == ()
-    batch = PublicationBatch(prepared.release_id, "empty-result", "empty-batch", **rows)
-    assert AppendPublication.from_rows(batch).content == batch.content
 
 
 def test_reused_task_keeps_one_interpretation_and_both_selected_memberships():

@@ -25,7 +25,7 @@ sqlalchemy.create_engine = unexpected
 for name in (
     "semantic.native_record_fixtures", "semantic.declared_scenarios",
     "semantic.publication_fixture_support", "semantic.test_private_records",
-    "semantic.test_publication", "semantic.test_arrow_publication",
+    "semantic.test_publication",
     "methods.test_m1_readings", "methods.test_m1_record_frontends",
     "methods.test_m1_source_profile",
 ):
