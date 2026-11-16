@@ -626,26 +626,27 @@ END $$;
 
 -- Equal product/member/position values may have independent genuine producers.
 -- Authenticate the complete set on this exact manifest input, never their union.
+-- Qualify the selected support value: admissions have their own reference column.
 CREATE OR REPLACE FUNCTION ops.ddo_input_support_refs(binding jsonb,input_record jsonb)
 RETURNS SETOF jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE selected jsonb:=ops.ddo_input_support_selection(input_record); matched jsonb; episodes jsonb;
 BEGIN
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(binding->'inputs') actual WHERE actual=input_record) THEN
  RAISE EXCEPTION 'support selection is not an exact manifest input' USING ERRCODE='23514'; END IF;
- SELECT coalesce(jsonb_agg(reference),'[]') INTO matched FROM jsonb_array_elements(binding->'support') reference
- WHERE reference->>'role'=input_record->>'role'
- AND reference->'position' IS NOT DISTINCT FROM input_record->'position'
- AND ((coalesce(reference->>'kind','computation')='computation' AND selected ? (reference->>'derivation_id')
+ SELECT coalesce(jsonb_agg(selected_support.value),'[]') INTO matched FROM jsonb_array_elements(binding->'support') selected_support(value)
+ WHERE selected_support.value->>'role'=input_record->>'role'
+ AND selected_support.value->'position' IS NOT DISTINCT FROM input_record->'position'
+ AND ((coalesce(selected_support.value->>'kind','computation')='computation' AND selected ? (selected_support.value->>'derivation_id')
  AND EXISTS(SELECT FROM ops.data_derivation_output output
- WHERE output.derivation_id=reference->>'derivation_id' AND output.product_id=input_record->>'product_id'
+ WHERE output.derivation_id=selected_support.value->>'derivation_id' AND output.product_id=input_record->>'product_id'
  AND (output.member_id IS NULL OR output.member_id IS NOT DISTINCT FROM input_record->>'member_id')))
- OR (reference->>'kind' IN ('original-source','authored') AND selected='[]'::jsonb
+ OR (selected_support.value->>'kind' IN ('original-source','authored') AND selected='[]'::jsonb
  AND input_record->>'member_id' IS NULL AND EXISTS(SELECT FROM ops.original_source_admission admission
- WHERE admission.id=reference->>'admission_id' AND admission.product_id=input_record->>'product_id'
- AND admission.source_reference=reference->>'source_reference')));
+ WHERE admission.id=selected_support.value->>'admission_id' AND admission.product_id=input_record->>'product_id'
+ AND admission.source_reference=selected_support.value->>'source_reference')));
  SELECT coalesce(jsonb_agg(episode ORDER BY episode COLLATE "C"),'[]') INTO episodes FROM (
- SELECT DISTINCT reference->>'derivation_id' episode FROM jsonb_array_elements(matched) reference
- WHERE coalesce(reference->>'kind','computation')='computation') known;
+ SELECT DISTINCT selected_support.value->>'derivation_id' episode FROM jsonb_array_elements(matched) selected_support(value)
+ WHERE coalesce(selected_support.value->>'kind','computation')='computation') known;
  IF episodes IS DISTINCT FROM selected THEN RAISE EXCEPTION 'selected input episode set lacks exact authentic output support' USING ERRCODE='23514'; END IF;
  RETURN QUERY SELECT value FROM jsonb_array_elements(matched);
 END $$;

@@ -940,9 +940,9 @@ BEGIN
  AND ops.ddo_binding_source(declared,jsonb_build_object('product',x.id,'member',item->>'member_id','subject',coalesce((SELECT member.subject FROM kb.data_product_member member WHERE member.product_id=x.id AND member.member_id=item->>'member_id'),x.subject),'subject_definition',coalesce((SELECT member.subject_definition FROM kb.data_product_member member WHERE member.product_id=x.id AND member.member_id=item->>'member_id'),x.subject_definition),'original_source',x.original_source,'analyzed_scope',coalesce((SELECT member.analyzed_scope FROM kb.data_product_member member WHERE member.product_id=x.id AND member.member_id=item->>'member_id'),x.analyzed_scope),'meaning_body',coalesce((SELECT member.body FROM kb.data_product_member member WHERE member.product_id=x.id AND member.member_id=item->>'member_id'),x.canonical_body)),o.original_source,coalesce(d.selection->'source_sets','{}'))
  AND ((item->>'member_id' IS NULL AND declared->'accepted_kind_contracts' ? x.kind_contract) OR EXISTS(SELECT FROM kb.data_product_member m WHERE m.product_id=x.id AND m.member_id=item->>'member_id' AND declared->'accepted_kind_contracts' ? m.kind_contract)))
  OR (item->>'position')::integer<0 OR (item->>'multiplicity')::integer<1 THEN RAISE EXCEPTION 'input role/member/kind/source mismatch'; END IF;
- IF NOT EXISTS(SELECT FROM ops.ddo_input_support_refs(p->'binding',item) reference
- WHERE coalesce(reference->>'kind','computation')='computation'
- OR EXISTS(SELECT FROM ops.original_source_admission admission WHERE admission.id=reference->>'admission_id'
+ IF NOT EXISTS(SELECT FROM ops.ddo_input_support_refs(p->'binding',item) selected_support(value)
+ WHERE coalesce(selected_support.value->>'kind','computation')='computation'
+ OR EXISTS(SELECT FROM ops.original_source_admission admission WHERE admission.id=selected_support.value->>'admission_id'
  AND ops.ddo_original_admission_valid(admission))) THEN RAISE EXCEPTION 'input lacks selected authentic support'; END IF;
  END LOOP;
  FOR declared IN SELECT value FROM jsonb_array_elements(def.input_roles) LOOP

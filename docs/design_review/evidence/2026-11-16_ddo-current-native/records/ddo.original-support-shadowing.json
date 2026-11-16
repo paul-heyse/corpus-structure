@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "id": "ddo.original-support-shadowing",
+  "title": "Original support rejected by correlated SQL reference shadowing",
+  "group": "declared-data-operations",
+  "package": "DDO-12",
+  "finalized": "2026-11-16",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which exact native binding predicate rejects authentic original-document support?",
+  "answers": [
+    "DDO-06",
+    "DDO-12"
+  ],
+  "method": "Three bounded private native original-document test invocations use a temporary autouse fixture to call pytest_configure on the respective binding_probe version. The plugin wraps attach_data_request, performs read-only queries before unchanged native attachment, writes diagnostic JSON, then invokes original attachment. Fixture and plugin injection removed after diagnosis. No native SQL, expectations or privileges are substituted. The instrumented failed tests are diagnostic evidence, not unmodified invocation qualification. Version1 is the initially named binding_probe.py; version2 and version3 retain their exact successive bytes.",
+  "commands": [
+    "PYTHONPATH=docs/design_review/evidence/2026-11-16_ddo-current-native uv run ci test --native-host private --workers 1 --json -- python/corpus-structure/tests/semantic/test_data_operation_original_native.py::test_authentic_original_fact_admission_publication_and_revocation[original-document]"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "binding_probe_v1.py",
+      "role": "Exact diagnostic instrumentation version1",
+      "sha256": "927ac5d83c1e4b13419aac870736875c0a0e1265ab65956bd5a80b2fbe1f3919"
+    },
+    {
+      "path": "binding_probe_v2.py",
+      "role": "Exact diagnostic instrumentation version2",
+      "sha256": "5889c446dcda04a41260cd916c1c261f364a0f3545ab5c0f550b65c9d3165e39"
+    },
+    {
+      "path": "binding_probe_v3.py",
+      "role": "Exact diagnostic instrumentation version3",
+      "sha256": "2903b83e4f837e554eeb6ad83daf4cc86b4a11d0d1b738d5d48418a51efa411d"
+    },
+    {
+      "path": "binding-probe-v1.json",
+      "role": "Observed native predicate comparisons version1",
+      "sha256": "97851fbcfc53cd8f98cf9faff9e5f0dfd5965e26969dcada806b6055e4a81c3a"
+    },
+    {
+      "path": "binding-probe-v2.json",
+      "role": "Observed native predicate comparisons version2",
+      "sha256": "afd6e810b6c26fdbbaa2e7c44f0669460490982237958fd230b4f3932c32b32a"
+    },
+    {
+      "path": "binding-probe-v3.json",
+      "role": "Observed native predicate comparisons version3",
+      "sha256": "64dbace07250b65224c30fcbb89b2a8042025549f9d3c574294d2c68af4828df"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "All product/member/kind/subject/source/position/multiplicity/empty-episode predicates agree, and actual original admission/product/source plus selected role/position match; ddo_input_support_refs nevertheless returns an empty array. Independent source inspection identifies unqualified reference in two correlated original_source_admission subqueries resolving to the inner admission.reference column, which lacks admission_id. Explicitly qualified SRF values repair the source without relaxing support checks; native successor and uninstrumented affected qualification remain required.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-12"
+  ]
+}

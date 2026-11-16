@@ -1,0 +1,39 @@
+[
+  {
+    "purpose": "read_only_binding_diagnostic",
+    "rows": [
+      {
+        "role": "source",
+        "same_member": true,
+        "row_episodes": [],
+        "same_product": true,
+        "accepted_kind": true,
+        "episodes_match": true,
+        "row_references": [
+          {
+            "kind": "original-source",
+            "admission_id": "original-admission:dfd575c5c6bab71da4dd9d39d73a9bd2ab857af1964e354b07d1b33325d1a440",
+            "source_reference": "2bf0b4af6e288c5d886d1f705b8b20a0f0d3c9022d54fd89c002cad2dce6fa1e"
+          }
+        ],
+        "source_matches": true,
+        "universe_count": 1,
+        "binding_support": [
+          {
+            "kind": "original-source",
+            "role": "source",
+            "position": 0,
+            "admission_id": "original-admission:dfd575c5c6bab71da4dd9d39d73a9bd2ab857af1964e354b07d1b33325d1a440",
+            "source_reference": "2bf0b4af6e288c5d886d1f705b8b20a0f0d3c9022d54fd89c002cad2dce6fa1e"
+          }
+        ],
+        "subject_matches": true,
+        "position_matches": true,
+        "reference_matches": false,
+        "selected_episodes": [],
+        "selected_references": [],
+        "multiplicity_matches": true
+      }
+    ]
+  }
+]

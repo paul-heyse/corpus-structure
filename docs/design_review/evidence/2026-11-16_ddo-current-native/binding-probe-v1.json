@@ -1,0 +1,22 @@
+[
+  {
+    "purpose": "read_only_binding_diagnostic",
+    "rows": [
+      {
+        "role": "source",
+        "same_member": true,
+        "row_episodes": [],
+        "same_product": true,
+        "accepted_kind": true,
+        "episodes_match": true,
+        "source_matches": true,
+        "universe_count": 1,
+        "subject_matches": true,
+        "position_matches": true,
+        "reference_matches": false,
+        "selected_episodes": [],
+        "multiplicity_matches": true
+      }
+    ]
+  }
+]

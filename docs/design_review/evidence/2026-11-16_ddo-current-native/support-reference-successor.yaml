@@ -1,0 +1,4 @@
+# Exact qualified original/authored support reference successor.
+baseline: HEAD
+native_revision: semantic_ddo_support_reference
+native_predecessor: semantic_ddo_stable_read_renewal

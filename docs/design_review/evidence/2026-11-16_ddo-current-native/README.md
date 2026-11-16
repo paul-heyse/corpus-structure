@@ -403,6 +403,28 @@ Current actual qualification is separate: selected-support/CPU/renewal/cross-rel
 no result is inferred from starting these invocations. Remaining providers/public reads, recovery,
 development adoption, whole-document interruption/resume and final DDO-12 union stay open.
 
+## Original support reference shadowing · 2026-11-16
+
+**partial:** [finalized diagnostic](records/ddo.original-support-shadowing.json), finalization
+`950dc52fa0d94a7c9230a2f45e89e949`, retains three exact probe versions and predicate outputs.
+The managed runner intentionally refuses `-p`; temporary source fixture injection loaded each
+read-only diagnostic instead, and was removed after diagnosis. The original native SQL and test
+assertions stayed intact. These instrumented failures are diagnostics, not consumer qualification.
+
+Actual46 `8fb9142eb165422f84cc62b5010d3db7` had39passed/7failed; actual3
+`3c561753db7a4983aabf9abddc9fc8a6` had observation1passed/grade-event2setupfailed.
+Three fixture corrections are committed `e3a3c6280`; private bare-helper control1passed
+`c856daeaa73a4d9a9c607abc0ab28371`, crossrelease3 collected
+`8ddb4bc9f6274377a8ef43dadd455db6` (execution not_run).
+
+Probes `655ed7ebb474465ba7981a26e72a9cc3`, `97a81eff24084cc4aa44b9cdafc29b1f`,
+`9b181ef8cf8841aabbf4322581e6be90` show universe1, every input/header/empty-episode predicate
+true and exact binding/native original references, yet support helper returns[]. The nested
+`original_source_admission` relation has a `reference` column that shadows its outer SRF alias.
+Source now qualifies `selected_support.value` in both helper and attachment admission queries;
+two independent inspections found no remaining material issue or relaxed authentication.
+**DDO-SI-05** in the coordinator owns current disposition. Capture and uninstrumented retries remain open.
+
 ## Acceptance still required
 
 - Preserve exact registered root custody and qualify any required native successor discovered by

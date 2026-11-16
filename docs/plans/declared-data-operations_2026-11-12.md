@@ -261,6 +261,7 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-02 | Interpreted complete coverage can omit an eligible span, duplicate a family or omit a fact-bearing family. Reuse current source-selector interval semantics and validate union conservation while preserving partitioned examination. | **Closed at Python validator boundary**, `decbeeb89`, partition/gap/atom/unknown-ancestry and family controls plus independent source recheck. Native qualification remains required. |
 | DDO-SI-03 | Required external choices accept ordinary authenticated dependency members. Narrow to the existing validated `record_type=choice_member` packet subset and retain owning-group/source custody. | **Closed at Python validator boundary**, `decbeeb89`, real choice alternative positive and foreign-member negatives plus independent source recheck. Native qualification remains required. |
 | DDO-SI-04 | Interpreted occurrences can remain inside native pieces while escaping narrowed selected scope. Reuse source selector containment already required by formal products, including pointer/page meaning. | **Closed at Python validator boundary**, `decbeeb89`, shared pointer/page/range containment with formal/construction positives and escaped-scope negatives; independent source recheck. Native qualification remains required. |
+| DDO-SI-05 | Authentic original/authored support is rejected because correlated admission queries resolve unqualified `reference` to the admission table column. Qualify the selected support value in its helper and attachment guard. | **Source repaired, native qualification open.** Actual native46 had39passed/7failed; native3 had1passed/2failed. Read-only probes and independent source review isolate the SQL shadowing; normal successor and uninstrumented affected retries required. |
 
 Cross-release request execution (`c0e1b6f4d`, `f5ac9e2a3`, `726a411bc`) uses authenticated attach
 metadata and the exact original generation release/runtime/binding before capacity reservation.
@@ -282,8 +283,18 @@ successor is registered at `ef2a03f1a` and deployed/verified on the owned stage
 candidate/registration and full42-native/one-ordinary/zero-privilege inspection are retained in the
 [native evidence owner](../design_review/evidence/2026-11-16_ddo-current-native/README.md#registered-complete-support-and-stable-read-renewal-successor--2026-11-16).
 Actual selected-support/CPU/renewal/cross-release/PDF cohort `8fb9142eb165422f84cc62b5010d3db7`
-and fresh three-consumer journey `3c561753db7a4983aabf9abddc9fc8a6` own their outcomes;
-starting them establishes no pass. Next settle actual native/security/failed consumer journeys,
+settled **failed** (46selected,39passed/7failed); fresh three-consumer journey
+`3c561753db7a4983aabf9abddc9fc8a6` settled **failed** (observation1passed, grade/event2setupfailed).
+Both retain complete reporting/native/custody. Two sealed-release fixtures and a stale private CPU
+basis control are corrected in `e3a3c6280`; bare-helper1 passed `c856daeaa73a4d9a9c607abc0ab28371`,
+crossrelease3 collection passed `8ddb4bc9f6274377a8ef43dadd455db6` (functional not_run).
+Remaining failures share **DDO-SI-05**: authentic original support is lost to correlated SQL column
+shadowing. Three instrumented private diagnostic failures `655ed7ebb474465ba7981a26e72a9cc3`,
+`97a81eff24084cc4aa44b9cdafc29b1f`, `9b181ef8cf8841aabbf4322581e6be90` isolate the exact
+predicate without substituting native SQL or expectations; they are not qualification.
+[Finalized diagnostic](../design_review/evidence/2026-11-16_ddo-current-native/records/ddo.original-support-shadowing.json)
+and two independent source inspections support the bounded qualified-reference repair.
+A normal captured successor and actual affected retries remain required. Next settle actual native/security/failed consumer journeys,
 qualify actual providers and selected CLI/MCP/export reads, recover/fence and adopt the current
 development target, execute the retained whole-document demand with interruption/resume, then
 establish the final-source functional/provider/fault/nonfunctional union. Already implemented coverage, graph, neighborhood, source-migration and rich consumer
