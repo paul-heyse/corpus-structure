@@ -33,16 +33,11 @@ def definition_pack():
     return family_pack(release(), contract="DefinitionRecordFields", anchor_role="term")
 
 
-def test_forward_typed_population_and_limited_operations_are_preserved_without_raw_replay(
-    monkeypatch,
-):
-    from types import SimpleNamespace
-
-    from corpus_structure.core.method import UnitRef, UnitResult
-    from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-    from corpus_structure.methods import contribution_adapter as adapter
-    from corpus_structure.semantic.contributions import contribution_identity, operation_identity
-    from corpus_structure.semantic.observations import bind_result, source_value
+def test_current_binding_preserves_typed_population_and_separate_limited_operation():
+    from corpus_structure.semantic.contributions import (
+        bind_contributions, contribution_identity, operation_identity,
+    )
+    from corpus_structure.semantic.observations import source_value
 
     ctx = context("term")
     pack = GlinerPack.from_declaration(
@@ -78,43 +73,26 @@ def test_forward_typed_population_and_limited_operations_are_preserved_without_r
         computation_dependencies=("source:fixture",),
     )
     limited["operation_key"] = operation_identity(limited)
-    upstream = dict(
-        parse_detail={"reports": [{"report": "legacy path must not be visited"}]},
-        contributions=(*batch.contributions, *extra),
-        contribution_operations=(operation, limited),
-        contribution_coordinate_texts=batch.coordinate_texts,
+    combined = ContributionBatch.combine((
+        ContributionBatch((operation,), (*batch.contributions, *extra), batch.coordinate_texts),
+        ContributionBatch((limited,), (), ()),
+    ))
+    operations, contributions = bind_contributions(
+        release(), source=ctx.primary.unit_ref,
+        operations=combined.operations,
+        contributions=combined.contributions,
+        coordinate_texts=combined.coordinate_texts,
     )
-    monkeypatch.setattr(
-        adapter, "restore_report", lambda *_: pytest.fail("typed data must not be re-adapted")
-    )
-    upstream = json.loads(canonical_bytes(upstream))
-    copied = adapter.replay_retained_contributions(
-        SimpleNamespace(prepared=release()), None, upstream
-    )
-    assert canonical_bytes(copied.contributions) == canonical_bytes(upstream["contributions"])
-    assert canonical_bytes(copied.operations) == canonical_bytes(
-        upstream["contribution_operations"]
-    )
-    assert canonical_bytes(copied.coordinate_texts) == canonical_bytes(batch.coordinate_texts)
-    assert isinstance(copied.contributions[-1]["value"]["fields"], tuple)
-    assert isinstance(ctx.primary, DeclaredNativeFrameSource)
-    bound = bind_result(
-        release(),
-        source=ctx.primary.unit_ref,
-        method="fixture.forward",
-        operation_version="1",
-        configuration_hash="fixture",
-        input_hash="fixture",
-        invocation_key="fixture",
-        result=UnitResult(
-            ref=UnitRef(TaskUnitType.DOCUMENT, 1, ctx.primary.source_key),
-            outcome=ObservationOutcome.PRODUCED,
-            contributions=copied.contributions,
-            contribution_operations=copied.operations,
-            contribution_coordinate_texts=copied.coordinate_texts,
-        ),
-    )
-    assert len(bound.model_dump()["contributions"]) == len(upstream["contributions"])
+    assert len(contributions) == len(batch.contributions) + 3
+    assert {row["semantic_type"] for row in contributions} >= {
+        "attribute.role", "source_rule.fixture", "math.syntax",
+    }
+    assert contributions[-1]["value"] == extra[-1]["value"]
+    assert isinstance(contributions[-1]["value"]["fields"], tuple)
+    assert [row["outcome"] for row in operations] == ["succeeded", "limited"]
+    assert operations[-1]["inspected_count"] == operations[-1]["emitted_count"] == 0
+    assert operations[-1]["reason"] == "fixture source request limit"
+    assert not any(row["operation_key"] == limited["operation_key"] for row in contributions)
 
 
 @pytest.mark.parametrize("primary", ["unique", "ambiguous", "unlocated"])
