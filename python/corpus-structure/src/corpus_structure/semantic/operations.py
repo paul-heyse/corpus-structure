@@ -44,7 +44,6 @@ from .refusals import OperationConflict, SourceReadRefused
 from .types import PreparedRelease
 
 if TYPE_CHECKING:
-    from .contextual_storage import PreparedContextualInventory
     from .data_operation_runtime import RuntimeBinding
 
 _SOURCE_RESULT_MAX_BYTES = 64 * 1024**2
@@ -992,7 +991,6 @@ class BoundReader:
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
         self._analysis_enabled = analysis
         self._read_budget = read_budget
-        self._contextual_preparation: PreparedContextualInventory | None = None
         self.math_readings_batch = None
         self.source_tasks: dict[int, int] = {}
         self.source_producers: Mapping[tuple[int, str], BoundSourceProducer] = {}
@@ -1333,47 +1331,6 @@ class BoundReader:
             {"targets": payload},
         )
         return {row[0]: row[1] for row in rows}
-
-    def contextual_candidates(
-        self,
-        *,
-        occurrence_id,
-        query,
-        inventory,
-        target_vectors,
-        lexical_query,
-        dimension,
-        budget,
-        channel_budget,
-    ):
-        from .contextual_retrieval import retrieve_candidates
-        from .contextual_storage import prepare_contextual_inventory
-
-        binding = (
-            self.run_id,
-            self.cut_id,
-            self.prepared.release_id,
-            self.prepared.execution_model_id,
-        )
-        entry = self._contextual_preparation
-        if entry is None or not entry.matches(
-            binding, inventory, target_vectors, query.profile_id, dimension
-        ):
-            entry = prepare_contextual_inventory(
-                binding, inventory, target_vectors, profile_id=query.profile_id, dimension=dimension
-            )
-            self._contextual_preparation = entry
-        return retrieve_candidates(
-            self.conn,
-            occurrence_id=occurrence_id,
-            query=query,
-            inventory=inventory,
-            relation=entry.relation,
-            lexical_query=lexical_query,
-            dimension=dimension,
-            budget=budget,
-            channel_budget=channel_budget,
-        )
 
     def contextual_mutual_neighbors(self, report):
         from sqlalchemy import text

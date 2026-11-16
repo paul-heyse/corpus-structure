@@ -56,15 +56,10 @@ if typing.TYPE_CHECKING:
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.pdf_candidate_source import CandidatePageSource
-    from corpus_structure.methods.contextual_embeddings import EncodedVector
     from corpus_structure.semantic.characterization import (
         EnrichedDocumentView,
         LayerManifest,
         LayerReport,
-    )
-    from corpus_structure.semantic.contextual_retrieval import (
-        CandidateList,
-        FrozenInventory,
     )
     from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, PreparedPdfProduct
     from corpus_structure.semantic.pdf_integrated import (
@@ -506,21 +501,6 @@ class SourcePreparationReader(Protocol):
         effective_version: str | None,
     ) -> Mapping[str, Any]:
         """Detach the complete bounded selected heading inventory and its coverage."""
-        ...
-
-    def contextual_candidates(
-        self,
-        *,
-        occurrence_id: str,
-        query: EncodedVector,
-        inventory: FrozenInventory,
-        target_vectors: tuple[EncodedVector, ...],
-        lexical_query: str,
-        dimension: int,
-        budget: int,
-        channel_budget: int,
-    ) -> CandidateList:
-        """Owned PostgreSQL retrieval over detached bounded inputs; no model or writer."""
         ...
 
     def contextual_mutual_neighbors(self, report: dict) -> dict:
