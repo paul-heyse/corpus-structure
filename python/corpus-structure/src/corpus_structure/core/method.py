@@ -3,7 +3,7 @@
 The types live in `core` because the methods sit below `orchestrate` (in `ingest/`, `methods/`,
 `validate/` and `consolidate/`, D9 §1) and import them without importing orchestration:
 
-- `Method`, the protocol every registered method satisfies, with its `tier` and the
+- `Method`, the protocol every registered method satisfies, and the
   `ConfidenceSource` its observations contribute to (or none);
 - the views a method reads: `UnitRef`, `UnitView`, `RunView` and the `Reader` protocol, which O1
   implements over the database already scoped to the run (its renditions, reuse, cut);
@@ -844,7 +844,7 @@ def config_references(config: type[BaseModel]) -> dict[tuple[str, ...], ConfigRe
 
 
 class Method[C: BaseModel](Protocol):
-    """A registered method (D4 §1): stable name and version, family, unit type, tier, confidence
+    """A registered method (D4 §1): stable name and version, family, unit type, confidence
     source, its `Config` model and resources, and the three calls."""
 
     name: str
@@ -855,8 +855,6 @@ class Method[C: BaseModel](Protocol):
 
     unit_type: TaskUnitType
 
-    @property
-    def tier(self) -> str: ...
     @property
     def confidence_source(self) -> str | None: ...
 
