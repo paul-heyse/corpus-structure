@@ -840,21 +840,12 @@ def execute_fit_profile(receiver, feature_grade, calibration_grade, specificatio
 def _record_cpu_inputs(
     input_basis: list, *, scalar_roles: tuple[str, ...], set_roles: tuple[str, ...] = ()
 ):
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_cpu_basis import cpu_basis_values
 
-    basis = decode_semantic_value(input_basis)
-    if not isinstance(basis, dict) or basis.get("version") != "cpu-input-basis-2":
-        raise SemanticRefusal("record CPU computation requires its exact typed input basis")
-    grouped = {name: [] for name in (*scalar_roles, *set_roles)}
-    for role in basis["roles"]:
-        if role["role"] not in grouped or role["multiplicity"] != 1:
-            raise SemanticRefusal("record CPU inputs differ from actual whole scalar/set roles")
-        grouped[role["role"]].append(role["body"])
-    if any(len(grouped[name]) != 1 for name in scalar_roles):
-        raise SemanticRefusal("record CPU computation requires each exact scalar input")
-    return basis, {
-        **{name: grouped[name][0] for name in scalar_roles},
-        **{name: grouped[name] for name in set_roles},
+    grouped, _ = cpu_basis_values(input_basis, scalar_roles=scalar_roles, set_roles=set_roles)
+    return grouped, {
+        **{name: grouped[name][0].body for name in scalar_roles},
+        **{name: [row.body for row in grouped[name]] for name in set_roles},
     }
 
 
@@ -1715,7 +1706,7 @@ def execute_grade_kernel(input_basis: list, metadata: dict, *, prepared, check_a
     archives = tuple(captured[release_id] for release_id in metadata["prediction_release_ids"])
     checked = DdoRecordGradeSpecification.model_validate_json(json_bytes(values["specification"]))
     by_product = {
-        role["product_id"]: role["body"] for role in basis["roles"] if role["role"] == "prediction"
+        role.product_id: role.body for role in basis["prediction"]
     }
     if set(by_product) != {
         address["product_id"] for address in metadata["bound_prediction_addresses"]

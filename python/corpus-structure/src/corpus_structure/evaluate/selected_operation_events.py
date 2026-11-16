@@ -24,13 +24,14 @@ from corpus_structure.semantic.operation_policy import (
     ATTACHMENT_FEATURE_NAMES,
     DefiningTextFeatures,
     OperationEvent,
+    OperationEventAlgorithm,
     defining_text_feature_values,
 )
 from corpus_structure.semantic.record_policy import Digest, FrozenContract, Nonempty
 from corpus_structure.semantic.source_products import FrozenNativeSource
 from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsReport
 
-from .operation_fitting import AttachmentFacet, EventJudgment
+from .operation_fitting import AttachmentFacet, EventJudgment, OperationEventFitResult
 
 DEFINED_BY_VERSION = "defined-by-exact-endpoints-scope-1"
 DEFINED_BY_FEATURES = (
@@ -427,3 +428,48 @@ def prepare_operation_event_frame(
         observations=tuple(observations),
         feature_unavailable=tuple(unavailable),
     )
+
+
+class SelectedOperationEventFrameSelection(FrozenContract):
+    """One actual selected current whole product and its exact read custody."""
+
+    selection: SelectedEventRead
+    use_id: Nonempty
+    reference: DeclaredProductRef
+    derivation_id: Nonempty
+    frame_digest: Digest
+
+    @model_validator(mode="after")
+    def whole_same_project(self) -> Self:
+        if self.reference.member_id is not None or self.reference.project_id != self.selection.project_id:
+            raise ValueError("fit frame selection requires a whole product in its exact project")
+        return self
+
+
+class DdoOperationEventFitSpecification(FrozenContract):
+    version: Literal["selected-operation-event-fit-specification-1"] = "selected-operation-event-fit-specification-1"
+    frame: SelectedOperationEventFrameSelection
+    algorithm: OperationEventAlgorithm
+
+
+class DdoOperationEventFit(FrozenContract):
+    """Protected actual fit result, including unavailable/failed diagnostics."""
+
+    version: Literal["selected-operation-event-fit-1"] = "selected-operation-event-fit-1"
+    specification: DdoOperationEventFitSpecification
+    result: OperationEventFitResult
+
+    @model_validator(mode="after")
+    def exact_frame_identity(self) -> Self:
+        if self.result.frame_digest != self.specification.frame.frame_digest:
+            raise ValueError("event fit differs from its actual selected current frame")
+        if self.result.parameters is not None and self.result.parameters.algorithm != self.specification.algorithm:
+            raise ValueError("event fit changes its actual predeclared numerical algorithm")
+        return self
+
+
+def operation_event_parameter_value(basis: DdoOperationEventFit):
+    """Exact finite subtree projection; only native issuance grants public authority."""
+    if basis.result.status != "fitted" or basis.result.parameters is None:
+        raise ValueError("operation event authorization requires an actual successful fit")
+    return basis.result.parameters

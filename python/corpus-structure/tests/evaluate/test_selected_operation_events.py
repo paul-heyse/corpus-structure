@@ -175,7 +175,7 @@ def event_value(
         producer_operation="structure.definition_named_components/declared",
         producer_revision="implementation-slice:" + "a" * 64,
         source=pin,
-        origin_group="pure:origin:" + str(number),
+        origin_group=pin.original_source,
     )
     return selector, report, native
 
@@ -258,7 +258,7 @@ def test_current_frame_reuses_real_numeric_kernel_and_keeps_unknown_labels_out_o
     result = fit_operation_event(actual)
     assert result.status == "fitted"
     assert (result.observations, result.labeled, result.positive, result.negative) == (4, 2, 1, 1)
-    assert result.origin_groups == 4
+    assert result.origin_groups == 2  # repeated source headers do not create new original groups
     assert result.parameters is not None
     assert result.parameters.frame_digest == actual.fit_digest
     assert result.parameters.reference_digest == actual.question.digest

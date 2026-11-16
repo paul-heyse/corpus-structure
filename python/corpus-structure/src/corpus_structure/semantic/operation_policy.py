@@ -317,7 +317,8 @@ score_operation_event__data_operation__ = {
             "support": {
                 "provenance": "exact",
                 "identity_requirements": ["episode"],
-                "source": "fitted-corpus-event-producer",
+                "source": "frozen-source-set",
+                "source_set": "operation-event-parameters",
                 "coverage": {"role": "parameters", "description": "ordered-feature-schema"},
             },
         },
@@ -405,12 +406,18 @@ score_operation_event__data_operation__ = {
     "effects": [],
     "capabilities": {
         "forms": ["scalar"],
-        "preparation": "fitted-parameters",
-        "cancellation": "call-boundary",
-        "ownership": "immutable-inputs",
+        "preparation": "resource",
+        "prepared_factory": "acquire_operation_event_score_port",
+        "cancellation": "cooperative",
+        "ownership": "invocation-owned-cpu",
     },
     "behavior": "operation-event-logistic-score-v1",
-    "parameters": {},
+    "parameters": {
+        "corpus_id": {"value_type": "string", "required": True},
+        "event_version": {"value_type": "string", "required": True},
+        "producer_version": {"value_type": "string", "required": True},
+        "event": {"value_type": "string", "default": "defined_by_correctness"},
+    },
     "binding": {"operator": "scan", "roles": ["parameters", "features"]},
     "opaque": [
         {
@@ -437,3 +444,10 @@ score_operation_event__data_operation__ = {
     ],
     "bound_inputs": ["parameters"],
 }
+
+
+def acquire_operation_event_score_port(prepared, model, operation, *, identity, authorize, custody, sources):
+    """Acquire the existing typed numerical callable with exact native issuer custody."""
+    from corpus_structure.evaluate.declared_operation_events import acquire_score_port
+    return acquire_score_port(prepared, model, operation, identity=identity, authorize=authorize,
+                              custody=custody, sources=sources)
