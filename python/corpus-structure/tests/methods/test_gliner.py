@@ -420,7 +420,7 @@ def test_hosted_gliner_refuses_invalid_request_before_native_start(profile, kind
     frozen = gliner_selection(selected, {"runtime": "frozen-before-task"})
     calls = []
     group = SimpleNamespace(
-        _selections={frozen.native.fingerprint: frozen},
+        declared_selections=(frozen,),
         policy=CharacterizationExecutionPolicy(),
         declare=lambda values: None,
         infer=lambda *args, **kwargs: calls.append(True),

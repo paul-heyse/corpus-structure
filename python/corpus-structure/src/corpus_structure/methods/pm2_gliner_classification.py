@@ -128,7 +128,6 @@ def classification_request(
         raise GlinerRefused(
             "classification requires a released source-only choice and one exact slice"
         )
-    context.require_native_projection()
     threshold = max(profile.threshold, question.minimum_probability or 0)
     declaration = {
         "classifications": [

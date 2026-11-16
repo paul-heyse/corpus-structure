@@ -349,13 +349,6 @@ def _source_pin(source) -> dict[str, Any]:
     return record_source_pin(source)
 
 
-def _require_canonical_context(context: NativeSourceContext) -> None:
-    try:
-        context.require_native_projection()
-    except ContextRefused as error:
-        raise GlinerRefused(str(error)) from error
-
-
 def _assemble(
     prepared: PreparedRelease,
     context: NativeSourceContext,
@@ -370,7 +363,6 @@ def _assemble(
     report: GlinerReport | None,
     occurrence_policy: str | None = None,
 ) -> AssemblyResult:
-    _require_canonical_context(context)
     definition, roles = family_roles(prepared, contract)
     role_names = {role.name for role in roles}
     if not policy_version or not occurrence_roles or not set(occurrence_roles) <= role_names:
@@ -906,7 +898,6 @@ def assemble_records(
     if not report.computation or not report.profile:
         raise GlinerRefused("report requires its computation and execution profile dependencies")
     pack.compile()
-    _require_canonical_context(context)
     definition, roles = family_roles(prepared, contract)
     family = next(prop.equals_string for prop in definition.properties if prop.name == "family")
     if not family:
@@ -1039,7 +1030,6 @@ def _item_spans(
     cell_projection: Any = None,
 ) -> tuple[LiteralSpan, ...]:
     """Lift retained native piece positions, never search equal source strings."""
-    _require_canonical_context(context)
     identity = context.primary.source_key if source_key is None else source_key
     expected = (
         tuple(
@@ -1098,7 +1088,6 @@ def native_table_groups(
     proximity. This adapter reads actual native cell text and source-piece positions;
     incomplete paths remain unresolved. It does not retrieve headers or select tables.
     """
-    _require_canonical_context(context)
     native = json.loads(context.primary.native_context)
     table = next(
         (

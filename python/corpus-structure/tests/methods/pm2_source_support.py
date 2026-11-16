@@ -1,12 +1,10 @@
 """Controlled inputs and builders shared by the pm2 source consumers."""
 
-from hashlib import sha256
-
 from corpus_structure.methods.pm2_source import PM2SourceMap, SourceMapSegment
-from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.proposals import NativeFrameSource
-from corpus_structure.semantic.source_contexts import NativeSourceContext, SourceSlice
+from corpus_structure.semantic.source_contexts import (
+    NativeSourceContext, PreparedNativeSources, source_slice,
+)
+from methods.record_assembly_support import source
 
 
 def source_context(fields, *, identity=1, policy="test-layout"):
@@ -29,33 +27,15 @@ def source_context(fields, *, identity=1, policy="test-layout"):
                     end=len(text + selected),
                 )
             )
-            node = dict(self_ref=pointer, text=native)
+            node = dict(self_ref=pointer, label="text", text=native)
             if field == "orig":
                 node["orig"] = selected
             items.append(node)
         text += selected
-    projection = dict(
-        text=text,
-        pieces=pieces,
-        items=[item["self_ref"] for item in items],
-        ancestors=[],
-        health={},
-    )
-    primary = NativeFrameSource(
-        f"unit:{identity}",
-        text,
-        (),
-        identity,
-        ProductReference(18, "integrated", "a" * 64),
-        "#/groups/1",
-        "direct",
-        sha256(canonical_bytes(projection)).hexdigest(),
-        "b" * 64,
-        canonical_bytes(dict(pieces=pieces, items=items, ancestors=[], health={})).decode(),
-        version=3,
-    )
+    primary = source(text, identity=identity, pieces=pieces, items=items, ancestors=())
     return NativeSourceContext(
-        primary, (), (SourceSlice(identity, 0, len(text)),), "exact read", policy, "selected"
+        primary, (), (source_slice(primary, 0, len(text)),), "exact read", policy, "selected",
+        version=2, preparation=PreparedNativeSources((primary,)),
     )
 
 

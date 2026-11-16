@@ -190,7 +190,6 @@ class HostedGliner:
         if not isinstance(supplied, tuple) or len(supplied) > MAX_DIAGNOSTIC_SPANS:
             raise GlinerRefused("diagnostic supplied span population exceeds its bound")
         try:
-            context.require_native_projection()
             for start, end in supplied:
                 if type(start) is not int or type(end) is not int:
                     raise GlinerRefused("supplied spans require integer half-open coordinates")

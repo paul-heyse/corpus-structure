@@ -260,10 +260,6 @@ class PM2SourceMap:
         return SourceMapRefused(reason, self.scope_digest, detail)
 
     def __post_init__(self) -> None:
-        try:
-            self.context.require_native_projection()
-        except ContextRefused as error:
-            raise self.refuse(SourceMapReason.SOURCE_REFUSED, str(error)) from error
         if not isinstance(self.segments, tuple) or not isinstance(self.protected_atoms, tuple):
             raise self.refuse(SourceMapReason.INVALID_EXTENT, "mapping requires immutable extents")
         provider_end = layout_end = 0

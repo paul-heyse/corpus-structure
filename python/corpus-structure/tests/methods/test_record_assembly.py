@@ -653,7 +653,6 @@ def test_native_table_full_header_note_shared_and_blank_is_neither_zero_nor_miss
     lengths = [(0, 7), (7, 17), (17, 21), (21, 22), (22, 34)]
     pieces = [
         dict(
-            source_field="text",
             kind="native_text",
             item_ref="#/tables/0" if i < 4 else "#/texts/2",
             start=start,
