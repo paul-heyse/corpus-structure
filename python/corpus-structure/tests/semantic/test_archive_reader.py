@@ -102,127 +102,6 @@ def test_historical_analysis_archive_refuses_without_rewriting_evidence():
     assert fixture.read_bytes() == original
 
 
-def test_current_snapshot_reads_without_compiler_then_explicit_analytical_capture(
-    commit_db_engine, commit_writer_engine, commit_reader_engine, monkeypatch, tmp_path
-):
-    """Admitted reads need no producer; explicit capture prepares its own runtime manifest."""
-    from decimal import Decimal
-
-    from sqlalchemy import insert
-
-    from corpus_structure.semantic.identity import fact_key
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.prepare import prepare_release
-    from corpus_structure.semantic.publication import (
-        EntityRow,
-        EvidenceRow,
-        FactRow,
-        MembershipRow,
-        MembershipSupportRow,
-        PublicationBatch,
-        SelectionRow,
-        ValueRow,
-        publish_batch,
-    )
-    from corpus_structure.semantic.query import QuerySpec, read_session
-    from corpus_structure.semantic.releases import persist_release
-    from corpus_structure.semantic.types import ResolvedDependencies
-
-    data, bundle, _ = archived(_FIXTURE.with_name("reader-v10-analytics.json"))
-    profile = PreparationProfile(version="semantic-2")
-    dependencies = ResolvedDependencies(
-        tuple(
-            SourceArtifact(item["name"], bytes.fromhex(item["content"]))
-            for item in data["dependencies"]
-        )
-    )
-    from corpus_structure.semantic.composed import composed_dependencies
-
-    dependencies = composed_dependencies(dependencies)
-    # Rebuild current products from compatible retained schema inputs. Existing
-    # historical reconstruction vectors above remain independently unchanged.
-    prepared = prepare_release(bundle, dependencies, profile)
-    r, z = prepared.release_id, "realization:current-reader"
-    with commit_db_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(insert(table("data.project")).values(project_id="current-reader"))
-        conn.execute(
-            insert(table("data.realization")).values(
-                realization_id=z, release_id=r, project_id="current-reader"
-            )
-        )
-    facts = tuple(
-        FactRow(
-            fact_key(r, z, "circle", "https://example.org/" + name, value, {}),
-            "circle",
-            "https://example.org/" + name,
-            value_id,
-        )
-        for name, value, value_id in (
-            ("id", "circle", "id"),
-            ("kind", "Circle", "kind"),
-            ("amount", Decimal("1.2300"), "amount"),
-        )
-    )
-    publish_batch(
-        commit_writer_engine,
-        PublicationBatch(
-            r,
-            z,
-            "current-answer",
-            entity=(EntityRow("circle"),),
-            membership=(MembershipRow("circle", "https://example.org/Circle", "stated"),),
-            typed_value=(
-                ValueRow("id", "string", text_value="circle"),
-                ValueRow("kind", "string", text_value="Circle"),
-                ValueRow("amount", "decimal", decimal_lexical="1.2300"),
-            ),
-            fact=facts,
-            selection=tuple(SelectionRow(item.fact_id) for item in facts),
-            evidence=(EvidenceRow("ev", "urn:source", "line:1", "test", "1"),),
-            membership_support=(
-                MembershipSupportRow("circle", "https://example.org/Circle", "ev"),
-            ),
-        ),
-    )
-    import corpus_structure.semantic.prepare as compiler
-
-    def unavailable(*args, **kwargs):
-        raise AssertionError("admitted public reads must not compile")
-
-    with read_session(commit_reader_engine, z) as session:
-        with monkeypatch.context() as read_only_boundary:
-            read_only_boundary.setattr(compiler, "prepare_release", unavailable)
-            circle = session.class_handle("Circle")
-            result = session.query(
-                QuerySpec(circle, session.property_handle(circle, "amount"), "accepted")
-            )
-            assert result.binding.release_id == r
-            assert len(result.values) == 1
-            assert session.explain(facts[2].fact_id).fact_id == facts[2].fact_id
-
-        # Capture is a distinct analytical operation: its declared runtime manifest
-        # boundary may prepare cold. The producing release and snapshot stay pinned.
-        from corpus_structure.semantic.analytics import load_packet
-
-        uri = commit_reader_engine.url.render_as_string(hide_password=False).replace(
-            "postgresql+psycopg:", "postgresql:"
-        )
-        packet = load_packet(session, uri)
-        assert (
-            next(
-                row
-                for row in packet.to_table("typed_value").to_pylist()
-                if row["value_id"] == "amount"
-            )["decimal_lexical"]
-            == "1.2300"
-        )
-    from corpus_structure.serve.export import export_packet
-
-    exported = export_packet(packet, tmp_path / "current-answer")
-    assert exported["binding"]["release_id"] == r
-
-
 def test_current_open_builds_only_requested_boundary_closure():
     from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.releases import _products
@@ -448,17 +327,12 @@ classes:
 
 
 @pytest.mark.parametrize("compiler", ["14", "15"])
-def test_genuine_supported_archive_retains_exact_boundary_and_comparison_meaning(
-    compiler, monkeypatch
-):
-    from decimal import Decimal
-
+def test_genuine_retired_archive_refuses_without_recompiling_or_rewriting(compiler, monkeypatch):
     from corpus_structure.semantic import prepare
-    from corpus_structure.semantic.comparison_projection import comparison_projection
 
-    data, bundle, artifacts = archived(_FIXTURE.with_name(f"reader-v{compiler}.json"))
-    # These are actual compiler14/15 outputs generated from their retained source
-    # commits, rather than a current archive relabelled with another compiler number.
+    fixture = _FIXTURE.with_name(f"reader-v{compiler}.json")
+    original = fixture.read_bytes()
+    data, bundle, artifacts = archived(fixture)
     monkeypatch.setattr(
         prepare,
         "prepare_release",
@@ -466,16 +340,12 @@ def test_genuine_supported_archive_retains_exact_boundary_and_comparison_meaning
             AssertionError("archive reading must not recompile")
         ),
     )
-    opened = reconstruct_release(
-        data["products"],
-        bytes.fromhex(data["manifest"]),
-        bundle,
-        PreparationProfile(**data["profile"]),
-        artifacts,
-    )
-    value = opened.validate_json("Quote", '{"id":"source:exact","exact":"1.200"}')
-    exact = value.model_dump()["exact"]
-    assert isinstance(exact, Decimal) and exact == Decimal("1.200")
-    assert exact.as_tuple().exponent == -3
-    assert comparison_projection(opened).compiler_version == compiler
-    assert comparison_projection(opened).default == "non-provenance-qualification-is-context-v1"
+    with pytest.raises(ValueError, match="unsupported archived compiler"):
+        reconstruct_release(
+            data["products"],
+            bytes.fromhex(data["manifest"]),
+            bundle,
+            PreparationProfile(**data["profile"]),
+            artifacts,
+        )
+    assert fixture.read_bytes() == original
