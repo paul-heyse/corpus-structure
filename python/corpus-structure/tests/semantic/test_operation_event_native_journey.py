@@ -88,7 +88,11 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
                 retained["demand_id"],
                 project_id=PROJECT,
                 limit=1000,
-                scope={"product_ids": [item.row["product_id"] for item in (*originals, *reports)]},
+                scope={
+                    "product_ids": list(
+                        dict.fromkeys(item.row["product_id"] for item in (*originals, *reports))
+                    )
+                },
             )
         selection = cut_selection(page)
         definition = next(
