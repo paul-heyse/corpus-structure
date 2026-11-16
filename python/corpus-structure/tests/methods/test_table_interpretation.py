@@ -54,7 +54,7 @@ def attachment(cell, band, relation="header", basis="native_geometry"):
     )
 
 
-def rows():
+def rows() -> list[dict[str, Any]]:
     return [
         participant("cell-a", "cell", (2, 3), (1, 2)),
         participant("cell-b", "cell", (2, 3), (2, 3)),
@@ -76,6 +76,49 @@ def run(products=None, **kwargs):
 def extract(op):
     report = op["local_interpretation"]
     return report, source_python(report["request"]), source_python(report["result"])
+
+
+def test_current_source_pins_keep_table_scopes_distinct_and_refuse_foreign_endpoints():
+    from corpus_structure.semantic.identity import canonical_bytes
+    from semantic.record_contracts_support import PIN
+
+    selected = rows()
+    for row in selected:
+        row["pin"] = dict(PIN)
+    (operation,) = run(selected)
+    assert extract(operation)[2]["outcome"] == "completed"
+    # Neither key insertion order nor another source sharing these native table
+    # coordinates creates a physical view-row identity.
+    reordered = deepcopy(selected)
+    for row in reordered:
+        row["pin"] = dict(reversed(tuple(row["pin"].items())))
+    (reordered_operation,) = run(reordered)
+    assert reordered_operation["operation_key"] == operation["operation_key"]
+    assert extract(reordered_operation)[1] == extract(operation)[1]
+    assert extract(reordered_operation)[2]["marginals"] == extract(operation)[2]["marginals"]
+    foreign = deepcopy(selected)
+    foreign[0]["pin"]["source_member"] = "member:foreign"
+    with pytest.raises(ValueError, match="source scope"):
+        run(foreign)
+    other = deepcopy(selected)
+    for row in other:
+        row["contribution_id"] = "other:" + row["contribution_id"]
+        row["pin"]["source_product"] = "product:other"
+        row["pin"]["source"] = canonical_bytes(
+            [row["pin"]["source_product"], row["pin"]["source_member"]]
+        ).decode()
+        row["computation_dependencies"] = tuple(
+            "other:" + value for value in row["computation_dependencies"]
+        )
+        value = source_python(row["value"])
+        for field in ("subject_id", "target_id"):
+            if field in value:
+                value[field] = "other:" + value[field]
+        row["value"] = source_value(value)
+    operations = run([*selected, *other])
+    assert len(operations) == 2
+    assert len({row["operation_key"] for row in operations}) == 2
+    assert all(extract(row)[2]["outcome"] == "completed" for row in operations)
 
 
 def test_source_conditioned_shared_factor_and_mask_are_owned_by_exact_evidence():

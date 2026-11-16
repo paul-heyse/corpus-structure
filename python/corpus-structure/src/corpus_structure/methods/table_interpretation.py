@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 from pydantic import TypeAdapter
 
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.record_interpretation import (
     Candidate,
@@ -354,7 +355,7 @@ def table_policy_operations(
             raise ValueError("table policy endpoints differ from the declared source scope")
         subject_value, target_value = _value(subject_row), _value(target_row)
         group = (
-            str(pin["source_view_id"]) if pin else "",
+            canonical_bytes(pin).decode() if pin else "",
             value["region"],
             value["scope"],
             repr(_extent(subject_value, "row") or subject),
