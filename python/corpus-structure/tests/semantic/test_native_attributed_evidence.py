@@ -33,9 +33,10 @@ from semantic.native_record_fixtures import (
     identities,
 )
 from semantic.native_record_fixtures import private_source as private_source
-from semantic.pdf_integration_support import CELL, integrated, prepare, publish
-from semantic.pdf_integration_support import native_source as native_source
 from semantic.pdf_integration_support import pdf13_db as pdf13_db
+from semantic.pdf_integration_support import publish
+from semantic.pdf_native_source_support import CELL, integrated, prepare
+from semantic.pdf_native_source_support import native_source as native_source
 
 
 def related(case, conn):

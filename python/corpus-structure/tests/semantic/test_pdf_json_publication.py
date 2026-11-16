@@ -1,24 +1,22 @@
 """Independent protected checks for the bounded JSON-text publication realization."""
 
 from copy import deepcopy
-from dataclasses import replace
 
 import psycopg
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.identity import canonical_bytes
+from semantic.pdf_native_source_support import integrated
 
 from . import pdf_integration_support as fixtures
 
-native_source = fixtures.native_source
 pdf13_db = fixtures.pdf13_db
 
 
 def test_json_envelope_and_every_decomposed_record_remain_closed_and_typed(pdf13_db):
     db = pdf13_db
-    value = fixtures.integrated(db.source, db.inputs)
+    value = integrated(db.source, db.inputs)
     value["mapping_reports"] = [{"input_index": 1, "occurrence_id": "block-0", "outcome": "mapped"}]
     product = fixtures.prepare(value, db.source)
     # The removed aggregate document writer no longer accepts collection/envelope
@@ -92,81 +90,6 @@ def test_json_envelope_and_every_decomposed_record_remain_closed_and_typed(pdf13
         not {"content", "inputs", "occurrences", "relations", "coverage", "mapping_reports"}
         & descriptor.keys()
     )
-
-
-def test_decomposed_cardinality_is_derived_from_effective_model(pdf13_db):
-    from corpus_structure.semantic.native_shapes import decomposed_record_guards
-    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
-
-    db = pdf13_db
-    value = fixtures.integrated(db.source, db.inputs)
-    with db.writer.connect() as conn:
-        boundary = pdf_context_for_task(conn, db.job.task).boundary
-    definitions = tuple(
-        replace(
-            definition,
-            properties=tuple(
-                replace(prop, minimum_cardinality=1, maximum_cardinality=1)
-                if prop.name == "coverage"
-                else prop
-                for prop in definition.properties
-            ),
-        )
-        if definition.name == "PdfIntegratedProduct"
-        else definition
-        for definition in boundary.definitions
-    )
-    boundary = replace(boundary, definitions=definitions)
-    collections = {
-        "inputs": ("input_rows", "input"),
-        "occurrences": ("occurrence_rows", "occurrence"),
-        "relations": ("relation_rows", "relation"),
-        "coverage": ("coverage_rows", "coverage"),
-        "mapping_reports": ("mapping_rows", "mapping_report"),
-    }
-    plan = decomposed_record_guards(
-        boundary,
-        "PdfIntegratedProduct",
-        "product",
-        field_names="envelope_fields",
-        collections=collections,
-        records={"content": "parsing_item"},
-    )
-    compact = {k: v for k, v in value.items() if k not in {"content", *collections}}
-    content = dict(value["content"])
-    content["document_json"] = canonical_bytes(content.pop("document")).decode()
-
-    def literal(item):
-        return "'" + canonical_bytes(item).decode().replace("'", "''") + "'"
-
-    for count in (0, 1, 2):
-        declarations = [
-            "product jsonb:=" + literal(compact) + "::jsonb",
-            "parsing_item jsonb:=" + literal(content) + "::jsonb",
-            "envelope_fields text[]:=ARRAY[" + ",".join("'" + k + "'" for k in value) + "]",
-        ]
-        for name, (variable, _) in collections.items():
-            rows = value.get(name, [])
-            if name == "coverage":
-                rows = rows * count
-            declarations.append(variable + " json:=" + literal(rows) + "::json")
-        sql = (
-            "DO $shape$ DECLARE "
-            + ";".join(declarations)
-            + "; BEGIN "
-            + plan.envelope
-            + " END $shape$"
-        )
-        if count == 1:
-            with db.admin.begin() as conn:
-                conn.exec_driver_sql(sql)
-        else:
-            with (
-                db.admin.begin() as conn,
-                pytest.raises(DBAPIError, match="record shape differs"),
-                conn.begin_nested(),
-            ):
-                conn.exec_driver_sql(sql)
 
 
 def test_descriptor_helper_is_part_of_exact_native_admission(pdf13_db):

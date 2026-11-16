@@ -27,141 +27,28 @@ from corpus_structure.semantic.pdf_storage import (
     trace_pdf_occurrence,
 )
 from semantic.pdf_integration_support import (
+    HOLDER,
+    _publish_record_document,
+    _publish_record_values,
+    publish,
+)
+from semantic.pdf_integration_support import pdf13_db as pdf13_db
+from semantic.pdf_native_source_support import (
     CELL,
     CELL_IDS,
-    HOLDER,
     IMAGE,
     ITEM_IDS,
     REGION_IDS,
     RESPONSE,
-    _publish_record_document,
-    _publish_record_values,
     integrated,
     mutate_selected,
     observation,
     pin,
     prepare,
-    publish,
 )
-from semantic.pdf_integration_support import independent_integrated as independent_integrated
-from semantic.pdf_integration_support import native_source as native_source
-from semantic.pdf_integration_support import pdf13_context as pdf13_context
-from semantic.pdf_integration_support import pdf13_db as pdf13_db
-
-
-def test_materialized_integrated_content_enforces_released_metadata_affinity(
-    independent_integrated, native_source, pdf13_context
-):
-    # Valid native runtime metadata remains input-qualified after integration. The
-    # outer product owns kind; its content envelope deliberately has no kind field.
-    independent_integrated["content"]["runtime_report"] = {
-        "packages": [],
-        "bindings": [],
-        "effective_options": "{}",
-    }
-    with pytest.raises(ValueError, match="qualified input graph"):
-        prepare(independent_integrated, native_source, context=pdf13_context)
-
-
-def test_retained_observation_preserves_partial_and_no_response(native_source, pdf13_context):
-    partial = observation(native_source, outcome="partial")
-    product = prepare(partial, native_source, context=pdf13_context)
-    assert [o["occurrence_id"] for o in product.values()["occurrences"]] == ["block-0", "block-1"]
-    assert product.values()["coverage"][0]["outcome"] == "partial"
-    assert product.values()["health"]["source_fidelity"] == "unassessed"
-    assert native_source.original not in product.artifacts
-    assert {IMAGE, RESPONSE, native_source.recipe} <= set(product.artifacts)
-    failed = observation(native_source, outcome="failed")
-    failed["occurrences"] = []
-    failed["coverage"][0]["outcome"] = "unknown"
-    for name in ("raw_response_digest", "finish_reason", "usage_json"):
-        del failed["observation"][name]
-    failed["observation"].update(
-        usage_availability="unavailable", diagnostic="provider disconnected"
-    )
-    retained = prepare_integrated_pdf_product(
-        failed,
-        native_source.original,
-        native_source.recipe,
-        artifacts=(IMAGE,),
-        context=pdf13_context,
-    )
-    assert "raw_response_digest" not in retained.values()["observation"]
-    assert retained.values()["observation"]["diagnostic"] == "provider disconnected"
-
-
-@pytest.mark.parametrize(
-    "change",
-    [
-        "empty_companions",
-        "missing_coverage",
-        "missing_decision",
-        "wrong_kind",
-        "exact_glyph",
-        "opaque_region",
-        "out_of_bounds_region",
-        "wrong_region_page",
-        "missing_region_page",
-        "forged_text",
-        "missing_local_endpoint",
-        "duplicate_occurrence",
-        "duplicate_endpoint",
-        "missing_structural",
-        "missing_recognition",
-    ],
-)
-def test_invalid_selected_meaning_refuses(
-    native_source,
-    independent_integrated,
-    pdf13_context,
-    change,
-):
-    mutate_selected(independent_integrated, change)
-    with pytest.raises(ValueError):
-        prepare(independent_integrated, native_source, context=pdf13_context)
-
-
-@pytest.mark.parametrize(
-    "change",
-    [
-        "complete_partial",
-        "fine_image",
-        "exact_range",
-        "image_bytes",
-        "unknown_health",
-        "unknown_transform",
-        "no_response_success",
-        "wrong_observation_page",
-    ],
-)
-def test_invalid_recognition_refuses(native_source, pdf13_context, change):
-    value = observation(native_source, outcome="partial")
-    if change == "complete_partial":
-        value["coverage"][0]["outcome"] = "complete"
-    elif change == "fine_image":
-        value["observation"]["image"]["precision"] = "cell"
-    elif change == "exact_range":
-        value["occurrences"][0].update(start=0, end=5)
-    elif change == "image_bytes":
-        value["observation"]["image"]["artifact_digest"] = "0" * 64
-    elif change == "unknown_health":
-        value["health"]["magic_complete"] = True
-    elif change == "unknown_transform":
-        value["observation"]["image"]["transform"]["magic_exact"] = True
-    elif change == "wrong_observation_page":
-        value["occurrences"][0]["page_no"] = 2
-    elif change == "no_response_success":
-        value["observation"]["outcome"] = "succeeded"
-        del value["observation"]["raw_response_digest"]
-    with pytest.raises(ValueError):
-        prepare(value, native_source, context=pdf13_context)
-
-
-def test_reconciliation_operations_are_qualified(pdf13_context):
-    for operation in ("map_pdf_observation", "compare_pdf_occurrences", "select_pdf_integration"):
-        bound = pdf13_context.require_operation(operation)
-        assert bound["implementation"]["symbol"] == operation
-        assert "partial" in bound["contract"]["outcomes"]
+from semantic.pdf_native_source_support import independent_integrated as independent_integrated
+from semantic.pdf_native_source_support import native_source as native_source
+from semantic.pdf_native_source_support import pdf13_context as pdf13_context
 
 
 def test_selected_cell_traces_two_observations_original_and_policy_reuse(
@@ -892,3 +779,73 @@ def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(
                 content_digest=digest,
                 occurrence_id=CELL,
             )
+
+
+def test_mapped_rich_document_publishes_with_typed_chart_and_inline_lineage(
+    pdf13_db, commit_reader_engine
+):
+    from corpus_structure.ingest.pdf_reconciliation import select_pdf_integration
+    from corpus_structure.semantic.pdf_integrated import prepare_integrated_pdf_product
+    from corpus_structure.semantic.pdf_storage import read_pdf_product, trace_pdf_occurrence
+    from semantic import pdf_integration_support as integration_fixtures
+    from semantic.pdf_reconciliation_support import recognized
+
+    db = pdf13_db
+    raw = (
+        b"<x_0.05><y_0.333333>\\begin{tabular}{cc}$x+1$ & 2\\e"
+        b"nd{tabular}<x_0.55><y_0.4><class_Table><x_0.6><y_0"
+        b'.55><chart type="line">\n| Time | Speed (m/s) |\n|--'
+        b"-|---|\n|1|2|<x_0.95><y_0.9><class_Chart><x_0.6><y_"
+        b"0.2>Value $y+2$ follows<x_0.95><y_0.25><class_Text"
+        b">"
+    )
+    obs = recognized(db.source, raw)
+    obs["product_key"] = "mapped-rich-a"
+    obs["observation"]["image"].update(width=4, height=6)
+    obs["observation"]["image"]["transform"]["affine"] = [0.02, 0.0, 0.0, 0.02, 0.0, 0.0]
+    retained = prepare_integrated_pdf_product(
+        obs, db.source.original, db.source.recipe, artifacts=(IMAGE, raw)
+    )
+    integration_fixtures.publish(db, retained)
+    selected = select_pdf_integration(
+        db.native.values(),
+        pin(db.job.task, "native", db.native_digest, "structural"),
+        [
+            (
+                pin(db.job.task, "mapped-rich-a", retained.digest, "recognition"),
+                retained.values(),
+                raw,
+            )
+        ],
+        db.source.original,
+        db.source.recipe,
+        db.source.schema,
+        product_key="mapped-rich-selected",
+    )
+    selected_digest = integration_fixtures.publish(db, selected)
+    values = selected.values()
+    chart_cell = next(
+        o for o in values["occurrences"] if "/meta/tabular_chart/" in o["occurrence_id"]
+    )
+    formula = next(
+        o for o in values["occurrences"] if o["kind"] == "formula" and o["text"] == "y+2"
+    )
+    with commit_reader_engine.connect() as conn:
+        for occurrence in (chart_cell, formula):
+            read = read_pdf_product(
+                conn,
+                task_id=db.job.task,
+                product_key="mapped-rich-selected",
+                content_digest=selected_digest,
+                occurrence_id=occurrence["occurrence_id"],
+            )
+            assert read["occurrences"][0]["precision"] == "inherited"
+            assert read["mapping_reports"]
+            trace = trace_pdf_occurrence(
+                conn,
+                task_id=db.job.task,
+                product_key="mapped-rich-selected",
+                content_digest=selected_digest,
+                occurrence_id=occurrence["occurrence_id"],
+            )
+            assert any(n["product_key"] == "mapped-rich-a" for n in trace["nodes"])

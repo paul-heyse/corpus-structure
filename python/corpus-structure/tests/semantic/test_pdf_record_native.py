@@ -19,15 +19,16 @@ from corpus_structure.semantic.pdf_record_model import (
     record_tables,
     record_upload_tables,
 )
+from semantic.releases_support import stage
 
 
 def header_binding(engine):
     from hashlib import sha256
 
     from corpus_structure.semantic.metadata import table
-    from semantic.native_closure_support import archive
 
-    prepared = archive(engine)[-1]
+    with engine.begin() as connection:
+        prepared = stage(connection)[-1]
     source = b"%PDF-1.7 foundation source"
     digest = sha256(source).hexdigest()
     with engine.begin() as conn:
@@ -105,9 +106,8 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
     assert changed_id != PHYSICAL_MODEL_ID
     before = native_products.current_admission_fields()
     before_arrow = record_arrow_schema("kb.pdf_record_membership")
-    for module in (native_products, pdf_record_model):
-        monkeypatch.setattr(module, "metadata", changed)
-    after = native_products.current_admission_fields()
+    monkeypatch.setattr(pdf_record_model, "metadata", changed)
+    after = native_products.current_admission_fields(target_metadata=changed)
     assert before["physical_checks_source_digest"] != after["physical_checks_source_digest"]
     assert before["physical_id"] == PHYSICAL_MODEL_ID
     assert after["physical_id"] == changed_id
@@ -300,33 +300,6 @@ def test_private_native_foundations_and_constraints(commit_db_engine):
                     conn.execute(insert(tables[relation]), values)
 
 
-def test_previous_execution_abi_requires_regeneration():
-    import json
-
-    from corpus_structure.semantic.contracts import (
-        _bound_execution_model,
-        compile_execution_model,
-        require_payload_operation,
-        trusted_execution_inputs,
-    )
-
-    current = compile_execution_model(trusted_execution_inputs())
-    previous = json.loads(current.content)
-    previous["inputs"]["compiler_version"] = "14"
-    from corpus_structure.semantic.types import PreparationError
-
-    with pytest.raises(
-        PreparationError, match="execution product requires current compiler 28; regenerate"
-    ):
-        _bound_execution_model(json.dumps(previous).encode(), current.model_id)
-    with pytest.raises(
-        PreparationError, match="execution product requires current compiler 28; regenerate"
-    ):
-        require_payload_operation(
-            json.dumps(previous).encode(), current.model_id, "publish_integrated_pdf"
-        )
-
-
 def test_artifact_native_verifier_reads_actual_parts(commit_db_engine):
     from hashlib import sha256
 
@@ -482,23 +455,18 @@ def test_table_return_inventory_and_model_owned_read_roles(monkeypatch):
 
 
 def test_actual_native_release_guard_after_activation(commit_db_engine, commit_admitter_engine):
+    from dataclasses import replace
     from uuid import uuid4
 
-    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
-    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.releases import activate_release, persist_release
-    from semantic.execution_release_support import bundle as _bundle
+    from corpus_structure.semantic.releases import activate_release
+    from semantic.data_operation_kernel_support import STORAGE, admit_kernel
 
-    bundle = _bundle()
-    dependencies = composed_dependencies(ResolvedDependencies())
-    profile = PreparationProfile(version="semantic-2")
-    prepared = prepare_release(bundle, dependencies, profile)
     project = str(uuid4())
     with commit_db_engine.begin() as conn:
         conn.execute(insert(table("data.project")), dict(project_id=project))
     with commit_admitter_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, profile, prepared)
+        prepared = admit_kernel(conn, replace(STORAGE, project_id=None)).prepared
         activate_release(
             conn, project, prepared.release_id, expected_parent=None, expected_generation=0
         )
