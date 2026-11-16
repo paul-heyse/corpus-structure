@@ -3,11 +3,8 @@
 import json
 import re
 from collections.abc import Iterable, Sequence
-from typing import Any, Literal, NotRequired, Self, TypedDict
+from typing import Any, NotRequired, TypedDict
 
-from pydantic import Field, model_validator
-
-from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.source_preparation import native_table_geometry
 from corpus_structure.semantic.artifact_identity import SourceArtifactOccurrence, normalized_code
 from corpus_structure.semantic.contributions import (
@@ -22,19 +19,8 @@ from corpus_structure.semantic.source_contexts import (
     evidence_anchor,
     record_source_pin,
 )
-from corpus_structure.semantic.structural_products import (
-    RetainedStructuralRef,
-    StructuralInput,
-    StructuralPassage,
-    StructuralValue,
-)
-
-
-
 
 PROCEDURE_OPERATION_VERSION = "2"
-
-
 
 
 SCOPED_VERSION = "17"
@@ -188,8 +174,6 @@ class ScalarProcedureReading(TypedDict):
     reading_key: NotRequired[str]
     predicate_token: NotRequired[int]
     block: NotRequired[str]
-
-
 
 
 def retained_action_extent(contributions, link):
@@ -491,9 +475,7 @@ def discover_relations(
         preparation=PreparedNativeSources((frame,), max_sources=1),
     )
     pin = record_source_pin(frame)
-    dependency = (
-        (pin["source_product"])
-    )
+    dependency = pin["source_product"]
     # The unchanged geometry/artifact operation has an independent identity.
     # Artifact cohort replay also reconstructs this identity from the source.
     op = operation_identity("structure.scoped_relations", "3", pin)
@@ -1097,10 +1079,10 @@ def discover_relations(
                     behavior=action_reading["behavior"],
                     clause_role=action_reading["clause_role"],
                     **(
-                        ({
+                        {
                             "predicate_token": action_reading["predicate_token"],
                             "block": action_reading["block"],
-                        })
+                        }
                     ),
                     role_states={
                         name: "located_linguistic_proposal"
@@ -1184,11 +1166,9 @@ def discover_relations(
                     operation=procedure_op,
                 )
     # Diagnostics are retained independently of contribution count or solver success.
-    available = (
-        (all(
-            operation["outcome"] in {"succeeded", "empty"}
-            for operation in retained_predicate_operations
-        ))
+    available = all(
+        operation["outcome"] in {"succeeded", "empty"}
+        for operation in retained_predicate_operations
     )
     emitted = sum(p["operation_key"] == procedure_op for p in products)
     extra_operations = (
@@ -1198,11 +1178,7 @@ def discover_relations(
             operation_version=PROCEDURE_OPERATION_VERSION,
             outcome=("limited" if emitted else "failed")
             if annotation_errors
-            else (
-                ("succeeded" if emitted else "empty")
-                if available
-                else "not_run"
-            ),
+            else (("succeeded" if emitted else "empty") if available else "not_run"),
             reason=(
                 "Some retained annotation blocks failed; independently assess emitted roles."
                 if annotation_errors
@@ -1212,9 +1188,9 @@ def discover_relations(
                     else "No complete retained DEP/POS product; no absence is inferred."
                 )
             ),
-            inspected_count=(sum(
-                operation["inspected_count"] for operation in retained_predicate_operations
-            )),
+            inspected_count=(
+                sum(operation["inspected_count"] for operation in retained_predicate_operations)
+            ),
             emitted_count=emitted,
             computation_dependencies=tuple(dict.fromkeys((dependency,))),
         ),
@@ -1465,9 +1441,7 @@ def discover_relations(
                     outcome=inheritance_outcome,
                     inspected_count=inspected,
                     emitted_count=len(inherited),
-                    computation_dependencies=tuple(
-                        dict.fromkeys((dependency,))
-                    ),
+                    computation_dependencies=tuple(dict.fromkeys((dependency,))),
                     **(
                         {"reason": "Some selected qualifier evidence is unavailable."}
                         if inheritance_outcome in {"limited", "unsupported"}
@@ -1548,9 +1522,7 @@ def discover_relations(
                         link,
                         (None),
                         artifact_deps[0],
-                        **(
-                            ({"verb_extent": retained_action_extent(retained_predicates, link)})
-                        ),
+                        **({"verb_extent": retained_action_extent(retained_predicates, link)}),
                     )
                     if binding is not None:
                         action, caption, artifact = binding
@@ -1599,9 +1571,7 @@ def discover_relations(
                     outcome=outcome,
                     inspected_count=inspection.inspected_count,
                     emitted_count=len(products) - first,
-                    computation_dependencies=tuple(
-                        dict.fromkeys((dependency,))
-                    ),
+                    computation_dependencies=tuple(dict.fromkeys((dependency,))),
                     **(
                         {"reason": "Some selected cue or target coverage remains unresolved."}
                         if outcome in {"limited", "unsupported"}
@@ -1616,7 +1586,11 @@ def discover_relations(
             {
                 **operation,
                 **(
-                    ({"primary_products": tuple(reference.values() for reference in primary_product_refs)})
+                    {
+                        "primary_products": tuple(
+                            reference.values() for reference in primary_product_refs
+                        )
+                    }
                 ),
             }
             for operation in (
@@ -1631,7 +1605,11 @@ def discover_relations(
             operation_key=op,
             question="source_structural_relations",
             **(
-                ({"primary_products": tuple(reference.values() for reference in primary_product_refs)})
+                {
+                    "primary_products": tuple(
+                        reference.values() for reference in primary_product_refs
+                    )
+                }
             ),
             operation_version="1",
             outcome="succeeded" if any(p["operation_key"] == op for p in products) else "empty",

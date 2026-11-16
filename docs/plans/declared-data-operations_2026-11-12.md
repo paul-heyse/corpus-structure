@@ -172,26 +172,55 @@ replace native custody. Historical citations now name their exact retained Git b
 
 Whole ordinary collection passed7430 identities `15b233762b8f4e72b0d52963e3b3b541`, functional
 execution **not_run**. Root nominal integration143 had141passed/2failed
-`8f0ba70537e546a0b4daafd85a3d729b`; the remaining two failures are current dossier root/source-pin
-fixture integration, with independent semantic-state and endpoint-citation criteria retained.
-An obsolete reuse expectation now preserves distinct negative ancestor-read dependencies even when
-consumed pieces coincide. Current negative-dependency and identical-dependency sharing2 passed
-`f6b69e3e1db84cb0987022393cd7d9f5`; earlier failed fixture attempts remain held. Whole typing
-`db186d8f02274a71b810defbc3e6dc0e` narrowed the source baseline to one dossier legacy-branch union,
-which root removed rather than widening. After cross-release integration and normal wire generation,
-`63f381eb5361424fa11b291ebabbe0e9` failed10 new execution-basis/test-harness typing diagnostics;
-those remain assigned. No suppression or compatibility restoration closes this boundary.
+`8f0ba70537e546a0b4daafd85a3d729b`; current dossier roots/source-pin fixtures are repaired
+(`37e2d7e3a`), focused12 and final coherence1 passed
+`262cce0966d24bec94d59813937fc226` / `076cad7743c941ffb1d7917d11c566ce`.
+Independent semantic-state and endpoint-citation criteria remain. The current negative-dependency
+and identical-dependency sharing2 passed `f6b69e3e1db84cb0987022393cd7d9f5`; coincident text does
+not collapse different ancestor-read dependencies. Original failed attempts remain held.
+Whole-project `ci check --only types --json` **passed** at the integrated source
+`c4b6e4d7bb12464786b273d9455907c0`, zero diagnostics. No suppression or compatibility restoration.
 
-Cross-release request execution is integrated at `c0e1b6f4d`: authenticated attach metadata supplies
-the immutable generation basis before capacity reservation; native claim requires that expected
-generation; original binding/read/runtime governs computation, hydration and retention. Worker
-pure35 passed `c30eca1afb6f40a78d53ce2ea31edc7c`; native3 collection
-`762284939359431488e1f69d931e71f8` is not execution. Independent implementation review identified
-two material open I03 corrections: repeated full-capsule queue copies escape admitted byte accounting,
-and later ready pages can need undeclared native profiles after serving starts. The existing shared
-CPU/provider owner must solve both before acceptance; no second pool or historical interpreter is
-introduced. Source correspondence, cancelled-origin shared usefulness, exact support and generation
-fences remain required. Final typing, actual compute/reconcile/race journeys and capture are open.
+Construction closure (`e0c821137`, `157f6d00d`) removes the old semantic flag, source-view branches,
+payload/finish protocol, retained-document codec and unused descriptor metadata. Focused83,
+final cleanup5 and optional-column3 passed `952469def3a54f0faf332adeda52d29c` /
+`8567a7aad1274d9e9faf8780d6565888` / `f45fa718a4934766a153d197071a9f42`.
+Actual source/M1 cohort38 originally passed34/failed4 (`9634a2a0beea44e2bac3f15f447b0779`).
+Scope fixtures and an actual coverage-ownership bug are repaired: optional TAG/MORPH failures
+no longer taint independent source-reading coverage or discard valid polarity. Actual source3
+passed `c6ebeace81bf46ceb45ad350e623fe47` with the original complete/polarity expectations
+restored (`893a64d69`); this is source annotation evidence, not native DDO publication.
+
+Characterization closure (`b6cc44e90`) removes LayerReport/View/Manifest codecs, old UnitResult
+channels, historical reading branches and navigation fallback construction. Current graph,
+attachment, reading-choice and projection kernels remain. Independent migrated controls revealed
+and repaired actual gaps: non-synthetic literal extents must be nonempty; native scores use the
+existing finite canonical SourceValue decoder; complete coverage conserves examined scope;
+empty families contain no analytical facts. Focused repairs3+3 passed
+`e48dddaa0c364604a669ab8f6f8b092f` / `75de444c9a664073be87134139eea37b`.
+The affected cohort168 passed167/failed1 (`afab399bcd8c455dbd8556c7c757bd7f`); its remaining
+old structural transport fixture now checks current grouped-comparison serialization and exact
+encoded condition fields, passed1 `f7759100e0ca4d64b20679842485ac33`. Current query16 passed
+`0f1a5d7cec094826a7e4ad19928890ef`. The renamed control's original failed retry
+`fc0d904f5a3f4bf8906a45909aadd2fd` and codec attempt
+`3493f037c86a4f7f94dca7844c1dc16a` remain retained. Identity/preparation51 passed
+`acd15d24165f45f18117ccbf64c31cc4` after removing the meaning compatibility alias
+(`ab8f4726d`). Remaining legacy structural/artifact DTOs and observation transport are being
+closed against actual callers; useful scientific kernels remain.
+
+Cross-release request execution (`c0e1b6f4d`, `f5ac9e2a3`, `726a411bc`) uses authenticated attach
+metadata and the exact original generation release/runtime/binding before capacity reservation.
+Claim requires the expected generation; original pinned support governs hydration and retention.
+SharedMemory capsules are charged once per execution basis, submission carries only its authenticated
+descriptor, workers verify extent/digest/release and pool retirement owns release/unlink. Full target
+native profiles are frozen before serving; an archived incompatible profile refuses before claim
+instead of substituting the target basis. Independent review's P1/P2 corrections are closed by
+source inspection at this bounded contract; not every archived runtime is promised executable.
+Pure30 passed `9b35e5fa7d884b848b44a19fa35bae4c`; native3 collection
+`762284939359431488e1f69d931e71f8` is not execution. Capability cohort46 passed38/failed8
+`bfc7b5d2f81444f281e81702c38601a0`; the synthetic fixture now names its actual captured enforcement
+owner (`99a17eaf7`), exact8 passed `0b85ea272ac044228b49cbd85787c626` without weaker assertions.
+Actual compute/reconcile/race journeys and fresh native capture remain open.
 
 Subsequent milestones retain their prerequisite order: settle this source/capacity increment and
 current wires/PDF products; review/register/deploy the exact native successor; retry selected-support,

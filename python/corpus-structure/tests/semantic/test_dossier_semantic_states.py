@@ -51,10 +51,16 @@ def test_component_interpretations_share_citation_without_collapsing_or_false_de
         rooted_members, rooted_facets = derive_dossier_members(
             value, ((reference, payload),), root=component
         )
-        public = structural_statement(select_dossier(
-            value, root_id=component.component_id, root_component=root,
-            members=rooted_members, supported_facets=rooted_facets, predecessors=(reference,),
-        ))
+        public = structural_statement(
+            select_dossier(
+                value,
+                root_id=component.component_id,
+                root_component=root,
+                members=rooted_members,
+                supported_facets=rooted_facets,
+                predecessors=(reference,),
+            )
+        )
         assert public["dossier"]["root"] == component.component_id
         assert all(m["sense"] == component.component_id for m in public["dossier"]["members"])
         interpretations.update(m["definition_interpretation"] for m in public["dossier"]["members"])
@@ -68,9 +74,15 @@ def test_same_content_preserves_every_applicability_outcome_and_facet():
     root_inputs, root_predecessor, root_payload = retained(component_report)
     supplied = tuple(retained(report) for report in alternatives)
     dependencies = [dependency for inputs, _, _ in supplied for dependency in inputs.dependencies]
-    value = root_inputs.model_copy(update=dict(dependencies=tuple(dict.fromkeys(
-        (*dependencies, component_report.product_id, root_predecessor.product_id)
-    ))))
+    value = root_inputs.model_copy(
+        update=dict(
+            dependencies=tuple(
+                dict.fromkeys(
+                    (*dependencies, component_report.product_id, root_predecessor.product_id)
+                )
+            )
+        )
+    )
     retained_reports = tuple((reference, payload) for _, reference, payload in supplied)
     members, facets = derive_dossier_members(value, retained_reports)
     states = {m.applicability_outcome: m for m in members if m.applicability_outcome is not None}
@@ -99,8 +111,11 @@ def test_same_content_preserves_every_applicability_outcome_and_facet():
         )
         (member,) = [m for m in rooted_members if m.applicability_outcome is not None]
         report = select_dossier(
-            value, root_id=reading.component.component_id, root_component=root,
-            members=(member,), predecessors=(root_predecessor, reference),
+            value,
+            root_id=reading.component.component_id,
+            root_component=root,
+            members=(member,),
+            predecessors=(root_predecessor, reference),
         )
         public = structural_statement(report)
         assert public["dossier"]["members"][0]["applicability_outcome"] == reading.outcome

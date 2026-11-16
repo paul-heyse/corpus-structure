@@ -1,18 +1,15 @@
 """Exact inline syntax and portable replay over the frozen affine-transform spelling."""
 
-from dataclasses import replace
-from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
 
 from corpus_structure.methods.contextual_candidates import retained_occurrences
 from corpus_structure.semantic.contributions import occurrence_identity
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.source_contexts import record_source_pin
 from methods.inline_formula_support import _FROZEN_TEXT as _FROZEN_TEXT
-from methods.m1_source_preparation_support import source, projection
+from methods.m1_source_preparation_support import source
 from methods.scoped_relations_support import discover_relations
 
 

@@ -25,8 +25,8 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.m1_products import NativeCandidateData
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
-    source_slice,
     SyntheticText,
+    source_slice,
 )
 from methods.m1_source_preparation_support import source as view_source
 from methods.m1_source_profile_support import config
@@ -322,7 +322,11 @@ def test_fragment_order_refuses_reversed_source_serialization_and_synthetic_cros
     ctx = NativeSourceContext(
         base.primary,
         (),
-        (source_slice(base.primary, 0, 5), SyntheticText(" ", "explicit boundary"), source_slice(base.primary, 15, 18)),
+        (
+            source_slice(base.primary, 0, 5),
+            SyntheticText(" ", "explicit boundary"),
+            source_slice(base.primary, 15, 18),
+        ),
         "synthetic fixture",
         "fixture",
         "explicit crossing refusal control",
@@ -444,9 +448,14 @@ def test_policy6_whole_neighborhoods_preserve_distinct_negative_retrieval_depend
         if p["kind"] == "native_text"
     )
     selected = prep.prepare_source(
-        NativeCandidateData.from_frame(view), source_frame=view,
-        context_population=DeclaredContextPopulation((view,), canonical_bytes({"fixture": "complete declared source"})),
-        persisted_annotations=annotations, policy=prep.POLICY_V6, max_chars=4096
+        NativeCandidateData.from_frame(view),
+        source_frame=view,
+        context_population=DeclaredContextPopulation(
+            (view,), canonical_bytes({"fixture": "complete declared source"})
+        ),
+        persisted_annotations=annotations,
+        policy=prep.POLICY_V6,
+        max_chars=4096,
     )
     full = [
         (i, s)
@@ -468,8 +477,13 @@ def test_policy6_whole_neighborhoods_preserve_distinct_negative_retrieval_depend
     # Equal text/pieces do not erase independently scoped negative context reads.
     assert full[0][1].pieces == full[1][1].pieces
     assert full[0][1].retrievals != full[1][1].retrievals
-    assert all(request.context(selected.source, max_chars=4096, max_pieces=64,
-        preparation=selected.preparation).policy == prep.POLICY_V6 for _, request in full)
+    assert all(
+        request.context(
+            selected.source, max_chars=4096, max_pieces=64, preparation=selected.preparation
+        ).policy
+        == prep.POLICY_V6
+        for _, request in full
+    )
     indices = {index for index, _ in full}
     formulas = [r for r in selected.regions if r.label == "formula"]
     assert len(formulas) == 2
@@ -478,13 +492,21 @@ def test_policy6_whole_neighborhoods_preserve_distinct_negative_retrieval_depend
     assert all(set(prep.PROSE_FAMILIES) <= set(r.families) for r in formulas)
     assert all(s.policy == prep.POLICY_V6 for s in selected.selections)
     old = prep.prepare_source(
-        NativeCandidateData.from_frame(view), source_frame=view,
-        context_population=DeclaredContextPopulation((view,), canonical_bytes({"fixture": "complete declared source"})),
-        persisted_annotations=annotations, policy=prep.POLICY_V5, max_chars=4096
+        NativeCandidateData.from_frame(view),
+        source_frame=view,
+        context_population=DeclaredContextPopulation(
+            (view,), canonical_bytes({"fixture": "complete declared source"})
+        ),
+        persisted_annotations=annotations,
+        policy=prep.POLICY_V5,
+        max_chars=4096,
     )
-    assert all(s.context(old.source, max_chars=4096, max_pieces=64,
-        preparation=old.preparation).text != view.text
-        for s in old.selections if s.families == prep.PROSE_FAMILIES)
+    assert all(
+        s.context(old.source, max_chars=4096, max_pieces=64, preparation=old.preparation).text
+        != view.text
+        for s in old.selections
+        if s.families == prep.PROSE_FAMILIES
+    )
 
 
 def test_prose_dedup_preserves_failures_and_keeps_distinct_dependencies():

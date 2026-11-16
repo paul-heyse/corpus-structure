@@ -193,26 +193,27 @@ def test_coverage_is_explicit_and_not_inferred_from_empty_assertion_output():
     assert bound["outcome"] == "empty"
 
 
-def test_bind_grouped_comparison_preserves_encoded_condition_fields():
+def test_current_grouped_comparison_preserves_encoded_condition_fields():
     from corpus_structure.methods.structural_products import compare_clauses
-    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+    from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
     from corpus_structure.semantic.structural_products import (
         DIMENSIONS,
-        ClauseField,
-        ClauseFieldGroup,
-        ClauseReading,
+        DeclaredClauseField,
+        DeclaredClauseFieldGroup,
+        DeclaredClauseReading,
+        DeclaredStructuralProductReport,
     )
     from semantic.typed_structural_composition_support import threshold_inputs
 
     inputs = threshold_inputs("If x > 2.", "If x > 5.")
     left, right = inputs.passages
     condition = {"kind": "escape", "text": left.text, "details": ["source limitation"]}
-    fields = {dimension: ClauseFieldGroup(state="absent") for dimension in DIMENSIONS}
-    fields["condition"] = ClauseFieldGroup(
+    fields = {dimension: DeclaredClauseFieldGroup(state="absent") for dimension in DIMENSIONS}
+    fields["condition"] = DeclaredClauseFieldGroup(
         state="present",
         grouping="singleton",
         members=(
-            ClauseField(
+            DeclaredClauseField(
                 dimension="condition",
                 lexical_value=left.text,
                 evidence=(left.passage_id,),
@@ -220,49 +221,44 @@ def test_bind_grouped_comparison_preserves_encoded_condition_fields():
             ),
         ),
     )
-    reference = RetainedContributionRef(
-        contribution_id="source-contribution:" + "1" * 64,
-        project_id="project",
-        run_id=1,
-        cut_id=1,
-        release_id="release",
-        result_revision=1,
-        selected_task_id=1,
-        origin_task_id=1,
-        runtime_fingerprint="runtime",
+    references = tuple(
+        DeclaredContributionRef(
+            contribution_id="source-contribution:" + str(index + 1) * 64,
+            product_id=f"fixture:reading:{index}",
+            kind_contract="kind:fixture-reading",
+            **source.model_dump(
+                include={
+                    "project_id",
+                    "subject",
+                    "subject_definition",
+                    "original_source",
+                    "analyzed_scope_meaning",
+                }
+            ),
+        )
+        for index, source in enumerate(inputs.sources)
     )
     report = compare_clauses(
         inputs,
-        left=ClauseReading(passage_id=left.passage_id, groups=fields),
-        right=ClauseReading(
+        left=DeclaredClauseReading(passage_id=left.passage_id, groups=fields),
+        right=DeclaredClauseReading(
             passage_id=right.passage_id,
-            groups={dimension: ClauseFieldGroup(state="absent") for dimension in DIMENSIONS},
+            groups={
+                dimension: DeclaredClauseFieldGroup(state="absent") for dimension in DIMENSIONS
+            },
         ),
-        left_reading=reference,
-        right_reading=reference.model_copy(
-            update={"contribution_id": "source-contribution:" + "2" * 64}
-        ),
+        left_reading=references[0],
+        right_reading=references[1],
     )
-    bound = bind_result(
-        prepared(),
-        source="source",
-        method="structure.compare",
-        operation_version="3",
-        configuration_hash="config",
-        input_hash="input",
-        invocation_key="invocation",
-        result=UnitResult(
-            ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity),
-            outcome=ObservationOutcome.PRODUCED,
-            structural_product=report.model_dump(mode="json"),
-        ),
-    ).model_dump(mode="json", exclude_none=True)
+    decoded = DeclaredStructuralProductReport.model_validate_json(
+        report.model_dump_json(exclude_none=True)
+    )
+    assert decoded.comparison is not None
     dimension = next(
-        item
-        for item in bound["structural_product"]["comparison"]["dimensions"]
-        if item["dimension"] == "condition"
+        item for item in decoded.comparison.dimensions if item.dimension == "condition"
     )
-    assert source_python(dimension["left_group"]["members"][0]["condition"]) == condition
+    assert dimension.left_group is not None
+    assert source_python(dimension.left_group.members[0].condition) == condition
 
 
 def test_nested_released_schema_uses_each_exact_release_constraint():

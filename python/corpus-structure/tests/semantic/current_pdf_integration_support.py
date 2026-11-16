@@ -465,7 +465,7 @@ def current_integration_journey(
                                 WireClaimDataRequestRequest,
                                 dict(
                                     request_id=claim.request_id,
-                                               generation=claim.generation,
+                                    generation=claim.generation,
                                     holder="recognition-successor",
                                     lease_seconds=300,
                                 ),

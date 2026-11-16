@@ -57,10 +57,6 @@ class ConstructionSource:
         return source_subject(self.value["source"])
 
 
-
-
-
-
 class ConstructionLayer:
     def __init__(
         self,

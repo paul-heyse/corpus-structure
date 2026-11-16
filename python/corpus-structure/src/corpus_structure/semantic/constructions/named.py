@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from corpus_structure.ingest.annotation_views import annotation_view
-from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
 
 from .named_nominations import naming_nomination
 from .nodes import identity
@@ -18,8 +17,6 @@ def rule_identity(rule):
     return identity(
         "named-rule", rule.model_dump(mode="json") if hasattr(rule, "model_dump") else rule
     )
-
-
 
 
 def populate_named_products(

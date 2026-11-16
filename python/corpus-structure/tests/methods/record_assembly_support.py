@@ -8,8 +8,8 @@ from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_model import BoundRoleMember
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     PreparedNativeSources,

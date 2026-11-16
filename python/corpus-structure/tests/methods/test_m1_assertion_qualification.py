@@ -80,7 +80,9 @@ def produce(monkeypatch, text, groups, *, heading=None):
         data,
         source_frame=frame,
         context_population=population,
-        profile=AnnotationProfile(cfg.sentences, execution_profile=json.loads(native.content)["execution_profile"]),
+        profile=AnnotationProfile(
+            cfg.sentences, execution_profile=json.loads(native.content)["execution_profile"]
+        ),
         persisted_annotations=annotations,
         max_chars=cfg.max_context_chars,
         max_pieces=cfg.max_context_pieces,

@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import math
 import typing
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path

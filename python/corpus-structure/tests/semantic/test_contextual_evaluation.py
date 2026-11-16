@@ -9,8 +9,6 @@ import pytest
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.formal_products import formal_operation_sources
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 from corpus_structure.semantic.construction_products import (
     CharacterizationSnapshot,
     ContextualMeaningProduct,
@@ -23,18 +21,28 @@ from corpus_structure.semantic.construction_products import (
 )
 from corpus_structure.semantic.constructions.evaluation import ContextualEvaluator, environment
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-from corpus_structure.semantic.data_product_reference import DataProductMemberReference, member_reference
+from corpus_structure.semantic.data_product_reference import (
+    DataProductMemberReference,
+    member_reference,
+)
 from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
+from corpus_structure.semantic.formal_products import formal_operation_sources
 from corpus_structure.semantic.identity import canonical_bytes
-from semantic.formal_products_support import publication_context, selected as select_source
+from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from semantic.formal_products_support import publication_context
+from semantic.formal_products_support import selected as select_source
 
 
 @pytest.fixture(scope="module")
 def release():
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     prepared = prepare_release(
-        construction_product_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))),
-        data_operation_dependencies(ResolvedDependencies(), python_sources=formal_operation_sources()),
+        construction_product_inputs(
+            SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+        ),
+        data_operation_dependencies(
+            ResolvedDependencies(), python_sources=formal_operation_sources()
+        ),
         PreparationProfile(version="semantic-2"),
     )
     return PreparedConstructionProfile(prepared, bound_data_operation_model(prepared))
@@ -47,31 +55,68 @@ def literal_facts(release, *, source=None):
     selector = source.value["selectors"][0]
     occurrences = []
     for start, end, text in ((0, 3, "all"), (4, 5, "x"), (6, 10, "runs")):
-        extents = [dict(
-            projection=coordinate["projection"], native_pointer="#/texts/0", page=1,
-            start=start, end=end, text=text, synthetic=False,
-        )]
+        extents = [
+            dict(
+                projection=coordinate["projection"],
+                native_pointer="#/texts/0",
+                page=1,
+                start=start,
+                end=end,
+                text=text,
+                synthetic=False,
+            )
+        ]
         occurrences.append(dict(local_id=occurrence_id(coordinate, extents), extents=extents))
 
     def term(key, kind, value, children=()):
         return dict(
-            local_id=key, kind=kind, value=value, vocabulary="test-linguistic-symbols",
-            family="symbols", status="interpreted", occurrences=[occurrences[1]["local_id"]],
+            local_id=key,
+            kind=kind,
+            value=value,
+            vocabulary="test-linguistic-symbols",
+            family="symbols",
+            status="interpreted",
+            occurrences=[occurrences[1]["local_id"]],
             children=[dict(role=role, target=target, structural=True) for role, target in children],
         )
 
     return dict(
-        outcome="complete", occurrences=occurrences, annotations=[], memberships=[], roles=[],
+        outcome="complete",
+        occurrences=occurrences,
+        annotations=[],
+        memberships=[],
+        roles=[],
         terms=[
-            term("x", "participant", "x"), term("restrictor", "predicate", "trial"),
+            term("x", "participant", "x"),
+            term("restrictor", "predicate", "trial"),
             term("p", "predicate", "run", [("grammatical_subject", "x")]),
-            term("b1", "binder", "all", [("variable", "x"), ("restrictor", "restrictor"), ("body", "p")]),
-            term("b2", "binder", "some", [("variable", "x"), ("restrictor", "restrictor"), ("body", "p")]),
+            term(
+                "b1",
+                "binder",
+                "all",
+                [("variable", "x"), ("restrictor", "restrictor"), ("body", "p")],
+            ),
+            term(
+                "b2",
+                "binder",
+                "some",
+                [("variable", "x"), ("restrictor", "restrictor"), ("body", "p")],
+            ),
             term("a1", "attribution", "Ada reports", [("content", "p")]),
             term("a2", "attribution", "Bea reports", [("content", "p")]),
-        ], choices=[],
-        coverage=[dict(family="symbols", operation="test.symbols", eligible=[selector],
-                       examined=[selector], availability="available", outcome="complete", profile="test")],
+        ],
+        choices=[],
+        coverage=[
+            dict(
+                family="symbols",
+                operation="test.symbols",
+                eligible=[selector],
+                examined=[selector],
+                availability="available",
+                outcome="complete",
+                profile="test",
+            )
+        ],
     )
 
 
@@ -80,10 +125,18 @@ def controlled_product(release, facts, *, dependencies=None, source=None):
     source = select_source(release, "all x runs") if source is None else source
     dependencies = tuple((dependencies or {}).values())
     value = interpreted_product_value(
-        source, copy.deepcopy(facts), interpreted_member_contracts(release.prepared, release.model), dependencies
+        source,
+        copy.deepcopy(facts),
+        interpreted_member_contracts(release.prepared, release.model),
+        dependencies,
     )
     return validate_interpreted_product(
-        release.prepared, release.model, value, source, dependencies, subject_context=publication_context(source)
+        release.prepared,
+        release.model,
+        value,
+        source,
+        dependencies,
+        subject_context=publication_context(source),
     )
 
 
@@ -91,7 +144,10 @@ def evaluator_for(release, products, *, symbolic_products=None, source=None):
     source = select_source(release, "all x runs") if source is None else source
     return ContextualEvaluator.from_products(
         source,
-        tuple(CharacterizationSnapshot(product.semantic_id, product.content) for product in products.values()),
+        tuple(
+            CharacterizationSnapshot(product.semantic_id, product.content)
+            for product in products.values()
+        ),
         symbolic_products=symbolic_products,
     )
 
@@ -100,13 +156,21 @@ def evaluated_product(release, products, roots, env, *, symbolic_products=None, 
     source = select_source(release, "all x runs") if source is None else source
     values = tuple(products.values())
     value = contextual_product_values(
-        source, tuple(CharacterizationSnapshot(product.semantic_id, product.content) for product in values),
+        source,
+        tuple(CharacterizationSnapshot(product.semantic_id, product.content) for product in values),
         tuple(products) if symbolic_products is None else symbolic_products,
-        interpreted_member_contracts(release.prepared, release.model), roots=roots, env=env,
+        interpreted_member_contracts(release.prepared, release.model),
+        roots=roots,
+        env=env,
     )
     return validate_interpreted_product(
-        release.prepared, release.model, value, source, values, product_type=ContextualMeaningProduct,
-        subject_context=publication_context(source)
+        release.prepared,
+        release.model,
+        value,
+        source,
+        values,
+        product_type=ContextualMeaningProduct,
+        subject_context=publication_context(source),
     )
 
 
@@ -320,9 +384,7 @@ def test_model_candidate_role_authenticates_selected_frozen_endpoints(release):
     )
     context = controlled_product(release, data, dependencies={pin: source})
     cpin = context.reference
-    env = environment(
-        context_layers=(cpin,), hypotheses=(member_reference(cpin, "binding-role"),)
-    )
+    env = environment(context_layers=(cpin,), hypotheses=(member_reference(cpin, "binding-role"),))
     evaluator = evaluator_for(release, {pin: source, cpin: context})
     root = evaluator.evaluate(member_reference(pin, "x"), env)
     assert any(
@@ -337,9 +399,7 @@ def test_model_candidate_role_authenticates_selected_frozen_endpoints(release):
         for r in ordinary.roles.values()
     )
     invalid = copy.deepcopy(data)
-    invalid["annotations"][1]["external_premises"] = [
-        member_reference(pin, "restrictor").values()
-    ]
+    invalid["annotations"][1]["external_premises"] = [member_reference(pin, "restrictor").values()]
     broken = controlled_product(release, invalid, dependencies={pin: source})
     bpin = broken.reference
     with pytest.raises(ValueError, match="frozen alternative"):
@@ -390,12 +450,17 @@ def test_packed_contextual_choice_preserves_upstream_requirements_and_unresolved
     ]
     source = controlled_product(release, data)
     pin = source.reference
-    report = evaluated_product(release, {pin: source}, [member_reference(pin, "packed")], environment())
+    report = evaluated_product(
+        release, {pin: source}, [member_reference(pin, "packed")], environment()
+    )
     root = next(
         t["local_id"] for t in report.inventory()["terms"] if t["value"] == "contextual-reading"
     )
     readings = declared_formal_layers((source, report), select_source(release, "all x runs"))
-    assert project_reading(readings[report.reference], root, dependencies=readings)["outcome"] == "partial"
+    assert (
+        project_reading(readings[report.reference], root, dependencies=readings)["outcome"]
+        == "partial"
+    )
     group = report.inventory()["choices"][0]
     selected = group["members"][0]
     required = selected["required_external_choices"][0]
@@ -430,7 +495,12 @@ def test_context_failure_preserves_local_meaning_and_marks_dependent_family(rele
     )
     context = controlled_product(release, data, dependencies={pin: source})
     cpin = context.reference
-    report = evaluated_product(release, {pin: source, cpin: context}, [member_reference(pin, "p")], environment(context_layers=(cpin,)))
+    report = evaluated_product(
+        release,
+        {pin: source, cpin: context},
+        [member_reference(pin, "p")],
+        environment(context_layers=(cpin,)),
+    )
     coverage = {r["family"]: r for r in report.value.model_dump(mode="python")["coverage"]}
     assert coverage["meaning.reference"]["outcome"] == "partial"
     assert coverage["meaning.predication"]["outcome"] == "complete"
@@ -679,10 +749,14 @@ def test_staged_source_first_scope_builds_private_nested_terms_from_actual_quest
             ),
         ]
     )
-    data["coverage"][0].update(eligible=selected_source.value["selectors"], examined=selected_source.value["selectors"])
+    data["coverage"][0].update(
+        eligible=selected_source.value["selectors"], examined=selected_source.value["selectors"]
+    )
     report = controlled_product(release, data, source=selected_source)
     pin = report.reference
-    result = evaluated_product(release, {pin: report}, [], environment(context_layers=(pin,)), source=selected_source)
+    result = evaluated_product(
+        release, {pin: report}, [], environment(context_layers=(pin,)), source=selected_source
+    )
     terms = {t["local_id"]: t for t in result.inventory()["terms"]}
     meaning = next(t for t in terms.values() if t["value"] == "relative_scope:" + selection)
     root = terms[next(e["target"] for e in meaning["children"] if e["role"] == "scoped_proposal")]
@@ -710,8 +784,13 @@ def test_provenance_only_symbol_layer_is_not_an_implicit_reading(release):
     roots = evaluator.default_roots(environment())
     assert roots and all(isinstance(ref, DataProductMemberReference) for ref in roots)
     assert {ref.product for ref in roots} == {pin}
-    result = evaluated_product(release, {old_pin: old, pin: source}, [], environment(), symbolic_products=(pin,))
-    assert {ref["product_id"] for ref in json.loads(result.content)["dependencies"]} == {old.semantic_id, source.semantic_id}
+    result = evaluated_product(
+        release, {old_pin: old, pin: source}, [], environment(), symbolic_products=(pin,)
+    )
+    assert {ref["product_id"] for ref in json.loads(result.content)["dependencies"]} == {
+        old.semantic_id,
+        source.semantic_id,
+    }
     assert all(
         ref["product_id"] == source.semantic_id
         for term in result.inventory()["terms"]

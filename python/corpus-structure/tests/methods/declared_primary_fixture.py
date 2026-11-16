@@ -62,7 +62,15 @@ def profiles():
     ), PreparedConstructionProfile(prepared, model)
 
 
-def selected_source(text, *, pieces=None, items=None, recognition=(), section_pointer="#/body", membership="descendants"):
+def selected_source(
+    text,
+    *,
+    pieces=None,
+    items=None,
+    recognition=(),
+    section_pointer="#/body",
+    membership="descendants",
+):
     formal, _construction = profiles()
     pieces = (
         pieces
@@ -120,7 +128,7 @@ def retained_source_annotations(source, frame, context, products, profile):
     """Validate literal columns and execute the genuine formal/construction kernels."""
     from corpus_structure.ingest.annotations import AnnotationProduct
 
-    formal, construction = profiles()
+    _formal, construction = profiles()
     products = (products,) if isinstance(products, AnnotationProduct) else tuple(products)
 
     def present(value: JsonValue) -> JsonValue:

@@ -10,8 +10,8 @@ from pydantic import ValidationError
 from corpus_structure.methods import gliner, m1_source
 from corpus_structure.methods import source_preparation as prep
 from corpus_structure.methods.record_packs import formula_pack_variants
-from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
+from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     ContextRelationship,
@@ -29,8 +29,14 @@ from methods.record_assembly_support import model as record_model
 
 
 def prepare(view, **kwargs):
-    return prep.prepare_source(view, source_frame=view, context_population=DeclaredContextPopulation(
-        (view,), canonical_bytes({"fixture": "complete selected source inventory"})), **kwargs)
+    return prep.prepare_source(
+        view,
+        source_frame=view,
+        context_population=DeclaredContextPopulation(
+            (view,), canonical_bytes({"fixture": "complete selected source inventory"})
+        ),
+        **kwargs,
+    )
 
 
 def test_explicit_profile_budgets_and_unchanged_whitespace_identity(tmp_path):
@@ -198,7 +204,11 @@ def windows(text="L1\nL2\nF\nR1\nR2", *, max_chars=7, max_pieces=5, related=Fals
         sources += (other_frame,)
         selection = replace(
             selection,
-            pieces=(*selection.pieces, SyntheticText("\n", "owned"), DeclaredSourceSlice(other_frame.source_key, 0, 2)),
+            pieces=(
+                *selection.pieces,
+                SyntheticText("\n", "owned"),
+                DeclaredSourceSlice(other_frame.source_key, 0, 2),
+            ),
             relationships=((other_frame.source_key, ContextRelationship.DECLARATION, "owned"),),
         )
     preparation = PreparedNativeSources(sources)
@@ -265,15 +275,16 @@ def test_selected_related_source_custody_survives_every_alternative():
     for ctx in contexts:
         assert ctx.text.endswith("EX")
         assert ctx.related[0].source.pin.values()["source_product"] == "product:record-source:8"
-        assert ctx.map_span(len(ctx.text) - 2, len(ctx.text), literal="EX")[0].source == ctx.related[0].source.pin
+        assert (
+            ctx.map_span(len(ctx.text) - 2, len(ctx.text), literal="EX")[0].source
+            == ctx.related[0].source.pin
+        )
 
 
 def test_prose_formula_route_is_explicit_and_never_creates_native_occurrence():
     view = source("q = 1-p", labels=("text",))
     old = prepare(view, persisted_annotations=())
-    new = prepare(
-        view, persisted_annotations=(), policy=prep.POLICY_V5, formula_prose=True
-    )
+    new = prepare(view, persisted_annotations=(), policy=prep.POLICY_V5, formula_prose=True)
     assert old.selections[0].families == prep.PROSE_FAMILIES
     assert new.selections[0].families == (*prep.PROSE_FAMILIES, "formula_context")
     selection = new.selections[0]

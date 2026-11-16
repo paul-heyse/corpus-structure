@@ -54,8 +54,12 @@ def components(value: DeclaredStructuralInput | None = None, *, passage_id=None,
     value = inputs() if value is None else value
     passage_id = span.passage_id if span is not None else passage_id
     passage = next(p for p in value.passages if passage_id is None or p.passage_id == passage_id)
-    span = span if span is not None else LocatedDefinitionSpan(
-        passage_id=passage.passage_id, start=passage.start, end=passage.end, text=passage.text
+    span = (
+        span
+        if span is not None
+        else LocatedDefinitionSpan(
+            passage_id=passage.passage_id, start=passage.start, end=passage.end, text=passage.text
+        )
     )
     return DeclaredDefinitionComponentsReport(
         inputs=value,
@@ -101,19 +105,26 @@ def component_reference(report, component):
 
 def report_input_pin(report):
     reference = report_reference(report)
-    return source_pin(report.inputs.sources[0]).model_copy(update=dict(
-        product_id=reference.product_id, member_id=reference.member_id,
-        kind_contract=reference.kind_contract,
-        reference=canonical_bytes([reference.product_id, reference.member_id]).decode(),
-    ))
+    return source_pin(report.inputs.sources[0]).model_copy(
+        update=dict(
+            product_id=reference.product_id,
+            member_id=reference.member_id,
+            kind_contract=reference.kind_contract,
+            reference=canonical_bytes([reference.product_id, reference.member_id]).decode(),
+        )
+    )
 
 
 def retained(report):
     reference = report_reference(report)
     value = report.inputs.model_copy(
-        update=dict(dependencies=tuple(dict.fromkeys(
-            (*report.inputs.dependencies, reference.product_id, report.product_id)
-        )))
+        update=dict(
+            dependencies=tuple(
+                dict.fromkeys(
+                    (*report.inputs.dependencies, reference.product_id, report.product_id)
+                )
+            )
+        )
     )
     statements = (
         [
@@ -127,7 +138,10 @@ def retained(report):
     payload = dict(
         report=report.model_dump(mode="json", exclude_none=True),
         public_assertions=[
-            dict(assessment_id="unadmitted:literal-assessment:" + report.product_id + ":" + str(i), statement=statement)
+            dict(
+                assessment_id="unadmitted:literal-assessment:" + report.product_id + ":" + str(i),
+                statement=statement,
+            )
             for i, statement in enumerate(statements)
         ],
     )
@@ -138,23 +152,42 @@ def applicability():
     value = input_from_passages(
         (
             dict(document="semantic-state-original", passage_id="usage", start=0, text="mean"),
-            dict(document="semantic-state-original", passage_id="target", start=5, text="sum/count"),
+            dict(
+                document="semantic-state-original", passage_id="target", start=5, text="sum/count"
+            ),
         ),
         scope="statistics",
     )
     originals = components(value, passage_id="target")
-    by_state = {component.interpretation: component for component in originals.definition_components.components}
+    by_state = {
+        component.interpretation: component
+        for component in originals.definition_components.components
+    }
     component_pin = report_input_pin(originals)
-    relationship_pin = component_pin.model_copy(update=dict(
-        product_id="unadmitted:literal-relationship-ledger", kind_contract="unadmitted:relationship-ledger",
-        reference=canonical_bytes(["unadmitted:literal-relationship-ledger", None]).decode(),
-    ))
+    relationship_pin = component_pin.model_copy(
+        update=dict(
+            product_id="unadmitted:literal-relationship-ledger",
+            kind_contract="unadmitted:relationship-ledger",
+            reference=canonical_bytes(["unadmitted:literal-relationship-ledger", None]).decode(),
+        )
+    )
     relationship = DeclaredRelationshipRef(
         **relationship_pin.model_dump(exclude={"reference"}), edge_id="literal:usage-target"
     )
-    value = value.model_copy(update=dict(dependencies=tuple(dict.fromkeys(
-        (*value.dependencies, component_pin.product_id, originals.product_id, relationship_pin.product_id)
-    ))))
+    value = value.model_copy(
+        update=dict(
+            dependencies=tuple(
+                dict.fromkeys(
+                    (
+                        *value.dependencies,
+                        component_pin.product_id,
+                        originals.product_id,
+                        relationship_pin.product_id,
+                    )
+                )
+            )
+        )
+    )
     targets = tuple(by_state[state].component_id for state in ("definition", "explanation"))
     reports = []
     for outcome in OUTCOMES:
@@ -169,25 +202,38 @@ def applicability():
             premises=tuple(
                 ApplicabilityPremise(
                     dimension=dimension,
-                    state="incompatible" if outcome == "incompatible" and dimension == "sense"
-                    else "unknown" if outcome == "unresolved" and dimension == "sense"
+                    state="incompatible"
+                    if outcome == "incompatible" and dimension == "sense"
+                    else "unknown"
+                    if outcome == "unresolved" and dimension == "sense"
                     else "compatible",
                     evidence=("target",),
                     reason="Independent literal premise for this semantic-state control.",
                 )
-                for dimension in ("sense", "parameterization", "convention", "scope", "version", "parent")
+                for dimension in (
+                    "sense",
+                    "parameterization",
+                    "convention",
+                    "scope",
+                    "version",
+                    "parent",
+                )
             ),
             reason="Independently supplied alternative applicability outcome.",
         )
-        reports.append(DeclaredDefinitionApplicabilityReport(
-            inputs=value,
-            sources_input=tuple(source_pin(source) for source in value.sources),
-            components_input=component_pin,
-            relationship_input=relationship_pin,
-            definition=DeclaredDefinitionProduct(
-                usage_id="usage", candidate_list_id="literal:fixed-targets",
-                eligible_targets=targets, candidate_targets=targets,
-                readings=(reading,),
-            ),
-        ))
+        reports.append(
+            DeclaredDefinitionApplicabilityReport(
+                inputs=value,
+                sources_input=tuple(source_pin(source) for source in value.sources),
+                components_input=component_pin,
+                relationship_input=relationship_pin,
+                definition=DeclaredDefinitionProduct(
+                    usage_id="usage",
+                    candidate_list_id="literal:fixed-targets",
+                    eligible_targets=targets,
+                    candidate_targets=targets,
+                    readings=(reading,),
+                ),
+            )
+        )
     return originals, tuple(reports)

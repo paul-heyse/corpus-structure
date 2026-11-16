@@ -662,7 +662,12 @@ class DemandPlanner:
             if native["fate"] == "fulfilled":
                 self.fulfilled_request_ids += (native["request_id"],)
                 continue
-            ready.append(ReadyDataRequest(**{name: value for name, value in vars(bound).items() if name != "request_id"}, native=canonical_bytes(native)))
+            ready.append(
+                ReadyDataRequest(
+                    **{name: value for name, value in vars(bound).items() if name != "request_id"},
+                    native=canonical_bytes(native),
+                )
+            )
         return tuple(ready)
 
     def bound_requests(
@@ -859,7 +864,9 @@ class DemandPlanner:
                     ambiguities.append(role_name)
                 elif parents:
                     if retained:
-                        raise ValueError("retained binding lacks its exact frozen population witness")
+                        raise ValueError(
+                            "retained binding lacks its exact frozen population witness"
+                        )
                     receipt = self.storage.select_data_population(
                         cast(
                             WireSelectDataPopulationRequest,
@@ -946,7 +953,9 @@ class DemandPlanner:
             binding = execute_binding(self.storage.connection, compiled)
             if not binding.sufficient:
                 if retained:
-                    raise ValueError("retained native-read binding is no longer sufficient: " + binding.status)
+                    raise ValueError(
+                        "retained native-read binding is no longer sufficient: " + binding.status
+                    )
                 self.storage.record_data_fate(
                     cast(
                         WireRecordDataFateRequest,
@@ -1031,7 +1040,13 @@ class DemandPlanner:
                 "read_id": snapshot["read_id"],
             }
             yield BoundDataRequest(
-                obligation["obligation_id"], operation["operation"], obligation["subject"],
-                request.identity.canonical_input, request.identity.key, admission.identity.canonical_input,
-                canonical_bytes(wire_binding), resolved, binding,
+                obligation["obligation_id"],
+                operation["operation"],
+                obligation["subject"],
+                request.identity.canonical_input,
+                request.identity.key,
+                admission.identity.canonical_input,
+                canonical_bytes(wire_binding),
+                resolved,
+                binding,
             )

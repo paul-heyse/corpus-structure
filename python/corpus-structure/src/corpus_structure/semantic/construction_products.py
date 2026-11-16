@@ -345,7 +345,9 @@ def construction_product_values(
             for row in boundaries
             if max(a, row["start"]) < min(b, row["end"])
         ]
-        sentence_coverage = [row for row in native_body["coverage"] if row["family"] == "spacy.sentences"]
+        sentence_coverage = [
+            row for row in native_body["coverage"] if row["family"] == "spacy.sentences"
+        ]
         if not sentence_coverage or any(
             row["outcome"] not in {"complete", "empty"}
             or row["availability"] != "available"

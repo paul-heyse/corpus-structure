@@ -55,6 +55,7 @@ def annotation(text, specifications, *, frame=None):
         source, frame, context = selected_source(text)
     else:
         from methods.navigation_fixture import source_primary_products
+
         selected = source_primary_products(frame, annotations=())
         source, context = selected.source, selected.context
     profile = AnnotationProfile(execution_profile="unadmitted:controlled-columns")

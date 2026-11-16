@@ -25,7 +25,6 @@ from .data_operation_storage import DataOperationStorage
 from .refusals import SemanticRefusal
 from .releases import load_release
 
-
 if TYPE_CHECKING:
     from .data_operation_runtime import RuntimeBinding
     from .python_operation_sources import PythonSourceCollection
@@ -185,7 +184,10 @@ def acquire_data_execution_basis(connection, release_id, runtime_id, *, source_r
     if captured is None:
         raise SemanticRefusal("demand execution requires its captured operation declarations")
     if captured[1] is None:
-        if any(operation.external is None for operation in bound_data_operation_model(prepared).operations):
+        if any(
+            operation.external is None
+            for operation in bound_data_operation_model(prepared).operations
+        ):
             raise SemanticRefusal("Python operations require their captured source context")
         sources = PythonSourceCollection(())
     else:
@@ -200,7 +202,9 @@ def acquire_data_execution_basis(connection, release_id, runtime_id, *, source_r
         if not path.resolve().is_relative_to(root):
             raise SemanticRefusal("runtime source location escapes its explicit root")
         locations[source.module] = path
-    return DataExecutionBasis(prepared, runtime, sources, bundle, captured[0], dependencies.artifacts, locations)
+    return DataExecutionBasis(
+        prepared, runtime, sources, bundle, captured[0], dependencies.artifacts, locations
+    )
 
 
 def execute_data_demand(

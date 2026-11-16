@@ -102,7 +102,9 @@ def _reports(product, primary_products=()):
         raise ValueError("predicate consumer requires exact retained primary construction products")
     selected = [
         (pin, inventory)
-        for pin, inventory in prepare_predicate_readings(primary_products).for_source(product.source)
+        for pin, inventory in prepare_predicate_readings(primary_products).for_source(
+            product.source
+        )
         if any(row["family"] == PRIMARY_RULE_FAMILY for row in inventory["coverage"])
     ]
     if not selected:

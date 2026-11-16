@@ -19,6 +19,7 @@ from corpus_structure.methods.native_evidence_layers import (
     source_selector,
 )
 from corpus_structure.methods.pm2_dipo_products import _pair, _tree_children, _validate_boundaries
+from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.data_product_reference import (
     DataProductMemberReference,
     DataProductReference,
@@ -26,7 +27,6 @@ from corpus_structure.semantic.data_product_reference import (
     read_member_reference,
 )
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.identity import canonical_bytes
 
 CONTEXT_FAMILIES = (
@@ -173,9 +173,7 @@ class ContextualLayer:
         self._proxies: dict[tuple[DataProductReference, str], str] = {}
         self._dependencies: dict[DataProductReference, Any] = {}
         self._semantic_dependencies: dict[DataProductReference, Any] = {}
-        self._choice_groups: dict[
-            tuple[DataProductReference, str], tuple[str, str]
-        ] = {}
+        self._choice_groups: dict[tuple[DataProductReference, str], tuple[str, str]] = {}
         self._native_clusters: list[tuple[str, list[str]]] = []
         self._mention_metadata: dict[str, dict[str, Any]] = {}
         self._rst_hosts: list[tuple[list[str], list[str], str]] = []
@@ -217,7 +215,6 @@ class ContextualLayer:
     ) -> None:
         if family in self.covered:
             self.covered[family].extend((dict(selector), status, reason) for selector in selectors)
-
 
     def occurrence(self, view: DeclaredNativeFrameSource, start: int, end: int) -> str:
         if not 0 <= start < end <= len(view.text):
@@ -279,7 +276,6 @@ class ContextualLayer:
         self.occurrences.setdefault(identity, dict(local_id=identity, extents=extents))
         return identity
 
-
     def annotation(
         self,
         key: str,
@@ -308,7 +304,6 @@ class ContextualLayer:
         )
         return key
 
-
     def membership(
         self,
         group: str,
@@ -331,8 +326,6 @@ class ContextualLayer:
             structural=structural,
         )
         self.memberships.append(dict(local_id="membership:" + digest(row), **row))
-
-
 
     def coverage_values(self):
         coverage = []
@@ -393,7 +386,6 @@ class ContextualLayer:
             coverage.append(row)
         return coverage
 
-
     def depend(
         self,
         layers: Mapping[DataProductReference, Any],
@@ -418,9 +410,7 @@ class ContextualLayer:
                         group["compatibility"],
                     )
 
-    def proxy(
-        self, pin: DataProductReference, local_id: str, *, family: str
-    ) -> str:
+    def proxy(self, pin: DataProductReference, local_id: str, *, family: str) -> str:
         identity = (pin, local_id)
         if identity in self._proxies:
             return self._proxies[identity]

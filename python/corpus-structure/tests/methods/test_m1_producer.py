@@ -358,9 +358,7 @@ def test_context_relationship_diagnostics_cross_the_source_report_boundary(monke
     result = candidate_fixture_product(frozen)
 
     decoded = source_python(source_value(result.parse_detail))
-    assert decoded["contexts"][0]["relationships"] == [
-        [other, "neighbor", "nearby unit"]
-    ]
+    assert decoded["contexts"][0]["relationships"] == [[other, "neighbor", "nearby unit"]]
     assert result.outcome == ObservationOutcome.FAILED
 
 

@@ -106,7 +106,9 @@ def view(text="Mean is average.", *, heading=None):
             end=len(text),
         )
     )
-    _source, frame, _context = selected_source(text, pieces=pieces, items=nodes, section_pointer="#/groups/1")
+    _source, frame, _context = selected_source(
+        text, pieces=pieces, items=nodes, section_pointer="#/groups/1"
+    )
     return frame
 
 

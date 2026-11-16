@@ -1,19 +1,16 @@
 """Named citation cues use their physical piece inside a joined annotation block."""
 
 from dataclasses import replace
-from hashlib import sha256
 
 import pytest
 
-from methods.m1_source_preparation_support import prepare_declared_source
 from corpus_structure.semantic.constructions.navigation import (
     NAMED_COVERAGE_VERSION,
     NAMED_PIECE_VERSION,
     match_named_source_links,
 )
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import StructuralPassage
-from methods.m1_source_preparation_support import source, projection
+from methods.m1_source_preparation_support import prepare_declared_source, projection, source
 
 _WRAPPER = "#/texts/20"
 _INLINE = "#/groups/40"
@@ -191,7 +188,11 @@ def test_optional_definition_concept_requires_its_own_exact_piece_tokens():
 def test_v4_keeps_same_block_roles_and_limits_joined_pieces_to_citation_rules():
     text = "Version B supersedes Version A."
     view = source(text, labels=("text",))
-    view = projection(view.text, pieces=view.pieces, items=tuple(dict(item, content_layer="body") for item in view.items))
+    view = projection(
+        view.text,
+        pieces=view.pieces,
+        items=tuple(dict(item, content_layer="body") for item in view.items),
+    )
     prepared = prepare_declared_source(view, annotations_only=True)
     assert not prepared.annotation_errors
     passage = StructuralPassage(

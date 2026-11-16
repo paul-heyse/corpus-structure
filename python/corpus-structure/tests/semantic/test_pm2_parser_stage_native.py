@@ -137,7 +137,7 @@ def test_actual_dipo_reclaim_refuses_stale_holder_before_current_publication(
                             WireClaimDataRequestRequest,
                             dict(
                                 request_id=json.loads(selected.native)["request_id"],
-                                           generation=json.loads(selected.native)["generation"],
+                                generation=json.loads(selected.native)["generation"],
                                 holder="old-dipo-holder",
                                 lease_seconds=30,
                             ),

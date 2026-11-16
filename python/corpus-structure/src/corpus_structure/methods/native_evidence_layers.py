@@ -8,7 +8,6 @@ from typing import Any
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.identity import canonical_bytes
 
-
 SPACY_FAMILIES = (
     "spacy.tokens",
     "spacy.sentences",
@@ -50,7 +49,9 @@ def source_projection(view: DeclaredNativeFrameSource) -> str:
     return view.projection_digest
 
 
-def source_selector(view: DeclaredNativeFrameSource, start: int, end: int, pointer: str | None = None) -> dict[str, Any]:
+def source_selector(
+    view: DeclaredNativeFrameSource, start: int, end: int, pointer: str | None = None
+) -> dict[str, Any]:
     row = dict(projection=source_projection(view), start=start, end=end)
     if pointer is not None:
         row["native_pointer"] = pointer

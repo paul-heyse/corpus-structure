@@ -1536,7 +1536,9 @@ def produce_structural_dossier(
     source_members = []
     for reference, payload in contribution_retained:
         check_active()
-        source_members.extend(derive_declared_contribution_members(inputs, reference, payload, root=root))
+        source_members.extend(
+            derive_declared_contribution_members(inputs, reference, payload, root=root)
+        )
     return select_dossier(
         inputs,
         root_id=root.component_id,

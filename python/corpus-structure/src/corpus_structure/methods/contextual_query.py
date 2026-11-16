@@ -8,7 +8,10 @@ from functools import cached_property
 from typing import Any, Literal
 
 from corpus_structure.semantic.characterization import project_reading
-from corpus_structure.semantic.data_product_reference import DataProductMemberReference, DataProductReference
+from corpus_structure.semantic.data_product_reference import (
+    DataProductMemberReference,
+    DataProductReference,
+)
 from corpus_structure.semantic.declared_formal_readings import DeclaredFormalInventory
 from corpus_structure.semantic.declared_record_sources import (
     DeclaredNativeFrameSource,
@@ -101,8 +104,12 @@ class LocatedQueryContext:
 
 class _PrimaryContext:
     def __init__(
-        self, layer: DeclaredFormalInventory, reference: DataProductMemberReference, recipe,
-        source: DeclaredNativeFrameSource, layers: Mapping[DataProductReference, DeclaredFormalInventory],
+        self,
+        layer: DeclaredFormalInventory,
+        reference: DataProductMemberReference,
+        recipe,
+        source: DeclaredNativeFrameSource,
+        layers: Mapping[DataProductReference, DeclaredFormalInventory],
         source_context: NativeSourceContext,
     ):
         self.body = layer.payload

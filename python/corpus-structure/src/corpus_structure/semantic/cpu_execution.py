@@ -614,10 +614,19 @@ class _ReleaseCPUView:
         return getattr(self.scope, name)
 
     def submit_closed_python(self, admission, content, check_active):
-        return self.scope._submit(admission, content, check_active, "closed-python", capsule=self.capsule)
+        return self.scope._submit(
+            admission, content, check_active, "closed-python", capsule=self.capsule
+        )
 
     def submit_closed_python_stream(self, admission, content, connection, check_active):
-        return self.scope._submit(admission, content, check_active, "closed-python-stream", connection, capsule=self.capsule)
+        return self.scope._submit(
+            admission,
+            content,
+            check_active,
+            "closed-python-stream",
+            connection,
+            capsule=self.capsule,
+        )
 
 
 class CPUExecutionScope:
@@ -692,10 +701,16 @@ class CPUExecutionScope:
             if owned is None:
                 content = release_capsule(prepared)
                 size = len(content)
-                required = self.policy.max_packet_bytes + self.policy.max_reply_bytes if request_bytes is None else request_bytes
+                required = (
+                    self.policy.max_packet_bytes + self.policy.max_reply_bytes
+                    if request_bytes is None
+                    else request_bytes
+                )
                 if self._capsule_bytes + size + required > self.policy.max_owned_bytes:
                     del content
-                    raise CapacityExceeded("native preparation and one complete request exceed owned capacity")
+                    raise CapacityExceeded(
+                        "native preparation and one complete request exceed owned capacity"
+                    )
                 # The temporary serialized buffer and native block coexist during
                 # transfer. Both are owned until that copy has completed.
                 try:
@@ -710,7 +725,9 @@ class CPUExecutionScope:
                     except BaseException:
                         self.budget.release(size)
                         raise
-                    reference = _CapsuleReference(memory.name, memory.size, sha256(content).hexdigest(), prepared.release_id)
+                    reference = _CapsuleReference(
+                        memory.name, memory.size, sha256(content).hexdigest(), prepared.release_id
+                    )
                     owned = _SharedCapsule(memory, reference)
                     self._release_capsules[prepared.release_id] = owned
                     self._capsule_bytes += memory.size

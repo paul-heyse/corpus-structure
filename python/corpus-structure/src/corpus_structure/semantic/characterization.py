@@ -198,11 +198,11 @@ def attachment_policies(prepared: PreparedRelease) -> dict[str, Any]:
     return json.loads(artifact.content)
 
 
-def occurrence_id(
-    source: Mapping[str, Any], extents: Sequence[Mapping[str, Any]]
-) -> str:
+def occurrence_id(source: Mapping[str, Any], extents: Sequence[Mapping[str, Any]]) -> str:
     """Stable across analyses and database placement, different at repeated native addresses."""
-    return sha256(canonical_bytes({"base_document": dict(source), "extents": list(extents)})).hexdigest()
+    return sha256(
+        canonical_bytes({"base_document": dict(source), "extents": list(extents)})
+    ).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,7 +249,11 @@ def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_
 
     for occurrence in data["occurrences"]:
         for extent in occurrence.get("extents", ()):
-            if not extent.get("synthetic", False) and "start" in extent and extent["end"] <= extent["start"]:
+            if (
+                not extent.get("synthetic", False)
+                and "start" in extent
+                and extent["end"] <= extent["start"]
+            ):
                 raise ValueError("literal source occurrence requires a nonempty extent")
     for name in _INVENTORIES[1:]:
         for item in data[name]:
@@ -258,7 +262,9 @@ def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_
                 for score in record.get("scores", ()):
                     value = source_python(score["value"])
                     if value is not None and type(value) not in {int, float}:
-                        raise ValueError("native score requires an exact numeric source value or explicit null")
+                        raise ValueError(
+                            "native score requires an exact numeric source value or explicit null"
+                        )
 
     def refs(values, index, label):
         if any(value not in index for value in values):

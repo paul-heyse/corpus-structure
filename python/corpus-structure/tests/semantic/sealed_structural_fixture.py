@@ -38,5 +38,3 @@ def comparison_result(reader, cfg, ref, *, check_active):
         outcome=ObservationOutcome.PRODUCED,
         structural_product=report.model_dump(mode="json"),
     )
-
-

@@ -27,8 +27,8 @@ from corpus_structure.semantic import record_interpretation as ri
 from corpus_structure.semantic.source_contexts import (
     ContextRelationship,
     NativeSourceContext,
-    RelatedNativeSource,
     PreparedNativeSources,
+    RelatedNativeSource,
     source_slice,
 )
 from methods.record_assembly_support import context, fields, release, report, source, span
@@ -380,9 +380,14 @@ def test_formula_bindings_use_first_actual_primary_symbol_and_keep_conflicts_alt
                 end=len(text),
             ),
         ],
-        items=[dict(self_ref="#/texts/1", label="formula", orig="x+x+y"), dict(self_ref="#/texts/2", label="text", text=text[5:])],
+        items=[
+            dict(self_ref="#/texts/1", label="formula", orig="x+x+y"),
+            dict(self_ref="#/texts/2", label="text", text=text[5:]),
+        ],
     )
-    occurrence = DeclaredFormulaOccurrence(ctx.primary.pin, "#/texts/1", "x+x+y", "x+x+y", "succeeded")
+    occurrence = DeclaredFormulaOccurrence(
+        ctx.primary.pin, "#/texts/1", "x+x+y", "x+x+y", "succeeded"
+    )
     groups = []
     for symbol_start, symbol, meaning_start, meaning in (
         (6, "x", 14, "mean"),

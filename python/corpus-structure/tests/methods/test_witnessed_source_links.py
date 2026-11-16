@@ -1,6 +1,4 @@
 import json
-from dataclasses import replace
-from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
@@ -11,12 +9,12 @@ from corpus_structure.methods.scoped_relations import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.structural_products import (
-    DeclaredStructuralSource,
     DeclaredStructuralInput,
+    DeclaredStructuralSource,
     StructuralPassage,
 )
 from methods.inline_formula_support import _FROZEN_TEXT
-from methods.m1_source_preparation_support import source, projection
+from methods.m1_source_preparation_support import projection, source
 from methods.scoped_relations_support import discover_relations
 
 _DECLARATION = (
@@ -173,7 +171,6 @@ def ordered_fixture(*, control=None):
             )
         offset = end
     text = declaration + "\n" + rival + query_text
-    original = source("placeholder", labels=("text",))
     view = projection(text, pieces=tuple(pieces), items=context_nodes)
     scope = dict(source_ref="original", scope="instrument-calibration", effective_version="R2")
     query = StructuralPassage(
@@ -362,7 +359,7 @@ def test_named_links_use_literal_anchors_and_never_choose_first_section():
             items,
             (passage,),
             navigation=primary.navigation,
-            )
+        )
     )
 
     def literal(extent):
@@ -381,9 +378,9 @@ def test_named_links_use_literal_anchors_and_never_choose_first_section():
 
 
 def test_retained_named_link_recipe_preserves_roles_and_refuses_inferred_endpoints():
-    from methods.navigation_fixture import source_primary_products
     from corpus_structure.methods.witnessed_source_links import match_named_source_links
     from corpus_structure.semantic.structural_products import StructuralPassage
+    from methods.navigation_fixture import source_primary_products
 
     lines = (
         "For comparison, see Section 5.2.",
@@ -401,7 +398,11 @@ def test_retained_named_link_recipe_preserves_roles_and_refuses_inferred_endpoin
         "See Box and Muller.9",
     )
     view = source("\n".join(lines), labels=("text",) * len(lines))
-    view = projection(view.text, pieces=view.pieces, items=tuple(dict(item, content_layer="body") for item in view.items))
+    view = projection(
+        view.text,
+        pieces=view.pieces,
+        items=tuple(dict(item, content_layer="body") for item in view.items),
+    )
     primary = source_primary_products(view)
     passage = StructuralPassage(
         passage_id="chapter",

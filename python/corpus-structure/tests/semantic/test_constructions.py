@@ -1,8 +1,8 @@
 """Independent positioned and symbolic expectations for shared constructions."""
 
-
 import pytest
 from lark import Lark
+from methods.declared_primary_fixture import profiles, selected_source
 from spacy.lang.en import English
 from spacy.tokens import Doc
 
@@ -14,7 +14,6 @@ from corpus_structure.semantic.constructions import (
 )
 from corpus_structure.semantic.constructions.forest import terminal_guard
 from corpus_structure.semantic.constructions.layers import ConstructionLayer, ConstructionSource
-from methods.declared_primary_fixture import profiles, selected_source
 from corpus_structure.semantic.constructions.matching import RAW_GROUP, PreparedConstructions
 
 
@@ -31,7 +30,9 @@ def source(text):
 def nominal_product(builder, view, *, value=None):
     """Validate the actual current product, including grammar witness endpoints."""
     from corpus_structure.semantic.construction_products import (
-        interpreted_member_contracts, interpreted_product_value, validate_interpreted_product,
+        interpreted_member_contracts,
+        interpreted_product_value,
+        validate_interpreted_product,
     )
     from corpus_structure.semantic.source_products import FrozenNativeSource
 
@@ -39,10 +40,15 @@ def nominal_product(builder, view, *, value=None):
     selected = FrozenNativeSource.acquire(profile.prepared, view.value)
     _source, _frame, context = selected_source(view.text)
     if value is None:
-        value = interpreted_product_value(selected, builder.facts(),
-                                           interpreted_member_contracts(profile.prepared, profile.model), ())
-    return validate_interpreted_product(profile.prepared, profile.model, value, selected, (),
-                                        subject_context=context)
+        value = interpreted_product_value(
+            selected,
+            builder.facts(),
+            interpreted_member_contracts(profile.prepared, profile.model),
+            (),
+        )
+    return validate_interpreted_product(
+        profile.prepared, profile.model, value, selected, (), subject_context=context
+    )
 
 
 def native_columns(doc):
@@ -52,22 +58,34 @@ def native_columns(doc):
     from unittest.mock import patch
 
     from annotation_support import ControlledPipeline, selected_item
+    from methods.declared_primary_fixture import retained_source_annotations
+
     from corpus_structure.ingest import annotations
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import TextLayout, TextToken
-    from methods.declared_primary_fixture import retained_source_annotations
 
     controlled = ControlledPipeline()
     request, selected, frame, context = selected_item(
         controlled, doc.text, start=0, block_id="#/texts/1"
     )
-    request = replace(request, layout=TextLayout(
-        0, len(doc.text), sha256(doc.text.encode()).hexdigest(),
-        tuple(TextToken(token.idx, token.idx + len(token), bool(token.whitespace_)) for token in doc), (),
-    ))
+    request = replace(
+        request,
+        layout=TextLayout(
+            0,
+            len(doc.text),
+            sha256(doc.text.encode()).hexdigest(),
+            tuple(
+                TextToken(token.idx, token.idx + len(token), bool(token.whitespace_))
+                for token in doc
+            ),
+            (),
+        ),
+    )
     profile = AnnotationProfile(execution_profile=controlled.selection().native.fingerprint)
     with patch.object(annotations, "pipeline", return_value=controlled):
-        (product,) = annotations.annotate((request,), profile, processed_docs=(doc,), require_complete=False)
+        (product,) = annotations.annotate(
+            (request,), profile, processed_docs=(doc,), require_complete=False
+        )
     native = retained_source_annotations(selected, frame, context, (product,), profile)
     return selected, native
 
@@ -277,23 +295,43 @@ def test_named_native_anchor_is_distinct_from_discontinuous_members():
 
 
 def native_case(words, heads, deps, pos, morphs=None):
-    from corpus_structure.semantic.constructions.matching import retained_native_documents, retained_native_vocab
+    from corpus_structure.semantic.constructions.matching import (
+        retained_native_documents,
+        retained_native_vocab,
+    )
     from corpus_structure.semantic.data_product_reference import DataProductReference
 
     vocab = English().vocab
     doc = Doc(
-        vocab, words=words, spaces=[True] * (len(words) - 1) + [False],
-        heads=heads, deps=deps, pos=pos, lemmas=[word.lower() for word in words],
+        vocab,
+        words=words,
+        spaces=[True] * (len(words) - 1) + [False],
+        heads=heads,
+        deps=deps,
+        pos=pos,
+        lemmas=[word.lower() for word in words],
         **({"morphs": morphs} if morphs else {}),
     )
     selected, native = native_columns(doc)
     view = ConstructionSource.from_native(selected)
-    builder = ConstructionLayer(selected.value["source"], {"selectors": selected.value["selectors"]},
-                                {"key": "text.constructions/source-native"})
+    builder = ConstructionLayer(
+        selected.value["source"],
+        {"selectors": selected.value["selectors"]},
+        {"key": "text.constructions/source-native"},
+    )
     vocab = retained_native_vocab(selected, native)
-    (block, retained, annotations, start, _end), = retained_native_documents(selected, native, vocab)
-    builder.native(view, DataProductReference(native.semantic_id), block, retained,
-                   annotations, start, PreparedConstructions(vocab))
+    ((block, retained, annotations, start, _end),) = retained_native_documents(
+        selected, native, vocab
+    )
+    builder.native(
+        view,
+        DataProductReference(native.semantic_id),
+        block,
+        retained,
+        annotations,
+        start,
+        PreparedConstructions(vocab),
+    )
     return builder, native
 
 
@@ -334,8 +372,10 @@ def test_multiline_native_atom_keeps_spelling_beside_interpreted_lexical_label(s
     builder, native = native_case([spelling, "varies"], [1, 1], ["nsubj", "ROOT"], ["NOUN", "VERB"])
     participant = next(term for term in builder.terms.values() if term["value"] == "x + y")
     assert participant["provenance"] == ["lexical-normalization:whitespace-folding-1"]
-    assert participant["external_premises"][0] == {"product_id": native.semantic_id,
-                                                         "member_id": native.inventory("token")[0]["local_id"]}
+    assert participant["external_premises"][0] == {
+        "product_id": native.semantic_id,
+        "member_id": native.inventory("token")[0]["local_id"],
+    }
     assert [
         extent["text"]
         for oid in participant["occurrences"]
@@ -344,7 +384,7 @@ def test_multiline_native_atom_keeps_spelling_beside_interpreted_lexical_label(s
 
 
 def test_native_inflection_and_modal_force_are_explicit_supported_proposals():
-    builder, native = native_case(
+    builder, _native = native_case(
         ["Rain", "may", "fall"],
         [2, 2, 2],
         ["nsubj", "aux", "ROOT"],
@@ -387,7 +427,7 @@ def test_coordination_inherits_only_witnessed_missing_subject():
 
 
 def test_native_quantification_has_distinct_variable_restrictor_body():
-    builder, native = native_case(
+    builder, _native = native_case(
         ["Every", "trial", "succeeds"], [1, 2, 2], ["det", "nsubj", "ROOT"], ["DET", "NOUN", "VERB"]
     )
     binder = next(t for t in builder.terms.values() if t["kind"] == "binder")
@@ -438,30 +478,43 @@ def test_current_product_and_wrong_host_control():
     product = nominal_product(builder, view)
     assert product.inventory()["roles"]
     invalid = json.loads(product.content)
-    role = next(packet["body"] for packet in invalid["members"] if packet["body"]["record_type"] == "role")
-    role["owner"] = next(packet["member_id"] for packet in invalid["members"]
-                         if packet["body"]["record_type"] == "term")
+    role = next(
+        packet["body"] for packet in invalid["members"] if packet["body"]["record_type"] == "role"
+    )
+    role["owner"] = next(
+        packet["member_id"]
+        for packet in invalid["members"]
+        if packet["body"]["record_type"] == "term"
+    )
     with pytest.raises(ValueError, match=r"witness|endpoint"):
         nominal_product(builder, view, value=invalid)
 
 
 @pytest.mark.parametrize("gap", [" ", "\t", "\n  "])
 def test_retained_working_doc_preserves_whitespace_and_native_named_dependencies(gap):
-    from corpus_structure.semantic.constructions.matching import retained_native_documents, retained_native_vocab
+    from corpus_structure.semantic.constructions.matching import (
+        retained_native_documents,
+        retained_native_vocab,
+    )
 
     # Arbitrary retained whitespace has its own source token; a single ordinary
     # space is represented by the preceding token's native space column.
     words = ["Rain", "falls"] if gap == " " else ["Rain", gap, "falls"]
     index = len(words) - 1
-    doc = Doc(English().vocab, words=words,
-              spaces=[True, False] if gap == " " else [False] * 3,
-              heads=[index] * len(words),
-              deps=["nsubj", "ROOT"] if gap == " " else ["nsubj", "dep", "ROOT"],
-              pos=["NOUN", "VERB"] if gap == " " else ["NOUN", "SPACE", "VERB"],
-              lemmas=[word.lower() for word in words])
+    doc = Doc(
+        English().vocab,
+        words=words,
+        spaces=[True, False] if gap == " " else [False] * 3,
+        heads=[index] * len(words),
+        deps=["nsubj", "ROOT"] if gap == " " else ["nsubj", "dep", "ROOT"],
+        pos=["NOUN", "VERB"] if gap == " " else ["NOUN", "SPACE", "VERB"],
+        lemmas=[word.lower() for word in words],
+    )
     selected, native = native_columns(doc)
     vocab = retained_native_vocab(selected, native)
-    _block, restored, annotations, start, end = next(retained_native_documents(selected, native, vocab))
+    _block, restored, annotations, start, end = next(
+        retained_native_documents(selected, native, vocab)
+    )
     assert restored.text == "Rain" + gap + "falls"
     assert (start, end) == (0, len(restored.text))
     assert len(annotations) == len(words)

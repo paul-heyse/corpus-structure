@@ -10,18 +10,21 @@ from corpus_structure.methods.witnessed_source_links import (
     symbol_declarations,
 )
 from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
-from corpus_structure.semantic.construction_products import ConstructionProduct
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import StructuralPassage
-from methods.m1_source_preparation_support import source, projection
+from methods.m1_source_preparation_support import projection, source
 from methods.navigation_fixture import source_primary_products
 
 
 def fixture():
     view = source(
-            "Old Control was renamed to New Control.\nLet x be a count.", labels=("text", "text")
-        )
-    view = projection(view.text, pieces=view.pieces, items=tuple(dict(item, content_layer="body") for item in view.items))
+        "Old Control was renamed to New Control.\nLet x be a count.", labels=("text", "text")
+    )
+    view = projection(
+        view.text,
+        pieces=view.pieces,
+        items=tuple(dict(item, content_layer="body") for item in view.items),
+    )
     primary = source_primary_products(view)
     passage = StructuralPassage(
         passage_id="selected",
@@ -76,7 +79,9 @@ def test_navigation_refuses_missing_primary_and_dangling_retained_role():
     )
     assert missing.matches == () and missing.outcome() == "unsupported"
     payload = json.loads(primary.construction.content)
-    next(packet["body"] for packet in payload["members"] if "navigation" in packet["body"])["navigation"]["roles"][0]["occurrences"] = ["missing-source"]
+    next(packet["body"] for packet in payload["members"] if "navigation" in packet["body"])[
+        "navigation"
+    ]["roles"][0]["occurrences"] = ["missing-source"]
     invalid = replace(primary.construction, content=canonical_bytes(payload))
     with pytest.raises(ValueError, match="unknown declared source occurrence"):
         NativeNavigationIndex((invalid,), primary.source)
@@ -85,14 +90,14 @@ def test_navigation_refuses_missing_primary_and_dangling_retained_role():
 def test_artifact_fields_and_targets_are_consumed_without_source_recognition(monkeypatch):
     from corpus_structure.semantic.artifact_products import native_artifact_records
     from corpus_structure.semantic.constructions import navigation
-    from methods.scoped_relations_support import original_inputs, discover_relations
+    from methods.scoped_relations_support import original_inputs
 
     view = source(
-            'Table 5.1 (alias: "T5")\n'
-            "See Table 5.2 (hereafter Table 6.1 in numbering namespace Main).\n"
-            "Table 6.1 (numbering namespace: Main) (revision: new)",
-            labels=("caption", "text", "caption"),
-        )
+        'Table 5.1 (alias: "T5")\n'
+        "See Table 5.2 (hereafter Table 6.1 in numbering namespace Main).\n"
+        "Table 6.1 (numbering namespace: Main) (revision: new)",
+        labels=("caption", "text", "caption"),
+    )
     primary = source_primary_products(view, annotations=())
     inputs = original_inputs(view)
     monkeypatch.setattr(
@@ -103,8 +108,9 @@ def test_artifact_fields_and_targets_are_consumed_without_source_recognition(mon
         ),
     )
     monkeypatch.setattr(navigation, "_ARTIFACT", None)
-    records = native_artifact_records(view, primary.source, inputs,
-        inputs.sources[0].identity, "work", primary.navigation)
+    records = native_artifact_records(
+        view, primary.source, inputs, inputs.sources[0].identity, "work", primary.navigation
+    )
 
     aliases = [row for row in records if row.artifact.controlled_code == "5.1"]
     assert len(aliases) == 1 and aliases[0].artifact.aliases == ("T5",)
@@ -157,6 +163,7 @@ def test_table_header_geometry_uses_primary_cell_roles():
     ]
     from corpus_structure.semantic.observations import source_python
     from methods.scoped_relations_support import discover_relations
+
     result = discover_relations(view, primary=primary)
     cell_values = [
         source_python(row["value"])

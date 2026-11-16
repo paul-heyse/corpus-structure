@@ -35,7 +35,9 @@ def test_pin_reconstruction_and_exact_passive_probability_subject(profile):
     text, product, primary = retained(
         "The probability that X is less than Y is given by the integral.", profile
     )
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     given = frames["given"]
     assert given.block_id == product.block_id
     assert given.dependency == product.dependency_digest
@@ -55,7 +57,9 @@ def test_naming_complement_and_embedded_negation_have_separate_hosts(profile):
         "A dry run means a run that does not change data.",
         profile,
     )
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     called, means, change = (frames[name] for name in ("called", "means", "change"))
     assert called.reading == "naming" and called.variant == "naming_passive"
     assert role(text, called, "object") == (("This set of points",),)
@@ -71,7 +75,9 @@ def test_naming_complement_and_embedded_negation_have_separate_hosts(profile):
 
 def test_coordination_preserves_ambiguous_negation_and_contrast(profile):
     text, product, primary = retained("Do not heat and stir.", profile)
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     heat, stir = frames["heat"], frames["stir"]
     assert heat.polarity == stir.polarity == "negative_scope_unresolved"
     (negation,) = cues(heat, "negation")
@@ -80,15 +86,21 @@ def test_coordination_preserves_ambiguous_negation_and_contrast(profile):
     assert cues(stir, "negation") == (negation,)
 
     text, product, primary = retained("Do not heat, but stir.", profile)
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     assert frames["heat"].polarity == "negative"
     assert frames["stir"].polarity == "positive"
     assert not cues(frames["stir"], "negation")
 
 
 def test_fronted_shared_condition_and_independent_local_conditions(profile):
-    text, product, primary = retained("If pressure rises, heat the water and stir the mixture.", profile)
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    text, product, primary = retained(
+        "If pressure rises, heat the water and stir the mixture.", profile
+    )
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     heat, stir = frames["heat"], frames["stir"]
     (condition,) = cues(heat, "condition")
     assert cues(stir, "condition") == (condition,)
@@ -101,7 +113,9 @@ def test_fronted_shared_condition_and_independent_local_conditions(profile):
     text, product, primary = retained(
         "Heat the water if pressure rises and stir the mixture if the alarm sounds.", profile
     )
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     for name, expected in (("heat", "if pressure rises"), ("stir", "if the alarm sounds")):
         (condition,) = cues(frames[name], "condition")
         assert condition.hosts == frames[name].predicate.tokens
@@ -110,7 +124,9 @@ def test_fronted_shared_condition_and_independent_local_conditions(profile):
 
 def test_numbered_example_reference_does_not_act_as_a_discourse_marker(profile):
     text, product, primary = retained("Figure 4.12: Tree for Example 4.25.", profile)
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     assert frames["figure"].interpretation == "unresolved"
     assert not cues(frames["figure"], "example")
 
@@ -138,11 +154,20 @@ def test_quoted_marker_historical_contrast_and_attributed_assumption(profile):
 
 
 def test_modality_alone_and_unrelated_exception_are_insufficient(profile):
-    text, product, primary = retained("X must be greater than zero. Managers must review forms.", profile)
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    text, product, primary = retained(
+        "X must be greater than zero. Managers must review forms.", profile
+    )
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     assert frames["be"].interpretation == "explanation"
     assert frames["review"].interpretation == "unresolved"
-    policy = readings(text, predicate_frames(text, (product,), layout="policy", primary_products=(primary.construction,)))
+    policy = readings(
+        text,
+        predicate_frames(
+            text, (product,), layout="policy", primary_products=(primary.construction,)
+        ),
+    )
     # Consumer configuration cannot reinterpret an already retained prose analysis.
     assert policy["review"].interpretation == "unresolved"
     assert policy["be"].interpretation == "explanation"
@@ -182,12 +207,22 @@ def test_noncontiguous_role_stays_separate_with_controlled_retained_heads(profil
     )
     from corpus_structure.ingest.annotations import AnnotationProfile
     from methods.navigation_fixture import source_primary_products
+
     adjusted = replace(product, tokens=tokens)
     import json
+
     assert primary.native is not None
-    primary = source_primary_products(primary.frame, (adjusted,),
-        profile=AnnotationProfile(profile.configuration, execution_profile=json.loads(primary.native.content)["execution_profile"]))
-    frame = readings(text, predicate_frames(text, (adjusted,), primary_products=(primary.construction,)))["reviews"]
+    primary = source_primary_products(
+        primary.frame,
+        (adjusted,),
+        profile=AnnotationProfile(
+            profile.configuration,
+            execution_profile=json.loads(primary.native.content)["execution_profile"],
+        ),
+    )
+    frame = readings(
+        text, predicate_frames(text, (adjusted,), primary_products=(primary.construction,))
+    )["reviews"]
     assert role(text, frame, "object") == (("current", "files"),)
     assert strings(text, frame.focus) == ("Manager reviews current", "files")
 
@@ -196,7 +231,9 @@ def test_unavailable_and_unsupported_alignment_are_distinct(profile):
     text, product, primary = retained("Manager reviews the report.", profile)
     missing = replace(product, availability=(), block_id="unavailable")
     invalid = replace(product, text_digest="0" * 64, block_id="unaligned")
-    result = predicate_frames(text, (missing, invalid, product), primary_products=(primary.construction,))
+    result = predicate_frames(
+        text, (missing, invalid, product), primary_products=(primary.construction,)
+    )
     assert [(issue.block_id, issue.status) for issue in result.issues] == [
         ("unavailable", "unavailable"),
         ("unaligned", "unsupported_alignment"),
@@ -207,7 +244,9 @@ def test_unavailable_and_unsupported_alignment_are_distinct(profile):
 
 def test_local_temporal_order_and_independent_coordinate_scope(profile):
     text, product, primary = retained("Before heating the water, stir the mixture.", profile)
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     (order,) = cues(frames["stir"], "order")
     assert order.variant == "before"
     assert order.hosts == frames["stir"].predicate.tokens
@@ -220,7 +259,9 @@ def test_local_temporal_order_and_independent_coordinate_scope(profile):
         "the analyst will open the window.",
         profile,
     )
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     assert not cues(frames["open"], "condition")
     (condition,) = cues(frames["inspect"], "condition")
     assert condition.hosts == frames["inspect"].predicate.tokens
@@ -237,7 +278,9 @@ def test_native_piece_boundary_separates_even_adjacent_role_tokens(profile):
         ProjectedPiece("#/texts/4", cut, len(_PREFIX + sentence), "native_text"),
     )
     text, product, primary = retained(sentence, profile, pieces=pieces)
-    frames = readings(text, predicate_frames(text, (product,), primary_products=(primary.construction,)))
+    frames = readings(
+        text, predicate_frames(text, (product,), primary_products=(primary.construction,))
+    )
     frame = frames["reviews"]
     assert role(text, frame, "object") == (("a", "report"),)
     assert strings(text, frame.focus) == ("The manager reviews a", "report")
@@ -264,8 +307,10 @@ def test_complete_primary_compound_if_then_keeps_accepted_exact_witness(profile)
 
 def test_primary_coverage_failure_is_scoped_to_the_actual_block(profile):
     import json
-    from corpus_structure.semantic.identity import canonical_bytes
+
     from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY
+    from corpus_structure.semantic.identity import canonical_bytes
+
     text, product, primary = retained("Manager reviews the report.", profile)
     for start, end, unavailable in (
         (0, product.block_start, False),
@@ -273,8 +318,13 @@ def test_primary_coverage_failure_is_scoped_to_the_actual_block(profile):
     ):
         body = json.loads(primary.construction.content)
         coverage = next(row for row in body["coverage"] if row["family"] == PRIMARY_RULE_FAMILY)
-        coverage.update(outcome="partial", reason="independent scoped incomplete region",
-            unexamined=[dict(projection=product.source.values()["projection_digest"], start=start, end=end)])
+        coverage.update(
+            outcome="partial",
+            reason="independent scoped incomplete region",
+            unexamined=[
+                dict(projection=product.source.values()["projection_digest"], start=start, end=end)
+            ],
+        )
         body["outcome"] = "partial"
         partial = replace(primary.construction, content=canonical_bytes(body))
         result = predicate_frames(text, (product,), primary_products=(partial,))

@@ -5,44 +5,25 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 
-from pydantic import Field, model_validator
-
 from corpus_structure.semantic.artifact_identity import (
     ArtifactAliasSpan,
     ArtifactCitation,
     ArtifactDeclaredEndpoint,
     ArtifactDeclaredRelationship,
-    ArtifactIdentityProduct,
     ArtifactNomination,
     ArtifactNominationEndpoint,
-    ArtifactPairKey,
     ArtifactRecord,
     ArtifactReferenceDesignator,
-    ArtifactScoringPolicy,
     SourceArtifactOccurrence,
-    artifact_reference_resolutions,
-    artifact_route_counts,
-    native_alias_candidates,
     normalized_code,
-    pair_candidates,
-    score_pairs,
 )
 from corpus_structure.semantic.contributions import occurrence_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_products import (
     DeclaredArtifactNomination,
     DeclaredArtifactRecord,
-    StructuralInput,
-    StructuralProductReport,
-    StructuralValue,
 )
-
-
-
-
-
 
 
 def identity_records[Record: (ArtifactRecord, DeclaredArtifactRecord)](
@@ -173,8 +154,6 @@ def artifact_cohort[Record: (ArtifactRecord, DeclaredArtifactRecord)](
     return tuple(cohort.values())
 
 
-
-
 def declared_artifact_relationships(
     records,
     inputs,
@@ -294,8 +273,6 @@ def declared_artifact_relationships(
             )
         )
     return tuple(dict.fromkeys(output))
-
-
 
 
 def artifact_nomination[Nomination: (ArtifactNomination, DeclaredArtifactNomination)](
@@ -421,5 +398,3 @@ def artifact_nomination[Nomination: (ArtifactNomination, DeclaredArtifactNominat
 # Exact historical verifier identity; no execution capability is retained.
 SEALED_ARTIFACT_NAME = "structure.artifact_identity"
 SEALED_ARTIFACT_VERSION = "5"
-
-

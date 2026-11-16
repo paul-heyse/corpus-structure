@@ -602,4 +602,3 @@ def read_native_fit(conn, *, project_id: str, fit_id: int, protected: bool = Fal
     elif value["parameters"] is not None:
         OperationEventParameters.model_validate_json(json.dumps(value["parameters"]))
     return value
-

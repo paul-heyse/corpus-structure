@@ -206,8 +206,6 @@ class PreparedConstructions:
         return tuple(matches), tuple(unavailable)
 
 
-
-
 def _working_document(text, start, end, rows, vocab):
     """Reconstruct exact native whitespace and head columns for current source products."""
     words, spaces, owners, native_to_doc, doc_to_annotation = [], [], [], {}, {}

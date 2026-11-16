@@ -93,7 +93,9 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
     )
     context = SimpleNamespace(
         basis=SimpleNamespace(prepared=prepared, key=(prepared.release_id, "runtime:controlled")),
-        model=executor.model, cpu=None, prepared_schema=False,
+        model=executor.model,
+        cpu=None,
+        prepared_schema=False,
     )
     executor._target_context = context
     executor._contexts = {context.basis.key: context}
@@ -123,7 +125,18 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
         observed.claims.append((index, executor.budget.used_bytes))
         observed.live.add(index)
         observed.windows.append(len(observed.live))
-        return SimpleNamespace(request_id=index, generation=1, attempt=1, fence=dict(request_id=index, generation=1, task_id=int(index) + 1, attempt=1, holder="controlled")), {
+        return SimpleNamespace(
+            request_id=index,
+            generation=1,
+            attempt=1,
+            fence=dict(
+                request_id=index,
+                generation=1,
+                task_id=int(index) + 1,
+                attempt=1,
+                holder="controlled",
+            ),
+        ), {
             "state": "claimed",
             "action": "execute",
         }

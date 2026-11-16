@@ -1270,4 +1270,3 @@ class ContextualEvaluator:
             memberships=[],
             roles=list(self.roles.values()),
         )
-

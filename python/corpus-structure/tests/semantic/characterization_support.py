@@ -4,15 +4,17 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
+from methods.declared_primary_fixture import profiles, selected_source
 
 from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.construction_products import (
-    interpreted_member_contracts, interpreted_product_value, validate_interpreted_product,
+    interpreted_member_contracts,
+    interpreted_product_value,
+    validate_interpreted_product,
 )
+from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
 from corpus_structure.semantic.source_products import FrozenNativeSource
-from corpus_structure.semantic.data_operation_model import SubjectContext
-from methods.declared_primary_fixture import profiles, selected_source
 
 
 @dataclass(frozen=True)
@@ -39,39 +41,87 @@ def prepared():
 def literal_inventory(case) -> dict[str, Any]:
     coordinate = case.source.value["source"]
     selector = case.source.value["selectors"][0]
-    extent = dict(projection=coordinate["projection"], native_pointer="#/texts/0",
-                  start=0, end=3, text="all", synthetic=False)
+    extent = dict(
+        projection=coordinate["projection"],
+        native_pointer="#/texts/0",
+        start=0,
+        end=3,
+        text="all",
+        synthetic=False,
+    )
     occurrence = dict(local_id=occurrence_id(coordinate, [extent]), extents=[extent])
 
     def term(key, kind, value, children=()):
-        return dict(local_id=key, family="scope", kind=kind, vocabulary="literal-logic",
-                    value=value, status="interpreted", occurrences=[occurrence["local_id"]],
-                    children=[dict(role=role, target=target, structural=True) for role, target in children])
+        return dict(
+            local_id=key,
+            family="scope",
+            kind=kind,
+            vocabulary="literal-logic",
+            value=value,
+            status="interpreted",
+            occurrences=[occurrence["local_id"]],
+            children=[dict(role=role, target=target, structural=True) for role, target in children],
+        )
 
     return dict(
-        outcome="complete", occurrences=[occurrence], annotations=[], memberships=[], roles=[], choices=[],
-        terms=[term("p", "predicate", "P"), term("x", "participant", "x"), term("r", "predicate", "R"),
-               term("forall", "binder", "all", [("variable", "x"), ("restrictor", "r"), ("body", "p")]),
-               term("not_all", "operator", "not", [("target", "forall")]),
-               term("not_p", "operator", "not", [("target", "p")]),
-               term("all_not", "binder", "all", [("variable", "x"), ("restrictor", "r"), ("body", "not_p")]),
-               term("or", "operator", "or", [("left", "p"), ("right", "r")])],
-        coverage=[dict(family="scope", operation="literal.scope", profile="literal-logic",
-                       eligible=[selector], examined=[selector], unexamined=[],
-                       availability="available", outcome="complete")],
+        outcome="complete",
+        occurrences=[occurrence],
+        annotations=[],
+        memberships=[],
+        roles=[],
+        choices=[],
+        terms=[
+            term("p", "predicate", "P"),
+            term("x", "participant", "x"),
+            term("r", "predicate", "R"),
+            term(
+                "forall", "binder", "all", [("variable", "x"), ("restrictor", "r"), ("body", "p")]
+            ),
+            term("not_all", "operator", "not", [("target", "forall")]),
+            term("not_p", "operator", "not", [("target", "p")]),
+            term(
+                "all_not",
+                "binder",
+                "all",
+                [("variable", "x"), ("restrictor", "r"), ("body", "not_p")],
+            ),
+            term("or", "operator", "or", [("left", "p"), ("right", "r")]),
+        ],
+        coverage=[
+            dict(
+                family="scope",
+                operation="literal.scope",
+                profile="literal-logic",
+                eligible=[selector],
+                examined=[selector],
+                unexamined=[],
+                availability="available",
+                outcome="complete",
+            )
+        ],
     )
 
 
 def product_value(case, facts, dependencies=()) -> dict[str, Any]:
     profile = profiles()[1]
-    return interpreted_product_value(case.source, facts,
-                                     interpreted_member_contracts(profile.prepared, profile.model), dependencies)
+    return interpreted_product_value(
+        case.source,
+        facts,
+        interpreted_member_contracts(profile.prepared, profile.model),
+        dependencies,
+    )
 
 
 def validate_product(case, value, dependencies=()):
     profile = profiles()[1]
-    return validate_interpreted_product(profile.prepared, profile.model, value, case.source, dependencies,
-                                        subject_context=case.context)
+    return validate_interpreted_product(
+        profile.prepared,
+        profile.model,
+        value,
+        case.source,
+        dependencies,
+        subject_context=case.context,
+    )
 
 
 def current_product(case, facts=None, dependencies=()):

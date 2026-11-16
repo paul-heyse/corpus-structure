@@ -52,8 +52,9 @@ def case():
     )
     from methods.record_assembly_support import source as declared_source
 
-    source = declared_source(literal, pieces=pieces,
-        items=(dict(self_ref="#/texts/0", label="text", text=literal),))
+    source = declared_source(
+        literal, pieces=pieces, items=(dict(self_ref="#/texts/0", label="text", text=literal),)
+    )
     question = SourceArtifact(
         QUESTION_INPUT,
         canonical_bytes(
@@ -213,8 +214,12 @@ def _reply(case, labels):
 def _candidate_rows(case, reply, request=None):
     request = request or case.request
     expected = classification_request(
-        case.prepared.release_id, case.family, request["question_key"], case.mapping,
-        case.profile, installed_policy()[0]["inference"],
+        case.prepared.release_id,
+        case.family,
+        request["question_key"],
+        case.mapping,
+        case.profile,
+        installed_policy()[0]["inference"],
     )
     require_classification_request(request, expected)
     product = classification_product(expected, reply["gliner"], case.profile)
@@ -222,9 +227,15 @@ def _candidate_rows(case, reply, request=None):
         case.mapping, case.profile.startup, expected, question=FAMILY, operation_version=VERSION
     )
     rows, _, _ = pm2_contribution_values(
-        case.mapping, {}, (product,), prepared=case.prepared, provider="gliner",
-        input_digest=digest, operation_key=operation_identity(FAMILY, VERSION, case.source.source_key, digest),
-        question=FAMILY, parser_operation=False,
+        case.mapping,
+        {},
+        (product,),
+        prepared=case.prepared,
+        provider="gliner",
+        input_digest=digest,
+        operation_key=operation_identity(FAMILY, VERSION, case.source.source_key, digest),
+        question=FAMILY,
+        parser_operation=False,
     )
     return rows
 

@@ -1,17 +1,12 @@
 """Cross-block attachments require a selected passage and an explicit native list."""
 
-from dataclasses import replace
-from hashlib import sha256
-
 import pytest
 
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import pipeline
-from methods.m1_source_preparation_support import prepare_declared_source
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import StructuralPassage
-from methods.m1_source_preparation_support import source, projection
+from methods.m1_source_preparation_support import prepare_declared_source, projection, source
 from methods.scoped_relations_support import discover_relations
 
 
@@ -117,7 +112,11 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
 def test_scope_inheritance_requires_an_explicit_shared_clause(clause, expected_hosts):
     text = f"If the test succeeds, {clause}."
     view = source(text, labels=("text",))
-    view = projection(view.text, pieces=view.pieces, items=tuple(dict(item, content_layer="body") for item in view.items))
+    view = projection(
+        view.text,
+        pieces=view.pieces,
+        items=tuple(dict(item, content_layer="body") for item in view.items),
+    )
     prepared = prepare_declared_source(view, annotations_only=True)
     passage = StructuralPassage(
         passage_id="scope",

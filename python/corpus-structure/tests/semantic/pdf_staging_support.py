@@ -141,7 +141,10 @@ class _PrivatePdfBuildFactory:
 
         request = self.requests[build.build_id]
         claim = NativeRequestClaim(
-            **request.fence, release_id=build.release_id, deadline=request.deadline, runtime_id=self.kernel.runtime
+            **request.fence,
+            release_id=build.release_id,
+            deadline=request.deadline,
+            runtime_id=self.kernel.runtime,
         )
 
         def renew(connection, owned):

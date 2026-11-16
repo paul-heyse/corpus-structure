@@ -10,14 +10,16 @@ from corpus_structure.semantic.contributions import contribution_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import (
+    DeclaredDossierMember,
     DossierContributionCitation,
     DossierDependency,
-    DeclaredDossierMember,
     LocatedDefinitionSpan,
 )
 
 
-def derive_declared_contribution_members(inputs, reference, payload, *, root=None) -> tuple[DeclaredDossierMember, ...]:
+def derive_declared_contribution_members(
+    inputs, reference, payload, *, root=None
+) -> tuple[DeclaredDossierMember, ...]:
     """Consume the genuine admitted native source/member protocol without task aliases."""
     views = {v["pin"]["source"]: v for v in payload["sources"]}
     sources = {source.source: source for source in inputs.sources}

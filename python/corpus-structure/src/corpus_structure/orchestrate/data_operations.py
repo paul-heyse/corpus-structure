@@ -62,7 +62,10 @@ from corpus_structure.semantic.data_operation_ports import (
     resolve_python_port,
 )
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
-from corpus_structure.semantic.data_operation_service import DataExecutionBasis, acquire_data_execution_basis
+from corpus_structure.semantic.data_operation_service import (
+    DataExecutionBasis,
+    acquire_data_execution_basis,
+)
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
 )
@@ -369,7 +372,10 @@ class _InvocationExecution:
         ports = []
         for operation in operations:
             selected = context.model.operation(operation)
-            if operation in self.executor.capability_factories or selected.capabilities.prepared_factory is not None:
+            if (
+                operation in self.executor.capability_factories
+                or selected.capabilities.prepared_factory is not None
+            ):
                 port = self.executor._port(operation, context)
                 self.native_hosts.declare(port.native_selections)
                 ports.append(port)
@@ -388,18 +394,26 @@ class _InvocationExecution:
 
     def select_operations(self, operations, context=None):
         """Prepare the attached basis closure before admitting physical request work."""
-        ports = self.declare_target_operations(operations) if context is None else self.declare_operations(operations, context)
+        ports = (
+            self.declare_target_operations(operations)
+            if context is None
+            else self.declare_operations(operations, context)
+        )
         context = self.executor._target_context if context is None else context
         for port in ports:
             if getattr(port, "requires_prepared_schema", False) and not context.prepared_schema:
-                context.cpu = self.cpu.for_release(context.basis.prepared, request_bytes=self.executor.reservation)
+                context.cpu = self.cpu.for_release(
+                    context.basis.prepared, request_bytes=self.executor.reservation
+                )
                 context.prepared_schema = True
         if context.cpu is None:
             context.cpu = self.cpu
         self.cpu.prepare()
         self.executor._preparation_bytes = self.cpu.preparation_bytes
         if self.executor.capacity < 1:
-            raise CapacityExceeded("native preparation and one complete request exceed owned capacity")
+            raise CapacityExceeded(
+                "native preparation and one complete request exceed owned capacity"
+            )
 
     def __exit__(self, *error):
         failures = []
@@ -513,7 +527,9 @@ class NativeDemandExecutor:
         self.engine, self.prepared, self.runtime, self.sources = engine, prepared, runtime, sources
         self.fitter_engine = fitter_engine
         self.admission_engine = engine if admission_engine is None else admission_engine
-        basis = DataExecutionBasis(prepared, runtime, sources, schema, declarations, captured_contracts, runtime_locations)
+        basis = DataExecutionBasis(
+            prepared, runtime, sources, schema, declarations, captured_contracts, runtime_locations
+        )
         self._target_context = _BasisExecution(basis)
         self._contexts = {basis.key: self._target_context}
         self.source_root = source_root
@@ -671,15 +687,22 @@ class NativeDemandExecutor:
     def _generation_ready(self, ready, request_id, claimed, context, authorization):
         """Reconstruct only the generation's original frozen native read, never latest."""
         from corpus_structure.semantic._data_operation_wire import WireReadDemandResultRequest
+
         binding = claimed["binding"]
         with self.engine.begin() as connection:
             storage = DataOperationStorage(connection)
             request = {
-                "demand_id": claimed["binding_demand_id"], "read_id": binding["read_id"], "limit": 1000,
+                "demand_id": claimed["binding_demand_id"],
+                "read_id": binding["read_id"],
+                "limit": 1000,
             }
             while True:
                 snapshot = storage.read_demand_result(cast(WireReadDemandResultRequest, request))
-                obligations = [row for row in snapshot["obligations"] if row["obligation_id"] == claimed["binding_obligation_id"]]
+                obligations = [
+                    row
+                    for row in snapshot["obligations"]
+                    if row["obligation_id"] == claimed["binding_obligation_id"]
+                ]
                 if obligations:
                     break
                 continuation = snapshot.get("continuation")
@@ -687,14 +710,28 @@ class NativeDemandExecutor:
                     raise PortRefusal("claimed generation lacks its original pinned obligation")
                 request = dict(continuation)
             binding_snapshot = {**snapshot, "obligations": obligations}
-            candidates = tuple(DemandPlanner(context.model, storage).bound_requests(binding_snapshot, authorization=authorization, retained=True))
-        if len(candidates) != 1 or candidates[0].request_id != request_id or canonical_bytes(wire_json_loads(candidates[0].binding)) != canonical_bytes(binding):
+            candidates = tuple(
+                DemandPlanner(context.model, storage).bound_requests(
+                    binding_snapshot, authorization=authorization, retained=True
+                )
+            )
+        if (
+            len(candidates) != 1
+            or candidates[0].request_id != request_id
+            or canonical_bytes(wire_json_loads(candidates[0].binding)) != canonical_bytes(binding)
+        ):
             raise PortRefusal("claimed generation differs from its original frozen binding")
         bound = candidates[0]
         original = ReadyDataRequest(
-            obligation=ready.obligation, operation=bound.operation, subject=bound.subject,
-            request=bound.request, admission=bound.admission, native=ready.native,
-            binding=bound.binding, resolved=bound.resolved, binding_result=bound.binding_result,
+            obligation=ready.obligation,
+            operation=bound.operation,
+            subject=bound.subject,
+            request=bound.request,
+            admission=bound.admission,
+            native=ready.native,
+            binding=bound.binding,
+            resolved=bound.resolved,
+            binding_result=bound.binding_result,
         )
         return original, (bound.operation,)
 
@@ -703,7 +740,9 @@ class NativeDemandExecutor:
         context = self._ready_context(ready)
         if native["action"] == "reconcile":
             return ready
-        original, operations = self._generation_ready(ready, native["request_id"], native, context, authorization)
+        original, operations = self._generation_ready(
+            ready, native["request_id"], native, context, authorization
+        )
         self._physical.select_operations(operations, context)
         return original
 
@@ -911,7 +950,18 @@ class NativeDemandExecutor:
         )
         owner.add_claim(claim)
         native = wire_json_loads(ready.native)
-        if any(claimed[field] != native[field] for field in ("request_id", "generation", "release_id", "runtime_id", "binding", "binding_demand_id", "binding_obligation_id")):
+        if any(
+            claimed[field] != native[field]
+            for field in (
+                "request_id",
+                "generation",
+                "release_id",
+                "runtime_id",
+                "binding",
+                "binding_demand_id",
+                "binding_obligation_id",
+            )
+        ):
             error = PortRefusal("native claim differs from its prepared immutable generation basis")
             self._known_failure(claim, owner, error, phase="native claim correspondence")
             raise error
@@ -996,7 +1046,9 @@ class NativeDemandExecutor:
                 raise ValueError("native claim state differs from active claim")
             if claimed["action"] == "reconcile":
                 receipt = self._reconcile(claim, claimed.get("retained_intent_id"), owner)
-            elif self._execution_context(claim).model.operation(ready.operation).external is not None:
+            elif (
+                self._execution_context(claim).model.operation(ready.operation).external is not None
+            ):
                 phase = "external packet custody"
 
                 def retain_packet(connection):
@@ -1187,7 +1239,12 @@ class NativeDemandExecutor:
             try:
                 prepared.append(self._prepare_ready(item, authorization))
             except Exception as error:
-                self._failed_requests.add((json.loads(item.native)["request_id"], json.loads(item.native).get("generation")))
+                self._failed_requests.add(
+                    (
+                        json.loads(item.native)["request_id"],
+                        json.loads(item.native).get("generation"),
+                    )
+                )
                 error.add_note("native obligation: " + item.obligation)
                 failures.append(error)
         if not prepared:

@@ -8,14 +8,28 @@ import pytest
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.characterization import (
-    attachment_policies, characterization_inputs, occurrence_id, project_reading,
-    validate_attachment_basis, validate_reading_choices,
+    attachment_policies,
+    characterization_inputs,
+    occurrence_id,
+    project_reading,
+    validate_attachment_basis,
+    validate_reading_choices,
 )
 from corpus_structure.semantic.data_product_reference import member_reference
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.characterization_support import (
-    current_inventory, current_product, graph_source as graph_source, literal_inventory,
-    prepared as prepared, product_value, selected_graph, validate_product,
+    current_inventory,
+    current_product,
+    literal_inventory,
+    product_value,
+    selected_graph,
+    validate_product,
+)
+from semantic.characterization_support import (
+    graph_source as graph_source,
+)
+from semantic.characterization_support import (
+    prepared as prepared,
 )
 
 
@@ -24,10 +38,18 @@ def test_current_scope_readings_preserve_distinct_bindings_and_immutable_invento
     inventory = current_inventory(graph_source, product)
     left = project_reading(inventory, "not_all")
     right = project_reading(inventory, "all_not")
-    assert next(row for row in left["terms"] if row["local_id"] == "not_all")["children"][0]["target"] == "forall"
-    assert next(row for row in right["terms"] if row["local_id"] == "all_not")["children"][2]["target"] == "not_p"
+    assert (
+        next(row for row in left["terms"] if row["local_id"] == "not_all")["children"][0]["target"]
+        == "forall"
+    )
+    assert (
+        next(row for row in right["terms"] if row["local_id"] == "all_not")["children"][2]["target"]
+        == "not_p"
+    )
     assert len(project_reading(inventory, "or")["terms"]) == 3
-    assert member_reference(product.reference, "p").values() == dict(product_id=product.semantic_id, member_id="p")
+    assert member_reference(product.reference, "p").values() == dict(
+        product_id=product.semantic_id, member_id="p"
+    )
     body = inventory.payload
     body["terms"].clear()
     assert inventory.payload["terms"]
@@ -44,7 +66,22 @@ def test_occurrences_depend_on_original_addresses_and_not_analytical_graph(graph
     assert occurrence_id(graph_source.source.value["source"], repeated) != original
 
 
-@pytest.mark.parametrize("case", ["dangling", "cycle", "wrong_projection", "unknown_field", "coerced_integer", "literal_length", "binder", "nonstructural", "incomplete", "empty_output", "wrong_document"])
+@pytest.mark.parametrize(
+    "case",
+    [
+        "dangling",
+        "cycle",
+        "wrong_projection",
+        "unknown_field",
+        "coerced_integer",
+        "literal_length",
+        "binder",
+        "nonstructural",
+        "incomplete",
+        "empty_output",
+        "wrong_document",
+    ],
+)
 def test_invalid_current_products_refuse(graph_source, case):
     body = literal_inventory(graph_source)
     if case == "dangling":
@@ -75,15 +112,27 @@ def test_invalid_current_products_refuse(graph_source, case):
 
 
 def test_discontinuity_cross_page_overlapping_memberships_and_native_scores():
-    case = selected_graph("all    all", pieces=[
-        dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=3),
-        dict(kind="synthetic_separator", start=3, end=7),
-        dict(kind="native_text", item_ref="#/texts/1", source_field="text", start=7, end=10)],
-        items=[dict(self_ref="#/texts/0", label="text", text="all", orig="all", prov=[dict(page_no=3)]),
-               dict(self_ref="#/texts/1", label="text", text="all", orig="all", prov=[dict(page_no=4)])])
+    case = selected_graph(
+        "all    all",
+        pieces=[
+            dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=3),
+            dict(kind="synthetic_separator", start=3, end=7),
+            dict(kind="native_text", item_ref="#/texts/1", source_field="text", start=7, end=10),
+        ],
+        items=[
+            dict(
+                self_ref="#/texts/0", label="text", text="all", orig="all", prov=[dict(page_no=3)]
+            ),
+            dict(
+                self_ref="#/texts/1", label="text", text="all", orig="all", prov=[dict(page_no=4)]
+            ),
+        ],
+    )
     body = literal_inventory(case)
     body["occurrences"][0]["extents"][0]["page"] = 3
-    body["occurrences"][0]["local_id"] = occurrence_id(case.source.value["source"], body["occurrences"][0]["extents"])
+    body["occurrences"][0]["local_id"] = occurrence_id(
+        case.source.value["source"], body["occurrences"][0]["extents"]
+    )
     for term in body["terms"]:
         term["occurrences"] = [body["occurrences"][0]["local_id"]]
     other = copy.deepcopy(body["occurrences"][0])
@@ -91,27 +140,75 @@ def test_discontinuity_cross_page_overlapping_memberships_and_native_scores():
     other["local_id"] = occurrence_id(case.source.value["source"], other["extents"])
     body["occurrences"].append(other)
     a, b = [row["local_id"] for row in body["occurrences"]]
-    body["annotations"] = [dict(local_id=key, family="scope", kind="group", vocabulary="literal-native",
-                                status="native_evidence", occurrences=[a, b], provenance=["literal-model"],
-                                scores=[dict(scheme="native-score", meaning="unnormalized score",
-                                             value=dict(kind="float", hexadecimal="0x1.8000000000000p-1"))])
-                           for key in ("g", "h")]
-    body["memberships"] = [dict(local_id=key, family="scope", group=group, member="p", role="fragment",
-                               scope="source", structural=False, occurrences=[a, b])
-                           for key, group in (("m1", "g"), ("m2", "h"))]
-    body["roles"] = [dict(local_id="role", family="scope", owner="g", member="p", role="subject",
-                          scheme="dependency", occurrences=[b, a], basis=dict(kind="native_prediction", status="recorded",
-                                                                            native_scheme="literal-parser", native_label="nsubj"))]
+    body["annotations"] = [
+        dict(
+            local_id=key,
+            family="scope",
+            kind="group",
+            vocabulary="literal-native",
+            status="native_evidence",
+            occurrences=[a, b],
+            provenance=["literal-model"],
+            scores=[
+                dict(
+                    scheme="native-score",
+                    meaning="unnormalized score",
+                    value=dict(kind="float", hexadecimal="0x1.8000000000000p-1"),
+                )
+            ],
+        )
+        for key in ("g", "h")
+    ]
+    body["memberships"] = [
+        dict(
+            local_id=key,
+            family="scope",
+            group=group,
+            member="p",
+            role="fragment",
+            scope="source",
+            structural=False,
+            occurrences=[a, b],
+        )
+        for key, group in (("m1", "g"), ("m2", "h"))
+    ]
+    body["roles"] = [
+        dict(
+            local_id="role",
+            family="scope",
+            owner="g",
+            member="p",
+            role="subject",
+            scheme="dependency",
+            occurrences=[b, a],
+            basis=dict(
+                kind="native_prediction",
+                status="recorded",
+                native_scheme="literal-parser",
+                native_label="nsubj",
+            ),
+        )
+    ]
     result = current_product(case, body).inventory()
     assert result["roles"][0]["occurrences"] == [b, a]
-    assert result["annotations"][0]["scores"][0]["value"] == dict(kind="float", hexadecimal="0x1.8000000000000p-1")
+    assert result["annotations"][0]["scores"][0]["value"] == dict(
+        kind="float", hexadecimal="0x1.8000000000000p-1"
+    )
     assert result["annotations"][0]["occurrences"] == [a, b]
 
 
 def test_declared_attachment_policy_rejects_model_promotion_and_missing_premises(graph_source):
     body = literal_inventory(graph_source)
-    role: dict[str, Any] = dict(local_id="role", family="scope", owner="forall", member="p", role="body", scheme="logic",
-                occurrences=[], basis=dict(kind="contextual_proposal", status="witnessed"))
+    role: dict[str, Any] = dict(
+        local_id="role",
+        family="scope",
+        owner="forall",
+        member="p",
+        role="body",
+        scheme="logic",
+        occurrences=[],
+        basis=dict(kind="contextual_proposal", status="witnessed"),
+    )
     body["roles"] = [role]
     with pytest.raises(ValueError):
         current_product(graph_source, body)
@@ -126,8 +223,14 @@ def test_declared_attachment_policy_rejects_model_promotion_and_missing_premises
 
 def test_analytical_alternatives_require_explicit_compatible_choices(graph_source):
     body = literal_inventory(graph_source)
-    body["choices"] = [dict(local_id="choice", family="scope", compatibility="unknown",
-                            members=[dict(local_id="a", root="not_all"), dict(local_id="b", root="all_not")])]
+    body["choices"] = [
+        dict(
+            local_id="choice",
+            family="scope",
+            compatibility="unknown",
+            members=[dict(local_id="a", root="not_all"), dict(local_id="b", root="all_not")],
+        )
+    ]
     inventory = current_inventory(graph_source, current_product(graph_source, body))
     assert validate_reading_choices(inventory.payload, ("a",)) == ("a",)
     for selected in (("a", "b"), ("missing",)):
@@ -148,17 +251,33 @@ def test_explicit_unknown_and_successful_empty_are_distinct(graph_source):
     body["coverage"][0].update(eligible=[], examined=[])
     assert current_product(graph_source, body).inventory()["occurrences"]
     body["outcome"] = "partial"
-    body["coverage"][0].update(availability="unknown", outcome="unknown", reason="not examined", examined=[],
-                               unexamined=body["coverage"][0]["eligible"])
-    assert current_product(graph_source, body).value.model_dump(mode="json")["coverage"][0]["outcome"] == "unknown"
+    body["coverage"][0].update(
+        availability="unknown",
+        outcome="unknown",
+        reason="not examined",
+        examined=[],
+        unexamined=body["coverage"][0]["eligible"],
+    )
+    assert (
+        current_product(graph_source, body).value.model_dump(mode="json")["coverage"][0]["outcome"]
+        == "unknown"
+    )
 
 
 def test_cross_product_premises_require_exact_dependencies_and_reachable_member(graph_source):
     dependency = current_product(graph_source)
     body = literal_inventory(graph_source)
-    body["annotations"] = [dict(local_id="annotation", family="scope", kind="construction", vocabulary="other-domain",
-                                status="interpreted", occurrences=[body["occurrences"][0]["local_id"]],
-                                external_premises=[member_reference(dependency.reference, "p").values()])]
+    body["annotations"] = [
+        dict(
+            local_id="annotation",
+            family="scope",
+            kind="construction",
+            vocabulary="other-domain",
+            status="interpreted",
+            occurrences=[body["occurrences"][0]["local_id"]],
+            external_premises=[member_reference(dependency.reference, "p").values()],
+        )
+    ]
     value = product_value(graph_source, body, (dependency,))
     with pytest.raises(ValueError, match="dependencies"):
         validate_product(graph_source, value)
@@ -171,10 +290,24 @@ def test_cross_product_premises_require_exact_dependencies_and_reachable_member(
 
 def test_referring_edges_can_cycle_without_a_structural_cycle(graph_source):
     body = literal_inventory(graph_source)
-    body["roles"] = [dict(local_id=key, family="scope", owner=owner, member=member, role="discourse_reference",
-                          scheme="discourse", occurrences=[], basis=dict(kind="native_prediction", status="recorded",
-                                                                         native_scheme="discourse", native_label="reference"))
-                     for key, owner, member in (("forward", "p", "r"), ("backward", "r", "p"))]
+    body["roles"] = [
+        dict(
+            local_id=key,
+            family="scope",
+            owner=owner,
+            member=member,
+            role="discourse_reference",
+            scheme="discourse",
+            occurrences=[],
+            basis=dict(
+                kind="native_prediction",
+                status="recorded",
+                native_scheme="discourse",
+                native_label="reference",
+            ),
+        )
+        for key, owner, member in (("forward", "p", "r"), ("backward", "r", "p"))
+    ]
     assert len(current_product(graph_source, body).inventory()["roles"]) == 2
 
 
@@ -183,17 +316,31 @@ def test_released_rule_dispatch_compiles_from_actual_declaration():
 
     root = Path(__file__).parents[2] / "src/corpus_structure/model/semantic"
     model = yaml.safe_load((root / "characterization.yaml").read_bytes())
-    model["classes"]["ToyReleasedAttachment"] = dict(is_a="CharacterizationConstructionBasis", attributes=dict(
-        rule_id=dict(required=True, equals_string="toy:body-v1"),
-        premises=dict(range="string", multivalued=True, required=True, minimum_cardinality=2)))
-    released = prepare_release(characterization_inputs(
-        SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),)),
-        model_content=yaml.safe_dump(model).encode()))
+    model["classes"]["ToyReleasedAttachment"] = dict(
+        is_a="CharacterizationConstructionBasis",
+        attributes=dict(
+            rule_id=dict(required=True, equals_string="toy:body-v1"),
+            premises=dict(range="string", multivalued=True, required=True, minimum_cardinality=2),
+        ),
+    )
+    released = prepare_release(
+        characterization_inputs(
+            SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),)),
+            model_content=yaml.safe_dump(model).encode(),
+        )
+    )
     policies = attachment_policies(released)
-    basis = dict(kind="released_construction", status="witnessed", rule_id="toy:body-v1", premises=["p", "r"])
+    basis = dict(
+        kind="released_construction", status="witnessed", rule_id="toy:body-v1", premises=["p", "r"]
+    )
+
     def validate(value):
-        return validate_attachment_basis(value, policies,
-                                         lambda name, payload: released.validate_json(name, canonical_bytes(payload)))
+        return validate_attachment_basis(
+            value,
+            policies,
+            lambda name, payload: released.validate_json(name, canonical_bytes(payload)),
+        )
+
     validate(basis)
     with pytest.raises(ValueError):
         validate({**basis, "premises": ["p"]})
@@ -204,10 +351,13 @@ def test_released_rule_dispatch_compiles_from_actual_declaration():
 @pytest.mark.parametrize("value", [-0.0, 1e-100, 1e100, 2**90, None])
 def test_exact_native_scores_never_depend_on_json_number_rendering(graph_source, value):
     import math
+
     from corpus_structure.semantic.observations import source_python, source_value
 
     body = literal_inventory(graph_source)
-    body["terms"][0]["scores"] = [dict(scheme="native", meaning="native score", value=source_value(value))]
+    body["terms"][0]["scores"] = [
+        dict(scheme="native", meaning="native score", value=source_value(value))
+    ]
     restored = current_product(graph_source, body).inventory()
     score = source_python(restored["terms"][0]["scores"][0]["value"])
     assert type(score) is type(value) and score == value
@@ -215,7 +365,9 @@ def test_exact_native_scores_never_depend_on_json_number_rendering(graph_source,
         assert math.copysign(1, score) == math.copysign(1, value)
 
 
-@pytest.mark.parametrize("value", [dict(kind="float", hexadecimal="nan"), dict(kind="float", hexadecimal="0x1.8p-1")])
+@pytest.mark.parametrize(
+    "value", [dict(kind="float", hexadecimal="nan"), dict(kind="float", hexadecimal="0x1.8p-1")]
+)
 def test_score_codec_rejects_nonfinite_or_noncanonical_value(graph_source, value):
     body = literal_inventory(graph_source)
     body["terms"][0]["scores"] = [dict(scheme="native", meaning="score", value=value)]
@@ -227,29 +379,53 @@ def test_synthetic_boundary_is_distinct_from_empty_literal_source(graph_source):
     body = literal_inventory(graph_source)
     extent = body["occurrences"][0]["extents"][0]
     extent.update(start=0, end=0, text="", synthetic=True)
-    body["occurrences"][0]["local_id"] = occurrence_id(graph_source.source.value["source"], [extent])
+    body["occurrences"][0]["local_id"] = occurrence_id(
+        graph_source.source.value["source"], [extent]
+    )
     for term in body["terms"]:
         term["occurrences"] = [body["occurrences"][0]["local_id"]]
-    assert current_product(graph_source, body).inventory()["occurrences"][0]["extents"][0]["synthetic"] is True
+    assert (
+        current_product(graph_source, body).inventory()["occurrences"][0]["extents"][0]["synthetic"]
+        is True
+    )
     extent["synthetic"] = False
-    body["occurrences"][0]["local_id"] = occurrence_id(graph_source.source.value["source"], [extent])
+    body["occurrences"][0]["local_id"] = occurrence_id(
+        graph_source.source.value["source"], [extent]
+    )
     for term in body["terms"]:
         term["occurrences"] = [body["occurrences"][0]["local_id"]]
-    with pytest.raises(ValueError, match="nonempty|literal"):
+    with pytest.raises(ValueError, match=r"nonempty|literal"):
         current_product(graph_source, body)
 
 
 def test_packed_choice_site_keeps_parent_shared_and_unresolved_explicit(graph_source):
     body = literal_inventory(graph_source)
-    body["terms"].append(dict(local_id="packed", family="scope", kind="predicate", vocabulary="literal-logic",
-                              value="packed", status="interpreted", occurrences=[],
-                              children=[dict(role="body", choice_group="site", structural=True)]))
-    body["choices"] = [dict(local_id="site", family="scope", compatibility="exclusive",
-                            members=[dict(local_id="left", root="not_all"), dict(local_id="right", root="all_not")])]
+    body["terms"].append(
+        dict(
+            local_id="packed",
+            family="scope",
+            kind="predicate",
+            vocabulary="literal-logic",
+            value="packed",
+            status="interpreted",
+            occurrences=[],
+            children=[dict(role="body", choice_group="site", structural=True)],
+        )
+    )
+    body["choices"] = [
+        dict(
+            local_id="site",
+            family="scope",
+            compatibility="exclusive",
+            members=[dict(local_id="left", root="not_all"), dict(local_id="right", root="all_not")],
+        )
+    ]
     inventory = current_inventory(graph_source, current_product(graph_source, body))
     unresolved = project_reading(inventory, "packed")
     assert unresolved["outcome"] == "partial"
-    assert unresolved["unresolved_sites"] == [dict(owner="packed", role="body", choice_group="site")]
+    assert unresolved["unresolved_sites"] == [
+        dict(owner="packed", role="body", choice_group="site")
+    ]
     assert [term["local_id"] for term in unresolved["terms"]] == ["packed"]
     selected = project_reading(inventory, "packed", choices=["left"])
     assert selected["outcome"] == "complete"
@@ -264,8 +440,14 @@ def test_packed_choice_site_keeps_parent_shared_and_unresolved_explicit(graph_so
 
 def test_upstream_choice_citation_does_not_select_it(graph_source):
     body = literal_inventory(graph_source)
-    body["choices"] = [dict(local_id="upstream", family="scope", compatibility="exclusive",
-                            members=[dict(local_id="left", root="not_all"), dict(local_id="right", root="all_not")])]
+    body["choices"] = [
+        dict(
+            local_id="upstream",
+            family="scope",
+            compatibility="exclusive",
+            members=[dict(local_id="left", root="not_all"), dict(local_id="right", root="all_not")],
+        )
+    ]
     upstream = current_product(graph_source, body)
     pin = upstream.reference
     downstream = literal_inventory(graph_source)
@@ -276,49 +458,106 @@ def test_upstream_choice_citation_does_not_select_it(graph_source):
     dependencies = {pin: current_inventory(graph_source, upstream)}
     with pytest.raises(ValueError, match="unselected qualified"):
         project_reading(inventory, "p", dependencies=dependencies)
-    reading = project_reading(inventory, "p", dependencies=dependencies,
-                               external_choices=[member_reference(pin, "left")])
+    reading = project_reading(
+        inventory, "p", dependencies=dependencies, external_choices=[member_reference(pin, "left")]
+    )
     assert reading["external_choices"] == [member_reference(pin, "left").values()]
     with pytest.raises(ValueError, match="incompatible"):
-        project_reading(inventory, "p", dependencies=dependencies,
-                        external_choices=[member_reference(pin, "left"), member_reference(pin, "right")])
+        project_reading(
+            inventory,
+            "p",
+            dependencies=dependencies,
+            external_choices=[member_reference(pin, "left"), member_reference(pin, "right")],
+        )
 
 
 def test_reading_checks_selected_member_support_even_when_root_is_direct(graph_source):
     body = literal_inventory(graph_source)
-    body["terms"].append(dict(local_id="packed", family="scope", kind="predicate", vocabulary="literal-logic",
-                              value="packed", status="interpreted", occurrences=[],
-                              children=[dict(role="body", choice_group="nested", structural=True)]))
-    body["choices"] = [dict(local_id="nested", family="scope", compatibility="exclusive",
-                            members=[dict(local_id="nested-left", root="not_all")]),
-                       dict(local_id="outer", family="scope", compatibility="exclusive",
-                            members=[dict(local_id="upstream", root="packed")])]
+    body["terms"].append(
+        dict(
+            local_id="packed",
+            family="scope",
+            kind="predicate",
+            vocabulary="literal-logic",
+            value="packed",
+            status="interpreted",
+            occurrences=[],
+            children=[dict(role="body", choice_group="nested", structural=True)],
+        )
+    )
+    body["choices"] = [
+        dict(
+            local_id="nested",
+            family="scope",
+            compatibility="exclusive",
+            members=[dict(local_id="nested-left", root="not_all")],
+        ),
+        dict(
+            local_id="outer",
+            family="scope",
+            compatibility="exclusive",
+            members=[dict(local_id="upstream", root="packed")],
+        ),
+    ]
     upstream = current_product(graph_source, body)
     pin = upstream.reference
     downstream = literal_inventory(graph_source)
-    downstream["choices"] = [dict(local_id="local", family="scope", compatibility="exclusive",
-                                  members=[dict(local_id="direct", root="p", required_external_choices=[
-                                      member_reference(pin, "upstream").values()])])]
+    downstream["choices"] = [
+        dict(
+            local_id="local",
+            family="scope",
+            compatibility="exclusive",
+            members=[
+                dict(
+                    local_id="direct",
+                    root="p",
+                    required_external_choices=[member_reference(pin, "upstream").values()],
+                )
+            ],
+        )
+    ]
     product = current_product(graph_source, downstream, (upstream,))
     inventory = current_inventory(graph_source, product)
     dependencies = {pin: current_inventory(graph_source, upstream)}
     with pytest.raises(ValueError, match="unselected qualified"):
         project_reading(inventory, "p", choices=["direct"], dependencies=dependencies)
-    partial = project_reading(inventory, "p", choices=["direct"], dependencies=dependencies,
-                               external_choices=[member_reference(pin, "upstream")])
+    partial = project_reading(
+        inventory,
+        "p",
+        choices=["direct"],
+        dependencies=dependencies,
+        external_choices=[member_reference(pin, "upstream")],
+    )
     assert partial["outcome"] == "partial"
-    assert partial["unresolved_sites"] == [dict(layer=pin.values(), owner="packed", role="body", choice_group="nested")]
-    complete = project_reading(inventory, "p", choices=["direct"], dependencies=dependencies,
-                                external_choices=[member_reference(pin, "upstream"), member_reference(pin, "nested-left")])
+    assert partial["unresolved_sites"] == [
+        dict(layer=pin.values(), owner="packed", role="body", choice_group="nested")
+    ]
+    complete = project_reading(
+        inventory,
+        "p",
+        choices=["direct"],
+        dependencies=dependencies,
+        external_choices=[member_reference(pin, "upstream"), member_reference(pin, "nested-left")],
+    )
     assert complete["outcome"] == "complete"
     unrelated_facts = literal_inventory(graph_source)
     unrelated_facts["terms"][0]["value"] = "unrelated"
     unrelated_product = current_product(graph_source, unrelated_facts)
     unrelated = unrelated_product.reference
     with pytest.raises(ValueError, match=r"outside.*dependency closure"):
-        project_reading(inventory, "p", choices=["direct"],
-                        dependencies={**dependencies, unrelated: current_inventory(graph_source, unrelated_product)},
-                        external_choices=[member_reference(pin, "upstream"), member_reference(unrelated, "nested-left")])
+        project_reading(
+            inventory,
+            "p",
+            choices=["direct"],
+            dependencies={
+                **dependencies,
+                unrelated: current_inventory(graph_source, unrelated_product),
+            },
+            external_choices=[
+                member_reference(pin, "upstream"),
+                member_reference(unrelated, "nested-left"),
+            ],
+        )
 
 
 def test_reading_dependency_must_have_the_same_original_source_and_scope(graph_source):
@@ -327,8 +566,11 @@ def test_reading_dependency_must_have_the_same_original_source_and_scope(graph_s
     body = literal_inventory(graph_source)
     product = current_product(graph_source, body, (upstream,))
     with pytest.raises(ValueError, match="different source"):
-        project_reading(current_inventory(graph_source, product), "p",
-                        dependencies={upstream.reference: current_inventory(foreign, upstream)})
+        project_reading(
+            current_inventory(graph_source, product),
+            "p",
+            dependencies={upstream.reference: current_inventory(foreign, upstream)},
+        )
 
 
 def test_entire_characterization_family_is_private_boundary_not_native_graph(prepared):
@@ -345,8 +587,12 @@ def test_entire_characterization_family_is_private_boundary_not_native_graph(pre
         definition.iri for definition in prepared.definitions if definition.name in declared
     }
     assert not private_iris.intersection(class_iri for class_iri, _ in native_constraints(prepared))
-    assert "terms" not in prepared.adapter("DdoPrimaryConstructionProduct").json_schema()["properties"]
-    assert "members" in prepared.adapter("DdoPrimaryConstructionProduct").json_schema()["properties"]
+    assert (
+        "terms" not in prepared.adapter("DdoPrimaryConstructionProduct").json_schema()["properties"]
+    )
+    assert (
+        "members" in prepared.adapter("DdoPrimaryConstructionProduct").json_schema()["properties"]
+    )
 
 
 def test_knowledge_graph_cannot_range_into_characterization_boundary():

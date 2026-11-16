@@ -802,8 +802,6 @@ _RELATION_KINDS: dict[str, Literal["reference", "same_lineage", "supersedes"]] =
 }
 
 
-
-
 def populate_navigation_products(
     layer,
     view,
@@ -1310,8 +1308,6 @@ class NavigationRecord:
 
     def text(self, role):
         return "".join(e["text"] for e in self.fragments(role))
-
-
 
 
 class NativeNavigationIndex:

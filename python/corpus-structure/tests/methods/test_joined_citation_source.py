@@ -1,18 +1,13 @@
 """Joined named-link cues retain exact source-owned annotation and native pieces."""
 
-from dataclasses import replace
-from hashlib import sha256
-
 import pytest
 
-from methods.m1_source_preparation_support import prepare_declared_source
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import (
     DeclaredStructuralSource,
     StructuralPassage,
 )
-from methods.m1_source_preparation_support import source, projection
+from methods.m1_source_preparation_support import prepare_declared_source, projection
 from methods.scoped_relations_support import discover_relations
 
 
@@ -33,13 +28,10 @@ def _joined_view():
             self_ref=cited, label="text", text=second, content_layer="body", parent={"$ref": inline}
         ),
     )
-    view = source("fixture", labels=("text",))
     return projection(text, pieces=pieces, items=nodes)
 
 
 def _joined_production(view, *, batch_size):
-    release = "release:joined-source-control"
-    named_version = "4"
     frame = view
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import SentenceConfig, pipeline

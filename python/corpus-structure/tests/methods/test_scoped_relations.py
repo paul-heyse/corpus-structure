@@ -1,19 +1,21 @@
 """Physical participant roles and native joins remain separate from semantic support."""
 
 from dataclasses import replace
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import (
     DeclaredStructuralInput,
     StructuralPassage,
 )
-from methods.m1_source_preparation_support import native_table_source, source, table_cell, projection
+from methods.m1_source_preparation_support import (
+    native_table_source,
+    projection,
+    source,
+    table_cell,
+)
 from methods.scoped_relations_support import (
     discover_relations as discover_relations,
 )
@@ -44,9 +46,7 @@ def test_native_table_roles_notes_and_units_keep_exact_cell_participants(explici
         if explicit_scope
         else "Values are percentages.",
     )
-    output = discover_relations(
-        view, source_work="actual-parent-sha"
-    )
+    output = discover_relations(view, source_work="actual-parent-sha")
     rows = output["contributions"]
     values = {
         r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows
@@ -86,9 +86,7 @@ def test_symbol_declarations_keep_occurrences_and_do_not_invent_unparsed_order()
         "Let x be a value. Let x be another value. prepare sample before calculate mean.",
         labels=("text",),
     )
-    output = discover_relations(
-        view, annotations=()
-    )
+    output = discover_relations(view, annotations=())
     rows = output["contributions"]
     values = {
         r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows
@@ -252,18 +250,22 @@ def test_named_procedure_reference_binds_verb_to_caption_under_selected_version(
     from methods.m1_source_preparation_support import prepare_declared_source
 
     view = native_table_source(
-            (table_cell("1", 0, 0),),
-            caption="Table 6.1 Results",
-            note="The results are shown in Table 6.1.",
-        )
-    view = projection(view.text, pieces=view.pieces, items=tuple(
+        (table_cell("1", 0, 0),),
+        caption="Table 6.1 Results",
+        note="The results are shown in Table 6.1.",
+    )
+    view = projection(
+        view.text,
+        pieces=view.pieces,
+        items=tuple(
             dict(
                 item,
                 content_layer="body",
                 **({"parent": {"$ref": "#/tables/0"}} if item["label"] == "caption" else {}),
             )
             for item in view.items
-        ))
+        ),
+    )
     annotation = prepare_declared_source(view, profile=AnnotationProfile(), annotations_only=True)
     output = discover_relations(
         view,
@@ -309,7 +311,7 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
     text = "Table 5.1 must be reviewed by Manager."
     view = source(text, labels=("text",))
     frame = view
-    product, construction = annotation(
+    product, _construction = annotation(
         text,
         [
             ("Table", "NOUN", "nsubjpass", 4, "NN"),
@@ -323,8 +325,13 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
         frame=frame,
     )
     from corpus_structure.ingest.annotations import AnnotationProfile
-    output = discover_relations(frame, source_work="parent", annotations=(product,),
-        annotation_profile=AnnotationProfile(execution_profile="unadmitted:controlled-columns"))
+
+    output = discover_relations(
+        frame,
+        source_work="parent",
+        annotations=(product,),
+        annotation_profile=AnnotationProfile(execution_profile="unadmitted:controlled-columns"),
+    )
     rows = output["contributions"]
     by_id = {
         r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows
@@ -415,48 +422,72 @@ def test_missing_native_roles_keeps_lexical_contributions_and_failed_stage():
 def test_original_annotation_products_keep_roles_without_an_annotation_task(errors):
     from corpus_structure.ingest.annotations import AnnotationProfile
     from methods.structural_roles_support import annotation
+
     text = "Manager reviews Table 5.1."
     frame = source(text, labels=("text",))
-    product, _construction = annotation(text, [
-        ("Manager", "NOUN", "nsubj", 1, "NN"),
-        ("reviews", "VERB", "ROOT", 1, "VBZ"),
-        ("Table", "NOUN", "dobj", 1, "NN"),
-        ("5.1", "NUM", "nummod", 2, "CD"),
-    ], frame=frame)
-    output = discover_relations(frame, annotations=(product,), annotation_errors=errors,
+    product, _construction = annotation(
+        text,
+        [
+            ("Manager", "NOUN", "nsubj", 1, "NN"),
+            ("reviews", "VERB", "ROOT", 1, "VBZ"),
+            ("Table", "NOUN", "dobj", 1, "NN"),
+            ("5.1", "NUM", "nummod", 2, "CD"),
+        ],
+        frame=frame,
+    )
+    output = discover_relations(
+        frame,
+        annotations=(product,),
+        annotation_errors=errors,
         annotation_profile=AnnotationProfile(execution_profile="unadmitted:controlled-columns"),
-        source_work="controlled-parent")
+        source_work="controlled-parent",
+    )
     assert {
         source_python(row["value"]).get("relation")
-        for row in output["contributions"] if "value" in row
+        for row in output["contributions"]
+        if "value" in row
     } >= {"actor", "object", "uses_artifact"}
-    assert next(operation for operation in output["extra_operations"]
-        if operation["question"] == "source_procedure_roles")["outcome"] == (
-            "limited" if errors else "succeeded")
+    assert next(
+        operation
+        for operation in output["extra_operations"]
+        if operation["question"] == "source_procedure_roles"
+    )["outcome"] == ("limited" if errors else "succeeded")
 
 
 @pytest.mark.parametrize("mismatch", ("source-member", "projection"))
 def test_original_annotations_refuse_a_changed_selected_source(mismatch):
     from corpus_structure.ingest.annotations import AnnotationProfile
     from methods.structural_roles_support import annotation
+
     text = "Manager reviews Table."
     frame = source(text, labels=("text",))
-    product, _construction = annotation(text, [
-        ("Manager", "NOUN", "nsubj", 1, "NN"),
-        ("reviews", "VERB", "ROOT", 1, "VBZ"),
-        ("Table", "NOUN", "dobj", 1, "NN"),
-    ], frame=frame)
-    changed = source(text if mismatch == "source-member" else text + " changed",
-        labels=("text",), identity=2 if mismatch == "source-member" else 1)
+    product, _construction = annotation(
+        text,
+        [
+            ("Manager", "NOUN", "nsubj", 1, "NN"),
+            ("reviews", "VERB", "ROOT", 1, "VBZ"),
+            ("Table", "NOUN", "dobj", 1, "NN"),
+        ],
+        frame=frame,
+    )
+    changed = source(
+        text if mismatch == "source-member" else text + " changed",
+        labels=("text",),
+        identity=2 if mismatch == "source-member" else 1,
+    )
     with pytest.raises(ValueError, match="selected source carrier"):
-        discover_relations(changed, annotations=(product,),
-            annotation_profile=AnnotationProfile(execution_profile="unadmitted:controlled-columns"))
+        discover_relations(
+            changed,
+            annotations=(product,),
+            annotation_profile=AnnotationProfile(execution_profile="unadmitted:controlled-columns"),
+        )
 
 
 def test_missing_navigation_refuses_without_reparse(monkeypatch):
     from corpus_structure.ingest import annotations
     from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
     from methods.navigation_fixture import source_primary_products
+
     frame = source("Let x be count.", labels=("text",))
     primary = source_primary_products(frame, annotations=())
     monkeypatch.setattr(annotations, "pipeline", lambda *_: pytest.fail("consumer reparsed source"))
@@ -469,10 +500,10 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
     from pathlib import Path
 
     from corpus_structure.ingest.annotations import AnnotationProfile
-    from methods.m1_source_preparation_support import prepare_declared_source
     from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
     from corpus_structure.semantic.contributions import bind_contributions, contribution_identity
     from corpus_structure.semantic.observations import observation_inputs
+    from methods.m1_source_preparation_support import prepare_declared_source
 
     text = (
         "The reviewer must complete the purchase review form if the purchase exceeds the limit, "
@@ -539,12 +570,15 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
 
 
 def test_named_coverage_counts_selected_blocks_once_and_does_not_assume_absence():
-    from methods.navigation_fixture import source_primary_products
     from corpus_structure.methods.witnessed_source_links import match_named_source_links
-    view = native_table_source((table_cell("1",0,0),), caption="Table 6.1", note="A value is reported.")
-    items = {item["self_ref"]:dict(item,content_layer="body") for item in view.items}
+    from methods.navigation_fixture import source_primary_products
+
+    view = native_table_source(
+        (table_cell("1", 0, 0),), caption="Table 6.1", note="A value is reported."
+    )
+    items = {item["self_ref"]: dict(item, content_layer="body") for item in view.items}
     primary = source_primary_products(view)
-    unavailable = source_primary_products(view,annotations=())
+    unavailable = source_primary_products(view, annotations=())
     passages = tuple(
         StructuralPassage(
             passage_id=f"p-{i}",
@@ -576,17 +610,26 @@ def _assert_public_condition_projection(view, relation, rows, predicate):
     from copy import deepcopy
 
     from corpus_structure.methods.structural_products import condition_qualification
-    from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef, DeclaredStructuralSource
+    from corpus_structure.semantic.declared_structural_references import (
+        DeclaredContributionRef,
+        DeclaredStructuralSource,
+    )
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import DeclaredStructuralProductReport
 
     pin = relation["pin"]
     scope = relation["component"]["scope"]
     selected = DeclaredStructuralSource.model_validate(pin)
-    ref = DeclaredContributionRef(contribution_id=relation["contribution_id"],
-        product_id="unadmitted:condition-fixture",kind_contract="unadmitted:retained-contributions",
-        project_id=pin["project_id"],subject=pin["subject"],subject_definition=pin["subject_definition"],
-        original_source=pin["original_source"],analyzed_scope_meaning=pin["analyzed_scope_meaning"])
+    ref = DeclaredContributionRef(
+        contribution_id=relation["contribution_id"],
+        product_id="unadmitted:condition-fixture",
+        kind_contract="unadmitted:retained-contributions",
+        project_id=pin["project_id"],
+        subject=pin["subject"],
+        subject_definition=pin["subject_definition"],
+        original_source=pin["original_source"],
+        analyzed_scope_meaning=pin["analyzed_scope_meaning"],
+    )
     inputs = DeclaredStructuralInput(
         question="Which condition limits this predicate?",
         scope=scope,

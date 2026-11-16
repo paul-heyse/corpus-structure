@@ -50,7 +50,9 @@ def test_provider_residents_follow_frozen_demand_not_all_available_factories():
         ),
         capacity=1,
     )
-    scope.executor._target_context = SimpleNamespace(model=scope.executor.model, cpu=None, prepared_schema=False)
+    scope.executor._target_context = SimpleNamespace(
+        model=scope.executor.model, cpu=None, prepared_schema=False
+    )
     scope.cpu = cast(CPUExecutionScope, SimpleNamespace(prepare=lambda: None, preparation_bytes=0))
     scope.native_hosts = cast(NativeHostResidency, SimpleNamespace(declare=declared.append))
     scope._selected_operations = None

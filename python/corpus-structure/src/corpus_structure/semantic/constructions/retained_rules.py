@@ -1827,8 +1827,6 @@ PRIMARY_RULE_FAMILY = "construction.source_readings"
 PRIMARY_RULE_VOCABULARY = "source-linguistic-rules-1"
 
 
-
-
 def populate_source_reading_products(
     layer,
     view,
