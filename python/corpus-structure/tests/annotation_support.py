@@ -1,5 +1,6 @@
 """Controlled inputs and builders shared by the annotations consumers."""
 
+from dataclasses import replace
 from types import SimpleNamespace
 from typing import Literal
 
@@ -8,11 +9,9 @@ import spacy
 from spacy.tokens import Doc, MorphAnalysis
 
 from corpus_structure.ingest import annotations
-from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile
+from corpus_structure.ingest.annotations import AnnotationInput
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 from corpus_structure.ingest.sentences import Block, SentenceConfig, prepare_layout
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.source_contexts import NativeSourcePin
 
 
 class ControlledPipeline:
@@ -80,20 +79,7 @@ def controlled(monkeypatch):
     return nlp
 
 
-def pin(identity=7):
-    return NativeSourcePin(
-        identity,
-        f"source:{identity}",
-        ProductReference(17, "integrated", "a" * 64),
-        f"#/groups/{identity}",
-        "descendants",
-        "b" * 64,
-        "c" * 64,
-        3,
-    )
-
-
-def item(
+def selected_item(
     nlp: ControlledPipeline,
     text="X X.",
     *,
@@ -110,16 +96,30 @@ def item(
         pieces = (
             (ProjectedPiece("#/texts/1", start, start + len(text), "native_text"),) if text else ()
         )
-    return AnnotationInput(pin(identity), block_id, kind, block, layout, pieces)
+    from methods.declared_primary_fixture import selected_source
 
-
-def primary_product(text, product, *, native_profile):
-    """Characterize the authored columns before testing downstream interpretation."""
-    from methods.primary_reading_fixture import primary_product as characterize
-
-    return characterize(
-        " " * product.block_start + text,
-        product,
-        AnnotationProfile(configuration=SentenceConfig.model_validate(native_profile.parameters)),
-        native_profile=native_profile,
+    pieces = tuple(
+        replace(piece, source_field="text")
+        if piece.kind == "native_text" and piece.source_field is None else piece
+        for piece in pieces
     )
+    complete_text = " " * start + block.text
+    projection = ([dict(kind="synthetic_separator", start=0, end=start)] if start else [])
+    projection.extend(piece.to_wire() for piece in pieces)
+    items = {f"#/groups/{identity}": dict(self_ref=f"#/groups/{identity}", label="section")}
+    for piece in pieces:
+        if piece.kind != "native_text":
+            continue
+        row = items.setdefault(piece.item_ref, dict(
+            self_ref=piece.item_ref, label="text", text="", orig="",
+            parent={"$ref": f"#/groups/{identity}"},
+        ))
+        row["text"] += complete_text[piece.start:piece.end]
+        row["orig"] = row["text"]
+    source, frame, context = selected_source(complete_text, pieces=projection, items=list(items.values()))
+    return AnnotationInput(frame.pin, block_id, kind, block, layout, pieces), source, frame, context
+
+
+def item(nlp, *args, **kwargs):
+    """Raw annotation input; callers needing nominal products select the source explicitly."""
+    return selected_item(nlp, *args, **kwargs)[0]

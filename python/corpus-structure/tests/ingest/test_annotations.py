@@ -10,12 +10,8 @@ from annotation_support import (
 from annotation_support import (
     item as item,
 )
-from annotation_support import (
-    pin as pin,
-)
-from annotation_support import (
-    primary_product as primary_product,
-)
+from annotation_support import selected_item
+from methods.declared_primary_fixture import retained_products
 from spacy.tokens import Doc
 
 from corpus_structure.ingest.annotations import (
@@ -25,8 +21,8 @@ from corpus_structure.ingest.annotations import (
 )
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 from corpus_structure.ingest.sentences import Block, SentenceConfig
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.source_contexts import NativeSourcePin
+from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
+from corpus_structure.semantic.identity import canonical_bytes
 
 
 def test_prepared_unicode_whitespace_math_and_reference_coordinates_survive_wrong_pos(controlled):
@@ -66,7 +62,7 @@ def test_prepared_unicode_whitespace_math_and_reference_coordinates_survive_wron
     assert product.tokens[7].morphology == ("VerbForm=Fin",)
     assert product.tokens[7].dependency == "dep" and product.tokens[7].head == 0
     assert {column.status for column in product.availability} == {"complete"}
-    assert product.source == pin()
+    assert product.source == request.source
 
 
 def test_annotation_reuses_layout_without_tokenization_and_batches_pinned_block_contexts(
@@ -84,12 +80,12 @@ def test_annotation_reuses_layout_without_tokenization_and_batches_pinned_block_
     assert controlled.calls == [(True, 2, 1)]
     positions = []
     for result in products:
-        assert isinstance(result.source, NativeSourcePin)
-        positions.append((result.source.source_view_id, result.block_id, result.kind))
+        assert isinstance(result.source, DeclaredSourcePin)
+        positions.append((result.source, result.block_id, result.kind))
     assert positions == [
-        (1, "p:1", "paragraph"),
-        (2, "li:1", "list_item"),
-        (3, "cell:1", "table_cell"),
+        (requests[0].source, "p:1", "paragraph"),
+        (requests[1].source, "li:1", "list_item"),
+        (requests[2].source, "cell:1", "table_cell"),
     ]
     assert [[(row.start, row.end) for row in result.sentences] for result in products] == [
         [(10, 12)],
@@ -227,17 +223,15 @@ def test_replay_uses_same_source_layout_and_profile_dependencies(controlled):
     first, second = annotate((request, request))
     assert first == second
     assert first.dependency_digest == second.dependency_digest
-    assert isinstance(request.source, NativeSourcePin)
+    assert isinstance(request.source, DeclaredSourcePin)
+    def changed_source(**values):
+        return replace(request.source, content=canonical_bytes(
+            {**request.source.values(), **values}).decode())
+
     changes = (
-        replace(request, source=replace(request.source, projection_digest="d" * 64)),
-        replace(request, source=replace(request.source, recipe_digest="e" * 64)),
-        replace(request, source=replace(request.source, membership="direct")),
-        replace(
-            request,
-            source=replace(
-                request.source, native_product=ProductReference(18, "integrated", "f" * 64)
-            ),
-        ),
+        replace(request, source=changed_source(projection_digest="d" * 64)),
+        replace(request, source=changed_source(membership="direct")),
+        replace(request, source=changed_source(source_product="another-source-product")),
         replace(request, block_id="paragraph:2"),
         replace(request, layout=replace(request.layout, recipe="layout-recipe-2")),
         replace(request, native_pieces=(replace(request.native_pieces[0], item_ref="#/texts/2"),)),
@@ -287,8 +281,9 @@ def test_stale_layout_and_changed_native_atom_roles_refuse(controlled):
     ],
 )
 def test_incomplete_or_incompatible_native_piece_custody_refuses(controlled, pieces):
+    request = item(controlled)
     with pytest.raises(ValueError, match="source-bound block"):
-        item(controlled, pieces=pieces)
+        replace(request, native_pieces=pieces)
 
 
 def test_pipeline_retokenization_cannot_silently_reassign_atom_positions(controlled, monkeypatch):
@@ -617,7 +612,7 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
         components_from_named_matches,
         definition_scopes,
     )
-    from corpus_structure.methods.predicate_frames import predicate_frame_result
+    from corpus_structure.methods.predicate_frames import predicate_frames
     from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.structural_products import StructuralPassage
 
@@ -625,7 +620,7 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
         f"The {quantity} is {'not ' if negated else ''}the {content} "
         f"of values {operation} by count ."
     )
-    request = item(controlled, text)
+    request, source, frame, context = selected_item(controlled, text, block_id="#/texts/1")
     (product,) = annotate((request,))
     positions = {
         text[token.start - 100 : token.end - 100]: i for i, token in enumerate(product.tokens)
@@ -655,15 +650,10 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
         tokens.append(
             replace(token, head=positions[head], dependency=dependency, pos=pos, lemma=lemma)
         )
-    view = annotation_view(
-        primary_product(
-            text,
-            replace(product, tokens=tuple(tokens)),
-            native_profile=controlled.selection().native,
-        ),
-        text,
-        controlled.vocab,
-    )
+    product = replace(product, tokens=tuple(tokens))
+    effective = AnnotationProfile(execution_profile=controlled.selection().native.fingerprint)
+    _native, primary = retained_products(source, frame, context, product, effective)
+    view = annotation_view(product, text, controlled.vocab)
     raw = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_text())["annotation_rules"]
     rule = AnnotationRule.model_validate(
         next(row for row in raw if row["variant"] == "constructive_copula")
@@ -681,7 +671,7 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
         passage,
         matches,
         scopes=definition_scopes(
-            matches, predicate_frame_result(view), content_role="defining_content"
+            matches, predicate_frames(frame.text, (product,), primary_products=(primary,)), content_role="defining_content"
         ),
         term_role="defined_term",
         content_role="defining_content",
@@ -704,12 +694,12 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         components_from_named_matches,
         definition_scopes,
     )
-    from corpus_structure.methods.predicate_frames import predicate_frame_result
+    from corpus_structure.methods.predicate_frames import predicate_frames
     from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.structural_products import StructuralPassage
 
     text = "mean - the mean is the sum of the data points divided by the number of data points."
-    request = item(controlled, text, start=364)
+    request, source, frame, context = selected_item(controlled, text, start=364, block_id="#/texts/1")
     (product,) = annotate((request,))
     heads = (4, 4, 3, 4, 4, 6, 4, 6, 10, 10, 7, 10, 11, 14, 12, 14, 17, 15, 4)
     deps = (
@@ -768,13 +758,10 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         )
         for i, (t, h, d, p) in enumerate(zip(product.tokens, heads, deps, pos, strict=True))
     )
-    view = annotation_view(
-        primary_product(
-            text, replace(product, tokens=tokens), native_profile=controlled.selection().native
-        ),
-        text,
-        controlled.vocab,
-    )
+    product = replace(product, tokens=tokens)
+    effective = AnnotationProfile(execution_profile=controlled.selection().native.fingerprint)
+    _native, primary = retained_products(source, frame, context, product, effective)
+    view = annotation_view(product, text, controlled.vocab)
     recipe = yaml.safe_load((DOMAINS / "statistics/construction.yaml").read_text())[
         "annotation_rules"
     ]
@@ -792,7 +779,7 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         passage,
         matches,
         scopes=definition_scopes(
-            matches, predicate_frame_result(view), content_role="defining_content"
+            matches, predicate_frames(frame.text, (product,), primary_products=(primary,)), content_role="defining_content"
         ),
         term_role="defined_term",
         content_role="defining_content",
