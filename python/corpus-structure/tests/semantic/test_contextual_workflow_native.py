@@ -5,7 +5,6 @@ literal matcher are controlled; this supplies no provider or scientific acceptan
 """
 
 from dataclasses import dataclass
-from functools import partial
 
 import pytest
 from sqlalchemy import text
@@ -117,13 +116,17 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
     from corpus_structure.semantic.demand_results import read_demand_result
 
     directory = tmp_path_factory.mktemp("current-contextual-workflow")
+
+    def stream(worker, original, **options):
+        return _section_stream((("text", TEXT, TEXT, None),), worker, original, **options)
+
     with (
         pytest.MonkeyPatch.context() as patch,
         _current_pdf_source(
             scenario_seeds,
             directory,
             patch,
-            stream=partial(_section_stream, (("text", TEXT, TEXT, None),)),
+            stream=stream,
             sections=("#/groups/0",),
         ) as source,
     ):
