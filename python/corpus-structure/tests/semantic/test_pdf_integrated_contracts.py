@@ -4,7 +4,9 @@ import pytest
 
 from corpus_structure.semantic.pdf_integrated import prepare_integrated_pdf_product
 from semantic.pdf_native_source_support import (
+    CELL_IDS,
     IMAGE,
+    ITEM_IDS,
     RESPONSE,
     mutate_selected,
     observation,
@@ -13,6 +15,25 @@ from semantic.pdf_native_source_support import (
 from semantic.pdf_native_source_support import independent_integrated as independent_integrated
 from semantic.pdf_native_source_support import native_source as native_source
 from semantic.pdf_native_source_support import pdf13_context as pdf13_context
+
+
+def test_integrated_roundtrip_preserves_full_distinct_inventory(
+    native_source, independent_integrated, pdf13_context,
+):
+    product = prepare(independent_integrated, native_source, context=pdf13_context)
+    actual = product.values()
+    assert {row["occurrence_id"] for row in actual["occurrences"]} == ITEM_IDS | CELL_IDS
+    assert actual["content"]["document"] == native_source.payload["document"]
+    repeated = [row for row in actual["occurrences"] if row["kind"] == "cell"]
+    assert [row["text"] for row in repeated] == ["equal", "equal"]
+    assert [row["cell_index"] for row in repeated] == [0, 1]
+    ambiguity = next(row for row in actual["relations"] if row["kind"] == "correspondence")
+    assert ambiguity["relation_id"] == "ambiguous-equal-spelling"
+    assert ambiguity["outcome"] == "ambiguous"
+    assert [(row["input_index"], row["occurrence_id"]) for row in ambiguity["endpoints"]] == [
+        (1, "block-0"), (1, "block-1"), (2, "block-0"), (2, "block-1"),
+    ]
+    assert actual["health"]["source_fidelity"] == "unassessed"
 
 
 def test_materialized_integrated_content_enforces_released_metadata_affinity(

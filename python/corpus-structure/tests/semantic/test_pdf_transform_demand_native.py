@@ -207,6 +207,8 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                 "usage",
                 "unknown-transform",
                 "late-coverage",
+                "wrong-input",
+                "complete-coverage",
                 "attempt",
                 "holder",
             )
@@ -247,6 +249,10 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                     forged["coverage"][0]["supports"] = [
                         {"input_index": len(value["inputs"]) + 99, "coverage_id": "absent-parent"}
                     ]
+                elif variant == "wrong-input":
+                    forged["inputs"][0]["content_digest"] = "f" * 64
+                elif variant == "complete-coverage":
+                    forged["coverage"][0]["outcome"] = "complete"
                 elif variant == "attempt":
                     selected_attempt += 1
                 else:
@@ -458,7 +464,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                             "holder": retained["producer_holder"],
                         },
                     )
-        assert valid_observations and len(rejected_observations) == 10 * len(valid_observations)
+        assert valid_observations and len(rejected_observations) == 12 * len(valid_observations)
         with clone.admin.connect() as connection:
             for task_id, key in rejected_observations:
                 for relation in (

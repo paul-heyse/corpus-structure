@@ -43,6 +43,7 @@ def test_every_current_integrated_companion_is_closed_under_its_real_claim(
         body = deepcopy(draft.companions["input"][0])
         body["task_id"] = str(body["task_id"])
         cases.append(("input-type", "input", body))
+        cases.append(("duplicate-occurrence", "occurrence", deepcopy(draft.companions["occurrence"][0])))
         for label, family, body in cases:
             # Exercise the installed publisher's actual guard with this command's
             # real fence. Each invalid staged row rolls back independently; no
@@ -59,43 +60,35 @@ def test_every_current_integrated_companion_is_closed_under_its_real_claim(
                         schema_digest=sha256(draft.schema_bytes).hexdigest(),
                         replay_key="closed-shape-probe:" + label,
                     )
-                    local = str(
-                        body.get(
-                            {
-                                "occurrence": "occurrence_id",
-                                "relation": "relation_id",
-                                "coverage": "coverage_id",
-                            }.get(family, ""),
-                            0,
-                        )
-                    )
-                    connection.execute(
-                        text(
+                    local = str(body.get({
+                        "occurrence": "occurrence_id", "relation": "relation_id",
+                        "coverage": "coverage_id",
+                    }.get(family, ""), 0))
+                    if label == "duplicate-occurrence":
+                        connection.execute(text(
                             "SELECT ops.adopt_pdf_companion(:build,:task,:attempt,:holder,:family,:local,"
                             "CAST(:body AS jsonb),:key,0,'{}'::jsonb)"
-                        ),
-                        dict(
-                            build=build.build_id,
-                            task=claim.task_id,
-                            attempt=claim.attempt,
-                            holder=holder,
-                            family=family,
-                            local=local,
-                            body=canonical_bytes(body).decode(),
-                            key="negative:" + label,
-                        ),
-                    )
+                        ), dict(build=build.build_id, task=claim.task_id, attempt=claim.attempt,
+                                holder=holder, family=family, local=local,
+                                body=canonical_bytes(body).decode(), key="negative:first-occurrence"))
+                        body["text"] = "changed companion duplicate"
+                    connection.execute(text(
+                        "SELECT ops.adopt_pdf_companion(:build,:task,:attempt,:holder,:family,:local,"
+                        "CAST(:body AS jsonb),:key,0,'{}'::jsonb)"
+                    ), dict(build=build.build_id, task=claim.task_id, attempt=claim.attempt,
+                            holder=holder, family=family, local=local,
+                            body=canonical_bytes(body).decode(), key="negative:" + label))
                 assert isinstance(error.value.orig, psycopg.Error)
                 assert (error.value.orig.sqlstate, error.value.orig.diag.message_primary) == (
-                    "23514",
-                    "parsing record shape differs: " + classes[family],
+                    "23514", "changed companion duplicate" if label == "duplicate-occurrence"
+                    else "parsing record shape differs: " + classes[family],
                 )
             refused.append(label)
 
     with current_integration_journey(
         scenario_seeds, tmp_path, monkeypatch, native_settings, before_draft=check
     ) as case:
-        assert len(refused) == 7
+        assert len(refused) == 8
         with case.reader().connect() as connection:
             with pytest.raises(DBAPIError) as error, connection.begin_nested():
                 connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build"))
