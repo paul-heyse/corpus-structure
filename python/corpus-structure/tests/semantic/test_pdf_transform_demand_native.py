@@ -37,10 +37,12 @@ from corpus_structure.semantic.pdf_effect_contract import (
     PDF_RECOGNITION_EFFECT,
     PDF_RECOGNITION_FACTORY,
 )
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.runtime import open_runtime_engine
 from semantic.current_pdf_integration_support import current_pdf_recipe
 from semantic.data_operation_kernel_support import Kernel
 from semantic.data_operation_original_support import OriginalSeedRecipe
+from semantic.pdf_logical_meaning_support import assert_published_target_meaning
 from semantic.pdf_native_source_support import IMAGE
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -394,6 +396,15 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                 assert retained["data_generation"] == retained["generation"]
                 (receipt,) = retained["payload"]["execution_evidence"]["pdf_receipts"]
                 assert receipt["publication"]["task_id"] == retained["producer_task_id"]
+                publication = receipt["publication"]
+                assert_published_target_meaning(
+                    connection,
+                    ProductReference(
+                        publication["task_id"],
+                        publication["product_key"],
+                        publication["logical_digest"],
+                    ),
+                )
                 receipts.append((receipt, retained))
             observed = (
                 connection.execute(

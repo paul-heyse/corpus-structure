@@ -255,17 +255,24 @@ def _process_diagnostic(directory_fd: int, *, settled: bool, chars: int) -> Proc
         with os.fdopen(descriptor, "rb") as stream:
             info = os.fstat(stream.fileno())
             if not stat.S_ISREG(info.st_mode):
-                return ProcessDiagnostic(availability="unavailable", reason="stderr is not a regular file")
+                return ProcessDiagnostic(
+                    availability="unavailable", reason="stderr is not a regular file"
+                )
             if info.st_size > 65536:
                 return ProcessDiagnostic(
-                    availability="omitted", source_bytes=info.st_size,
+                    availability="omitted",
+                    source_bytes=info.st_size,
                     reason="complete process stderr exceeds the 64KiB diagnostic limit",
                 )
             content = stream.read(65537)
             if len(content) != info.st_size or os.fstat(stream.fileno()).st_size != info.st_size:
-                return ProcessDiagnostic(availability="unavailable", reason="process stderr changed during read")
+                return ProcessDiagnostic(
+                    availability="unavailable", reason="process stderr changed during read"
+                )
     except OSError:
-        return ProcessDiagnostic(availability="unavailable", reason="process stderr is missing or inaccessible")
+        return ProcessDiagnostic(
+            availability="unavailable", reason="process stderr is missing or inaccessible"
+        )
     # Redact the complete bounded input before clipping so a credential cannot
     # escape redaction merely because the display boundary cuts through it.
     text = safe_text(content.decode("utf-8", errors="replace")).strip()
@@ -389,7 +396,9 @@ class FailureLane(BaseModel):
     reporting_errors_truncated: bool = False
     rust: RustEvidence | None = None
     startup: StartupDiagnostic | None = None
-    process_diagnostic: ProcessDiagnostic | None = Field(default=None, exclude_if=lambda value: value is None)
+    process_diagnostic: ProcessDiagnostic | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     selection_change: RetrySelectionChange | None = None
 
 
@@ -1502,7 +1511,9 @@ def failures(
                 else None,
                 process_diagnostic=_process_diagnostic(
                     fd, settled=not report["custody_unsettled"], chars=diagnostic_chars
-                ) if process_diagnostic else None,
+                )
+                if process_diagnostic
+                else None,
                 selection_change=RetrySelectionChange.model_validate(change)
                 if (change := manifest.details.get("retry_selection_changes", {}).get(name))
                 is not None

@@ -514,11 +514,19 @@ def _read_selected_observations(value, binding, execution_owner, selected, check
     detached = []
     check_active()
     with execution_owner.engine.connect() as connection:
-        authenticated = connection.scalar(select(
-            func.ops.ddo_pdf_observation_source(claim.request_id, binding.subject_context.project_id,
-                members[0].product, members[0].support_episodes[0])
-        ))
-        receipt = PdfObservationExecutionReceipt.model_validate_json(canonical_bytes(authenticated["receipt"]))
+        authenticated = connection.scalar(
+            select(
+                func.ops.ddo_pdf_observation_source(
+                    claim.request_id,
+                    binding.subject_context.project_id,
+                    members[0].product,
+                    members[0].support_episodes[0],
+                )
+            )
+        )
+        receipt = PdfObservationExecutionReceipt.model_validate_json(
+            canonical_bytes(authenticated["receipt"])
+        )
         if authenticated["value"] != value:
             raise ValueError("selected observation value differs from actual native adoption")
         final = {page["page_no"]: page["outcome"] for page in value["pages"]}

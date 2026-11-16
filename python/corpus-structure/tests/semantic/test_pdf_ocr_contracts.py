@@ -323,18 +323,27 @@ def test_word_shape_does_not_admit_rotation_or_unbounded_confidence():
 def current_candidate_page(value):
     from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
 
-    return CandidatePage(page_no=value["page_no"], has_words=value["has_words"],
-        has_chars=value["has_chars"], has_vectors=value["has_vectors"],
+    return CandidatePage(
+        page_no=value["page_no"],
+        has_words=value["has_words"],
+        has_chars=value["has_chars"],
+        has_vectors=value["has_vectors"],
         native_text_quality=value["native_text_quality"],
         candidates=tuple(InlineCandidate.from_wire(row) for row in value["candidates"]),
-        ocr_regions=tuple(value["ocr_regions"]))
+        ocr_regions=tuple(value["ocr_regions"]),
+    )
 
 
 @pytest.mark.parametrize("partial", [False, True])
 def test_public_native_writer_checks_word_custody_and_retains_partial(
-    scenario_seeds, tmp_path, monkeypatch, native_settings, partial,
+    scenario_seeds,
+    tmp_path,
+    monkeypatch,
+    native_settings,
+    partial,
 ):
     from dataclasses import replace
+
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from semantic.current_pdf_integration_support import current_integration_journey
 
@@ -350,11 +359,22 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         if not partial or draft.product_key != "organized":
             return
         assert draft.metadata["inline_candidate_pages"]
-        malformed = replace(draft, product_key="invalid-complete-word-coverage", metadata={
-            **draft.metadata, "recognition_coverage": (dict(section_pointer="#/body",
-                membership="descendants", universe="inline", outcome="complete",
-                policy="native-font-token-vector-ocr-word-v3"),),
-        })
+        malformed = replace(
+            draft,
+            product_key="invalid-complete-word-coverage",
+            metadata={
+                **draft.metadata,
+                "recognition_coverage": (
+                    dict(
+                        section_pointer="#/body",
+                        membership="descendants",
+                        universe="inline",
+                        outcome="complete",
+                        policy="native-font-token-vector-ocr-word-v3",
+                    ),
+                ),
+            },
+        )
         # One finite invalid publication under the actual organization claim.
         # Its writer/validation transaction settles before ordinary publication;
         # no caller-wide transaction holds support locks across other probes.
@@ -362,28 +382,49 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
             publish(engine, claim, holder, malformed, **arguments)
         refused.append("complete-word-inventory")
 
-    with current_integration_journey(scenario_seeds, tmp_path, monkeypatch, native_settings,
-        candidate_pages=(current_candidate_page(supplied),), before_draft=complete_scope_probe) as case:
+    with current_integration_journey(
+        scenario_seeds,
+        tmp_path,
+        monkeypatch,
+        native_settings,
+        candidate_pages=(current_candidate_page(supplied),),
+        before_draft=complete_scope_probe,
+    ) as case:
         assert refused == (["complete-word-inventory"] if partial else [])
         with case.reader().connect() as connection:
             for key in ("native", "organized", "integrated"):
-                reader = published_record_reader(connection, case.publications[key],
-                    projection_context=case.prepared)
+                reader = published_record_reader(
+                    connection, case.publications[key], projection_context=case.prepared
+                )
                 assert reader is not None
                 assert list(reader.native_metadata("inline_candidate_pages")) == [supplied]
                 retained = reader.product_descriptor()
                 assert retained["revision"]["source_digest"] == case.original.content_hash
         if partial:
             from sqlalchemy import text
+
             with case.clone.admin.connect() as connection:
-                assert connection.scalar(text(
-                    "SELECT count(*) FROM ops.pdf_published_revision WHERE task_id=:task AND product_key='invalid-complete-word-coverage'"
-                ), {"task": case.claims["organized"].task_id}) == 0
+                assert (
+                    connection.scalar(
+                        text(
+                            "SELECT count(*) FROM ops.pdf_published_revision WHERE task_id=:task AND product_key='invalid-complete-word-coverage'"
+                        ),
+                        {"task": case.claims["organized"].task_id},
+                    )
+                    == 0
+                )
 
 
-@pytest.mark.parametrize("mutation,diagnostic", [("transform", "raster-to-PDF"), ("address", "estimated-word address")])
+@pytest.mark.parametrize(
+    "mutation,diagnostic", [("transform", "raster-to-PDF"), ("address", "estimated-word address")]
+)
 def test_actual_capture_refuses_forged_ocr_word_geometry_and_address(
-    scenario_seeds, tmp_path, monkeypatch, native_settings, mutation, diagnostic,
+    scenario_seeds,
+    tmp_path,
+    monkeypatch,
+    native_settings,
+    mutation,
+    diagnostic,
 ):
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
     from semantic.current_pdf_integration_support import current_integration_journey
@@ -393,10 +434,17 @@ def test_actual_capture_refuses_forged_ocr_word_geometry_and_address(
         malformed["ocr_regions"][0]["lines"][0]["words"][0]["left"] += 1
     else:
         malformed["candidates"][0].pop("ocr_word_index")
-    with pytest.raises(NativeDemandExecutionError) as refused:
-        with current_integration_journey(scenario_seeds, tmp_path, monkeypatch, native_settings,
-                candidate_pages=(current_candidate_page(malformed),)):
-            pytest.fail("invalid captured word custody unexpectedly published")
+    with (
+        pytest.raises(NativeDemandExecutionError) as refused,
+        current_integration_journey(
+            scenario_seeds,
+            tmp_path,
+            monkeypatch,
+            native_settings,
+            candidate_pages=(current_candidate_page(malformed),),
+        ),
+    ):
+        pytest.fail("invalid captured word custody unexpectedly published")
     assert any(diagnostic in str(failure) for failure in refused.value.failures)
 
 
