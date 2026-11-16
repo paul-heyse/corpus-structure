@@ -203,8 +203,6 @@ def occurrence_id(source: Mapping[str, Any], extents: Sequence[Mapping[str, Any]
     ).hexdigest()
 
 
-
-
 def _acyclic(edges: Mapping[str, Sequence[str]], label: str) -> None:
     from .graph_runtime import nx
     from .graph_topology import cyclic_components

@@ -56,14 +56,16 @@ def _validate(body):
     )
 
 
-
 @pytest.fixture(scope="module")
 def navigation_product():
     from annotation_support import ControlledPipeline, selected_item
     from methods.navigation_fixture import source_primary_products
 
     from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.semantic.data_product_reference import DataProductReference, member_reference
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductReference,
+        member_reference,
+    )
 
     controlled = ControlledPipeline()
     text = "Table 5.1 (numbering namespace: Main)"
@@ -71,8 +73,9 @@ def navigation_product():
         controlled, text, start=0, block_id="#/texts/1"
     )
     # Controlled columns, without inference or a provider execution claim.
-    from corpus_structure.ingest.annotations import annotate
     from unittest.mock import patch
+
+    from corpus_structure.ingest.annotations import annotate
 
     profile = AnnotationProfile(execution_profile=controlled.selection().native.fingerprint)
     with patch("corpus_structure.ingest.annotations.pipeline", return_value=controlled):

@@ -70,10 +70,7 @@ def validate_formal_evidence(indexes):
                 raise ValueError("normalized correspondence requires literal source support")
             if normalized_input and any(
                 not any(
-                    all(
-                        e.get(key) == p.get(key)
-                        for key in ("projection", "native_pointer")
-                    )
+                    all(e.get(key) == p.get(key) for key in ("projection", "native_pointer"))
                     and all(key in extent for extent in (p, e) for key in ("start", "end"))
                     and p["start"] <= e["start"] <= e["end"] <= p["end"]
                     for p in parent_extents

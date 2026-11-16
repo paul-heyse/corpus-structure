@@ -7,8 +7,8 @@ import pytest
 from corpus_structure.semantic.structural_admission import structural_claim_id, structural_statement
 from corpus_structure.semantic.structural_products import (
     DeclaredDossierMember,
-    LocatedDefinitionSpan,
     DeclaredStructuralProductReport,
+    LocatedDefinitionSpan,
     declared_definition_component,
 )
 from semantic.structural_admission_support import (
@@ -56,8 +56,8 @@ def test_scope_and_outcome_are_semantic():
 
 
 def test_dossier_complete_membership_does_not_depend_on_display():
-    from semantic.structural_admission_support import component_reference
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralRef
+    from semantic.structural_admission_support import component_reference
 
     root = component_reference()
     predecessor = DeclaredStructuralRef.model_validate(root.model_dump(exclude={"component_id"}))
@@ -80,8 +80,14 @@ def test_dossier_complete_membership_does_not_depend_on_display():
     )
     from corpus_structure.methods.structural_products import select_dossier
 
-    report = select_dossier(inputs(), root_id=root.component_id, root_component=root,
-                            predecessors=(predecessor,), members=members, member_budget=3)
+    report = select_dossier(
+        inputs(),
+        root_id=root.component_id,
+        root_component=root,
+        predecessors=(predecessor,),
+        members=members,
+        member_budget=3,
+    )
     statement = structural_statement(report)
     assert len(statement["dossier"]["members"]) == 3
     assert statement["dossier"]["admission_scope"] == "membership_assembly_not_member_truth"
@@ -92,8 +98,6 @@ def test_dossier_complete_membership_does_not_depend_on_display():
     assert structural_statement(displayed) == statement
 
 
-
-
 def test_definition_attachment_fact_identity_excludes_interpretation_proof_and_retrieval():
     from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsProduct
 
@@ -101,7 +105,9 @@ def test_definition_attachment_fact_identity_excludes_interpretation_proof_and_r
     report = DeclaredStructuralProductReport(
         kind="definition_components",
         inputs=inputs(),
-        definition_components=DeclaredDefinitionComponentsProduct(components=(component,), stages=()),
+        definition_components=DeclaredDefinitionComponentsProduct(
+            components=(component,), stages=()
+        ),
     )
     meaning = component.model_dump(exclude={"component_id"})
     meaning.update(basis="matched_cue", alternatives=("another-private-proposal",))
@@ -111,7 +117,9 @@ def test_definition_attachment_fact_identity_excludes_interpretation_proof_and_r
             "inputs": report.inputs.model_copy(
                 update={"inventory_id": "new-inventory", "policy_id": "new-nomination-policy"}
             ),
-            "definition_components": DeclaredDefinitionComponentsProduct(components=(revised,), stages=()),
+            "definition_components": DeclaredDefinitionComponentsProduct(
+                components=(revised,), stages=()
+            ),
         }
     )
     assert report.product_id != after.product_id

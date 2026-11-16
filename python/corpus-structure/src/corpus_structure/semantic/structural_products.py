@@ -1411,8 +1411,7 @@ def _dossier_member_invariants(value: Any) -> Any:
         raise ValueError("supported member requires its independent assessment reference")
     if value.comparison_binding is not None and (
         value.contribution_ref is not None
-        or value.comparison_binding.comparison_ref.structural_id
-        != value.relation_product_id
+        or value.comparison_binding.comparison_ref.structural_id != value.relation_product_id
         or value.comparison_binding.root.component_id != value.sense
         or value.comparison_binding.citation.passage_id != value.passage_id
     ):

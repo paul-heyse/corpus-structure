@@ -258,7 +258,9 @@ def test_current_grouped_comparison_preserves_encoded_condition_fields():
         item for item in decoded.comparison.dimensions if item.dimension == "condition"
     )
     assert dimension.left_group is not None
-    assert source_python(dimension.left_group.members[0].condition) == condition
+    retained_condition = dimension.left_group.members[0].condition
+    assert retained_condition is not None
+    assert source_python(retained_condition) == condition
 
 
 def test_nested_released_schema_uses_each_exact_release_constraint():

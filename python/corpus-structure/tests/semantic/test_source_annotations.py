@@ -380,6 +380,4 @@ def test_current_annotation_validator_refuses_invalid_retained_populations(
     elif mutation == "duplicate_block":
         value["blocks"].append(copy.deepcopy(block))
     with pytest.raises(ValueError, match=message):
-        validate_source_annotations(
-            prepared, model, value, source, configuration=configuration
-        )
+        validate_source_annotations(prepared, model, value, source, configuration=configuration)

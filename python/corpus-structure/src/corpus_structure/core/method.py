@@ -363,11 +363,7 @@ class UnitResult:
         match self.outcome:
             case ObservationOutcome.PRODUCED:
                 ok = (
-                    bool(
-                        self.observations
-                        or self.records
-                        or self.contributions
-                    )
+                    bool(self.observations or self.records or self.contributions)
                     and self.error is None
                 )
             case ObservationOutcome.EMPTY:

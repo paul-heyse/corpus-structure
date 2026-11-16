@@ -18,7 +18,6 @@ from corpus_structure.semantic.artifact_identity import (
     normalized_code,
     predict_artifact_pairs,
 )
-
 from corpus_structure.semantic.structural_products import DeclaredArtifactIdentityProduct
 
 PREDICTION_THRESHOLDS = (0.25, 0.5, 0.75)

@@ -10,12 +10,8 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, replace
 from typing import Literal
 
-
 from corpus_structure.methods.contextual_embeddings import identity
 from corpus_structure.semantic.contextual_retrieval import CandidateList, FrozenInventory
-
-
-
 
 RelationKind = Literal[
     "denotes",

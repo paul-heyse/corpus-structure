@@ -23,15 +23,13 @@ from corpus_structure.methods.predicate_frames import (
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DeclaredDefinitionBasisWitness,
+    DeclaredLocatedDefinitionComponent,
     DefinitionOutcome,
     DefinitionRoleCandidate,
-    DeclaredLocatedDefinitionComponent,
     LocatedDefinitionSpan,
     StructuralPassage,
     declared_definition_component,
 )
-
-
 
 
 class LocatedDefinitionQuestion(Protocol):
@@ -645,10 +643,6 @@ def definition_windows(passage: StructuralPassage, cfg: LocatedDefinitionQuestio
     return tuple(windows)
 
 
-
-
-
-
 def is_defining_occurrence(inputs, usage, component, relation):
     """An introduction is not a transfer to another occurrence or parameter context."""
     term = component.term
@@ -661,8 +655,6 @@ def is_defining_occurrence(inputs, usage, component, relation):
         and usage.scope == component.scope
         and usage.effective_version == component.effective_version
     )
-
-
 
 
 @dataclass(frozen=True)

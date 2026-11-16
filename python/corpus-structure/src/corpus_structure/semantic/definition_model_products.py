@@ -98,7 +98,6 @@ def decode_definition_window(raw, window, profile, *, envelope, options=None):
         located_definition_roles,
     )
 
-
     options = DefinitionExtractionOptions() if options is None else options
     question: Any = DefinitionQuestion(
         profile,

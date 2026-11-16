@@ -7,8 +7,8 @@ import pytest
 from corpus_structure.methods.structural_products import derive_dossier_members
 from corpus_structure.semantic.structural_products import (
     DeclaredStructuralProductReport,
-    read_structural_product_report,
     declared_definition_component,
+    read_structural_product_report,
 )
 from semantic.dossier_comparison_bindings_support import (
     fixture as fixture,

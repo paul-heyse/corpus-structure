@@ -1,15 +1,15 @@
 """Shared controlled inputs and builders for structural admission support."""
 
 from corpus_structure.semantic.declared_structural_references import DeclaredRelationshipRef
-from semantic.structural_products_support import input_from_passages, root_references
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DeclaredDefinitionProduct,
-    LocatedDefinitionSpan,
     DeclaredStructuralDefinitionReading,
     DeclaredStructuralProductReport,
+    LocatedDefinitionSpan,
     declared_definition_component,
 )
+from semantic.structural_products_support import input_from_passages, root_references
 
 
 def inputs():
@@ -36,8 +36,11 @@ def component_reference():
 def relationship_reference():
     root = component_reference()
     return DeclaredRelationshipRef(
-        **{key: value for key, value in root.model_dump().items()
-           if key not in {"component_id", "structural_id"}},
+        **{
+            key: value
+            for key, value in root.model_dump().items()
+            if key not in {"component_id", "structural_id"}
+        },
         edge_id="fixture:definition-edge",
     )
 

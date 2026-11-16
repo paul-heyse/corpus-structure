@@ -414,11 +414,7 @@ class LayerProjection:
             if "family" in row
             else [item["family"] for item in body.get("coverage", ())],
             extents=[
-                {
-                    k: e[k]
-                    for k in ("projection", "native_pointer", "start", "end")
-                    if k in e
-                }
+                {k: e[k] for k in ("projection", "native_pointer", "start", "end") if k in e}
                 for e in extents
             ],
             value={k: v for k, v in row.items() if k != "local_id"},

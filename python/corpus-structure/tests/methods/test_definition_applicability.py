@@ -5,39 +5,59 @@ from itertools import pairwise
 from typing import Literal
 
 import pytest
+from semantic.structural_products_support import input_from_passages, root_references
 
 from corpus_structure.methods.annotation_rules import AnnotationRuleMatch, LocatedRole
 from corpus_structure.methods.definition_applicability import (
     DefinitionScope,
+    applicability_assessment,
     components_from_named_matches,
     decode_definition_components,
     definition_pack,
 )
 from corpus_structure.methods.gliner import GlinerRefused
-from corpus_structure.semantic.declared_structural_references import DeclaredRelationshipRef, DeclaredProductRef
-from corpus_structure.semantic.definition_model_products import DefinitionQuestion, DefinitionExtractionOptions, decode_definition_window
-from corpus_structure.semantic.definition_applicability_products import DeclaredApplicabilityCandidate
-from corpus_structure.methods.definition_applicability import applicability_assessment
-from semantic.structural_products_support import input_from_passages, root_references
+from corpus_structure.semantic.declared_structural_references import (
+    DeclaredProductRef,
+    DeclaredRelationshipRef,
+)
+from corpus_structure.semantic.definition_applicability_products import (
+    DeclaredApplicabilityCandidate,
+)
+from corpus_structure.semantic.definition_model_products import (
+    DefinitionExtractionOptions,
+    DefinitionQuestion,
+    decode_definition_window,
+)
 from corpus_structure.semantic.structural_admission import structural_statement
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DeclaredDefinitionBasisWitness,
     DeclaredDefinitionComponentsProduct,
-    StructuralPassage,
     DeclaredStructuralProductReport,
+    StructuralPassage,
 )
 
 
 def inputs(text="We call the expected squared deviation variance."):
     return input_from_passages(
         (
-            dict(document="definition-original", passage_id="target", start=10,
-                 text=text, parent="test-parent"),
-            dict(document="definition-original", passage_id="usage", start=max(100, 20 + len(text)),
-                 text="variance", parent="test-parent"),
+            dict(
+                document="definition-original",
+                passage_id="target",
+                start=10,
+                text=text,
+                parent="test-parent",
+            ),
+            dict(
+                document="definition-original",
+                passage_id="usage",
+                start=max(100, 20 + len(text)),
+                text="variance",
+                parent="test-parent",
+            ),
         ),
-        question="What is defined?", scope="s",
+        question="What is defined?",
+        scope="s",
     )
 
 
@@ -79,8 +99,11 @@ def reference():
 def link_reference():
     root = reference()
     return DeclaredRelationshipRef(
-        **{key: value for key, value in root.model_dump().items()
-           if key not in {"component_id", "structural_id"}},
+        **{
+            key: value
+            for key, value in root.model_dump().items()
+            if key not in {"component_id", "structural_id"}
+        },
         edge_id="fixture:definition-edge",
     )
 
@@ -97,8 +120,6 @@ def premises(
         )
         for d in ("sense", "parameterization", "convention")
     )
-
-
 
 
 def test_target_local_pack_qualifies_attributes_without_whole_pair_labels():
@@ -184,9 +205,7 @@ def test_applicability_is_separate_and_unknown_premises_preserve_component():
     assert applicability_assessment(inputs(), "usage", candidate).outcome == "unresolved"
     assert candidate.component.term.text == "variance"
     assert (
-        applicability_assessment(
-            inputs(), "usage", replace(candidate, premises=premises())
-        ).outcome
+        applicability_assessment(inputs(), "usage", replace(candidate, premises=premises())).outcome
         == "applicable_definition"
     )
     assert (
@@ -319,8 +338,6 @@ def test_definition_introduction_does_not_transfer_to_other_occurrences():
         defined,
         "defined-by",
     )
-
-
 
 
 def test_definition_windows_bound_model_work_and_preserve_original_coordinates(monkeypatch):
@@ -458,13 +475,19 @@ def test_current_window_retains_valid_attachment_and_indexed_raw_error():
     returned["relation_extraction"]["term is defined or explained by"].append(
         {"head": relation["tail"], "tail": relation["head"]}
     )
-    decoded = decode_definition_window(returned, passage, None, envelope="unadmitted:literal-response")
+    decoded = decode_definition_window(
+        returned, passage, None, envelope="unadmitted:literal-response"
+    )
     assert len(decoded["components"]) == 1
     assert decoded["components"][0]["term"]["text"] == "variance"
     assert len(decoded["role_candidates"]) == 2
     assert decoded["errors"] == [
-        dict(channel="attachment", index=1, type="GlinerRefused",
-             reason="attachment endpoints lack the declared decoded roles")
+        dict(
+            channel="attachment",
+            index=1,
+            type="GlinerRefused",
+            reason="attachment endpoints lack the declared decoded roles",
+        )
     ]
 
 
@@ -567,9 +590,14 @@ def test_introduction_policy_label_is_not_an_actual_introduction_binding():
     assert next(p.state for p in introduction.premises if p.dimension == "parent") == "inapplicable"
 
 
-
-
-@pytest.mark.parametrize("options", [dict(term_entity="same", content_entity="same"), dict(description_arm="invented"), dict(evaluation_overlap="invented")])
+@pytest.mark.parametrize(
+    "options",
+    [
+        dict(term_entity="same", content_entity="same"),
+        dict(description_arm="invented"),
+        dict(evaluation_overlap="invented"),
+    ],
+)
 def test_current_extraction_options_reject_unsupported_questions(options):
     with pytest.raises(ValueError, match="explicit distinct roles and supported"):
         DefinitionExtractionOptions(**options)

@@ -11,7 +11,6 @@ from hashlib import sha256
 from itertools import pairwise
 from typing import Literal
 
-
 from corpus_structure.semantic.formal_readings import (
     FormalSourceReadings,
     comparison_basis_readings,
@@ -23,15 +22,15 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     MANDATORY_ROLES,
-    DeclaredClauseField,
     ComparisonLiteral,
     ComparisonMemberDecision,
+    DeclaredClauseField,
+    DeclaredDimensionComparison,
+    DeclaredRevisionSuccession,
     DeclaredStructuralProductReport,
     Dimension,
-    DeclaredDimensionComparison,
     LocatedDefinitionSpan,
     MemberRole,
-    DeclaredRevisionSuccession,
 )
 
 
@@ -494,9 +493,7 @@ def _threshold_inventory(passage, source, primary_layers):
                     basis_evidence=None
                     if basis is None
                     else _located(passage, basis.text, basis.start - passage.start),
-                    primary_basis=None
-                    if basis is None
-                    else _declared_primary(basis.reference),
+                    primary_basis=None if basis is None else _declared_primary(basis.reference),
                 ),
             )
         )
@@ -547,9 +544,7 @@ def _literal_reading(span, source, primary_layers):
     else:
         return None, None
     try:
-        return ComparisonLiteral.model_validate(literal), _declared_primary(
-            field.reference
-        )
+        return ComparisonLiteral.model_validate(literal), _declared_primary(field.reference)
     except ValueError:
         # Exact primary syntax remains available outside this bounded domain projection.
         return None, None
@@ -583,7 +578,6 @@ def _group_fields(passage, members, incomplete, *, source=None, primary_layers=N
     from corpus_structure.semantic.structural_products import (
         DeclaredClauseFieldGroup,
     )
-
 
     def extents(member):
         if member.spans is not None:
@@ -626,10 +620,7 @@ def _group_fields(passage, members, incomplete, *, source=None, primary_layers=N
         grouping="conjunction" if words == {"and"} else "disjunction",
         members=ordered,
         witnesses=tuple(connectors),
-        primary_witnesses=tuple(
-            _declared_primary(fact.reference)
-            for fact in facts
-        ),
+        primary_witnesses=tuple(_declared_primary(fact.reference) for fact in facts),
     )
 
 
@@ -747,7 +738,9 @@ def read_retained_clause(
     for dimension, value in context_fields:
         if value is not None:
             members[dimension].append(
-                DeclaredClauseField(dimension=dimension, lexical_value=value, evidence=(passage.passage_id,))
+                DeclaredClauseField(
+                    dimension=dimension, lexical_value=value, evidence=(passage.passage_id,)
+                )
             )
     # A threshold has authority only in the admitted focus or a located condition.
     controls = [
@@ -936,18 +929,13 @@ def dossier_root(reference, retained):
     )
 
     selected_ref = DeclaredStructuralRef.model_validate(
-        reference.model_dump(
-            exclude={"component_id"}
-        )
+        reference.model_dump(exclude={"component_id"})
     )
     for ref, payload in retained:
         if ref != selected_ref:
             continue
         report = read_structural_product_report(payload["report"])
-        if (
-            report.product_id == ref.structural_id
-            and report.definition_components is not None
-        ):
+        if report.product_id == ref.structural_id and report.definition_components is not None:
             for component in report.definition_components.components:
                 if component.component_id == reference.component_id:
                     return component
@@ -1453,18 +1441,12 @@ def produce_condition_qualification(inputs, *, attachment, retained):
     )
 
 
-
-
-
-
-
-
 def condition_qualification(inputs, attachment, retained):
     """Project only the condition and the declared host predicate, under retained custody."""
     from corpus_structure.semantic.observations import source_python
     from corpus_structure.semantic.structural_products import (
-        DeclaredConditionQualificationProduct,
         ConditionRoleCitation,
+        DeclaredConditionQualificationProduct,
     )
 
     rows = {row["contribution_id"]: row for row in retained["contributions"]}
@@ -1481,9 +1463,7 @@ def condition_qualification(inputs, attachment, retained):
         component["host_contribution_id"],
     )
     version = component["question_version"]
-    effective = (
-        inputs.passages[0].effective_version
-    )
+    effective = inputs.passages[0].effective_version
     primary_scope = component["scope"]
     primary_version = component.get("effective_version")
     relation_kind = component["qualifier_kind"]

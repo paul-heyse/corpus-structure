@@ -513,7 +513,9 @@ def test_author_witness_graph_enforces_budget_before_full_closure():
 def _selected_member_projection(annotations):
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_product_reference import DataProductReference
-    from corpus_structure.semantic.declared_formal_readings import SelectedCharacterizationInventories
+    from corpus_structure.semantic.declared_formal_readings import (
+        SelectedCharacterizationInventories,
+    )
 
     # Literal current member packets test retained reading, without an admission/provider claim.
     source = dict(document="document:control", projection="c" * 64)
@@ -539,9 +541,7 @@ def _selected_member_projection(annotations):
     inventories = SelectedCharacterizationInventories(
         {PIN["product_id"]: dict(canonical_body=semantic_value(body))}
     )
-    return LayerProjection(
-        lambda pin: inventories[DataProductReference(pin["product_id"])].payload
-    )
+    return LayerProjection(lambda pin: inventories[DataProductReference(pin["product_id"])].payload)
 
 
 @pytest.mark.parametrize(
