@@ -1618,38 +1618,3 @@ def pdf_record_logical_identity_sql() -> str:
     return sql.replace("'{pdf_payload_profile}'", _quote(PROFILE)).replace(
         "'{pdf_payload_family}'", _quote(FAMILY)
     )
-
-
-def source_view_sql() -> str:
-    # Existing source guards consume the same published-only item authority.
-    source = Path(__file__).with_name("sql") / "source_views.sql"
-    from .native_shapes import record_shape_guards
-    from .pdf_contracts import trusted_pdf_context
-
-    view_sql = (
-        source.read_text()
-        .replace("ops.integrated_source_context(", "ops.record_integrated_source_context(")
-        .replace(
-            "-- {source_view_shape_guard}",
-            record_shape_guards(
-                trusted_pdf_context().boundary, "PdfSourceViewPublication", "product"
-            ),
-        )
-    )
-    view_sql = (
-        view_sql.replace("kb.native_document_item", "ops.pdf_published_item")
-        .replace("kb.native_document_region", "ops.pdf_published_region")
-        .replace("kb.native_document_coverage", "ops.pdf_published_coverage")
-    )
-    marker = " SELECT * INTO STRICT native FROM ops.pdf_selected_product WHERE \
-task_id=(product->>'native_task_id')::bigint AND product_key=product->>'native_product_key' AND \
-content_digest=product->>'native_content_digest';"
-    view_sql = view_sql.replace(
-        marker,
-        marker
-        + "\n IF EXISTS(SELECT FROM ops.pdf_published_revision WHERE task_id=native.task_id AND \
-product_key=native.product_key AND logical_digest=native.content_digest) THEN \
-native.health:=ops.pdf_record_scope_health(native.task_id,native.product_key,native.content_diges\
-t,ARRAY(SELECT jsonb_array_elements_text(projection->'items'))); END IF;",
-    )
-    return view_sql
