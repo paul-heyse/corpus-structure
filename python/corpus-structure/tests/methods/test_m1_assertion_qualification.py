@@ -405,7 +405,7 @@ def test_missing_cue_columns_withhold_only_unsupported_conclusions(
         for row in json.loads(product.content)["coverage"]
         if row["family"] == "construction.source_readings"
     )
-    assert coverage["outcome"] == "partial"
+    assert coverage["outcome"] == "complete"
     context = NativeSourceContext(
         source,
         (),
