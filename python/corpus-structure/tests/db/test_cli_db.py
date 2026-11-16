@@ -9,13 +9,14 @@ import sys
 from typing import Any
 
 import pytest
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
 from corpus_structure.core.db import extensions
 from corpus_structure.core.db.ownership import DatabaseReservation
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
-from corpus_structure.semantic.migrations import head_revision
+from corpus_structure.semantic.migrations import alembic_config, head_revision
 from corpus_structure.settings import Settings
 from native_test_support import database_name
 
@@ -34,6 +35,8 @@ def test_init_creates_and_migrates_then_migrate_reports(
     cli: Any, native_server: Any, semantic_absent_database: DatabaseReservation
 ) -> None:
     name = semantic_absent_database.name
+    head = head_revision()
+    assert head is not None
     made = cli(
         "db",
         "init",
@@ -47,8 +50,10 @@ def test_init_creates_and_migrates_then_migrate_reports(
     assert report["database"] == name and report["created"] is True
     assert report["revision"] == report["head"] == head_revision()
     assert report["model_revision"] == PHYSICAL_MODEL_ID
-    assert report["applied"][0] == "semantic_0001"
-    assert report["applied"][-1] == head_revision()
+    scripts = ScriptDirectory.from_config(alembic_config())
+    assert report["applied"] == [
+        item.revision for item in reversed(list(scripts.iterate_revisions(head, "base")))
+    ]
     again = cli("db", "migrate", "--json", settings=lambda: settings(native_server, name))
     assert again.exit_code == 0, again.stderr
     assert json.loads(again.stdout)["applied"] == []
@@ -60,7 +65,7 @@ def test_init_refuses_a_missing_template(
     cli: Any, native_server: Any, semantic_absent_database: DatabaseReservation
 ) -> None:
     name = semantic_absent_database.name
-    result = cli("db", "init", settings=lambda: settings(native_server, name, "no_such_template"))
+    result = cli("db", "init", "--creation-only", settings=lambda: settings(native_server, name, "no_such_template"))
     assert result.exit_code == 1
     assert "the template 'no_such_template' is missing" in result.stderr
     assert not native_server.exists(name)
@@ -75,7 +80,7 @@ def test_init_refuses_extensions_at_other_versions(
     name = semantic_absent_database.name
     wrong = {**extensions.expected_extensions(), "vector": "0.0.1"}
     monkeypatch.setattr(extensions, "expected_extensions", lambda path=None: wrong)
-    result = cli("db", "init", settings=lambda: settings(native_server, name))
+    result = cli("db", "init", "--creation-only", settings=lambda: settings(native_server, name))
     assert result.exit_code == 1
     error = " ".join(result.stderr.split())
     assert "vector 0.8.7 (expected 0.0.1)" in error and "just db-provision" in error
@@ -107,6 +112,7 @@ def test_reserved_cli_never_adopts_or_drops_an_intervening_database(
             result = cli(
                 "db",
                 "init",
+                "--creation-only",
                 "--creation-token",
                 reservation.token,
                 settings=lambda: settings(native_server, name),
@@ -128,7 +134,7 @@ def test_reserved_cli_never_adopts_or_drops_an_intervening_database(
             actor.exec_driver_sql(f'DROP DATABASE IF EXISTS "{name}"')
 
 
-def test_cli_subprocess_acknowledges_creation_before_failed_migration(native_server: Any) -> None:
+def test_cli_subprocess_acknowledges_creation_before_invalid_empty_stage_refusal(native_server: Any) -> None:
     name = database_name("init").name
     template = database_name("test").name
     with native_server.database(template, native_server.template) as engine:
@@ -150,6 +156,7 @@ def test_cli_subprocess_acknowledges_creation_before_failed_migration(native_ser
                     "from corpus_structure.cli.app import main; main()",
                     "db",
                     "init",
+                    "--creation-only",
                     "--creation-token",
                     reservation.token,
                     "--json",
@@ -161,8 +168,8 @@ def test_cli_subprocess_acknowledges_creation_before_failed_migration(native_ser
             )
             assert result.returncode == 1, result.stderr
             refusal = json.loads(result.stdout)
-            assert refusal["error"]["code"] == "DbRefused"
-            assert "legacy database refused" in refusal["error"]["message"]
+            assert refusal["error"]["code"] == "NativeAuthoringError"
+            assert "existing migration history" in refusal["error"]["message"]
             with native_server.connect() as connection:
                 oid, comment = connection.execute(
                     text(
