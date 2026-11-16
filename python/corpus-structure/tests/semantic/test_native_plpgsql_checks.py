@@ -226,3 +226,60 @@ def test_error_limits_disclose_truncation_and_unexamined_functions(semantic_bare
         assert message.count("further errors omitted") == 4
         assert "1 selected functions unexamined" in message
         assert "many_bad_4" not in message
+
+
+@pytest.mark.parametrize("second_has_value", [True, False])
+def test_declared_trigger_checks_each_real_parent_layout(semantic_bare_engine, second_has_value):
+    with semantic_bare_engine.connect() as connection, connection.begin():
+        connection.exec_driver_sql("CREATE SCHEMA checker_test")
+        connection.exec_driver_sql("CREATE TABLE checker_test.first_parent(value integer)")
+        second_column = "value integer, extra text" if second_has_value else "other integer"
+        connection.exec_driver_sql("CREATE TABLE checker_test.second_parent(" + second_column + ")")
+        before = checker(connection)
+        selected = definition(
+            connection,
+            "parent_guard",
+            "",
+            "trigger",
+            "BEGIN NEW.value := NEW.value + 1; RETURN NEW; END",
+        )
+        triggers = tuple(
+            definition_from_sql(
+                connection,
+                "CREATE TRIGGER checked_parent BEFORE INSERT ON checker_test."
+                + relation
+                + " FOR EACH ROW EXECUTE FUNCTION checker_test.parent_guard()",
+                source="checker-control:parent:" + relation,
+                owner=connection.scalar(text("SELECT current_user")),
+            )
+            for relation in ("first_parent", "second_parent")
+        )
+        options = dict(
+            owned_authoring=True,
+            check_plpgsql=frozenset({selected.identity}),
+            check_plpgsql_triggers=frozenset(item.identity for item in triggers),
+        )
+        if second_has_value:
+            result = prepare_native_authoring(connection, (selected, *triggers), **options)
+            assert len(result.desired) == 3
+            with pytest.raises(
+                NativeAuthoringError, match="every declared trigger relation context"
+            ):
+                prepare_native_authoring(
+                    connection,
+                    (selected, *triggers),
+                    **{
+                        **options,
+                        "check_plpgsql_triggers": frozenset({triggers[0].identity}),
+                    },
+                )
+        else:
+            with pytest.raises(
+                NativeAuthoringError, match=r"SQLSTATE 42703.*relation=checker_test.second_parent"
+            ):
+                prepare_native_authoring(connection, (selected, *triggers), **options)
+        assert checker(connection) == before
+        assert (
+            connection.scalar(text("SELECT to_regprocedure('checker_test.parent_guard()')")) is None
+        )
+        assert connection.scalar(text("SELECT count(*) FROM checker_test.first_parent")) == 0

@@ -17,6 +17,7 @@ from pglast import ast, enums
 from pglast.stream import RawStream
 from sqlalchemy import Connection, Integer, cast, func, literal, select, text
 from sqlalchemy.dialects.postgresql import dialect
+from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import DBAPIError
 
 from . import native_catalog as catalog_queries
@@ -673,20 +674,47 @@ def normalize_native_backfill(
         savepoint.rollback()
 
 
-def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
+def _check_plpgsql_authoring(
+    connection: Connection,
+    definitions: tuple[NativeDefinition, ...],
+    *,
+    triggers: tuple[NativeDefinition, ...] = (),
+    trigger_contexts: frozenset[NativeIdentity] = frozenset(),
+) -> None:
     """Check concrete PL/pgSQL expressions against the complete installed candidate.
 
     The caller owns the rollback-only normalization savepoint, including any checker
     installation. This checks static SQL, not arbitrary runtime-generated SQL or
     semantic behavior. Frozen predecessors are historical inputs, not new authoring.
     """
-    selected = []
+    if not definitions:
+        return
+    contexts = {}
+    for trigger in triggers if trigger_contexts else ():
+        context = (
+            connection.execute(
+                text("""SELECT t.tgfoid AS function_oid,
+            t.tgrelid::regclass::text AS relation, t.tgoldtable, t.tgnewtable
+            FROM pg_trigger t WHERE t.tgrelid=CAST(:relation AS regclass)
+            AND t.tgname=:name AND NOT t.tgisinternal"""),
+                {
+                    "relation": _quote(trigger.identity.schema)
+                    + "."
+                    + _quote(trigger.identity.relation or ""),
+                    "name": trigger.identity.name,
+                },
+            )
+            .mappings()
+            .one()
+        )
+        contexts.setdefault(context["function_oid"], []).append((trigger, context))
+    selected: list[tuple[NativeDefinition, RowMapping | None]] = []
     for item in definitions:
         if item.identity.kind != "function":
             continue
         metadata = (
             connection.execute(
-                text("""SELECT l.lanname, t.typname AS result_type,
+                text("""SELECT p.oid AS function_oid, l.lanname, t.typname AS result_type,
                 EXISTS (SELECT FROM unnest(p.proargtypes) argument(oid)
                     JOIN pg_type a ON a.oid=argument.oid WHERE a.typtype='p') AS pseudo_argument
                 FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
@@ -699,8 +727,18 @@ def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
         )
         if metadata["lanname"] != "plpgsql":
             continue
+        if metadata["result_type"] == "trigger" and not metadata["pseudo_argument"]:
+            applicable = contexts.get(metadata["function_oid"], ())
+            if not applicable or any(
+                trigger.identity not in trigger_contexts for trigger, _ in applicable
+            ):
+                raise NativeAuthoringError(
+                    f"PL/pgSQL authoring check requires a concrete ordinary function context "
+                    f"or every declared trigger relation context: {item.identity.qualified}; source={item.source}"
+                )
+            selected.extend((item, context) for _, context in applicable)
+            continue
         if metadata["pseudo_argument"] or metadata["result_type"] in {
-            "trigger",
             "event_trigger",
             "anyelement",
             "anyarray",
@@ -718,7 +756,7 @@ def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
                 f"PL/pgSQL authoring check requires a concrete ordinary function context: "
                 f"{item.identity.qualified}; source={item.source}"
             )
-        selected.append(item)
+        selected.append((item, None))
     if not selected:
         return
     extension = (
@@ -753,14 +791,20 @@ def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
     diagnostics = []
     omissions = []
     error_count = 0
-    for index, item in enumerate(selected):
+    for index, (item, context) in enumerate(selected):
         errors = (
             connection.execute(
                 text(f"""SELECT sqlstate, lineno, message FROM {checker}(
-                CAST(:signature AS regprocedure), fatal_errors=>false,
+                CAST(:signature AS regprocedure), relid=>CAST(:relation AS regclass),
+                oldtable=>CAST(:oldtable AS name), newtable=>CAST(:newtable AS name), fatal_errors=>false,
                 without_warnings=>true, use_incomment_options=>false)
                 WHERE level='error' LIMIT 9"""),
-                {"signature": item.identity.qualified},
+                {
+                    "signature": item.identity.qualified,
+                    "relation": context["relation"] if context else "0",
+                    "oldtable": context["tgoldtable"] if context else None,
+                    "newtable": context["tgnewtable"] if context else None,
+                },
             )
             .mappings()
             .all()
@@ -772,7 +816,10 @@ def _check_plpgsql_authoring(connection: Connection, definitions) -> None:
                 + " ".join(error["message"].split())[:500]
                 for error in errors[:limit]
             )
-            diagnostics.append(f"{item.identity.qualified}: {messages}; source={item.source}")
+            relation = f"; relation={context['relation']}" if context else ""
+            diagnostics.append(
+                f"{item.identity.qualified}: {messages}; source={item.source}{relation}"
+            )
             error_count += min(len(errors), limit)
             if len(errors) > limit:
                 omissions.append(f"{item.identity.qualified}: further errors omitted")
@@ -797,6 +844,7 @@ def prepare_native_authoring(
     recreate: frozenset[NativeIdentity] = frozenset(),
     owned_authoring: bool = False,
     check_plpgsql: frozenset[NativeIdentity] = frozenset(),
+    check_plpgsql_triggers: frozenset[NativeIdentity] = frozenset(),
 ) -> NativeAuthoring:
     """Normalize complete declared definitions in rollback-only authoring savepoints.
 
@@ -808,6 +856,9 @@ def prepare_native_authoring(
     functions = {item.identity for item in definitions if item.identity.kind == "function"}
     if check_plpgsql - functions:
         raise NativeAuthoringError("PL/pgSQL check selection requires desired function identities")
+    triggers = tuple(item for item in definitions if item.identity.kind == "trigger")
+    if check_plpgsql_triggers - {item.identity for item in triggers}:
+        raise NativeAuthoringError("PL/pgSQL trigger contexts require desired trigger identities")
     frozen_predecessor = bool(predecessor) and all(
         isinstance(item, NativeObject) for item in predecessor
     )
@@ -868,7 +919,10 @@ def prepare_native_authoring(
             if check_selected:
                 phase = "check PL/pgSQL static SQL"
                 _check_plpgsql_authoring(
-                    connection, tuple(item for item in items if item.identity in check_plpgsql)
+                    connection,
+                    tuple(item for item in items if item.identity in check_plpgsql),
+                    triggers=triggers,
+                    trigger_contexts=check_plpgsql_triggers,
                 )
             result = []
             for item in items:
