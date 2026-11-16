@@ -881,8 +881,6 @@ def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
         assert len(set(invocations)) == 2
 
 
-
-
 def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
     commit_db_engine, commit_writer_engine
 ):

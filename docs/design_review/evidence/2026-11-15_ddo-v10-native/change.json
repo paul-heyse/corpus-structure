@@ -69,6 +69,16 @@
         "bigint"
       ],
       "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "end_source_run",
+      "arguments": [
+        "bigint",
+        "jsonb"
+      ],
+      "relation": null
     }
   ],
   "recreate": [],

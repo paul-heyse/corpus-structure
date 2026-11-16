@@ -10,7 +10,6 @@ from typing import Any
 import pytest
 from pydantic import ValidationError, create_model
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.operations import (
     OperationBinding,

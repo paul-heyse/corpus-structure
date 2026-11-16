@@ -49,3 +49,10 @@ D1's failure JSON path must be grouped before subtraction. Negative-only schema 
 also resolve nullable namespace OIDs rather than requiring an obsolete eval namespace. The strict
 native/physical descriptors still require actual current objects. Shared repairs and the complete
 target checker context need a coherent new source capture; this preview supplies no native pass.
+
+The next request also retires `ops.end_source_run(bigint,jsonb)` after its closed caller/operation
+removal, for seven exact native retirements. The synthetic historical missing-runtime fallback is
+removed without a native API change. Complete actual fresh-target static checking reached
+Alembic comparison on `b299121ac7124f61ba80053bc5daa246`; that attempt failed fresh-schema
+scope comparison and is not an installation pass. Explicit trigger-context controls11 passed
+`4061463e25d0416583c9e6e4ec3233d3`; current target/schema/ACL integration remains separate.

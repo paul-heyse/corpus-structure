@@ -348,6 +348,22 @@ arbitrary policy witnesses; the no-witness route retains insufficient evidence. 
 known-version and same-span scientific expectations migrate before mounted readers retire.
 These remain I02/I05/I06 implementation and native-consumer obligations, not a scientific closure.
 
+Closed legacy end-run control and the synthetic historical runtime fallback are now removed.
+A missing immutable run runtime pin explicitly refuses instead of inventing one. The fixed catalog
+now has35 variants (57 removed); useful PDF source/region assertions and current demand-cancellation
+controls remain. Worker28 **passed** `8707eebe2ad541ee9521aa9954e0134e`; runtime/generated9
+**passed** `71430a907f74464490e8a9c3f8db75ab`. The next v10 request now includes exact
+`ops.end_source_run(bigint,jsonb)` for seven retirements. First v10 authoring failure and the
+superseded second preview are retained in its evidence owner; frozen-state backfill and shared
+static/context repairs precede the next capture. Root frozen-predecessor/protocol7 **passed**
+`570b5d9ad8c945a7b3bfec0dd37efcc2`; typing **passed** `80ff9ce916644dc1a3306bfd192f60a9`.
+ADR-0116 docs publication **passed** `46583fe347ac4d3ca8220169fbe33f18` after preserving a
+retired agent-source citation as historical; initial `aa3fdf838c594f6caabb5486ec7a2e7b` failed.
+Target fresh `b299121ac7124f61ba80053bc5daa246` **failed** at new-schema comparison after
+complete current function/trigger static checks; no installation pass is claimed. Actual explicit
+trigger-context controls11 **passed** `4061463e25d0416583c9e6e4ec3233d3`; fresh schema/ACL
+comparison repair and complete installation/runtime controls remain open.
+
 ## Current state and execution order
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |
