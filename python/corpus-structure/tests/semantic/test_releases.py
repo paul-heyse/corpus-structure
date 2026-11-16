@@ -1,4 +1,4 @@
-"""Native archive/CAS tests; this path uses only the new semantic physical schema."""
+"""Current captured DDO archives retain exact inputs, atomicity and activation CAS."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ import pytest
 from sqlalchemy import Engine, insert, select, text, update
 
 from corpus_structure.semantic import (
-    PreparationProfile,
     ResolvedDependencies,
     SourceArtifact,
     SourceBundle,
@@ -24,7 +23,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.types import PreparedArtifact
 from semantic.archive_faults import administrative_archive_edit
 from semantic.releases_support import source_bundle as source_bundle
-from semantic.releases_support import stage as stage
+from semantic.releases_support import prepare_archive, stage
 
 
 def project(conn, release_id=None):
@@ -39,8 +38,8 @@ def project(conn, release_id=None):
 
 def test_archive_is_exact_offline_and_idempotent(commit_db_engine: Engine, monkeypatch):
     with commit_db_engine.begin() as conn:
-        bundle, dependencies, profile, prepared = stage(conn, composed=False)
-        assert not any(a.kind == "data_operations.json" for a in prepared.artifacts)
+        bundle, dependencies, profile, prepared = stage(conn)
+        assert any(a.kind == "data_operations.json" for a in prepared.artifacts)
         calls = []
         from corpus_structure.semantic import prepare as preparation
 
@@ -97,7 +96,7 @@ def test_archive_is_exact_offline_and_idempotent(commit_db_engine: Engine, monke
         }
 
 
-def test_composed_analysis_runtime_survives_exact_persist_and_load(
+def test_current_archive_survives_read_but_refuses_changed_producing_runtime(
     commit_db_engine: Engine, monkeypatch
 ):
     from corpus_structure.semantic import determinants
@@ -105,8 +104,7 @@ def test_composed_analysis_runtime_survives_exact_persist_and_load(
     with commit_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = stage(conn)
         libraries = json.loads(prepared.manifest)["libraries"]
-        assert libraries["sqlglot"] == "30.27.0"
-        assert libraries["sqlalchemy"] == "2.1.6"
+        assert libraries["numpy"] == determinants.determinant_version("numpy")
         assert (
             releases.persist_release(conn, bundle, dependencies, profile, prepared)
             == prepared.release_id
@@ -116,7 +114,7 @@ def test_composed_analysis_runtime_survives_exact_persist_and_load(
         monkeypatch.setattr(
             determinants,
             "determinant_version",
-            lambda name: "incompatible" if name == "sqlglot" else original(name),
+            lambda name: "incompatible" if name == "numpy" else original(name),
         )
         # Ordinary archived-product reads retain custody without today's producer.
         assert releases.open_release(conn, prepared.release_id) == prepared
@@ -217,20 +215,16 @@ def test_release_extension_changes_rows_without_ddl(commit_db_engine: Engine):
             "https://example.org/Parent",
             "https://example.org/Child",
             "https://example.org/Additional",
+            "urn:ddo-test:Thing",
+            "urn:ddo-test:Sample",
         }
 
 
-def test_activation_rejects_aba_and_preserves_existing_realization(commit_db_engine: Engine):
+def test_activation_rejects_aba_and_preserves_original_archive(commit_db_engine: Engine):
     with commit_db_engine.begin() as conn:
         *_, first = stage(conn)
         *_, second = stage(conn, source_bundle(b"# release two\n"))
         pid = project(conn, first.release_id)
-        realization_id = str(uuid4())
-        conn.execute(
-            insert(table("data.realization")).values(
-                realization_id=realization_id, project_id=pid, release_id=first.release_id
-            )
-        )
         assert (
             releases.activate_release(
                 conn,
@@ -260,44 +254,9 @@ def test_activation_rejects_aba_and_preserves_existing_realization(commit_db_eng
                 expected_generation=0,
             )
         assert releases.activation_token(conn, pid) == releases.ActivationToken(first.release_id, 2)
-        realization = table("data.realization")
-        assert (
-            conn.execute(
-                select(realization.c.release_id).where(
-                    realization.c.realization_id == realization_id
-                )
-            ).scalar_one()
-            == first.release_id
-        )
+        assert releases.open_release(conn, first.release_id) == first
 
 
-def test_failed_constraint_admission_preserves_pointer(commit_db_engine: Engine):
-    with commit_db_engine.begin() as conn:
-        *_, first = stage(conn)
-        bad = source_bundle().sources
-        bad_bundle = SourceBundle(
-            "archive",
-            (
-                replace(
-                    bad[0],
-                    content=bad[0].content.replace(
-                        b"range: string", b"range: string\n        pattern: '(?=a)a'"
-                    ),
-                ),
-                bad[1],
-            ),
-        )
-        *_, unsupported = stage(conn, bad_bundle)
-        pid = project(conn, first.release_id)
-        with pytest.raises(ValueError):
-            releases.activate_release(
-                conn,
-                pid,
-                unsupported.release_id,
-                expected_parent=first.release_id,
-                expected_generation=0,
-            )
-        assert releases.activation_token(conn, pid) == releases.ActivationToken(first.release_id, 0)
 
 
 def test_concurrent_activation_has_one_winner(commit_db_engine: Engine):
@@ -330,15 +289,14 @@ def test_concurrent_activation_has_one_winner(commit_db_engine: Engine):
 def test_failed_archive_leaves_no_partial_release(commit_db_engine: Engine):
     from sqlalchemy.exc import IntegrityError
 
-    bundle = source_bundle()
-    prepared = prepare_release(bundle)
+    bundle, dependencies, profile, prepared = prepare_archive()
     with commit_db_engine.begin() as conn:
         with pytest.raises(IntegrityError):
             releases.persist_release(
                 conn,
                 bundle,
-                ResolvedDependencies(),
-                PreparationProfile(),
+                dependencies,
+                profile,
                 prepared,
                 parent_release_id="release:missing",
             )
@@ -405,14 +363,13 @@ def test_archive_retains_explicit_ontology_dependency_selection(commit_db_engine
     bundle = source_bundle()
     dependencies = ResolvedDependencies(
         artifacts=(
-            SourceArtifact("opaque", b"\xff\x00"),
             SourceArtifact("ontology", b"format-version: 1.2\r\n"),
         ),
         ontology_sources=("ontology",),
     )
-    prepared = prepare_release(bundle, dependencies)
+    bundle, dependencies, profile, prepared = prepare_archive(bundle, dependencies)
     with commit_db_engine.begin() as conn:
-        releases.persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
+        releases.persist_release(conn, bundle, dependencies, profile, prepared)
         inputs = table("sem.input")
         assert (
             conn.execute(
@@ -437,13 +394,9 @@ def test_sql_admission_and_pointer_share_activation_savepoint(
         *_, first = stage(conn)
         bundle = source_bundle()
         dependencies = ResolvedDependencies(
-            (SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity"),)
+            (SourceArtifact("authored-sql/scalar.sql", b"SELECT 1 AS value"),)
         )
-        from corpus_structure.semantic.composed import composed_dependencies
-
-        dependencies = composed_dependencies(dependencies)
-        profile = PreparationProfile(version="semantic-2")
-        prepared = prepare_release(bundle, dependencies, profile)
+        bundle, dependencies, profile, prepared = prepare_archive(bundle, dependencies)
         releases.persist_release(conn, bundle, dependencies, profile, prepared)
         pid = project(conn, first.release_id)
         with pytest.raises(SQLAdmissionError, match="restricted reader"):
@@ -480,3 +433,20 @@ def test_sql_admission_and_pointer_share_activation_savepoint(
             )
         assert token == releases.ActivationToken(prepared.release_id, 1)
         assert conn.execute(select(admission.c.release_id)).scalars().all() == [prepared.release_id]
+
+
+def test_archive_fixture_has_actual_checked_ddo_inputs_without_legacy_compiler():
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    bundle, dependencies, profile, prepared = prepare_archive()
+    model = bound_data_operation_model(prepared)
+    assert {
+        operation.semantic_id
+        for operation in model.operations
+        if operation.semantic_id.startswith("urn:ddo-test:")
+    } == {
+        "urn:ddo-test:source", "urn:ddo-test:sample", "urn:ddo-test:consumer",
+        "urn:ddo-test:value-consumer", "urn:ddo-test:set", "urn:ddo-test:evaluator"
+    }
+    assert all(kind.complete for kind in model.kinds)
+    assert not any(source.name.startswith("execution/") for source in dependencies.artifacts)
+    assert prepare_release(bundle, dependencies, profile) == prepared

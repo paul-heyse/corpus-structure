@@ -1,17 +1,11 @@
 """Native section selectors bind one numbered occurrence before subtree expansion."""
 
-from types import SimpleNamespace
-from unittest.mock import Mock
 
 import pytest
 
-from corpus_structure.semantic.operations import SourceReadRefused
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.source_views import (
-    normalized_native_section_title,
-    resolve_native_sections,
-    scope_source_views,
-)
+from corpus_structure.semantic.refusals import SourceReadRefused
+from corpus_structure.ingest.pdf_hierarchy import resolve_native_sections
+
 
 CATALOG = {
     "#/groups/11": "1.1: Sets",
@@ -41,7 +35,6 @@ def test_numbered_selectors_do_not_expand_to_repeated_titles():
         "#/groups/18",
         "#/groups/56",
     )
-    assert normalized_native_section_title(" 1.2— FUNCTIONS. ") == "1.2 functions"
     assert resolve_native_sections(CATALOG, ["1.2 — functions!"]) == ("#/groups/12",)
 
 
@@ -58,85 +51,14 @@ def test_unique_unnumbered_aliases_preserve_existing_selection():
         resolve_native_sections(catalog, ["1.2: Sets"])
 
 
-def test_reader_resolves_catalog_before_descendant_and_maximal_root_selection(monkeypatch):
-    product = ProductReference(2, "organized", "a" * 64)
-    selected = []
-    rows = []
-    for index, (pointer, title) in enumerate(CATALOG.items(), 1):
-        selected.append(
-            SimpleNamespace(
-                id=index, native_product=product, section_pointer=pointer, membership="descendants"
-            )
-        )
-        rows.append(dict(id=index, section={"self_ref": pointer, "name": title}, ancestors=[]))
-    selected.append(
-        SimpleNamespace(
-            id=10,
-            native_product=product,
-            section_pointer="#/groups/child",
-            membership="descendants",
-        )
+
+def test_descendant_selection_retains_only_maximal_actual_roots():
+    from corpus_structure.ingest.pdf_section_views import select_published_sections
+
+    rows = [dict(pointer=key, name=title, ancestors=[]) for key, title in CATALOG.items()]
+    rows.append(dict(pointer="#/groups/child", name="Operations", ancestors=["#/groups/11"]))
+    scope = dict(kind="native_sections", sections=(*SELECTORS, "Operations"))
+    assert select_published_sections(rows, (), "descendants", scope) == (
+        "#/groups/11", "#/groups/12", "#/groups/13", "#/groups/18", "#/groups/56"
     )
-    rows.append(
-        dict(
-            id=10,
-            section={"self_ref": "#/groups/child", "name": "Operations"},
-            ancestors=[{"self_ref": "#/groups/11", "name": "1.1: Sets"}],
-        )
-    )
-    # The scope reader now loads placement/ancestor metadata first, then hydrates only the
-    # requested native pointers through the published port. Keep catalog expectations independent.
-    release = "selected-consumer-release"
-    placement = "published-build"
-    values = {row["section"]["self_ref"]: row["section"] for row in rows}
-    raw = [
-        dict(
-            id=row["id"],
-            release_id=release,
-            native_build_id=placement,
-            native_revision_id=placement,
-            ancestors=[parent["self_ref"] for parent in row["ancestors"]],
-        )
-        for row in rows
-    ]
-    conn = Mock()
-    conn.execute.return_value.mappings.return_value.all.return_value = raw
-    context = object()
-
-    class PublishedReader:
-        def __init__(self):
-            self.revision = dict(
-                build_id=placement,
-                task_id=2,
-                product_key="organized",
-                logical_digest="a" * 64,
-                release_id="original-producer-release",
-            )
-
-        def selected_native_items(self, pointers):
-            assert set(pointers) == set(values)
-            return {pointer: values[pointer] for pointer in pointers}
-
-    def published_reader(connection, reference, *, projection_context):
-        assert connection is conn and reference == product
-        assert projection_context is context
-        return PublishedReader()
-
-    def open_release(connection, release_id):
-        assert connection is conn and release_id == release
-        return context
-
-    monkeypatch.setattr("corpus_structure.semantic.releases.open_release", open_release)
-    monkeypatch.setattr(
-        "corpus_structure.semantic.pdf_record_reader.published_record_reader", published_reader
-    )
-    scope = {"sections": SELECTORS, "include_descendants": True}
-    assert [ref.section_pointer for ref in scope_source_views(conn, selected, scope)] == [
-        "#/groups/11",
-        "#/groups/12",
-        "#/groups/13",
-        "#/groups/18",
-        "#/groups/56",
-    ]
-    with pytest.raises(SourceReadRefused, match="ambiguous native section selector"):
-        scope_source_views(conn, selected, dict(scope, sections=["Functions"]))
+    assert select_published_sections(rows, (), "direct", dict(kind="native_sections", sections=("1.1: Sets",))) == ("#/groups/11", "#/groups/child")

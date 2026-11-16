@@ -305,13 +305,12 @@ def test_same_scientific_recipe_refuses_changed_sampling_runtime(monkeypatch):
     import json
 
     from corpus_structure.semantic import determinants
-    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.scientific_evidence import (
         SCIENTIFIC_POLICY_INPUT,
         require_scientific_policy,
         scientific_policy_recipe,
     )
-    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+    from corpus_structure.semantic.types import PreparationProfile
 
     prepared = prepare_release(
         SourceBundle(
@@ -332,8 +331,7 @@ classes:
                 ),
             ),
         ),
-        composed_dependencies(ResolvedDependencies()),
-        PreparationProfile(version="semantic-2"),
+        profile=PreparationProfile(version="semantic-2"),
     )
     recipe = canonical_bytes(scientific_policy_recipe(context_profile=analysis_context()))
     prepared = replace(

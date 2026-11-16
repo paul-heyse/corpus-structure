@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from corpus_structure.semantic import (
-    PreparationProfile,
     ResolvedDependencies,
     SourceArtifact,
     SourceBundle,
@@ -58,16 +57,44 @@ classes:
     )
 
 
-def stage(conn, bundle=None, *, composed=True):
-    bundle = source_bundle() if bundle is None else bundle
-    dependencies = ResolvedDependencies(
-        (SourceArtifact("opaque", b"\x00exact external bytes\xff"),)
-    )
-    from corpus_structure.semantic.composed import composed_dependencies
+def prepare_archive(bundle=None, dependencies=ResolvedDependencies()):
+    from dataclasses import replace
+    import yaml
 
-    if composed:
-        dependencies = composed_dependencies(dependencies)
-    profile = PreparationProfile(version="semantic-2" if composed else "semantic-1")
+    from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
+
+    captured = prepare_kernel(STORAGE)
+    schema = yaml.safe_load(captured.bundle.sources[0].content)
+    del schema["types"]["string"]  # the archive's imported base declares the same XSD type
+    source = SourceArtifact("target", yaml.safe_dump(schema).encode())
+    bundle = source_bundle() if bundle is None else bundle
+    # The native archive requires the actual complete current operation projection.
+    # Keep the independent archive schema bytes and order, composing the controlled
+    # STORAGE producer schema as an explicit import rather than fabricating authority.
+    bundle = replace(
+        bundle,
+        sources=(
+            replace(
+                bundle.sources[0],
+                content=bundle.sources[0].content.replace(
+                    b"imports: [base]", b"imports: [base, target]"
+                ),
+            ),
+            *bundle.sources[1:],
+            source,
+        ),
+    )
+    dependencies = ResolvedDependencies(
+        artifacts=(*captured.dependencies.artifacts, SourceArtifact("opaque", b"\x00exact external bytes\xff"), *dependencies.artifacts),
+        vocabularies=dependencies.vocabularies,
+        ontology_sources=dependencies.ontology_sources,
+    )
+    profile = captured.profile
     prepared = prepare_release(bundle, dependencies, profile)
+    return bundle, dependencies, profile, prepared
+
+
+def stage(conn, bundle=None):
+    bundle, dependencies, profile, prepared = prepare_archive(bundle)
     releases.persist_release(conn, bundle, dependencies, profile, prepared)
     return bundle, dependencies, profile, prepared

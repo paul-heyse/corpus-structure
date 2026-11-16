@@ -1,111 +1,43 @@
-"""An actual ontology-bound prepared archive supplies the native publication registry."""
-
-from __future__ import annotations
+"""Pinned ontology membership retains its current schema and native archive meaning."""
 
 import pytest
-from sqlalchemy import insert, select
-from sqlalchemy.exc import DBAPIError
+from pydantic import ValidationError
+from sqlalchemy import select
 
-from corpus_structure.semantic import (
-    PreparationProfile,
-    ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
-    fact_key,
-    occurrence_key,
-    prepare_release,
-)
-from corpus_structure.semantic.composed import composed_dependencies
+from corpus_structure.semantic import ResolvedDependencies, SourceArtifact, prepare_release, releases
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.publication import (
-    EntityRow,
-    EvidenceRow,
-    FactRow,
-    MembershipRow,
-    MembershipSupportRow,
-    OccurrenceRow,
-    PublicationBatch,
-    SupportRow,
-    ValueRow,
-    publish_batch,
-)
-from corpus_structure.semantic.releases import activate_release, load_release, persist_release
+from semantic.releases_support import prepare_archive, source_bundle
 
 
-def test_compiled_pinned_ontology_membership_enforces_native_reports(
-    commit_db_engine, commit_writer_engine
-):
-    bundle = SourceBundle(
-        "native",
-        (
-            SourceArtifact(
-                "native",
-                b"""id: https://example.org/native
-name: native
-prefixes: {ex: 'https://example.org/'}
-default_prefix: ex
-types: {string: {base: str, uri: 'xsd:string'}}
-enums:
-  Terms:
-    reachable_from: {source_ontology: terms, source_nodes: ['EX:1'], include_self: true}
-classes:
-  Thing:
-    attributes:
-      label: {range: Terms, required: true}
-""",
-            ),
-        ),
-    )
+def ontology_inputs():
+    bundle = source_bundle()
+    root, *imports = bundle.sources
+    root = SourceArtifact(root.name, root.content.replace(
+        b"classes:\n", b"enums:\n  Terms:\n    reachable_from: {source_ontology: terms, source_nodes: ['EX:1'], include_self: true}\nclasses:\n"
+    ).replace(b"range: string", b"range: Terms\n        required: true"))
+    bundle = type(bundle)(bundle.root, (root, *imports))
     dependencies = ResolvedDependencies(
-        artifacts=(
-            SourceArtifact("terms", b"format-version: 1.2\n\n[Term]\nid: EX:1\nname: root\n"),
-        ),
+        artifacts=(SourceArtifact("terms", b"format-version: 1.2\n\n[Term]\nid: EX:1\nname: root\n"),),
         ontology_sources=("terms",),
     )
-    dependencies = composed_dependencies(dependencies)
-    profile = PreparationProfile(version="semantic-2")
-    prepared = prepare_release(bundle, dependencies, profile)
-    with commit_db_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(insert(table("data.project")).values(project_id="p"))
-        activate_release(
-            conn, "p", prepared.release_id, expected_parent=None, expected_generation=0
-        )
-        conn.execute(
-            insert(table("data.realization")).values(
-                realization_id="native", project_id="p", release_id=prepared.release_id
-            )
-        )
-        assert load_release(conn, prepared.release_id) == prepared
-        assert conn.execute(select(table("sem.vocabulary_member").c.value)).scalars().all() == [
-            "EX:1"
-        ]
-    cls = prepared.definitions[0]
-    prop = cls.properties[0]
+    return prepare_archive(bundle, dependencies)
 
-    def candidate(entity: str, label: str) -> PublicationBatch:
-        rid = prepared.release_id
-        fact = fact_key(rid, "native", entity, prop.iri, label, {})
-        occurrence = occurrence_key(rid, "native", "source", entity)
-        return PublicationBatch(
-            rid,
-            "native",
-            entity,
-            entity=(EntityRow(entity),),
-            membership=(MembershipRow(entity, cls.iri, "authored type"),),
-            typed_value=(ValueRow(entity, "string", text_value=label),),
-            fact=(FactRow(fact, entity, prop.iri, entity),),
-            occurrence=(OccurrenceRow(occurrence, fact, "source", entity, entity),),
-            support=(SupportRow(fact, occurrence),),
-            evidence=(EvidenceRow(entity, "urn:source", "line:1", "native-test", "1"),),
-            membership_support=(MembershipSupportRow(entity, cls.iri, entity),),
-        )
 
-    assert publish_batch(commit_writer_engine, candidate("known", "EX:1")).data_revision == 1
-    with pytest.raises(DBAPIError, match="declared range"):
-        publish_batch(commit_writer_engine, candidate("unknown", "EX:2"))
-    with commit_db_engine.connect() as conn:
-        assert conn.execute(select(table("data.entity").c.entity_id)).scalars().all() == ["known"]
-        assert conn.execute(select(table("data.typed_value").c.text_value)).scalars().all() == [
-            "EX:1"
-        ]
+def test_current_schema_uses_exact_pinned_vocabulary_members():
+    *_, prepared = ontology_inputs()
+    assert prepared.enum_members("Terms") == {"EX:1"}
+    assert prepared.validate_json("Child", b'{"id":"known","label":"EX:1"}').model_dump() == {"id": "known", "label": "EX:1"}
+    with pytest.raises(ValidationError):
+        prepared.validate_json("Child", b'{"id":"unknown","label":"EX:2"}')
+
+
+def test_current_native_archive_preserves_pinned_ontology_membership(commit_db_engine):
+    bundle, dependencies, profile, prepared = ontology_inputs()
+    with commit_db_engine.begin() as connection:
+        releases.persist_release(connection, bundle, dependencies, profile, prepared)
+        members = table("sem.vocabulary_member")
+        assert connection.execute(select(members.c.value).where(members.c.release_id == prepared.release_id)).scalars().all() == ["EX:1"]
+        loaded = releases.load_release(connection, prepared.release_id)
+        assert loaded.enum_members("Terms") == {"EX:1"}
+        with pytest.raises(ValidationError):
+            loaded.validate_json("Child", b'{"id":"unknown","label":"EX:2"}')
