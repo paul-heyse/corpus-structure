@@ -1,0 +1,20 @@
+{
+  "weights_digest": "81dd7609c589f3694ce75520c25af5010953231358de6aec4d03e8c6aac787e9",
+  "tokenizer_digest": "34f566e728995769d971fc2707596bfb92c83298d357bc6ec29a7a1d3d12a74a",
+  "identity_assurance": "trusted_managed_service",
+  "source_revision": "4035ffb1d8f8bafcdb867dfaf6f7514f101464f9",
+  "model": "nemotron-parse",
+  "render_scale": 2.0,
+  "max_regions": 80,
+  "max_tokens": 8744,
+  "detection_max_tokens": 4096,
+  "temperature": 0.0,
+  "repetition_penalty": 1.1,
+  "top_k": 1,
+  "top_p": 1.0,
+  "seed": 0,
+  "mtp": true,
+  "attention_backend": "FLASH_ATTN",
+  "attention_version": 2,
+  "recipe_id": "nemotron-public-triple-union-v1"
+}

@@ -1,0 +1,66 @@
+# Explicit local acquisition package; profiles are metadata selections, not provider results.
+version: data-operation-inputs-v1
+root: statistics_semantic
+schemas: &id001
+- name: statistics_semantic
+  path: domains/statistics/semantic.yaml
+- name: semantic_core
+  path: python/corpus-structure/src/corpus_structure/model/semantic/core.yaml
+- name: statistics_terminology
+  path: domains/statistics/terminology.yaml
+declarations: []
+dependencies:
+- name: terminology/stato/stato-2026-04-20.owl
+  path: domains/statistics/terminology/sources/stato-2026-04-20.owl
+- name: terminology/stato/stato-2026-04-20.obo
+  path: domains/statistics/terminology/sources/stato-2026-04-20.obo
+- name: terminology/stato/source.json
+  path: domains/statistics/terminology/sources/source.json
+- name: terminology/valuesets/measurements.yaml
+  path: domains/statistics/terminology/sources/measurements-valuesets-0.4.2.yaml
+- name: terminology/valuesets/quantity_kinds.yaml
+  path: domains/statistics/terminology/sources/quantity_kinds-valuesets-0.4.2.yaml
+- name: operation/interpretation-questions.yaml
+  path: domains/statistics/interpretation-questions.yaml
+ontology_sources:
+- terminology/stato/stato-2026-04-20.obo
+python: null
+source_bindings: true
+pdf_contracts: true
+protected_references: true
+protected_record_policy: true
+primary_profile:
+  sentence_configuration: domains/statistics/profiles/sentences.yaml
+  sentence_selection: domains/statistics/profiles/spacy.json
+  hanlp_selection: domains/statistics/profiles/hanlp.json
+  learned_selections:
+    maverick: domains/statistics/profiles/maverick.json
+    dipo: domains/statistics/profiles/dipo.json
+    d1: domains/statistics/profiles/d1.json
+    gliner: domains/statistics/profiles/gliner.json
+  construction: domains/statistics/construction.yaml
+  math: domains/statistics/profiles/math.json
+  external_protocol: null
+  visual: false
+  downstream: true
+  m1:
+    configuration: domains/statistics/profiles/m1.yaml
+    schema_root: statistics_semantic
+    schemas: *id001
+  contextual_encoder:
+    profile: domains/statistics/profiles/contextual-e5.json
+    model_path: /home/paul/.cache/huggingface/hub/models--intfloat--e5-small-v2/snapshots/ffb93f3bd4047442299a41ebb6fa998a38507c52
+  contextual_retrieval_options: domains/statistics/profiles/contextual-retrieval.json
+  capture:
+    recipe: domains/statistics/profiles/pdf-recipe.json
+    assets_manifest: domains/statistics/profiles/pdf-assets.json
+    assets_root: /home/paul/.cache/docling/models/qualified/2991e428d2ef5b47d84e5a9b850ddc6cce6b0bb1a390c017793ed06ca2deb32e
+    directory: /home/paul/corpus-structure/build/pdf
+    nemotron_endpoint: http://127.0.0.1:8035/v1
+    require_nemotron_handoff: true
+    organization_policy: domains/statistics/profiles/pdf-organization.json
+    enrichment_options: domains/statistics/profiles/pdf-enrichment.json
+    recognition:
+      recipe: domains/statistics/profiles/pdf-recognition.json
+      options: domains/statistics/profiles/pdf-integration.json
+      resources: domains/statistics/profiles/pdf-recognition-resources.json

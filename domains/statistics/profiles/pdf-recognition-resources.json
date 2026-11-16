@@ -1,0 +1,7 @@
+{
+  "python": "/home/paul/corpus-structure/services/nemotron-parse/.venv/bin/python",
+  "script": "/home/paul/corpus-structure/services/nemotron-parse/worker.py",
+  "endpoint": "http://127.0.0.1:8035/v1",
+  "receipts": "/home/paul/corpus-structure/build/recognition",
+  "timeout_seconds": 1800.0
+}

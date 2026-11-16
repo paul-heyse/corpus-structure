@@ -30,13 +30,19 @@ _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-source-disco
 def source_discovery_inputs(bundle):
     bundle = source_product_inputs(bundle)
     name, root = "data_operation_source_discovery", "data_operation_source_discovery_root"
-    if {name, root} & {item.name for item in bundle.sources}:
+    existing = {item.name: item.content for item in bundle.sources}
+    content = _MODEL.read_bytes()
+    if name in existing:
+        if existing[name] != content:
+            raise ValueError("source discovery model differs from its acquired owner")
+        return bundle
+    if root in existing:
         raise ValueError("source discovery inputs use reserved schema names")
     return SourceBundle(
         root,
         (
             *bundle.sources,
-            SourceArtifact(name, _MODEL.read_bytes()),
+            SourceArtifact(name, content),
             SourceArtifact(
                 root,
                 yaml.safe_dump(

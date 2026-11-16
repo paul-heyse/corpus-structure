@@ -1,0 +1,19 @@
+{
+  "postgres_version_num": 180007,
+  "pgvector_extension_version": "0.8.7",
+  "pgvector_python_version": "0.5.1",
+  "sqlalchemy_version": "2.1.6",
+  "python_version": "3.14.10",
+  "target_collation": "C",
+  "text_configuration": "pg_catalog.english",
+  "linguistic_policy": "postgres-english-default-locale-observation-1",
+  "alias_target_normalization": "python-str.lower",
+  "alias_query_normalization": "postgres-default-lower",
+  "distance_operator": "pgvector-vector-cosine",
+  "reciprocal_rank_offset": 60,
+  "fusion_arithmetic": "python-float-sum",
+  "score_transport": "postgres-float8",
+  "nonfinite": "refuse",
+  "equality": "canonical-exact",
+  "arithmetic": "selected-backend-dependent-bits"
+}

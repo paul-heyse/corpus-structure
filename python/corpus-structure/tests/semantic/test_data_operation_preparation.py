@@ -314,3 +314,46 @@ def test_public_downstream_profile_acquires_native_consumers_without_model_execu
         assert callable(resolve_prepared_factory(model, sources, identity))
     assert "data_operation_contextual" in {source.name for source in bundle.sources}
     assert profile.version == "semantic-2"
+
+
+@pytest.mark.parametrize("primary", [False, True])
+def test_explicit_ontology_selection_reaches_actual_dependency_owner(tmp_path, monkeypatch, primary):
+    from types import SimpleNamespace
+    import yaml
+    from corpus_structure.semantic import primary_operations
+    from corpus_structure.semantic.types import PreparationProfile
+
+    root = primary_profile_inputs(tmp_path) if primary else inputs(tmp_path)
+    literal = b"format-version: 1.2\n\n[Term]\nid: EX:1\nname: independent\n"
+    (root / "ontology.obo").write_bytes(literal)
+    path = root / "target.yaml"
+    declaration = yaml.safe_load(path.read_bytes())
+    declaration["dependencies"] = [dict(name="selected-ontology", path="ontology.obo")]
+    declaration["ontology_sources"] = ["selected-ontology"]
+    path.write_text(yaml.safe_dump(declaration))
+    seen = []
+    if primary:
+        def compose(bundle, **arguments):
+            seen.append(arguments["dependencies"])
+            return SimpleNamespace(bundle=bundle, dependencies=arguments["dependencies"], profile=PreparationProfile(version="semantic-2"))
+        monkeypatch.setattr(primary_operations, "primary_operation_inputs", compose)
+    acquired = acquire_data_operation_inputs(root, "target.yaml")
+    assert acquired.dependencies.ontology_sources == ("selected-ontology",)
+    assert next(source.content for source in acquired.dependencies.artifacts if source.name == "selected-ontology") == literal
+    assert dict(acquired.files)["ontology.obo"] == literal
+    if primary:
+        assert seen[0].ontology_sources == ("selected-ontology",)
+
+
+@pytest.mark.parametrize("selection", [["absent"], ["selected-ontology", "selected-ontology"]])
+def test_ontology_selection_refuses_undeclared_or_repeated_names(tmp_path, selection):
+    import yaml
+    root = inputs(tmp_path)
+    (root / "ontology.obo").write_text("format-version: 1.2\n")
+    path = root / "target.yaml"
+    declaration = yaml.safe_load(path.read_bytes())
+    declaration["dependencies"] = [dict(name="selected-ontology", path="ontology.obo")]
+    declaration["ontology_sources"] = selection
+    path.write_text(yaml.safe_dump(declaration))
+    with pytest.raises(ValueError, match="unique declared dependency names"):
+        acquire_data_operation_inputs(root, "target.yaml")

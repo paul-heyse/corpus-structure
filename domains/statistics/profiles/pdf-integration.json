@@ -1,0 +1,17 @@
+{
+  "recovery_policy": {
+    "policy_id": "length-repetition-recovery-v1",
+    "eligible_finish_reason": "length",
+    "min_identical_character_run": 64,
+    "max_attempts": 1,
+    "permitted_recipe_id": "nemotron-public-triple-union-repetition-recovery-v1"
+  },
+  "integration_policy": {
+    "policy_id": "pdf-integration-v1",
+    "conflict_action": "replace",
+    "unmatched_action": "add",
+    "specialized_crop_precedence": true,
+    "comparison_demand": "lexical"
+  },
+  "source_recovery": null
+}

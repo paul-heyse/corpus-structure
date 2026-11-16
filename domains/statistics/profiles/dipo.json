@@ -1,0 +1,72 @@
+{
+  "assets": "/home/paul/corpus-structure/build/models/pm2",
+  "fingerprint": "e82d94cbfae4bb76b70bb84949eab8b7dadfaf247a84db37318cbad5a92bc7b3",
+  "profile": {
+    "artifacts": {
+      "dipo": {
+        "files": {
+          "best_model.pt": {
+            "sha256": "85a2590374d2d3bd82a04dcfa474869a8ae2ee6a64074e61b41540aed6633f24",
+            "size": 2640746745
+          },
+          "config.json": {
+            "sha256": "219e282474e0968b126d5d82e7b845760709a61398f4fcf6fdc96cb3a7675e99",
+            "size": 3565
+          }
+        },
+        "id": "larc-iu/dmrst-ettin-400m-gum-12.1.0",
+        "revision": "e33906a27f89b2703df8ab19e471aa82141d62cb"
+      },
+      "ettin": {
+        "files": {
+          "config.json": {
+            "sha256": "778102ed6dca61fe4258ca87cd302927cc991c239d218e57f33ae272d7324b38",
+            "size": 1243
+          },
+          "pytorch_model.bin": {
+            "sha256": "195d2c0a336cffa82daf463aac8ee09cc63d6a20caeadfd273c2d29405b3473a",
+            "size": 1583581246
+          },
+          "special_tokens_map.json": {
+            "sha256": "ea97ecdbcc73713039d8d64dbb05e3689495c96657fbd9a18f5bed381be81049",
+            "size": 694
+          },
+          "tokenizer.json": {
+            "sha256": "9fd55248d51d33976b324fc11592e28071da7d41e0e9401dfb7082e30574b7b1",
+            "size": 2132967
+          },
+          "tokenizer_config.json": {
+            "sha256": "3cd2017ff46d0a527e5d39cae39272eccfa1f19bb9f89b05d166aab2e38354e2",
+            "size": 20810
+          }
+        },
+        "id": "jhu-clsp/ettin-encoder-400m",
+        "revision": "7662476d60abb071a5bd319c9f3074f3072c062d"
+      }
+    },
+    "backend": "sdpa",
+    "cudnn_allow_tf32": false,
+    "device": "cuda",
+    "dtype": "float32",
+    "interop_threads": 1,
+    "matmul_precision": "highest",
+    "parameters": {
+      "adapter": "pm2-native-1"
+    },
+    "provider": "dipo",
+    "runtime_identity": {
+      "distributions_sha256": "5565f34cf74c49e024941cc8310f61c3dd4813244a934a07ba309dd0d91f3650",
+      "lock_sha256": "774ee62f431cbbb57b126a98ce6c0a2aab0d70c7c4329168f39a723e9675cdbe",
+      "platform": [
+        "linux",
+        "x86_64",
+        "cpython-314"
+      ],
+      "python": "3.14.10",
+      "python_sha256": "340a561270dc31d791a4922adf3a112da5c425379a3e080c1946047d3eb89638",
+      "version": "pm2-runtime-1"
+    },
+    "threads": 4,
+    "version": "nlp-gpu-profile-1"
+  }
+}

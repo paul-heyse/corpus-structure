@@ -1,0 +1,49 @@
+{
+  "parse_seconds": 2.0,
+  "macros": {
+    "\\R": "\\mathbb{R}",
+    "\\N": "\\mathbb{N}",
+    "\\Z": "\\mathbb{Z}",
+    "\\Q": "\\mathbb{Q}",
+    "\\P": "\\mathbb{P}",
+    "\\E": "\\mathbb{E}",
+    "\\var": "\\text{var}",
+    "\\sd": "\\text{sd}",
+    "\\cov": "\\text{cov}",
+    "\\cor": "\\text{cor}",
+    "\\skw": "\\text{skew}",
+    "\\kur": "\\text{kurt}",
+    "\\mse": "\\text{mse}",
+    "\\sgn": "\\text{sgn}",
+    "\\bs": "\\boldsymbol",
+    "\\ms": "\\mathscr"
+  },
+  "constants": [
+    "e",
+    "\\pi"
+  ],
+  "math_scope_binders": {
+    "sentence_initial": [
+      "suppose",
+      "let",
+      "assume",
+      "fix",
+      "define",
+      "consider",
+      "recall",
+      "if"
+    ],
+    "clause": [
+      "where",
+      "for"
+    ],
+    "reopen": [
+      "again"
+    ],
+    "section_wide": [
+      "in this section",
+      "throughout this section"
+    ]
+  },
+  "math_domain_rules": []
+}

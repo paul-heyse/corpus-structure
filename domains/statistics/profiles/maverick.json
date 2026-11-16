@@ -1,0 +1,68 @@
+{
+  "assets": "/home/paul/corpus-structure/build/models/pm2",
+  "fingerprint": "2c1b5d2ed94dfcd01bf34c45cf2bf6bee8eaf2ccf450783f9d28f91002f1bca5",
+  "profile": {
+    "artifacts": {
+      "deberta": {
+        "files": {
+          "config.json": {
+            "sha256": "ddec8b81d079d218ce9e54fc0af5d1d5937d6d53b5d42e70c1f251a1cebc830d",
+            "size": 580
+          },
+          "pytorch_model.bin": {
+            "sha256": "dd5b5d93e2db101aaf281df0ea1216c07ad73620ff59c5b42dccac4bf2eef5b5",
+            "size": 873673253
+          },
+          "spm.model": {
+            "sha256": "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd",
+            "size": 2464616
+          },
+          "tokenizer_config.json": {
+            "sha256": "3f3978e0c036f2c2588cac34a6047cbb0af0b0dc1814254e291028529805496d",
+            "size": 52
+          }
+        },
+        "id": "microsoft/deberta-v3-large",
+        "revision": "64a8c8eab3e352a784c658aef62be1662607476f"
+      },
+      "maverick": {
+        "files": {
+          "config.yaml": {
+            "sha256": "c0852d84bbc57c20ea42e05d94778f8a066d57990431c48513dd1450794676b3",
+            "size": 17
+          },
+          "weights.ckpt": {
+            "sha256": "b42053ce171ea904d10d92de5458dce2e8189ef1050e1705e7fced50d2479c1f",
+            "size": 2017558043
+          }
+        },
+        "id": "sapienzanlp/maverick-mes-ontonotes",
+        "revision": "087a90f0380ec1f20ed19732b657f53fd3542c81"
+      }
+    },
+    "backend": "eager",
+    "cudnn_allow_tf32": false,
+    "device": "cuda",
+    "dtype": "float32",
+    "interop_threads": 1,
+    "matmul_precision": "highest",
+    "parameters": {
+      "adapter": "pm2-native-1"
+    },
+    "provider": "maverick",
+    "runtime_identity": {
+      "distributions_sha256": "5565f34cf74c49e024941cc8310f61c3dd4813244a934a07ba309dd0d91f3650",
+      "lock_sha256": "774ee62f431cbbb57b126a98ce6c0a2aab0d70c7c4329168f39a723e9675cdbe",
+      "platform": [
+        "linux",
+        "x86_64",
+        "cpython-314"
+      ],
+      "python": "3.14.10",
+      "python_sha256": "340a561270dc31d791a4922adf3a112da5c425379a3e080c1946047d3eb89638",
+      "version": "pm2-runtime-1"
+    },
+    "threads": 4,
+    "version": "nlp-gpu-profile-1"
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "assets": "/home/paul/corpus-structure/build/models/pm2",
+  "fingerprint": "18649cf33501d70a2cb168a48a095bf4cb6bbed64884846d0609ac74ef83554b",
+  "profile": {
+    "artifacts": {
+      "hanlp": {
+        "files": {
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612.zip": {
+            "sha256": "b2e686acdd1702c40ebae2d248c82a2a1cff2e9a76754295c393f2e843d3222e",
+            "size": 1519954959
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/con_vocabs.json": {
+            "sha256": "22b1f0ce8df35719e2e32a0778d2ab65df3c59943171a7e4ab32bfe17d0b3e27",
+            "size": 5429
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/config.json": {
+            "sha256": "77cd8ff5a75da51d0a8374c65d9e2768614b27d7a904bc1aad8c3247d7611f39",
+            "size": 29670
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/dep_vocabs.json": {
+            "sha256": "0dba5dfe5ebc427745ef1bf861df3ee537e4dc67ccfc0ca4b1bf4a1d9bc9d563",
+            "size": 782
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/lem_vocabs.json": {
+            "sha256": "1a71bb31c5bc96f307ebb7147a04401cc28fb10c7ecd3e3c81153f283779f5ef",
+            "size": 20970
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/model.pt": {
+            "sha256": "caca7cac68b9333b195b64224279252adfd27b2722df560d28094f2343b867d0",
+            "size": 1641529730
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/ner_vocabs.json": {
+            "sha256": "12bc6fd0e4719975b62361a3b09056af0d4aebdd803c8b3bca96f3b7b1e13eac",
+            "size": 414
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/pos_vocabs.json": {
+            "sha256": "06d8c52bb9125c22618ac805350f6773bd8dbbe1268d9949d7b3120d5cec2a8d",
+            "size": 755
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/sdp/dm_vocabs.json": {
+            "sha256": "66aef33fe9f8c79c7db0c42bbfc0d449c840a219f3e4c13fd3c35cfd2fd3ef14",
+            "size": 1185
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/sdp/pas_vocabs.json": {
+            "sha256": "8933f25ccd22a50fb99bbf6e7d83c64e593635c5eb378a3366de81e936d7c242",
+            "size": 934
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/sdp/psd_vocabs.json": {
+            "sha256": "f822476b48660509e730470db7cffaa7080a30d87d25eab3e2c0433632fcfad3",
+            "size": 1555
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/srl_vocabs.json": {
+            "sha256": "ae98d3aef6599d6754db017c70ede07a393633114cd97a796ed0ba75e78d6081",
+            "size": 1272
+          },
+          "en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612/tok_vocabs.json": {
+            "sha256": "01f52e225e68d3e9a9ceb49507f6b5fbfa44345f0e5aff8a33bb567b20653262",
+            "size": 134
+          }
+        },
+        "url": "https://ftp.hankcs.com/hanlp/mtl/en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612.zip"
+      },
+      "modernbert": {
+        "files": {
+          "config.json": {
+            "sha256": "55dca68059e98f0debf8eb63ab355c451c65b1f5d90fdca4754113fdaadd2cca",
+            "size": 1194
+          },
+          "special_tokens_map.json": {
+            "sha256": "ea97ecdbcc73713039d8d64dbb05e3689495c96657fbd9a18f5bed381be81049",
+            "size": 694
+          },
+          "tokenizer.json": {
+            "sha256": "9fd55248d51d33976b324fc11592e28071da7d41e0e9401dfb7082e30574b7b1",
+            "size": 2132967
+          },
+          "tokenizer_config.json": {
+            "sha256": "3cd2017ff46d0a527e5d39cae39272eccfa1f19bb9f89b05d166aab2e38354e2",
+            "size": 20810
+          }
+        },
+        "id": "answerdotai/ModernBERT-large",
+        "revision": "45bb4654a4d5aaff24dd11d4781fa46d39bf8c13"
+      }
+    },
+    "backend": "sdpa",
+    "cudnn_allow_tf32": false,
+    "device": "cuda",
+    "dtype": "float32",
+    "interop_threads": 1,
+    "matmul_precision": "highest",
+    "parameters": {
+      "adapter": "pm2-native-1"
+    },
+    "provider": "hanlp",
+    "runtime_identity": {
+      "distributions_sha256": "5565f34cf74c49e024941cc8310f61c3dd4813244a934a07ba309dd0d91f3650",
+      "lock_sha256": "774ee62f431cbbb57b126a98ce6c0a2aab0d70c7c4329168f39a723e9675cdbe",
+      "platform": [
+        "linux",
+        "x86_64",
+        "cpython-314"
+      ],
+      "python": "3.14.10",
+      "python_sha256": "340a561270dc31d791a4922adf3a112da5c425379a3e080c1946047d3eb89638",
+      "version": "pm2-runtime-1"
+    },
+    "threads": 4,
+    "version": "nlp-gpu-profile-1"
+  }
+}

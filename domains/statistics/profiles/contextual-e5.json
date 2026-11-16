@@ -1,0 +1,18 @@
+{
+  "model": "intfloat/e5-small-v2",
+  "revision": "ffb93f3bd4047442299a41ebb6fa998a38507c52",
+  "dimension": 384,
+  "query_prompt": "query: ",
+  "document_prompt": "passage: ",
+  "pooling": "mean",
+  "max_tokens": 512,
+  "batch_size": 16,
+  "max_items": 256,
+  "max_input_bytes": 1048576,
+  "timeout_seconds": 300.0,
+  "recipe": "located-context-1",
+  "sentence_transformers_version": "6.2.0",
+  "transformers_version": "5.22.1",
+  "torch_version": "2.15.0+cu132",
+  "tokenizers_version": "0.23.3"
+}

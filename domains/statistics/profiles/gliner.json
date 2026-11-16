@@ -1,0 +1,74 @@
+{
+  "assets": "/home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d",
+  "fingerprint": "21fee5ced2611a741f7aed5aedc43dbe980da7c64245647072d83edbf15be207",
+  "profile": {
+    "artifacts": {
+      "config.json": "d6b515c21ae2100c12267fb42a3f02c1e99ad87580366aebedb161efd74441c7",
+      "encoder_config/config.json": "d36a845b9f25dcaf1ec45a1c4bdf65ea4ac20596537e14530ec9f660a63aeca4",
+      "model.safetensors": "7274094de2e0c2a37a386f55fc4e23061a954da5bd7a335e7dfe56f2743c277a",
+      "tokenizer.json": "cbc8ae6037812709c9c26f2a160f8dc48b0440bcb79c8141804259ae2d6adac3",
+      "tokenizer_config.json": "0bf3ea0873234bd9bfdd3853c440395009ac6365a925b91654daed5396d655e1"
+    },
+    "backend": "standard",
+    "cudnn_allow_tf32": false,
+    "device": "cuda",
+    "dtype": "float32",
+    "interop_threads": 1,
+    "matmul_precision": "highest",
+    "parameters": {
+      "gliner_profile": {
+        "artifact_hashes": [
+          [
+            "config.json",
+            "d6b515c21ae2100c12267fb42a3f02c1e99ad87580366aebedb161efd74441c7"
+          ],
+          [
+            "encoder_config/config.json",
+            "d36a845b9f25dcaf1ec45a1c4bdf65ea4ac20596537e14530ec9f660a63aeca4"
+          ],
+          [
+            "model.safetensors",
+            "7274094de2e0c2a37a386f55fc4e23061a954da5bd7a335e7dfe56f2743c277a"
+          ],
+          [
+            "tokenizer.json",
+            "cbc8ae6037812709c9c26f2a160f8dc48b0440bcb79c8141804259ae2d6adac3"
+          ],
+          [
+            "tokenizer_config.json",
+            "0bf3ea0873234bd9bfdd3853c440395009ac6365a925b91654daed5396d655e1"
+          ]
+        ],
+        "checkpoint": "fastino/gliner2.5-base-v1",
+        "max_batch": 4,
+        "max_batch_bytes": 65536,
+        "max_input_bytes": 32768,
+        "max_metadata_bytes": 8192,
+        "max_reply_frame_bytes": 1048576,
+        "max_request_frame_bytes": 131072,
+        "max_schema_bytes": 32768,
+        "max_subwords": 2048,
+        "max_words": 512,
+        "revision": "54785d51df8d86a0d8f2eb212fec15871aad2c4d",
+        "threads": 4,
+        "timeout_seconds": 120.0,
+        "version": "gliner2-2.1.0-cuda-fp32-standard-whitespace-v1"
+      }
+    },
+    "provider": "gliner",
+    "runtime_identity": {
+      "distributions_sha256": "5565f34cf74c49e024941cc8310f61c3dd4813244a934a07ba309dd0d91f3650",
+      "lock_sha256": "774ee62f431cbbb57b126a98ce6c0a2aab0d70c7c4329168f39a723e9675cdbe",
+      "platform": [
+        "linux",
+        "x86_64",
+        "cpython-314"
+      ],
+      "python": "3.14.10",
+      "python_sha256": "340a561270dc31d791a4922adf3a112da5c425379a3e080c1946047d3eb89638",
+      "version": "pm2-runtime-1"
+    },
+    "threads": 4,
+    "version": "nlp-gpu-profile-1"
+  }
+}

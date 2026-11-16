@@ -1,0 +1,7 @@
+variant: math_as_word
+spacy_version: 3.8.18
+model: en_core_web_sm
+model_version: 3.8.0
+exclude:
+- ner
+batch_size: 64

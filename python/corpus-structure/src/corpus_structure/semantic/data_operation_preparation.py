@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .composed import data_operation_dependencies
 from .python_operation_sources import PythonSource, PythonSourceCollection
@@ -109,12 +109,21 @@ class DataOperationInputs(BaseModel):
     schemas: tuple[NamedInput, ...]
     declarations: tuple[NamedInput, ...] = ()
     dependencies: tuple[NamedInput, ...] = ()
+    ontology_sources: tuple[str, ...] = ()
     python: PythonInputs | None = None
     source_bindings: bool = False
     pdf_contracts: bool = False
     protected_references: bool = False
     protected_record_policy: bool = False
     primary_profile: PrimaryProfileInputs | None = None
+
+    @model_validator(mode="after")
+    def selected_ontology_dependencies(self):
+        if len(set(self.ontology_sources)) != len(self.ontology_sources) or not set(
+            self.ontology_sources
+        ) <= {item.name for item in self.dependencies}:
+            raise ValueError("ontology sources must select unique declared dependency names")
+        return self
 
 
 @dataclass(frozen=True)
@@ -234,7 +243,9 @@ def acquire_data_operation_inputs(
         composed = primary_operation_inputs(
             bundle,
             **primary,
-            dependencies=ResolvedDependencies(artifacts(declared.dependencies)),
+            dependencies=ResolvedDependencies(
+                artifacts(declared.dependencies), ontology_sources=declared.ontology_sources
+            ),
             extra_sources=sources,
             declarations=declarations,
         )
@@ -249,7 +260,10 @@ def acquire_data_operation_inputs(
     native = native_protocol_sources()
     generator = capture_port_generator_sources()
     dependencies = data_operation_dependencies(
-        ResolvedDependencies((*artifacts(declared.dependencies), *native, *generator)),
+        ResolvedDependencies(
+            (*artifacts(declared.dependencies), *native, *generator),
+            ontology_sources=declared.ontology_sources,
+        ),
         (
             *declarations,
             native_operation_declarations(native),

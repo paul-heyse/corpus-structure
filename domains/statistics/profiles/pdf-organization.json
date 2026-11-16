@@ -1,0 +1,7 @@
+{
+  "rule_id": "native-organizational-headings-v2",
+  "numbered_pattern": "^\\d+(?:\\.\\d+)*\\s*[:.)-]?\\s+\\S",
+  "organizational_refs": [],
+  "organizational_pattern": "\\S",
+  "local_heading_pattern": "(?i)^\\s*(?:(?:proof|answer|solution)\\b.*|(?:definition|theorem|lemma|example|exercise|remark|corollary|proposition|claim|note)(?:\\s+\\d+(?:\\.\\d+)*|\\s*\\([^)]*\\))?\\s*[:.]?)\\s*$"
+}
