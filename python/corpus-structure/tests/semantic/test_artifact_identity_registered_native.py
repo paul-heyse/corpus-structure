@@ -208,7 +208,24 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
 
         monkeypatch.setattr(DataOperationStorage, "retain_data_completion_intent", intercept)
         demand, result = execute(kernel, pending)
-        assert len(attempted) == 1 and result.receipt_count == 1
+        if len(attempted) != 1 or result.receipt_count != 1:
+            with kernel.purpose("read").begin() as connection:
+                frontier = DataOperationStorage(connection).read_demand_result(
+                    {"demand_id": demand["demand_id"], "view": "frontier", "limit": 1000}
+                )
+            pytest.fail(
+                "artifact execution did not publish exactly one witnessed receipt: "
+                + repr(
+                    (
+                        len(attempted),
+                        result.receipt_count,
+                        tuple(
+                            (row["operation_id"], row["fate"], row.get("selection"))
+                            for row in frontier["obligations"]
+                        ),
+                    )
+                )
+            )
         (report,) = selected(
             kernel, demand["demand_id"], kind="urn:corpus:structural:DeclaredArtifactReport"
         )

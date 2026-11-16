@@ -7,8 +7,8 @@ custody. No old run/BoundReader/private-record transport is retained here.
 import json
 from copy import deepcopy
 
-import pytest
 import psycopg
+import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 

@@ -275,13 +275,14 @@ def execute_artifact_identity(
     if (
         len(sources) != len(source_role.members)
         or len(constructions) != len(construction_role.members)
+        or any(member.multiplicity != 1 for member in source_role.members)
         or any(
             member.member is not None or member.multiplicity != 1
-            for member in (*source_role.members, *construction_role.members)
+            for member in construction_role.members
         )
     ):
         raise ValueError(
-            "artifact cohort requires its exact whole native source and construction products"
+            "artifact cohort requires exact selected native sources and whole construction products"
         )
     chosen = tuple(ArtifactSourceSelection.model_validate(value) for value in selections)
     if (

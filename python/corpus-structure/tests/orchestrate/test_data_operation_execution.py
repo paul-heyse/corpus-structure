@@ -134,11 +134,8 @@ def test_retained_demand_service_executes_archived_inputs_without_a_run_anchor(e
 
 @pytest.mark.parametrize("project", ["execution", "another-project"])
 def test_run_frontdoor_executes_only_the_retained_demand_project(
-    executable, ddo_kernel, cli, tmp_path, monkeypatch, project
+    executable, ddo_application_settings, cli, tmp_path, project
 ):
-    from contextlib import contextmanager
-
-    from corpus_structure.cli import demands
     from corpus_structure.semantic.data_operation_json import json_loads
 
     engine, prepared, runtime, _, locations, _ = executable
@@ -156,12 +153,6 @@ def test_run_frontdoor_executes_only_the_retained_demand_project(
             intent, project="execution", release=prepared.release_id, runtime=runtime.runtime_id
         )["demand_id"]
 
-    @contextmanager
-    def acquired_engine(settings, *, purpose):
-        assert purpose in {"write", "admit"}
-        yield ddo_kernel.purpose(purpose)
-
-    monkeypatch.setattr(demands, "ENGINE", acquired_engine)
     result = cli(
         "run",
         "--demand",
@@ -172,6 +163,7 @@ def test_run_frontdoor_executes_only_the_retained_demand_project(
         project,
         "--json",
         env={"CORPUS_CI_RESULTS": str(tmp_path / "cli-results")},
+        settings=lambda: ddo_application_settings,
     )
     if project == "execution":
         assert result.exit_code == 0, (
@@ -294,6 +286,7 @@ def test_six_native_contexts_claim_only_the_bounded_window_and_preserve_settled_
         policy=policy,
         runtime_locations=locations,
         schema=bundle,
+        database_capacity=6,
     )
     completed = executor.run(demand, limit=2)
     assert completed.receipt_count == 6 and len(claimed) == 6

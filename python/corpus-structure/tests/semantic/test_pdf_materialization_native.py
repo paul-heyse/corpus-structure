@@ -13,9 +13,9 @@ from corpus_structure.semantic.original_documents import acquire_original_docume
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.refusals import ReadLimit
+from semantic.current_pdf_integration_support import ROOT, current_pdf_recipe
 from semantic.data_operation_kernel_support import Kernel
 from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.current_pdf_integration_support import ROOT, current_pdf_recipe
 
 
 def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_body(
