@@ -330,7 +330,7 @@ def maintained_claims(
                                 if renew_owned_claim is not None:
                                     renew_owned_claim(conn, claim)
                                 else:
-                                    from ._operation_calls import TaskAttempt, TaskId
+                                    from .identifiers import TaskAttempt, TaskId
 
                                     renew_claim(
                                         conn,

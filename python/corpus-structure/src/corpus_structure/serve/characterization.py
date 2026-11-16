@@ -5,9 +5,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from corpus_structure.semantic.characterization_store import (
+from corpus_structure.semantic.characterization_summary import (
     FamilyOutcomeSummary,
-    HistoricalProviderSummary,
+    RetainedProviderSummary,
 )
 from corpus_structure.semantic.data_operation_json import DdoJsonValue
 from corpus_structure.semantic.identity import canonical_bytes
@@ -36,7 +36,7 @@ class SelectedCharacterizationSummary(BaseModel):
     active_count: int | None = None
     coverage: tuple[FamilyOutcomeSummary, ...] | None = Field(default=None, max_length=64)
     coverage_omitted: int = Field(default=0, ge=0)
-    providers: tuple[HistoricalProviderSummary, ...] | None = Field(default=None, max_length=16)
+    providers: tuple[RetainedProviderSummary, ...] | None = Field(default=None, max_length=16)
     providers_omitted: int = Field(default=0, ge=0)
 
 
@@ -73,7 +73,7 @@ def _characterization_summary(body, *, native_annotation=False):
             if "spacy_version" not in annotation:
                 continue
             availability = annotation["availability"]
-            provider = HistoricalProviderSummary(
+            provider = RetainedProviderSummary(
                 provider="spacy",
                 profile=annotation["profile_recipe"],
                 model=annotation["model"],
