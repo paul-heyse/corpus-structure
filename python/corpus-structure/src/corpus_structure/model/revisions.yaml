@@ -1080,3 +1080,39 @@
         2026-11-16
       decision: 'ADR-0109 and ADR-0118: one current model/native installation; retire obsolete runtime
         declarations without an old-reader compatibility obligation'
+- label: 0.6.7
+  content_hash: a5aa0928c3396114e1e2c369cd1625db12cf90c20872a7dbbb4a5b1e98f94679
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    linkml-runtime: 1.12.1
+  parent: f4c75acb77445976104b3fa3ebfc560da286bd483f53e2f951c912e1e6f99f54
+  change_record:
+    from_revision: f4c75acb77445976104b3fa3ebfc560da286bd483f53e2f951c912e1e6f99f54
+    to_revision: a5aa0928c3396114e1e2c369cd1625db12cf90c20872a7dbbb4a5b1e98f94679
+    changes:
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: Retire closed RunKind/RunStatus vocabulary after current caller and core carrier removal;
+        preserve current settings, resources, scientific payloads and physical DDO task custody.
+      authorized_by: Operator-approved complete DDO legacy retirement, 2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native basis; no legacy runtime or reader preservation
+        obligation'
+    - element: sys:RunKind
+      change: removed
+      compatibility_class: breaking
+      reason: Retire closed RunKind/RunStatus vocabulary after current caller and core carrier removal;
+        preserve current settings, resources, scientific payloads and physical DDO task custody.
+      authorized_by: Operator-approved complete DDO legacy retirement, 2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native basis; no legacy runtime or reader preservation
+        obligation'
+    - element: sys:RunStatus
+      change: removed
+      compatibility_class: breaking
+      reason: Retire closed RunKind/RunStatus vocabulary after current caller and core carrier removal;
+        preserve current settings, resources, scientific payloads and physical DDO task custody.
+      authorized_by: Operator-approved complete DDO legacy retirement, 2026-11-16
+      decision: 'ADR-0109 and ADR-0118: one current model/native basis; no legacy runtime or reader preservation
+        obligation'

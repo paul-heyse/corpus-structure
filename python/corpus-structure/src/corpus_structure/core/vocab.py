@@ -352,29 +352,6 @@ class PolicyChain(StrEnum):
     GAPS = "gaps"
 
 
-class RunKind(StrEnum):
-    """`ops.run.kind`. Lifecycle: static."""
-
-    INGEST = "ingest"
-    FULL = "full"
-    SLICE = "slice"
-    EXPERIMENT = "experiment"
-    RESCORE = "rescore"
-    GOLDEN = "golden"
-
-
-class RunStatus(StrEnum):
-    """`ops.run.status`. Lifecycle: static."""
-
-    CREATED = "created"
-    RUNNING = "running"
-    AWAITING_AGENT = "awaiting_agent"
-    CONSOLIDATING = "consolidating"
-    FINISHED = "finished"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
 class TaskUnitType(StrEnum):
     """Current method and native task unit kinds. Lifecycle: static."""
 
@@ -1103,8 +1080,6 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     RuleSeverity: Lifecycle.STATIC,
     MethodFamily: Lifecycle.STATIC,
     PolicyChain: Lifecycle.STATIC,
-    RunKind: Lifecycle.STATIC,
-    RunStatus: Lifecycle.STATIC,
     TaskUnitType: Lifecycle.STATIC,
     TaskStatus: Lifecycle.STATIC,
     ObservationKind: Lifecycle.STATIC,

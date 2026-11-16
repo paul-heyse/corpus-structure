@@ -1,0 +1,1352 @@
+baseline: 31d628290b2fd4e6ce279464e4e4467628803dac
+core: "id: https://corpus-structure.dev/core\nname: core\ntitle: Core schema\ndescription: >-\n  The core\
+  \ module of the corpus-structure model (ADR-0020; D2 \xA76): the domain-independent D1\n  shapes and\
+  \ vocabulary that every domain pack imports. It is the authority: core/vocab.py and\n  core/_model/\
+  \ are generated from it, the vocabulary and model facts by Stage A and the Pydantic\n  shapes by Stage\
+  \ B (P0-M-5). Native LinkML carries every meaning it can; the remaining ci:\n  annotations are scalar\
+  \ and listed in D2 \xA73.\nversion: 0.6.7\nlicense: https://creativecommons.org/publicdomain/zero/1.0/\n\
+  prefixes:\n  linkml: https://w3id.org/linkml/\n  ci: https://corpus-structure.dev/ci/\n  core: https://corpus-structure.dev/core/\n\
+  default_prefix: core\ndefault_range: string\nimports:\n  - linkml:types\nannotations:\n  ci:key_scheme:\
+  \ 1\n\ntypes:\n  Key:\n    typeof: string\n    pattern: \"^[a-z]+:[0-9a-f]{32}$\"\n    description:\
+  \ A D1 \xA710.1 key, a prefix and 32 hex digits ('clm:\u2026').\n  Locator:\n    typeof: string\n  \
+  \  description: A D1 \xA73.4 locator string ('special/Normal.html#rel1').\n  CanonicalDecimal:\n   \
+  \ typeof: string\n    pattern: \"^(?:0|-?(?:[1-9][0-9]*(?:\\\\.[0-9]*[1-9])?|0\\\\.[0-9]*[1-9]))$\"\n\
+  \    description: A number as its D1 \xA76.2 canonical decimal string.\n  SentenceId:\n    typeof: string\n\
+  \    pattern: \"^[sc][0-9]+$\"\n    description: A citation-frame sentence id, sN in the unit or cN\
+  \ in the standing context.\n    annotations: {ci:refers: sentence}\n  Timestamp:\n    typeof: datetime\n\
+  \    description: A point in time with time zone (timestamptz).\n  EntityKey:\n    typeof: Key\n   \
+  \ pattern: \"^ent:[0-9a-f]{32}$\"\n    description: An entity's key (an ExternalReference's is a ReferenceKey).\n\
+  \  StatementKey:\n    typeof: Key\n    pattern: \"^stm:[0-9a-f]{32}$\"\n    description: A statement's\
+  \ key.\n  ReferenceKey:\n    typeof: Key\n    pattern: \"^xrf:[0-9a-f]{32}$\"\n    description: An ExternalReference's\
+  \ key.\n  ClaimKey:\n    typeof: Key\n    pattern: \"^clm:[0-9a-f]{32}$\"\n    description: A claim's\
+  \ key.\n  RenditionKey:\n    typeof: Key\n    pattern: \"^ren:[0-9a-f]{32}$\"\n    description: A rendition's\
+  \ key, the typed reference a stored batch and a candidate set carry.\n  SegmentKey:\n    typeof: Key\n\
+  \    pattern: \"^seg:[0-9a-f]{32}$\"\n    description: A segment's key on one rendition.\n  # Stage\
+  \ B's constrained strings and offsets (model and projections \xA73.3)\n  NonEmpty:\n    typeof: string\n\
+  \    description: A string that is not empty (a local ref, an id, a quote, a selector).\n    annotations:\
+  \ {ci:py_type: \"Annotated[str, Field(min_length=1)]\"}\n  Offset:\n    typeof: integer\n    minimum_value:\
+  \ 0\n    description: A character offset or a count, never negative.\n  LocalName:\n    typeof: string\n\
+  \    pattern: \"^[A-Za-z_][A-Za-z0-9_]*$\"\n    description: A schema element's local name, as the authored\
+  \ form writes it (ParameterRole).\n  PrefixedName:\n    typeof: string\n    pattern: \"^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$\"\
+  \n    description: A schema element's prefixed name, as the stored form writes it (stat:ParameterRole).\n\
+  \  MemberName:\n    typeof: string\n    pattern: \"^[a-z][a-z0-9_]*(:[a-z][a-z0-9_]*)?$\"\n    description:\
+  \ >-\n      A member of a schema-version-scoped closed set: a core member by its name, a pack's by\n\
+  \      <prefix>:<name> (S1's compiled models and S2's checks refuse what the version lacks).\n\nsubsets:\n\
+  \  structural:\n    description: >-\n      Structural claims, about statements. They take no statement_role,\
+  \ are asserted, and carry no\n      conditions (guideline \xA710.3, \xA710.6, \xA710.7 rule 4).\n  unsupported:\n\
+  \    description: >-\n      Something the source states that the schema cannot express; the claim has\
+  \ status unsupported\n      (D1 \xA78.1).\n  # Member properties (D2 \xA73.4): subsets used by enum\
+  \ members only, generated as frozensets. Each\n  # names its consumer (ADR-0023); one whose reader is\
+  \ not built yet names the planned reader.\n  premise_forming:\n    description: \"Member property of\
+  \ ClaimModality: claims are premises (INV-06; D8 default filters).\"\n    annotations: {ci:consumer:\
+  \ \"validators (INV-06); D8 default filters\"}\n  attribution_identifying:\n    description: \"Member\
+  \ property of ClaimModality: attribution enters the claim key (D1 \xA710.1).\"\n    annotations: {ci:consumer:\
+  \ \"Stage A qualifier specs (ci:key_role_when); KeySchema and keys (F2d)\"}\n  conflict_bearing:\n \
+  \   description: \"Member property of ClaimModality: claims can conflict across statements (D5 \xA7\
+  5.5).\"\n    annotations: {ci:consumer: \"consolidation conflict detection (D5 \xA75.5)\"}\n  reserved:\n\
+  \    description: \"Member property of ClaimModality: reserved, not authored under guideline v1.\"\n\
+  \    annotations: {ci:consumer: \"batch validation under guideline v1 (D1 \xA75.2; OPEN-D2-15)\"}\n\
+  \  claim_bearing:\n    description: \"Member property of StatementKind: the kind's units state claims\
+  \ (D6 \xA77.2).\"\n    annotations: {ci:consumer: \"ingest (I1a) and source profiles; M24 packets (D6\
+  \ \xA77.2)\"}\n  annotation_unit:\n    description: \"Member property of SegmentKind: a segment of the\
+  \ kind is an annotation unit (D1 \xA73.4).\"\n    annotations: {ci:consumer: \"locators (I0); source-profile\
+  \ segments (I1a)\"}\n  top_level_annotation_unit:\n    description: >-\n      Member property of SegmentKind:\
+  \ a segment of the kind is an annotation unit when its\n      ancestors are only section-like segments\
+  \ (D1 \xA73.4).\n    annotations: {ci:consumer: \"locators (I0); source-profile segments (I1a)\"}\n\
+  \  statement_anchor:\n    description: \"Member property of SegmentKind: a statement anchors on the\
+  \ innermost such segment (D1 \xA710.1).\"\n    annotations: {ci:consumer: \"keys (statement anchors,\
+  \ D1 \xA710.1)\"}\n  search_block:\n    description: \"Member property of SegmentKind: a BM25 search\
+  \ block (D3 \xA75).\"\n    annotations: {ci:consumer: \"M2 BM25 index predicate and overlay check; source-profile\
+  \ segments (I1a)\"}\n  section_like:\n    description: >-\n      Member property of SegmentKind: a segment\
+  \ of the kind groups blocks without being a block\n      (the document and sections); annotation units\
+  \ are found below it.\n    annotations: {ci:consumer: \"keys; locators (I0)\"}\n  section_label:\n \
+  \   description: >-\n      Member property of SegmentKind: a segment of the kind labels its section;\
+  \ it is neither an\n      annotation unit nor uncovered text.\n    annotations: {ci:consumer: \"locators\
+  \ (I0)\"}\n  container:\n    description: \"Member property of SegmentKind: a segment of the kind holds\
+  \ other blocks.\"\n    annotations: {ci:consumer: \"ingest HTML segmentation (I1a)\"}\n  citable_sentence:\n\
+  \    description: >-\n      Member property of SegmentKind: a citation frame's entries and statement\
+  \ ordinals address\n      segments of the kind (D1 \xA710.1, \xA710.3).\n    annotations: {ci:consumer:\
+  \ \"keys; citation frames (D1 \xA710.1, \xA710.3)\"}\n  sentence_split:\n    description: >-\n     \
+  \ Member property of SegmentKind: M03 splits a segment of the kind into sentences when no\n      segment\
+  \ of such a kind lies inside it (D4 M03).\n    annotations: {ci:consumer: \"M03 sentence segmentation\
+  \ (I1a)\"}\n  symmetric_relation:\n    description: \"Member property of Relation: the operands' order\
+  \ does not matter (D1 \xA77).\"\n    annotations: {ci:consumer: \"keys (canonical relation form, D1\
+  \ \xA77)\"}\n  converse_rewritten:\n    description: >-\n      Member property of Relation: the canonical\
+  \ form writes it as its converse with the sides\n      swapped (> as <, >= as <=; D1 \xA77).\n    annotations:\
+  \ {ci:consumer: \"keys (canonical relation form, D1 \xA77)\"}\n\nclasses:\n  Entity:\n    abstract:\
+  \ true\n    description: Base of every entity class; instances are D1 entities.\n    slots: [label]\n\
+  \n  Statement:\n    is_a: Entity\n    description: >-\n      An authored unit of meaning: a definition,\
+  \ theorem, proof, example, exercise, remark,\n      convention or assumption. Claims belong to statements\
+  \ as premises, conclusions, definientia\n      or example values. Listed in a batch's statements[],\
+  \ never in entities[].\n    slots: [kind]\n    annotations:\n      ci:scope: local\n      ci:extract:\
+  \ none\n      ci:reify: true\n\n  ExternalReference:\n    is_a: Entity\n    description: >-\n      A\
+  \ reference to something outside the batch (\"the last result\", an author [n] link): a typed\n    \
+  \  node anchored at the citing statement's anchor and resolved by consolidation, never a dropped\n \
+  \     claim (D1 \xA74.4). A batch writes it as an OutsideItem with its ReferenceDescriptor; it is\n\
+  \      keyed xrf by the citing statement's key, the quote's text form and the link target (D1\n    \
+  \  \xA710.1); consolidation records its resolution (kb.entity.resolved_to), and until then it stays\n\
+  \      an unresolved typed node.\n    annotations:\n      ci:scope: local\n      ci:extract: none\n\n\
+  \  Value:\n    abstract: true\n    description: >-\n      Base of the D1 value classes. Every value\
+  \ carries the tag t, which names its class; the core\n      Pydantic value union is discriminated on\
+  \ it.\n    slots: [t]\n\n  TextValue:\n    is_a: Value\n    description: Free text that is the value\
+  \ itself.\n    slot_usage:\n      t: {equals_string: text}\n    attributes:\n      v: {required: true,\
+  \ description: The text.}\n\n  NumberValue:\n    is_a: Value\n    description: >-\n      A number as\
+  \ its D1 \xA76.2 canonical decimal; `unit` and `basis` as the source states them.\n    slot_usage:\n\
+  \      t: {equals_string: number}\n    attributes:\n      v:\n        range: CanonicalDecimal\n    \
+  \    required: true\n        description: The canonical decimal string.\n        annotations: {ci:validator:\
+  \ core.shape_support:canonical_number}\n      unit: {description: \"The unit as stated, or absent.\"\
+  }\n      basis: {description: \"A reference basis the source states, such as gauge or absolute, or absent.\"\
+  }\n\n  BoolValue:\n    is_a: Value\n    description: A truth value.\n    slot_usage:\n      t: {equals_string:\
+  \ bool}\n    attributes:\n      v: {range: boolean, required: true, description: The truth value.}\n\
+  \n  EnumValue:\n    is_a: Value\n    description: >-\n      A member of a schema enum: the enum by its\
+  \ local name when authored (`ParameterRole`), by its\n      prefixed name when stored (`stat:ParameterRole`).\n\
+  \    slot_usage:\n      t: {equals_string: enum}\n    attributes:\n      enum:\n        range: LocalName\n\
+  \        required: true\n        description: \"The enum's name: local when authored, prefixed when\
+  \ stored (X2-01).\"\n        annotations: {ci:stored_range: PrefixedName}\n      v: {required: true,\
+  \ description: The permissible value.}\n\n  Expression:\n    is_a: Value\n    abstract: true\n    description:\
+  \ >-\n      Base of the formula and set values: the LaTeX as written with its symbol bindings, and the\n\
+  \      normal form and parse outcome M11 adds in consolidation.\n    attributes:\n      latex:\n   \
+  \     required: true\n        description: The LaTeX exactly as written, macros included.\n      symbols:\n\
+  \        range: SymbolBinding\n        multivalued: true\n        inlined: true\n        description:\
+  \ The binding map, keyed by symbol in token form without backslash.\n        annotations: {ci:py_type:\
+  \ \"dict[str, SymbolBinding]\"}\n      sympy:\n        description: The normalized SymPy form; added\
+  \ by M11 during consolidation.\n        annotations: {ci:form: consolidated}\n      parse:\n       \
+  \ range: ParseOutcome\n        description: The parse outcome; added by M11 during consolidation.\n\
+  \        annotations: {ci:form: consolidated}\n\n  Formula:\n    is_a: Expression\n    description:\
+  \ A formula as written, with its symbol bindings (D1 \xA76.1).\n    slot_usage:\n      t: {equals_string:\
+  \ formula}\n\n  SetExpr:\n    is_a: Expression\n    annotations: {ci:py_name: SetValue}\n    description:\
+  \ A set written in LaTeX, such as \\R, (0, \\infty) or \\R \\setminus \\{0\\}.\n    slot_usage:\n  \
+  \    t: {equals_string: set}\n\n  DateValue:\n    is_a: Value\n    description: A date or date-time\
+  \ kept verbatim as ISO 8601.\n    slot_usage:\n      t: {equals_string: date}\n    attributes:\n   \
+  \   v:\n        required: true\n        pattern: \"^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\\
+  \\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$\"\n        description: The ISO 8601 string as written.\n\
+  \n  IntervalValue:\n    is_a: Value\n    description: >-\n      An interval; an absent bound is unbounded.\n\
+  \    slot_usage:\n      t: {equals_string: interval}\n    attributes:\n      start:\n        any_of:\
+  \ [{range: NumberValue}, {range: DateValue}, {range: Formula}]\n        inlined: true\n        description:\
+  \ \"The lower bound, a number, date or formula.\"\n      end:\n        any_of: [{range: NumberValue},\
+  \ {range: DateValue}, {range: Formula}]\n        inlined: true\n        description: \"The upper bound,\
+  \ a number, date or formula.\"\n      start_incl: {range: boolean, description: Whether the lower bound\
+  \ is included.}\n      end_incl: {range: boolean, description: Whether the upper bound is included.}\n\
+  \n  PhraseValue:\n    is_a: Value\n    description: >-\n      Text kept but not interpreted. The model-facing\
+  \ form names the sentence it lies in; the stored\n      form adds the offsets the quote cascade located.\n\
+  \    slot_usage:\n      t: {equals_string: phrase}\n    annotations:\n      ci:invariant: ordered(start,\
+  \ end)\n      ci:py_name: Phrase\n    attributes:\n      text: {required: true, description: The text\
+  \ as written.}\n      sentence:\n        range: SentenceId\n        description: The unit sentence (sN)\
+  \ or standing-context sentence (cN) holding the text.\n        annotations: {ci:form: model}\n     \
+  \ start:\n        range: Offset\n        description: Start offset in the rendition's canonical text.\n\
+  \        annotations: {ci:form: stored, ci:required_in: stored}\n      end:\n        range: Offset\n\
+  \        description: End offset in the rendition's canonical text.\n        annotations: {ci:form:\
+  \ stored, ci:required_in: stored}\n      coarse:\n        range: boolean\n        description: The text\
+  \ was not located exactly; the span is the whole cited sentence.\n        annotations: {ci:form: stored}\n\
+  \n  EntityRef:\n    description: >-\n      The one entity-reference shape: a local ref in a batch, an\
+  \ entity key once stored.\n    attributes:\n      ref: {required: true, description: The local ref or\
+  \ entity key., annotations: {ci:refers: entity}}\n\n  SymbolBinding:\n    description: >-\n      How\
+  \ one symbol of a formula is bound (D1 \xA76.1); the kind decides which fields it has.\n    annotations:\n\
+  \      ci:invariant: >-\n        iff_present(entity, bind = variable|family_param);\n        iff_present(claim,\
+  \ bind = param_of|param_expr_of);\n        iff_present(param, bind = param_of|param_expr_of)\n    attributes:\n\
+  \      bind: {range: BindKind, required: true, description: The binding kind.}\n      entity: {description:\
+  \ \"variable, family_param: the entity's local ref (key once stored).\", annotations: {ci:refers: entity}}\n\
+  \      claim: {description: \"param_of, param_expr_of: the claim's local ref (key once stored).\", annotations:\
+  \ {ci:refers: claim}}\n      param: {description: \"param_of, param_expr_of: the entry of the claim's\
+  \ ci:param_map qualifier.\"}\n\n  Condition:\n    abstract: true\n    description: >-\n      A condition\
+  \ tree (D1 \xA77), the range of the conditions qualifier: one of the node classes\n      below, discriminated\
+  \ on op.\n    slots: [op]\n\n  AndNode:\n    is_a: Condition\n    annotations: {ci:py_name: And}\n \
+  \   description: All of the arguments hold.\n    slot_usage:\n      op: {equals_string: and}\n    attributes:\n\
+  \      args: {range: Condition, multivalued: true, inlined: true, required: true, description: The arguments.}\n\
+  \n  OrNode:\n    is_a: Condition\n    annotations: {ci:py_name: Or}\n    description: At least one of\
+  \ the arguments holds.\n    slot_usage:\n      op: {equals_string: or}\n    attributes:\n      args:\
+  \ {range: Condition, multivalued: true, inlined: true, required: true, description: The arguments.}\n\
+  \n  NotNode:\n    is_a: Condition\n    annotations: {ci:py_name: Not}\n    description: The argument\
+  \ does not hold.\n    slot_usage:\n      op: {equals_string: not}\n    attributes:\n      arg: {range:\
+  \ Condition, inlined: true, required: true, description: The argument.}\n\n  ForallNode:\n    is_a:\
+  \ Condition\n    annotations: {ci:py_name: Forall}\n    description: The body holds for every value\
+  \ of the variable in the set.\n    slot_usage:\n      op: {equals_string: forall}\n    attributes:\n\
+  \      var: {required: true, description: \"The bound variable, a symbol.\"}\n      set: {range: SetExpr,\
+  \ inlined: true, required: true, description: The set it ranges over.}\n      body: {range: Condition,\
+  \ inlined: true, required: true, description: The condition on it.}\n\n  ClaimNode:\n    is_a: Condition\n\
+  \    description: Another claim of the batch holds (a premise reference).\n    slot_usage:\n      op:\
+  \ {equals_string: claim}\n    attributes:\n      ref: {required: true, description: The claim's local\
+  \ ref (key once stored)., annotations: {ci:refers: claim}}\n\n  MemberNode:\n    is_a: Condition\n \
+  \   description: A formula's value lies in a set.\n    slot_usage:\n      op: {equals_string: member}\n\
+  \    attributes:\n      x: {range: Formula, inlined: true, required: true, description: The element.}\n\
+  \      set: {range: SetExpr, inlined: true, required: true, description: The set.}\n\n  CmpNode:\n \
+  \   is_a: Condition\n    description: Two formulas compare by a relation.\n    slot_usage:\n      op:\
+  \ {equals_string: cmp}\n    attributes:\n      rel: {range: Relation, required: true, description: The\
+  \ relation.}\n      lhs: {range: Formula, inlined: true, required: true, description: The left side.}\n\
+  \      rhs: {range: Formula, inlined: true, required: true, description: The right side.}\n\n  PredNode:\n\
+  \    is_a: Condition\n    description: A condition predicate of the schema (ConditionPredicate) holds\
+  \ of its arguments.\n    slot_usage:\n      op: {equals_string: pred}\n    attributes:\n      name:\
+  \ {required: true, description: The condition predicate's name.}\n      args:\n        any_of: [{range:\
+  \ Entity}, {range: Formula}]\n        multivalued: true\n        inlined: true\n        required: true\n\
+  \        minimum_cardinality: 1\n        description: The arguments, entity references or formulas.\n\
+  \        annotations: {ci:py_name: PredArg}\n\n  PhraseNode:\n    is_a: Condition\n    description:\
+  \ A condition kept as text, not interpreted.\n    slot_usage:\n      op: {equals_string: phrase}\n \
+  \   annotations:\n      ci:invariant: ordered(start, end)\n    attributes:\n      text: {required: true,\
+  \ description: The text as written.}\n      sentence:\n        range: SentenceId\n        description:\
+  \ The sentence holding the text.\n        annotations: {ci:form: model}\n      start:\n        range:\
+  \ Offset\n        description: Start offset in the rendition's canonical text.\n        annotations:\
+  \ {ci:form: stored, ci:required_in: stored}\n      end:\n        range: Offset\n        description:\
+  \ End offset in the rendition's canonical text.\n        annotations: {ci:form: stored, ci:required_in:\
+  \ stored}\n      coarse:\n        range: boolean\n        description: The text was not located exactly.\n\
+  \        annotations: {ci:form: stored}\n\n  UnsupportedNode:\n    is_a: PhraseNode\n    description:\
+  \ A condition the schema cannot express, kept as text with the reason.\n    slot_usage:\n      op: {equals_string:\
+  \ unsupported}\n    attributes:\n      reason: {required: true, description: Why it is unsupported.}\n\
+  \n  MapEntry:\n    abstract: true\n    description: >-\n      One entry of a map qualifier (object kind\
+  \ map, D2 \xA73): a string key and a value. A map\n      qualifier ranges over a subclass, multivalued\
+  \ and inlined, and is written as an object from\n      key to value.\n    attributes:\n      key: {identifier:\
+  \ true, description: The entry's key.}\n      value: {description: The entry's value.}\n\n  StoredScope:\n\
+  \    description: >-\n      The stored scope qualifier: the extent and the segment it resolves to on\
+  \ the rendition.\n    attributes:\n      extent: {range: ScopeExtent, required: true, description: How\
+  \ far the supposition reaches.}\n      segment: {range: NonEmpty, required: true, description: The segment\
+  \ key it resolves to on the rendition.}\n\n  # ---- batch items (D2 \xA77.3), one declaration per item\
+  \ with ci:form attributes ----\n  Evidence:\n    description: >-\n      One evidence span of a claim:\
+  \ authored by sentence id and quote, stored by offsets on the\n      rendition.\n    annotations:\n\
+  \      ci:invariant: ordered(start, end)\n    attributes:\n      sentence:\n        range: SentenceId\n\
+  \        description: The cited sentence.\n        annotations: {ci:form: model, ci:required_in: model}\n\
+  \      quote:\n        range: NonEmpty\n        description: The quoted text inside the sentence.\n\
+  \        annotations: {ci:form: model, ci:required_in: model}\n      start:\n        range: Offset\n\
+  \        description: Start offset.\n        annotations: {ci:form: stored, ci:required_in: stored}\n\
+  \      end:\n        range: Offset\n        description: End offset.\n        annotations: {ci:form:\
+  \ stored, ci:required_in: stored}\n      role: {range: EvidenceRole, required: true, description: The\
+  \ part the span plays.}\n      coarse:\n        range: boolean\n        description: The quote was not\
+  \ located exactly.\n        annotations: {ci:form: stored}\n\n  IdentityValue:\n    is_a: MapEntry\n\
+  \    description: >-\n      One identity slot of an entity item, by the slot's name (local when authored,\
+  \ prefixed when\n      stored), to the local ref of the entity it names or the literal it holds.\n \
+  \   slot_usage:\n      key: {annotations: {ci:stored_range: PrefixedName}}\n      value: {required:\
+  \ true, description: \"The entity's local ref or the literal, as written.\"}\n\n  Qualifiers:\n    description:\
+  \ >-\n      A claim's qualifiers: the core ones (by local name when authored, as `core:<name>` when\n\
+  \      stored) and the predicate's schema qualifiers (by local name when authored, by prefixed name\n\
+  \      when stored), raw JSON until S1's compiled models type them.\n\n      Stored, the attributes\
+  \ keep the local names (`q.modality`); validation and dumps use the\n      prefixed ones.\n    slots:\
+  \ [modality, polarity, hedge, attribution, conditions, scope, valid_time]\n    extra_slots: {allowed:\
+  \ true}\n    annotations: {ci:validator: stored core.shape_support:prefixed_extras}\n\n  EntityItem:\n\
+  \    description: An entity item of a batch (D2 \xA77.3).\n    annotations:\n      ci:py_name: Entity\n\
+  \      # an extent and a scope segment only on a local entity; the segment is left out when the\n  \
+  \    # extent resolves to none (reported, never guessed: agent interface \xA73.1)\n      ci:invariant:\
+  \ \"only_when(extent, scope = local); only_when(scope_segment, scope = local)\"\n    attributes:\n \
+  \     local_ref: {range: NonEmpty, required: true, description: The batch-local reference.}\n      type:\
+  \ {required: true, description: \"The entity class: local name when authored, prefixed when stored.\"\
+  , annotations: {ci:stored_range: PrefixedName}}\n      label: {required: true, description: The label\
+  \ as written.}\n      scope: {range: EntityScope, required: true, description: Global or local (D1 \xA7\
+  4.2).}\n      extent: {range: EntityExtent, description: How far a local entity reaches.}\n      symbol:\
+  \ {description: The symbol a local entity is written as.}\n      aliases: {multivalued: true, description:\
+  \ Other names written for it.}\n      identity:\n        range: IdentityValue\n        multivalued:\
+  \ true\n        inlined: true\n        description: Identity slot to local ref or literal.\n      scope_segment:\n\
+  \        description: >-\n          The segment key a local entity is scoped to; absent when its extent\
+  \ resolves to no\n          segment.\n        annotations: {ci:form: stored}\n\n  StatementItem:\n \
+  \   description: >-\n      A statement item of a batch: anchored by sentence ids or the unit when authored,\
+  \ by segment\n      keys when stored. A statement outside the unit is an OutsideItem.\n    annotations:\
+  \ {ci:py_name: Statement}\n    attributes:\n      local_ref: {range: NonEmpty, required: true, description:\
+  \ The batch-local reference.}\n      kind: {range: StatementKind, required: true, description: The statement's\
+  \ kind.}\n      anchor:\n        required: true\n        multivalued: true\n        minimum_cardinality:\
+  \ 1\n        description: \"Segment keys when stored; sentence ids, or the literal unit, when authored.\"\
+  \n        annotations: {ci:py_type: \"model: Literal['unit'] | Annotated[tuple[SentenceId, ...], Field(min_length=1)]\"\
+  }\n\n  ReferenceDescriptor:\n    description: >-\n      An external reference's citing text: when authored,\
+  \ the sentence and the quote that makes the\n      reference; when stored, the quote's located span\
+  \ (`coarse` when only its sentence was\n      located); and the author's link target when the text gives\
+  \ one (a D1 \xA73.4 locator or author\n      link target, as written).\n    annotations:\n      ci:invariant:\
+  \ ordered(start, end)\n      ci:py_name: Descriptor\n    attributes:\n      sentence:\n        range:\
+  \ SentenceId\n        description: The citing sentence (sN of the unit or cN of its standing context).\n\
+  \        annotations: {ci:form: model, ci:required_in: model}\n      quote:\n        range: NonEmpty\n\
+  \        description: The quote that makes the reference, located by the quote cascade.\n        annotations:\
+  \ {ci:form: model, ci:required_in: model}\n      start:\n        range: Offset\n        description:\
+  \ Start offset of the located quote.\n        annotations: {ci:form: stored, ci:required_in: stored}\n\
+  \      end:\n        range: Offset\n        description: End offset of the located quote.\n        annotations:\
+  \ {ci:form: stored, ci:required_in: stored}\n      coarse:\n        range: boolean\n        description:\
+  \ The quote was not located exactly; the span is the whole cited sentence.\n        annotations: {ci:form:\
+  \ stored}\n      target:\n        range: NonEmpty\n        description: The author's link target (a\
+  \ D1 \xA73.4 locator or author link target), as written.\n\n  OutsideItem:\n    description: >-\n  \
+  \    A statement outside the unit (S4 V2): an `ExternalReference` node, with no kind.\n    annotations:\
+  \ {ci:py_name: Outside}\n    attributes:\n      local_ref: {range: NonEmpty, required: true, description:\
+  \ The batch-local reference.}\n      anchor: {required: true, equals_string: outside, description: The\
+  \ literal outside.}\n      descriptor: {range: ReferenceDescriptor, required: true, inlined: true, description:\
+  \ The citing text.}\n\n  ClaimItem:\n    description: A claim item of a batch (D2 \xA77.3).\n    annotations:\n\
+  \      ci:invariant: \"iff_present(derived_from, establishment = derived); iff_present(rule, establishment\
+  \ = derived)\"\n      ci:py_name: Claim\n    attributes:\n      local_ref: {range: NonEmpty, required:\
+  \ true, description: The batch-local reference.}\n      predicate: {required: true, description: \"\
+  The predicate: local when authored, prefixed when stored.\", annotations: {ci:stored_range: PrefixedName}}\n\
+  \      subject: {required: true, description: \"The subject's reference: an entity or a statement.\"\
+  , annotations: {ci:refers: entity statement}}\n      statement: {description: The statement's reference.,\
+  \ annotations: {ci:refers: statement}}\n      statement_role: {range: StatementRole, description: The\
+  \ claim's role in its statement.}\n      establishment:\n        range: Establishment\n        ifabsent:\
+  \ string(stated)\n        description: How the claim was established (D5 \xA79); stated when absent.\n\
+  \        annotations: {ci:omit_default: true}\n      derived_from:\n        multivalued: true\n    \
+  \    minimum_cardinality: 1\n        description: The claims a derived claim was derived from (their\
+  \ references).\n        annotations: {ci:refers: claim, ci:py_default: MISSING}\n      rule: {range:\
+  \ NonEmpty, description: The derive rule that produced a derived claim.}\n      object:\n        any_of:\
+  \ [{range: Entity}, {range: Value}]\n        required: true\n        description: An entity reference\
+  \ or a value.\n        annotations: {ci:py_name: Object}\n      qualifiers: {range: Qualifiers, inlined:\
+  \ true, description: The core and schema qualifiers.}\n      evidence: {range: Evidence, multivalued:\
+  \ true, inlined_as_list: true, required: true, minimum_cardinality: 1, description: The evidence spans.}\n\
+  \n  AlternativeItem:\n    description: Items the author marks as alternatives of one another.\n    attributes:\n\
+  \      refs: {multivalued: true, required: true, minimum_cardinality: 2, description: The alternatives'\
+  \ local refs., annotations: {ci:refers: claim}}\n      reason: {required: true, description: Why they\
+  \ are alternatives.}\n\n  UnsupportedItem:\n    description: Text the schema cannot express (D1 \xA7\
+  8.1).\n    annotations:\n      ci:invariant: ordered(start, end)\n      ci:py_name: Unsupported\n  \
+  \  attributes:\n      start:\n        range: Offset\n        description: Start offset.\n        annotations:\
+  \ {ci:form: stored, ci:required_in: stored}\n      end:\n        range: Offset\n        description:\
+  \ End offset.\n        annotations: {ci:form: stored, ci:required_in: stored}\n      local_ref: {range:\
+  \ NonEmpty, required: true, description: The batch-local reference.}\n      sentence:\n        range:\
+  \ SentenceId\n        description: The cited sentence.\n        annotations: {ci:form: model, ci:required_in:\
+  \ model}\n      quote:\n        range: NonEmpty\n        description: The quoted text.\n        annotations:\
+  \ {ci:form: model, ci:required_in: model}\n      reason: {required: true, description: Why it is unsupported.}\n\
+  \      coarse:\n        range: boolean\n        description: The quote was not located exactly.\n  \
+  \      annotations: {ci:form: stored}\n\n  Batch:\n    description: A batch envelope in either form\
+  \ (D2 \xA77.3).\n    annotations:\n      ci:validator: core.shape_support:well_formed\n      ci:mixin:\
+  \ core.shape_support:BatchMethods\n    attributes:\n      unit_ref: {range: NonEmpty, required: true,\
+  \ description: The annotation unit's key.}\n      rendition:\n        range: RenditionKey\n        description:\
+  \ The rendition the stored batch is located on (its ren key).\n        annotations: {ci:form: stored,\
+  \ ci:required_in: stored}\n      entities: {range: EntityItem, multivalued: true, inlined_as_list: true,\
+  \ description: Entity items.}\n      statements:\n        any_of: [{range: StatementItem}, {range: OutsideItem}]\n\
+  \        multivalued: true\n        inlined_as_list: true\n        description: \"Statement items, and\
+  \ OutsideItems for statements outside the unit.\"\n        annotations: {ci:py_name: StatementItem,\
+  \ ci:discriminator: anchor}\n      claims: {range: ClaimItem, multivalued: true, inlined_as_list: true,\
+  \ description: Claim items.}\n      alternatives: {range: AlternativeItem, multivalued: true, inlined_as_list:\
+  \ true, description: Alternative items.}\n      unsupported: {range: UnsupportedItem, multivalued: true,\
+  \ inlined_as_list: true, description: Unsupported items.}\n\n  # ---- the keyed candidate set (D5 \xA7\
+  8.2; TM \xA73): T2's and T3's target, stored form only ----\n  CandidateEntity:\n    description: An\
+  \ entity of the keyed candidate set; its id is a local ref, or its key at finalize.\n    annotations:\n\
+  \      ci:invariant: \"only_when(extent, scope = local); only_when(scope_segment, scope = local)\"\n\
+  \    attributes:\n      id: {range: NonEmpty, required: true, description: \"The local ref, or the key\
+  \ at finalize.\"}\n      key: {any_of: [{range: EntityKey}, {range: Unkeyed}], ifabsent: string(unkeyed),\
+  \ description: \"The key, or unkeyed at submission.\"}\n      type: {range: PrefixedName, required:\
+  \ true, description: \"The entity class by prefixed name.\"}\n      label: {required: true, description:\
+  \ \"The label as written.\"}\n      scope: {range: EntityScope, required: true, description: \"Global\
+  \ or local (D1 \xA74.2).\"}\n      extent: {range: EntityExtent, description: \"How far a local entity\
+  \ reaches.\"}\n      scope_segment: {description: \"The segment a local entity is scoped to; absent\
+  \ when its extent resolved to none.\"}\n      symbol: {description: \"The symbol a local entity is written\
+  \ as.\"}\n      aliases: {multivalued: true, description: \"Other names written for it.\"}\n      identity:\
+  \ {range: IdentityValue, multivalued: true, inlined: true, description: \"Identity slot to id or literal.\"\
+  }\n\n  CandidateStatement:\n    description: A statement of the keyed candidate set.\n    attributes:\n\
+  \      id: {range: NonEmpty, required: true, description: \"The local ref, or the key at finalize.\"\
+  }\n      key: {any_of: [{range: StatementKey}, {range: Unkeyed}], ifabsent: string(unkeyed), description:\
+  \ \"The key, or unkeyed at submission.\"}\n      kind: {range: StatementKind, required: true, description:\
+  \ \"The statement's kind.\"}\n      anchor: {required: true, multivalued: true, minimum_cardinality:\
+  \ 1, description: \"The anchor's segment keys.\"}\n\n  CandidateReference:\n    description: >-\n  \
+  \    An `ExternalReference` node (D1 \xA74.4): its descriptor as stored, its `xrf` key once keyed, and\n\
+  \      the statement consolidation resolved it to, or `AWAITING`. Claims name it where they cite it;\n\
+  \      it is never dropped for being unresolved.\n    attributes:\n      id: {range: NonEmpty, required:\
+  \ true, description: \"The local ref, or the key at finalize.\"}\n      key: {any_of: [{range: ReferenceKey},\
+  \ {range: Unkeyed}], ifabsent: string(unkeyed), description: \"The key, or unkeyed at submission.\"\
+  }\n      descriptor: {range: ReferenceDescriptor, required: true, inlined: true, description: \"The\
+  \ citing text, as stored.\"}\n      resolved_to: {any_of: [{range: StatementKey}, {range: Awaiting}],\
+  \ ifabsent: string(awaiting), description: \"The resolved statement's key, or awaiting.\"}\n\n  CandidateClaim:\n\
+  \    description: A claim of the keyed candidate set, with its derivation.\n    annotations:\n     \
+  \ ci:invariant: \"iff_present(derived_from, establishment = derived); iff_present(rule, establishment\
+  \ = derived)\"\n    attributes:\n      id: {range: NonEmpty, required: true, description: \"The local\
+  \ ref, or the key at finalize.\"}\n      key: {any_of: [{range: ClaimKey}, {range: Unkeyed}], ifabsent:\
+  \ string(unkeyed), description: \"The key, or unkeyed at submission.\"}\n      predicate: {range: PrefixedName,\
+  \ required: true, description: \"The predicate by prefixed name.\"}\n      subject: {required: true,\
+  \ description: \"The subject's reference: an entity or a statement.\", annotations: {ci:refers: entity\
+  \ statement}}\n      object: {any_of: [{range: Entity}, {range: Value}], required: true, description:\
+  \ \"An entity reference or a value.\", annotations: {ci:py_name: Object}}\n      qualifiers: {range:\
+  \ Qualifiers, inlined: true, description: \"The stored qualifiers.\"}\n      statement: {description:\
+  \ \"The statement's reference.\", annotations: {ci:refers: statement}}\n      statement_role: {range:\
+  \ StatementRole, description: \"The claim's role in its statement.\"}\n      establishment: {range:\
+  \ Establishment, ifabsent: string(stated), description: \"How the claim was established; stated when\
+  \ absent.\", annotations: {ci:omit_default: true}}\n      derived_from: {multivalued: true, minimum_cardinality:\
+  \ 1, description: \"The claims a derived claim was derived from.\", annotations: {ci:refers: claim,\
+  \ ci:py_default: MISSING}}\n      rule: {range: NonEmpty, description: \"The derive rule that produced\
+  \ a derived claim.\"}\n      evidence: {range: Evidence, multivalued: true, inlined_as_list: true, description:\
+  \ \"The stored evidence spans.\"}\n\n  CandidateAlternative:\n    description: >-\n      Claims the\
+  \ author marks as alternatives of one another (D5 \xA711, \xA78.2 `alternative_of`).\n    attributes:\n\
+  \      refs: {multivalued: true, required: true, minimum_cardinality: 2, description: \"The claims'\
+  \ references.\", annotations: {ci:refers: claim}}\n      reason: {required: true, description: \"Why\
+  \ they are alternatives.\"}\n\n  CandidateUnsupported:\n    description: >-\n      Text the schema cannot\
+  \ express (D1 \xA78.1), which D5 \xA75.1 turns into a `core:unschematized`\n      claim.\n    annotations:\n\
+  \      ci:invariant: ordered(start, end)\n    attributes:\n      id: {range: NonEmpty, required: true,\
+  \ description: \"The local ref, or the key at finalize.\"}\n      start: {range: Offset, required: true,\
+  \ description: \"Start offset.\"}\n      end: {range: Offset, required: true, description: \"End offset.\"\
+  }\n      reason: {required: true, description: \"Why it is unsupported.\"}\n      coarse: {range: boolean,\
+  \ description: \"The quote was not located exactly.\"}\n\n  KeyedCandidateSet:\n    description: >-\n\
+  \      The complete core claim set both rule call sites and keying read (D5 \xA78.2; TM \xA73): the\n\
+  \      renditions it is on and every item, in stored form. A batch's set (and every set keying\n   \
+  \   reads) is on one rendition; consolidation's finalize set is on every rendition of the run.\n   \
+  \ annotations: {ci:validator: core.shape_support:well_formed_candidates}\n    attributes:\n      renditions:\
+  \ {range: RenditionKey, required: true, multivalued: true, minimum_cardinality: 1, description: \"The\
+  \ renditions its offsets and segment keys are on, sorted and without duplicates: one for a batch's set\
+  \ and for keying, every rendition of the run at finalize.\"}\n      entities: {range: CandidateEntity,\
+  \ multivalued: true, inlined_as_list: true, description: \"Entities.\"}\n      statements: {range: CandidateStatement,\
+  \ multivalued: true, inlined_as_list: true, description: \"Statements.\"}\n      references: {range:\
+  \ CandidateReference, multivalued: true, inlined_as_list: true, description: \"ExternalReference nodes.\"\
+  }\n      claims: {range: CandidateClaim, multivalued: true, inlined_as_list: true, description: \"Claims.\"\
+  }\n      alternatives: {range: CandidateAlternative, multivalued: true, inlined_as_list: true, description:\
+  \ \"Alternatives.\"}\n      unsupported: {range: CandidateUnsupported, multivalued: true, inlined_as_list:\
+  \ true, description: \"Unsupported items.\"}\n\nslots:\n  label:\n    description: Canonical display\
+  \ label (D1 \xA74.1). Identity follows the key rules of D1 \xA710.1.\n  kind:\n    range: StatementKind\n\
+  \    description: The statement's kind.\n  t:\n    required: true\n    description: The value's tag,\
+  \ naming its class.\n  op:\n    required: true\n    description: The condition node's operator, naming\
+  \ its class.\n\n  # core qualifiers: allowed on every predicate, never listed in ci:qualifiers (D2 \xA7\
+  4); each slot is\n  # its qualifier specification (D1 \xA75.2): range, default (ifabsent), key role\
+  \ and condition\n  modality:\n    range: ClaimModality\n    ifabsent: string(asserted)\n    description:\
+  \ How the source holds the claim (D1 \xA75.2); asserted when absent.\n    annotations: {ci:role: qualifier,\
+  \ ci:key_role: identity, ci:py_type: MemberName, ci:omit_default: true}\n  polarity:\n    range: Polarity\n\
+  \    ifabsent: string(positive)\n    description: Whether the claim is stated or denied; positive when\
+  \ absent.\n    annotations: {ci:role: qualifier, ci:key_role: identity, ci:omit_default: true}\n  hedge:\n\
+  \    range: PhraseValue\n    description: A hedging phrase the source attaches to the claim (\"usually\"\
+  , \"in some settings\").\n    annotations: {ci:role: qualifier, ci:key_role: meaning}\n  attribution:\n\
+  \    range: Entity\n    description: Who the source says states the claim, when it cites someone.\n\
+  \    annotations: {ci:role: qualifier, ci:key_role: meaning, ci:key_role_when: attribution_identifying}\n\
+  \  conditions:\n    range: Condition\n    description: The condition tree under which the claim holds\
+  \ (D1 \xA77).\n    annotations: {ci:role: qualifier, ci:key_role: identity}\n  scope:\n    range: ScopeExtent\n\
+  \    description: >-\n      How far a supposition reaches beyond its statement; model-facing a ScopeExtent\
+  \ value, stored\n      {extent, segment}.\n    annotations: {ci:role: qualifier, ci:key_role: meaning,\
+  \ ci:stored_range: StoredScope}\n  valid_time:\n    range: IntervalValue\n    description: The time\
+  \ interval over which the claim holds, when the source states one.\n    annotations: {ci:role: qualifier,\
+  \ ci:key_role: identity}\n\n  # core predicates\n  defines:\n    domain: Statement\n    range: Entity\n\
+  \    in_subset: [structural]\n    description: The statement defines the entity. \"is called the location-scale\
+  \ family\".\n    annotations: {ci:role: predicate, ci:extract: llm}\n  proves:\n    domain: Statement\n\
+  \    range: Statement\n    in_subset: [structural]\n    description: A proof or solution statement proves\
+  \ (or solves) another statement.\n    annotations: {ci:role: predicate, ci:extract: llm}\n  follows_from:\n\
+  \    domain: Statement\n    range: Statement\n    in_subset: [structural]\n    description: The statement\
+  \ is stated to follow from another (\"a corollary of the last result\").\n    annotations: {ci:role:\
+  \ predicate, ci:extract: llm}\n  refers_to:\n    domain: Statement\n    range: Entity\n    in_subset:\
+  \ [structural]\n    description: The statement explicitly refers to an entity defined elsewhere (\"\
+  recall the gamma function\").\n    annotations: {ci:role: predicate, ci:extract: llm}\n  unschematized:\n\
+  \    domain: Entity\n    range: PhraseValue\n    in_subset: [unsupported]\n    description: Something\
+  \ the source states that the schema cannot express (D1 \xA78.1).\n    annotations: {ci:role: predicate,\
+  \ ci:extract: llm}\n\nenums:\n  StatementKind:\n    description: What the source calls a statement (D1\
+  \ \xA74.3).\n    annotations: {ci:lifecycle: schema_version, ci:extract: classification, ci:target:\
+  \ unit paragraph}\n    permissible_values:\n      definition: {description: Stipulates what a term means.,\
+  \ in_subset: [claim_bearing]}\n      theorem: {description: A stated result., in_subset: [claim_bearing]}\n\
+  \      proposition: {description: A stated result., in_subset: [claim_bearing]}\n      lemma: {description:\
+  \ A stated auxiliary result., in_subset: [claim_bearing]}\n      corollary: {description: A result stated\
+  \ to follow from another., in_subset: [claim_bearing]}\n      proof: {description: A proof of another\
+  \ statement.}\n      example: {description: A worked example with setup values., in_subset: [claim_bearing]}\n\
+  \      exercise: {description: An exercise with setup values and an asked quantity., in_subset: [claim_bearing]}\n\
+  \      solution: {description: A solution of an exercise.}\n      remark: {description: A remark; explicit\
+  \ claims only., in_subset: [claim_bearing]}\n      convention: {description: A convention the source\
+  \ adopts., in_subset: [claim_bearing]}\n      notation: {description: A notation the source introduces.,\
+  \ in_subset: [claim_bearing]}\n      assumption: {description: A statement whose only content is a supposition\
+  \ (a context premise)., in_subset: [claim_bearing]}\n      narrative: {description: Narrative text between\
+  \ units that states claims., in_subset: [claim_bearing]}\n  ClaimModality:\n    description: How the\
+  \ source holds a claim (D1 \xA75.2; guideline \xA710.6).\n    annotations: {ci:lifecycle: schema_version,\
+  \ ci:extract: classification, ci:target: sentence}\n    permissible_values:\n      asserted: {description:\
+  \ Concluded or stated as true; structural claims., in_subset: [conflict_bearing]}\n      supposed: {description:\
+  \ \"A supposition: suppose, assume, if, or let about something taken as given.\", in_subset: [premise_forming]}\n\
+  \      defined: {description: \"What a definition stipulates, including a formula introducing a variable.\"\
+  , in_subset: [conflict_bearing]}\n      conventional: {description: A convention.}\n      exemplified:\
+  \ {description: Setup values in examples and exercises.}\n      posed: {description: Reserved until\
+  \ an asks_for predicate exists (OPEN-D2-15)., in_subset: [reserved]}\n      cited: {description: Attributed\
+  \ to another source., in_subset: [attribution_identifying]}\n  Polarity:\n    description: Whether a\
+  \ claim is stated or denied.\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n   \
+  \   positive: {description: Stated.}\n      negative: {description: Denied.}\n  StatementRole:\n   \
+  \ description: The part a claim plays in its statement (guideline \xA710.3).\n    annotations: {ci:lifecycle:\
+  \ static}\n    permissible_values:\n      premise: {description: A supposition the statement makes.}\n\
+  \      conclusion: {description: \"What a theorem, corollary or remark concludes.\"}\n      definiens:\
+  \ {description: \"What a definition stipulates, or a formula introducing a variable.\"}\n      restriction:\
+  \ {description: Reserved; restrictions are condition nodes in guideline v1.}\n      example_value: {description:\
+  \ A setup value of an example or exercise.}\n  ScopeExtent:\n    description: How far a supposition\
+  \ reaches beyond its statement.\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      statement: {description: The statement that states it.}\n      section: {description: The enclosing\
+  \ section from the stating sentence on.}\n      document: {description: The whole document.}\n  EntityExtent:\n\
+  \    description: How far a local entity reaches.\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      statement: {description: The statement that introduces it.}\n      section: {description: The\
+  \ enclosing section from the introducing sentence on.}\n  EntityScope:\n    description: Whether an\
+  \ entity is global or local to a scope segment (D1 \xA74.2).\n    annotations: {ci:lifecycle: static}\n\
+  \    permissible_values:\n      global: {description: The same entity wherever it is named.}\n     \
+  \ local: {description: \"An entity of one scope segment, such as a theorem's X.\"}\n  BindKind:\n  \
+  \  description: The kinds of symbol binding (D1 \xA76.1).\n    annotations: {ci:lifecycle: static}\n\
+  \    permissible_values:\n      variable: {description: The symbol denotes a local entity of the batch.}\n\
+  \      param_of: {description: The symbol is the value of an entry of another claim's parameter map.}\n\
+  \      param_expr_of: {description: The symbol occurs inside the value of such an entry.}\n      family_param:\
+  \ {description: The symbol denotes a parameter entity of a family.}\n      free: {description: \"A symbol\
+  \ the statement introduces, restricted by its conditions.\"}\n      constant: {description: A numeric\
+  \ or named constant.}\n      unresolved: {description: Not bound; a counted resolution gap.}\n  Relation:\n\
+  \    description: The relation of a cmp condition node (D1 \xA77).\n    annotations: {ci:lifecycle:\
+  \ static}\n    permissible_values:\n      \"<\": {title: lt, description: Less than.}\n      \"<=\"\
+  : {title: le, description: Less than or equal.}\n      \"=\": {title: eq, description: Equal., in_subset:\
+  \ [symmetric_relation]}\n      \"!=\": {title: ne, description: Not equal., in_subset: [symmetric_relation]}\n\
+  \      \">\": {title: gt, description: Greater than; written as < with the sides swapped., in_subset:\
+  \ [converse_rewritten]}\n      \">=\": {title: ge, description: Greater or equal; written as <= with\
+  \ the sides swapped., in_subset: [converse_rewritten]}\n  ParseOutcome:\n    description: The math grammar's\
+  \ parse outcome for a formula or set value (D4 M11).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      ok: {description: One reading.}\n      partial: {description: Parsed in part.}\n      ambiguous:\
+  \ {description: \"More than one reading, none chosen by declared context.\"}\n      failed: {description:\
+  \ Not parsed.}\n  EvidenceRole:\n    description: The part an evidence span plays for its claim (guideline\
+  \ \xA710.8).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      primary: {description:\
+  \ The minimal span that states the claim.}\n      supporting: {description: An introducer that determines\
+  \ the modality.}\n      condition: {description: The span of a condition.}\n      definition: {description:\
+  \ The span of a definition the claim relies on.}\n  Establishment:\n    description: \"How a claim was\
+  \ established (D5 \xA79): a claim item's and `kb.claim.establishment`.\"\n    annotations: {ci:lifecycle:\
+  \ static}\n    permissible_values:\n      stated: {}\n      derived: {}\n      agent_asserted: {}\n\
+  \  SegmentKind:\n    description: The kinds of segment of a rendition (D1 \xA73.2), with their member\
+  \ properties.\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      document: {description:\
+  \ The whole rendition., in_subset: [section_like, container]}\n      section: {description: A section\
+  \ opened by a heading., in_subset: [section_like, container]}\n      unit: {description: An author unit\
+  \ (div.unit)., in_subset: [annotation_unit, statement_anchor, container]}\n      paragraph: {description:\
+  \ A paragraph., in_subset: [top_level_annotation_unit, search_block, sentence_split]}\n      list: {description:\
+  \ A list., in_subset: [container]}\n      list_item: {description: A list item., in_subset: [search_block,\
+  \ sentence_split]}\n      details: {description: A details block (proofs and solutions)., in_subset:\
+  \ [statement_anchor, container]}\n      math_display: {description: Display mathematics.}\n      math_inline:\
+  \ {description: Inline mathematics.}\n      heading: {description: A heading., in_subset: [section_label,\
+  \ search_block]}\n      table: {description: A table., in_subset: [container]}\n      table_row: {description:\
+  \ A table row., in_subset: [container]}\n      table_cell: {description: A table cell., in_subset: [sentence_split]}\n\
+  \      caption: {description: A figure or table caption., in_subset: [search_block, sentence_split]}\n\
+  \      footnote: {description: A footnote.}\n      figure: {description: A figure., in_subset: [container]}\n\
+  \      sentence: {description: A sentence (M03)., in_subset: [citable_sentence]}\n      email_message:\
+  \ {description: One message of an email thread., in_subset: [annotation_unit, container]}\n      quoted_block:\
+  \ {description: Quoted text of an earlier email message., in_subset: [container]}\n      signature:\
+  \ {description: An email signature block.}\n  DelimitingStatus:\n    description: >-\n      How cleanly\
+  \ a segment or rendition was delimited: one definition for kb.segment and\n      kb.rendition parse_status\
+  \ (D1 \xA73.2), replacing evidence.ParseStatus and SegmentParseStatus.\n    annotations: {ci:lifecycle:\
+  \ static}\n    permissible_values:\n      ok: {description: Delimited cleanly.}\n      partial: {description:\
+  \ Delimited in part; the reason says where.}\n      failed: {description: Not delimited; the reason\
+  \ says why.}\n\n  # ---- the declaration vocabulary's own values (D2 \xA73.4), read by the loader and\
+  \ _model ----\n  Lifecycle:\n    description: \"The values of ci:lifecycle: how a closed set changes\
+  \ and is enforced.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      static:\
+  \ {description: Changes with code; enforced by a digest-named CHECK.}\n      schema_version: {description:\
+  \ Extendable by packs; enforced by per-version member rows and FKs.}\n  KeyRole:\n    description: \"\
+  The values of ci:key_role: a qualifier's part in the claim key (D1 \xA75.2).\"\n    annotations: {ci:lifecycle:\
+  \ static}\n    permissible_values:\n      identity: {description: Enters the claim key in its canonical\
+  \ form.}\n      meaning: {description: Outside the key; disagreement makes alternatives.}\n      inert:\
+  \ {description: Neither.}\n  CaseRule:\n    description: \"The values of ci:case: the case policy of\
+  \ a string-ranged slot or class label.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      fold: {description: Casefolded (prose).}\n      preserve: {description: Case kept (math-bearing\
+  \ text).}\n  CanonicalForm:\n    description: >-\n      A qualifier's canonical form, derived from its\
+  \ range (D1 \xA76.2; model and projections \xA73.2).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      token_form: {description: \"Formula, SetExpr: the token form over the effective macro table.\"\
+  }\n      text_form: {description: \"TextValue, PhraseValue: NFC, whitespace collapsed, case per policy.\"\
+  }\n      identifier: {description: \"A string range with ci:case: NFC, collapsed, the declared case.\"\
+  }\n      enum: {description: \"EnumValue: {enum: prefixed enum name, v: member} verbatim.\"}\n     \
+  \ member: {description: \"An enum-ranged slot: the bare member value.\"}\n      entity_key: {description:\
+  \ \"An entity range: the resolved key after the kind check.\"}\n      interval: {description: \"IntervalValue:\
+  \ recursive over bounds and inclusivity.\"}\n      map: {description: \"A MapEntry range: key (NFC)\
+  \ to the canonical form of the value range.\"}\n      number: {description: \"NumberValue: the canonical\
+  \ decimal; unit and basis collapsed.\"}\n      verbatim: {description: \"DateValue, BoolValue: as written.\"\
+  }\n      condition: {description: \"Condition: the D1 \xA77 canonical tree, leaves by range.\"}\n  \
+  \    scope: {description: \"Stored scope: the extent and the segment's locator (member keys only).\"\
+  }\n  QualifierStore:\n    description: Where a qualifier's value is stored (D3 \xA75).\n    annotations:\
+  \ {ci:lifecycle: static}\n    permissible_values:\n      column: {description: A kb.claim column.}\n\
+  \      json: {description: Inside kb.claim.qualifiers.}\n      edge: {description: An edge table row.}\n\
+  \  Unkeyed:\n    description: The typed state of a candidate not yet keyed (at submission), never null.\n\
+  \    annotations: {ci:lifecycle: static}\n    permissible_values:\n      unkeyed: {description: Not\
+  \ yet keyed.}\n  Awaiting:\n    description: The typed state of an ExternalReference consolidation has\
+  \ not resolved (D1 \xA74.4).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n   \
+  \   awaiting: {description: Not yet resolved.}\n  RefKind:\n    description: >-\n      What a reference\
+  \ position may name (F2e; R04): an entity (an ExternalReference included), a\n      statement or a claim;\
+  \ the position's ci:refers declares its kinds.\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      entity: {description: An entity; an ExternalReference node is one.}\n      statement: {description:\
+  \ A statement.}\n      claim: {description: \"A claim; an ExternalReference may stand where a claim\
+  \ is named.\"}\n"
+system: "id: https://corpus-structure.dev/system\nname: system\ntitle: System schema\ndescription: >-\n\
+  \  The system module of the corpus-structure model (ADR-0020): the classes of D3's meta, ops, kb and\n\
+  \  eval schemas with their closed sets, invariants and relationships; the payload classes of their\n\
+  \  JSONB columns; the source-profile class; and the unit-feature vocabulary of\n  agent_reuse by_unit.\
+  \ System classes are tables unless ci:store says otherwise; their table is the\n  snake case of the\
+  \ class name (or the native local_names sql entry) in the schema their subset\n  names; a single-valued\
+  \ class-ranged attribute is a foreign key column named <attribute>_id.\nversion: 0.6.7\nlicense: https://creativecommons.org/publicdomain/zero/1.0/\n\
+  prefixes:\n  linkml: https://w3id.org/linkml/\n  ci: https://corpus-structure.dev/ci/\n  core: https://corpus-structure.dev/core/\n\
+  \  sys: https://corpus-structure.dev/system/\n  xsd: http://www.w3.org/2001/XMLSchema#\ndefault_prefix:\
+  \ sys\ndefault_range: string\nimports:\n  - linkml:types\n  - core\n\ntypes:\n  Id:\n    typeof: integer\n\
+  \    uri: xsd:long\n    description: A generated bigint row id, or a bigint reference without a foreign\
+  \ key.\n  SmallInt:\n    typeof: integer\n    uri: xsd:short\n    description: A small integer (smallint).\n\
+  \  Real:\n    typeof: float\n    uri: xsd:float\n    description: A single-precision float (real).\n\
+  \  Double:\n    typeof: double\n    description: A double-precision float (double precision).\n  Bytes:\n\
+  \    typeof: string\n    description: Raw bytes (bytea), such as a serialized Arrow schema.\n    annotations:\
+  \ {ci:sql_type: bytea}\n  Json:\n    typeof: string\n    description: An opaque JSON document (jsonb)\
+  \ whose structure the model does not declare.\n    annotations: {ci:sql_type: jsonb, ci:py_type: JsonValue}\n\
+  \  Score:\n    typeof: Real\n    minimum_value: 0\n    maximum_value: 1\n    description: A score in\
+  \ [0, 1].\n  TsConfig:\n    typeof: string\n    description: A text-search configuration name (regconfig).\n\
+  \    annotations: {ci:sql_type: regconfig}\nsubsets:\n  meta: {description: Tables in the meta schema\
+  \ (D3 \xA73).}\n  ops: {description: Tables in the ops schema (D3 \xA74).}\n  kb: {description: Tables\
+  \ in the kb schema (D3 \xA75).}\n  eval: {description: Tables in the eval schema (D3 \xA77).}\n  # member\
+  \ properties of ConfidenceState: the states each ConfidenceSource member has (D5 \xA76.2);\n  # each\
+  \ names its consumer (ADR-0023), the confidence model and the policy's confidence block\n  encoders_state:\n\
+  \    description: \"Member property of ConfidenceState: a state of the encoders source.\"\n    annotations:\
+  \ {ci:consumer: \"consolidation confidence states (D5 \xA76.2, \xA76.3); policy confidence block (D6\
+  \ \xA77.1)\"}\n  patterns_state:\n    description: \"Member property of ConfidenceState: a state of\
+  \ the patterns source.\"\n    annotations: {ci:consumer: \"consolidation confidence states (D5 \xA7\
+  6.2, \xA76.3); policy confidence block (D6 \xA77.1)\"}\n  local_llm_state:\n    description: \"Member\
+  \ property of ConfidenceState: a state of the local_llm source.\"\n    annotations: {ci:consumer: \"\
+  consolidation confidence states (D5 \xA76.2, \xA76.3); policy confidence block (D6 \xA77.1)\"}\n  agent_state:\n\
+  \    description: \"Member property of ConfidenceState: a state of the agent source.\"\n    annotations:\
+  \ {ci:consumer: \"consolidation confidence states (D5 \xA76.2, \xA76.3); policy confidence block (D6\
+  \ \xA77.1)\"}\n  local_llm_judge_state:\n    description: \"Member property of ConfidenceState: a state\
+  \ of the local_llm_judge source.\"\n    annotations: {ci:consumer: \"consolidation confidence states\
+  \ (D5 \xA76.2, \xA76.3); policy confidence block (D6 \xA77.1)\"}\n  rules_state:\n    description: \"\
+  Member property of ConfidenceState: a state of the rules source.\"\n    annotations: {ci:consumer: \"\
+  consolidation confidence states (D5 \xA76.2, \xA76.3); policy confidence block (D6 \xA77.1)\"}\n  verifiers_state:\n\
+  \    description: \"Member property of ConfidenceState: a state of the verifiers source.\"\n    annotations:\
+  \ {ci:consumer: \"consolidation confidence states (D5 \xA76.2, \xA76.3); policy confidence block (D6\
+  \ \xA77.1)\"}\n  author_markup_state:\n    description: \"Member property of ConfidenceState: a state\
+  \ of the author_markup source.\"\n    annotations: {ci:consumer: \"consolidation confidence states (D5\
+  \ \xA76.2, \xA76.3); policy confidence block (D6 \xA77.1)\"}\n  consolidation_drop:\n    description:\
+  \ \"Member property of DropReason: a drop consolidation decides after keying, never keying or parse.\"\
+  \n    annotations: {ci:consumer: \"consolidation's drops after keying (consolidate/assemble.py); keying's\
+  \ coverage test (tests/core/test_dispatch.py) covers the other members\"}\n\nclasses:\n  # ---- nested\
+  \ classes of the JSONB columns (D3 \xA76) ----\n  InterventionRefs:\n    description: >-\n      `ops.intervention.refs`:\
+  \ the ids an intervention names, by what they reference (D3 \xA76.3). An\n      extract or adjudicate\
+  \ intervention names its observations (a claim_proposal or judgment); a\n      direction names nothing,\
+  \ its text being the body.\n    annotations: {ci:store: nested, ci:payload: intervention_refs}\n   \
+  \ attributes:\n      observations: {range: Offset, multivalued: true, annotations: {ci:py_default: MISSING},\
+  \ description: The observations it wrote (kb.observation ids).}\n      golden_pass: {range: Offset,\
+  \ description: The golden pass it wrote (eval.golden_pass id).}\n      schema_version: {range: Offset,\
+  \ description: The schema version it proposed (meta.schema_version id).}\n      guideline_version: {range:\
+  \ Offset, description: The guideline version it proposed (meta.guideline_version id).}\n      policy_version:\
+  \ {range: Offset, description: The policy version it proposed (ops.policy_version id).}\n      experiment:\
+  \ {range: Offset, description: The experiment it decided (ops.experiment id).}\n  TaskCost:\n    description:\
+  \ >-\n      `ops.task.cost`.\n    annotations: {ci:store: nested, ci:payload: task_cost, ci:py_name:\
+  \ Cost}\n    attributes:\n      wall_ms: {range: Offset, required: true, description: Wall time in milliseconds;\
+  \ every task has one.}\n      gpu_ms: {range: Offset, description: GPU time in milliseconds.}\n    \
+  \  tokens_in: {range: Offset, description: Model input tokens.}\n      tokens_out: {range: Offset, description:\
+  \ Model output tokens.}\n      model: {description: The model that spent them.}\n  TaskError:\n    description:\
+  \ A failed task's detail, and an agent task's first rejected submission (D3 \xA74).\n    annotations:\
+  \ {ci:store: nested}\n    attributes:\n      message: {description: The failure message.}\n      detail:\
+  \ {range: Json, description: Structured failure detail., annotations: {ci:null: json}}\n  TriggerMetrics:\n\
+  \    description: The metric values the triggering policy rule saw, exactly as evaluated (D3 \xA76.3).\n\
+  \    annotations: {ci:store: nested, ci:payload: trigger_metrics}\n    attributes:\n      values: {range:\
+  \ Json, description: Metric name to value., annotations: {ci:null: json}}\n  PolicyAction:\n    description:\
+  \ >-\n      `ops.policy_rule.action`: a named configuration `<method>/<name>`, a limit, then.\n    annotations:\
+  \ {ci:store: nested, ci:payload: policy_action}\n    attributes:\n      method: {required: true, pattern:\
+  \ \"^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$\", description: \"A named configuration, <method>/<name>.\"}\n\
+  \      limit: {range: integer, minimum_value: 1, description: The most tasks the rule creates per iteration;\
+  \ absent means no rule-specific cap.}\n      then: {range: PolicyThen, required: true, description:\
+  \ Whether the chain stops or continues.}\n  InterventionTarget:\n    description: >-\n      `ops.intervention.target`;\
+  \ a `promotion` targets the run it promotes. `ref` is the target's\n      key, or its id's decimal text\
+  \ for a target named by id (a run): the kind says which.\n    annotations: {ci:store: nested, ci:payload:\
+  \ intervention_target}\n    attributes:\n      kind: {range: InterventionTargetKind, required: true,\
+  \ description: The target's kind.}\n      ref: {range: NonEmpty, required: true, description: The target's\
+  \ key or id.}\n  MentionRef:\n    description: >-\n      A mention by its task and ordinal; the task\
+  \ is absent inside the same task.\n    annotations: {ci:store: nested}\n    attributes:\n      task:\
+  \ {range: Id, description: The task holding it; absent for the same task.}\n      ordinal: {range: Offset,\
+  \ required: true, description: Its ordinal in that task.}\n  ClaimQualifiers:\n    description: >-\n\
+  \      kb.claim.qualifiers: the core qualifiers stored nested (hedge, conditions, scope, valid_time)\n\
+  \      and the schema qualifiers, by prefixed name (D3 \xA76.1).\n    annotations: {ci:store: nested,\
+  \ ci:sql_visible: core:conditions}\n    attributes:\n      hedge: {range: PhraseValue, description:\
+  \ \"The hedge qualifier, stored under core:hedge.\"}\n      conditions: {range: Condition, description:\
+  \ \"The condition tree under core:conditions; its claim nodes carry claim keys.\"}\n      scope: {range:\
+  \ StoredScope, description: \"The stored scope, under core:scope.\"}\n      valid_time: {range: IntervalValue,\
+  \ description: \"The valid time, under core:valid_time.\"}\n  Completeness:\n    description: A claim's\
+  \ completeness counts (kb.claim.completeness).\n    annotations: {ci:store: nested}\n    attributes:\n\
+  \      unresolved_symbols: {range: integer, description: Symbols left unresolved.}\n      phrase_conditions:\
+  \ {range: integer, description: Conditions kept as phrases.}\n  SegmentAttrs:\n    description: A segment's\
+  \ author markup (D1 \xA73.2); id is read by D3 \xA79's queries.\n    annotations: {ci:store: nested,\
+  \ ci:sql_visible: id}\n    attributes:\n      id: {description: The author's id of the block.}\n   \
+  \   classes: {multivalued: true, description: The block's classes.}\n  MacroTable:\n    description:\
+  \ A rendition's macro table (D4 M01), name to macro definition.\n    annotations: {ci:store: nested}\n\
+  \    attributes:\n      macros: {range: Json, description: Macro name to definition., annotations: {ci:null:\
+  \ json}}\n  FrameEntries:\n    description: A citation frame (D1 \xA710.3), each sentence id to its\
+  \ locator and canonical text.\n    annotations: {ci:store: nested, ci:payload: citation_frame, ci:py_type:\
+  \ CitationFrame}\n    attributes:\n      entries: {range: FrameEntry, multivalued: true, inlined: true,\
+  \ description: The cited sentences.}\n  FrameEntry:\n    description: One cited sentence of a frame.\n\
+  \    annotations: {ci:store: nested}\n    attributes:\n      sentence: {identifier: true, range: SentenceId,\
+  \ description: The sentence id.}\n      locator: {range: Locator, required: true, description: The sentence's\
+  \ locator.}\n      text: {required: true, description: Its canonical text.}\n  GoldenBatchPayload:\n\
+  \    description: >-\n      A golden pass's authored batch with one version of its citation frame (`eval.golden_pass`\
+  \ and\n      `eval.citation_frame`, D3 \xA77): the shape the pass's `payload_schema_id` names for both.\n\
+  \    annotations: {ci:store: nested, ci:payload: golden_batch}\n    attributes:\n      batch: {range:\
+  \ Batch, required: true, annotations: {ci:py_type: AuthoredBatch}, description: \"The model-facing batch\
+  \ as authored (pass c: as adjudicated).\"}\n      citation_frame: {range: FrameEntries, required: true,\
+  \ description: One version of the pass's citation frame.}\n\n  # ---- observation payloads (D3 \xA7\
+  6.2), one class per kind ----\n  SpanPayload:\n    abstract: true\n    description: A payload span in\
+  \ the rendition's canonical text.\n    annotations: {ci:store: nested, ci:invariant: \"ordered(start,\
+  \ end)\"}\n    attributes:\n      start: {range: Offset, required: true, description: Start offset.}\n\
+  \      end: {range: Offset, required: true, description: End offset.}\n  LabelScore:\n    description:\
+  \ A label with its score.\n    annotations: {ci:store: nested}\n    attributes:\n      label: {required:\
+  \ true, description: The label.}\n      score: {range: Score, required: true, description: \"The score\
+  \ in [0, 1].\"}\n  GroupScore:\n    is_a: LabelScore\n    description: >-\n      The label an attribute\
+  \ group chose for a mention, with its score, keyed by the group (D2 \xA75's\n      span attribute groups:\
+  \ one enum with ci:extract attribute each).\n    annotations: {ci:store: nested}\n    attributes:\n\
+  \      group: {identifier: true, description: The attribute group.}\n  SynthesizedClaim:\n    description:\
+  \ >-\n      The claim a block's containment states (the source profile's `details_kinds.synthesize`).\n\
+  \    annotations: {ci:store: nested}\n    attributes:\n      predicate: {range: PrefixedName, required:\
+  \ true, description: The prefixed predicate.}\n      object: {any_of: [{range: Entity}, {range: Value}],\
+  \ required: true, description: The object., annotations: {ci:py_name: Object}}\n      evidence: {range:\
+  \ Evidence, multivalued: true, required: true, minimum_cardinality: 1, inlined_as_list: true, description:\
+  \ The evidence.}\n  AuthorMarkupPayload:\n    description: Author markup on a segment (M01).\n    annotations:\
+  \ {ci:store: nested, ci:payload: author_markup}\n    attributes:\n      markup: {range: MarkupKind,\
+  \ required: true, description: The markup's kind.}\n      value: {range: Json, required: true, description:\
+  \ The markup's value., annotations: {ci:null: json}}\n      target: {description: The link target.}\n\
+  \      synthesize: {range: SynthesizedClaim, description: The claim the block's containment states.}\n\
+  \  MentionPayload:\n    is_a: SpanPayload\n    description: A mention (M05-M07, M09).\n    annotations:\
+  \ {ci:payload: mention}\n    attributes:\n      label: {required: true, description: The class label.}\n\
+  \      text: {required: true, description: The mention text.}\n      attributes: {range: GroupScore,\
+  \ multivalued: true, inlined: true, annotations: {ci:py_type: \"dict[str, LabelScore]\", ci:py_default:\
+  \ MISSING}, description: Each attribute group to the label it chose and its score.}\n      math_ref:\
+  \ {range: SegmentKey, description: \"The segment key of the math span a mention lies in (D4 M06, M09).\"\
+  }\n      math: {range: Json, description: M09's decoration of a symbol occurrence., annotations: {ci:null:\
+  \ json, ci:py_type: \"dict[str, JsonValue]\"}}\n  LabelledSpan:\n    is_a: SpanPayload\n    description:\
+  \ A labelled span of a relation.\n    annotations: {ci:store: nested}\n    attributes:\n      label:\
+  \ {required: true, description: The label.}\n  RelationPayload:\n    description: A relation between\
+  \ two spans.\n    annotations: {ci:store: nested, ci:payload: relation}\n    attributes:\n      label:\
+  \ {required: true, description: The relation label.}\n      head: {range: LabelledSpan, required: true,\
+  \ description: The head span.}\n      tail: {range: LabelledSpan, required: true, description: The tail\
+  \ span.}\n      joint: {range: boolean, description: Extracted jointly.}\n      feasible: {range: boolean,\
+  \ description: Feasible under the schema.}\n  RecordField:\n    is_a: SpanPayload\n    description:\
+  \ A field of a record.\n    annotations: {ci:store: nested}\n    attributes:\n      text: {required:\
+  \ true, description: The field text.}\n      score: {range: Score, required: true, description: The\
+  \ score.}\n  RecordPayload:\n    description: A record structure.\n    annotations: {ci:store: nested,\
+  \ ci:payload: record}\n    attributes:\n      structure: {required: true, description: The structure\
+  \ name.}\n      fields: {range: Json, required: true, description: Field name to its spans., annotations:\
+  \ {ci:null: json, ci:py_type: \"dict[str, tuple[RecordField, ...]]\"}}\n      anchor: {range: Json,\
+  \ description: The record's anchor., annotations: {ci:null: json}}\n  AttributePayload:\n    description:\
+  \ An attribute of a mention.\n    annotations: {ci:store: nested, ci:payload: attribute}\n    attributes:\n\
+  \      mention_ref: {range: MentionRef, required: true, description: The mention.}\n      group: {required:\
+  \ true, description: The attribute group.}\n      value: {range: Json, required: true, description:\
+  \ The value., annotations: {ci:null: json}}\n  ClassificationPayload:\n    description: A classification\
+  \ of a segment.\n    annotations: {ci:store: nested, ci:payload: classification}\n    attributes:\n\
+  \      task: {required: true, description: The classification task.}\n      labels: {range: LabelScore,\
+  \ multivalued: true, required: true, inlined_as_list: true, description: The labels.}\n      feasible:\
+  \ {range: boolean, description: Feasible under the schema.}\n      violations: {range: Json, description:\
+  \ Violations., annotations: {ci:null: json}}\n  ValuePayload:\n    description: A parsed value (M11).\n\
+  \    annotations: {ci:store: nested, ci:payload: value}\n    attributes:\n      value: {range: Value,\
+  \ required: true, description: The stored value.}\n      parse_error: {description: The parse error.}\n\
+  \      math_kind: {range: MathKind, description: The typed start symbol that read the span.}\n  MentionAt:\n\
+  \    is_a: SpanPayload\n    description: >-\n      A mention ref with the mention's offsets, so a reused\
+  \ task's refs match by offsets.\n    annotations: {ci:store: nested}\n    attributes:\n      mention_ref:\
+  \ {range: MentionRef, required: true, description: The mention.}\n  ScopePayload:\n    is_a: SpanPayload\n\
+  \    description: A binding site and its scope (M13).\n    annotations: {ci:payload: scope}\n    attributes:\n\
+  \      mention_ref: {range: MentionRef, required: true, description: The mention.}\n      binding_site:\
+  \ {range: MentionAt, required: true, description: The binding site.}\n      scope_segment: {range: NonEmpty,\
+  \ required: true, description: The scope segment's key.}\n      extent: {range: ScopeExtent, required:\
+  \ true, description: The extent.}\n      binding: {range: BindKind, description: The binding kind.}\n\
+  \      reopens: {range: MentionAt, description: The site it reopens.}\n  NewEntity:\n    description:\
+  \ A new entity a link proposes.\n    annotations: {ci:store: nested}\n    attributes:\n      type: {required:\
+  \ true, description: The entity class.}\n      label: {required: true, description: The label.}\n  LinkPayload:\n\
+  \    description: >-\n      An entity-link candidate: the mention (M14) or the pair (M15), and the candidate\
+  \ entity's key\n      or the new entity it proposes, exactly one of each.\n    annotations: {ci:store:\
+  \ nested, ci:payload: link, ci:invariant: \"exactly_one(mention_ref, pair); exactly_one(candidate, new)\"\
+  }\n    attributes:\n      mention_ref: {range: MentionRef, description: The mention (M14).}\n      pair:\
+  \ {multivalued: true, minimum_cardinality: 2, maximum_cardinality: 2, annotations: {ci:py_default: MISSING},\
+  \ description: The pair (M15).}\n      candidate: {range: NonEmpty, description: The candidate entity's\
+  \ key.}\n      new: {range: NewEntity, description: The new entity the link proposes instead.}\n   \
+  \   score: {range: Score, required: true, description: The score.}\n      features: {range: Json, required:\
+  \ true, description: The features., annotations: {ci:null: json, ci:py_type: \"dict[str, JsonValue]\"\
+  }}\n      rank: {range: integer, description: The rank.}\n  RejectedItem:\n    description: An item\
+  \ a submission rejected.\n    annotations: {ci:store: nested}\n    attributes:\n      item: {range:\
+  \ Json, required: true, description: The item., annotations: {ci:null: json}}\n      reason: {required:\
+  \ true, description: Why.}\n  ClaimProposalPayload:\n    description: >-\n      A stored batch with\
+  \ its derivation (R06, DA-009): the schema version whose compiled models\n      derived it, always;\
+  \ for authored proposals also the batch as written, its frame and the\n      version of the quote cascade\
+  \ that located it, the three together. A derived claim's\n      `derived_from` and `rule` are on the\
+  \ claim itself (M23).\n    annotations:\n      ci:store: nested\n      ci:payload: claim_proposal\n\
+  \      ci:invariant: \"together(authored, citation_frame, cascade_version)\"\n    attributes:\n    \
+  \  batch: {range: Batch, required: true, description: The stored batch.}\n      schema_version:\n  \
+  \      required: true\n        pattern: \"^[0-9a-f]{64}$\"\n        description: The schema-version\
+  \ hash (D2 \xA72) whose compiled models derived the stored batch.\n      authored: {range: Batch, description:\
+  \ The batch as authored., annotations: {ci:py_type: AuthoredBatch}}\n      citation_frame: {range: FrameEntries,\
+  \ description: Its citation frame.}\n      cascade_version: {range: NonEmpty, description: \"The quote\
+  \ cascade's version that located an authored batch (D4 \xA74.3).\"}\n      rationale: {description:\
+  \ The rationale.}\n      rejected: {range: RejectedItem, multivalued: true, inlined_as_list: true, description:\
+  \ Rejected items., annotations: {ci:py_default: MISSING}}\n  JudgmentTarget:\n    description: >-\n\
+  \      What a judgment is about: an observation by its id's decimal text, or a claim or group by its\n\
+  \      key with that key's scheme (readers compare keys only within one scheme or through a\n      carry-over\
+  \ map; foundations \xA73.6).\n    annotations: {ci:store: nested, ci:invariant: \"iff_absent(key_scheme,\
+  \ kind = observation)\"}\n    attributes:\n      kind: {range: JudgmentTargetKind, required: true, description:\
+  \ The target's kind.}\n      ref: {range: NonEmpty, required: true, description: \"The target's key,\
+  \ or an observation's id as decimal text.\"}\n      key_scheme: {range: integer, minimum_value: 1, description:\
+  \ The key scheme of a key-named target.}\n  JudgmentPayload:\n    description: A decision under a guideline\
+  \ version.\n    annotations: {ci:store: nested, ci:payload: judgment, ci:invariant: \"iff_present(chosen,\
+  \ decision = choose)\"}\n    attributes:\n      target: {range: JudgmentTarget, required: true, description:\
+  \ The target.}\n      decision: {range: JudgmentDecision, required: true, description: The decision.}\n\
+  \      rationale: {required: true, description: The rationale.}\n      guideline_version: {required:\
+  \ true, description: The guideline version.}\n      chosen: {multivalued: true, annotations: {ci:py_default:\
+  \ MISSING}, description: The chosen members of a choose decision.}\n      faithful: {range: boolean,\
+  \ description: Faithful to the source.}\n      confidence: {range: JudgmentConfidence, description:\
+  \ The judge's confidence.}\n  VerificationDetail:\n    description: What M19 writes for a failing rule.\n\
+  \    annotations: {ci:store: nested}\n    attributes:\n      rule: {required: true, description: The\
+  \ rule id.}\n      severity: {range: RuleSeverity, required: true, description: The severity.}\n   \
+  \   message: {required: true, description: The message.}\n  VerificationPayload:\n    description: A\
+  \ verifier's verdict on a claim.\n    annotations: {ci:store: nested, ci:payload: verification}\n  \
+  \  attributes:\n      claim_key: {required: true, description: The claim's key.}\n      verifier: {required:\
+  \ true, description: The verifier.}\n      verdict: {range: VerificationVerdict, required: true, description:\
+  \ The verdict.}\n      detail: {range: Json, description: The detail., annotations: {ci:null: json,\
+  \ ci:py_type: \"VerificationDetail | dict[str, JsonValue]\"}}\n      counterexample: {range: Json, description:\
+  \ A counterexample., annotations: {ci:null: json}}\n\n  # ---- the unit-feature vocabulary ----\n  UnitFeature:\n\
+  \    description: >-\n      One feature a guideline section declares it applies to (agent_reuse by_unit;\
+  \ D2 \xA710, D6 \xA74):\n      a segment kind, a statement kind, or the claim_bearing hint.\n    annotations:\
+  \ {ci:store: nested}\n    attributes:\n      feature: {range: UnitFeatureKind, required: true, description:\
+  \ The feature.}\n      value: {description: \"The member it names: a SegmentKind or StatementKind member;\
+  \ absent for claim_bearing.\"}\n\n  # ---- compiled artifacts (D2 \xA77; D3 \xA73) ----\n  CompiledArtifactBody:\n\
+  \    description: >-\n      The body of a meta.compiled_artifact row: one compiler's output for one\
+  \ schema version, any\n      JSON (a text artifact is a JSON string). An artifact is identified by its\
+  \ schema version,\n      compiler, compiler version and kind, and its body by its hash, so the registry\
+  \ holds one\n      payload schema for every body.\n    annotations: {ci:store: nested, ci:payload: compiled_artifact}\n\
+  \    attributes:\n      body: {range: Json, required: true, description: \"The compiler's output.\"\
+  , annotations: {ci:null: json}}\n\n  # ---- schema change (ADR-0022; model and projections \xA73.6)\
+  \ ----\n  ChangeRecord:\n    description: >-\n      One revision step of the model (in model/revisions.yaml\
+  \ and meta.model_revision) or of a pack\n      (meta.schema_version.migration): its element changes,\
+  \ each with its compatibility class, and\n      the migration mapping, key consequences and affected\
+  \ artifacts (TM \xA79).\n    annotations: {ci:store: nested}\n    attributes:\n      from_revision:\
+  \ {required: true, description: The parent revision's content hash or schema version.}\n      to_revision:\
+  \ {required: true, description: The revision this step reaches.}\n      changes: {range: ElementChange,\
+  \ multivalued: true, inlined_as_list: true, description: \"The element changes, from the SchemaView\
+  \ diff.\"}\n      name_map: {range: Json, description: \"Old prefixed element path to new, for mapped\
+  \ changes (renames, splits, merges).\"}\n      alembic_revision: {description: The Alembic revision\
+  \ that realizes the relational changes.}\n      key_consequences: {range: Json, description: \"The key-scheme\
+  \ change, its carry-over map and the affected key prefixes.\"}\n      judgment_carry_over: {range: Json,\
+  \ description: \"By carry-over map, or orphaned with its report.\"}\n      compiled_artifacts: {multivalued:\
+  \ true, description: \"The (compiler, kind) artifacts the step affects.\"}\n      source_profiles: {multivalued:\
+  \ true, description: The source profiles the step affects.}\n  ElementChange:\n    description: One\
+  \ element change of a step, with its declared class and why it is allowed.\n    annotations: {ci:store:\
+  \ nested}\n    attributes:\n      element: {required: true, description: \"The element's path: a prefixed\
+  \ class, slot (Class.slot), enum or member (Enum#member).\"}\n      change: {range: ChangeKind, required:\
+  \ true, description: \"Added, removed or changed.\"}\n      aspect: {description: \"What changed of\
+  \ the element: range, required, description, a ci: declaration, \u2026\"}\n      compatibility_class:\
+  \ {range: CompatibilityClass, required: true, description: The declared class; the classifier checks\
+  \ it against the diff.}\n      reason: {required: true, description: Why the change is made.}\n    \
+  \  authorized_by: {required: true, description: \"The model rule permitting it, e.g. method_version:mention.gliner/3.\"\
+  }\n      decision: {description: \"The recorded decision that permits a breaking change (DP-24).\"}\n\
+  \      upcaster: {description: \"The upcast of a nested-additive change: absent, or a named upcaster.\"\
+  }\n\n  # ---- tables (D3) ----\n  ModelRevision:\n    in_subset:\n    - meta\n    description: projection\
+  \ of model/revisions.yaml (D2 \xA72, \xA78); rows are added, never edited\n    unique_keys:\n      model_revision_content_hash:\n\
+  \        unique_key_slots:\n        - content_hash\n        description: Unique.\n    attributes:\n\
+  \      id:\n        identifier: true\n        range: Id\n        description: The id.\n      label:\n\
+  \        required: true\n        description: LinkML version of core and system\n      content_hash:\n\
+  \        required: true\n        description: canonical JSON of the parsed core and system files (D2\
+  \ \xA72)\n      compilers:\n        range: Json\n        required: true\n        description: compiler\
+  \ name \u2192 version\n      key_scheme:\n        range: integer\n        required: true\n        description:\
+  \ ci:key_scheme (D1 \xA710.1)\n      parent:\n        range: ModelRevision\n        description: The\
+  \ parent id.\n      change_record:\n        range: ChangeRecord\n        description: D2 \xA78; null\
+  \ for the first revision; the model source stays in Git\n      created_at:\n        range: Timestamp\n\
+  \        required: true\n        description: The created at.\n        annotations:\n          ci:generated:\
+  \ insert_time\n  PayloadSchema:\n    in_subset:\n    - meta\n    description: one version of one nested\
+  \ payload class (D2 \xA78); rows are added, never edited\n    annotations:\n      ci:invariant: iff_absent(parent,\
+  \ compatibility_class = initial)\n    unique_keys:\n      payload_schema_class_version:\n        unique_key_slots:\n\
+  \        - class\n        - version\n        description: Unique.\n    attributes:\n      id:\n    \
+  \    identifier: true\n        range: Id\n        description: The id.\n      model_revision:\n    \
+  \    range: ModelRevision\n        required: true\n        description: The model revision id.\n   \
+  \   class:\n        required: true\n        description: prefixed class name, e.g. 'core:MentionPayload'\n\
+  \      kind:\n        required: true\n        description: 'what it is the payload of: an observation\
+  \ kind, a compiled-artifact kind, ...'\n      version:\n        range: integer\n        required: true\n\
+  \        description: The version.\n      parent:\n        range: PayloadSchema\n        description:\
+  \ The parent id.\n      compatibility_class:\n        range: CompatibilityClass\n        required: true\n\
+  \        description: 'D2 \xA78: how this version follows its parent; initial for a version without\
+  \ one'\n      json_schema_id:\n        required: true\n        description: $id of the generated JSON\
+  \ Schema\n      arrow_schema:\n        range: Bytes\n        required: true\n        description: Schema.serialize()\n\
+  \      sql_visible_paths:\n        multivalued: true\n        description: The sql visible paths.\n\
+  \      upcaster:\n        description: the upcast from the parent version; null for an initial version\n\
+  \      reason:\n        required: true\n        description: The reason.\n      authorized_by:\n   \
+  \     required: true\n        description: the model rule permitting the change, e.g. 'method_version:mention.gliner/3'\n\
+  \  Project:\n    in_subset:\n    - meta\n    description: The meta.project table.\n    unique_keys:\n\
+  \      project_name:\n        unique_key_slots:\n        - name\n        description: Unique.\n    attributes:\n\
+  \      id:\n        identifier: true\n        range: Id\n        description: The id.\n      name:\n\
+  \        required: true\n        description: The name.\n      domain:\n        required: true\n   \
+  \     description: domain pack name, e.g. 'statistics'\n      created_at:\n        range: Timestamp\n\
+  \        required: true\n        description: The created at.\n        annotations:\n          ci:generated:\
+  \ insert_time\n  SchemaVersion:\n    in_subset:\n    - meta\n    description: The meta.schema_version\
+  \ table.\n    unique_keys:\n      schema_version_project_content_hash:\n        unique_key_slots:\n\
+  \        - project\n        - content_hash\n        description: Unique.\n    attributes:\n      id:\n\
+  \        identifier: true\n        range: Id\n        description: The id.\n      project:\n       \
+  \ range: Project\n        required: true\n        description: The project id.\n      domain:\n    \
+  \    required: true\n        description: The domain.\n      label:\n        required: true\n      \
+  \  description: 'version: field of the YAML, e.g. ''0.1.0'''\n      content_hash:\n        required:\
+  \ true\n        description: D2 \xA72; covers the model revision id\n      model_revision:\n       \
+  \ range: ModelRevision\n        required: true\n        description: the core the pack was compiled\
+  \ against\n      parent:\n        range: SchemaVersion\n        description: The parent id.\n      source:\n\
+  \        range: Json\n        required: true\n        description: 'the pack files'' text: {\"statistics.yaml\"\
+  : \"...\", \"rules.yaml\": \"...\", \"core/rules.yaml\":\n          \"...\"}; the core module is named\
+  \ by model_revision_id'\n      migration:\n        range: ChangeRecord\n        description: the change\
+  \ record from the parent (D2 \xA78); null for a first version\n      state:\n        range: VersionState\n\
+  \        required: true\n        ifabsent: string(active)\n        description: The state.\n      created_by:\n\
+  \        required: true\n        description: '''human:operator'', ''agent:opus-5.5'', ...'\n      created_at:\n\
+  \        range: Timestamp\n        required: true\n        description: The created at.\n        annotations:\n\
+  \          ci:generated: insert_time\n  CompiledArtifact:\n    in_subset:\n    - meta\n    description:\
+  \ D2 \xA77 compiler outputs; rows are added, never edited\n    unique_keys:\n      compiled_artifact_schema_version_compiler_compiler_version_kind:\n\
+  \        unique_key_slots:\n        - schema_version\n        - compiler\n        - compiler_version\n\
+  \        - kind\n        description: Unique.\n    attributes:\n      id:\n        identifier: true\n\
+  \        range: Id\n        description: The id.\n      schema_version:\n        range: SchemaVersion\n\
+  \        required: true\n        description: The schema version id.\n        annotations:\n       \
+  \   ci:on_delete: cascade\n      compiler:\n        required: true\n        description: '''json_schema'',\
+  \ ''gliner2'', ''rules'', ''annotator_reference'', ...'\n      compiler_version:\n        required:\
+  \ true\n        description: The compiler version.\n      kind:\n        required: true\n        description:\
+  \ which artifact of that compiler, e.g. 'batch.model_facing', 'batch.stored', 'batch.decoding'\n   \
+  \   hash:\n        required: true\n        description: sha256 of canonical JSON of body (D1 \xA710.1);\
+  \ what method configurations reference\n      body:\n        range: Json\n        required: true\n \
+  \       description: the artifact (a text artifact is a JSON string)\n      payload_schema:\n      \
+  \  range: PayloadSchema\n        required: true\n        description: the body's schema (D2 \xA78)\n\
+  \      created_at:\n        range: Timestamp\n        required: true\n        description: The created\
+  \ at.\n        annotations:\n          ci:generated: insert_time\n  SchemaClass:\n    in_subset:\n \
+  \   - meta\n    description: The meta.schema_class table.\n    unique_keys:\n      primary_key:\n  \
+  \      unique_key_slots:\n        - schema_version\n        - name\n        description: The primary\
+  \ key.\n    attributes:\n      schema_version:\n        range: SchemaVersion\n        required: true\n\
+  \        description: The schema version id.\n        annotations:\n          ci:on_delete: cascade\n\
+  \      name:\n        required: true\n        description: 'prefixed: ''stat:RandomVariable'', ''core:Statement'''\n\
+  \      parent:\n        description: prefixed\n      kind:\n        range: SchemaClassKind\n       \
+  \ required: true\n        description: The kind.\n      scope:\n        range: EntityScope\n       \
+  \ description: The scope.\n      identity_keys:\n        multivalued: true\n        description: The\
+  \ identity keys.\n      description:\n        description: The description.\n      annotations:\n  \
+  \      range: Json\n        required: true\n        ifabsent: string({})\n        description: The annotations.\n\
+  \  SchemaSlot:\n    in_subset:\n    - meta\n    description: The meta.schema_slot table.\n    unique_keys:\n\
+  \      primary_key:\n        unique_key_slots:\n        - schema_version\n        - name\n        description:\
+  \ The primary key.\n    attributes:\n      schema_version:\n        range: SchemaVersion\n        required:\
+  \ true\n        description: The schema version id.\n        annotations:\n          ci:on_delete: cascade\n\
+  \      name:\n        required: true\n        description: 'prefixed: ''stat:has_distribution''; a class-local\
+  \ attribute ''<prefix>:<Class>.<attr>'',\n          e.g. ''core:Formula.latex'''\n      role:\n    \
+  \    range: SlotRole\n        required: true\n        description: The role.\n      domain_class:\n\
+  \        description: prefixed class name\n      range:\n        description: prefixed class or enum\
+  \ name, or a built-in type ('string', 'integer', ...)\n      object_kind:\n        description: 'derived\
+  \ from the range (D2 \xA73): formula, set, entity, enum, map, condition, ...'\n      multivalued:\n\
+  \        range: boolean\n        required: true\n        ifabsent: 'false'\n        description: The\
+  \ multivalued.\n      qualifiers:\n        multivalued: true\n        description: The qualifiers.\n\
+  \      identity_qualifiers:\n        multivalued: true\n        description: The identity qualifiers.\n\
+  \      subsets:\n        multivalued: true\n        description: the named predicate subsets the slot\
+  \ belongs to (e.g. 'family_structure'; rules'\n          subset:<name>)\n      extract:\n        description:\
+  \ The extract.\n      description:\n        description: The description.\n      annotations:\n    \
+  \    range: Json\n        required: true\n        ifabsent: string({})\n        description: 'the slot''s\
+  \ scalar ci: annotations (ci:param_map, symmetric, ...)'\n  SchemaEnum:\n    in_subset:\n    - meta\n\
+  \    description: The meta.schema_enum table.\n    unique_keys:\n      primary_key:\n        unique_key_slots:\n\
+  \        - schema_version\n        - name\n        description: The primary key.\n    attributes:\n\
+  \      schema_version:\n        range: SchemaVersion\n        required: true\n        description: The\
+  \ schema version id.\n        annotations:\n          ci:on_delete: cascade\n      name:\n        required:\
+  \ true\n        description: The name.\n      values:\n        range: Json\n        required: true\n\
+  \        description: '[{\"value\": \"scale\", \"description\": \"...\", \"annotations\": {...}}]'\n\
+  \      annotations:\n        range: Json\n        required: true\n        ifabsent: string({})\n   \
+  \     description: The annotations.\n  SchemaRule:\n    in_subset:\n    - meta\n    description: The\
+  \ meta.schema_rule table.\n    unique_keys:\n      primary_key:\n        unique_key_slots:\n       \
+  \ - schema_version\n        - rule_id\n        description: The primary key.\n    annotations:\n   \
+  \   ci:invariant: iff_absent(severity, grp = derive); iff_absent(check_expr, grp = derive)\n    attributes:\n\
+  \      schema_version:\n        range: SchemaVersion\n        required: true\n        description: The\
+  \ schema version id.\n        annotations:\n          ci:on_delete: cascade\n      rule_id:\n      \
+  \  required: true\n        description: The rule id.\n      grp:\n        range: RuleGroup\n       \
+  \ required: true\n        description: the rules.yaml section (D2 \xA77.4)\n      applies_to:\n    \
+  \    required: true\n        multivalued: true\n        description: the predicate set compiled from\
+  \ a predicate, a list, subset:<name> or any\n      at:\n        multivalued: true\n        description:\
+  \ call sites, 'batch' and 'finalize' (D5 \xA78.2); empty for derive rules\n      severity:\n       \
+  \ range: RuleSeverity\n        description: null for derive rules; always 'warning' in grp 'guideline'\n\
+  \      when_expr:\n        required: true\n        description: a derive rule's match condition\n  \
+  \    check_expr:\n        description: null for derive rules, whose templates stay in the compiled rules\
+  \ artifact\n      description:\n        description: The description.\n  GuidelineVersion:\n    in_subset:\n\
+  \    - meta\n    description: The meta.guideline_version table.\n    unique_keys:\n      guideline_version_project_content_hash:\n\
+  \        unique_key_slots:\n        - project\n        - content_hash\n        description: Unique.\n\
+  \    attributes:\n      id:\n        identifier: true\n        range: Id\n        description: The id.\n\
+  \      project:\n        range: Project\n        required: true\n        description: The project id.\n\
+  \      domain:\n        required: true\n        description: The domain.\n      label:\n        required:\
+  \ true\n        description: The label.\n      content_hash:\n        required: true\n        description:\
+  \ The content hash.\n      body:\n        required: true\n        description: the guideline rules (D2\
+  \ \xA710.1\u2013\xA710.9); the generated reference and direction log are\n          hashed elsewhere\
+  \ (D2 \xA710.10\u2013\xA710.11)\n      schema_version:\n        range: SchemaVersion\n        required:\
+  \ true\n        description: The schema version id.\n      parent:\n        range: GuidelineVersion\n\
+  \        description: The parent id.\n      change_note:\n        description: The change note.\n  \
+  \    state:\n        range: VersionState\n        required: true\n        ifabsent: string(active)\n\
+  \        description: The state.\n      created_by:\n        required: true\n        description: The\
+  \ created by.\n      created_at:\n        range: Timestamp\n        required: true\n        description:\
+  \ The created at.\n        annotations:\n          ci:generated: insert_time\n  PolicyVersion:\n   \
+  \ in_subset:\n    - ops\n    description: The ops.policy_version table.\n    unique_keys:\n      policy_version_project_content_hash:\n\
+  \        unique_key_slots:\n        - project\n        - content_hash\n        description: Unique.\n\
+  \    attributes:\n      id:\n        identifier: true\n        range: Id\n        description: The id.\n\
+  \      project:\n        range: Project\n        required: true\n        description: The project id.\n\
+  \      label:\n        required: true\n        description: The label.\n      content_hash:\n      \
+  \  required: true\n        description: The content hash.\n      source:\n        required: true\n \
+  \       description: policies.yaml as loaded\n      state:\n        range: VersionState\n        required:\
+  \ true\n        ifabsent: string(active)\n        description: The state.\n      created_by:\n     \
+  \   required: true\n        description: The created by.\n      created_at:\n        range: Timestamp\n\
+  \        required: true\n        description: The created at.\n        annotations:\n          ci:generated:\
+  \ insert_time\n  PolicyRule:\n    in_subset:\n    - ops\n    description: The ops.policy_rule table.\n\
+  \    unique_keys:\n      policy_rule_policy_version_rule_key:\n        unique_key_slots:\n        -\
+  \ policy_version\n        - rule_key\n        description: Unique.\n    attributes:\n      id:\n   \
+  \     identifier: true\n        range: Id\n        description: The id.\n      policy_version:\n   \
+  \     range: PolicyVersion\n        required: true\n        description: The policy version id.\n  \
+  \      annotations:\n          ci:on_delete: cascade\n      rule_key:\n        required: true\n    \
+  \    description: '''escalate.low_confidence.local_llm'''\n      chain:\n        range: PolicyChain\n\
+  \        required: true\n        description: The chain.\n      priority:\n        range: integer\n\
+  \        required: true\n        description: position in the chain (D6 \xA77.1)\n      unit_type:\n\
+  \        range: TaskUnitType\n        required: true\n        description: the chain's default or the\
+  \ entry's own (D6 \xA77.1)\n      condition:\n        required: true\n        description: rule-engine\
+  \ expression over the unit context\n      action:\n        range: PolicyAction\n        required: true\n\
+  \        description: '{\"method\": \"<method>/<name>\", \"limit\": 50, \"then\": \"stop|continue\"\
+  } (\xA76.3)'\n      enabled:\n        range: boolean\n        required: true\n        ifabsent: 'true'\n\
+  \        description: The enabled.\n  DebugSlice:\n    in_subset:\n    - ops\n    description: The ops.debug_slice\
+  \ table.\n    unique_keys:\n      debug_slice_project_name:\n        unique_key_slots:\n        - project\n\
+  \        - name\n        description: Unique.\n    attributes:\n      id:\n        identifier: true\n\
+  \        range: Id\n        description: The id.\n      project:\n        range: Project\n        required:\
+  \ true\n        description: The project id.\n      name:\n        required: true\n        description:\
+  \ The name.\n      selector:\n        range: Json\n        required: true\n        description: 'the\
+  \ slice as declared (D2 \xA712.2, D6 \xA78): locators (\"special/Normal.html#rel1\", ...),\n       \
+  \   pages, includes, {\"index\": \u2026}, {\"golden_set\": label}; resolved at run start, locators per\
+  \ rendition\n          (D1 \xA73.4)'\n      created_at:\n        range: Timestamp\n        required:\
+  \ true\n        description: The created at.\n        annotations:\n          ci:generated: insert_time\n\
+  \  Document:\n    in_subset:\n    - kb\n    description: The kb.document table.\n    unique_keys:\n\
+  \      document_key:\n        unique_key_slots:\n        - key\n        description: Unique.\n     \
+  \ document_project_source_uri_content_hash:\n        unique_key_slots:\n        - project\n        -\
+  \ source_uri\n        - content_hash\n        description: Unique.\n    attributes:\n      id:\n   \
+  \     identifier: true\n        range: Id\n        description: The id.\n      project:\n        range:\
+  \ Project\n        required: true\n        description: The project id.\n      key:\n        required:\
+  \ true\n        description: '''doc:\u2026'''\n      source_uri:\n        required: true\n        description:\
+  \ e.g. 'siegrist_random/random/special/Normal.html'\n      content_hash:\n        required: true\n \
+  \       description: sha256 of original bytes\n      original_path:\n        required: true\n      \
+  \  description: where the bytes are\n      mime:\n        required: true\n        description: The mime.\n\
+  \      title:\n        description: The title.\n      meta:\n        range: Json\n        required:\
+  \ true\n        ifabsent: string({})\n        description: licence, source id from SOURCES.tsv, chapter,\
+  \ first_pass ...\n      created_at:\n        range: Timestamp\n        required: true\n        description:\
+  \ The created at.\n        annotations:\n          ci:generated: insert_time\n  Rendition:\n    in_subset:\n\
+  \    - kb\n    description: one content of a document (D1 \xA73.1, \xA73.2)\n    unique_keys:\n    \
+  \  rendition_key:\n        unique_key_slots:\n        - key\n        description: Unique.\n      rendition_document_content_digest:\n\
+  \        unique_key_slots:\n        - document\n        - content_digest\n        description: Unique.\n\
+  \    attributes:\n      id:\n        identifier: true\n        range: Id\n        description: The id.\n\
+  \      document:\n        range: Document\n        required: true\n        description: The document\
+  \ id.\n      key:\n        required: true\n        description: '''ren:\u2026'' over (document key,\
+  \ content digest)'\n      content_digest:\n        required: true\n        description: sha256 of canonical\
+  \ JSON of the content-identity relation (D1 \xA73.2)\n      canonical_text:\n        required: true\n\
+  \        description: The canonical text.\n      macros:\n        range: MacroTable\n        required:\
+  \ true\n        ifabsent: string({})\n        description: the page's macro table (D4 M01); content,\
+  \ inside the digest\n      parse_status:\n        range: DelimitingStatus\n        required: true\n\
+  \        description: 'from its segments: delimiting status, never ''ambiguous'' (below)'\n      created_at:\n\
+  \        range: Timestamp\n        required: true\n        description: The created at.\n        annotations:\n\
+  \          ci:generated: insert_time\n  KbSegment:\n    in_subset:\n    - kb\n    description: The kb.segment\
+  \ table.\n    local_names:\n      sql:\n        local_name_value: segment\n    unique_keys:\n      segment_key:\n\
+  \        unique_key_slots:\n        - key\n        description: Unique.\n    annotations:\n      ci:invariant:\
+  \ iff_absent(parse_reason, parse_status = ok); ordered_eq(start_offset, end_offset)\n    attributes:\n\
+  \      id:\n        identifier: true\n        range: Id\n        description: The id.\n      rendition:\n\
+  \        range: Rendition\n        required: true\n        description: The rendition id.\n        annotations:\n\
+  \          ci:on_delete: cascade\n      key:\n        required: true\n        description: '''seg:\u2026\
+  '''\n      parent:\n        range: KbSegment\n        description: The parent id.\n      kind:\n   \
+  \     range: SegmentKind\n        required: true\n        description: The kind.\n      ordinal:\n \
+  \       range: integer\n        required: true\n        description: position among siblings\n     \
+  \ depth:\n        range: integer\n        required: true\n        description: The depth.\n      start_offset:\n\
+  \        range: integer\n        required: true\n        description: The start offset.\n      end_offset:\n\
+  \        range: integer\n        required: true\n        description: The end offset.\n      text:\n\
+  \        required: true\n        description: canonical_text[start:end], stored for search\n      ts_config:\n\
+  \        range: TsConfig\n        required: true\n        ifabsent: string(english)\n        description:\
+  \ from the source profile's language (default 'english'), selecting its BM25 index;\n          not content\n\
+  \      attrs:\n        range: SegmentAttrs\n        required: true\n        ifabsent: string({})\n \
+  \       description: author markup (D1 \xA73.2); never diagnostics, which live in kb.rendition_build.parse_detail\n\
+  \      parse_status:\n        range: DelimitingStatus\n        required: true\n        ifabsent: string(ok)\n\
+  \        description: delimiting status (D1 \xA73.1\u2013\xA73.2), never 'ambiguous'\n      parse_reason:\n\
+  \        pattern: '\\S'\n        description: >-\n          why `partial`/`failed` (delimiting, D1 \xA7\
+  3.1); content, inside the digest; never empty or\n          only whitespace (an empty reason is no reason)\n\
+  \  Span:\n    in_subset:\n    - kb\n    description: The kb.span table.\n    unique_keys:\n      span_rendition_start_offset_end_offset:\n\
+  \        unique_key_slots:\n        - rendition\n        - start_offset\n        - end_offset\n    \
+  \    description: Unique.\n    annotations:\n      ci:invariant: ordered(start_offset, end_offset)\n\
+  \    attributes:\n      id:\n        identifier: true\n        range: Id\n        description: The id.\n\
+  \      rendition:\n        range: Rendition\n        required: true\n        description: The rendition\
+  \ id.\n        annotations:\n          ci:on_delete: cascade\n      start_offset:\n        range: integer\n\
+  \        required: true\n        description: The start offset.\n      end_offset:\n        range: integer\n\
+  \        required: true\n        description: The end offset.\n      segment:\n        range: KbSegment\n\
+  \        required: true\n        description: smallest containing segment\n      text:\n        required:\
+  \ true\n        description: The text.\n  EvalDocumentSplit:\n    in_subset:\n    - eval\n    description:\
+  \ page-level split assignment (D7 \xA73.1, \xA74)\n    local_names:\n      sql:\n        local_name_value:\
+  \ document_split\n    unique_keys:\n      primary_key:\n        unique_key_slots:\n        - project\n\
+  \        - document\n        description: The primary key.\n    attributes:\n      project:\n      \
+  \  range: Project\n        required: true\n        description: The project id.\n      document:\n \
+  \       range: Document\n        required: true\n        description: The document id.\n      split:\n\
+  \        range: DocumentSplit\n        required: true\n        description: 'reserved: worked-example\
+  \ pages, never golden (D7 \xA73.1)'\n      reason:\n        required: true\n        description: 'why\
+  \ the page is in its split: the seeded order, reserved, forced to dev, or an operator\n          direction\
+  \ (D7 \xA73.1)'\n      seed:\n        description: the split seed of an assignment by the seeded order;\
+  \ null otherwise\n      assigned_at:\n        range: Timestamp\n        required: true\n        description:\
+  \ The assigned at.\n        annotations:\n          ci:generated: insert_time\n  GoldenSet:\n    in_subset:\n\
+  \    - eval\n    description: The eval.golden_set table.\n    unique_keys:\n      golden_set_project_label_split:\n\
+  \        unique_key_slots:\n        - project\n        - label\n        - split\n        description:\
+  \ Unique.\n    attributes:\n      id:\n        identifier: true\n        range: Id\n        description:\
+  \ The id.\n      project:\n        range: Project\n        required: true\n        description: The\
+  \ project id.\n      label:\n        required: true\n        description: The label.\n      split:\n\
+  \        range: GoldenSplit\n        required: true\n        description: The split.\n      schema_version:\n\
+  \        range: SchemaVersion\n        required: true\n        description: The schema version id.\n\
+  \      guideline_version:\n        range: GuidelineVersion\n        required: true\n        description:\
+  \ The guideline version id.\n      sampling:\n        range: Json\n        required: true\n        description:\
+  \ 'how the units were drawn (D7 \xA73.1): seed, size, strata, allocation, forced units,\n          sampler\
+  \ version'\n      frozen_at:\n        range: Timestamp\n        description: test sets freeze at phase\
+  \ gates\n      created_at:\n        range: Timestamp\n        required: true\n        description: The\
+  \ created at.\n        annotations:\n          ci:generated: insert_time\n  GoldenUnit:\n    in_subset:\n\
+  \    - eval\n    description: The eval.golden_unit table.\n    unique_keys:\n      golden_unit_golden_set_unit_key:\n\
+  \        unique_key_slots:\n        - golden_set\n        - unit_key\n        description: Unique.\n\
+  \    attributes:\n      id:\n        identifier: true\n        range: Id\n        description: The id.\n\
+  \      golden_set:\n        range: GoldenSet\n        required: true\n        description: The golden\
+  \ set id.\n      unit_key:\n        required: true\n        description: 'identity: the annotation unit''s\
+  \ locator-based unit key at creation (D1 \xA73.4); never\n          changes'\n      current_locator:\n\
+  \        required: true\n        description: the unit's locator on its latest resolving rendition;\
+  \ re-location updates this, not\n          the key (D7 \xA73.5)\n      authored_rendition:\n       \
+  \ range: Rendition\n        required: true\n        description: 'provenance: the rendition the passes''\
+  \ packets came from'\n      status:\n        range: GoldenUnitStatus\n        required: true\n     \
+  \   description: The status.\n      agreement:\n        range: Json\n        required: true\n      \
+  \  ifabsent: string({})\n        description: 'evaluation''s agreement result model (D7 \xA73.3): by\
+  \ tier and predicate, with the\n          A/B diff; validated at the evaluation boundary'\n      created_at:\n\
+  \        range: Timestamp\n        required: true\n        description: The created at.\n        annotations:\n\
+  \          ci:generated: insert_time\n  EvalGoldenPass:\n    in_subset:\n    - eval\n    description:\
+  \ 'the single store of authored passes (D7 \xA73): the authority'\n    local_names:\n      sql:\n  \
+  \      local_name_value: golden_pass\n    unique_keys:\n      golden_pass_golden_unit_pass_guideline_version:\n\
+  \        unique_key_slots:\n        - golden_unit\n        - pass\n        - guideline_version\n   \
+  \     description: Unique.\n    attributes:\n      id:\n        identifier: true\n        range: Id\n\
+  \        description: The id.\n      golden_unit:\n        range: GoldenUnit\n        required: true\n\
+  \        description: The golden unit id.\n        annotations:\n          ci:on_delete: cascade\n \
+  \     pass:\n        range: GoldenPass\n        required: true\n        description: The pass.\n   \
+  \   guideline_version:\n        range: GuidelineVersion\n        required: true\n        description:\
+  \ The guideline version id.\n      batch:\n        range: Json\n        required: true\n        description:\
+  \ 'model-facing ClaimProposalBatch as authored (pass c: the adjudicated batch); never\n          rewritten'\n\
+  \      decisions:\n        range: Json\n        description: 'pass c: per-difference decision, reason,\
+  \ guideline_gap marks'\n      session_ref:\n        required: true\n        description: authoring session;\
+  \ passes a and b of a unit must differ\n      model:\n        required: true\n        description: 'authoring\
+  \ model (ADR-0011: Sonnet 5.5)'\n      inputs:\n        range: Json\n        required: true\n      \
+  \  description: guideline version, annotator-reference hash, packet hash, M13 version that chose\n \
+  \         the context\n      payload_schema:\n        range: PayloadSchema\n        required: true\n\
+  \        description: the batch's and frames' schema (D2 \xA78)\n      created_at:\n        range: Timestamp\n\
+  \        required: true\n        description: The created at.\n        annotations:\n          ci:generated:\
+  \ insert_time\n  CitationFrame:\n    in_subset:\n    - eval\n    description: versions of a pass's citation\
+  \ frame; added, never edited\n    unique_keys:\n      citation_frame_golden_pass_version:\n        unique_key_slots:\n\
+  \        - golden_pass\n        - version\n        description: Unique.\n    annotations:\n      ci:invariant:\
+  \ iff_absent(parent, version = 1)\n    attributes:\n      id:\n        identifier: true\n        range:\
+  \ Id\n        description: The id.\n      golden_pass:\n        range: EvalGoldenPass\n        required:\
+  \ true\n        description: The golden pass id.\n        annotations:\n          ci:on_delete: cascade\n\
+  \      version:\n        range: integer\n        required: true\n        description: '1: as authored,\
+  \ written with the pass'\n      parent:\n        range: CitationFrame\n        description: the version\
+  \ it re-locates; null for version 1\n      frame:\n        range: FrameEntries\n        required: true\n\
+  \        description: '{\"s1\": {\"locator\": \"\u2026\", \"text\": \"\u2026\"}, \"c1\": {\u2026}}:\
+  \ each cited sentence id \u2192 its locator\n          and text (D1 \xA710.3)'\n      reason:\n    \
+  \    required: true\n        description: '''authored'', or the re-location that wrote it (D7 \xA73.5)'\n\
+  \      created_at:\n        range: Timestamp\n        required: true\n        description: The created\
+  \ at.\n        annotations:\n          ci:generated: insert_time\n  GoldenItem:\n    in_subset:\n  \
+  \  - eval\n    description: 'derived: one pass c batch located on one rendition'\n    unique_keys:\n\
+  \      golden_item_golden_pass_rendition_cascade_version_schema_version_item_type_local_ref:\n     \
+  \   unique_key_slots:\n        - golden_pass\n        - rendition\n        - cascade_version\n     \
+  \   - schema_version\n        - item_type\n        - local_ref\n        description: Unique.\n    attributes:\n\
+  \      id:\n        identifier: true\n        range: Id\n        description: The id.\n      golden_pass:\n\
+  \        range: EvalGoldenPass\n        required: true\n        description: the pass c it projects\n\
+  \        annotations:\n          ci:on_delete: cascade\n      citation_frame:\n        range: CitationFrame\n\
+  \        required: true\n        description: the frame version it was located through\n      rendition:\n\
+  \        range: Rendition\n        required: true\n        description: The rendition id.\n      cascade_version:\n\
+  \        required: true\n        description: the quote cascade that derived it (D4 \xA74.3)\n     \
+  \ schema_version:\n        range: SchemaVersion\n        required: true\n        description: the schema\
+  \ version it was derived under (name maps applied, D2 \xA78)\n      item_type:\n        range: GoldenItemType\n\
+  \        required: true\n        description: The item type.\n      local_ref:\n        required: true\n\
+  \        description: The local ref.\n      payload:\n        range: Json\n        required: true\n\
+  \        description: 'a stored item: the core stored-form batch element (D1 \xA710.3, D2 \xA77.3),\
+  \ offsets into\n          rendition_id'\n      context:\n        range: boolean\n        required: true\n\
+  \        ifabsent: 'false'\n        description: 'a context premise stated outside the unit: scored\
+  \ only through claim nodes here\n          (D7 \xA75.1)'\nenums:\n  CompatibilityClass:\n    description:\
+  \ >-\n      How a step carries data across revisions (ADR-0022; model and projections \xA73.6); the\
+  \ class decides\n      the route. `initial` marks a payload schema's first version, which has no parent\
+  \ and no route.\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      initial: {description:\
+  \ A first version; no parent.}\n      descriptive: {description: \"Descriptions, examples, titles: a\
+  \ new revision, no DDL.\"}\n      nested-additive: {description: \"An optional field or closed-set member\
+  \ of a nested payload class no CHECK lists: a registry row with upcast absent; no DDL, no rewrite.\"\
+  }\n      relational-additive: {description: \"A column, table, static member, index, edge kind or newly\
+  \ sql_visible path: a generated Alembic revision.\"}\n      version-scoped-additive: {description: \"\
+  A pack's class, predicate, statement kind or member: a new schema version.\"}\n      mapped: {description:\
+  \ \"A rename, split or merge, by the change record's name map; authored artifacts are never rewritten.\"\
+  }\n      key-bearing: {description: \"An identity, canonical-form or key-part change: a new key scheme\
+  \ with carry-over.\"}\n      breaking: {description: \"A removal or narrowing without a mapping: refused\
+  \ unless a decision is recorded (DP-24).\"}\n  ChangeKind:\n    description: What happened to an element\
+  \ between two revisions (ElementChange.change).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      added: {}\n      removed: {}\n      changed: {}\n  VersionState:\n    description: \"`meta.schema_version.state`,\
+  \ `meta.guideline_version.state`, `ops.policy_version.state`.\"\n    annotations: {ci:lifecycle: static}\n\
+  \    permissible_values:\n      proposed: {}\n      active: {}\n      rejected: {}\n      retired: {}\n\
+  \  SchemaClassKind:\n    description: \"`meta.schema_class.kind`.\"\n    annotations: {ci:lifecycle:\
+  \ static}\n    permissible_values:\n      entity: {}\n      value: {}\n      abstract: {}\n  SlotRole:\n\
+  \    description: \"`meta.schema_slot.role`.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      predicate: {}\n      qualifier: {}\n      identity: {}\n      field: {}\n  RuleGroup:\n    description:\
+  \ \"`meta.schema_rule.grp`.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n  \
+  \    rules: {}\n      guideline: {}\n      derive: {}\n  RuleSeverity:\n    description: \"`meta.schema_rule.severity`.\"\
+  \n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      warning: {}\n      error:\
+  \ {}\n  MethodFamily:\n    description: \"`ops.method.family`.\"\n    annotations: {ci:lifecycle: static}\n\
+  \    permissible_values:\n      ingest: {}\n      profile: {}\n      extract: {}\n      normalize: {}\n\
+  \      resolve: {}\n      consolidate: {}\n      validate: {}\n      verify: {}\n      measure: {}\n\
+  \      llm: {}\n      agent: {}\n      human: {}\n      eval: {}\n  PolicyChain:\n    description: \"\
+  `ops.policy_rule.chain`.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n     \
+  \ propose: {}\n      escalate: {}\n      adjudicate: {}\n      identity: {}\n      gaps: {}\n  TaskUnitType:\n\
+  \    description: \"Current method and native task unit kinds.\"\n    annotations: {ci:lifecycle: static}\n\
+  \    permissible_values:\n      document: {}\n      rendition: {}\n      segment: {}\n      span: {description:\
+  \ \"M12's unit: a `kb.span` row (D4 \xA71)\"}\n      observation: {}\n      entity: {}\n      claim:\
+  \ {}\n      alternative_group: {}\n      identity_group: {}\n      run: {}\n      golden_unit: {}\n\
+  \      source_view: {description: \"A pinned native PDF section projection; never a rendition alias.\"\
+  }\n  TaskStatus:\n    description: \"`ops.task.status`.\"\n    annotations: {ci:lifecycle: static}\n\
+  \    permissible_values:\n      pending: {}\n      running: {}\n      awaiting_agent: {}\n      done:\
+  \ {}\n      empty: {}\n      failed: {}\n      skipped: {}\n      reused: {}\n      cancelled: {}\n\
+  \  ObservationKind:\n    description: \"`kb.observation.kind`.\"\n    annotations: {ci:lifecycle: static}\n\
+  \    permissible_values:\n      author_markup: {}\n      mention: {}\n      relation: {}\n      record:\
+  \ {}\n      attribute: {}\n      classification: {}\n      value: {}\n      scope: {}\n      link: {}\n\
+  \      claim_proposal: {}\n      judgment: {}\n      verification: {}\n  ObservationOutcome:\n    description:\
+  \ \"`kb.observation.outcome`.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      produced: {}\n      empty: {}\n      failed: {}\n  AliasKind:\n    description: \"`kb.entity_alias.alias_kind`.\"\
+  \n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      label: {}\n      symbol: {}\n\
+  \      abbreviation: {}\n      term: {}\n      expression: {}\n  ClaimStatus:\n    description: \"`kb.claim.status`.\"\
+  \n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      candidate: {}\n      accepted:\
+  \ {}\n      rejected: {}\n      ambiguous: {}\n      conflicting: {}\n      unsupported: {}\n  LinkType:\n\
+  \    description: \"`kb.claim_link.link_type`.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      derived_from: {}\n      contradicts: {}\n      equivalent_to: {}\n      alternative_of: {}\n\
+  \      refines: {}\n  MeasurementScope:\n    description: \"Current native measurement subject kinds.\"\
+  \n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      run: {}\n      rendition:\
+  \ {}\n      segment: {}\n      entity: {}\n      claim: {}\n      predicate: {}\n      class: {}\n \
+  \     stage: {}\n      method: {}\n      rule: {}\n      source_view: {description: \"A pinned native\
+  \ PDF section projection; never a rendition alias.\"}\n  InterventionKind:\n    description: \"`ops.intervention.kind`.\"\
+  \n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      extract: {}\n      adjudicate:\
+  \ {}\n      golden_write: {}\n      golden_adjudicate: {}\n      schema_proposal: {}\n      guideline_change:\
+  \ {}\n      policy_proposal: {}\n      experiment_decision: {}\n      promotion: {}\n      direction:\
+  \ {}\n      ack: {}\n      veto: {}\n      audit: {}\n  ExperimentDecision:\n    description: \"`ops.experiment.decision`.\"\
+  \n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      promote: {}\n      reject:\
+  \ {}\n      inconclusive: {}\n  DocumentSplit:\n    description: \"`eval.document_split.split`.\"\n\
+  \    annotations: {ci:lifecycle: static}\n    permissible_values:\n      dev: {}\n      test: {}\n \
+  \     reserved: {}\n  GoldenSplit:\n    description: \"`eval.golden_set.split`.\"\n    annotations:\
+  \ {ci:lifecycle: static}\n    permissible_values:\n      dev: {}\n      test: {}\n  GoldenUnitStatus:\n\
+  \    description: \"`eval.golden_unit.status`.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      draft: {}\n      adjudicated: {}\n      stale: {}\n      retired: {}\n  GoldenPass:\n    description:\
+  \ \"`eval.golden_pass.pass`.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n \
+  \     a: {}\n      b: {}\n      c: {}\n  GoldenItemType:\n    description: \"`eval.golden_item.item_type`.\"\
+  \n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      entity: {}\n      statement:\
+  \ {}\n      claim: {}\n      alternative: {}\n      unsupported: {}\n  AlignmentTarget:\n    description:\
+  \ \"`eval.alignment.target_type`.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      entity: {}\n      claim: {}\n  AlignmentTier:\n    description: \"`eval.alignment.tier`.\"\n\
+  \    annotations: {ci:lifecycle: static}\n    permissible_values:\n      none: {}\n      core: {}\n\
+  \      full: {}\n      evidence: {}\n  ResultTier:\n    description: \"`eval.result.tier`.\"\n    annotations:\
+  \ {ci:lifecycle: static}\n    permissible_values:\n      core: {}\n      full: {}\n      evidence: {}\n\
+  \  DropReason:\n    description: \"Why keying dropped a candidate or an alternative member (`core/keys.py`,\
+  \ D5 \xA75.2), or parse (A0) an item it could not place on a rendition; C1's PassReport counts by it.\"\
+  \n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      unknown_predicate: {description:\
+  \ \"the schema does not know the claim's predicate\"}\n      segment_not_on_rendition: {description:\
+  \ \"a segment key off this rendition\"}\n      unknown_reference: {description: \"a reference to no\
+  \ candidate\"}\n      wrong_kind_reference: {description: \"a reference naming a candidate of another\
+  \ kind than its position takes (an entity where a claim is named)\"}\n      uncited_reference: {description:\
+  \ \"an external reference whose descriptor lies in no statement of the set\"}\n      dropped_dependency:\
+  \ {description: \"a reference to a candidate keying dropped\"}\n      unknown_claim_ref: {description:\
+  \ \"a claim reference (a condition `claim` node, a binding's claim) naming no candidate claim\"}\n \
+  \     unknown_identity_entity: {description: \"an identity slot naming no entity\"}\n      identity_cycle:\
+  \ {description: \"entity identity slots that reference each other\"}\n      condition_cycle: {description:\
+  \ \"claims whose conditions reference each other\"}\n      malformed_qualifier: {description: \"a schema\
+  \ qualifier value that is no typed value\"}\n      malformed_value: {description: \"a value with no\
+  \ canonical JSON form (a lone surrogate, keys equal after NFC)\"}\n      unlocated_quote: {description:\
+  \ \"parse (A0): a quote the cascade did not locate and whose cited sentence is not on the rendition,\
+  \ so it has no span; or a claim left without a placed evidence quote or phrase\"}\n      unresolved_extent:\
+  \ {description: \"parse (A0): a scope qualifier's or local entity's extent that resolves to no segment\
+  \ on the rendition\"}\n      orphaned_premise: {description: \"consolidation: a supposed claim whose\
+  \ claims referencing it as a premise were all dropped (INV-06)\", in_subset: [consolidation_drop]}\n\
+  \      malformed_evidence: {description: \"consolidation: a stated claim with no primary evidence (INV-01)\"\
+  , in_subset: [consolidation_drop]}\n  PassOutcome:\n    description: \"What a consolidation pass counts\
+  \ beside its drops (`consolidate/report.py`, consolidation \xA73.7); the PassReport counts by it.\"\n\
+  \    annotations: {ci:lifecycle: static}\n    permissible_values:\n      unreadable_proposal: {description:\
+  \ \"a claim_proposal with no stored form on the run's rendition of its document; its items are not read\"\
+  }\n      linked: {description: \"a global entity that took the key of the one reference-run entity whose\
+  \ alias matches its normalized label\"}\n      link_ambiguous: {description: \"a global entity whose\
+  \ normalized label matches aliases of several reference-run entities; it keeps its own key\"}\n    \
+  \  rederived: {description: \"a proposal located again on the run's rendition by parse (A0) from its\
+  \ authored batch and frame\"}\n      coarse_evidence: {description: \"a claim candidate with a coarse\
+  \ evidence span\"}\n      reference_resolved: {description: \"an ExternalReference whose link target\
+  \ anchors a statement of the run\"}\n      reference_unresolved: {description: \"an ExternalReference\
+  \ left unresolved, counted by its ReferenceRefusal\"}\n      unhinted_statement_kind: {description:\
+  \ \"a statement with no markup hint and no proposal kind, written as remark\"}\n  ReferenceRefusal:\n\
+  \    description: \"Why consolidation left an ExternalReference unresolved (consolidation \xA73.3, RC11).\"\
+  \n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      no_target: {description: \"\
+  the descriptor has no author link target\"}\n      locator_syntax: {description: \"the link target does\
+  \ not read as a locator\"}\n      other_page: {description: \"the target page is not one of the run's\
+  \ renditions\"}\n      locator_refused: {description: \"the locator selects no segment of the target\
+  \ page\"}\n      no_statement: {description: \"the segment it names anchors no statement of the run\"\
+  }\n  FrameFailureReason:\n    description: \"Why a citation-frame entry did not resolve or re-address\
+  \ (`core/frame.py`, D1 \xA710.3).\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      locator_syntax: {description: \"the locator string does not parse\"}\n      other_page: {description:\
+  \ \"the locator names another page than the rendition's\"}\n      locator_refused: {description: \"\
+  it selects no segment, several, or fewer than its ordinal\"}\n      not_a_sentence: {description: \"\
+  it selects a segment of another kind\"}\n      text_differs: {description: \"the sentence's text is\
+  \ not the recorded text\"}\n      not_in_frame: {description: \"a batch cites a sentence id its own\
+  \ frame lacks\"}\n      not_in_packet: {description: \"the served packet has no entry with that locator\
+  \ and text\"}\n  ConfidenceSource:\n    description: >-\n      The D5 \xA76.2 source a method's observations\
+  \ contribute to confidence; each registered method\n      declares one or none (D4 \xA71), and the policy's\
+  \ confidence blocks are keyed by it (D6 \xA77.1).\n      Its states are ConfidenceState members, grouped\
+  \ by member property.\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      encoders:\
+  \ {description: \"M06, M07 (one shared encoder)\"}\n      patterns: {description: \"M08\"}\n      local_llm:\
+  \ {description: \"M10\"}\n      agent: {description: \"M24 (extract)\"}\n      local_llm_judge: {description:\
+  \ \"M16\"}\n      rules: {description: \"M19\"}\n      verifiers: {description: \"M20, M21\"}\n    \
+  \  author_markup: {description: \"M01\"}\n  Stage:\n    description: \"`ops.task.stage`: the stages\
+  \ of D6 \xA72.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      ingest: {description:\
+  \ M01 with M03; M02.}\n      embed: {description: M04.}\n      extract: {description: The encoders and\
+  \ patterns.}\n      normalize: {description: M09 and M11 in phase 0.}\n      scope: {description: M13.}\n\
+  \      link: {description: M14.}\n      propose: {description: The propose chain.}\n      assemble:\
+  \ {description: The assemble consolidation pass.}\n      check: {description: The verifiers.}\n    \
+  \  finalize: {description: The seal and the finalize pass with M19.}\n      measure: {description: Run\
+  \ metrics.}\n      route: {description: \"The escalate, adjudicate and identity chains.\"}\n      escalate:\
+  \ {description: What route created.}\n      derive: {description: M23 and the incremental passes.}\n\
+  \      evaluate: {description: Alignment and scoring.}\n  SkipReason:\n    description: \"`ops.task.reason`:\
+  \ why a task was skipped or cancelled (orchestration \xA73.5).\"\n    annotations: {ci:lifecycle: static}\n\
+  \    permissible_values:\n      scope: {description: The unit lies outside the run's scope.}\n     \
+  \ limit: {description: The policy rule's limit was reached.}\n      budget: {description: The run's\
+  \ budget was spent (phase 1).}\n      prerequisite_failed: {description: An upstream task failed.}\n\
+  \      run_cancelled: {description: The run was cancelled.}\n  ClaimRefKind:\n    description: \"`kb.claim_ref.kind`:\
+  \ why a claim references another.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      condition_premise: {description: A claim node of its condition tree.}\n      binding_param: {description:\
+  \ A param_of or param_expr_of binding.}\n  EntityRefRole:\n    description: \"`kb.claim_entity_ref.role`:\
+  \ where a claim references an entity.\"\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      qualifier: {description: An entity-ranged qualifier.}\n      pred_arg: {description: A pred node\
+  \ argument.}\n      condition_premise: {description: An unresolved external reference in a condition\
+  \ claim position.}\n      binding_param: {description: An unresolved external reference in a claim-valued\
+  \ parameter binding.}\n      binding_variable: {description: A variable binding.}\n      binding_family_param:\
+  \ {description: A family_param binding.}\n  MathKind:\n    description: The typed start symbol of the\
+  \ math grammar that read a value's span (ValuePayload.math_kind, M11).\n    annotations: {ci:lifecycle:\
+  \ static}\n    permissible_values:\n      formula: {description: A formula.}\n      relation: {description:\
+  \ A relation.}\n      membership: {description: A membership statement.}\n      set: {description: A\
+  \ set expression.}\n      list: {description: \"A list of values (formulas, relations or memberships),\
+  \ read as one value.\"}\n  MarkupKind:\n    description: The kinds of author markup observation (AuthorMarkupPayload.markup,\
+  \ D4 M01).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      dfn: {description:\
+  \ A defined term.}\n      unit: {description: An author unit.}\n      details: {description: A details\
+  \ block.}\n      link: {description: A link.}\n      class: {description: A block class.}\n  InterventionTargetKind:\n\
+  \    description: What an intervention acts on (InterventionTarget.kind, D3 \xA76.3).\n    annotations:\
+  \ {ci:lifecycle: static}\n    permissible_values:\n      unit: {description: An annotation unit.}\n\
+  \      claim: {description: A claim.}\n      alternative_group: {description: An alternative group.}\n\
+  \      golden_unit: {description: A golden unit.}\n      schema: {description: A schema version.}\n\
+  \      guideline: {description: A guideline version.}\n      policy: {description: A policy version.}\n\
+  \      run: {description: A run; a promotion targets the run it promotes.}\n  JudgmentTargetKind:\n\
+  \    description: What a judgment is about (JudgmentTarget.kind, D3 \xA76.2).\n    annotations: {ci:lifecycle:\
+  \ static}\n    permissible_values:\n      observation: {description: An observation.}\n      claim:\
+  \ {description: A claim.}\n      alternative_group: {description: An alternative group.}\n      identity_group:\
+  \ {description: An identity group.}\n  JudgmentDecision:\n    description: A judgment's decision (M16,\
+  \ the agent, a human).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      accept:\
+  \ {description: Accept the target.}\n      reject: {description: Reject it.}\n      choose: {description:\
+  \ Choose members of an alternative group.}\n      merge: {description: Merge an identity group.}\n \
+  \     split: {description: Split it.}\n      unsure: {description: No decision.}\n  JudgmentConfidence:\n\
+  \    description: A judge's stated confidence.\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      low: {description: Low.}\n      medium: {description: Medium.}\n      high: {description: High.}\n\
+  \  VerificationVerdict:\n    description: A verifier's verdict on a claim (M19-M21).\n    annotations:\
+  \ {ci:lifecycle: static}\n    permissible_values:\n      consistent: {description: Consistent with the\
+  \ checks.}\n      refuted: {description: Refuted.}\n      not_checkable: {description: Not checkable.}\n\
+  \  ConfidenceState:\n    description: >-\n      The states of the confidence sources (D5 \xA76.2); each\
+  \ member carries, as member properties,\n      the sources it is a state of. not_run is unobserved,\
+  \ never silent.\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      supports: {description:\
+  \ The source produced the claim., in_subset: [encoders_state, patterns_state]}\n      supports_full:\
+  \ {description: The source produced the claim with its qualifiers., in_subset: [local_llm_state, agent_state]}\n\
+  \      supports_core: {description: The source produced the same core with other qualifiers., in_subset:\
+  \ [local_llm_state, agent_state]}\n      silent: {description: The source ran on the claim's unit and\
+  \ did not produce it., in_subset: [encoders_state, patterns_state, local_llm_state, agent_state]}\n\
+  \      not_run: {description: No task of the source ran on the unit., in_subset: [encoders_state, patterns_state,\
+  \ local_llm_state, agent_state, local_llm_judge_state]}\n      accept: {description: The judge accepted.,\
+  \ in_subset: [local_llm_judge_state]}\n      reject: {description: The judge rejected., in_subset: [local_llm_judge_state]}\n\
+  \      unsure: {description: The judge was unsure., in_subset: [local_llm_judge_state]}\n      warning:\
+  \ {description: A warning rule failed on the claim., in_subset: [rules_state]}\n      none: {description:\
+  \ \"No failing warning, or no author markup bearing on it.\", in_subset: [rules_state, author_markup_state]}\n\
+  \      consistent: {description: The verifiers found it consistent., in_subset: [verifiers_state]}\n\
+  \      refuted: {description: A verifier refuted it., in_subset: [verifiers_state]}\n      not_checkable:\
+  \ {description: The verifiers could not check it., in_subset: [verifiers_state]}\n      agrees: {description:\
+  \ Author markup agrees., in_subset: [author_markup_state]}\n      disagrees: {description: Author markup\
+  \ disagrees., in_subset: [author_markup_state]}\n  GpuMode:\n    description: The GPU mode (D6 \xA7\
+  5); a result-neutral run option a setting may supply.\n    annotations: {ci:lifecycle: static}\n   \
+  \ permissible_values:\n      auto: {description: Chosen per run from the budgets.}\n      co-resident:\
+  \ {description: Encoder and LLM share the GPU.}\n      exclusive: {description: One model at a time.}\n\
+  \  AgentMode:\n    description: Which agent tasks a run resolves (D6 \xA72); no setting supplies it.\n\
+  \    annotations: {ci:lifecycle: static}\n    permissible_values:\n      wait: {description: Wait until\
+  \ every agent task is terminal (short slice runs).}\n      complete: {description: Finish with agent\
+  \ tasks left awaiting_agent.}\n  AgentReuse:\n    description: How M24's digest reads the guideline\
+  \ (D6 \xA74).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n      full: {description:\
+  \ The whole guideline part.}\n      by_unit: {description: \"The sections that apply to the unit, by\
+  \ the unit-feature mapping.\"}\n  PolicyThen:\n    description: What a policy rule's chain does after\
+  \ its action (D3 \xA76.3).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n     \
+  \ stop: {description: The chain ends for the unit.}\n      continue: {description: The next rule is\
+  \ evaluated.}\n  UnitFeatureKind:\n    description: The unit-feature vocabulary that guideline sections\
+  \ declare for by_unit (D2 \xA710).\n    annotations: {ci:lifecycle: static}\n    permissible_values:\n\
+  \      segment_kind: {description: The unit's segment kind.}\n      statement_kind: {description: The\
+  \ unit's statement-kind hint.}\n      claim_bearing: {description: The unit's claim-bearing hint.}\n"
+change:
+  from_revision: f4c75acb77445976104b3fa3ebfc560da286bd483f53e2f951c912e1e6f99f54
+  to_revision: a5aa0928c3396114e1e2c369cd1625db12cf90c20872a7dbbb4a5b1e98f94679
+  changes:
+  - element: core
+    change: changed
+    aspect: version
+    compatibility_class: descriptive
+    reason: Retire closed RunKind/RunStatus vocabulary after current caller and core carrier removal;
+      preserve current settings, resources, scientific payloads and physical DDO task custody.
+    authorized_by: Operator-approved complete DDO legacy retirement, 2026-11-16
+    decision: 'ADR-0109 and ADR-0118: one current model/native basis; no legacy runtime or reader preservation
+      obligation'
+  - element: sys:RunKind
+    change: removed
+    compatibility_class: breaking
+    reason: Retire closed RunKind/RunStatus vocabulary after current caller and core carrier removal;
+      preserve current settings, resources, scientific payloads and physical DDO task custody.
+    authorized_by: Operator-approved complete DDO legacy retirement, 2026-11-16
+    decision: 'ADR-0109 and ADR-0118: one current model/native basis; no legacy runtime or reader preservation
+      obligation'
+  - element: sys:RunStatus
+    change: removed
+    compatibility_class: breaking
+    reason: Retire closed RunKind/RunStatus vocabulary after current caller and core carrier removal;
+      preserve current settings, resources, scientific payloads and physical DDO task custody.
+    authorized_by: Operator-approved complete DDO legacy retirement, 2026-11-16
+    decision: 'ADR-0109 and ADR-0118: one current model/native basis; no legacy runtime or reader preservation
+      obligation'

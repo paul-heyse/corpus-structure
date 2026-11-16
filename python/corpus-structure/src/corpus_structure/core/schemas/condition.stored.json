@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/f4c75acb7744/condition.stored.json",
+  "$id": "https://corpus-structure.dev/schemas/a5aa0928c339/condition.stored.json",
   "$defs": {
     "BindKind": {
       "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",

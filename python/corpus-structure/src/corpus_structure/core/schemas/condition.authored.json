@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/f4c75acb7744/condition.authored.json",
+  "$id": "https://corpus-structure.dev/schemas/a5aa0928c339/condition.authored.json",
   "$defs": {
     "AuthoredAnd": {
       "additionalProperties": false,
