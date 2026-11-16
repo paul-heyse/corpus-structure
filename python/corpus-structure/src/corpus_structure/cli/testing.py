@@ -326,6 +326,13 @@ class NativeProvenanceGap(BaseModel):
     unresolved: list[str]
 
 
+class RetrySelectionChange(BaseModel):
+    expected: int
+    collected: int
+    missing: int
+    unexpected: int
+
+
 class FailureLane(BaseModel):
     status: str
     reporting_complete: bool
@@ -336,6 +343,7 @@ class FailureLane(BaseModel):
     reporting_errors_truncated: bool = False
     rust: RustEvidence | None = None
     startup: StartupDiagnostic | None = None
+    selection_change: RetrySelectionChange | None = None
 
 
 class Failures(BaseModel):
@@ -454,6 +462,16 @@ def _render_failures(report: Failures) -> Group:
         if not evidence.reporting_complete:
             status += ", incomplete node reporting"
         rows.add_row(lane, _literal(status))
+        if evidence.selection_change is not None:
+            change = evidence.selection_change
+            rows.add_row(
+                "Selection changed",
+                Text(
+                    f"{change.expected} expected, {change.collected} collected; "
+                    f"{change.missing} missing, {change.unexpected} unexpected. "
+                    "No test bodies executed; select replacement identities explicitly."
+                ),
+            )
         provenance = evidence.native_provenance
         if provenance is not None:
             rows.add_row("Native provenance", _literal(provenance.reason or "unavailable"))
@@ -749,7 +767,11 @@ def _finish(result: Invocation, outcomes: dict[str, str], json: bool) -> None:
             f"ci test{mode}{_native_host_flag(result.manifest)} --lane {failed}" if failed else None
         )
     if result.manifest.details.get("retry_recollection_failed"):
-        next_action = f"ci test retry {result.manifest.scope['retry_of']}"
+        next_action = (
+            f"ci test scheduling {result.id}"
+            if result.manifest.details.get("retry_selection_changes")
+            else f"ci test retry {result.manifest.scope['retry_of']}"
+        )
         result.manifest.details["execution_outcome"] = "not_run"
     if result.manifest.action == "test.collect":
         if outcome != "passed":
@@ -951,7 +973,11 @@ def _next_test_action(
     if receipt_unsettled or manifest.details.get("custody_unsettled"):
         return f"Inspect supervisor settlement with ci results show {result_id} before retrying."
     if manifest.details.get("retry_recollection_failed"):
-        return f"ci test retry {manifest.scope['retry_of']}"
+        return (
+            f"ci test scheduling {manifest.id}"
+            if manifest.details.get("retry_selection_changes")
+            else f"ci test retry {manifest.scope['retry_of']}"
+        )
     if manifest.action == "test.collect":
         mode = (
             " --providers-only" if manifest.scope.get("evidence_selection") == "providers" else ""
@@ -1408,6 +1434,10 @@ def failures(
                 startup=StartupDiagnostic.model_validate(report["startup"])
                 if report.get("startup") is not None
                 else None,
+                selection_change=RetrySelectionChange.model_validate(change)
+                if (change := manifest.details.get("retry_selection_changes", {}).get(name))
+                is not None
+                else None,
             )
             provenance = lanes[name].native_provenance
             if provenance is not None:
@@ -1588,6 +1618,15 @@ def retry(
                             result.publish(current, directory)
                             result.manifest.scope["required_lanes"].append(current)
                             result.manifest.details["retry_recollection_failed"] = True
+                            if validation.get("selection_change") is not None:
+                                result.manifest.details.setdefault("retry_selection_changes", {})[
+                                    current
+                                ] = validation["selection_change"]
+                                diagnostic(
+                                    "Exact retry identities changed; inspect current collection "
+                                    f"with ci test scheduling {result.id}, then select replacement "
+                                    "identities explicitly. No test bodies executed."
+                                )
                             outcomes[current] = "failed"
                             diagnostic(
                                 f"{current} retry collection failed; inspect with ci test failures "

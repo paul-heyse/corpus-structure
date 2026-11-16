@@ -258,8 +258,14 @@ The CLI exposed a bounded reporting defect during this work: exact retry of an o
 identity against two new parameterized identities correctly refused execution, but its failure view
 provided no selection mismatch and recommended the same stale retry. The repair reports exact
 collection counts, keeps execution **not_run**, and directs current-identity inspection rather than
-silently broadening scope. Original `ee793b0eb1474f8fbe0006c461bd4707` remains failed; targeted
-installed-command verification is pending. This is reporting repair owned by the active increment,
+silently broadening scope. Original `ee793b0eb1474f8fbe0006c461bd4707` remains failed. Installed reporting36
+**passed** `dfc5296dd03d4229a06ee0d16cfb326b`; supervisor selection12 **passed**
+`43d22ebb7ca548bb8e0c8f687f3b3399`. The real repeated changed-selection refusal
+`bcbc08d2eda24a86b6e4870470ff6228` now reports1expected/2collected/1missing/2unexpected,
+no test bodies executed, and directs scheduling inspection. The initial new human-rendering control
+had1passed/1failed (`77a0c0e6689049158ab971aee8c6ff8c`) from a narrow-terminal label wrap;
+exact corrected retry1 **passed** `5edc458d0d7446c6ac9277691d8d1ffe`.
+This is reporting repair owned by the active increment,
 not native/provider or enclosing qualification.
 
 **Accepted integration target; implementation/qualification Proposed · 2026-11-15.**
@@ -274,6 +280,15 @@ Scalar target work and exact-integer batch controls do not qualify encoder batch
 its own explicit released numerical policy and actual provider/native controls. Implementation,
 common disclosure hooks, native capture, old consumer retirement and qualification remain open
 with I02/I04/I05/I06; no optional attestation registry or parallel scheduler is introduced.
+
+**Accepted finite structural extension; implementation/qualification Proposed · 2026-11-15.**
+[ADR-0115](../adr/0115-structural-policy-issuer.md) extends the one current evaluator to actual
+comparison/condition/definition report choices with faithful lowering and exact protected A/B/C.
+Definition chooses one exact component; other policies require null. Explicit report/admission
+roots share one selected cut and bounded authority. Comparison gaps/dossiers retain their scope.
+The implementation worker is migrating genuine sentence/construction/predicate/named-definition
+callers and retiring the final two old structural authoring functions/captures. Native successor,
+actual source/provider/read/export/refusal qualification and exact registry retirement remain open.
 
 ## Current state and execution order
 

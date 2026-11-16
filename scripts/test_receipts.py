@@ -1987,6 +1987,20 @@ def write_unresolved(
                 "evidence_selection": evidence_selection,
                 "native_host": native_host,
                 "validation": "failed",
+                "selection_change": (
+                    {
+                        "expected": len(set(result["required"])),
+                        "collected": len(set(collected["selected"])),
+                        "missing": len(set(result["required"]) - set(collected["selected"])),
+                        "unexpected": len(set(collected["selected"]) - set(result["required"])),
+                    }
+                    if collected["process"].get("returncode") == 0
+                    and not collected["stream_errors"]
+                    and not collected["collection_errors"]
+                    and not collected["worker_loss"]
+                    and set(collected["selected"]) != set(result["required"])
+                    else None
+                ),
             }
         raise ValueError(
             "current collection is stale, ambiguous, failed or outside the selected lane; "

@@ -99,6 +99,36 @@ def test_installed_retry_retains_collection_failure_in_existing_failure_view(tmp
     assert failures["next_action"] == f"ci test retry {original.id}"
 
 
+def test_installed_retry_reports_changed_identities_without_repeating_stale_selection(tmp_path):
+    source = tmp_path / "test_changed_retry.py"
+    source.write_text(
+        "import pytest\n@pytest.mark.parametrize('index', [1, 2])\n"
+        "def test_case(index):\n    raise AssertionError('must not execute')\n"
+    )
+    node = source.as_posix() + "::test_case"
+    store = ResultStore(tmp_path / "results")
+    with store.operation("test", scope={"lane": "ordinary"}) as original:
+        directory = original.directory / "ordinary"
+        _receipt(directory, [node], fail=True)
+        original.publish("ordinary", directory)
+        original.settle("failed", lanes={"ordinary": "failed"})
+    attempt = _run(store, "retry", original.id, "--lane", "ordinary", "--json", check=False)
+    assert attempt.returncode == 1
+    report = json.loads(attempt.stdout)
+    assert report["outcome"] == "failed"
+    failures = json.loads(_run(store, "failures", report["id"], "--json").stdout)
+    assert failures["items"] == []  # No invented pytest failure or test execution.
+    assert failures["lanes"]["ordinary"]["selection_change"] == {
+        "expected": 1,
+        "collected": 2,
+        "missing": 1,
+        "unexpected": 2,
+    }
+    assert failures["next_action"] == f"ci test scheduling {report['id']}"
+    human = _run(store, "failures", report["id"]).stdout
+    assert "Selection changed" in human and "unexpected" in human
+
+
 @pytest.mark.parametrize("retry", [False, True])
 @pytest.mark.parametrize("workers", ["0", "-1", "1.5", "auto"])
 def test_cli_workers_reject_invalid_before_operation(cli, tmp_path, retry, workers):
