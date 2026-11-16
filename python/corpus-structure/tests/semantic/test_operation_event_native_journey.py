@@ -228,8 +228,11 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
         kernel,
         case["fitted"]["demand_id"],
         "urn:corpus:kind:operation-event:parameters",
-        purpose="read",
+        purpose="evaluate",
     )
+    # The issuer demand includes protected fitting inputs. Acquire its exact
+    # issued selector under evaluator authority; ordinary disclosure is checked
+    # through the genuine downstream scoring demand below.
     parameters = OperationEventParameters.model_validate_json(json_bytes(public.body))
     assert fit.result.status == "fitted" and parameters == fit.result.parameters
     assert parameters.frame_digest == case["frame"].frame_digest
@@ -307,9 +310,9 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
         kernel.purpose("read").begin() as connection,
         selected_record_index(
             connection,
-            case["fitted"]["demand_id"],
+            scored["demand_id"],
             project_id=PROJECT,
-            scope={"product_ids": [public.row["product_id"]]},
+            scope={"product_ids": [scored_rows[0]["product_id"]]},
         ) as (_, index),
     ):
         leaves = index.rows("ops.data_authority_leaf")
@@ -318,12 +321,14 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
             and leaf["issuer_operation"] == "operation_event.authorize"
             for leaf in leaves
         )
-        public_bytes = canonical_bytes(list(index.rows("kb.data_product")))
+        public_products = tuple(index.rows("kb.data_product"))
+        assert any(row["id"] == public.row["product_id"] for row in public_products)
+        public_bytes = canonical_bytes(list(public_products))
         assert b"controlled-output-first-C" not in public_bytes
         assert b"independent numerical-control author" not in public_bytes
         assert all(
             row["id"] != case["frame_product"].row["product_id"]
-            for row in index.rows("kb.data_product")
+            for row in public_products
         )
 
 
