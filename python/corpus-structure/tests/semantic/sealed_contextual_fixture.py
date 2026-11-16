@@ -13,10 +13,9 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.method import UnitResult
-from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.methods.contextual_candidates import (
     SECTION_CONSTRAINT,
-    ContextualQueryConfig,
     coincident_component_terms,
     explicit_definition_section,
     explicit_section_citation,
@@ -45,21 +44,9 @@ from corpus_structure.semantic.contextual_retrieval import (
 from corpus_structure.semantic.contextual_storage import enrichment_report
 from corpus_structure.semantic.contributions import operation_identity
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.operations import OperationDescriptor
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import record_source_pin
-
-
-def contextual_descriptor(version="12"):
-    return OperationDescriptor(
-        "retrieve.contextual",
-        version,
-        "resolve",
-        "encoder",
-        TaskUnitType.SOURCE_VIEW,
-        ContextualQueryConfig,
-    )
 
 
 def contextual_fixture_inputs(reader, view, cfg):

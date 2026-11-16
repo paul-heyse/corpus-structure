@@ -42,3 +42,19 @@ def test_source_view_health_is_relative_to_its_named_native_universe():
         dict(health, inline_scope=[], cell_scope=[]), "#/groups/0", "direct", (group, formula), ()
     )
     assert unqualified["inline_coverage"] == "unknown" and unqualified["cell_coverage"] == "unknown"
+
+
+def test_selected_unknown_formula_is_not_replaced_by_success_elsewhere():
+    from corpus_structure.ingest.pdf_health import source_view_health
+
+    health = {
+        "formula_outcomes": [
+            {"pointer": "#/texts/0", "outcome": "unknown"},
+            {"pointer": "#/texts/1", "outcome": "succeeded"},
+        ]
+    }
+    selected = source_view_health(
+        health, "#/body", "direct", ({"self_ref": "#/texts/0", "label": "formula"},), ()
+    )
+    assert selected["formula_outcomes"] == [{"pointer": "#/texts/0", "outcome": "unknown"}]
+    assert selected["display_coverage"] == "partial"

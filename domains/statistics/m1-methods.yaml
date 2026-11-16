@@ -2,9 +2,6 @@
 # described is an experimental, unqualified role-description policy; default adoption is deferred.
 version: m1-candidate-4
 configs:
-  ingest.pdf_integrated:
-    default:
-      membership: descendants
   extract.m1_annotations:
     default: {}
   extract.m1_candidates:

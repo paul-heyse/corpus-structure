@@ -64,7 +64,6 @@ def m1_profile_assets(configuration, record_schemas):
         "semantic/declared_contexts.py",
         "semantic/source_contexts.py",
         "semantic/record_contracts.py",
-        "semantic/records.py",
         "semantic/contributions.py",
         "semantic/record_interpretation.py",
         "semantic/m1_products.py",

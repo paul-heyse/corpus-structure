@@ -20,7 +20,6 @@ from corpus_structure.semantic.structural_products import (
     legacy_structural_sources,
 )
 from semantic.sealed_structural_fixture import (
-    comparison_descriptor,
     comparison_result,
 )
 from semantic.structural_products_support import inputs as inputs
@@ -238,7 +237,6 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
         left_reading=references[0],
         right_reading=references[1],
     )
-    method = comparison_descriptor()
 
     def validate_inputs(actual):
         assert actual == value
@@ -265,7 +263,6 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
     assert result.structural_product["kind"] == "qualified_comparison"
     report = StructuralProductReport.model_validate(result.structural_product)
     assert StructuralProductReport.model_validate_json(report.model_dump_json()) == report
-    assert method.version == "6"
     assert report.comparison is not None
     action = report.comparison.dimensions[1]
     assert action.outcome == "different_lexical_value"

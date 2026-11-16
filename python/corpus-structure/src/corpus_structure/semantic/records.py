@@ -8,13 +8,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel
 from sqlalchemy import BigInteger, Connection, Text, column, func, select, tuple_, values
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .metadata import table
 from .product_reference import ProductReference
-from .record_contracts import bind_record_candidates, validate_anchor_binding
+from .record_contracts import validate_anchor_binding
 from .types import PreparedRelease
 
 _CELL = re.compile(r"^(#/tables/(?:0|[1-9][0-9]*))/data/table_cells/(0|[1-9][0-9]*)$")
@@ -239,35 +238,6 @@ def authenticated_contribution_coordinate_texts(conn, prepared, task, source, co
     )
 
 
-def authenticated_source_record_coordinates(
-    conn: Connection,
-    prepared: PreparedRelease,
-    *,
-    run_id: int,
-    source_view_id: int,
-    source: str,
-    records: Sequence[Mapping[str, Any]],
-) -> tuple[dict[str, Any], ...]:
-    """Standing-neutral source custody, not producer/reference/publication authority.
-
-    The caller must bind the logical source alias and reference/admission policy. Full
-    cross-object record semantics still belong to bind_record_candidates and its consumers.
-    """
-    validated = _validated_records(prepared, records)
-    scope = _RecordSourceScope(
-        conn, prepared, (_SourceCoordinatesRequest(run_id, source_view_id, validated),)
-    )
-    return _authenticated_source_record_coordinates(
-        conn,
-        prepared,
-        run_id=run_id,
-        source_view_id=source_view_id,
-        source=source,
-        records=validated,
-        scope=scope,
-    )
-
-
 def _authenticated_source_record_coordinates(
     conn, prepared, *, run_id, source_view_id, source, records, scope
 ):
@@ -362,133 +332,3 @@ def _authenticated_source_record_coordinates(
                 coordinate["recognition"] = anchor["recognition"]
             contexts[key] = coordinate
     return tuple(contexts.values())
-
-
-@dataclass(frozen=True)
-class PrivateRecordReport:
-    selected_task_id: int
-    origin_task_id: int
-    release_id: str
-    # None preserves predecessor absence; an explicit new empty collection is ().
-    records: tuple[BaseModel, ...] | None
-    source: str | None = None
-    outcome: str | None = None
-    cut_id: int | None = None
-
-
-def read_private_record_reports(reader, task_ids: Sequence[int]) -> tuple[PrivateRecordReport, ...]:
-    """Read an exact ordered task set with one query and invocation-owned source hydration.
-
-    A selected terminal task without an envelope retains report absence as ``records=None``.
-    """
-    from .contracts import require_bound_operation
-
-    require_bound_operation(reader.prepared, "read_source_view")
-    if len(set(task_ids)) != len(task_ids):
-        raise ValueError("private report task selection must be unique")
-    if not task_ids:
-        return ()
-    selected, origin, results = (
-        table("ops.task"),
-        table("ops.task").alias("origin"),
-        table("ops.task_result"),
-    )
-    statement = (
-        select(
-            selected.c.id.label("selected_task_id"),
-            origin.c.id,
-            origin.c.run_id,
-            origin.c.unit_type,
-            origin.c.unit_id,
-            origin.c.unit_key,
-            results.c.task_id.label("report_task_id"),
-            results.c.body,
-        )
-        .select_from(selected)
-        .join(origin, origin.c.id == func.coalesce(selected.c.reused_task_id, selected.c.id))
-        .outerjoin(results, results.c.task_id == origin.c.id)
-        .where(
-            selected.c.id.in_(task_ids),
-            selected.c.run_id == reader.run_id,
-            selected.c.release_id == reader.prepared.release_id,
-            origin.c.release_id == reader.prepared.release_id,
-            selected.c.status.in_(("done", "empty", "reused")),
-        )
-    )
-    if reader.cut_id is not None:
-        cut = table("ops.cut_task")
-        statement = statement.join(cut, cut.c.task_id == selected.c.id).where(
-            cut.c.cut_id == reader.cut_id,
-            cut.c.origin_task_id == origin.c.id,
-        )
-    tasks = tuple(reader.conn.execute(statement).mappings())
-    by_id = {task["selected_task_id"]: task for task in tasks}
-    if set(by_id) != set(task_ids) or len(tasks) != len(task_ids):
-        raise ValueError(
-            "private report task is absent, outside the selected run/cut, or ambiguous"
-        )
-    decoded: dict[int, tuple[dict[str, Any], ...] | None] = {}
-    for task in tasks:
-        if task["id"] in decoded:
-            continue
-        envelope = task["body"]
-        if task["report_task_id"] is not None and not isinstance(envelope, dict):
-            raise ValueError("private report envelope is not an object")
-        decoded[task["id"]] = (
-            None
-            if envelope is None or "records" not in envelope
-            else tuple(
-                reader.prepared.validate_json("SourceRecord", json.dumps(record)).model_dump(
-                    mode="python"
-                )
-                for record in envelope["records"]
-            )
-        )
-    requests = []
-    for task in tasks:
-        records_data = decoded[task["id"]]
-        if records_data is not None:
-            if task["unit_type"] != "source_view":
-                raise ValueError("private records require a source-view task")
-            requests.append(
-                _SourceCoordinatesRequest(task["run_id"], task["unit_id"], records_data)
-            )
-    scope = _RecordSourceScope(reader.conn, reader.prepared, tuple(requests))
-    bound = {}
-    reports = []
-    for identity in task_ids:
-        task = by_id[identity]
-        envelope = task["body"]
-        if task["id"] not in bound:
-            records = decoded[task["id"]]
-            if records is not None:
-                contexts = authenticated_coordinate_texts(
-                    reader.conn, reader.prepared, task, envelope["source"], records, scope=scope
-                )
-                from .data_operation_admission import bound_data_operation_model
-
-                records = bind_record_candidates(
-                    reader.prepared,
-                    model=bound_data_operation_model(reader.prepared),
-                    source=envelope["source"],
-                    records=records,
-                    coordinate_texts=contexts,
-                )
-            bound[task["id"]] = records
-        reports.append(
-            PrivateRecordReport(
-                identity,
-                task["id"],
-                reader.prepared.release_id,
-                bound[task["id"]],
-                envelope.get("source") if envelope is not None else None,
-                envelope.get("outcome") if envelope is not None else None,
-                reader.cut_id,
-            )
-        )
-    return tuple(reports)
-
-
-def read_private_record_report(reader, task_id: int) -> PrivateRecordReport:
-    """Singular convenience over the same selected/cut custody owner."""
-    return read_private_record_reports(reader, (task_id,))[0]

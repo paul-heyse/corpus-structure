@@ -1,25 +1,10 @@
 """Finite source-local kernels for genuine historical sealed publication fixtures."""
 
 from corpus_structure.core.method import UnitResult
-from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.methods.scoped_relations import (
-    SCOPED_VERSION,
-    ScopedRelationsConfig,
     discover_relations,
 )
-from corpus_structure.semantic.operations import OperationDescriptor
-
-
-def scoped_relation_descriptor():
-    """Publication metadata only; no selection, worker or execution façade."""
-    return OperationDescriptor(
-        "structure.scoped_relations",
-        SCOPED_VERSION,
-        "resolve",
-        "deterministic",
-        TaskUnitType.SOURCE_VIEW,
-        ScopedRelationsConfig,
-    )
 
 
 def build_scoped_result(

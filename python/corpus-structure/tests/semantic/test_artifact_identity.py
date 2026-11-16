@@ -21,7 +21,6 @@ from corpus_structure.semantic.constructions.navigation import (
 from semantic.artifact_identity_support import nomination as nomination
 from semantic.artifact_identity_support import record as record
 from semantic.sealed_structural_fixture import (
-    artifact_descriptor,
     artifact_result,
 )
 
@@ -441,24 +440,6 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
         from corpus_structure.semantic.identity import canonical_bytes
 
         prepared.validate_json("ArtifactIdentityProduct", canonical_bytes(product))
-        from corpus_structure.semantic.observations import bind_result
-
-        bound = bind_result(
-            prepared,
-            source="run",
-            method="structure.artifact_identity",
-            operation_version=artifact_descriptor().version,
-            configuration_hash="config",
-            input_hash="input",
-            invocation_key="invocation",
-            result=result,
-        )
-        assert (
-            bound.model_dump(mode="json", exclude_none=True)["structural_product"][
-                "artifact_identity"
-            ]["records"]
-            == product["records"]
-        )
         assert product["pairs"] == []
         assert len(product["records"]) == (1 if bind and raw.startswith("Table") else 0)
         assert product["unbound_source_ids"] == ([] if bind else [frame.source_view_id])

@@ -1,174 +1,20 @@
 """Selected native inspection preserves custody without preparing a partial source view."""
 
 from contextlib import nullcontext
-from copy import deepcopy
-from dataclasses import replace
-from hashlib import sha256
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 from sqlalchemy import Text, column, select, table
 
-from corpus_structure.core.method import SourceViewDraft, SourceViewRef
-from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.operations import BoundReader, OperationConflict
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.semantic.pdf_storage import NativeDocumentUnavailable
 from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.source_views import source_formula_metadata
 from corpus_structure.serve.native_source import NativeSourceRequest, _cell_companion
-
-POINTER = "#/texts/0"
-
 
 @pytest.fixture
 def source():
-    draft = SourceViewDraft(
-        key="retained-formulas",
-        document_id=2,
-        native_product=ProductReference(3, "integrated", "a" * 64),
-        section_pointer="#/body",
-        membership="descendants",
-        text="x",
-        pieces=({"kind": "native_text", "item_ref": POINTER, "start": 0, "end": 1},),
-        items=(POINTER, "#/texts/1"),
-        ancestors=("#/body",),
-        health={
-            "formula_outcomes": [
-                {"pointer": POINTER, "outcome": "unknown"},
-                {"pointer": "#/texts/1", "outcome": "succeeded"},
-            ]
-        },
-        recipe_bytes=b'{"recipe":"retained-independent-scope"}',
-    )
-    reference = SourceViewRef(
-        7,
-        draft.key,
-        draft.document_id,
-        draft.native_product,
-        draft.section_pointer,
-        draft.membership,
-        draft.projection_digest,
-        draft.recipe_digest,
-    )
-    return draft, reference
-
-
-def metadata_reader(monkeypatch, source, *, change=None):
-    draft, reference = source
-    row = dict(
-        release_id="archived-release",
-        native_build_id="build",
-        native_revision_id="build",
-        projection=deepcopy(draft.projection()),
-        recipe=draft.recipe_bytes,
-    )
-    if change == "projection-bytes":
-        row["projection"]["health"]["formula_outcomes"][0]["outcome"] = "succeeded"
-    elif change == "recipe-bytes":
-        row["recipe"] += b" "
-    elif change == "matching-projection-column":
-        reference = replace(reference, projection_digest="c" * 64)
-    elif change == "matching-recipe-column":
-        reference = replace(reference, recipe_digest="c" * 64)
-    elif change == "placement":
-        row["native_revision_id"] = "other-build"
-    elif change == "missing-recipe":
-        row["recipe"] = None
-    conn = Mock()
-    conn.execute.return_value.mappings.return_value.one_or_none.return_value = row
-    native = Mock()
-    native.revision = dict(
-        task_id=3,
-        product_key="integrated",
-        logical_digest="a" * 64,
-        build_id="build",
-        release_id="producer-release",
-    )
-    native.selected_native_items.return_value = {
-        POINTER: {"label": "text" if change == "kind" else "formula"}
-    }
-    factory = Mock(return_value=native)
-    monkeypatch.setattr(
-        "corpus_structure.semantic.pdf_record_reader.published_record_reader", factory
-    )
-    monkeypatch.setattr("corpus_structure.semantic.releases.open_release", lambda *args: "archived")
-    return reference, conn, native, factory
-
-
-def test_formula_metadata_hashes_retained_projection_recipe_and_reads_only_selected_node(
-    monkeypatch, source
-):
-    reference, conn, native, factory = metadata_reader(monkeypatch, source)
-    budget = Mock()
-    assert source_formula_metadata(conn, reference, POINTER, read_budget=budget) == {
-        POINTER: "unknown"
-    }
-    native.selected_native_items.assert_called_once_with((POINTER,))
-    native.require_native_item_inventory.assert_called_once_with(
-        (*source[0].items, *source[0].ancestors)
-    )
-    factory.assert_called_once_with(
-        conn, reference.native_product, projection_context="archived", read_budget=budget
-    )
-    budget.preflight.assert_called_once()
-    assert budget.value.call_args.args[0]["projection"] == source[0].projection()
-    budget.reserve.assert_called_once_with(len(source[0].recipe_bytes))
-    statement = conn.execute.call_args.args[0]
-    assert "projection" in statement.selected_columns and "recipe" in statement.selected_columns
-
-
-@pytest.mark.parametrize(
-    "change,match",
-    [
-        ("projection-bytes", "projection.*digest"),
-        ("recipe-bytes", "recipe.*digest"),
-        ("matching-projection-column", "projection.*digest"),
-        ("matching-recipe-column", "recipe.*digest"),
-        ("placement", "placement"),
-        ("missing-recipe", "recipe is unavailable"),
-        ("kind", "native formula"),
-    ],
-)
-def test_formula_metadata_refuses_corrupt_matching_columns_and_native_binding(
-    monkeypatch, source, change, match
-):
-    reference, conn, _, _ = metadata_reader(monkeypatch, source, change=change)
-    with pytest.raises(ValueError, match=match):
-        source_formula_metadata(conn, reference, POINTER)
-
-
-def test_formula_metadata_refuses_missing_projection_membership(monkeypatch, source):
-    reference, conn, _, _ = metadata_reader(monkeypatch, source)
-    conn.execute.return_value.mappings.return_value.one_or_none.return_value = None
-    with pytest.raises(ValueError, match="outside the pinned"):
-        source_formula_metadata(conn, reference, "#/texts/99")
-
-
-def test_formula_metadata_reuses_projection_validator_even_with_matching_corrupt_hash(
-    monkeypatch, source
-):
-    reference, conn, _, _ = metadata_reader(monkeypatch, source)
-    row = conn.execute.return_value.mappings.return_value.one_or_none.return_value
-    row["projection"]["pieces"][0]["end"] = 2
-    reference = replace(
-        reference, projection_digest=sha256(canonical_bytes(row["projection"])).hexdigest()
-    )
-    with pytest.raises(ValueError, match="exceeds projected text"):
-        source_formula_metadata(conn, reference, POINTER)
-
-
-def test_compact_reference_rejects_superseded_or_other_run_selection(monkeypatch, source):
-    from corpus_structure.semantic import source_views
-
-    budget = Mock()
-    reader = BoundReader(Mock(), 11, Mock(), read_budget=budget)
-    selected = Mock(return_value=())
-    monkeypatch.setattr(source_views, "selected_source_views", selected)
-    with pytest.raises(OperationConflict, match="outside bound run"):
-        reader.source_view_ref(source[1].id)
-    assert selected.call_args.kwargs == dict(read_budget=budget, source_view_id=source[1].id)
+    return ProductReference(3, "integrated", "a" * 64), ("#/texts/0", "#/texts/1", "#/body")
 
 
 def cell_reader(native_type="table", **changes):
@@ -224,9 +70,9 @@ def test_chart_cell_requires_chart_parent_not_table_item():
 
 
 def inventory_reader(monkeypatch, source, rows):
-    reference = source[1]
+    reference = source[0]
     reader = object.__new__(PublishedPdfReader)
-    reader.reference = reference.native_product
+    reader.reference = reference
     reader.revision = dict(
         task_id=3,
         product_key="integrated",
@@ -257,7 +103,7 @@ def inventory_reader(monkeypatch, source, rows):
 def test_complete_native_inventory_uses_only_bounded_scalar_address_rows(
     monkeypatch, source, defect
 ):
-    pointers = (*source[0].items, *source[0].ancestors)
+    pointers = source[1]
     rows = [("build", "build", pointer) for pointer in pointers]
     if defect == "missing":
         rows.pop()
@@ -274,24 +120,6 @@ def test_complete_native_inventory_uses_only_bounded_scalar_address_rows(
     statement = raw.call_args.args[0]
     assert list(statement.selected_columns.keys()) == ["product_id", "revision_id", "pointer"]
     assert admit.call_count == len(rows)
-
-
-@pytest.mark.parametrize("field", ["items", "ancestors"])
-def test_formula_refuses_extra_missing_inventory_with_recomputed_matching_digest(
-    monkeypatch, source, field
-):
-    reference, conn, native, _ = metadata_reader(monkeypatch, source)
-    row = conn.execute.return_value.mappings.return_value.one_or_none.return_value
-    row["projection"][field].append("#/groups/nonexistent")
-    reference = replace(
-        reference, projection_digest=sha256(canonical_bytes(row["projection"])).hexdigest()
-    )
-    existing = [("build", "build", pointer) for pointer in (*source[0].items, *source[0].ancestors)]
-    inventory, _, _ = inventory_reader(monkeypatch, source, existing)
-    native.require_native_item_inventory = inventory.require_native_item_inventory
-    with pytest.raises(ValueError, match="inventory is absent"):
-        source_formula_metadata(conn, reference, POINTER)
-    native.selected_native_items.assert_not_called()
 
 
 @pytest.mark.parametrize(

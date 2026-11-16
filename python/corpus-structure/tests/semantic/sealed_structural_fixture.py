@@ -5,73 +5,8 @@ kernels. They do not select work, own execution, acquire providers or grant auth
 """
 
 from corpus_structure.core.method import UnitResult
-from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-from corpus_structure.methods.artifact_identity import (
-    SEALED_ARTIFACT_NAME,
-    SEALED_ARTIFACT_VERSION,
-    ArtifactIdentityConfig,
-)
-from corpus_structure.methods.structural_products import (
-    SEALED_COMPARISON_NAME,
-    SEALED_COMPARISON_VERSION,
-    SEALED_CONDITION_NAME,
-    SEALED_CONDITION_VERSION,
-    ConditionQualificationConfig,
-    StructuralComparisonConfig,
-    StructuralDossierConfig,
-    dossier_root,
-    produce_condition_qualification,
-    produce_structural_comparison,
-    produce_structural_dossier,
-)
-from corpus_structure.semantic.operations import OperationDescriptor
-from corpus_structure.semantic.structural_products import (
-    LocatedDefinitionComponent,
-)
-
-
-def comparison_descriptor():
-    return OperationDescriptor(
-        SEALED_COMPARISON_NAME,
-        SEALED_COMPARISON_VERSION,
-        "consolidate",
-        "deterministic",
-        TaskUnitType.RUN,
-        StructuralComparisonConfig,
-    )
-
-
-def dossier_descriptor():
-    return OperationDescriptor(
-        "structure.dossier",
-        "3",
-        "consolidate",
-        "deterministic",
-        TaskUnitType.RUN,
-        StructuralDossierConfig,
-    )
-
-
-def condition_descriptor():
-    return OperationDescriptor(
-        SEALED_CONDITION_NAME,
-        SEALED_CONDITION_VERSION,
-        "resolve",
-        "deterministic",
-        TaskUnitType.RUN,
-        ConditionQualificationConfig,
-    )
-
-
-def artifact_descriptor():
-    return OperationDescriptor(
-        SEALED_ARTIFACT_NAME,
-        SEALED_ARTIFACT_VERSION,
-        "consolidate",
-        "deterministic",
-        TaskUnitType.RUN,
-        ArtifactIdentityConfig,
-    )
+from corpus_structure.core.vocab import ObservationOutcome
+from corpus_structure.methods.structural_products import produce_structural_comparison
 
 
 def comparison_result(reader, cfg, ref, *, check_active):
@@ -102,64 +37,6 @@ def comparison_result(reader, cfg, ref, *, check_active):
         ref=ref,
         outcome=ObservationOutcome.PRODUCED,
         structural_product=report.model_dump(mode="json"),
-    )
-
-
-def dossier_result(reader, cfg, ref, *, check_active):
-    if cfg.inputs is None or cfg.root_component is None:
-        raise ValueError("dossier inputs absent")
-    retained = []
-    for reference in cfg.predecessors:
-        check_active()
-        retained.append((reference, reader.retained_structural_report(reference)))
-    root = dossier_root(cfg.root_component, retained)
-    checked = reader.resolve_definition_component(cfg.root_component)
-    if LocatedDefinitionComponent.model_validate(checked) != root:
-        raise ValueError("dossier root differs from its native component")
-    relationships = {}
-    for selection in cfg.comparison_selections:
-        reference = selection.relationship_ref
-        if reference not in relationships:
-            check_active()
-            relationships[reference] = reader.retained_relationship_decision(reference)
-    contribution_retained = []
-    for reference in cfg.contribution_predecessors:
-        check_active()
-        contribution_retained.append((reference, reader.retained_source_contribution(reference)))
-    report = produce_structural_dossier(
-        cfg.inputs,
-        root_component=cfg.root_component,
-        root=root,
-        retained=tuple(retained),
-        relationships=relationships,
-        contribution_retained=tuple(contribution_retained),
-        comparison_selections=cfg.comparison_selections,
-        member_budget=cfg.member_budget,
-        policy=cfg.policy,
-        check_active=check_active,
-    )
-    return UnitResult(
-        ref=ref,
-        outcome=ObservationOutcome.PRODUCED,
-        structural_product=report.model_dump(mode="json"),
-    )
-
-
-def condition_result(reader, cfg, ref, *, check_active):
-    if cfg.inputs is None or cfg.attachment is None:
-        raise ValueError("condition qualification requires complete source and attachment")
-    check_active()
-    reader.validate_structural_inputs(cfg.inputs)
-    if cfg.attachment.release_id != reader.prepared.release_id:
-        raise ValueError("condition attachment belongs to another release")
-    retained = reader.retained_source_contribution(cfg.attachment)
-    report = produce_condition_qualification(
-        cfg.inputs, attachment=cfg.attachment, retained=retained
-    )
-    return UnitResult(
-        ref=ref,
-        outcome=ObservationOutcome.PRODUCED,
-        structural_product=report.model_dump(mode="json", exclude_none=True),
     )
 
 
