@@ -1,7 +1,7 @@
 """Common seed lifecycle on real PostgreSQL, with explicit fixture-time requests."""
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
@@ -55,21 +55,19 @@ def build_tiny_seed(recipe, admin, writer, directory, *, purpose_engine=None):
             source = directory.with_name(directory.name + "-external.bin")
         source.write_bytes(recipe.name.encode())
         if recipe.unfinished:
-            from .native_record_fixtures import (
-                RecordSourceRecipe,
-                build_record_recipe,
-                claim_record_source,
+            from semantic.data_operation_demand_support import attach, claim, expire_lease
+            from semantic.data_operation_kernel_support import (
+                STORAGE,
+                Kernel,
+                build_kernel,
             )
 
-            stage = build_record_recipe(RecordSourceRecipe(), admin, writer, directory)
-            claim_record_source(stage, writer=writer)
+            stage = build_kernel(STORAGE, admin, writer, directory / "current-kernel")
+            kernel = Kernel(writer, stage.preparation, stage.identities, STORAGE)
+            attached = attach(kernel)[-1]
+            fence = claim(kernel, attached, holder="unfinished-seed")
             if recipe.expired:
-                with admin.begin() as connection:
-                    connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-                    connection.exec_driver_sql(
-                        "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 day' WHERE id=%s",
-                        (stage.task,),
-                    )
+                expire_lease(replace(kernel, engine=admin), fence)
     return TinyStage(recipe.name, source)
 
 

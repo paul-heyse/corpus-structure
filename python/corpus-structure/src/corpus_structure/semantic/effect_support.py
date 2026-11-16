@@ -277,12 +277,6 @@ SUPPORTED_EFFECTS = {
         "version": "1",
     },
     "query": {"effects": (), "implementation": "query", "transitions": {}, "version": "1"},
-    "read_original": {
-        "effects": (),
-        "implementation": "read_original",
-        "transitions": {},
-        "version": "1",
-    },
     "reference_grade": {
         "effects": ("protected_independent_reference_operation",),
         "implementation": "reference_grade",

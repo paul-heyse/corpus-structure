@@ -27,7 +27,6 @@ from corpus_structure.core.vocab import TaskUnitType
 
 from ._operation_ids import (
     CutId,
-    DocumentId,
     MethodConfigId,
     RunId,
     TaskAttempt,
@@ -39,7 +38,7 @@ from .operation_results import (
     ClaimedTask,
     CompletionResult,
 )
-from .refusals import OperationConflict, SourceReadRefused
+from .refusals import OperationConflict
 from .types import PreparedRelease
 
 if TYPE_CHECKING:
@@ -570,74 +569,6 @@ def seal_cut(conn: Connection, run_id: RunId, name: str, *, final: bool = False)
     from ._operation_calls import capture_cut as invoke
 
     return invoke(conn, run_id=run_id, name=name, final=final)
-
-
-def _source_read_outcome(prepared: PreparedRelease | None, operation: str, outcome: str) -> None:
-    from .operation_results import validate_result_dimension
-
-    if prepared is None:
-        raise ValueError("source reads require a composed execution binding")
-    validate_result_dimension(prepared, operation, "outcome", outcome, field="outcome")
-
-
-def read_original(
-    conn: Connection,
-    document_id: DocumentId,
-    *,
-    prepared: PreparedRelease | None = None,
-    projection_context: PreparedRelease | None = None,
-) -> bytes:
-    """Read fixed physical custody; producer outcomes and consumer admission stay separate.
-
-    The producer release supplies execution authority; a separate consumer context may
-    additionally qualify the fixed projection call.
-    """
-    from pathlib import Path
-
-    from . import _operation_calls as calls
-    from .contracts import require_bound_operation
-
-    if prepared is None:
-        raise ValueError("source reads require a composed execution binding")
-    require_bound_operation(prepared, "read_original")
-    request = calls.prepare_original_descriptor(
-        id=document_id, projection_context=projection_context
-    )
-    t = table("kb.document")
-    row = calls.collect_original_descriptor(
-        conn.execute(select(*calls.projection_original_descriptor).where(t.c.id == request.id))
-    )
-    if row is None:
-        _source_read_outcome(prepared, "read_original", "missing")
-        raise SourceReadRefused("missing", "retained original document is missing")
-    artifact = table("kb.source_artifact")
-    artifact_request = calls.prepare_original_artifact(
-        artifact_digest=row.content_hash, projection_context=projection_context
-    )
-    retained = calls.collect_original_artifact(
-        conn.execute(
-            select(*calls.projection_original_artifact).where(
-                artifact.c.artifact_digest == artifact_request.artifact_digest
-            )
-        )
-    )
-    if retained is not None:
-        data = retained
-        if sha256(data).hexdigest() != row.content_hash:
-            _source_read_outcome(prepared, "read_original", "invalid")
-            raise SourceReadRefused("invalid", "retained original artifact is corrupt")
-        _source_read_outcome(prepared, "read_original", "source_ready")
-        return data
-    try:
-        data = Path(row.original_path).read_bytes()
-    except FileNotFoundError as exc:
-        _source_read_outcome(prepared, "read_original", "missing")
-        raise SourceReadRefused("missing", "retained original file is missing") from exc
-    if sha256(data).hexdigest() != row.content_hash:
-        _source_read_outcome(prepared, "read_original", "invalid")
-        raise SourceReadRefused("invalid", "retained original content changed")
-    _source_read_outcome(prepared, "read_original", "source_ready")
-    return data
 
 
 @dataclass(frozen=True)
