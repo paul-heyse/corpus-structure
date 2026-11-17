@@ -1423,13 +1423,13 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_require_completion_live(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE captured record; selected record; output jsonb; cut jsonb; boundary ops.data_demand_read;
+DECLARE captured record; selected record; output_ jsonb; cut jsonb; boundary ops.data_demand_read;
 BEGIN
  PERFORM ops.ddo_authorize_request(r);
  PERFORM ops.ddo_binding_body_access(r.binding,r.project_id);
- FOR output IN SELECT value FROM jsonb_array_elements(completion->'outputs') LOOP
- PERFORM ops.ddo_kind_access(output->'product'->>'kind_contract');
- PERFORM ops.ddo_body_access(output->'product'->>'kind_contract',data.ddo_normalize(output->'product'->'body'));
+ FOR output_ IN SELECT value FROM jsonb_array_elements(completion->'outputs') LOOP
+ PERFORM ops.ddo_kind_access(output_->'product'->>'kind_contract');
+ PERFORM ops.ddo_body_access(output_->'product'->>'kind_contract',data.ddo_normalize(output_->'product'->'body'));
  END LOOP;
  IF r.operation_id='record_policy.grade' THEN
  FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
@@ -2228,7 +2228,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION sem.ddo_lower_data_operation_definitions(p_payload jsonb,p_new_release boolean) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; k jsonb; o jsonb; archived jsonb; old sem.data_kind_contract; operation jsonb; expected_inputs jsonb; expected_outputs jsonb; expected_support jsonb; lowered sem.data_operation_definition; header sem.data_operation_release; subject jsonb;
+DECLARE p jsonb:=p_payload; k jsonb; o jsonb; archived jsonb; old sem.data_kind_contract; operation jsonb; expected_inputs jsonb; expected_outputs jsonb; expected_support jsonb; lowered sem.data_operation_definition; header sem.data_operation_release; subject_ jsonb;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['release_id','model_digest','native_digest','kinds','operations']);
  IF p_new_release AND p->>'native_digest' IS DISTINCT FROM sem.data_operation_native_descriptor()->>'source_digest' THEN RAISE EXCEPTION 'native source correspondence mismatch'; END IF;
@@ -2299,10 +2299,10 @@ BEGIN
  AND d.operation_id=lowered.operation_id AND to_jsonb(d)=to_jsonb(lowered)) THEN
  RAISE EXCEPTION 'operation definition changed under admitted release'; END IF;
  END LOOP;
- FOR subject IN SELECT value FROM jsonb_array_elements(archived->'subject_definitions') LOOP
- INSERT INTO sem.data_subject_scope VALUES(p->>'release_id',subject->>'semantic_id',subject->>'scope') ON CONFLICT DO NOTHING;
+ FOR subject_ IN SELECT value FROM jsonb_array_elements(archived->'subject_definitions') LOOP
+ INSERT INTO sem.data_subject_scope VALUES(p->>'release_id',subject_->>'semantic_id',subject_->>'scope') ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM sem.data_subject_scope WHERE release_id=p->>'release_id'
- AND subject_definition=subject->>'semantic_id' AND scope=subject->>'scope') THEN
+ AND subject_definition=subject_->>'semantic_id' AND scope=subject_->>'scope') THEN
  RAISE EXCEPTION 'subject scope changed under admitted release'; END IF;
  END LOOP;
  INSERT INTO sem.data_operation_release(release_id,model_digest,native_definitions_digest,native_kernel_digest,lowering_digest)

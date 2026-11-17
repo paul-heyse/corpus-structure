@@ -144,11 +144,16 @@ def test_current_pdf_payload_owns_all_current_helpers_and_exact_grants(monkeypat
       LANGUAGE sql AS $$ SELECT true $$;
     CREATE FUNCTION ops.pdf_record_context_rows(text) RETURNS text LANGUAGE sql AS $$ SELECT $1 $$;
     CREATE FUNCTION eval.unrelated(text) RETURNS text LANGUAGE sql AS $$ SELECT $1 $$;
+    CREATE FUNCTION sem.admit_pdf_operation_contracts(text) RETURNS void
+      LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
+    REVOKE ALL ON FUNCTION sem.admit_pdf_operation_contracts(text) FROM PUBLIC;
     REVOKE ALL ON FUNCTION ops.new_pdf_helper(text) FROM PUBLIC;
     GRANT EXECUTE ON FUNCTION ops.new_pdf_helper(text) TO corpus_sem_writer;
     """
     current = native_authoring._pdf_payload_definitions(object(), sql, source="current PDF owner")
-    assert len(current) == 2
+    assert len(current) == 3
     assert "require_pdf_stage_owner" in current[0].sql
     assert "new_pdf_helper" in current[1].sql
     assert calls[1][1]["grants"] == (("corpus_sem_writer", "EXECUTE", False),)
+    assert "sem.admit_pdf_operation_contracts" in current[2].sql
+    assert calls[2][1]["grants"] == ()

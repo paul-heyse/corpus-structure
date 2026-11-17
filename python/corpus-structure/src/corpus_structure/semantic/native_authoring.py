@@ -107,7 +107,9 @@ def _pdf_payload_definitions(connection, sql, *, source):
         if not isinstance(statement, ast.CreateFunctionStmt):
             continue
         name = tuple(part.sval for part in statement.funcname or ())
-        if len(name) != 2 or name[0] != "ops":
+        if len(name) != 2 or (
+            name[0] != "ops" and name != ("sem", "admit_pdf_operation_contracts")
+        ):
             continue
         # These two have dedicated current shape/context owners below.
         if name[1] in {"pdf_native_record_shape", "pdf_record_context_rows"}:
