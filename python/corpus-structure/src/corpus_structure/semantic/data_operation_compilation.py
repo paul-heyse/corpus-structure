@@ -1356,7 +1356,7 @@ def compile_data_operations(
                     )
                 parameter_kind = aliases.get(parameter["kind"], parameter["kind"])
                 annotation_kind(
-                    by_parameter[name].annotation,
+                    logical_annotation(by_parameter[name].annotation),
                     OperationRole(
                         name,
                         parameter_kind,

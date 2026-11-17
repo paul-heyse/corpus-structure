@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from corpus_structure.methods.contextual_embeddings import ContextInput
 
 from .data_operation_identity import decode_semantic_value, semantic_value
+from .data_operation_json import json_bytes
 from .identity import canonical_bytes
 
 PACKET_VERSION = "contextual-encoder-packet-1"
@@ -32,7 +33,7 @@ def _frame_record(source):
     context = source["context"]
     context = SubjectContext(
         context["project_id"], context["subject"], context["original_source"],
-        canonical_bytes(context["analyzed_scope"]), subject_definition=context["subject_definition"],
+        json_bytes(context["analyzed_scope"]), subject_definition=context["subject_definition"],
     )
     pin = DeclaredRecordSource(
         coordinate["document"], coordinate["projection"], coordinate["section_pointer"],
@@ -153,8 +154,8 @@ def prepare_encoder_members(packet, members, *, check_active=lambda: None):
         check_active()
         try:
             frames[digest] = DeclaredNativeFrameSource(
-                canonical_bytes(decode_semantic_value(packet["bodies"][record["body"]])).decode(),
-                canonical_bytes(decode_semantic_value(record["pin"])).decode(), record["version"],
+                json_bytes(decode_semantic_value(packet["bodies"][record["body"]])).decode(),
+                json_bytes(decode_semantic_value(record["pin"])).decode(), record["version"],
             )
         except ValueError as error:
             frames[digest] = error
