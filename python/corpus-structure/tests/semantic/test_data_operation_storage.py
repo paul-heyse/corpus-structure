@@ -2803,17 +2803,30 @@ def test_native_read_records_zero_epochs_and_refuses_unrecorded_old_reads(ddo_ke
         assert eligibility.grade_census_eligible and eligibility.fit_census_eligible
     with ddo_kernel["engine"].begin() as connection:
         old_id = read["read_id"] + ":unrecorded"
-        connection.execute(
-            text(
-                "INSERT INTO ops.data_demand_read(id,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope) "
-                "SELECT :old,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope FROM ops.data_demand_read WHERE id=:read"
-            ),
-            {"old": old_id, "read": read["read_id"]},
-        )
-    with (
-        ddo_kernel["engine"].begin() as connection,
-        pytest.raises(DBAPIError, match="reacquisition"),
-    ):
-        DataOperationStorage(connection).read_demand_result(
-            typing_cast(WireReadDemandResultRequest, {**demand, "read_id": old_id})
-        )
+        connection.execute(text(
+            "INSERT INTO ops.data_demand_read(id,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope) "
+            "SELECT :old,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope FROM ops.data_demand_read WHERE id=:read"
+        ), {"old": old_id, "read": read["read_id"]})
+    with ddo_kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="reacquisition"):
+        DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {**demand, "read_id": old_id}))
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_cancellation_locks_recorded_support_scopes_outside_its_roots(ddo_kernel):
+    demand, _, _, attached = attach(ddo_kernel)
+    attach(ddo_kernel, original_source="source:other")
+    with ddo_kernel["engine"].begin() as connection:
+        # A retained settlement scope remains relevant even after a later use
+        # becomes current. It carries no extra value or permission authority.
+        connection.execute(text(
+            "INSERT INTO ops.demand_use "
+            "SELECT 'use:historical-scope',demand_id,obligation_id,fate,request_id,generation,derivation_id,selection,"
+            "jsonb_build_object(ops.ddo_scope('ddo-test','source:other'),0),clock_timestamp()-interval '1 day',pg_current_xact_id()::text "
+            "FROM ops.demand_use WHERE id=:use"
+        ), {"use": attached["use_id"]})
+        DataOperationStorage(connection).cancel_data_demand({"demand_id": demand["demand_id"], "reason": "test exact historical barrier"})
+        with ddo_kernel["engine"].begin() as contender, pytest.raises(DBAPIError) as blocked:
+            contender.execute(text(
+                "SELECT epoch FROM ops.data_trust_scope WHERE scope=ops.ddo_scope('ddo-test','source:other') FOR UPDATE NOWAIT"
+            ))
+        assert blocked.value.orig.sqlstate == "55P03"

@@ -21,7 +21,7 @@ def test_captured_core_products_own_return_shape_and_keep_scoped_native_paramete
     }
     assert "provider_identity" in member_columns()
     assert '"analyzed_scope" JSONB' in products["binding_returns"]
-    for name in ("read_scope_rows", "binding_computed", "binding_original", "read_page"):
+    for name in ("read_scope_rows", "cancellation_scopes", "binding_computed", "binding_original", "read_page"):
         assert pglast.parse_sql(products[name])
     assert "support_closure" in products["read_scope_rows"]
     assert "data_derivation_original_support" in products["read_scope_rows"]

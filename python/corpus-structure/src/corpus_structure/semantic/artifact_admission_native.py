@@ -52,15 +52,10 @@ BEGIN
  SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=episode_id;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=episode.request_id;
  IF r.operation_id IS DISTINCT FROM 'structure.artifact_identity/declared' THEN RETURN true; END IF;
- IF episode.outcome<>'success' OR NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt
- WHERE receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
- AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
+ IF episode.outcome<>'success' THEN RETURN false; END IF;
  SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id
  AND request_id=episode.request_id AND generation=episode.generation;
- IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (episode.producer_task_id,episode.producer_attempt,episode.runtime_id) THEN RETURN false; END IF;
- r.release_id:=episode.release_id; r.runtime_id:=episode.runtime_id; r.recipe:=episode.recipe; r.generation:=episode.generation;
- PERFORM ops.ddo_require_artifact_producer(r,intent.payload);
+ r:=ops.ddo_require_episode_correspondence(episode,intent);
  -- Original body correspondence is immutable; common support recursion owns
  -- later validity of the exact source/navigation premises. No scoring replay.
  RETURN true;

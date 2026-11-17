@@ -182,7 +182,7 @@ BEGIN
 END $contextual$;
 CREATE OR REPLACE FUNCTION ops.ddo_contextual_dependencies_valid(episode_id text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $contextual$
-DECLARE r ops.data_request; episode ops.data_derivation; intent ops.data_completion_intent; evidence jsonb;
+DECLARE r ops.data_request; episode ops.data_derivation; intent ops.data_completion_intent;
 BEGIN
  SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=episode_id;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=episode.request_id;
@@ -195,28 +195,10 @@ BEGIN
  -- Immutable correspondence was checked at retention and publication by this
  -- captured native kernel. Ordinary support recursion rechecks mutable premises;
  -- do not replay the whole reply/model/scoring graph on every support read.
- IF episode.outcome<>'success' OR NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt
- WHERE receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
- AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
+ IF episode.outcome<>'success' THEN RETURN false; END IF;
  SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id
  AND request_id=episode.request_id AND generation=episode.generation;
- evidence:=intent.payload->'execution_evidence';
- IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (episode.producer_task_id,episode.producer_attempt,episode.runtime_id) THEN RETURN false; END IF;
- -- Native scoring is recomputed and sealed by the completion guard. Its actual
- -- task/runtime fences are the immutable intent columns, not a labelled thread
- -- result or a manufactured CPU execution envelope.
- IF r.operation_id<>'retrieve.contextual_scores/declared' AND (evidence->>'request_id' IS DISTINCT FROM episode.request_id
- OR (evidence->>'generation')::integer IS DISTINCT FROM episode.generation
- OR (evidence->>'task_id')::bigint IS DISTINCT FROM intent.producer_task_id
- OR (evidence->>'attempt')::integer IS DISTINCT FROM intent.producer_attempt
- OR evidence->>'holder' IS DISTINCT FROM intent.producer_holder
- OR evidence->>'runtime_id' IS DISTINCT FROM intent.runtime_id) THEN RETURN false; END IF;
- -- A later generation may rebind the request. Producer checking below uses the
- -- sealed episode's release/runtime/recipe and never today's input binding.
- r.release_id:=episode.release_id; r.runtime_id:=episode.runtime_id;
- r.recipe:=episode.recipe; r.generation:=episode.generation;
- PERFORM ops.ddo_require_contextual_producer(r,intent.payload);
+ r:=ops.ddo_require_episode_correspondence(episode,intent);
  -- Preserve original authentic score bits. Only known SQL-visible linguistic
  -- premises are compared; this neither rescores nor observes external file bytes.
  IF r.operation_id='retrieve.contextual_scores/declared' AND NOT EXISTS (

@@ -123,16 +123,10 @@ BEGIN
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=episode.request_id;
  IF r.operation_id NOT IN ('structure.definition_applicability/declared','structure.definition_declaration_components/declared',
  'structure.definition_components/declared','structure.definition_named_components/declared') THEN RETURN true; END IF;
- IF episode.outcome<>'success' OR NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt
- WHERE receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
- AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
+ IF episode.outcome<>'success' THEN RETURN false; END IF;
  SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id
  AND request_id=episode.request_id AND generation=episode.generation;
- IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (episode.producer_task_id,episode.producer_attempt,episode.runtime_id) THEN RETURN false; END IF;
- r.release_id:=episode.release_id; r.runtime_id:=episode.runtime_id;
- r.recipe:=episode.recipe; r.generation:=episode.generation;
- PERFORM ops.ddo_require_definition_producer(r,intent.payload);
+ r:=ops.ddo_require_episode_correspondence(episode,intent);
  -- First retention/publication checked the immutable finite custody chain.
  -- Ordinary support validity recurses over its actual mutable premises.
  RETURN true;

@@ -473,18 +473,14 @@ END $rich$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_rich_admission_dependencies_valid(episode text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE r ops.data_request; completion jsonb;
+DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
 BEGIN
  SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
  IF r.operation_id NOT IN ('rich.admit','rich.consolidate','prepare.external_extraction','locate.external_extraction') THEN RETURN true; END IF;
- -- The same captured native kernel sealed all immutable correspondence checks.
- -- Ordinary support closure still rechecks every declared dependency/current
- -- trust scope. Do not replay every immutable event/graph on every support read.
- IF NOT EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
- WHERE producer.id=episode AND producer.outcome='success' AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
- SELECT intent.payload INTO STRICT completion FROM ops.data_derivation producer JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id WHERE producer.id=episode;
- IF r.operation_id='rich.admit' THEN PERFORM ops.ddo_rich_require_admission_producer(r,completion);
- ELSE PERFORM ops.ddo_rich_require_preparation_producer(r,completion); END IF;
+ SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
+ IF producing.outcome IS DISTINCT FROM 'success' THEN RETURN false; END IF;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id;
+ r:=ops.ddo_require_episode_correspondence(producing,intent);
  RETURN true;
  EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
 END $rich$;

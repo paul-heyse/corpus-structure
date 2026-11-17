@@ -288,26 +288,6 @@ BEGIN
  RETURN false;
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_direct_support_valid(episode text) RETURNS boolean
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-BEGIN
- RETURN (SELECT EXISTS(SELECT FROM ops.data_derivation d
- JOIN ops.data_request r ON r.id=d.request_id JOIN sem.data_operation_definition def
- ON def.release_id=d.release_id AND def.recipe=d.recipe AND def.operation_id=r.operation_id
- WHERE d.id=episode AND d.outcome IN ('success','empty') AND CASE def.validity_family
- WHEN 'record-grade' THEN ops.ddo_record_grade_dependencies_valid(episode)
- WHEN 'record-fit' THEN ops.ddo_record_fit_dependencies_valid(episode)
- WHEN 'operation-event' THEN ops.ddo_operation_event_dependencies_valid(episode)
- WHEN 'contextual' THEN ops.ddo_contextual_dependencies_valid(episode)
- WHEN 'definition' THEN ops.ddo_definition_dependencies_valid(episode)
- WHEN 'artifact' THEN ops.ddo_artifact_dependencies_valid(episode)
- WHEN 'rich' THEN ops.ddo_rich_admission_dependencies_valid(episode)
- ELSE true END) AND NOT EXISTS(
- SELECT FROM ops.data_derivation d JOIN ops.data_request r ON r.id=d.request_id
- JOIN ops.data_revocation v ON v.scope=ops.ddo_scope(r.project_id,r.original_source)
- WHERE d.id=episode AND ((v.selector_kind='derivation' AND v.selector=d.id) OR (v.selector_kind='recipe' AND v.selector=d.recipe)
- OR (v.selector_kind='runtime' AND v.selector=d.runtime_id) OR (v.selector_kind='product' AND EXISTS(SELECT FROM ops.data_derivation_output o WHERE o.derivation_id=d.id AND o.product_id=v.selector)))));
-END $$;
 -- Each row is one edge in an explicitly conjunctive alternative. Empty groups
 -- have a NULL child, so an admitted empty replacement remains a true conjunction.
 CREATE OR REPLACE FUNCTION ops.ddo_validity_edges(p_kind text,p_id text)
@@ -358,7 +338,23 @@ CREATE OR REPLACE FUNCTION ops.ddo_validity_direct(p_kind text,p_id text,boundar
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE u ops.demand_use; pop ops.data_population; admission ops.original_source_admission;
 BEGIN
- IF p_kind='producer' THEN RETURN ops.ddo_direct_support_valid(p_id);
+ IF p_kind='producer' THEN
+ RETURN (SELECT EXISTS(SELECT FROM ops.data_derivation d
+ JOIN ops.data_request r ON r.id=d.request_id JOIN sem.data_operation_definition def
+ ON def.release_id=d.release_id AND def.recipe=d.recipe AND def.operation_id=r.operation_id
+ WHERE d.id=p_id AND d.outcome IN ('success','empty') AND CASE def.validity_family
+ WHEN 'record-grade' THEN ops.ddo_record_grade_dependencies_valid(p_id)
+ WHEN 'record-fit' THEN ops.ddo_record_fit_dependencies_valid(p_id)
+ WHEN 'operation-event' THEN ops.ddo_operation_event_dependencies_valid(p_id)
+ WHEN 'contextual' THEN ops.ddo_contextual_dependencies_valid(p_id)
+ WHEN 'definition' THEN ops.ddo_definition_dependencies_valid(p_id)
+ WHEN 'artifact' THEN ops.ddo_artifact_dependencies_valid(p_id)
+ WHEN 'rich' THEN ops.ddo_rich_admission_dependencies_valid(p_id)
+ ELSE true END) AND NOT EXISTS(
+ SELECT FROM ops.data_derivation d JOIN ops.data_request r ON r.id=d.request_id
+ JOIN ops.data_revocation v ON v.scope=ops.ddo_scope(r.project_id,r.original_source)
+ WHERE d.id=p_id AND ((v.selector_kind='derivation' AND v.selector=d.id) OR (v.selector_kind='recipe' AND v.selector=d.recipe)
+ OR (v.selector_kind='runtime' AND v.selector=d.runtime_id) OR (v.selector_kind='product' AND EXISTS(SELECT FROM ops.data_derivation_output o WHERE o.derivation_id=d.id AND o.product_id=v.selector)))));
  ELSIF p_kind='episode' THEN
  RETURN EXISTS(SELECT FROM ops.data_derivation WHERE id=p_id)
  AND NOT EXISTS(SELECT FROM ops.data_derivation_support support
@@ -751,7 +747,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.cancel_data_demand(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; d ops.data_demand; r ops.data_request; o ops.data_obligation;
- old ops.demand_use; cancellation ops.data_demand_cancellation; scope_key text;
+ old ops.demand_use; cancellation ops.data_demand_cancellation; scope_key text; scope_keys text[]; boundary ops.data_demand_read;
  requests jsonb:='[]'; key text; generation_row record;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['demand_id','reason']);
@@ -763,11 +759,19 @@ BEGIN
  JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
  -- Stable trust -> demand -> request -> task ordering. Demand SHARE guards all
  -- creation/attachment paths; no new request can enter this demand during cancellation.
- FOR scope_key IN SELECT DISTINCT ops.ddo_scope(d.project_id,root->>'original_source')
- FROM jsonb_array_elements(d.root) root ORDER BY 1 LOOP
- PERFORM 1 FROM ops.data_trust_scope WHERE scope=scope_key FOR SHARE;
+ boundary.read_snapshot:=pg_current_snapshot()::text; boundary.frontier_at:=clock_timestamp(); boundary.owner_xid:=pg_current_xact_id()::text;
+ SELECT coalesce(array_agg(scope),'{}') INTO scope_keys FROM (__DDO_CORE_CANCELLATION_SCOPES__) required(scope);
+ FOR scope_key IN SELECT unnest(scope_keys) ORDER BY 1 LOOP
+ INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,d.project_id,0) ON CONFLICT DO NOTHING;
+ PERFORM 1 FROM ops.data_trust_scope WHERE scope=scope_key AND project_id=d.project_id FOR SHARE;
  END LOOP;
  PERFORM 1 FROM ops.data_demand WHERE id=d.id FOR UPDATE;
+ -- A concurrent attachment may have committed while the demand lock waited.
+ -- Refuse a changed closure rather than acquire new scopes after request locks
+ -- or proceed with an incomplete barrier. The whole cancellation can be retried.
+ boundary.read_snapshot:=pg_current_snapshot()::text; boundary.frontier_at:=clock_timestamp();
+ IF EXISTS(SELECT FROM (__DDO_CORE_CANCELLATION_SCOPES__) current_required(scope) WHERE NOT scope=ANY(scope_keys)) THEN
+ RAISE EXCEPTION 'demand support changed during cancellation; retry' USING ERRCODE='40001'; END IF;
  PERFORM 1 FROM ops.data_request req WHERE EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.request_id=req.id) ORDER BY req.id FOR UPDATE;
  INSERT INTO ops.data_demand_cancellation VALUES(d.id,p->>'reason',clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT cancellation FROM ops.data_demand_cancellation WHERE demand_id=d.id;
@@ -1389,6 +1393,33 @@ BEGIN
  PERFORM ops.ddo_require_rich_preparation_completion(r,completion);
  PERFORM ops.ddo_require_rich_admission_completion(r,completion);
  PERFORM ops.ddo_assert_output_witnesses(r,completion);
+END $$;
+CREATE OR REPLACE FUNCTION ops.ddo_require_episode_correspondence(producing ops.data_derivation,original ops.data_completion_intent)
+RETURNS ops.data_request LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE r ops.data_request; receipt ops.data_publication_receipt; definition sem.data_operation_definition;
+BEGIN
+ SELECT * INTO STRICT receipt FROM ops.data_publication_receipt
+ WHERE derivation_id=producing.id AND intent_id=original.id;
+ IF producing.intent_id IS DISTINCT FROM original.id
+ OR (producing.request_id,producing.generation,producing.producer_task_id,producing.producer_attempt,producing.runtime_id)
+ IS DISTINCT FROM (original.request_id,original.generation,original.producer_task_id,original.producer_attempt,original.runtime_id) THEN
+ RAISE EXCEPTION 'episode differs from its actual retained intent/producer' USING ERRCODE='23514'; END IF;
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
+ r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
+ r.recipe:=producing.recipe; r.generation:=producing.generation;
+ r.binding:=r.binding||jsonb_build_object('inputs',original.payload->'inputs','support',original.payload->'support');
+ SELECT * INTO STRICT definition FROM sem.data_operation_definition
+ WHERE release_id=r.release_id AND operation_id=r.operation_id AND recipe=r.recipe;
+ IF ops.ddo_completion_state(definition,original.payload->>'outcome') IS DISTINCT FROM producing.outcome THEN
+ RAISE EXCEPTION 'episode terminal state differs from admitted completion' USING ERRCODE='23514'; END IF;
+ IF receipt.validating_kernel_digest IS DISTINCT FROM '__DDO_SOURCE_DIGEST__' THEN
+ IF original.payload_digest IS DISTINCT FROM ops.ddo_digest(original.payload) THEN RAISE EXCEPTION 'historical intent payload digest differs' USING ERRCODE='23514'; END IF;
+ -- An expected kernel in a release artifact is not actual validator evidence.
+ -- Historical or absent seals receive the complete original-producer battery;
+ -- this read does not rewrite the receipt or invent a new validation identity.
+ PERFORM ops.ddo_require_completion_correspondence(r,original.payload,original.producer_task_id,original.producer_attempt,original.producer_holder);
+ END IF;
+ RETURN r;
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_require_completion_live(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$

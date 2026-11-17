@@ -412,16 +412,7 @@ BEGIN
  SELECT original.* INTO STRICT intent FROM ops.data_completion_intent original
  JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producing.id AND receipt.intent_id=original.id
  WHERE original.id=producing.intent_id AND original.request_id=producing.request_id AND original.generation=producing.generation;
- IF intent.payload->>'outcome' IS DISTINCT FROM producing.outcome OR
- (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN RETURN false; END IF;
- r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
- r.recipe:=producing.recipe; r.generation:=producing.generation;
- r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
- -- The original native receipt seals the complete immutable frame checks. A
- -- different kernel requires reassessment instead of trusting an old guard.
- IF NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.derivation_id=producing.id AND receipt.intent_id=intent.id AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
- PERFORM ops.ddo_record_grade_require_producer(r,intent.payload);
+ r:=ops.ddo_require_episode_correspondence(producing,intent);
  FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
  PERFORM ops.ddo_record_grade_require_cut(r.project_id,captured.cut_text,captured.cut_id);
  END LOOP;

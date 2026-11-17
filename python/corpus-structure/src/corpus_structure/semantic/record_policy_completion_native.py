@@ -451,17 +451,9 @@ BEGIN
  SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
  IF r.operation_id IS DISTINCT FROM 'record_policy.fit' THEN RETURN true; END IF;
- IF NOT EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
- WHERE producer.id=episode AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
  SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
  AND request_id=producing.request_id AND generation=producing.generation;
- IF intent.payload->>'outcome' IS DISTINCT FROM producing.outcome OR
- (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN RETURN false; END IF;
- r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
- r.recipe:=producing.recipe; r.generation:=producing.generation;
- r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
- PERFORM ops.ddo_record_fit_require_producer(r,intent.payload);
+ r:=ops.ddo_require_episode_correspondence(producing,intent);
  FOR selected IN SELECT * FROM ops.ddo_record_fit_selections(r) LOOP
  PERFORM ops.ddo_record_fit_require_selection(r,selected.role_name,selected.selection,false);
  END LOOP;

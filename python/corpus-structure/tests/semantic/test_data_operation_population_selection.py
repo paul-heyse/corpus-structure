@@ -40,6 +40,7 @@ def selection_connection(binding_native_connection):
                 "ddo_population_filter",
                 "ddo_population_producer_context",
                 "ddo_population_scope",
+                "ddo_population_evidence_scope",
             }
         ):
             helper = prepared.excerpt(index)
