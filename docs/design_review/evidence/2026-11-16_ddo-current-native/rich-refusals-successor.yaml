@@ -1,0 +1,4 @@
+# Exact rich command eligibility and current PDF/grade refusal owners.
+baseline: HEAD
+native_revision: semantic_ddo_rich_refusals
+native_predecessor: semantic_ddo_selected_source
