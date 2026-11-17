@@ -289,9 +289,9 @@ def _load_original(call):
 
     from .data_operation_ports import PortAdapters
     signature = inspect.signature(function, eval_str=True)
+    verify()
     controls = {call.control_parameter, call.prepared_parameter}
     adapters = PortAdapters(signature.replace(parameters=[p for p in signature.parameters.values() if p.name not in controls]))
-    verify()
     from .file_custody import verified_file
     from .runtime_slice import AuthenticatedSlice
     from .data_operation_ports import _authenticated_closed_slice, _stream_annotation_references, _code_globals

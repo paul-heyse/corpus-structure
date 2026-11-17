@@ -150,7 +150,7 @@ def test_parent_and_child_refuse_changed_captured_source(tmp_path, monkeypatch):
     path.write_bytes(path.read_bytes() + b"\n# replaced after admission\n")
     cpu = scope()
     try:
-        with pytest.raises(PortRefusal, match="source changed"):
+        with pytest.raises(PortRefusal, match="acquired file changed"):
             run(port, cpu, ())
         admission = cpu.try_admit(lambda: None)
         assert admission is not None

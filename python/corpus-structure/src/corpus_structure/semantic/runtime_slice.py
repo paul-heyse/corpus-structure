@@ -83,7 +83,7 @@ class AuthenticatedSlice:
             seen.add(id(value))
             for name in (
                 "__code__", "__globals__", "__builtins__", "__defaults__", "__kwdefaults__",
-                "__annotations__", "__dict__",
+                "__annotations__", "__dict__", "__name__", "__qualname__", "__module__",
             ):
                 if name in {"__globals__", "__builtins__"}:
                     getter = lambda value=value, name=name: _Identity(getattr(value, name))
@@ -112,6 +112,8 @@ class AuthenticatedSlice:
                 # together with the already authenticated generated behavior.
                 copyreg._slotnames(value)
             self._checks.append((lambda value=value: tuple(vars(value)), _state(tuple(vars(value)))))
+            for name in ("__name__", "__qualname__", "__module__"):
+                remember(lambda value=value, name=name: getattr(value, name))
             remember(lambda value=value: value.__bases__)
             for name in tuple(vars(value)):
                 remember(lambda value=value, name=name: inspect.getattr_static(value, name))

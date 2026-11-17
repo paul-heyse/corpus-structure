@@ -1247,8 +1247,7 @@ def resolve_python_port(
     if tuple(signature.parameters) != expected_parameters:
         raise PortRefusal("runtime callable signature differs from compiled declaration")
 
-    adapters = PortAdapters(signature, logical_signature)
-    runtime = _authenticate_runtime_sources(model, selected, sources, modules, paths)
+    runtime, adapters = _authenticate_runtime_sources(model, selected, sources, modules, paths, (signature, logical_signature))
 
     def verify_runtime() -> None:
         try:
@@ -1345,7 +1344,7 @@ def _stream_annotation_references():
     }
 
 
-def _authenticate_runtime_sources(model, operation, sources, modules, paths):
+def _authenticate_runtime_sources(model, operation, sources, modules, paths, signatures):
     implementation = next(s for s in model.implementation_slices if s.root == operation.implementation_root)
     expected = {n.id.removeprefix("python:") for n in implementation.nodes if n.id.startswith("python:")}
     references: dict[str, object] = {}
@@ -1356,7 +1355,10 @@ def _authenticate_runtime_sources(model, operation, sources, modules, paths):
     if "dataclasses-runtime" in sources.generated_interfaces:
         references.update({"dataclasses.dataclass": dataclasses.dataclass, "dataclasses.field": dataclasses.field})
     _verify_closed_runtime_sources(sources, modules, paths, expected, standard_references=references)
-    return _authenticated_closed_slice(sources, modules, paths, expected, standard_references=references)
+    # Authenticate mutable generated fields before asking Pydantic to prepare
+    # their schemas, then retain the prepared class state for subsequent calls.
+    adapters = PortAdapters(*signatures)
+    return _authenticated_closed_slice(sources, modules, paths, expected, standard_references=references), adapters
 
 
 def _authenticated_closed_slice(sources, modules, paths, expected_nodes, *, standard_references=None):
