@@ -208,3 +208,47 @@ def test_comparison_refusal_preserves_exact_large_and_tiny_primary_facts(profile
         ComparisonLiteral(
             kind="range", lower="0", upper=surface, lower_closed=True, upper_closed=True, unit="kg"
         )
+
+
+def test_retained_interval_queries_restore_original_order_and_reuse_indexes(monkeypatch):
+    from corpus_structure.semantic import formal_readings
+    from corpus_structure.semantic.data_product_reference import DataProductReference
+
+    projection = "fixture-projection"
+    rows = (("later", 8, 13, "three"), ("earlier", 0, 3, "one"), ("middle", 4, 7, "two"))
+    body = {
+        "occurrences": [
+            {"local_id": name, "extents": [{"projection": projection, "start": start, "end": end, "text": text}]}
+            for name, start, end, text in rows
+        ],
+        "annotations": [
+            {"local_id": name, "kind": "formal.identifier", "family": "formal.lexical", "occurrences": [name], "native_label": text}
+            for name, _start, _end, text in rows
+        ],
+        "memberships": [], "coverage": [],
+    }
+    readings = FormalSourceReadings._from_retained(
+        {"source": {"projection": projection}, "text": "one two three"},
+        [(DataProductReference("fixture:retained"), body)], (),
+    )
+    selected = lexical_fact_readings(readings, readings.source, kind="formal.identifier", start=0, end=13)
+    assert [(row.start, row.text) for row in selected] == [(8, "three"), (0, "one"), (4, "two")]
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("retained extents must be indexed only once")
+
+    monkeypatch.setattr(formal_readings, "_extent", forbidden)
+    narrowed = lexical_fact_readings(readings, readings.source, kind="formal.identifier", start=3, end=8)
+    assert [(row.start, row.text) for row in narrowed] == [(4, "two")]
+
+
+def test_native_piece_containment_keeps_pointer_and_zero_width_boundaries(profile):
+    source = selected_rows(profile, ("one", "text", "", ""), ("two", "text", "", ""))
+    view = source.view
+    assert source.view is view
+    first, second = view.native_pieces
+    assert view.containing_piece(first["item_ref"], first["start"], first["end"]) == first
+    assert view.containing_piece(first["item_ref"], first["end"], first["end"]) == first
+    assert view.containing_piece(second["item_ref"], first["start"], first["end"]) is None
+    assert view.native_gap(first["end"], second["start"])
+    assert not view.native_gap(first["start"], second["end"])

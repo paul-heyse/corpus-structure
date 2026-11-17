@@ -275,12 +275,7 @@ def validate_formal_product(
                     or extent.get("text") != selected["text"][a:b]
                 ):
                     raise ValueError("formal occurrence differs from original literal slice")
-                if not any(
-                    piece["kind"] == "native_text"
-                    and piece.get("item_ref") == pointer
-                    and piece["start"] <= a < b <= piece["end"]
-                    for piece in selected["pieces"]
-                ):
+                if source.view.containing_piece(pointer, a, b) is None:
                     raise ValueError("formal occurrence escapes its original native piece")
 
                 if not source_extent_selected(selected, extent, selector_index=selector_index):

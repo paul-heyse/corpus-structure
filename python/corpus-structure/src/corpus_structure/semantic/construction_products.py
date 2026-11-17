@@ -273,11 +273,7 @@ def _requested_regions(source: FrozenNativeSource):
                 min(piece["end"], selector.get("end", len(selected["text"]))),
             )
             if a < b:
-                if intervals and all(
-                    row["kind"] != "native_text"
-                    for row in selected["pieces"]
-                    if intervals[-1][1] < row["end"] and row["start"] < a
-                ):
+                if intervals and source.view.native_gap(intervals[-1][1], a):
                     intervals[-1] = (intervals[-1][0], b)
                 else:
                     intervals.append((a, b))
@@ -635,11 +631,7 @@ def validate_interpreted_product(
             if (
                 not source_extent_selected(selected, extent, selector_index=selector_index)
                 or extent["text"] != selected["text"][extent["start"] : extent["end"]]
-                or not any(
-                    piece.get("item_ref") == extent["native_pointer"]
-                    and piece["start"] <= extent["start"] <= extent["end"] <= piece["end"]
-                    for piece in selected["pieces"]
-                )
+                or source.view.containing_piece(extent["native_pointer"], extent["start"], extent["end"]) is None
             ):
                 raise ValueError("construction occurrence changes original positioned source")
     external = {

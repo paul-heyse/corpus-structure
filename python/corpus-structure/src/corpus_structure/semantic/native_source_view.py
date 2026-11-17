@@ -153,6 +153,30 @@ class NativeSourceView:
                 indices.setdefault(pointer, []).append(index)
         return MappingProxyType({key: tuple(value) for key, value in indices.items()})
 
+    @cached_property
+    def pieces_by_item(self) -> Mapping[str, tuple[Mapping[str, Any], ...]]:
+        return MappingProxyType({
+            pointer: tuple(self.pieces[index] for index in indices if self.pieces[index]["kind"] == "native_text")
+            for pointer, indices in self.piece_indices_by_item.items()
+        })
+
+    @cached_property
+    def item_piece_ends(self) -> Mapping[str, tuple[int, ...]]:
+        return MappingProxyType({pointer: tuple(piece["end"] for piece in pieces) for pointer, pieces in self.pieces_by_item.items()})
+
+    def containing_piece(self, pointer: str, start: int, end: int) -> Mapping[str, Any] | None:
+        """Exact native-item containment, including zero-width construction anchors."""
+        pieces = self.pieces_by_item.get(pointer, ())
+        index = bisect_left(self.item_piece_ends.get(pointer, ()), end)
+        if index < len(pieces) and pieces[index]["start"] <= start <= end <= pieces[index]["end"]:
+            return pieces[index]
+        return None
+
+    def native_gap(self, start: int, end: int) -> bool:
+        """Whether an open interval contains no native text, by its ordered end index."""
+        index = bisect_right(self.native_ends, start)
+        return index == len(self.native_pieces) or self.native_pieces[index]["start"] >= end
+
     def selected_pieces(self, start: int, end: int) -> Iterator[Mapping[str, Any]]:
         # Zero-width construction anchors choose the left piece at a shared boundary.
         index = bisect_left(self.ends, start) if start == end else bisect_right(self.ends, start)

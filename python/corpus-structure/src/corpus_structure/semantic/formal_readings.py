@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import cached_property
 from types import MappingProxyType
 from typing import Any
 
@@ -55,6 +57,93 @@ class LexicalFact:
     kind: str
     value: str
     bindings: tuple[tuple[str, DataProductMemberReference, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class _IntervalRows:
+    starts: tuple[int, ...]
+    maximum_ends: tuple[int, ...]
+    rows: tuple[tuple[int, dict, dict], ...]
+
+    @classmethod
+    def build(cls, rows):
+        ordered = tuple(sorted(rows, key=lambda row: (row[2]["start"], row[0])))
+        maximum, ends = -1, []
+        for _, _, part in ordered:
+            maximum = max(maximum, part["end"])
+            ends.append(maximum)
+        return cls(tuple(part["start"] for _, _, part in ordered), tuple(ends), ordered)
+
+    def selected(self, start, end, *, overlapping=False):
+        if overlapping:
+            first = bisect_right(self.maximum_ends, start)
+            last = bisect_left(self.starts, end)
+            eligible = (row for row in self.rows[first:last] if row[2]["end"] > start)
+        else:
+            first, last = bisect_left(self.starts, start), bisect_left(self.starts, end)
+            eligible = (row for row in self.rows[first:last] if row[2]["start"] < row[2]["end"] <= end)
+        return tuple((node, part) for _, node, part in sorted(eligible, key=lambda row: row[0]))
+
+
+class _RetainedReadings:
+    def __init__(self, pin, body, source):
+        self.pin, self.body, self.source = pin, body, source
+
+    @cached_property
+    def occurrences(self):
+        return {row["local_id"]: row for row in self.body["occurrences"]}
+
+    @cached_property
+    def annotations(self):
+        return {row["local_id"]: row for row in self.body["annotations"]}
+
+    @cached_property
+    def memberships(self):
+        result = {}
+        for row in self.body["memberships"]:
+            result.setdefault(row["group"], []).append(row)
+        return {key: tuple(rows) for key, rows in result.items()}
+
+    @cached_property
+    def coverage(self):
+        result = {}
+        for row in self.body["coverage"]:
+            result.setdefault(row["family"], row)
+        return result
+
+    @cached_property
+    def parts(self):
+        return {key: _extent(node, self.occurrences, self.source) for key, node in self.annotations.items()}
+
+    @cached_property
+    def intervals(self):
+        result = {}
+        for ordinal, node in enumerate(self.annotations.values()):
+            target = node.get("formal", {}).get("input_id") if node["kind"] == "formal.rule" else node["local_id"]
+            part = self.parts.get(target)
+            if part is None:
+                continue
+            result.setdefault((node["kind"], node["family"]), []).append((ordinal, node, part))
+            if "formal_input" in node:
+                result.setdefault(("formal_input", node["family"]), []).append((ordinal, node, part))
+        return {key: _IntervalRows.build(rows) for key, rows in result.items()}
+
+    @cached_property
+    def ordinals(self):
+        return {key: index for index, key in enumerate(self.annotations)}
+
+    def selected(self, kind, family, start, end, *, overlapping=False):
+        groups = (self.intervals.get((kind, family)),) if family is not None else tuple(
+            value for (candidate, _), value in self.intervals.items() if candidate == kind
+        )
+        # A kind is currently owned by one family. Keep original annotation order
+        # even if a future declared kind is shared by more than one family.
+        ordinal = self.ordinals if family is None else None
+        rows = [row for group in groups if group is not None for row in group.selected(start, end, overlapping=overlapping)]
+        return tuple(sorted(rows, key=lambda row: ordinal[row[0]["local_id"]])) if ordinal is not None else tuple(rows)
+
+    def covered(self, family, start, end):
+        return _covered(self.coverage.get(family), self.source, start, end)
 
 
 class FormalSourceReadings:
@@ -109,6 +198,10 @@ class FormalSourceReadings:
         instance._text = selected["text"]
         return instance
 
+    @cached_property
+    def _indexes(self):
+        return tuple(_RetainedReadings(pin, body, self.source) for pin, body in self._selected)
+
     def positioned(self, *, start: int, end: int):
         """Exact primary lexical categories and atoms; never recover by classifying again."""
         from .constructions.lexical import PositionedTerminal, ProtectedAtom, region_terminals
@@ -147,7 +240,7 @@ class FormalSourceReadings:
 def _selected(layers: FormalSourceReadings, source):
     if not isinstance(layers, FormalSourceReadings) or layers.source != source:
         raise ValueError("formal reading index belongs to another source")
-    yield from layers._selected
+    yield from layers._indexes
 
 
 def _extent(row, occurrences, source):
@@ -165,8 +258,7 @@ def _extent(row, occurrences, source):
     return part
 
 
-def _covered(body, source, family, start, end):
-    row = next((row for row in body["coverage"] if row["family"] == family), None)
+def _covered(row, source, start, end):
     if (
         row is None
         or row["availability"] != "available"
@@ -193,12 +285,11 @@ def formal_field_readings(
 ) -> tuple[tuple[FormalFieldReading, ...], bool]:
     """Read whole complete input rules; incomplete or rival fields stay unresolved."""
     results, complete, incomplete = [], False, False
-    for pin, body in _selected(layers, source):
-        complete |= _covered(body, source, family, start, end)
-        occurrences = {row["local_id"]: row for row in body["occurrences"]}
-        annotations = {row["local_id"]: row for row in body["annotations"]}
+    for index in _selected(layers, source):
+        pin, annotations = index.pin, index.annotations
+        complete |= index.covered(family, start, end)
         captured_roots = set()
-        for node in annotations.values():
+        for node, part in index.selected("formal.rule", family, start, end):
             formal = node.get("formal")
             if (
                 node["kind"] != "formal.rule"
@@ -217,12 +308,7 @@ def formal_field_readings(
                 or formal["end"] != len(value["text"])
             ):
                 continue
-            part = _extent(root, occurrences, source)
-            if (
-                part is None
-                or not start <= part["start"] < part["end"] <= end
-                or part["text"] != value["text"]
-            ):
+            if part["text"] != value["text"]:
                 continue
             normalized = formal["normalized"]
             if normalized["domain_status"] == "invalid":
@@ -242,15 +328,8 @@ def formal_field_readings(
                     value["start_symbol"],
                 )
             )
-        for root in annotations.values():
-            if root["family"] != family or "formal_input" not in root:
-                continue
-            part = _extent(root, occurrences, source)
-            if (
-                part is not None
-                and start <= part["start"] < part["end"] <= end
-                and root["local_id"] not in captured_roots
-            ):
+        for root, _part in index.selected("formal_input", family, start, end):
+            if root["local_id"] not in captured_roots:
                 incomplete = True
     groups = {}
     for value in results:
@@ -264,15 +343,14 @@ def comparison_basis_readings(
     layers: FormalSourceReadings, source, *, start: int, end: int
 ) -> tuple[ComparisonBasisReading, ...]:
     results = []
-    for pin, body in _selected(layers, source):
-        occurrences = {row["local_id"]: row for row in body["occurrences"]}
-        for node in body["annotations"]:
+    for index in _selected(layers, source):
+        pin = index.pin
+        for node, part in index.selected("formal.comparison_basis", None, start, end):
             if (
                 node["kind"] != "formal.comparison_basis"
                 or node.get("native_scheme") != "source-comparison-basis-1"
             ):
                 continue
-            part = _extent(node, occurrences, source)
             value = node.get("native_label")
             if (
                 part is not None
@@ -296,13 +374,11 @@ def lexical_fact_readings(
     layers, source, *, kind: str, start: int, end: int
 ) -> tuple[LexicalFact, ...]:
     results = []
-    for pin, body in _selected(layers, source):
-        occurrences = {row["local_id"]: row for row in body["occurrences"]}
-        nodes = {row["local_id"]: row for row in body["annotations"]}
-        for node in nodes.values():
+    for index in _selected(layers, source):
+        pin, nodes = index.pin, index.annotations
+        for node, part in index.selected(kind, "formal.lexical", start, end):
             if node["kind"] != kind or node["family"] != "formal.lexical":
                 continue
-            part = _extent(node, occurrences, source)
             value = node.get("native_label")
             if (
                 part is None
@@ -312,11 +388,9 @@ def lexical_fact_readings(
             ):
                 continue
             bindings = []
-            for row in body["memberships"]:
-                if row["group"] != node["local_id"]:
-                    continue
+            for row in index.memberships.get(node["local_id"], ()):
                 member = nodes.get(row["member"])
-                member_part = _extent(member, occurrences, source) if member is not None else None
+                member_part = index.parts.get(row["member"])
                 if (
                     member is None
                     or member_part is None
@@ -354,12 +428,11 @@ def coordination_reading(layers, source, *, start: int, end: int) -> LexicalFact
         return None
     (cue,) = cues
     tokens = []
-    for pin, body in _selected(layers, source):
-        if not _covered(body, source, "formal.lexical", start, end):
+    for index in _selected(layers, source):
+        if not index.covered("formal.lexical", start, end):
             continue
-        nodes = {row["local_id"]: row for row in body["annotations"]}
-        occurrences = {row["local_id"]: row for row in body["occurrences"]}
-        for node in nodes.values():
+        pin, nodes = index.pin, index.annotations
+        for node, part in index.selected("formal.token", None, start, end, overlapping=True):
             formal = node.get("formal")
             if (
                 node["kind"] != "formal.token"
@@ -367,7 +440,5 @@ def coordination_reading(layers, source, *, start: int, end: int) -> LexicalFact
                 or nodes[formal["input_id"]].get("formal_input", {}).get("start_symbol") != "lex"
             ):
                 continue
-            part = _extent(node, occurrences, source)
-            if part is not None and part["start"] < end and start < part["end"]:
-                tokens.append((pin, part["start"], part["end"]))
+            tokens.append((pin, part["start"], part["end"]))
     return cue if tokens == [(cue.reference.product, cue.start, cue.end)] else None

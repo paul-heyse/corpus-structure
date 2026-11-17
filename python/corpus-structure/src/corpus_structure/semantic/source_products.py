@@ -430,6 +430,12 @@ class FrozenNativeSource:
 
         return freeze_native(json.loads(self.content))
 
+    @cached_property
+    def view(self):
+        from .native_source_view import NativeSourceView
+
+        return NativeSourceView(self._value)
+
     @property
     def value(self) -> dict[str, Any]:
         from .native_source_view import thaw_native
