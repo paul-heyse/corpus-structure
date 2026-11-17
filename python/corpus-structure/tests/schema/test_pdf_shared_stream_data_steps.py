@@ -3,9 +3,10 @@
 import pytest
 from alembic.operations import ops
 from pydantic import ValidationError
-from sqlalchemy import Column, Text
+from sqlalchemy import BigInteger, Column, LargeBinary, Text
 
 from corpus_structure.schema.data_steps import DataStepRequest, order_data_steps, prepare_data_steps
+from corpus_structure.schema.data_step_programs import RETIRED_PARTS, predecessor_parts
 from corpus_structure.semantic.alembic_privileges import OwnedOperationsOp
 from corpus_structure.semantic.native_objects import NativeAuthoring, NativeAuthoringError
 
@@ -44,6 +45,9 @@ def test_shared_stream_backfill_and_authenticated_n1_are_explicit_composable_own
     assert "LOCK TABLE ops.pdf_artifact_part" in selected[1].statements[0]
     assert "pdf_identity_fold_finish" in selected[1].statements[0]
     assert "TO_REGCLASS" not in selected[1].statements[0].upper()
+    assert "IN EXECUTE" not in selected[1].statements[0].upper()
+    assert selected[1].retired_relations == RETIRED_PARTS
+    assert set(RETIRED_PARTS) <= set(selected[1].prerequisite_relations)
     with pytest.raises(ValidationError):
         DataStepRequest.model_validate(
             {"name": "pdf_s40_shared_streams", "parameters": {"sql": "DELETE FROM sem.release"}}
@@ -76,3 +80,28 @@ def test_retired_table_names_never_auto_select_maintenance_and_changed_sql_refus
     changed = step.model_copy(update={"statements": ("DELETE FROM sem.release",)})
     with pytest.raises(NativeAuthoringError, match="closed builder custody"):
         order_data_steps(upgrade, (changed,), NativeAuthoring(()))
+
+
+def test_retired_shapes_come_from_the_fixed_predecessor_inventory():
+    relations, captured = predecessor_parts()
+    assert b'"physical_id"' in captured
+    assert tuple(relations) == RETIRED_PARTS
+    for relation in relations.values():
+        assert set(relation.c.keys()) == {
+            "product_id", "revision_id", "stream_id", "ordinal", "byte_offset",
+            "byte_length", "body", "sha256_digest",
+        }
+        assert isinstance(relation.c.body.type, LargeBinary)
+        assert isinstance(relation.c.byte_length.type, BigInteger)
+        assert isinstance(relation.c.product_id.type, Text)
+        assert all(not column.nullable for column in relation.c)
+        assert {column.name for column in relation.primary_key} == {
+            "product_id", "revision_id", "stream_id", "ordinal",
+        }
+
+
+def test_s40_refuses_a_transition_that_would_keep_a_retired_store():
+    step = prepare_data_steps((DataStepRequest(name="pdf_s40_shared_streams"),))
+    upgrade = ops.UpgradeOps([ops.DropTableOp("pdf_artifact_part", schema="ops")])
+    with pytest.raises(NativeAuthoringError, match="declared physical retirement"):
+        order_data_steps(upgrade, step, NativeAuthoring(()))

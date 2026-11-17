@@ -82,7 +82,7 @@ def test_n1_rederives_admitted_facts_without_manufacturing_old_evidence():
     for historical in ("data_read", "data_completion_intent", "data_receipt"):
         assert historical not in frozen
     assert len(step.implementation_sha256) == 64
-    assert dict(step.libraries).keys() == {"sqlalchemy", "alembic"}
+    assert dict(step.libraries).keys() == {"sqlalchemy", "alembic", "pglast"}
 
 
 def test_nullable_ddl_precedes_native_data_and_final_guards():

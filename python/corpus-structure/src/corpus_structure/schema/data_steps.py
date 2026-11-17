@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Text, column, delete, exists, func, or_, select, table, update
+from sqlalchemy import delete, exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import dialect
 
 if TYPE_CHECKING:
@@ -47,6 +47,8 @@ class FrozenDataStep(BaseModel):
     statements: tuple[str, ...]
     deferred_columns: tuple[tuple[str, str], ...]
     guarded_relations: tuple[str, ...]
+    prerequisite_relations: tuple[str, ...]
+    retired_relations: tuple[str, ...]
 
 
 _N1_COLUMNS = (
@@ -75,28 +77,29 @@ def _sql(statement: ClauseElement) -> str:
 
 
 def _refuse_rows(query: Select, message: str) -> str:
-    # Both the query and message are first-party authoring, never request SQL.
-    return (
-        "DO $data_step$ BEGIN IF EXISTS ("
-        + _sql(query)
-        + ") THEN RAISE EXCEPTION '"
-        + message
-        + "' USING ERRCODE='23514'; END IF; END $data_step$"
-    )
+    from corpus_structure.semantic.native_program import Block, Do, If, Raise
+
+    return Do(Block((If(exists(query), (Raise(message, "23514"),)),)))
+
+
+def _implementation_id(*sources: bytes) -> str:
+    from corpus_structure.semantic import native_program
+
+    digest = sha256()
+    for source in (Path(__file__).read_bytes(), Path(native_program.__file__).read_bytes(), *sources):
+        digest.update(sha256(source).digest())
+    return digest.hexdigest()
+
+
+def _libraries() -> tuple[tuple[str, str], ...]:
+    return tuple((name, version(name)) for name in ("sqlalchemy", "alembic", "pglast"))
 
 
 def _n1() -> FrozenDataStep:
-    definitions = table(
-        "data_operation_definition",
-        column("release_id", Text),
-        *(
-            column(name)
-            for relation, name in _N1_COLUMNS
-            if relation == "sem.data_operation_definition"
-        ),
-        schema="sem",
-    )
-    finalized = table("release_finalization", column("release_id", Text), schema="sem")
+    from corpus_structure.semantic.metadata import table
+
+    definitions = table("sem.data_operation_definition")
+    finalized = table("sem.release_finalization")
     releases = (
         select(definitions.c.release_id)
         .join(finalized, finalized.c.release_id == definitions.c.release_id)
@@ -104,25 +107,15 @@ def _n1() -> FrozenDataStep:
         .subquery("admitted_releases")
     )
     relower = select(func.sem.relower_admitted_data_operation_release(releases.c.release_id))
-    population = table("data_population", column("evidence"), column("context_key"), schema="ops")
+    population = table("ops.data_population")
     context_key = func.ops.ddo_digest(func.ops.ddo_population_evidence_scope(population.c.evidence))
     populations = (
         update(population)
         .values(context_key=context_key)
         .where(population.c.context_key.is_distinct_from(context_key))
     )
-    headers = table(
-        "data_operation_release",
-        column("release_id", Text),
-        column("lowering_digest", Text),
-        schema="sem",
-    )
-    runtimes = table(
-        "runtime_binding",
-        column("release_id", Text),
-        column("execution_profile", Text),
-        schema="sem",
-    )
+    headers = table("sem.data_operation_release")
+    runtimes = table("sem.runtime_binding")
     missing_header = select(releases.c.release_id).where(
         ~exists(
             select(1)
@@ -147,8 +140,8 @@ def _n1() -> FrozenDataStep:
     )
     return FrozenDataStep(
         name="ddo_n1_relower",
-        implementation_sha256=sha256(Path(__file__).read_bytes()).hexdigest(),
-        libraries=tuple((name, version(name)) for name in ("sqlalchemy", "alembic")),
+        implementation_sha256=_implementation_id(),
+        libraries=_libraries(),
         statements=(
             _sql(relower),
             _sql(populations),
@@ -169,10 +162,13 @@ def _n1() -> FrozenDataStep:
             "sem.runtime_binding",
             "ops.data_population",
         ),
+        prerequisite_relations=tuple(sorted((
+            definitions.fullname, finalized.fullname, population.fullname,
+            headers.fullname, runtimes.fullname,
+        ))),
+        retired_relations=(),
     )
 
-
-_S40_RETIRED_PARTS = ("ops.pdf_artifact_part", "ops.pdf_stage_artifact_part")
 
 _S36_COLUMNS = tuple(
     ("ops.pdf_build_validation", name)
@@ -192,14 +188,14 @@ def _pdf_s36() -> FrozenDataStep:
     Products and their original/record bytes remain retained. A historical product
     without current certification is inert and must be regenerated for current use.
     """
-    validation = table(
-        "pdf_build_validation", *(column(name, Text) for _, name in _S36_COLUMNS), schema="ops"
-    )
+    from corpus_structure.semantic.metadata import table
+
+    validation = table("ops.pdf_build_validation")
     unqualified = or_(*(validation.c[name].is_(None) for _, name in _S36_COLUMNS))
     return FrozenDataStep(
         name="pdf_s36_retire_validation",
-        implementation_sha256=sha256(Path(__file__).read_bytes()).hexdigest(),
-        libraries=tuple((name, version(name)) for name in ("sqlalchemy", "alembic")),
+        implementation_sha256=_implementation_id(),
+        libraries=_libraries(),
         statements=(
             _sql(delete(validation).where(unqualified)),
             _refuse_rows(
@@ -209,21 +205,26 @@ def _pdf_s36() -> FrozenDataStep:
         ),
         deferred_columns=_S36_COLUMNS,
         guarded_relations=("ops.pdf_build_validation",),
+        prerequisite_relations=(validation.fullname,),
+        retired_relations=(),
     )
 
 
 def _pdf_s40() -> FrozenDataStep:
-    source = Path(__file__).with_name("sql").joinpath("pdf_s40_shared_streams.sql").read_bytes()
-    identity = sha256(
-        sha256(Path(__file__).read_bytes()).digest() + sha256(source).digest()
-    ).hexdigest()
+    from . import data_step_programs
+
+    parts, predecessor = data_step_programs.predecessor_parts()
     return FrozenDataStep(
         name="pdf_s40_shared_streams",
-        implementation_sha256=identity,
-        libraries=tuple((name, version(name)) for name in ("sqlalchemy", "alembic")),
-        statements=(source.decode(),),
+        implementation_sha256=_implementation_id(
+            Path(data_step_programs.__file__).read_bytes(), predecessor
+        ),
+        libraries=_libraries(),
+        statements=(data_step_programs.shared_stream_program(parts),),
         deferred_columns=(),
         guarded_relations=(),
+        prerequisite_relations=tuple(sorted((*data_step_programs.S40_RELATIONS, *parts))),
+        retired_relations=data_step_programs.RETIRED_PARTS,
     )
 
 
@@ -255,12 +256,9 @@ def order_data_steps(
         raise NativeAuthoringError("revision data steps differ from current closed builder custody")
     deferred = {entry for step in steps for entry in step.deferred_columns}
     final: list[MigrateOperation] = []
-    retired_parts = (
-        set(_S40_RETIRED_PARTS)
-        if any(step.name == "pdf_s40_shared_streams" for step in steps)
-        else set()
-    )
+    retired_relations = {relation for step in steps for relation in step.retired_relations}
     final_drops: list[MigrateOperation] = []
+    captured_retirements: set[str] = set()
 
     def prepare(operation: MigrateOperation) -> MigrateOperation | None:
         if isinstance(operation, OwnedOperationsOp):
@@ -270,8 +268,12 @@ def order_data_steps(
             return operation if operation.ops else None
         if (
             isinstance(operation, ops.DropTableOp)
-            and f"{operation.schema}.{operation.table_name}" in retired_parts
+            and f"{operation.schema}.{operation.table_name}" in retired_relations
         ):
+            relation = f"{operation.schema}.{operation.table_name}"
+            if relation in captured_retirements:
+                raise NativeAuthoringError("revision data step repeats a retired relation")
+            captured_retirements.add(relation)
             final_drops.append(OwnedOperationsOp("corpus_sem_publisher", [operation]))
             return None
         if isinstance(operation, ops.AddColumnOp):
@@ -343,6 +345,8 @@ def order_data_steps(
     upgrade_ops.ops[:] = [
         staged for operation in upgrade_ops.ops if (staged := prepare(operation)) is not None
     ]
+    if captured_retirements != retired_relations:
+        raise NativeAuthoringError("revision data step lacks its declared physical retirement")
     upgrade_ops.ops.extend(NativeTransitionOp(guards[name], None) for name in sorted(guards))
     upgrade_ops.ops.extend(
         OwnedOperationsOp(

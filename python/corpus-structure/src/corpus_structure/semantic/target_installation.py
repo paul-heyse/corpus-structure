@@ -448,50 +448,33 @@ def target_admission_descriptor(installation: TargetInstallation, native_objects
 @contextmanager
 def target_authoring_scratch(connection, installation: TargetInstallation):
     """Supply the declared empty archive/PDF row layouts for static authoring only."""
+    from pglast import ast
+    from pglast.stream import RawStream
     from sqlalchemy import text
-    from sqlalchemy.schema import CreateTable
 
     from .archive_transport import archive_tables, scratch_name
     from .native_objects import NativeAuthoringError
-    from .pdf_publication import COMPANION_STAGE_TARGETS
-    from .pdf_record_model import record_upload_table
-    from .pdf_shared_streams import part_upload_contract_table
-    from .pdf_staging import UPLOAD_STAGE_FAMILIES
-
-    upload_contract = part_upload_contract_table(installation.metadata)
+    from .pdf_shared_streams import pdf_scratch_specs
 
     relations = [
-        *((scratch_name(relation), relation) for relation in archive_tables(installation.metadata)),
-        *(
-            (
-                prefix + record_upload_table(name, installation.metadata).name,
-                record_upload_table(name, installation.metadata),
-            )
-            for prefix, names in (
-                ("ps_", tuple(UPLOAD_STAGE_FAMILIES.values())),
-                ("pc_", (*COMPANION_STAGE_TARGETS.values(), "ops.pdf_stage_endpoint")),
-            )
-            for name in names
-        ),
+        (scratch_name(relation), relation) for relation in archive_tables(installation.metadata)
     ]
     preparer = connection.dialect.identifier_preparer
     savepoint = connection.begin_nested()
     try:
-        if (
-            connection.scalar(
-                text("SELECT to_regclass(:name)"), {"name": "pg_temp." + upload_contract.name}
-            )
-            is not None
-        ):
-            raise NativeAuthoringError(
-                "target static authoring requires unused part upload contract"
-            )
-        connection.execute(CreateTable(upload_contract))
-        connection.exec_driver_sql(
-            "ALTER TABLE pg_temp."
-            + preparer.quote(upload_contract.name)
-            + " OWNER TO corpus_sem_publisher"
-        )
+        for spec in pdf_scratch_specs(installation.metadata):
+            if connection.scalar(
+                text("SELECT to_regclass(:name)"), {"name": spec.qualified_name}
+            ) is not None:
+                raise NativeAuthoringError(
+                    "target static authoring requires unused scratch context: " + spec.name
+                )
+            statement = spec.create_statement()
+            if isinstance(statement, ast.Node):
+                connection.exec_driver_sql(RawStream()(statement))
+            else:
+                connection.execute(statement)
+            connection.exec_driver_sql(RawStream()(spec.owner_statement()))
         for name, relation in relations:
             quoted = preparer.quote(name)
             if (
@@ -505,11 +488,7 @@ def target_authoring_scratch(connection, installation: TargetInstallation):
                 "CREATE TEMP TABLE "
                 + quoted
                 + " (LIKE "
-                + (
-                    "pg_temp." + preparer.quote(upload_contract.name)
-                    if relation.name == "pdf_stage_artifact_part"
-                    else preparer.format_table(relation)
-                )
+                + preparer.format_table(relation)
                 + " INCLUDING CONSTRAINTS) ON COMMIT DROP"
             )
             connection.exec_driver_sql(

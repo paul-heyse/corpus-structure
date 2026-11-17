@@ -3,7 +3,6 @@
 from sqlalchemy.dialects.postgresql import dialect
 
 from .metadata import metadata
-from .pdf_staging import UPLOAD_STAGE_FAMILIES
 
 
 def native_payload_size_sql(relation, *, alias="s") -> str:
@@ -269,46 +268,45 @@ BEGIN
  RAISE EXCEPTION 'private PDF scratch schema differs' USING ERRCODE='23514'; END IF;
 END $stage$;
 REVOKE ALL ON FUNCTION ops.require_pdf_stage_scratch(text,regclass) FROM PUBLIC;
-CREATE OR REPLACE FUNCTION ops.prepare_pdf_stage(p_build text,p_task bigint,p_attempt bigint,
- p_holder text)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$
-DECLARE build ops.pdf_stage_build;
-BEGIN
- build:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM ops.require_pdf_operation(build.release_id,'adopt_pdf_batch');
 """
     )
     selected = metadata if target_metadata is None else target_metadata
-    from .pdf_record_model import record_upload_table
-    from .pdf_shared_streams import part_template, part_wire_contract_sql, shared_streams_sql
-
-    sql = sql.replace(
-        "CREATE OR REPLACE FUNCTION ops.prepare_pdf_stage",
-        part_wire_contract_sql(selected)
-        + shared_streams_sql(selected)
-        + "\nCREATE OR REPLACE FUNCTION ops.prepare_pdf_stage",
+    from .native_program import (
+        Assign, Block, Local, Parameter, Perform, call, function, literal, pg_type, variable,
     )
-    relations = [record_upload_table(name, selected) for name in UPLOAD_STAGE_FAMILIES.values()]
+    from .pdf_shared_streams import (
+        part_template, part_wire_contract_sql, pdf_scratch_prepare,
+        pdf_stage_scratch_specs, shared_streams_sql,
+    )
+
+    sql += part_wire_contract_sql(selected) + shared_streams_sql(selected)
+    specs = pdf_stage_scratch_specs(selected)
+    relations = [spec.source for spec in specs]
     pg = dialect()
-    for relation in relations:
-        scratch = "ps_" + relation.name
-        template = (
-            "pg_temp.pdf_part_wire_contract"
-            if relation.name == "pdf_stage_artifact_part"
-            else relation.fullname
-        )
-        if relation.name == "pdf_stage_artifact_part":
-            sql += "PERFORM ops.pdf_part_upload_contract();\n"
-        sql += (
-            f"IF to_regclass('pg_temp.{scratch}') IS NULL THEN CREATE TEMP TABLE {scratch} "
-            f"(LIKE {template} INCLUDING CONSTRAINTS) ON COMMIT DROP; "
-            f"ELSE PERFORM ops.require_pdf_stage_scratch('{scratch}',"
-            f"{part_template(relation)}); END IF; "
-            f"TRUNCATE pg_temp.{scratch};\n"
-        )
-        # COPY is allowed only on the protected, exact session scratch.
-        sql += f"GRANT SELECT,INSERT ON pg_temp.{scratch} TO corpus_sem_writer;\n"
-    sql += "END $stage$;\n"
+    sql += function(
+        "ops", "prepare_pdf_stage",
+        parameters=tuple(
+            Parameter(name, pg_type(kind))
+            for name, kind in (
+                ("p_build", "text"), ("p_task", "bigint"),
+                ("p_attempt", "bigint"), ("p_holder", "text"),
+            )
+        ),
+        returns=pg_type("void"),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            locals=(Local("build", selected.tables["ops.pdf_stage_build"]),),
+            statements=(
+                Assign("build", call("ops", "require_pdf_build", *(
+                    variable(name) for name in ("p_build", "p_task", "p_attempt", "p_holder")
+                ))),
+                Perform(call("ops", "require_pdf_operation", variable("build", "release_id"),
+                             literal("adopt_pdf_batch"))),
+                *(statement for spec in specs for statement in pdf_scratch_prepare(spec)),
+            ),
+        ),
+    ) + ";\n"
     sql += """
 CREATE OR REPLACE FUNCTION ops.adopt_pdf_batch(p_build text,p_task bigint,p_attempt bigint,
  p_holder text,p_key text)
