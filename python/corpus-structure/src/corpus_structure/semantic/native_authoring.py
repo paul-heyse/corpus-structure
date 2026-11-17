@@ -852,6 +852,7 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
         verify_frozen_catalog(connection, admission)
     except DBAPIError as error:
         import ast as python_ast
+        import re
         import traceback
 
         state = getattr(error.orig, "sqlstate", None)
@@ -861,6 +862,20 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
             if frame.filename == "native_candidate.py" and frame.lineno is not None
         ]
         context: dict[str, object] = {"operation_kind": phase, "sqlstate": state}
+        # Retain a first-party literal refusal when PostgreSQL reports it exactly.
+        # Interpolated messages and arbitrary SQL/data stay outside this safe view.
+        primary = getattr(getattr(error.orig, "diag", None), "message_primary", None)
+        declared_refusals = {
+            literal.replace("''", "'")
+            for item in authoring.desired
+            for statement in item.statements
+            for literal in re.findall(
+                r"\bRAISE\s+EXCEPTION\s+'((?:[^']|'')*)'", statement, re.IGNORECASE
+            )
+            if "%" not in literal
+        }
+        if primary in declared_refusals and len(primary) <= 512:
+            context["declared_refusal"] = primary
         if sites:
             line = sites[-1]
             context["source_line"] = line

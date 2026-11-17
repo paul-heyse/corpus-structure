@@ -2320,7 +2320,7 @@ BEGIN
  OR header.native_definitions_digest IS DISTINCT FROM (SELECT content_digest FROM sem.artifact
  WHERE release_id=p->>'release_id' AND artifact_name='data_operation_native_definitions.json') THEN
  RAISE EXCEPTION 'release facts changed under admitted release'; END IF;
- PERFORM sem.admit_pdf_operation_contracts(p->>'release_id');
+ PERFORM sem.admit_pdf_operation_contracts(p->>'release_id',p_new_release);
  RETURN jsonb_build_object('release_id',p->>'release_id','model_digest',p->>'model_digest');
 END $$;
 

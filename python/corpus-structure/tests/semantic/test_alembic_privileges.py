@@ -334,6 +334,36 @@ def test_rendered_candidate_failure_exposes_safe_site_without_sql_or_payload(sem
         assert conn.scalar(text("SELECT 1")) == 1
 
 
+@pytest.mark.parametrize("dynamic", [False, True])
+def test_rendered_candidate_retains_only_exact_declared_literal_refusal(
+    semantic_bare_engine, dynamic
+):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.native_authoring import verify_rendered_candidate
+
+    message = "'declared refusal %', 'private-input'" if dynamic else "'declared refusal'"
+    declaration = (
+        "CREATE FUNCTION public.refuse_candidate() RETURNS void LANGUAGE plpgsql AS $$ BEGIN "
+        f"RAISE EXCEPTION {message} USING ERRCODE='23514'; END $$"
+    )
+    source = "from alembic import op\ndef upgrade():\n    op.execute('SELECT public.refuse_candidate()')\n"
+    with semantic_bare_engine.begin() as conn:
+        conn.exec_driver_sql(declaration, execution_options={"no_parameters": True})
+        with pytest.raises(NativeAuthoringError) as failure:
+            verify_rendered_candidate(
+                conn,
+                source,
+                SimpleNamespace(desired=(SimpleNamespace(statements=(declaration,)),)),
+                (),
+                "unreachable",
+            )
+        context = failure.value.authoring_context
+        assert context is not None
+        assert context.get("declared_refusal") == (None if dynamic else "declared refusal")
+        assert "private-input" not in str(context)
+
+
 def test_privilege_failure_context_survives_aborted_owner_scope(semantic_bare_engine, monkeypatch):
     schema = "acl_failure_" + uuid4().hex[:10]
     policy = {
