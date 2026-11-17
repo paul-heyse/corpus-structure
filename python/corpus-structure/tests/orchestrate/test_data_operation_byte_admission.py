@@ -121,9 +121,10 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
         "DemandPlanner",
         lambda *_: SimpleNamespace(ready=lambda *_args, **_kw: ready, logical_progress=0, refusals=()),
     )
-    observed = SimpleNamespace(claims=[], receipts=[], failures=[], live=set(), windows=[])
+    observed = SimpleNamespace(claims=[], claim_sets=[], receipts=[], failures=[], live=set(), windows=[])
 
     def claim_set(payload):
+        observed.claim_sets.append(tuple(item["request_id"] for item in payload["items"]))
         results = []
         for item in payload["items"]:
             index = item["request_id"]
@@ -570,3 +571,93 @@ def test_cold_preparation_defers_to_driver_ticks_without_failing_or_claiming_ear
     assert dict(observed.receipts) == {"0": 0, "1": 1}
     assert len(receipts) == 2 and calls.count("1") >= 2
     assert executor.budget.used_bytes == 0
+
+
+@pytest.mark.parametrize("item_limit,byte_limit", [(2, 1000), (4, 5)])
+def test_batch_profile_caps_use_actual_semantic_input_bytes_and_order_before_scatter(
+    monkeypatch, prepared, item_limit, byte_limit
+):
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    batches, measurements = [], []
+
+    def measure(members):
+        values = tuple(member.values for member in members)
+        measurements.append(values)
+        return len(canonical_bytes(list(values)))
+
+    def batch(members, **_):
+        values = tuple(member.values for member in members)
+        assert len(values) <= item_limit
+        assert len(canonical_bytes(list(values))) <= byte_limit
+        batches.append(values)
+        if False:
+            yield
+        return SimpleNamespace(members=tuple((member.member, member.values) for member in members))
+
+    port = SimpleNamespace(
+        native_selections=(), plan_batch_python=batch, batch_max_items=item_limit,
+        batch_max_input_bytes=byte_limit, batch_input_bytes=measure,
+        batch_order_key=lambda member: -member.values,
+    )
+    executor, observed = controlled_executor(
+        monkeypatch, prepared, policy_for(prepared, max_claims=4, credits=4), ("batch",) * 5,
+        {"batch": port},
+    )
+    with execution_resources(executor) as physical:
+        executor._physical = physical
+        physical.select_operations(("batch",))
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
+    assert not failures and len(receipts) == 5
+    assert batches == [(1, 0), (3, 2), (4,)]
+    assert measurements and max(map(len, observed.claim_sets)) <= item_limit
+    assert dict(observed.receipts) == {str(i): i for i in range(5)}
+    assert len(observed.claims) == 5 and not observed.live and executor.budget.used_bytes == 0
+
+
+def test_indivisible_semantic_input_capacity_failure_preserves_claimed_siblings(monkeypatch, prepared):
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    def content(members):
+        return canonical_bytes(["long" if member.values == 0 else "x" for member in members])
+
+    def batch(members, **_):
+        assert len(content(members)) <= 5
+        if False:
+            yield
+        return SimpleNamespace(members=tuple((member.member, member.values) for member in members))
+
+    port = SimpleNamespace(native_selections=(), plan_batch_python=batch,
+                           batch_max_input_bytes=5, batch_input_bytes=lambda members: len(content(members)))
+    executor, observed = controlled_executor(
+        monkeypatch, prepared, policy_for(prepared, max_claims=3, credits=3), ("batch",) * 3,
+        {"batch": port},
+    )
+    with execution_resources(executor) as physical:
+        executor._physical = physical
+        physical.select_operations(("batch",))
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
+    assert len(receipts) == 2 and len(failures) == 1
+    assert isinstance(failures[0], CapacityExceeded)
+    assert dict(observed.receipts) == {"1": 1, "2": 2}
+    assert observed.failures[0][0] == "0"
+    assert not observed.live and executor.budget.used_bytes == 0
+
+
+def test_batch_order_failure_settles_every_owned_claim(monkeypatch, prepared):
+    def bad_key(_):
+        raise ValueError("controlled order failure")
+
+    port = SimpleNamespace(native_selections=(), plan_batch_python=lambda *a, **k: None,
+                           batch_order_key=bad_key)
+    executor, observed = controlled_executor(
+        monkeypatch, prepared, policy_for(prepared, max_claims=3, credits=3), ("batch",) * 3,
+        {"batch": port},
+    )
+    with execution_resources(executor) as physical:
+        executor._physical = physical
+        physical.select_operations(("batch",))
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
+    assert not receipts and len(failures) == 1 and "controlled order failure" in str(failures[0])
+    assert {item for item, _ in observed.failures} == {"0", "1", "2"}
+    assert not observed.live and executor.budget.used_bytes == 0

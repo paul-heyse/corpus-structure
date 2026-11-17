@@ -309,6 +309,7 @@ class PreparedOriginalCallPort:
         )
 
     def batch_expected_members(self, members):
+        self._verify()
         import json
         from .data_operation_cpu_basis import cpu_input_basis_from_binding
 
