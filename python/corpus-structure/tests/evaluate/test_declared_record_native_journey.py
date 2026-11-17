@@ -348,31 +348,6 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     ):
         reacquire_record_feature_grade(connection, copied.selection)
 
-    # An actually completed empty carrier is a known no-output opportunity,
-    # preserving its source and product outside the scored-event denominator.
-    empty_sources = journey.sources[:1]
-    passes, facts = retain_references(journey, empty_sources, partition="development")
-    readings = run_readings(
-        journey,
-        empty_sources,
-        policy=None,
-        inference="actual-completed-empty-carrier",
-        empty_sources=(empty_sources[0].pin.source,),
-    )
-    empty = run_grade(
-        journey,
-        empty_sources,
-        passes,
-        facts,
-        readings.specification,
-        readings.resolved,
-        inference="actual-empty-carrier-grade",
-    )
-    assert empty.grade.frame.events == ()
-    (coverage,) = empty.grade.frame.coverage
-    assert coverage.outcome == "no_output" and coverage.event_ids == ()
-    assert len(coverage.outputs) == 1 and coverage.source == empty_sources[0].pin
-
     refuse_exchanged_fitted_body(fitted, monkeypatch)
 
     # Current trust gates both the restricted original grade and the genuine
@@ -416,6 +391,36 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
         pytest.raises(DBAPIError, match=r"trust|selected support"),
     ):
         reacquire_record_feature_grade(connection, fitted.feature.selection)
+
+
+def test_actual_completed_empty_carrier_grade_preserves_no_output_opportunity(
+    current_record_policy,
+):
+    journey = current_record_policy
+    # An actually completed empty carrier is a known no-output opportunity,
+    # preserving its source and product outside the scored-event denominator.
+    empty_sources = journey.sources[:1]
+    passes, facts = retain_references(journey, empty_sources, partition="development")
+    readings = run_readings(
+        journey,
+        empty_sources,
+        policy=None,
+        inference="actual-completed-empty-carrier",
+        empty_sources=(empty_sources[0].pin.source,),
+    )
+    empty = run_grade(
+        journey,
+        empty_sources,
+        passes,
+        facts,
+        readings.specification,
+        readings.resolved,
+        inference="actual-empty-carrier-grade",
+    )
+    assert empty.grade.frame.events == ()
+    (coverage,) = empty.grade.frame.coverage
+    assert coverage.outcome == "no_output" and coverage.event_ids == ()
+    assert len(coverage.outputs) == 1 and coverage.source == empty_sources[0].pin
 
 
 def test_native_logical_family_contract_does_not_require_a_port_body_projection(
