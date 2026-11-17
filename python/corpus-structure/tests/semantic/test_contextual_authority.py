@@ -213,7 +213,12 @@ def test_query_authority_rebuilds_actual_selected_primary_context(recipe, monkey
     foreign["context"]["subject"] = "another-consumer"
     with pytest.raises(ValueError, match="selected source/occurrence context"):
         execute_query_encoder_authority_kernel(
-            semantic_value(foreign), frame.record, asdict(profile()), "", (), check_active=lambda: None
+            semantic_value(foreign),
+            frame.record,
+            asdict(profile()),
+            "",
+            (),
+            check_active=lambda: None,
         )
     wrong = dict(frame.record)
     wrong_pin = dict(pin, source_member="another-member")

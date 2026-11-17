@@ -37,6 +37,7 @@ from .pm2_source import (
     map_d1,
 )
 
+
 def _parser_products(provider, mapping, request, reply, prepared) -> ParserProducts:
     if provider == "maverick" and isinstance(mapping, PM2TokenMap):
         from .pm2_maverick_products import maverick_products

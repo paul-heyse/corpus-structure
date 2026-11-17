@@ -516,31 +516,50 @@ def test_raw_srl_preserves_unicode_whitespace_roles_and_honest_predicate_standin
 
 def test_hanlp_admission_chunks_by_actual_frames_not_sentence_cap():
     from types import SimpleNamespace
+
     from corpus_structure.methods.native_host import host_request_frame_size
 
     selection = SimpleNamespace(provider="hanlp", native=SimpleNamespace(fingerprint="a" * 64))
-    rows = [(index, [(0, word)]) for index, word in enumerate(["é\"", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"])]
+    rows = [
+        (index, [(0, word)])
+        for index, word in enumerate(
+            ['é"', "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+        )
+    ]
     payload = dict(sentences=[[row[1][0][1]] for row in rows], prepare_bulk=True)
     bound = host_request_frame_size(selection, payload, 10000)
     assert list(hanlp_admission_batches(rows, selection, bound)) == [rows]
-    bound = host_request_frame_size(selection, dict(sentences=[[row[1][0][1]] for row in rows[:3]], prepare_bulk=True), 10000)
+    bound = host_request_frame_size(
+        selection, dict(sentences=[[row[1][0][1]] for row in rows[:3]], prepare_bulk=True), 10000
+    )
     batches = list(hanlp_admission_batches(rows, selection, bound))
     assert [row for batch in batches for row in batch] == rows
     assert batches[0] == rows[:3]
     for index, batch in enumerate(batches):
         words = [[word for _, word in row[1]] for row in batch]
-        assert host_request_frame_size(selection, dict(sentences=words, prepare_bulk=True), 10000) <= bound
+        assert (
+            host_request_frame_size(selection, dict(sentences=words, prepare_bulk=True), 10000)
+            <= bound
+        )
         if index + 1 < len(batches):
             extra = [word for _, word in batches[index + 1][0][1]]
-            assert host_request_frame_size(selection, dict(sentences=[*words, extra], prepare_bulk=True), 10000) > bound
+            assert (
+                host_request_frame_size(
+                    selection, dict(sentences=[*words, extra], prepare_bulk=True), 10000
+                )
+                > bound
+            )
 
 
 def test_hanlp_admission_refuses_indivisible_oversized_sentence():
     from types import SimpleNamespace
+
     from corpus_structure.methods.native_host import host_request_frame_size
     from corpus_structure.methods.pm2_worker import Pm2WorkerRefused
 
     selection = SimpleNamespace(provider="hanlp", native=SimpleNamespace(fingerprint="a" * 64))
-    bound = host_request_frame_size(selection, dict(sentences=[["short"]], prepare_bulk=True), 10000)
+    bound = host_request_frame_size(
+        selection, dict(sentences=[["short"]], prepare_bulk=True), 10000
+    )
     with pytest.raises(Pm2WorkerRefused, match="one HanLP admission sentence"):
         list(hanlp_admission_batches([(0, [(0, "x" * 100)])], selection, bound))

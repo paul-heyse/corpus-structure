@@ -92,7 +92,9 @@ def _prepared_parser(
     for row in values:
         key = row.terminal, row.start
         if key in starts and starts[key] != row:
-            raise ValueError("same-terminal same-start alternatives exceed dynamic Earley lexical support")
+            raise ValueError(
+                "same-terminal same-start alternatives exceed dynamic Earley lexical support"
+            )
         starts[key] = row
         terminal_guard(row.start, row.end, atoms, atom=False)
     lexical = {name: _positioned_values(text, name, values) for name in LEXICAL}

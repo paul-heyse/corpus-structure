@@ -422,11 +422,15 @@ def test_page_working_streams_are_not_reemitted_into_record_products(tmp_path):
     # producer-only files or turn them into stage artifact streams.
     invalid = tmp_path / "producer-only"
     invalid.write_bytes(b"not a page assembly")
-    ref = PdfReplayRef(invalid, sha256(invalid.read_bytes()).hexdigest(), invalid.stat().st_size, "page")
+    ref = PdfReplayRef(
+        invalid, sha256(invalid.read_bytes()).hexdigest(), invalid.stat().st_size, "page"
+    )
     spool.pages[1] = ref
     spool.candidates[1] = ref
     result = StreamingPdfResult(native_document(), spool, "success", (), b"recipe", ())
-    refs = result.write_record_batches(tmp_path / "records", build_id="build:one", release_id="release:one", source_digest="a" * 64)
+    refs = result.write_record_batches(
+        tmp_path / "records", build_id="build:one", release_id="release:one", source_digest="a" * 64
+    )
     streams = []
     for item in refs:
         if item.family == "artifact_stream":

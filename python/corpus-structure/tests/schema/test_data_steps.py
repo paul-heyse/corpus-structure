@@ -10,6 +10,7 @@ from sqlalchemy import Column, Text
 
 from corpus_structure.schema import data_steps, model
 from corpus_structure.schema.model_change import ChangeRequest, check_preview, prepare_preview
+from corpus_structure.semantic.alembic_native import NativeTransitionOp
 from corpus_structure.semantic.alembic_privileges import OwnedOperationsOp
 from corpus_structure.semantic.native_objects import (
     NativeAuthoring,
@@ -96,7 +97,9 @@ def test_nullable_ddl_precedes_native_data_and_final_guards():
         ]
     )
     data_steps.order_data_steps(upgrade, (step,), authoring)
-    staged = upgrade.ops[0].ops[0]
+    first = upgrade.ops[0]
+    assert isinstance(first, OwnedOperationsOp)
+    staged = first.ops[0]
     assert isinstance(staged, ops.AddColumnOp)
     assert staged.column.nullable is True
     assert source.nullable is False
@@ -109,16 +112,24 @@ def test_nullable_ddl_precedes_native_data_and_final_guards():
     )
     assert upgrade.ops.index(helper) < data_index
     temporary_retirements = upgrade.ops[2:data_index]
-    assert {item.before.identity for item in temporary_retirements} == {
-        guard.identity for guard in authoring.desired
-    }
-    assert all(item.after is None for item in temporary_retirements)
+    retired = set()
+    for item in temporary_retirements:
+        assert isinstance(item, NativeTransitionOp)
+        assert item.before is not None and item.after is None
+        retired.add(item.before.identity)
+    assert retired == {guard.identity for guard in authoring.desired}
     final = upgrade.ops[data_index + 1]
-    assert isinstance(final.ops[0], ops.AlterColumnOp)
-    assert final.ops[0].modify_nullable is False
+    assert isinstance(final, OwnedOperationsOp)
+    alteration = final.ops[0]
+    assert isinstance(alteration, ops.AlterColumnOp)
+    assert alteration.modify_nullable is False
     restores = upgrade.ops[data_index + 2 :]
-    assert {item.after for item in restores} == set(authoring.desired)
-    assert all(item.before is None for item in restores)
+    restored = set()
+    for item in restores:
+        assert isinstance(item, NativeTransitionOp)
+        assert item.before is None
+        restored.add(item.after)
+    assert restored == set(authoring.desired)
 
 
 def test_only_not_null_is_deferred_when_a_column_also_changes_type():
@@ -133,7 +144,10 @@ def test_only_not_null_is_deferred_when_a_column_also_changes_type():
     )
     upgrade = ops.UpgradeOps([OwnedOperationsOp("corpus_sem_publisher", [change])])
     data_steps.order_data_steps(upgrade, (step,), guarded_authoring(step))
-    staged = upgrade.ops[0].ops[0]
+    first = upgrade.ops[0]
+    assert isinstance(first, OwnedOperationsOp)
+    staged = first.ops[0]
+    assert isinstance(staged, ops.AlterColumnOp)
     assert staged.modify_type is change.modify_type
     assert staged.modify_nullable is None
     assert change.modify_nullable is False

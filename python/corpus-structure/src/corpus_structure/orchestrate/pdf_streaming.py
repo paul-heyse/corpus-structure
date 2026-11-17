@@ -217,26 +217,41 @@ def run_private_native_pdf_build(
             from corpus_structure.ingest.pdf_build_spool import PdfBuildSpool
 
             spool = PdfBuildSpool(
-                directory, build_id=build.build_id, task_id=claim.task_id,
-                attempt=claim.attempt, holder=holder, check_active=check_active,
+                directory,
+                build_id=build.build_id,
+                task_id=claim.task_id,
+                attempt=claim.attempt,
+                holder=holder,
+                check_active=check_active,
             )
             replay_root = spool.root
 
             def retain_replay(replay: PdfReplayRef) -> None:
-                if replay.family not in {*STAGE_FAMILIES, "page", "candidate_payload", "companion:occurrence"}:
+                if replay.family not in {
+                    *STAGE_FAMILIES,
+                    "page",
+                    "candidate_payload",
+                    "companion:occurrence",
+                }:
                     raise ValueError("unknown private PDF replay family")
                 if replay.family == "page":
                     import json
+
                     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 
                     replay.verify()
                     with replay.path.open() as source:
                         page = json.load(source)
                     raster = page["raster"]
-                    spool.append(PdfReplayRef(
-                        Path(raster["path"]), raster["digest"], raster["byte_length"],
-                        "native-raster", page_no=page["page"]["page_no"],
-                    ))
+                    spool.append(
+                        PdfReplayRef(
+                            Path(raster["path"]),
+                            raster["digest"],
+                            raster["byte_length"],
+                            "native-raster",
+                            page_no=page["page"]["page_no"],
+                        )
+                    )
                 spool.append(replay)
 
             def adopt_replay(replay: PdfReplayRef) -> None:
@@ -331,12 +346,20 @@ def run_private_native_pdf_build(
                 for replay in spool.entries:
                     if replay.family == "candidate_payload":
                         encoded = encoded_replay(replay, payload_family)
-                        yield {"kind": "inline_candidate_pages", "ordinal": encoded.page_no,
-                               "value": encoded}
+                        yield {
+                            "kind": "inline_candidate_pages",
+                            "ordinal": encoded.page_no,
+                            "value": encoded,
+                        }
 
             adopt_pdf_companions(
-                engine, build, "native_metadata", candidates(), "native:candidate-metadata",
-                check_active=check_active, cancellation=cancellation,
+                engine,
+                build,
+                "native_metadata",
+                candidates(),
+                "native:candidate-metadata",
+                check_active=check_active,
+                cancellation=cancellation,
             )
             for replay in spool.entries:
                 if replay.family not in {"page", "native-raster", "candidate_payload"}:
@@ -352,7 +375,10 @@ def run_private_native_pdf_build(
                         {
                             "kind": "runtime_report",
                             "ordinal": 0,
-                            "value": {"effective_options": reply.effective_options.decode(), "spool": spool.report()},
+                            "value": {
+                                "effective_options": reply.effective_options.decode(),
+                                "spool": spool.report(),
+                            },
                         },
                     ),
                     replay_key="native:runtime-report",
@@ -379,6 +405,7 @@ def run_private_native_pdf_build(
 
             completion = replay_root / "records" / "completion.jsonl"
             if completion.exists():
+
                 def formula_outcomes():
                     with completion.open() as completion_file:
                         for ordinal, line in enumerate(completion_file):
@@ -391,8 +418,13 @@ def run_private_native_pdf_build(
                             yield {"kind": "formula_outcomes", "ordinal": ordinal, "value": body}
 
                 adopt_pdf_companions(
-                    engine, build, "native_metadata", formula_outcomes(), "native:formulas",
-                    check_active=check_active, cancellation=cancellation,
+                    engine,
+                    build,
+                    "native_metadata",
+                    formula_outcomes(),
+                    "native:formulas",
+                    check_active=check_active,
+                    cancellation=cancellation,
                 )
             check_active()
         finally:
@@ -425,6 +457,7 @@ def publish_pdf_record_draft(
     failure leaves authenticated private progress and original custody available.
     """
     from hashlib import sha256
+
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
     from corpus_structure.semantic.pdf_publication import (
         freeze_pdf_build,
@@ -488,8 +521,14 @@ def publish_pdf_record_draft(
             )
     from corpus_structure.ingest.pdf_build_spool import PdfBuildSpool
 
-    draft_spool = PdfBuildSpool(directory, build_id=build.build_id, task_id=claim.task_id,
-                               attempt=claim.attempt, holder=holder, check_active=check_active)
+    draft_spool = PdfBuildSpool(
+        directory,
+        build_id=build.build_id,
+        task_id=claim.task_id,
+        attempt=claim.attempt,
+        holder=holder,
+        check_active=check_active,
+    )
     owner = draft_spool.root
     spool = PdfStreamSpool(owner / "pages", check_active=check_active)
     streamed = StreamingPdfResult(

@@ -156,8 +156,11 @@ def test_helper_mutation_respects_actual_capability_resources(
     port, authorized, identity = acquired_port(captured_pdf_ports, operation)
     from corpus_structure.ingest import pdf_build_spool, pdf_health, pdf_hierarchy
 
-    module = {"pdf_health": pdf_health, "pdf_hierarchy": pdf_hierarchy,
-              "pdf_build_spool": pdf_build_spool}[helper]
+    module = {
+        "pdf_health": pdf_health,
+        "pdf_hierarchy": pdf_hierarchy,
+        "pdf_build_spool": pdf_build_spool,
+    }[helper]
     path = Path(module.__file__).resolve()
     original = Path.read_bytes
     before = original(path)
@@ -175,14 +178,17 @@ def test_helper_mutation_respects_actual_capability_resources(
 
     monkeypatch.setattr(Path, "read_bytes", altered)
     if helper == "pdf_build_spool" and operation in {
-        "source.pdf_views/discovery", "source.pdf_organized_views/discovery"
+        "source.pdf_views/discovery",
+        "source.pdf_organized_views/discovery",
     }:
         # Discovery reads a sealed publication and owns no producer spool. Its
         # own captured reader resources remain current when spool code changes.
         port._verify()
         assert authorized == [identity, identity]
     else:
-        with pytest.raises((PortRefusal, ValueError), match=r"resources differ|implementation changed"):
+        with pytest.raises(
+            (PortRefusal, ValueError), match=r"resources differ|implementation changed"
+        ):
             port._verify()
         assert authorized == [identity]
 

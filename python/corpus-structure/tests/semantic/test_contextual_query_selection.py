@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager
 from copy import deepcopy
+from typing import Any
 
 import pytest
 
@@ -24,12 +25,18 @@ def selection_case():
     def entry(product, member):
         return SelectedSourceSetEntry.from_selected_header(
             dict(
-                product_id=product, member_id=member,
-                subject=context.subject, subject_definition=context.subject_definition,
+                product_id=product,
+                member_id=member,
+                subject=context.subject,
+                subject_definition=context.subject_definition,
                 original_source=context.original_source,
                 analyzed_scope=json_loads(context.analyzed_scope),
-                use_id="unadmitted:use", derivation_id="unadmitted:episode",
-                output_member_id=None, role="result", position=0, multiplicity=1,
+                use_id="unadmitted:use",
+                derivation_id="unadmitted:episode",
+                output_member_id=None,
+                role="result",
+                position=0,
+                multiplicity=1,
             ),
             cut,
         )
@@ -42,12 +49,17 @@ def selection_case():
 def test_acquisition_retains_source_and_carrier_member_proofs(monkeypatch):
     frame, context, cut, source, occurrence = selection_case()
     selectors = [
-        owner.ContextualSelectedProduct(cut.record["demand_id"], value.entry.product,
-                                        member_id=value.entry.member)
+        owner.ContextualSelectedProduct(
+            cut.record["demand_id"], value.entry.product, member_id=value.entry.member
+        )
         for value in (source, occurrence)
     ]
-    bodies = {source.entry.product: frame.value,
-              occurrence.entry.product: dict(pin=frame.pin.values(), anchors=[dict(start=0, end=3, source_piece="Ada")])}
+    bodies: dict[str, Any] = {
+        source.entry.product: frame.value,
+        occurrence.entry.product: dict(
+            pin=frame.pin.values(), anchors=[dict(start=0, end=3, source_piece="Ada")]
+        ),
+    }
 
     def selected(connection, selection, **kwargs):
         value = source if selection == selectors[0] else occurrence
@@ -59,9 +71,17 @@ def test_acquisition_retains_source_and_carrier_member_proofs(monkeypatch):
     )
     assert acquired.query_context == context
     assert acquired.cuts == (cut, cut)
-    assert [value.name for value in acquired.source_sets] == ["contextual-query-source", "contextual-query-occurrence"]
-    assert [value.entries for value in acquired.source_sets] == [(source.entry,), (occurrence.entry,)]
-    for selected_set, selected_entry in zip(acquired.source_sets, (source, occurrence), strict=True):
+    assert [value.name for value in acquired.source_sets] == [
+        "contextual-query-source",
+        "contextual-query-occurrence",
+    ]
+    assert [value.entries for value in acquired.source_sets] == [
+        (source.entry,),
+        (occurrence.entry,),
+    ]
+    for selected_set, selected_entry in zip(
+        acquired.source_sets, (source, occurrence), strict=True
+    ):
         assert isinstance(selected_set.acquisition, SelectedSupportAcquisition)
         assert selected_set.acquisition.reads[0].proofs == (selected_entry.proof,)
     bodies[occurrence.entry.product] = deepcopy(bodies[occurrence.entry.product])
@@ -79,17 +99,33 @@ def test_selected_member_uses_its_own_nominal_kind_and_body(monkeypatch):
     selector = owner.ContextualSelectedProduct(
         cut.record["demand_id"], occurrence.entry.product, member_id=occurrence.entry.member
     )
-    expected = dict(contribution_id="unadmitted:carrier", anchors=[dict(start=0, end=3, source_piece="Ada")])
+    expected = dict(
+        contribution_id="unadmitted:carrier", anchors=[dict(start=0, end=3, source_piece="Ada")]
+    )
 
     class Index:
         def frontier_rows(self, name):
-            return (dict(fate="fulfilled", use_id="unadmitted:use", derivation_id="unadmitted:episode"),)
+            return (
+                dict(fate="fulfilled", use_id="unadmitted:use", derivation_id="unadmitted:episode"),
+            )
 
         def mapping(self, name, key):
             return {
-                "kb.data_product": {selector.product_id: dict(kind_contract="parent-kind", canonical_body=semantic_value({"not": "the carrier"}))},
-                "kb.data_product_member": {(selector.product_id, selector.member_id): dict(kind_contract="member-kind", body=semantic_value(expected))},
-                "sem.data_kind_contract": {"parent-kind": dict(kind="urn:parent"), "member-kind": dict(kind="urn:carrier")},
+                "kb.data_product": {
+                    selector.product_id: dict(
+                        kind_contract="parent-kind",
+                        canonical_body=semantic_value({"not": "the carrier"}),
+                    )
+                },
+                "kb.data_product_member": {
+                    (selector.product_id, selector.member_id): dict(
+                        kind_contract="member-kind", body=semantic_value(expected)
+                    )
+                },
+                "sem.data_kind_contract": {
+                    "parent-kind": dict(kind="urn:parent"),
+                    "member-kind": dict(kind="urn:carrier"),
+                },
             }[name]
 
     @contextmanager
@@ -102,7 +138,11 @@ def test_selected_member_uses_its_own_nominal_kind_and_body(monkeypatch):
 
     monkeypatch.setattr(demand_results, "selected_record_index", index)
     monkeypatch.setattr(owner, "selected_source_entries", selected_entries)
-    body, entry, actual_cut = owner._selected_product(None, selector, project_id=context.project_id, kind_name="urn:carrier")
+    body, entry, actual_cut = owner._selected_product(
+        None, selector, project_id=context.project_id, kind_name="urn:carrier"
+    )
     assert body == expected and entry == occurrence and actual_cut == cut
     with pytest.raises(ValueError, match="nominal contract"):
-        owner._selected_product(None, selector, project_id=context.project_id, kind_name="urn:parent")
+        owner._selected_product(
+            None, selector, project_id=context.project_id, kind_name="urn:parent"
+        )

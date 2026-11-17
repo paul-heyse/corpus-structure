@@ -298,9 +298,13 @@ def hanlp_admission_batches(rows, selection, frame_bytes):
     batch, size = [], base
     for row in rows:
         words = [word for _, word in row[1]]
-        width = len(json.dumps(words, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode())
+        width = len(
+            json.dumps(words, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
+        )
         if base + width > frame_bytes:
-            raise Pm2WorkerRefused("one HanLP admission sentence exceeds its request frame byte bound")
+            raise Pm2WorkerRefused(
+                "one HanLP admission sentence exceeds its request frame byte bound"
+            )
         additional = width + bool(batch)
         if batch and size + additional > frame_bytes:
             yield batch

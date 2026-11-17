@@ -283,7 +283,6 @@ def test_cached_receipts_still_compose_required_union(tmp_path):
     assert observed == classify([original, retry], required_from=[original])
 
 
-
 def test_settled_parallel_retry_preserves_raw_inventory_and_exports_only_unresolved(
     tmp_path, monkeypatch
 ):
@@ -297,19 +296,28 @@ def test_settled_parallel_retry_preserves_raw_inventory_and_exports_only_unresol
     def parallel_receipt(directory, selected, *, failed=()):
         aliases = {node + "@cohort": node for node in selected}
         reports = [
-            report(phase, "failed" if phase == "call" and node in failed else "passed",
-                   nodeid=raw)
+            report(phase, "failed" if phase == "call" and node in failed else "passed", nodeid=raw)
             for raw, node in aliases.items()
             for phase in ("setup", "call", "teardown")
         ]
         receipt(directory, reports, selected=tuple(aliases), returncode=int(bool(failed)))
-        manifest = {"event": "collection_finish", "selected": list(aliases),
-                    "nodeid_aliases": aliases, "native_required": []}
-        stream(directory / "events-controller-12.jsonl", [
-            manifest,
-            *({"event": event, "nodeid": raw, "pid": 12, "worker": "controller"}
-              for raw in aliases for event in ("logstart", "logfinish")),
-        ])
+        manifest: dict[str, object] = {
+            "event": "collection_finish",
+            "selected": list(aliases),
+            "nodeid_aliases": aliases,
+            "native_required": [],
+        }
+        stream(
+            directory / "events-controller-12.jsonl",
+            [
+                manifest,
+                *(
+                    {"event": event, "nodeid": raw, "pid": 12, "worker": "controller"}
+                    for raw in aliases
+                    for event in ("logstart", "logfinish")
+                ),
+            ],
+        )
         owner._write_classification(directory, classify([directory]))
         return manifest
 
@@ -339,6 +347,7 @@ def test_settled_parallel_retry_preserves_raw_inventory_and_exports_only_unresol
     assert covered["required"] == nodes
     assert covered["required_unresolved"] == []
     assert covered == classify([original, retry], required_from=[original])
+
 
 def test_teardown_failure_overrides_call_and_keeps_unstarted(tmp_path: Path) -> None:
     result = classify_receipt(

@@ -7,12 +7,16 @@ from corpus_structure.methods import pm2_hanlp
 
 def test_cpu_bulk_preparation_can_exceed_inference_sentence_cap(tmp_path, monkeypatch):
     parameter = SimpleNamespace(device=SimpleNamespace(type="cpu"), dtype="float32")
-    tasks = {name: SimpleNamespace(config=SimpleNamespace(max_arg_width=20)) for name in pm2_hanlp._TASKS}
+    tasks = {
+        name: SimpleNamespace(config=SimpleNamespace(max_arg_width=20)) for name in pm2_hanlp._TASKS
+    }
     model = SimpleNamespace(
         resolve_tasks=lambda tasks, skip: [list(pm2_hanlp._TASKS)],
         model_=SimpleNamespace(
             parameters=lambda: iter([parameter]),
-            encoder=SimpleNamespace(transformer=SimpleNamespace(config=SimpleNamespace(_attn_implementation="eager"))),
+            encoder=SimpleNamespace(
+                transformer=SimpleNamespace(config=SimpleNamespace(_attn_implementation="eager"))
+            ),
         ),
         tasks=tasks,
         config=SimpleNamespace(
@@ -39,7 +43,11 @@ def test_cpu_bulk_preparation_can_exceed_inference_sentence_cap(tmp_path, monkey
     sentences = [[str(index)] for index in range(startup["max_sentences"] + 2)]
     admitted = infer(dict(sentences=sentences, prepare_bulk=True))
     assert admitted["outcome"] == "prepared_batch"
-    assert [(row["ordinal"], row["row_tokens"]) for row in admitted["members"]] == list(enumerate(range(3, 3 + len(sentences))))
+    assert [(row["ordinal"], row["row_tokens"]) for row in admitted["members"]] == list(
+        enumerate(range(3, 3 + len(sentences)))
+    )
     assert calls == [sentences]
-    assert infer(dict(sentences=sentences)) == dict(outcome="limited", reason="sentences", limit=startup["max_sentences"])
+    assert infer(dict(sentences=sentences)) == dict(
+        outcome="limited", reason="sentences", limit=startup["max_sentences"]
+    )
     assert calls == [sentences]

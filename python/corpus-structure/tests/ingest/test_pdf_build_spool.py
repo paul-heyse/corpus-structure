@@ -10,8 +10,14 @@ from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 
 
 def spool(root, check_active=lambda: None, *, attempt=1):
-    return PdfBuildSpool(root, build_id="build:one", task_id=3, attempt=attempt,
-                         holder="holder:one", check_active=check_active)
+    return PdfBuildSpool(
+        root,
+        build_id="build:one",
+        task_id=3,
+        attempt=attempt,
+        holder="holder:one",
+        check_active=check_active,
+    )
 
 
 def replay(owner, name="page", content=b"actual retained bytes"):
@@ -26,8 +32,13 @@ def test_manifest_records_exact_relative_descriptor_and_attempt(tmp_path):
     owner.append(item)
     owner.append(item)
     lines = [json.loads(line) for line in owner.path.read_text().splitlines()]
-    assert lines[0] == {"version": "pdf-build-spool-1", "build_id": "build:one",
-                        "task_id": 3, "attempt": 1, "holder": "holder:one"}
+    assert lines[0] == {
+        "version": "pdf-build-spool-1",
+        "build_id": "build:one",
+        "task_id": 3,
+        "attempt": 1,
+        "holder": "holder:one",
+    }
     assert len(lines) == 2
     assert lines[1]["replay"]["path"] == "page"
     assert lines[1]["replay"]["digest"] == sha256(b"actual retained bytes").hexdigest()

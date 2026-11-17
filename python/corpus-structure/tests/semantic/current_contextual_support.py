@@ -264,8 +264,11 @@ def query_intent(kernel, source, occurrence, *, replicate, context_selection=Non
     def chosen(value):
         pin = value.read
         return ContextualSelectedProduct(
-            pin.demand_id, value.row["product_id"], read_id=pin.read_id,
-            expected_cut=pin.cut_id, member_id=value.row["member_id"],
+            pin.demand_id,
+            value.row["product_id"],
+            read_id=pin.read_id,
+            expected_cut=pin.cut_id,
+            member_id=value.row["member_id"],
         )
 
     with kernel.purpose("read").begin() as connection:
@@ -273,13 +276,19 @@ def query_intent(kernel, source, occurrence, *, replicate, context_selection=Non
             connection, project_id=PROJECT, source=chosen(source), occurrence=chosen(occurrence)
         )
     return freeze_contextual_query_demand(
-        kernel.model, selection, replicate=replicate,
+        kernel.model,
+        selection,
+        replicate=replicate,
         inference="exact-retained-source-occurrence",
         execution_profile=kernel.recipe.execution_profile,
         context_selection=context_selection,
-        source_sets=(FrozenSourceSet.from_selected(
-            "query-context-primary", tuple(value.entry() for value in primary)
-        ),) if context_selection is not None else (),
+        source_sets=(
+            FrozenSourceSet.from_selected(
+                "query-context-primary", tuple(value.entry() for value in primary)
+            ),
+        )
+        if context_selection is not None
+        else (),
     )
 
 

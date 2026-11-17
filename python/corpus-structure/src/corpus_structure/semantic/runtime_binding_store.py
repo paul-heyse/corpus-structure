@@ -10,7 +10,6 @@ from .data_operation_runtime import (
     validate_data_operation_runtime,
 )
 from .identifiers import RuntimeId
-from .metadata import table
 from .types import PreparedRelease
 
 

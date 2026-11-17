@@ -177,7 +177,8 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
         cue_products = {
             value.body["semantic_type"]: value
             for value in selected(
-                kernel, cue_retained["demand_id"],
+                kernel,
+                cue_retained["demand_id"],
                 kind="https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateSourceContribution",
             )
         }
@@ -185,13 +186,18 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
         for role in ("subject", "unrelated", "object"):
             carrier = cue_products["source_rule." + role]
             query_demands[role], _ = run_intent(
-                kernel, query_intent(
-                    kernel, original, carrier,
+                kernel,
+                query_intent(
+                    kernel,
+                    original,
+                    carrier,
                     replicate="actual-finite-count-query-observations:" + role,
-                )
+                ),
             )
             (queries[role],) = retained_products(kernel, query_demands[role], "DdoContextualQuery")
-            assert queries[role].body["carrier"]["contribution_id"] == carrier.body["contribution_id"]
+            assert (
+                queries[role].body["carrier"]["contribution_id"] == carrier.body["contribution_id"]
+            )
 
         def query_for(role):
             return queries[role]

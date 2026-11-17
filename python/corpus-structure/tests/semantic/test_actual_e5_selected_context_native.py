@@ -227,7 +227,6 @@ def assert_published_cpu(kernel, product, operation):
     assert len(cpu["request_digest"]) == len(cpu["result_digest"]) == 64
 
 
-
 def assert_operation_fulfilled(kernel, result, operation, *, allow_reuse=False):
     # DemandAdvance.snapshot is the native WireReadDemandResultResult frontier.
     # Receipt count describes this invocation; an authenticated fulfilled use may
@@ -326,7 +325,10 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
     query_demand, result = run_intent(
         kernel,
         query_intent(
-            kernel, original, occurrence, replicate="actual-E5:" + recipe,
+            kernel,
+            original,
+            occurrence,
+            replicate="actual-E5:" + recipe,
             context_selection={
                 "recipe": recipe,
                 "evidence": {"product_id": primary.row["product_id"], "member_id": member},
@@ -382,9 +384,15 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
         inventory,
     )
     demand, retrieval_result = run_intent(kernel, retrieval_intent(kernel, selection, budget=3))
-    assert_operation_fulfilled(kernel, retrieval_result, "retrieve.contextual_vectors/selection", allow_reuse=True)
-    assert_operation_fulfilled(kernel, retrieval_result, "retrieve.contextual_scores/declared", allow_reuse=True)
-    assert_operation_fulfilled(kernel, retrieval_result, "retrieve.contextual/declared", allow_reuse=True)
+    assert_operation_fulfilled(
+        kernel, retrieval_result, "retrieve.contextual_vectors/selection", allow_reuse=True
+    )
+    assert_operation_fulfilled(
+        kernel, retrieval_result, "retrieve.contextual_scores/declared", allow_reuse=True
+    )
+    assert_operation_fulfilled(
+        kernel, retrieval_result, "retrieve.contextual/declared", allow_reuse=True
+    )
     (scores,) = retained_products(kernel, demand, "DdoContextualNativeScores")
     (retrieved,) = retained_products(kernel, demand, "DdoContextualRetrievalProduct")
     candidates = source_python(retrieved.body["candidate_list"])

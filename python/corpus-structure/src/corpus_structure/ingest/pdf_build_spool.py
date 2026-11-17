@@ -33,12 +33,22 @@ class PdfBuildSpool:
         self.check_active = check_active
         check_active()
         root = root.resolve()
-        self.root = root / build_id / f"attempt-{attempt}-{sha256(holder.encode()).hexdigest()[:16]}"
+        self.root = (
+            root / build_id / f"attempt-{attempt}-{sha256(holder.encode()).hexdigest()[:16]}"
+        )
         self.root.mkdir(parents=True, exist_ok=False, mode=0o700)
         self.path = self.root / "manifest.jsonl"
         self._entries: dict[str, PdfReplayRef] = {}
-        self._write({"version": "pdf-build-spool-1", "build_id": build_id,
-                     "task_id": task_id, "attempt": attempt, "holder": holder}, mode="x")
+        self._write(
+            {
+                "version": "pdf-build-spool-1",
+                "build_id": build_id,
+                "task_id": task_id,
+                "attempt": attempt,
+                "holder": holder,
+            },
+            mode="x",
+        )
         for directory in (self.root.parent, root):
             fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
             try:
@@ -81,7 +91,7 @@ class PdfBuildSpool:
             if prior != replay:
                 raise ValueError("PDF spool replay identity changed")
             return
-        value = asdict(replay)
+        value: dict[str, Any] = asdict(replay)
         value["path"] = key
         self._write({"replay": value})
         self._entries[key] = replay
@@ -92,7 +102,15 @@ class PdfBuildSpool:
 
     def report(self) -> dict[str, Any]:
         self.check_active()
-        return {"manifest_sha256": sha256(self.path.read_bytes()).hexdigest(),
-                "artifacts": [{"digest": replay.digest, "byte_length": replay.byte_length,
-                               "family": replay.family, "page_no": replay.page_no}
-                              for replay in self.entries]}
+        return {
+            "manifest_sha256": sha256(self.path.read_bytes()).hexdigest(),
+            "artifacts": [
+                {
+                    "digest": replay.digest,
+                    "byte_length": replay.byte_length,
+                    "family": replay.family,
+                    "page_no": replay.page_no,
+                }
+                for replay in self.entries
+            ],
+        }

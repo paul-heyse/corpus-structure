@@ -187,8 +187,13 @@ def acquire_contextual_query_selection(connection, *, project_id, source, occurr
     )
     coordinate = source_body["source"]
     pin = DeclaredRecordSource(
-        coordinate["document"], coordinate["projection"], coordinate["section_pointer"],
-        coordinate["membership"], context, address.product, address.member,
+        coordinate["document"],
+        coordinate["projection"],
+        coordinate["section_pointer"],
+        coordinate["membership"],
+        context,
+        address.product,
+        address.member,
         source_kind,
     ).pin()
     carrier = occurrence_entry.entry
@@ -196,7 +201,8 @@ def acquire_contextual_query_selection(connection, *, project_id, source, occurr
         carrier.subject != context.subject
         or carrier.subject_definition != context.subject_definition
         or carrier.original_source != context.original_source
-        or json_context_meaning(carrier.analyzed_scope) != json_context_meaning(context.analyzed_scope)
+        or json_context_meaning(carrier.analyzed_scope)
+        != json_context_meaning(context.analyzed_scope)
         or occurrence_body["pin"] != pin
     ):
         raise ValueError("contextual carrier differs from its exact selected native source/context")
@@ -211,7 +217,13 @@ def acquire_contextual_query_selection(connection, *, project_id, source, occurr
 
 
 def freeze_contextual_query_demand(
-    model, selection, *, replicate, inference, execution_profile, context_selection=None,
+    model,
+    selection,
+    *,
+    replicate,
+    inference,
+    execution_profile,
+    context_selection=None,
     source_sets=(),
 ):
     from .data_operation_demands import OperationSelection, RootSubject, freeze_demand
@@ -227,10 +239,15 @@ def freeze_contextual_query_demand(
         model,
         roots=(RootSubject(context.subject, context.original_source, context.analyzed_scope),),
         targets=(operation,),
-        selections=(OperationSelection(
-            operation, replicate=replicate,
-            parameters=json_bytes({} if context_selection is None else dict(context_selection=context_selection)),
-        ),),
+        selections=(
+            OperationSelection(
+                operation,
+                replicate=replicate,
+                parameters=json_bytes(
+                    {} if context_selection is None else dict(context_selection=context_selection)
+                ),
+            ),
+        ),
         inference=inference,
         execution_profile=execution_profile,
         source_sets=(*selection.source_sets, *source_sets),

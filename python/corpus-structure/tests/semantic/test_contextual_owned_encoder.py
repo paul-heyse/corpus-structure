@@ -120,8 +120,9 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
     for query_operation in (operation, selected):
         inputs = {role.name: role for role in query_operation.roles if role.direction == "input"}
         for name in ("source", "occurrence"):
-            assert inputs[name].support is not None
-            assert inputs[name].support.source_set == "contextual-query-" + name
+            support = inputs[name].support
+            assert support is not None
+            assert support.source_set == "contextual-query-" + name
             assert inputs[name].minimum == inputs[name].maximum == 1
             assert inputs[name].subject_target == "subject"
     assert len(selected.output_witnesses) == 2

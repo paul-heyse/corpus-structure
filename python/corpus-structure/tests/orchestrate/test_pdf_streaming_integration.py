@@ -124,10 +124,17 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
         def checked(*args, **kwargs):
             assert workers and all(worker.closed and worker.pid is None for worker in workers)
             return actual(*args, **kwargs)
+
         return checked
 
-    monkeypatch.setattr(pdf_staging, "adopt_pdf_batch", after_retirement(pdf_staging.adopt_pdf_batch))
-    monkeypatch.setattr(pdf_publication, "adopt_pdf_companion_batch", after_retirement(pdf_publication.adopt_pdf_companion_batch))
+    monkeypatch.setattr(
+        pdf_staging, "adopt_pdf_batch", after_retirement(pdf_staging.adopt_pdf_batch)
+    )
+    monkeypatch.setattr(
+        pdf_publication,
+        "adopt_pdf_companion_batch",
+        after_retirement(pdf_publication.adopt_pdf_companion_batch),
+    )
     original_run = pdf_streaming.run_private_native_pdf_build
     adopted, private = [], []
 
