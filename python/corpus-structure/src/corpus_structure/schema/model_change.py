@@ -9,6 +9,7 @@ import subprocess
 import sys
 from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
+from dataclasses import asdict
 from difflib import unified_diff
 from hashlib import sha256
 from pathlib import Path
@@ -203,6 +204,8 @@ class ChangePreview(BaseModel):
     source_migrations: tuple[SourceMigrationPreview, ...] = ()
     source_comparison: EffectiveChangeComparison | None = None
     query_analysis: ProjectionAnalysisComparison | None = None
+    preparation_fingerprint: str | None = None
+    inspection_sha256: str | None = None
 
     @model_validator(mode="after")
     def runtime_matches_application(self):
@@ -296,6 +299,105 @@ def generator_fingerprint(root: Path) -> str:
     return digest.hexdigest()
 
 
+def compilation_fingerprint(
+    root: Path, request: ChangeRequest, *, proposed: dict[str, bytes] | None = None,
+    native_base: NativeMigrationBase | None = None,
+    deployment_base: NativeMigrationBase | None = None,
+) -> str:
+    """Identify acquired compilation inputs, not compiled or admitted products.
+
+    A fresh acquisition also detects changed input membership and optional additions.
+    Generator-owned output paths are excluded from implementation hashing: their
+    authored inputs and exact reviewed output bytes have separate owners.
+    """
+    from corpus_structure.schema.generate import generated_output_paths
+    from corpus_structure.semantic.determinants import (
+        ANALYSIS_LIBRARIES, BYTE_LIBRARIES, DEPLOYMENT_LIBRARIES, determinant_version,
+    )
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    physical = physical_release_sources(root, request.physical)
+    acquired = None
+    acquired_files = ()
+    if request.data_operations:
+        from corpus_structure.semantic.data_operation_preparation import acquire_data_operation_inputs
+
+        try:
+            inputs = acquire_data_operation_inputs(root, request.data_operations, proposed=proposed)
+        except ValueError as error:
+            raise model.ModelError([f"compilation inputs changed; prepare a fresh preview: {error}"]) from error
+        acquired = (inputs.bundle, inputs.dependencies, inputs.profile)
+        acquired_files = tuple((name, sha256(content).hexdigest()) for name, content in inputs.files)
+    elif request.packs:
+        from corpus_structure.semantic.regeneration import acquire_packs
+
+        if any(not name or name in {".", ".."} or Path(name).name != name for name in request.packs):
+            raise model.ModelError(["select declared domain pack names"])
+        acquired = acquire_packs(
+            tuple(root / "domains" / name for name in request.packs), physical_sources=physical
+        )
+    input_facts = None
+    if acquired is not None:
+        bundle, dependencies, profile = acquired
+        input_facts = {
+            "root": bundle.root,
+            "sources": sorted((item.name, item.digest) for item in bundle.sources),
+            "dependencies": sorted((item.name, item.digest) for item in dependencies.artifacts),
+            "vocabularies": [asdict(item) for item in dependencies.vocabularies],
+            "ontology_sources": list(dependencies.ontology_sources),
+            "profile": asdict(profile),
+        }
+    generated = generated_output_paths()
+    implementation = []
+    selected_package = root / preparation.PACKAGE_PATH
+    running_package = Path(__file__).resolve().parents[1]
+    for label, directory in (("selected", selected_package), ("running", running_package)):
+        paths = {
+            path.relative_to(directory).as_posix(): path
+            for path in directory.rglob("*")
+            if path.is_file() and path.suffix in {".py", ".sql", ".yaml", ".json", ".lark", ".jinja", ".j2"}
+            and "__pycache__" not in path.parts
+        }
+        if directory == selected_package and proposed:
+            for name in proposed:
+                path = root / name
+                if path.is_relative_to(directory):
+                    paths[path.relative_to(directory).as_posix()] = path
+        for relative, path in sorted(paths.items()):
+            if relative in generated or relative.startswith("model/"):
+                continue
+            selected_name = (preparation.PACKAGE_PATH / relative).as_posix()
+            content = (
+                proposed[selected_name]
+                if directory == selected_package and proposed and selected_name in proposed
+                else path.read_bytes()
+            )
+            implementation.append((label, relative, sha256(content).hexdigest()))
+    # These are production compiler, Python-source extraction, projection-analysis
+    # and native authoring dependencies, rather than unrelated environment tools.
+    libraries = set(BYTE_LIBRARIES) | set(ANALYSIS_LIBRARIES) | set(DEPLOYMENT_LIBRARIES) | {
+        "ruff", "pyyaml", "networkx", "astroid", "griffe", "libcst", "ast-grep-py", "ty",
+    }
+    facts = {
+        "version": "model-compilation-inputs-v1",
+        "request": request.model_dump(mode="json"),
+        "native_base": native_base.model_dump(mode="json") if native_base is not None else None,
+        "deployment_base": deployment_base.model_dump(mode="json") if deployment_base is not None else None,
+        "canonical": {
+            name: value if value is not None else _read(root, (preparation.MODEL_PATH / (name + ".yaml")).as_posix())
+            for name, value in (("core", request.core), ("system", request.system))
+        },
+        "inputs": input_facts,
+        "acquired_files": acquired_files,
+        "physical": sorted((name, sha256(value).hexdigest()) for name, value in (physical or {}).items()),
+        "implementation": implementation,
+        "python": sys.version,
+        "compilers": model.compilers(),
+        "libraries": {name: determinant_version(name) for name in sorted(libraries)},
+    }
+    return sha256(canonical_bytes(facts)).hexdigest()
+
+
 def _digest(content: str | None) -> str | None:
     return sha256(content.encode()).hexdigest() if content is not None else None
 
@@ -368,6 +470,7 @@ def prepare_preview(
     release_manifest_sha256: str | None = None,
     release_artifacts_sha256: str | None = None,
     expected_physical: str | None = None,
+    prepared_application: PreparedRelease | None = None,
 ) -> ChangePreview:
     root = root.resolve()
     if request.source_migrations and not request.data_operations:
@@ -521,11 +624,13 @@ def prepare_preview(
             prepare_data_operation_inputs,
         )
 
-        _, _, _, prepared_source = prepare_data_operation_inputs(
-            root,
-            request.data_operations,
-            proposed={path: value.encode() for path, value in proposed.items()},
-        )
+        prepared_source = prepared_application
+        if prepared_source is None:
+            _, _, _, prepared_source = prepare_data_operation_inputs(
+                root,
+                request.data_operations,
+                proposed={path: value.encode() for path, value in proposed.items()},
+            )
         if local_release is not None and prepared_source.release_id != local_release:
             raise model.ModelError(["proposed-source release differs from reviewed release"])
         from corpus_structure.semantic.data_operation_admission import bound_data_operation_model

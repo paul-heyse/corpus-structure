@@ -209,6 +209,14 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
         assert result.exit_code == 0, result.output
         return json.loads(result.stdout)
 
+    original_prepare = commands._prepare_release
+    preparations = []
+
+    def counted_prepare(*args, **kwargs):
+        preparations.append(1)
+        return original_prepare(*args, **kwargs)
+
+    monkeypatch.setattr(commands, "_prepare_release", counted_prepare)
     staged = success(
         command(
             "model",
@@ -224,6 +232,12 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
             ),
         )
     )
+    assert preparations == [1]
+
+    def forbidden_recompile(*args, **kwargs):
+        raise AssertionError("candidate/deploy must reuse the authenticated preview preparation")
+
+    monkeypatch.setattr(commands, "_prepare_release", forbidden_recompile)
     success(run("apply", staged["result_id"]))
     authored = success(run("candidate", staged["result_id"]))["result_id"]
     store = ResultStore(root / "results")
@@ -232,7 +246,14 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     assert binding.target_identity is not None
     assert binding.release_artifacts_sha256 is not None
     success(run("register", authored))
-    prepared = commands._prepare_release(root, (), data_operations="target.yaml")
+    from corpus_structure.semantic.inspection_capsule import open_capsule_inputs
+
+    assert store.read_artifact(staged["result_id"], "inspection") == store.read_artifact(authored, "inspection")
+    prepared = open_capsule_inputs(
+        store.read_artifact(authored, "inspection"), digest=binding.inspection_sha256,
+        release_id=binding.release, manifest_digest=binding.release_manifest_sha256,
+        artifacts_digest=binding.release_artifacts_sha256,
+    )
     runtime = commands._read_runtime(store, authored, binding.runtime, prepared[3])
     assert runtime is not None and binding.runtime is not None
     assert staged["runtime"]["runtime_id"] == runtime.runtime_id

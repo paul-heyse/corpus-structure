@@ -19,9 +19,11 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from corpus_structure.schema.model import ModelError
 from corpus_structure.schema.model_change import (
     ChangePreview,
+    ChangeRequest,
     RuntimeCustody,
     checked_path,
     generator_fingerprint,
+    compilation_fingerprint,
     verify_release_products,
 )
 from corpus_structure.semantic.migration_chain import (
@@ -77,6 +79,8 @@ class Candidate(BaseModel):
     hashes: dict[str, str]
     wrapper_sha256: str | None = None
     inspection_sha256: str | None = None
+    preparation_request: ChangeRequest | None = None
+    preparation_fingerprint: str | None = None
 
     @model_validator(mode="after")
     def native_only_has_no_release_claims(self):
@@ -150,6 +154,8 @@ class Candidate(BaseModel):
             packs=preview.request.packs,
             data_operations=preview.request.data_operations,
             runtime=preview.runtime,
+            preparation_request=preview.request,
+            preparation_fingerprint=preview.preparation_fingerprint,
             files={
                 **preview.inputs,
                 **{
@@ -577,6 +583,14 @@ def check_candidate_files(root: Path, binding: Candidate) -> None:
     """Verify that the candidate still matches the local inputs and generator."""
     if str(root) != binding.workspace or generator_fingerprint(root) != binding.generator:
         raise ModelError(["candidate belongs to another workspace or generator"])
+    if binding.release is not None:
+        if binding.preparation_request is None or binding.preparation_fingerprint is None:
+            raise ModelError(["candidate lacks complete preparation custody; prepare a fresh preview"])
+        if compilation_fingerprint(
+            root, binding.preparation_request, native_base=binding.native_base,
+            deployment_base=binding.deployment_base,
+        ) != binding.preparation_fingerprint:
+            raise ModelError(["candidate compilation inputs changed; prepare a fresh preview"])
     for relative, expected in binding.files.items():
         file = checked_path(root, relative)
         actual = sha256(file.read_bytes()).hexdigest() if file.exists() else None

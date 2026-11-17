@@ -69,10 +69,23 @@ def make_capsule(
 def open_capsule(
     content: bytes, *, digest: str, release_id: str, manifest_digest: str, artifacts_digest: str
 ) -> PreparedRelease:
-    from .archive_reader import open_release_parts
+    return open_capsule_inputs(
+        content, digest=digest, release_id=release_id,
+        manifest_digest=manifest_digest, artifacts_digest=artifacts_digest,
+    )[3]
+
+
+def open_capsule_inputs(
+    content: bytes, *, digest: str | None, release_id: str | None,
+    manifest_digest: str | None, artifacts_digest: str | None
+) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
+    """Authenticate the retained complete preparation, without invoking its compiler."""
+    from .archive_reader import _open_release_parts_inputs
     from .releases import ReleaseConflict
 
     try:
+        if digest is None or release_id is None or manifest_digest is None or artifacts_digest is None:
+            raise ValueError("retained preparation lacks exact product custody; prepare a fresh preview")
         if sha256(content).hexdigest() != digest:
             raise ValueError("candidate inspection capsule digest differs")
         data = json.loads(content)
@@ -92,11 +105,11 @@ def open_capsule(
         def decode(rows):
             return [dict(item, content=bytes.fromhex(item["content"])) for item in rows]
 
-        prepared = open_release_parts(
+        opened = _open_release_parts_inputs(
             release_id, row, decode(data["inputs"]), decode(data["artifacts"])
         )
-        if prepared.artifacts_sha256 != artifacts_digest:
+        if opened[3].artifacts_sha256 != artifacts_digest:
             raise ValueError("candidate artifact set differs")
-        return prepared
+        return opened
     except (ValueError, KeyError, TypeError) as exc:
         raise ReleaseConflict(f"cannot open candidate inspection: {exc}") from exc

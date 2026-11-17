@@ -536,6 +536,22 @@ def _format(path: str, text: str) -> str:
     return text
 
 
+def generated_python_paths() -> frozenset[str]:
+    """Closed Python output population owned by this canonical generator."""
+    return frozenset({
+        "core/vocab.py", "core/_model/__init__.py", "core/_model/qualifiers.py",
+        "core/_model/names.py", "core/_model/sql.py", "core/_model/validators.py",
+        "core/_model/revision.py", stage_b.TYPES, stage_b.SHAPES,
+    })
+
+
+def generated_output_paths() -> frozenset[str]:
+    """Canonical output ownership, derived from its maintained output registries."""
+    from corpus_structure.core.schemas import SCHEMAS
+
+    return generated_python_paths() | frozenset(f"core/schemas/{name}.json" for name in SCHEMAS())
+
+
 def render(model: Model) -> dict[str, str]:
     """Every generated file's text by its path relative to the `corpus_structure` package."""
     current = revision(model)
@@ -550,10 +566,14 @@ def render(model: Model) -> dict[str, str]:
         # Stage B (P0-M-5): the Pydantic shapes; schema/stage_b.py renders them
         **stage_b.render(model),
     }
+    if raw.keys() != generated_python_paths():
+        raise ModelError(["canonical generator output ownership differs from its emitted paths"])
     out = {path: _format(str(PACKAGE / path), text) for path, text in raw.items()}
     # The core shapes' JSON Schemas carry the revision in their `$id` (P0-M-3), so a model change
     # regenerates them; they are rendered from the shapes just generated, in one pass.
     out |= _schemas(out, current.content_hash)
+    if out.keys() != generated_output_paths():
+        raise ModelError(["canonical generator output ownership differs from its emitted paths"])
     return out
 
 

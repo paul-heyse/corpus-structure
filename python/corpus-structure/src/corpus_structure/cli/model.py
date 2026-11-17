@@ -1517,6 +1517,7 @@ def preview(
                 source_impact = None
                 query_analysis = None
                 local = None
+                prepared_inputs = None
                 dependencies = None
                 release = None
                 physical_id = None
@@ -1534,13 +1535,14 @@ def preview(
                     physical_sources = physical_release_sources(root, bound.physical)
                     if physical_sources is not None:
                         physical_id = physical_sources_id(physical_sources)
-                    _, dependencies, _, local = _prepare_release(
+                    prepared_inputs = _prepare_release(
                         root,
                         bound.packs,
                         physical_sources=physical_sources,
                         data_operations=bound.data_operations,
                         source_migrations=bound.source_migrations,
                     )
+                    _, dependencies, _, local = prepared_inputs
                     _retain_authored_sql(sql_holder, dependencies)
                     release = local.release_id
                     sql_holder[0] = sql_holder[0].model_copy(
@@ -1632,6 +1634,7 @@ def preview(
                     query_analysis=query_analysis,
                     local_release=release,
                     expected_physical=physical_id,
+                    prepared_application=local,
                     release_manifest_sha256=sha256(local.manifest).hexdigest()
                     if local is not None
                     else None,
@@ -1656,6 +1659,28 @@ def preview(
                     )
                     staged.verify_runtime(runtime, local)
                     _publish_runtime(result, runtime)
+                if local is not None:
+                    from corpus_structure.schema.model_change import compilation_fingerprint
+                    from corpus_structure.semantic.inspection_capsule import make_capsule
+
+                    assert prepared_inputs is not None
+                    capsule = make_capsule(*prepared_inputs)
+                    capsule_path = result.directory / "inspection.json"
+                    capsule_path.write_bytes(capsule)
+                    result.publish("inspection", capsule_path)
+                    proposed = {
+                        path: content.encode()
+                        for migration in staged.source_migrations
+                        for path, content in migration.after.items()
+                    }
+                    fingerprint = compilation_fingerprint(
+                        root, staged.request, proposed=proposed,
+                        native_base=staged.native_base, deployment_base=staged.deployment_base,
+                    )
+                    staged = staged.model_copy(update={
+                        "inspection_sha256": sha256(capsule).hexdigest(),
+                        "preparation_fingerprint": fingerprint,
+                    })
                 artifact = result.directory / "preview.json"
                 artifact.write_text(staged.model_dump_json(), encoding="utf-8")
                 patch = result.directory / "model.patch"
@@ -1879,10 +1904,22 @@ def candidate(
                     release_inputs = None
                     sql_inputs = None
                     if staged.effects.admission:
-                        release_inputs = _prepare_release(
-                            root,
-                            staged.request.packs,
-                            data_operations=staged.request.data_operations,
+                        from corpus_structure.schema.model_change import compilation_fingerprint
+                        from corpus_structure.semantic.inspection_capsule import open_capsule_inputs
+
+                        if staged.inspection_sha256 is None or staged.preparation_fingerprint is None:
+                            raise ModelError(["preview lacks retained preparation; prepare a fresh preview"])
+                        if compilation_fingerprint(
+                            root, staged.request, native_base=staged.native_base,
+                            deployment_base=staged.deployment_base,
+                        ) != staged.preparation_fingerprint:
+                            raise ModelError(["preview compilation inputs changed; prepare a fresh preview"])
+                        capsule = store.read_artifact(change, "inspection")
+                        release_inputs = open_capsule_inputs(
+                            capsule, digest=staged.inspection_sha256,
+                            release_id=staged.local_release,
+                            manifest_digest=staged.release_manifest_sha256,
+                            artifacts_digest=staged.release_artifacts_sha256,
                         )
                         bundle, dependencies, profile, prepared = release_inputs
                         staged.verify_release(prepared)
@@ -1963,11 +2000,8 @@ def candidate(
                         staged, revision, prepared, products, runtime=runtime
                     )
                     if prepared is not None:
-                        from corpus_structure.semantic.inspection_capsule import make_capsule
-
+                        # Publish the authenticated preview capsule verbatim.
                         assert release_inputs is not None
-                        bundle, dependencies, profile, _ = release_inputs
-                        capsule = make_capsule(bundle, dependencies, profile, prepared)
                         capsule_path = result.directory / "inspection.json"
                         capsule_path.write_bytes(capsule)
                         result.publish("inspection", capsule_path)
@@ -2106,14 +2140,22 @@ def deploy(
             )
             root = checkout(ctx)
             with writer_lock(root):
-                model_stage(result, "prepare bound release")
-                deployment = (
-                    None
-                    if binding.release is None
-                    else _prepare_release(
-                        root, binding.packs, data_operations=binding.data_operations
+                model_stage(result, "verify retained preparation")
+                from corpus_structure.schema.model_deployment import check_candidate_files
+                from corpus_structure.semantic.inspection_capsule import open_capsule_inputs
+
+                check_candidate_files(root, binding)
+                deployment = None
+                if binding.release is not None:
+                    if binding.inspection_sha256 is None:
+                        raise ModelError(["candidate lacks retained preparation; prepare a fresh preview"])
+                    deployment = open_capsule_inputs(
+                        store.read_artifact(candidate, "inspection"),
+                        digest=binding.inspection_sha256,
+                        release_id=binding.release,
+                        manifest_digest=binding.release_manifest_sha256,
+                        artifacts_digest=binding.release_artifacts_sha256,
                     )
-                )
 
                 runtime = _read_runtime(
                     store, candidate, binding.runtime, deployment[3] if deployment else None

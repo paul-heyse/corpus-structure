@@ -6,7 +6,7 @@ from hashlib import sha256
 import pytest
 
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.inspection_capsule import make_capsule, open_capsule
+from corpus_structure.semantic.inspection_capsule import make_capsule, open_capsule, open_capsule_inputs
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.releases import ReleaseConflict
 from corpus_structure.semantic.types import (
@@ -55,6 +55,15 @@ classes:
             artifacts_digest=prepared.artifacts_sha256,
         )
 
+    inputs = open_capsule_inputs(
+        content, digest=sha256(content).hexdigest(), release_id=prepared.release_id,
+        manifest_digest=sha256(prepared.manifest).hexdigest(),
+        artifacts_digest=prepared.artifacts_sha256,
+    )
+    assert inputs[:3] == (bundle, deps, profile)
+    assert {artifact.kind: artifact.content for artifact in inputs[3].artifacts} == {
+        artifact.kind: artifact.content for artifact in prepared.artifacts
+    }
     opened = read(content)
     assert opened.artifacts_sha256 == prepared.artifacts_sha256
     assert opened.validate_json("Record", b'{"number": 2}').model_dump()["number"] == 2
