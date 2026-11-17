@@ -115,6 +115,19 @@ class WireOriginalDocumentRef(TypedDict):
     project_id: Required[ProjectId]
 
 
+class WirePdfSpoolContributorReceipt(TypedDict):
+    adopter_attempt: Required[int]
+    adopter_holder: Required[str]
+    manifest_digest: Required[str]
+    producer_attempt: Required[int]
+    producer_holder: Required[str]
+    producer_id: Required[str]
+    runtime_id: Required[str]
+    runtime_manifest_digest: Required[str]
+    selection_digest: Required[str]
+    task_id: Required[int]
+
+
 class WirePublishedPdfDocumentRef(TypedDict):
     build_id: Required[str]
     frozen_digest: Required[str]
@@ -129,6 +142,7 @@ class WirePublishedPdfDocumentRef(TypedDict):
 
 
 class WirePdfExecutionReceipt(TypedDict):
+    contributors: Required[list[WirePdfSpoolContributorReceipt]]
     publication: Required[WirePublishedPdfDocumentRef]
     publisher_attempt: Required[int]
     publisher_holder: Required[str]
@@ -175,6 +189,23 @@ class WirePdfObservationExecutionReceipt(TypedDict):
     version: Required[Literal["pdf-observation-execution-1"]]
 
 
+class WireProductValidation(TypedDict):
+    body_id: Required[str]
+    format: NotRequired[Literal["producer-product-validation-1"]]
+    release_id: Required[str]
+    selectors_json: Required[str]
+    source_json: Required[str]
+    subject_context_json: Required[str | None]
+    validator_contract: Required[
+        Literal[
+            "formal/profile-assets",
+            "characterization/construction-assets",
+            "characterization/contextual-assets",
+        ]
+    ]
+    validator_revision: Required[str]
+
+
 class WireProviderExecutionReceipt(TypedDict):
     cohort_digest: Required[str]
     cohort_members: Required[list[str]]
@@ -208,6 +239,7 @@ class WireNativeExecutionEvidence(TypedDict):
     host_receipts: Required[list[WireNativeExecutionReceipt]]
     pdf_observation_receipts: NotRequired[list[WirePdfObservationExecutionReceipt]]
     pdf_receipts: NotRequired[list[WirePdfExecutionReceipt]]
+    product_validations: NotRequired[list[WireProductValidation]]
     provider_receipts: NotRequired[list[WireProviderExecutionReceipt]]
     request_id: Required[WireRequestId]
     runtime_id: Required[RuntimeId]
@@ -916,6 +948,77 @@ class WireDataAttemptLostResult(TypedDict):
     task_id: Required[TaskId]
 
 
+class WirePdfSearchRecipeOrganizationOwner(TypedDict):
+    content_digest: Required[WirePdfSearchDigest]
+    product_key: Required[WireIdentifier]
+    task_id: Required[WireTaskId]
+
+
+class WirePdfSearchRecipe(TypedDict):
+    analysis_eligible: Required[Literal[True]]
+    organization_owner: Required[WirePdfSearchRecipeOrganizationOwner]
+    policy_digest: Required[WirePdfSearchDigest]
+    renderer: Required[WirePdfSearchDigest]
+    version: Required[Literal["pdf-source-search-v1"]]
+
+
+class WirePdfSearchOutcome(TypedDict):
+    outcome: Required[WireIdentifier]
+    pointer: Required[WireIdentifier]
+
+
+class WirePdfSearchProjectionRowProjectionHealth(TypedDict):
+    formula_outcomes: Required[list[WirePdfSearchOutcome]]
+
+
+class WirePdfSearchPiece(TypedDict):
+    cell_index: NotRequired[WireNonnegativeInteger]
+    end: Required[WireNonnegativeInteger]
+    item_ref: NotRequired[str]
+    kind: Required[Literal["native_text", "synthetic_separator"]]
+    source_field: NotRequired[str]
+    start: Required[WireNonnegativeInteger]
+
+
+class WirePdfSearchProjectionRowProjection(TypedDict):
+    ancestors: Required[list[WireIdentifier]]
+    health: Required[WirePdfSearchProjectionRowProjectionHealth]
+    items: Required[list[WireIdentifier]]
+    pieces: Required[list[WirePdfSearchPiece]]
+    text: Required[str]
+
+
+class WirePdfSearchProjectionRow(TypedDict):
+    membership: Required[Literal["direct", "descendants"]]
+    projection: Required[WirePdfSearchProjectionRowProjection]
+    projection_digest: Required[WirePdfSearchDigest]
+    section_pointer: Required[WireIdentifier]
+
+
+class WireReadSelectedPdfSourceRequest(TypedDict):
+    demand_id: Required[WireDemandId]
+    derivation_id: Required[WireDerivationId]
+    product_id: Required[WireProductId]
+    project_id: Required[ProjectId]
+    read_id: Required[WireReadIdentity]
+    use_id: Required[WireUseIdentity]
+
+
+class WireEnsurePdfSearchProjectionRequest(TypedDict):
+    configuration: Required[Literal["english"]]
+    fill_max_bytes: Required[int]
+    recipe: Required[WirePdfSearchRecipe]
+    rows: NotRequired[list[WirePdfSearchProjectionRow]]
+    source: Required[WireReadSelectedPdfSourceRequest]
+
+
+class WireEnsurePdfSearchProjectionResult(TypedDict):
+    population_id: Required[WireIdentifier]
+    row_count: Required[WireNonnegativeInteger]
+    set_digest: Required[str | None]
+    state: Required[Literal["missing", "ready"]]
+
+
 class WireExternalPacketHead(TypedDict):
     generation: Required[WireGeneration]
     operation_id: Required[WireOperationId]
@@ -1137,6 +1240,40 @@ class WireOriginalSourceAdmissionResult(TypedDict):
     trust_snapshot: Required[WireTrustSnapshot]
 
 
+class WirePdfSearchAfter(TypedDict):
+    key: Required[str]
+    score: Required[int | float | Decimal]
+    selection: Required[WirePdfSearchDigest]
+
+
+class WirePdfSearchBinding(TypedDict):
+    demand_id: Required[WireIdentifier]
+    max_bytes: Required[int]
+    max_rows: Required[int]
+    membership: Required[Literal["direct", "descendants"]]
+    project_id: Required[WireIdentifier]
+    read_id: Required[WireReadId]
+    sections: Required[list[str]]
+    sources: Required[list[WireReadSelectedPdfSourceRequest]]
+    text: Required[str]
+    version: Required[Literal[5]]
+
+
+class WirePdfSearchHit(TypedDict):
+    excerpt: Required[str]
+    key: Required[str]
+    membership: Required[Literal["direct", "descendants"]]
+    projection_digest: Required[WirePdfSearchDigest]
+    score: Required[int | float | Decimal]
+    section_pointer: Required[WireIdentifier]
+    source_index: Required[int]
+
+
+class WirePdfSearchPin(TypedDict):
+    recipe: Required[WirePdfSearchRecipe]
+    source: Required[WireReadSelectedPdfSourceRequest]
+
+
 class WirePopulation(TypedDict):
     complete: Required[bool]
     demand_id: Required[WireDemandId]
@@ -1163,6 +1300,20 @@ class WirePublishDataDerivationResult(TypedDict):
     receipt_id: Required[WirePublicationReceiptId]
     replayed: Required[bool]
     trust_snapshot: Required[WireTrustSnapshot]
+
+
+class WireRankPdfSearchProjectionRequest(TypedDict):
+    after: NotRequired[WirePdfSearchAfter]
+    binding: Required[WirePdfSearchBinding]
+    cut_id: Required[WireIdentifier]
+    limit: Required[int]
+    sources: Required[list[WirePdfSearchPin]]
+
+
+class WireRankPdfSearchProjectionResult(TypedDict):
+    more: Required[bool]
+    rows: Required[list[WirePdfSearchHit]]
+    selection: Required[WirePdfSearchDigest]
 
 
 class WireReadDemandResultRequest(TypedDict):
@@ -1464,15 +1615,6 @@ class WireReadSelectedPdfObservationsResult(TypedDict):
     cut: Required[WireCutSelection]
     original_source: Required[WireIdentifier]
     receipt: Required[WirePdfObservationExecutionReceipt]
-
-
-class WireReadSelectedPdfSourceRequest(TypedDict):
-    demand_id: Required[WireDemandId]
-    derivation_id: Required[WireDerivationId]
-    product_id: Required[WireProductId]
-    project_id: Required[ProjectId]
-    read_id: Required[WireReadIdentity]
-    use_id: Required[WireUseIdentity]
 
 
 class WireReadSelectedPdfSourceResult(TypedDict):
@@ -1870,6 +2012,8 @@ type WireSourceSetAcquisition = WireSourceSetAcquisitionVariant1 | WireSourceSet
 
 type WireDataTaskState = Literal["pending", "running", "done", "empty", "failed", "cancelled"]
 
+type WirePdfSearchDigest = str
+
 type WireFate = Literal[
     "known-absent",
     "unknown",
@@ -1911,6 +2055,8 @@ type WireInspectDataCompletionResult = (
 
 type WireOriginalSupportReference = WireOriginalDocumentRef | WireAuthoredFactRef
 
+type WireReadId = WireReadIdentity
+
 type WireVisibleFate = Literal[
     "known-absent",
     "unknown",
@@ -1929,8 +2075,6 @@ type WireVisibleFate = Literal[
     "fulfilled",
     "waiting",
 ]
-
-type WireReadId = WireReadIdentity
 
 type WireVisualReadJsonValue = WireExactJSONValue
 
@@ -2155,4 +2299,19 @@ class DataOperationCalls:
         return cast(
             WireReadSelectedVisualEvidenceResult,
             self._invoke("read_selected_visual_evidence", payload),
+        )
+
+    def ensure_pdf_search_projection(
+        self, payload: WireEnsurePdfSearchProjectionRequest
+    ) -> WireEnsurePdfSearchProjectionResult:
+        return cast(
+            WireEnsurePdfSearchProjectionResult,
+            self._invoke("ensure_pdf_search_projection", payload),
+        )
+
+    def rank_pdf_search_projection(
+        self, payload: WireRankPdfSearchProjectionRequest
+    ) -> WireRankPdfSearchProjectionResult:
+        return cast(
+            WireRankPdfSearchProjectionResult, self._invoke("rank_pdf_search_projection", payload)
         )

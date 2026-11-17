@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from decimal import Decimal
 from typing import (
     Annotated,
@@ -37,7 +36,6 @@ from corpus_structure.semantic.identifiers import TaskId as TaskId
 
 from ._pdf_native_ids import PdfFrozenBuildKind as PdfFrozenBuildKind
 from ._pdf_native_ids import PdfPublishedRevisionKind as PdfPublishedRevisionKind
-from ._pdf_native_ids import PdfRecordCompanionFamily as PdfRecordCompanionFamily
 from ._pdf_native_ids import (
     PdfSourceViewPublicationMembership as PdfSourceViewPublicationMembership,
 )
@@ -340,12 +338,12 @@ def adopt_pdf_batch(
         return _adopt_pdf_batch_result(_native_result.one())
 
 
-ADOPT_PDF_COMPANION_CONTRACT_DIGEST = (
-    "de8eb8281fb495956ec920879b173e3f2bbcb9a054629101c0b6368df32eaf1f"
+ADOPT_PDF_COMPANIONS_CONTRACT_DIGEST = (
+    "4bb29f292d3030062e46cf7a53cca4465037c7e22b1ef18590ace8c085198769"
 )
 
 
-class AdoptPdfCompanionParameters(OperationResult):
+class _adopt_pdf_companionsRequest(OperationResult):
     build_id: str
     task_id: Annotated[
         TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
@@ -355,145 +353,75 @@ class AdoptPdfCompanionParameters(OperationResult):
         Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
     ]
     holder: str
-    family: PdfRecordCompanionFamily
-    local_id: str
-    body: JsonValue
     replay_key: str
-    ordinal: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
-    fields: JsonValue
 
 
-_adopt_pdf_companion_function = func.ops.adopt_pdf_companion(
+_adopt_pdf_companions_function = func.ops.adopt_pdf_companions(
     bindparam("build_id", type_=Text()),
     bindparam("task_id", type_=BigInteger()),
     bindparam("attempt", type_=BigInteger()),
     bindparam("holder", type_=Text()),
-    bindparam("family", type_=Text()),
-    bindparam("local_id", type_=Text()),
-    bindparam("body", type_=JSONB()),
     bindparam("replay_key", type_=Text()),
-    bindparam("ordinal", type_=BigInteger()),
-    bindparam("fields", type_=JSONB()),
 )
-_adopt_pdf_companion_statement = select(_adopt_pdf_companion_function)
+_adopt_pdf_companions_statement = select(_adopt_pdf_companions_function)
 
 
-def prepare_adopt_pdf_companion(
+def prepare_adopt_pdf_companions(
     *,
     build_id: str,
     task_id: TaskId,
     attempt: TaskAttempt,
     holder: str,
-    family: PdfRecordCompanionFamily,
-    local_id: str,
-    body: JsonValue,
     replay_key: str,
-    ordinal: int,
-    fields: JsonValue,
     projection_context: PreparedRelease | None = None,
 ) -> Select[None]:
-    _request = AdoptPdfCompanionParameters(
+    _request = _adopt_pdf_companionsRequest(
         build_id=build_id,
         task_id=task_id,
         attempt=attempt,
         holder=holder,
-        family=family,
-        local_id=local_id,
-        body=body,
         replay_key=replay_key,
-        ordinal=ordinal,
-        fields=fields,
     )
     if projection_context is not None:
         require_call_context(
             projection_context,
-            "adopt_pdf_companion_batch",
-            "adopt_pdf_companion",
-            ADOPT_PDF_COMPANION_CONTRACT_DIGEST,
+            "adopt_pdf_companions",
+            "adopt_pdf_companions",
+            ADOPT_PDF_COMPANIONS_CONTRACT_DIGEST,
         )
-    return _adopt_pdf_companion_statement.params(
+    return _adopt_pdf_companions_statement.params(
         **{
             "build_id": _request.build_id,
             "task_id": _request.task_id,
             "attempt": _request.attempt,
             "holder": _request.holder,
-            "family": _request.family,
-            "local_id": _request.local_id,
-            "body": _request.body,
             "replay_key": _request.replay_key,
-            "ordinal": _request.ordinal,
-            "fields": _request.fields,
         }
     )
 
 
-def adopt_pdf_companion(
+def adopt_pdf_companions(
     conn: Connection,
     *,
     build_id: str,
     task_id: TaskId,
     attempt: TaskAttempt,
     holder: str,
-    family: PdfRecordCompanionFamily,
-    local_id: str,
-    body: JsonValue,
     replay_key: str,
-    ordinal: int,
-    fields: JsonValue,
     projection_context: PreparedRelease | None = None,
 ) -> None:
-    _statement = prepare_adopt_pdf_companion(
+    _statement = prepare_adopt_pdf_companions(
         build_id=build_id,
         task_id=task_id,
         attempt=attempt,
         holder=holder,
-        family=family,
-        local_id=local_id,
-        body=body,
         replay_key=replay_key,
-        ordinal=ordinal,
-        fields=fields,
         projection_context=projection_context,
     )
     _native_result = conn.execute(_statement)
-    with native_result_scope("adopt_pdf_companion_batch", "adopt_pdf_companion"):
+    with native_result_scope("adopt_pdf_companions", "adopt_pdf_companions"):
         _native_result.scalar_one()
     return None
-
-
-def adopt_pdf_companion_batch(
-    conn: Connection,
-    *,
-    requests: Sequence[AdoptPdfCompanionParameters],
-    projection_context: PreparedRelease | None = None,
-) -> None:
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "adopt_pdf_companion_batch",
-            "adopt_pdf_companion",
-            ADOPT_PDF_COMPANION_CONTRACT_DIGEST,
-        )
-    if not requests:
-        return
-    conn.execute(
-        _adopt_pdf_companion_statement,
-        [
-            {
-                "build_id": request.build_id,
-                "task_id": request.task_id,
-                "attempt": request.attempt,
-                "holder": request.holder,
-                "family": request.family,
-                "local_id": request.local_id,
-                "body": request.body,
-                "replay_key": request.replay_key,
-                "ordinal": request.ordinal,
-                "fields": request.fields,
-            }
-            for request in requests
-        ],
-    )
 
 
 BEGIN_PDF_BUILD_CONTRACT_DIGEST = "d7158a5cdd1b9affa4440e71960adb4394c6d52fa2776a2d310707c2f72a0ece"
@@ -1452,6 +1380,48 @@ def prepare_pdf_build(
     )
     _native_result = conn.execute(_statement)
     with native_result_scope("prepare_pdf_build", "prepare_pdf_build"):
+        _native_result.scalar_one()
+    return None
+
+
+PREPARE_PDF_COMPANIONS_CONTRACT_DIGEST = (
+    "2e310e5dc2293ca754338079f169a74d4379d9d80b1f604ab12a901979d92d3d"
+)
+
+
+class _prepare_pdf_companionsRequest(OperationResult):
+    pass
+
+
+_prepare_pdf_companions_function = func.ops.prepare_pdf_companions()
+_prepare_pdf_companions_statement = select(_prepare_pdf_companions_function)
+
+
+def prepare_prepare_pdf_companions(
+    *,
+    projection_context: PreparedRelease | None = None,
+) -> Select[None]:
+    _request = _prepare_pdf_companionsRequest()
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "prepare_pdf_companions",
+            "prepare_pdf_companions",
+            PREPARE_PDF_COMPANIONS_CONTRACT_DIGEST,
+        )
+    return _prepare_pdf_companions_statement.params(**{})
+
+
+def prepare_pdf_companions(
+    conn: Connection,
+    *,
+    projection_context: PreparedRelease | None = None,
+) -> None:
+    _statement = prepare_prepare_pdf_companions(
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("prepare_pdf_companions", "prepare_pdf_companions"):
         _native_result.scalar_one()
     return None
 
@@ -5544,4 +5514,4 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "64c0c3da4fa39ac96c90202d1959c1877deccc7b600883db6e00521a2f938f9b"
+CALL_CONTRACT_DIGEST = "7fa224ae963acfa7ea4b2a103262c5aa33e274bde4b12e64335d956a86d85041"
