@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and14successors are registered and installed on the owned stage. Matching application admission, actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged.**
+**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and14successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -212,13 +212,108 @@ and source digest940c9bd7…; no ordinary DDL or data conversion. The physical i
 the changed native wire document, so its source identity changes although the97-relation layout does
 not. Native digest is30e76ae902130f7083738834dbd13f71c87d9622705cddde83be1525d777ad8a.
 
-Four focused native controls, integrated test-only dd7c1e1d6, are **not_run** at this checkpoint:
-two genuine producers/forged proof/revocation; direct versus ancestor and unrelated same-episode use;
-legal bag-output slots selected role-locally with original-basis reuse; and whole/member-output
-distinction plus actual purpose refusal. Run against the matching committed head before broader
-actual E5/grade/event/artifact/provider qualification. Fresh v9 application admission/check/activation
-must precede actual PDF enrichment/integration. Prior v8 application receipts retain their earlier
-native context; they are not current v9 admission. Development remains unchanged.
+Four focused native identities are **covered** by original `60a5652a827b4d2fb4de4d0c12efb6f3`
+(2passed/2test-wiring failures) and exact retry `9e04daefdef642ea94d70f28fe85562a` (2passed).
+The failures used an undeclared revocation enum and an eager fixture-only output callback; cbabc8acd
+corrects those fixtures. Coverage preserves the failed original and different private incarnations;
+production is unchanged. Actual producer/forgery/revocation, ancestor versus direct use, unrelated
+same-episode use, legal output slots, role-local selection/reuse, whole/member output and actual
+purpose refusal are exercised. Current binding/CPU regression `2c3fcb21d6f04e0caecd9139dc0836b3`
+**passed68**, with complete native observation/reporting and drained custody.
+
+The v9 maintained application preview `4c7b59bf343f4107bd2873193234d50a`, apply
+`22c27ce28af04d5a9e9a62ea49ecd6cc`, candidate `48684bdf8e3f4a10893d56224372cabc` and deployment
+`9acd8a4e4c16439c9f39119deabc8f75` **passed** on the same stage. Reader `ci db check` and
+`ci release check` passed; normal activation for project `ddo-current-pdf-bounded` advanced CAS
+from generation2 to3. Release `77c50f9c30b85815ef2e840c184a9dd092b3289932f4db28d84b27a18c554f80`
+and runtime `95156a0af8aaa5376055af3254ac67704ce3b2a23981e13574f0a1a0bbf2f00b` include the
+SI28 repair. Actual enrichment `7967e7462b964f3a84fb7a2bbeb0027a` failed with the configured
+recognition service absent, before qualification of that repair. Its failure is retained; root restored
+the managed launcher and normal same-demand resume `29712e6e17394a5abcac73eb98968827` **passed**,
+4receipts/fulfilled capture, organization, discovery and enrichment. Actual integrated invocation
+`8fdb444d45dd4345a2ed20193aca4544` failed at the admitted-request inventory guard; earlier `7e42efc8812542bcabf48d6bcc0bd8dd`
+failed a root transcription error in the release ID before creating a demand, and supplies no credit.
+This establishes no integrated recognition or development adoption result.
+
+Actual grade4 `d65080f4c9d84ddc841d8686774c679c` had3passed/1failed. The positive journey now
+reaches the authentic fitted-body rejection (SQLSTATE23514); only its assertion expected an obsolete
+message. The fixture now expects the actual CPU-result refusal; exact positive retry
+`92736f3e6a88499ab05e956a7a2bb9f6` **passed**, including nonpublication and revocation criteria.
+Original plus retry covers4identities, preserves the failed original/helper-only source difference,
+and observes distinct private host incarnations; reporting/native observation and custody are complete.
+Actual E5 all3 `94ba322c011c4a63b39c7d646b047dbc` failed after real pinned CPU
+encoding and target publication, at its second query-demand binding. Investigation identified Python
+candidate selection omitting exact discovery derivation/use, while native validation correctly refuses
+the mismatch. The integrated repair filters both identities before cardinality. The second demand's discovery
+input uses
+explicit all-admissible semantic addresses because its current discovery supplies that proof; retain
+selected proof on the first finite demand and selected primary query. Preserve native guards and
+real output-slot ambiguity. The actual E5 fixture is already module-scoped: one controlled source
+section, one real pinned encoder and shared release/target setup serve the three declared recipe
+checks. It is a finite recipe/publication/retrieval selection, not an exhaustive corpus comparison.
+Exact retry `eef09f11e4a946709413d68f17acaac6` reaches the later SI31 policy-ingress failure;
+all3 complete retrieval journeys remain required after that shared prerequisite is corrected.
+
+**Follow-up numerical-policy ingress · DDO-SI-31,2026-11-17.** Exact E5 retry eef09f11… passed
+setup and the repaired discovery binding, then its first recipe failed native score policy validation.
+A bounded read on that owned private host establishes PostgreSQL180007/pgvector0.8.7 agree with the
+inner declared policy. The actual canonical `support_contract.numerical_policy.body` is
+`{"json": {…policy fields…}}`; `contextual_admission_native.py` passes this wrapper directly to
+`ddo_contextual_native_scores`, whose field reads expect the inner object. This is a wire-projection
+mismatch, not an established backend-version or query-budget mismatch. After that shared cause was established, normal managed-supervisor `SIGINT` stopped the cohort.
+The held result is **failed**,2failed/1incomplete: the third call had already started. Reporting is
+partial as expected after interruption; native standing is `no_claim`, all3identities unresolved.
+Custody is settled, private host/temp/owned processes removed and port36719 refused. No unreached
+criterion passes, and no further duplicate attempt is scheduled before the shared repair.
+
+Correct the governed native policy-body ingress to consume its current exact canonical JSON field.
+Do not accept both historical flat and current wrapped bodies, silently default missing fields, or
+weaken backend/collation/text/query/budget checks. Check directly adjacent policy readers for this same
+projection error. Preserve independent malformed/missing-policy and wrong-backend/budget refusals.
+Capture/register a normal current-root successor from `semantic_ddo_selected_proofs`, inspect its
+body-only delta and descriptor/digest changes, and deploy on the same owned stage. Reacquire the
+application against that matching head through normal preview/candidate/admission/check/activation;
+never edit frozen migration files or retarget an old candidate. Then qualify all3 actual E5 recipes
+and affected native guards. The earlier binding79/type/lint and grade receipts retain their precise
+source/context limits; they establish no numerical-policy or complete provider closure.
+
+### Immutable bound-model reuse · 2026-11-17
+
+**DDO-SI-29 implemented; bounded Tested, actual consumer qualification open.** A safe single stack sample
+of the active grade worker showed repeated `EffectiveDataOperationModel.content` serialization through
+runtime validation. This locates real repeated work, not its share of total elapsed time. The strict
+model reader already caches exact artifact bytes and `content` already caches per instance; binding
+source interfaces creates a fresh dataclass each call, discarding that instance reuse although interfaces
+are excluded from canonical model bytes.
+
+Merged2024b3fa0/10fb1ee2e use a bounded stdlib LRU of8 exact
+`(model artifact bytes, source-interface artifact bytes)` pairs in the existing admission owner. Reuse only immutable bound models and their canonical bytes. Run
+manifest, artifact cardinality and supported-version validation on every call outside composition reuse;
+all native, runtime, target-purpose, trust and admission checks remain live. Distinct interfaces must
+retain their own exact metadata. Focused controls cover identity/invalidation and
+invalid-manifest/cardinality after a cache hit. Independent source review found no material issue. Worker pure11
+passed184b150cafba4517bb749325b3de0e75 and controlled private PostgreSQL4 passed
+8e7e321c32c6400c80a7047ab40e4fb3. Originals were renamed into root custody with verified
+directory/manifest inodes and root CLI holds before the merged worktree was removed. Integrated
+`ci test --native-host private --workers 2 --` model/binding files **passed79**,
+`51b7e79407e14fa09bb73eefb620b833`. Whole types **passed**7b5aca1f1f4244fd82f486fa7c472a06
+and Ruff **passed**be964cffeb8d4ae5b149170b730c42e7 after root formatting. Initial lint
+aea1566671154f798a229f3f39246bda found a redundant stdlib immutability assertion using `setattr`;
+that assertion was removed, with no ignore or production relaxation. No engine/prepared-object/authority
+cache, persisted format, version bump,
+compatibility decoder or benchmark framework is introduced. Qualitative avoided work is supported;
+elapsed-time improvement remains unmeasured. Source mapping confirms both modified modules are live
+executor/admission machinery, outside the explicit operation-source/runtime artifact closure
+(`data_operation_preparation.py`, `composed.py`, `prepare.py:999`, CLI `model.py:1648`). These patches
+alone require no new application acquisition or native successor. This is source-contract reasoning,
+not an item-level inspection of the existing runtime archive. Earlier receipts retain their source
+limits; actual E5 qualification is being reacquired on the integrated executor.
+
+Full release verification also re-derives schema/vocabulary/OWL/SHACL, while protected archive opening
+already hydrates frozen products. This is a **bounded investigation**, not an adopted fast-path change:
+`release check` currently owns full reproducibility, and archive opening alone is not admission.
+Consider existing prepared-reader composition for activation only if its catalog, purpose, generation
+and native-admission contracts remain live. No new audit or performance obligation is scheduled.
 
 ## Current execution boundary · 2026-11-16
 
@@ -493,8 +588,11 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-24 | A/B/C reference authoring repeatedly reacquires one exact source cut in the same invocation. | **Implemented; bounded Tested**, merged48599df9f, pure43 `40bf89f72dc44cd99f0d8163d363c098`. One authenticated cut per pinned authoring invocation; every reference independently checked. Actual grade sibling later failed its fitted-body substitution observation, not a passing full journey. |
 | DDO-SI-25 | Empty-carrier verification captures four originals although its scope uses one. | **Implemented; bounded native Tested2026-11-17**, empty-carrier passed in `88b69d7384984e1eb5fba40c20c1d524`. Fitting/calibration retain4originals and their independent criteria. |
 | DDO-SI-26 | Explicit recovery cannot remove the owned selected-read SQLite scratch left by a watchdog interruption. | **Implemented; bounded Tested**, af7978555/628c34944, recovery38 passed `be12c03a33ee4539aa20540357b81cc1`, integrated pure43 passed. After proven process drain, recognize only exact owned scratch files; refuse unknown/symlink/foreign/hardlinked paths. Actual recovery of dd0147… established cleanup; original failure remains held. |
-| DDO-SI-27 | Frozen semantic source entries discard the selected producing proof, admitting unrelated genuine producers and their dependencies. | **Implemented; bounded Tested2026-11-17**, ADR-0121/currentv9/demandv2/CPU3. Current callers migrated, role-local candidates/seeds and actual use/output correspondence retained, cut/anchor work shared within invocation. Source/frozen artifact review closed; normal successor registered261f68157/deployedaf7bfdd… on stage. Pure81/affected13/CPU parity and types/lint passed at their stated bounds. Focused native4 and actual E5/grade/event/artifact/provider journeys remain required; v9 application not yet admitted. No historical decoder or fallback. |
-| DDO-SI-28 | Frozen PDF coverage validation rejects the supported residual body/direct source scope because its native group label is unspecified. | **Implemented; bounded Tested2026-11-17**, actual enriched failure31c742… retained; shared checker admits exact body/direct, real sections/chapters, and still rejects descendant-body/arbitrary nonsection scopes. Pure PDF68 passed5684f1…; types/lint passed. Application recapture and actual enrichment/integration qualification remain open. |
+| DDO-SI-27 | Frozen semantic source entries discard the selected producing proof, admitting unrelated genuine producers and their dependencies. | **Implemented; bounded Tested2026-11-17**, ADR-0121/currentv9/demandv2/CPU3. Current callers migrated, role-local candidates/seeds and actual use/output correspondence retained, cut/anchor work shared within invocation. Source/frozen artifact review closed; normal successor registered261f68157/deployedaf7bfdd… on stage. Pure81/affected13/CPU parity and types/lint passed at their stated bounds. Focused native4 are covered by60a565…/9e04da… and binding68 passed2c3fcb…; v9 application admitted/checked/activated. Actual E5/grade/event/artifact/provider completion remains open; exact discovery parent selection is repaired and passed integrated binding79; actual E5 all3 retry remains open. No historical decoder or fallback. |
+| DDO-SI-28 | Frozen PDF coverage validation rejects the supported residual body/direct source scope because its native group label is unspecified. | **Implemented; bounded Tested2026-11-17**, actual enriched failure31c742… retained; shared checker admits exact body/direct, real sections/chapters, and still rejects descendant-body/arbitrary nonsection scopes. Pure PDF68 passed5684f1…; types/lint passed. Current v9 application recaptured/admitted/activated; actual enrichment/integration qualification remains open. |
+| DDO-SI-29 | Source-interface binding repeatedly clones an immutable effective model, defeating cached canonical serialization during runtime checks. | **Implemented; bounded Tested2026-11-17**, bounded LRU8 keyed by exact model/interface artifact bytes. Per-call manifest/cardinality/version validation and all live authority checks remain. Independent review closed; pure11/private SQL4 and integrated binding79 passed51b7e794…; types/lint passed. Source mapping establishes no application recapture/native successor needed for these live package modules alone; actual E5 qualification remains open. Runtime improvement unmeasured. |
+| DDO-SI-30 | Actual integrated recognition fails without admitted request inventory, masking the worker/page diagnostic before publication. | **Investigation open**, failed8fdb444d45dd4345a2ed20193aca4544. Stage reader maps task9/attempt1 to source.pdf_recognition/observe; capture/organization fulfilled. Preserve authentic worker failure detail before raising missing-inventory refusal. No invalid page publication or fabricated request. Underlying provider/child/page cause is not established by retained observations. |
+| DDO-SI-31 | Current canonical numerical-policy body wrapper reaches native score computation without inner JSON projection. | **Cause established; implementation/qualification open**, eef09f11… first actual recipe failed after repaired discovery ingress. Inner policy agrees with actual PostgreSQL180007/vector0.8.7. Correct current-only governed-body projection in contextual native admission, retain exact score-policy checks, then normal frozen successor/matching application acquisition and all3 actual E5 recipes. |
 
 
 

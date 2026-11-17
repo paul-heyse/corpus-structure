@@ -763,6 +763,58 @@ unchanged physical identity; the latter reports no active generation for the ins
 project. Bounded source qualification uses its own explicit project/original and actual provider
 operations. Admission/preparation alone establishes no inference, adoption or whole-book result.
 
+## V9 maintained application and actual bounded PDF · 2026-11-17
+
+**passed:** [application request](statistics-application.yaml) preview
+`4c7b59bf343f4107bd2873193234d50a`, apply `22c27ce28af04d5a9e9a62ea49ecd6cc`, candidate
+`48684bdf8e3f4a10893d56224372cabc` and deployment `9acd8a4e4c16439c9f39119deabc8f75`.
+This is application-only acquisition on unchanged stageOID130661481/system7701811359771751232,
+root+14 at `semantic_ddo_selected_proofs`, native digest30e76ae9… and97relations. Release
+`release:77c50f9c30b85815ef2e840c184a9dd092b3289932f4db28d84b27a18c554f80`, runtime
+`runtime:95156a0af8aaa5376055af3254ac67704ce3b2a23981e13574f0a1a0bbf2f00b`, archive SHA256
+`f7e7edbb8debfc3ae69031d0b2516678d3eb16a2ce0959ec7b41f4b4c95f1a22`.
+Separate reader `ci db check` and explicit `ci release check` passed. Normal activation for
+`ddo-current-pdf-bounded` advanced expected generation2 to3. Development remains unchanged.
+
+Actual enrichment `7967e7462b964f3a84fb7a2bbeb0027a` failed because the configured recognition
+service was absent. Previous launcher generation2e3bb… disappeared; its cause is unknown. Root
+restored the normal managed launcher, generationd3b7b968c52442a6af3b081cdef2e70f. Normal
+`ci run resume demand:9da07f0f34be910d200e5f79f5e8dfcba4cbd783b53e74115a7528f696a0df85`
+**passed**, held `29712e6e17394a5abcac73eb98968827`,4receipts and fulfilled capture, organization,
+discovery and enrichment. It used the exact registered3-page original
+`doc:c24d8ea5e9f13d4e4ef13a28367beaea`, source SHA256
+`f0a608ddf2662f82eea981854e4bd809ea3d7ddd81969441e42c3288ec9591c5`. Actual Docling CUDA and
+its declared RapidOCR ONNXCPU recipe ran; SI28 body/direct coverage now passes in this actual journey.
+
+Actual integrated recognition invocation `8fdb444d45dd4345a2ed20193aca4544` **failed** at
+`prepare_recognition_report`: no admitted request inventory. The stage frontier maps this to
+recognition task9/attempt1; capture and organization are fulfilled. The guard currently masks
+the underlying worker/page diagnostic. Provider refusal, child-runtime failure and response parsing
+are not established. DDO-SI-30 owns diagnosis and failure-report preservation without relaxing
+publication inventory. Earlier `7e42efc8812542bcabf48d6bcc0bd8dd` failed a mistyped release ID before demand
+creation and supplies no functional credit. Root deliberately stopped its own managed generationd3b7b968…
+after this settled attempt: launcher exited0, API/engine absent, endpoint8035 refused and only the
+unrelated Sunshine GPU baseline remains. Restart the normal launcher before actual recognition retry. No Chandra, CPU fallback, page relabeling or sliced whole-book
+substitution is used. These bounded results establish neither faithful29-original registration,
+development adoption, whole-book resume nor complete provider qualification.
+
+## E5 current-executor retry boundary · 2026-11-17
+
+Held exact retry `eef09f11e4a946709413d68f17acaac6` of `94ba322c011c4a63b39c7d646b047dbc`
+ran only the3 declared actual CPU E5 recipes. Discourse and frame reached native score publication
+then failed the same canonical numerical-policy projection (DDO-SI-31); referent had started its
+call when the known shared failure justified normal cancellation. Verified managed supervisor
+PID1659228 received `SIGINT` through its registered cancellation handler. Outcome **failed**,
+2failed/1incomplete, reporting partial and native `no_claim`; all3identities remain unresolved.
+The original and source/private-incarnation differences remain visible. Custody settled; owned
+supervisor/lane/worker/private host removed, temp absent and port36719 refused. No arbitrary child
+signal, reconstructed receipt, relaxed guard or further duplicate run supplied qualification.
+
+The bounded live diagnostic observed PostgreSQL180007/pgvector0.8.7 matching the inner declared
+policy; the current canonical `body` contains a `json` object but native admission passes the wrapper
+to a top-level policy reader. The coordinator owns the normal-successor/current-application repair
+and all3 actual recipe obligations. This failed cohort does not qualify final numerical scoring.
+
 ## Records
 
 <!-- evidence-index:start -->

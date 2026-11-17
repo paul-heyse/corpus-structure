@@ -1,8 +1,27 @@
 # Declared data operations — demand planning and execution
 
+## Immutable model composition reuse · 2026-11-17
+
+**Implemented; bounded Tested2026-11-17.** The coordinator owns DDO-SI-29
+and its evidence. Compose the strictly decoded effective model with exact source-interface bytes once
+per bounded LRU8 entry. Key both immutable artifact byte strings; do not cache a manifest, engine,
+prepared execution or authority decision. Manifest/artifact cardinality and supported-model validation
+still run on every call, including cache hits. Canonical model bytes exclude source interfaces;
+changing only those interfaces must preserve model meaning while retaining distinct interface metadata.
+Current purpose, trust, runtime/native and admission validation remain live. Focused controls cover
+same-instance reuse, distinct model/interface invalidation and invalid manifest/cardinality after a hit.
+This removes repeated immutable serialization without a persisted version change. Speedup is unmeasured.
+
+Discovery candidate selection must filter the actual producing derivation and admission use before
+scalar cardinality, in addition to product/member/context. A new discovery demand cannot inherit an
+old discovery proof as its current parent. Use explicit all-admissible semantic addresses when that
+new discovery owns proof selection; retain explicitly selected acquisition where a retained proof is
+intended. Missing or malformed required proof refuses, and genuine emitting slots/multiplicity still
+count separately. Native exact-parent validation remains authoritative.
+
 ## Statement-local binding realization · 2026-11-16
 
-**Accepted execution amendment; implementation/qualification Proposed.** DDO-SI-23 is owned by the
+**Implemented; bounded qualification is recorded in the coordinator.** DDO-SI-23 is owned by the
 coordinator. Use SQLAlchemy's native PostgreSQL `cte().prefix_with("MATERIALIZED", dialect="postgresql")`
 for the admitted binding-row relation and existing selected-role queries. Reuse these within one
 typed statement; do not materialize the wide Cartesian peer universe. Preserve the separate unfiltered
