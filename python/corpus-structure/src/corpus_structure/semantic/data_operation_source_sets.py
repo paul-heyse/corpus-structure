@@ -12,6 +12,15 @@ from dataclasses import dataclass, field
 
 from .data_operation_json import json_bytes, json_loads
 from .identity import canonical_bytes
+from .selected_support import (
+    AllAdmissibleAcquisition,
+    ProducerOutputOccurrence,
+    SelectedReadReference,
+    SelectedSourceProof,
+    SelectedSupportAcquisition,
+    SourceReadBasis,
+    SourceSetAcquisition,
+)
 
 
 def is_semantic_source_reference(record):
@@ -134,9 +143,49 @@ class SourceSetEntry:
 
 
 @dataclass(frozen=True)
+class SelectedSourceSetEntry:
+    entry: SourceSetEntry
+    read: SelectedReadReference
+    proof: SelectedSourceProof
+
+    def __post_init__(self):
+        if (self.entry.product, self.entry.member, self.entry.project_id) != (
+            self.proof.product_id, self.proof.member_id, self.read.project_id
+        ):
+            raise ValueError("selected source proof differs from semantic entry/project")
+
+    @classmethod
+    def from_selected_header(cls, header, cut, *, anchor_use_id=None):
+        from .data_operation_model import SubjectContext
+        from .data_operation_support import ComputationalSupportReference
+        from .data_product_reference import DataProductMemberReference, DataProductReference
+
+        product = DataProductReference(header["product_id"])
+        reference = product if header["member_id"] is None else DataProductMemberReference(
+            product, header["member_id"]
+        )
+        entry = SourceSetEntry.from_semantic_source(reference, context=SubjectContext(
+            cut.record["project_id"], header["subject"], header["original_source"],
+            json_bytes(header["analyzed_scope"]), subject_definition=header["subject_definition"],
+        ))
+        return cls(entry, SelectedReadReference.from_cut(cut), SelectedSourceProof(
+            anchor_use_id=header["use_id"] if anchor_use_id is None else anchor_use_id,
+            product_id=header["product_id"], member_id=header["member_id"],
+            support=ComputationalSupportReference(
+                derivation_id=header["derivation_id"], admission_use_id=header["use_id"],
+            ),
+            output=ProducerOutputOccurrence(
+                member_id=header["output_member_id"], role=header["role"],
+                position=header["position"], multiplicity=header["multiplicity"],
+            ),
+        ))
+
+
+@dataclass(frozen=True)
 class FrozenSourceSet:
     name: str
     entries: tuple[SourceSetEntry, ...]
+    acquisition: SourceSetAcquisition
 
     def __post_init__(self) -> None:
         if (
@@ -151,39 +200,103 @@ class FrozenSourceSet:
         if len(identities) != len(self.entries):
             raise ValueError("source sets require unique qualified product/member pins")
 
-    def record(self) -> list[dict]:
-        return [
-            entry.record()
-            for entry in sorted(self.entries, key=lambda entry: (entry.product, entry.member or ""))
-        ]
+        if isinstance(self.acquisition, SelectedSupportAcquisition):
+            acquired = {
+                (proof.product_id, proof.member_id)
+                for read in self.acquisition.reads for proof in read.proofs
+            }
+            if acquired != identities or any(
+                read.selection.project_id != entry.project_id
+                for read in self.acquisition.reads for proof in read.proofs
+                for entry in self.entries
+                if (entry.product, entry.member) == (proof.product_id, proof.member_id)
+            ):
+                raise ValueError("source acquisition differs from its exact semantic entries")
+        elif not isinstance(self.acquisition, AllAdmissibleAcquisition):
+            raise TypeError("source sets require explicit typed acquisition")
+
+    @classmethod
+    def unqualified(cls, name, entries):
+        """Intentionally select all otherwise admissible producing support."""
+        return cls(name, entries, AllAdmissibleAcquisition())
+
+    @classmethod
+    def from_selected(cls, name, selections):
+        by_address, by_cut = {}, {}
+        for selected in selections:
+            address = selected.entry.product, selected.entry.member
+            previous = by_address.setdefault(address, selected.entry)
+            if previous != selected.entry:
+                raise ValueError("selected source address has conflicting qualified context")
+            read, proofs = by_cut.setdefault(selected.read.cut_id, (selected.read, []))
+            if read != selected.read:
+                raise ValueError("selected source cut has conflicting exact bytes")
+            proofs.append(selected.proof)
+        from .data_operation_json import json_bytes
+
+        reads = tuple(
+            SourceReadBasis(selection=read, proofs=tuple(sorted(
+                proofs, key=lambda proof: json_bytes(proof.model_dump(mode="python"))
+            )))
+            for _, (read, proofs) in sorted(by_cut.items())
+        )
+        return cls(name, tuple(by_address.values()), SelectedSupportAcquisition(reads=reads))
+
+    def semantic_record(self) -> list[dict]:
+        return [entry.record() for entry in sorted(
+            self.entries, key=lambda entry: (entry.product, entry.member or "")
+        )]
+
+    def record(self) -> dict:
+        return {"entries": self.semantic_record(),
+                "acquisition": self.acquisition.model_dump(mode="python")}
 
 
 def source_sets_record(source_sets: tuple[FrozenSourceSet, ...]) -> dict:
     if len({scope.name for scope in source_sets}) != len(source_sets):
         raise ValueError("duplicate frozen source-set name")
-    return {
-        scope.name: scope.record() for scope in sorted(source_sets, key=lambda scope: scope.name)
-    }
+    return {scope.name: scope.record() for scope in sorted(source_sets, key=lambda scope: scope.name)}
+
+
+def source_sets_meaning(record: dict) -> dict:
+    """Project semantic addresses only; acquisition/read metadata never salts requests."""
+    return {name: scope["entries"] for name, scope in sorted(record.items())}
 
 
 def read_source_sets(record: dict) -> tuple[FrozenSourceSet, ...]:
-    return tuple(
-        FrozenSourceSet(
-            name,
-            tuple(
-                SourceSetEntry(
-                    entry["project_id"],
-                    entry["original_source"],
-                    entry["subject"],
-                    json_bytes(entry["analyzed_scope"]),
-                    entry["product"],
-                    entry["member"],
-                    entry["source_reference"],
-                    canonical_bytes(entry["reference"]),
-                    subject_definition=entry["subject_definition"],
-                )
-                for entry in entries
-            ),
+    from pydantic import TypeAdapter
+
+    result = []
+    for name, scope in sorted(record.items()):
+        if not isinstance(scope, dict) or set(scope) != {"entries", "acquisition"}:
+            raise ValueError("source set requires current entries/acquisition envelope")
+        entries = tuple(SourceSetEntry(
+            entry["project_id"], entry["original_source"], entry["subject"],
+            json_bytes(entry["analyzed_scope"]), entry["product"], entry["member"],
+            entry["source_reference"], canonical_bytes(entry["reference"]),
+            subject_definition=entry["subject_definition"],
+        ) for entry in scope["entries"])
+        acquisition = TypeAdapter(SourceSetAcquisition).validate_python(scope["acquisition"])
+        result.append(FrozenSourceSet(name, entries, acquisition))
+    return tuple(result)
+
+
+def source_proof_predicate(scope, relation):
+    """Role-local SQL selection of the explicitly frozen producing occurrences."""
+    from sqlalchemy import and_, false, or_, true
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy import type_coerce
+
+    acquisition = scope["acquisition"]
+    if acquisition["kind"] == "all-admissible-support-v1":
+        return true()
+    evidence = type_coerce(relation.c.support_evidence, JSONB)
+    return or_(false(), *(
+        and_(
+            relation.c.product == proof["product_id"],
+            relation.c.member.is_not_distinct_from(proof["member_id"]),
+            relation.c.support_references == [proof["support"]],
+            evidence["producer_output"] == proof["output"],
         )
-        for name, entries in sorted(record.items())
-    )
+        for read in acquisition["reads"] for proof in read["proofs"]
+    ))
