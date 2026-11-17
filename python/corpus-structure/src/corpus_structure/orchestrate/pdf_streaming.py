@@ -254,7 +254,6 @@ def run_private_native_pdf_build(
             )
             from corpus_structure.ingest.pdf_stream_types import PdfPageRecovery
 
-
             premises = PdfSpoolPremises(
                 basis,
                 source_digest,
@@ -445,6 +444,7 @@ def run_private_native_pdf_build(
                 spool.append(replay)
 
             from corpus_structure.semantic.pdf_shared_streams import PdfSharedStreamTransfer
+
             shared_transfer = PdfSharedStreamTransfer()
 
             def adopt_replay(replay: PdfReplayRef) -> None:
@@ -456,7 +456,9 @@ def run_private_native_pdf_build(
                 try:
                     for batch in batches:
                         with _pdf_transaction(engine, cancellation) as connection:
-                            if shared_transfer.omit_verified_parts(connection, build, batch.relations):
+                            if shared_transfer.omit_verified_parts(
+                                connection, build, batch.relations
+                            ):
                                 continue
                             receipt = adopt_pdf_batch(
                                 connection,
@@ -760,6 +762,7 @@ def publish_pdf_record_draft(
         )
 
         from corpus_structure.semantic.pdf_shared_streams import PdfSharedStreamTransfer
+
         shared_transfer = PdfSharedStreamTransfer()
 
         def adopt(replay: PdfReplayRef) -> None:

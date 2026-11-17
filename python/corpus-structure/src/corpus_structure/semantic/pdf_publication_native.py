@@ -398,14 +398,20 @@ def _companion_adoption_sql(context, metadata) -> str:
     from .native_shapes import record_shape_predicate
     from .pdf_payload_validation import metadata_classes
     from .pdf_payloads import FAMILY, PROFILE
-    from .pdf_staging_native import native_payload_size_sql
-
     from .pdf_record_model import record_upload_table
     from .pdf_shared_streams import part_template
+    from .pdf_staging_native import native_payload_size_sql
 
-    relations = [record_upload_table("ops.pdf_stage_" + name, metadata) for name in (
-        "companion", "companion_field", "artifact_stream", "artifact_part", "endpoint",
-    )]
+    relations = [
+        record_upload_table("ops.pdf_stage_" + name, metadata)
+        for name in (
+            "companion",
+            "companion_field",
+            "artifact_stream",
+            "artifact_part",
+            "endpoint",
+        )
+    ]
     sql = """
 CREATE OR REPLACE FUNCTION ops.prepare_pdf_companions() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -413,7 +419,11 @@ BEGIN
 """
     for relation in relations:
         scratch = "pc_" + relation.name
-        template = "pg_temp.pdf_part_wire_contract" if relation.name == "pdf_stage_artifact_part" else relation.fullname
+        template = (
+            "pg_temp.pdf_part_wire_contract"
+            if relation.name == "pdf_stage_artifact_part"
+            else relation.fullname
+        )
         if relation.name == "pdf_stage_artifact_part":
             sql += "PERFORM ops.pdf_part_upload_contract();\n"
         sql += f"""

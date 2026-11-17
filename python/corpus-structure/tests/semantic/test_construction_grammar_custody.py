@@ -60,14 +60,17 @@ def test_classifier_owns_one_extent_per_terminal_start_across_protected_regions(
     ]
 
 
-@pytest.mark.parametrize(("text", "atoms"), [
-    ("Every trial does not succeed.", ()),
-    ('Ada says "Rain may fall."', ()),
-    ("Not every\r\ntrial succeeds.", ()),
-    ("α uses β.", ()),
-    ("x + y uses x + y.", (ProtectedAtom(0, 5, "first"), ProtectedAtom(11, 16, "second"))),
-    ("A uses  .", (ProtectedAtom(7, 8, "blank"),)),
-])
+@pytest.mark.parametrize(
+    ("text", "atoms"),
+    [
+        ("Every trial does not succeed.", ()),
+        ('Ada says "Rain may fall."', ()),
+        ("Not every\r\ntrial succeeds.", ()),
+        ("\N{GREEK SMALL LETTER ALPHA} uses \N{GREEK SMALL LETTER BETA}.", ()),
+        ("x + y uses x + y.", (ProtectedAtom(0, 5, "first"), ProtectedAtom(11, 16, "second"))),
+        ("A uses  .", (ProtectedAtom(7, 8, "blank"),)),
+    ],
+)
 def test_supplied_terminal_candidate_preserves_independent_regex_forest(text, atoms):
     # This bounded differential control complements, and cannot replace, the
     # coordinator's actual book-region equality/adoption experiment.
@@ -90,9 +93,16 @@ def _forest_shape(root):
     records: list[object] = []
 
     def rule(value):
-        return (str(value.origin), tuple(str(item) for item in value.expansion),
-                str(value.alias), value.order, value.options.keep_all_tokens,
-                value.options.expand1, value.options.priority, value.options.empty_indices)
+        return (
+            str(value.origin),
+            tuple(str(item) for item in value.expansion),
+            str(value.alias),
+            value.order,
+            value.options.keep_all_tokens,
+            value.options.expand1,
+            value.options.priority,
+            value.options.empty_indices,
+        )
 
     def visit(node):
         if node is None:
@@ -104,15 +114,38 @@ def _forest_shape(root):
         records.append(None)
         if isinstance(node, TokenNode):
             token = node.token
-            record = ("token", token.type, str(token), token.start_pos, token.end_pos,
-                      token.line, token.column, token.end_line, token.end_column, node.priority)
+            record = (
+                "token",
+                token.type,
+                str(token),
+                token.start_pos,
+                token.end_pos,
+                token.line,
+                token.column,
+                token.end_line,
+                token.end_column,
+                node.priority,
+            )
         elif isinstance(node, PackedNode):
-            record = ("packed", rule(node.rule), node.start, node.priority,
-                      visit(node.left), visit(node.right))
+            record = (
+                "packed",
+                rule(node.rule),
+                node.start,
+                node.priority,
+                visit(node.left),
+                visit(node.right),
+            )
         elif isinstance(node, SymbolNode):
             label = (rule(node.s[0]), node.s[1]) if node.is_intermediate else str(node.s)
-            record = ("symbol", node.is_intermediate, label, node.start, node.end,
-                      node.priority, tuple(visit(child) for child in node.children))
+            record = (
+                "symbol",
+                node.is_intermediate,
+                label,
+                node.start,
+                node.end,
+                node.priority,
+                tuple(visit(child) for child in node.children),
+            )
         else:
             raise AssertionError("unexpected native forest node " + type(node).__name__)
         records[ordinal] = record
@@ -151,12 +184,15 @@ def test_authored_native_terminal_keeps_its_native_matcher():
     assert _forest_shape(actual) == _forest_shape(expected)
 
 
-@pytest.mark.parametrize("row", [
-    PositionedTerminal("UNKNOWN", 0, 5, "alpha"),
-    PositionedTerminal("WORD", 0, 5, "changed"),
-    PositionedTerminal("WORD", 0, 0, ""),
-    PositionedTerminal("WORD", 0, 6, "alpha!"),
-])
+@pytest.mark.parametrize(
+    "row",
+    [
+        PositionedTerminal("UNKNOWN", 0, 5, "alpha"),
+        PositionedTerminal("WORD", 0, 5, "changed"),
+        PositionedTerminal("WORD", 0, 0, ""),
+        PositionedTerminal("WORD", 0, 6, "alpha!"),
+    ],
+)
 def test_supplied_matcher_rejects_nonexact_observations_before_parse(row):
     with pytest.raises(ValueError, match="exact original source"):
         forest.prepared_parser("alpha", (), terminals=(row,))

@@ -282,12 +282,21 @@ BEGIN
     from .pdf_record_model import record_upload_table
     from .pdf_shared_streams import part_template, part_wire_contract_sql, shared_streams_sql
 
-    sql = sql.replace("CREATE OR REPLACE FUNCTION ops.prepare_pdf_stage", part_wire_contract_sql(selected) + shared_streams_sql(selected) + "\nCREATE OR REPLACE FUNCTION ops.prepare_pdf_stage")
+    sql = sql.replace(
+        "CREATE OR REPLACE FUNCTION ops.prepare_pdf_stage",
+        part_wire_contract_sql(selected)
+        + shared_streams_sql(selected)
+        + "\nCREATE OR REPLACE FUNCTION ops.prepare_pdf_stage",
+    )
     relations = [record_upload_table(name, selected) for name in UPLOAD_STAGE_FAMILIES.values()]
     pg = dialect()
     for relation in relations:
         scratch = "ps_" + relation.name
-        template = "pg_temp.pdf_part_wire_contract" if relation.name == "pdf_stage_artifact_part" else relation.fullname
+        template = (
+            "pg_temp.pdf_part_wire_contract"
+            if relation.name == "pdf_stage_artifact_part"
+            else relation.fullname
+        )
         if relation.name == "pdf_stage_artifact_part":
             sql += "PERFORM ops.pdf_part_upload_contract();\n"
         sql += (
@@ -353,12 +362,18 @@ BEGIN
             continue
         columns = ",".join(pg.identifier_preparer.quote(c.name) for c in relation.columns)
         if relation.name == "pdf_stage_artifact_stream":
-            sql += f"PERFORM ops.pdf_adopt_shared_stream_descriptors(p_build,'{scratch}'::regclass);\n"
+            sql += (
+                f"PERFORM ops.pdf_adopt_shared_stream_descriptors(p_build,'{scratch}'::regclass);\n"
+            )
         sql += (
             f"INSERT INTO {relation.fullname}({columns}) SELECT {columns} "
             f"FROM {scratch} ON CONFLICT DO NOTHING;\n"
         )
-        retained = "ops.pdf_artifact_parts(p_build,p_build,true)" if relation.name == "pdf_stage_artifact_part" else relation.fullname
+        retained = (
+            "ops.pdf_artifact_parts(p_build,p_build,true)"
+            if relation.name == "pdf_stage_artifact_part"
+            else relation.fullname
+        )
         sql += (
             f"IF EXISTS(SELECT {columns} FROM {scratch} "
             f"EXCEPT SELECT {columns} FROM {retained}) THEN "

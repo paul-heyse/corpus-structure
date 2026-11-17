@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Text, column, exists, func, or_, select, table, update
+from sqlalchemy import Text, column, delete, exists, func, or_, select, table, update
 from sqlalchemy.dialects.postgresql import dialect
 
 if TYPE_CHECKING:
@@ -33,14 +33,14 @@ class N1Parameters(BaseModel):
 class DataStepRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: Literal["ddo_n1_relower", "pdf_s40_shared_streams"]
+    name: Literal["ddo_n1_relower", "pdf_s36_retire_validation", "pdf_s40_shared_streams"]
     parameters: N1Parameters = Field(default_factory=N1Parameters)
 
 
 class FrozenDataStep(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: Literal["ddo_n1_relower", "pdf_s40_shared_streams"]
+    name: Literal["ddo_n1_relower", "pdf_s36_retire_validation", "pdf_s40_shared_streams"]
     owner: Literal["corpus_sem_publisher"] = "corpus_sem_publisher"
     implementation_sha256: str
     libraries: tuple[tuple[str, str], ...]
@@ -174,14 +174,56 @@ def _n1() -> FrozenDataStep:
 
 _S40_RETIRED_PARTS = ("ops.pdf_artifact_part", "ops.pdf_stage_artifact_part")
 
+_S36_COLUMNS = tuple(
+    ("ops.pdf_build_validation", name)
+    for name in (
+        "certification_basis",
+        "lowering_identity",
+        "attested_logical_digest",
+        "native_document_digest",
+        "oracle_receipt_id",
+    )
+)
+
+
+def _pdf_s36() -> FrozenDataStep:
+    """Retire unqualified receipts, never invent historical producer attestations.
+
+    Products and their original/record bytes remain retained. A historical product
+    without current certification is inert and must be regenerated for current use.
+    """
+    validation = table(
+        "pdf_build_validation", *(column(name, Text) for _, name in _S36_COLUMNS), schema="ops"
+    )
+    unqualified = or_(*(validation.c[name].is_(None) for _, name in _S36_COLUMNS))
+    return FrozenDataStep(
+        name="pdf_s36_retire_validation",
+        implementation_sha256=sha256(Path(__file__).read_bytes()).hexdigest(),
+        libraries=tuple((name, version(name)) for name in ("sqlalchemy", "alembic")),
+        statements=(
+            _sql(delete(validation).where(unqualified)),
+            _refuse_rows(
+                select(1).select_from(validation).where(unqualified),
+                "S36 retained an unqualified validation receipt",
+            ),
+        ),
+        deferred_columns=_S36_COLUMNS,
+        guarded_relations=("ops.pdf_build_validation",),
+    )
+
 
 def _pdf_s40() -> FrozenDataStep:
     source = Path(__file__).with_name("sql").joinpath("pdf_s40_shared_streams.sql").read_bytes()
-    identity = sha256(sha256(Path(__file__).read_bytes()).digest() + sha256(source).digest()).hexdigest()
+    identity = sha256(
+        sha256(Path(__file__).read_bytes()).digest() + sha256(source).digest()
+    ).hexdigest()
     return FrozenDataStep(
-        name="pdf_s40_shared_streams", implementation_sha256=identity,
+        name="pdf_s40_shared_streams",
+        implementation_sha256=identity,
         libraries=tuple((name, version(name)) for name in ("sqlalchemy", "alembic")),
-        statements=(source.decode(),), deferred_columns=(), guarded_relations=(),
+        statements=(source.decode(),),
+        deferred_columns=(),
+        guarded_relations=(),
     )
 
 
@@ -189,7 +231,11 @@ def prepare_data_steps(requests: tuple[DataStepRequest, ...]) -> tuple[FrozenDat
     if len({request.name for request in requests}) != len(requests):
         raise ValueError("duplicate revision data step")
     # The closed DTO and this finite map are the only builder selection surface.
-    builders = {"ddo_n1_relower": _n1, "pdf_s40_shared_streams": _pdf_s40}
+    builders = {
+        "ddo_n1_relower": _n1,
+        "pdf_s36_retire_validation": _pdf_s36,
+        "pdf_s40_shared_streams": _pdf_s40,
+    }
     return tuple(builders[request.name]() for request in requests)
 
 
@@ -209,7 +255,11 @@ def order_data_steps(
         raise NativeAuthoringError("revision data steps differ from current closed builder custody")
     deferred = {entry for step in steps for entry in step.deferred_columns}
     final: list[MigrateOperation] = []
-    retired_parts = set(_S40_RETIRED_PARTS) if any(step.name == "pdf_s40_shared_streams" for step in steps) else set()
+    retired_parts = (
+        set(_S40_RETIRED_PARTS)
+        if any(step.name == "pdf_s40_shared_streams" for step in steps)
+        else set()
+    )
     final_drops: list[MigrateOperation] = []
 
     def prepare(operation: MigrateOperation) -> MigrateOperation | None:
@@ -218,7 +268,10 @@ def order_data_steps(
                 staged for child in operation.ops if (staged := prepare(child)) is not None
             ]
             return operation if operation.ops else None
-        if isinstance(operation, ops.DropTableOp) and f"{operation.schema}.{operation.table_name}" in retired_parts:
+        if (
+            isinstance(operation, ops.DropTableOp)
+            and f"{operation.schema}.{operation.table_name}" in retired_parts
+        ):
             final_drops.append(OwnedOperationsOp("corpus_sem_publisher", [operation]))
             return None
         if isinstance(operation, ops.AddColumnOp):

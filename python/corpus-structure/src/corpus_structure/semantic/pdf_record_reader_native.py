@@ -12,7 +12,11 @@ def pdf_record_reader_sql() -> str:
         ),
         "reference": ("kb.pdf_record_reference", ("reference_id",), ("source_id", "target_id")),
         "artifact_stream": ("ops.pdf_artifact_stream", ("stream_id",), ("stream_id", "stream_ids")),
-        "artifact_part": ("ops.pdf_artifact_parts(published.build_id,published.build_id,false,selected_stream_ids)", ("stream_id", "ordinal"), ("stream_id", "stream_ids")),
+        "artifact_part": (
+            "ops.pdf_artifact_parts(published.build_id,published.build_id,false,selected_stream_ids)",
+            ("stream_id", "ordinal"),
+            ("stream_id", "stream_ids"),
+        ),
         "companion": (
             "kb.pdf_record_companion",
             ("family", "local_id"),

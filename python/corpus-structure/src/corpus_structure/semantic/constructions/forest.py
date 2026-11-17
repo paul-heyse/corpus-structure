@@ -123,15 +123,25 @@ def _grammar_prototype(grammar: str | None, resource_digest: str) -> Lark:
     parser = Lark(
         grammar + "\n" + declarations + "\nWS: /(?!)x/\n%ignore WS",
         import_paths=[str(Path(__file__).with_name("grammars"))],
-        parser="earley", lexer="dynamic", ambiguity="forest", priority=None,
-        ordered_sets=True, start=["start"], keep_all_tokens=True,
+        parser="earley",
+        lexer="dynamic",
+        ambiguity="forest",
+        priority=None,
+        ordered_sets=True,
+        start=["start"],
+        keep_all_tokens=True,
     )
     _grammar_resource(Path(__file__).with_name("grammars").joinpath("prose.lark")).check()
     return parser
 
 
-def _prepared_parser(text: str, atoms: tuple[ProtectedAtom, ...], grammar: str | None,
-                     resource_digest: str, terminals: tuple[PositionedTerminal, ...] | None = None) -> Lark:
+def _prepared_parser(
+    text: str,
+    atoms: tuple[ProtectedAtom, ...],
+    grammar: str | None,
+    resource_digest: str,
+    terminals: tuple[PositionedTerminal, ...] | None = None,
+) -> Lark:
     previous = 0
     for atom in sorted(atoms, key=lambda a: a.start):
         if not previous <= atom.start < atom.end <= len(text):
@@ -142,19 +152,28 @@ def _prepared_parser(text: str, atoms: tuple[ProtectedAtom, ...], grammar: str |
     for row in values:
         key = row.terminal, row.start
         if key in starts and starts[key] != row:
-            raise ValueError("same-terminal same-start alternatives exceed dynamic Earley lexical support")
+            raise ValueError(
+                "same-terminal same-start alternatives exceed dynamic Earley lexical support"
+            )
         starts[key] = row
         terminal_guard(row.start, row.end, atoms, atom=False)
-        if (row.terminal not in {*LEXICAL, "WS"} or not 0 <= row.start < row.end <= len(text)
-                or text[row.start:row.end] != row.text):
+        if (
+            row.terminal not in {*LEXICAL, "WS"}
+            or not 0 <= row.start < row.end <= len(text)
+            or text[row.start : row.end] != row.text
+        ):
             raise ValueError("retained lexical observation differs from exact original source")
     matches = {key: _PositionedMatch(row.text, row.end) for key, row in starts.items()}
     for atom in atoms:
-        matches["ATOM", atom.start] = _PositionedMatch(text[atom.start:atom.end], atom.end)
+        matches["ATOM", atom.start] = _PositionedMatch(text[atom.start : atom.end], atom.end)
     prototype = _grammar_prototype(grammar, resource_digest)
     frontend = prototype.parser
-    if not isinstance(frontend, ParsingFrontend) or not isinstance(frontend.parser, DynamicEarleyParser):
-        raise RuntimeError("prepared prose grammar requires its captured dynamic Earley implementation")
+    if not isinstance(frontend, ParsingFrontend) or not isinstance(
+        frontend.parser, DynamicEarleyParser
+    ):
+        raise RuntimeError(
+            "prepared prose grammar requires its captured dynamic Earley implementation"
+        )
     parser = copy(prototype)
     region_frontend = copy(frontend)
     scanner = copy(frontend.parser)
@@ -162,7 +181,9 @@ def _prepared_parser(text: str, atoms: tuple[ProtectedAtom, ...], grammar: str |
     # columns/scanner buffers. Copy only the three owners along this binding path;
     # shared rules/configuration stay immutable and no parser holds another run's
     # text. Never mutate the cached scanner or serialize access through a lock.
-    scanner.term_matcher = _RegionMatcher(text, MappingProxyType(matches), frontend.parser.term_matcher).match
+    scanner.term_matcher = _RegionMatcher(
+        text, MappingProxyType(matches), frontend.parser.term_matcher
+    ).match
     region_frontend.parser = scanner
     parser.parser = region_frontend
     return parser

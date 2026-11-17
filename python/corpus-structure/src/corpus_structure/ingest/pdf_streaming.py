@@ -478,27 +478,41 @@ class StreamingPdfResult:
             # Complete the descriptor before its first protected transfer. The
             # local complete packet is retained for independent certification.
             from tempfile import TemporaryFile
+
             with TemporaryFile() as buffered:
                 for part in emit_parts(stream_id, chunks):
                     folded.add(part.body)
                     digest.update(part.body)
                     buffered.write(part.body)
-                append("artifact_stream", {
-                    **common, "byte_length": folded.byte_length,
-                    "serialization_sha256": digest.hexdigest(),
-                    "byte_root": folded.digest().hex(), "encoding_profile": profile,
-                })
+                append(
+                    "artifact_stream",
+                    {
+                        **common,
+                        "byte_length": folded.byte_length,
+                        "serialization_sha256": digest.hexdigest(),
+                        "byte_root": folded.digest().hex(),
+                        "encoding_profile": profile,
+                    },
+                )
                 flush("artifact_stream")
                 buffered.seek(0)
+
                 def prepared_chunks():
                     while chunk := buffered.read(65536):
                         yield chunk
+
                 for part in emit_parts(stream_id, prepared_chunks()):
-                    append("artifact_part", {
-                        **common, "ordinal": part.ordinal, "byte_offset": part.offset,
-                        "byte_length": part.byte_length, "body": part.body,
-                        "sha256_digest": part.sha256_digest,
-                    })
+                    append(
+                        "artifact_part",
+                        {
+                            **common,
+                            "ordinal": part.ordinal,
+                            "byte_offset": part.offset,
+                            "byte_length": part.byte_length,
+                            "body": part.body,
+                            "sha256_digest": part.sha256_digest,
+                        },
+                    )
                 # One stream per part replay keeps omission and exact retry stable.
                 flush("artifact_part")
             return ScalarDescriptor(
@@ -698,18 +712,42 @@ def iter_replay_artifact_batches(
     for part in emit_parts(stream_id, chunks()):
         folded.add(part.body)
         digest.update(part.body)
-    yield ("artifact_stream", pa.RecordBatch.from_pylist([{
-        **common, "byte_length": folded.byte_length, "serialization_sha256": digest.hexdigest(),
-        "byte_root": folded.digest().hex(), "encoding_profile": encoding_profile,
-    }], schema=stage_schema("artifact_stream")))
+    yield (
+        "artifact_stream",
+        pa.RecordBatch.from_pylist(
+            [
+                {
+                    **common,
+                    "byte_length": folded.byte_length,
+                    "serialization_sha256": digest.hexdigest(),
+                    "byte_root": folded.digest().hex(),
+                    "encoding_profile": encoding_profile,
+                }
+            ],
+            schema=stage_schema("artifact_stream"),
+        ),
+    )
     pending, size = [], 0
     for part in emit_parts(stream_id, chunks()):
-        pending.append({**common, "ordinal": part.ordinal, "byte_offset": part.offset,
-                        "byte_length": part.byte_length, "body": part.body,
-                        "sha256_digest": part.sha256_digest})
+        pending.append(
+            {
+                **common,
+                "ordinal": part.ordinal,
+                "byte_offset": part.offset,
+                "byte_length": part.byte_length,
+                "body": part.body,
+                "sha256_digest": part.sha256_digest,
+            }
+        )
         size += part.byte_length + 512
         if size >= MAX_BATCH_BYTES // 2:
-            yield "artifact_part", pa.RecordBatch.from_pylist(pending, schema=stage_schema("artifact_part"))
+            yield (
+                "artifact_part",
+                pa.RecordBatch.from_pylist(pending, schema=stage_schema("artifact_part")),
+            )
             pending, size = [], 0
     if pending:
-        yield "artifact_part", pa.RecordBatch.from_pylist(pending, schema=stage_schema("artifact_part"))
+        yield (
+            "artifact_part",
+            pa.RecordBatch.from_pylist(pending, schema=stage_schema("artifact_part")),
+        )

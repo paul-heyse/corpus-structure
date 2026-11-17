@@ -69,6 +69,7 @@ def _types(column):
 def artifact_part_upload_table(model: MetaData | None = None):
     """Compile the declared part wire shape without installing a part table."""
     import yaml
+
     from corpus_structure.schema.physical import compile_physical
 
     selected = metadata if model is None else model
@@ -76,7 +77,8 @@ def artifact_part_upload_table(model: MetaData | None = None):
     root = yaml.safe_load(sources["physical.yaml"])
     owner = yaml.safe_load(sources["pdf-records.yaml"])["classes"]["PdfArtifactPart"]["annotations"]
     root["classes"]["pdf_stage_artifact_part"] = {
-        "is_a": "PdfArtifactPart", "in_subset": ["ops"],
+        "is_a": "PdfArtifactPart",
+        "in_subset": ["ops"],
         "unique_keys": {"primary_key": {"unique_key_slots": json.loads(owner["pds:upload_key"])}},
         "annotations": {"ph:checks": owner["pds:upload_checks"]},
     }
@@ -91,7 +93,11 @@ def artifact_part_upload_table(model: MetaData | None = None):
 
 def record_upload_table(name: str, model: MetaData | None = None):
     selected = metadata if model is None else model
-    return artifact_part_upload_table(selected) if name == "ops.pdf_stage_artifact_part" else selected.tables[name]
+    return (
+        artifact_part_upload_table(selected)
+        if name == "ops.pdf_stage_artifact_part"
+        else selected.tables[name]
+    )
 
 
 def record_arrow_schema(name: str, *, model: MetaData | None = None) -> pa.Schema:
@@ -161,5 +167,7 @@ def _write_profile(name: str, release_id: str, selected: MetaData) -> ArrowWrite
         physical_id=selected.info["physical_model_id"],
         operation="private-pdf:" + name,
         schema=record_arrow_schema(name, model=selected),
-        wire_types=tuple(_types(c)[2].removesuffix(":utf8") for c in record_upload_table(name, selected).columns),
+        wire_types=tuple(
+            _types(c)[2].removesuffix(":utf8") for c in record_upload_table(name, selected).columns
+        ),
     )

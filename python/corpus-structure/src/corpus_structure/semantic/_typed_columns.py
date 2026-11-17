@@ -11,14 +11,15 @@ from .identifiers import ReleaseId as ReleaseId
 from .identifiers import RuntimeId as RuntimeId
 from .metadata import table
 
-PHYSICAL_MODEL_ID = "physical:26c5e15149b8974131c6896d6300db0974dc2b362c5bb71d04c18c5b3fab7dd5"
-TYPE_MODEL_ID = "d954654b12a7353e49c02894c158ea4135c984acd667637520d8fa42b2904401"
+PHYSICAL_MODEL_ID = "physical:d9673094fa4ce499e8496982d784cea6eb77b71e10e26fae406256c9de1969e2"
+TYPE_MODEL_ID = "37cf6188cb7b0f9229e1f6c2f191c13dae641d09d61362b51afbbb5f91f119d4"
 
 
 class SemRuntimeBindingColumns(TypedColumns):
     release_id: Named[str]
     runtime_id: Named[RuntimeId]
     manifest_bytes: Named[bytes]
+    execution_profile: Named[str]
     archive_bytes: Named[bytes]
 
 
@@ -26,6 +27,7 @@ class SemRuntimeBindingColumnsSet(Protocol):
     release_id: Column[str]
     runtime_id: Column[RuntimeId]
     manifest_bytes: Column[bytes]
+    execution_profile: Column[str]
     archive_bytes: Column[bytes]
 
 
@@ -174,34 +176,4 @@ ops_pdf_stage_artifact_stream = table("ops.pdf_stage_artifact_stream").with_cols
 )
 ops_pdf_stage_artifact_stream_columns = cast(
     OpsPdfStageArtifactStreamColumnsSet, ops_pdf_stage_artifact_stream.c
-)
-
-
-class OpsPdfStageArtifactPartColumns(TypedColumns):
-    product_id: Named[str]
-    revision_id: Named[str]
-    stream_id: Named[str]
-    ordinal: Named[int]
-    byte_offset: Named[int]
-    byte_length: Named[int]
-    body: Named[bytes]
-    sha256_digest: Named[str]
-
-
-class OpsPdfStageArtifactPartColumnsSet(Protocol):
-    product_id: Column[str]
-    revision_id: Column[str]
-    stream_id: Column[str]
-    ordinal: Column[int]
-    byte_offset: Column[int]
-    byte_length: Column[int]
-    body: Column[bytes]
-    sha256_digest: Column[str]
-
-
-ops_pdf_stage_artifact_part = table("ops.pdf_stage_artifact_part").with_cols(
-    OpsPdfStageArtifactPartColumns
-)
-ops_pdf_stage_artifact_part_columns = cast(
-    OpsPdfStageArtifactPartColumnsSet, ops_pdf_stage_artifact_part.c
 )

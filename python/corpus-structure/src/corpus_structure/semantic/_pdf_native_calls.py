@@ -1436,6 +1436,125 @@ def prepare_pdf_companions(
     return None
 
 
+PROBE_PDF_SHARED_STREAMS_CONTRACT_DIGEST = (
+    "192af57bca257b989e225bafd953edf3cfb89ddd6d0f3fc68cb1a9a9d2a3a86a"
+)
+
+
+class PdfSharedStreamStatus(NativeRowResult):
+    stream_id: str
+    verified: bool
+
+
+class _probe_pdf_shared_streamsRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    streams: bytes
+
+
+_probe_pdf_shared_streams_function = func.ops.probe_pdf_shared_streams(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("streams", type_=BYTEA()),
+).table_valued(
+    column("stream_id", Text()),
+    column("verified", Boolean()),
+)
+
+
+class _probe_pdf_shared_streamsColumns(Protocol):
+    stream_id: Column[str]
+    verified: Column[bool]
+
+
+_probe_pdf_shared_streams_columns = cast(
+    _probe_pdf_shared_streamsColumns, _probe_pdf_shared_streams_function.c
+)
+_probe_pdf_shared_streams_statement = select(
+    _probe_pdf_shared_streams_columns.stream_id,
+    _probe_pdf_shared_streams_columns.verified,
+).order_by(
+    _probe_pdf_shared_streams_columns.stream_id.collate("C"),
+)
+
+
+def _probe_pdf_shared_streams_result(row: tuple[str, bool]) -> PdfSharedStreamStatus:
+    with native_result_scope("probe_pdf_shared_streams", "PdfSharedStreamStatus"):
+        return PdfSharedStreamStatus(
+            stream_id=row[0],
+            verified=row[1],
+        )
+
+
+def prepare_probe_pdf_shared_streams(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    streams: bytes,
+    projection_context: PreparedRelease | None = None,
+) -> Select[str, bool]:
+    _request = _probe_pdf_shared_streamsRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        streams=streams,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "probe_pdf_shared_streams",
+            "probe_pdf_shared_streams",
+            PROBE_PDF_SHARED_STREAMS_CONTRACT_DIGEST,
+        )
+    return _probe_pdf_shared_streams_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "streams": _request.streams,
+        }
+    )
+
+
+materialize_probe_pdf_shared_streams = _probe_pdf_shared_streams_result
+
+
+def probe_pdf_shared_streams(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    streams: bytes,
+    projection_context: PreparedRelease | None = None,
+) -> tuple[PdfSharedStreamStatus, ...]:
+    _statement = prepare_probe_pdf_shared_streams(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        streams=streams,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("probe_pdf_shared_streams", "PdfSharedStreamStatus"):
+        return tuple(_probe_pdf_shared_streams_result(row) for row in _native_result)
+
+
 PUBLISH_PDF_OBSERVATION_CONTRACT_DIGEST = (
     "223b5d8f7fd7f4d0c94fdf13b3c8aa938da39ce1ba7241af3dfed0bb2c39502c"
 )
@@ -6080,4 +6199,4 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "66ccdd96a053bb7c05f8e17f77b5ae9ae3c2846d7c7c92cf5c90177f51c9a89e"
+CALL_CONTRACT_DIGEST = "e4baab0c8de5272194a4045720cd91464ccab683da7db6cd0c8da4707c5f47b3"

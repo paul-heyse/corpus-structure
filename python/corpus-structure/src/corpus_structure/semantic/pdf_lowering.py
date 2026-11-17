@@ -219,7 +219,9 @@ def _prepared_lowering_sources(boundary_sources):
                 "pdf-domain/" + LOWERING_PREFIX + "codec/" + name + ".arrow",
                 record_arrow_schema(name, model=model).serialize().to_pybytes(),
             )
-            for name in sorted(set(UPLOAD_STAGE_FAMILIES.values()) | set(COMPANION_STAGE_TARGETS.values()))
+            for name in sorted(
+                set(UPLOAD_STAGE_FAMILIES.values()) | set(COMPANION_STAGE_TARGETS.values())
+            )
         ),
     )
     contract = SourceArtifact(

@@ -1,6 +1,5 @@
 """Projection admission rejects a stale snapshot before waiting for the build fence."""
 
-
 import pytest
 from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text

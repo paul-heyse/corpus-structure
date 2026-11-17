@@ -361,14 +361,28 @@ def prepare_pdf_companion_batches(
             length, root = byte_root((payload,))
             # Descriptor facts precede bounded part packets. The host can omit
             # part COPY when its protected project-scoped probe finds this key.
-            streams.append({**common, "byte_length": length, "byte_root": root.hex(),
-                            "serialization_sha256": None, "encoding_profile": profile})
+            streams.append(
+                {
+                    **common,
+                    "byte_length": length,
+                    "byte_root": root.hex(),
+                    "serialization_sha256": None,
+                    "encoding_profile": profile,
+                }
+            )
             copy("stream", streams)
             field_parts = []
             for part in emit_parts(stream, (payload,)):
-                field_parts.append({**common, "ordinal": part.ordinal,
-                    "byte_offset": part.offset, "byte_length": part.byte_length,
-                    "body": part.body, "sha256_digest": part.sha256_digest})
+                field_parts.append(
+                    {
+                        **common,
+                        "ordinal": part.ordinal,
+                        "byte_offset": part.offset,
+                        "byte_length": part.byte_length,
+                        "body": part.body,
+                        "sha256_digest": part.sha256_digest,
+                    }
+                )
                 if len(field_parts) == 64:
                     copy("part", field_parts)
             copy("part", field_parts)
@@ -411,8 +425,8 @@ def adopt_prepared_pdf_companion_batches(
     """Adopt already certified fixed-family bytes through the existing set operation."""
     from .arrow_transfer import copy_arrow_stream
     from .pdf_record_model import record_write_profile
-
     from .pdf_shared_streams import PdfSharedStreamTransfer
+
     shared_transfer = PdfSharedStreamTransfer()
     calls.prepare_pdf_companions(conn)
     profiles = {
@@ -463,7 +477,9 @@ def adopt_pdf_companions(
             codec = prepare_payload_family(pdf_context_for_task(conn, build.task_id))
             object.__setattr__(build, "_payload_family", codec)
         return codec
+
     from .pdf_shared_streams import PdfSharedStreamTransfer
+
     shared_transfer = PdfSharedStreamTransfer()
     calls.prepare_pdf_companions(conn)
     profiles = {
