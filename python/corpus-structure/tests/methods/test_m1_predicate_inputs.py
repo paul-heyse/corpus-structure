@@ -47,7 +47,7 @@ def acquired():
         NativeProfile(
             "spacy",
             {"controlled": "columns"},
-            {},
+            {"files": {}},
             config.model_dump(mode="json"),
             "float32",
             "cupy",

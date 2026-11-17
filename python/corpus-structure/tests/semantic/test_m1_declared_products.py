@@ -62,7 +62,7 @@ def _sources():
         NativeProfile(
             "spacy",
             {"fixture": "preparation"},
-            {},
+            {"files": {}},
             config.sentences.model_dump(mode="json"),
             "float32",
             "cupy",

@@ -119,7 +119,7 @@ class ControlledDecoder:
         self.mode = mode
         self.calls = []
 
-    def extract(self, pack, inputs, *, threshold, check_active):
+    def extract(self, pack, inputs, *, threshold, check_active) -> tuple[GlinerReport, ...] | GlinerBatchResult:
         check_active()
         self.calls.append((pack, inputs))
         if self.mode == "failed":
@@ -133,7 +133,7 @@ class ControlledDecoder:
                     defining_text=dict(start=8, end=15, text="average"),
                 )
             ]
-        return (
+        return tuple(
             GlinerReport(
                 item.context_id,
                 item.context_digest,

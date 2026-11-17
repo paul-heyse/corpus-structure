@@ -328,6 +328,12 @@ class M1GlinerReply:
 
 
 @dataclass(frozen=True)
+class _M1InputRefusal:
+    outcome: Literal["limited", "not_run"]
+    reason: str
+
+
+@dataclass(frozen=True)
 class M1CandidateProduct:
     """Located candidate output independent of a physical task or source-method facade."""
 
@@ -565,7 +571,7 @@ def plan_candidates(
         for family in selection.families:
             for variant, _, pack in packs[family]:
                 questions.setdefault((family, variant, pack), []).append((index, item))
-    results = {}
+    results: dict[tuple[int, str, str], GlinerReport | _M1InputRefusal] = {}
     worker_failure = None
     for (family, variant, pack), members in questions.items():
         inputs = tuple(item for _, item in members)
@@ -574,11 +580,16 @@ def plan_candidates(
             native_profile=cfg.native_execution_profile,
         ):
             check_active()
-            if refusal is not None or worker_failure is not None:
+            if worker_failure is not None:
                 for ordinal in ordinals:
-                    results[members[ordinal][0], family, variant] = (
-                        "not_run" if worker_failure is not None else "limited",
-                        worker_failure or refusal,
+                    results[members[ordinal][0], family, variant] = _M1InputRefusal(
+                        "not_run", worker_failure
+                    )
+                continue
+            if refusal is not None:
+                for ordinal in ordinals:
+                    results[members[ordinal][0], family, variant] = _M1InputRefusal(
+                        "limited", refusal
                     )
                 continue
             requested = tuple(inputs[ordinal] for ordinal in ordinals)
@@ -591,7 +602,7 @@ def plan_candidates(
                 worker_failure = reply.message
                 details["producer_failure"] = worker_failure
                 for ordinal in ordinals:
-                    results[members[ordinal][0], family, variant] = ("not_run", worker_failure)
+                    results[members[ordinal][0], family, variant] = _M1InputRefusal("not_run", worker_failure)
                 continue
             if len(reply.admissions) != len(requested) or any(
                 (admission.context_id, admission.context_digest)
@@ -602,17 +613,17 @@ def plan_candidates(
             reports = iter(reply.reports)
             for ordinal, admission in zip(ordinals, reply.admissions, strict=True):
                 results[members[ordinal][0], family, variant] = (
-                    ("report", next(reports)) if admission.admitted
-                    else ("limited", admission.reason or "native input refused")
+                    next(reports) if admission.admitted
+                    else _M1InputRefusal("limited", admission.reason or "native input refused")
                 )
 
-    def selected_report(index, family, variant):
-        outcome, value = results[index, family, variant]
-        if outcome == "limited":
-            raise GlinerRefused(value)
-        if outcome == "not_run":
-            raise GlinerWorkerError(value)
-        return value
+    def selected_report(index: int, family: str, variant: str) -> GlinerReport:
+        result = results[index, family, variant]
+        if isinstance(result, GlinerReport):
+            return result
+        if result.outcome == "limited":
+            raise GlinerRefused(result.reason)
+        raise GlinerWorkerError(result.reason)
 
     for index, selection in enumerate(prepared_source.selections):
         check_active()
