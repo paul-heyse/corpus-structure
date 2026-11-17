@@ -1,6 +1,6 @@
 # Evidence and discrimination
 
-**Interface-checked by source inspection, 2026-11-12; additions dated 2026-11-13.** These observations use the source
+**Interface-checked by source inspection, 2026-11-12; additions dated 2026-11-13 and 2026-11-17.** These observations use the source
 baseline in the [account](README.md#baseline). Prior qualification receipts retain their original
 dates and applicability; nothing here is a fresh native execution or an observed production
 defect.
@@ -13,6 +13,166 @@ plus message or constraint with a positive control in a rolled-back savepoint, a
 unknown/absent/empty distinctions in serving and gap tests. Sharing production validators for
 downstream setup does not invalidate those tests; judging the validator itself still needs a
 separate expected result.
+
+<a id="refresh-2026-11-17-evidence"></a>
+
+## Refresh of 2026-11-17
+
+**Interface-checked by source inspection, 2026-11-17**, source `fbd3f2a98`
+([baseline](README.md#baseline)). No test was run; this section judges whether the evidence
+would detect a wrong implementation, not whether it currently passes. The production side
+gained many mechanisms that reuse work or skip a check, and several of the commits that added
+them record `runtime not_run`. The question asked of each was: if the reuse were wrong (stale,
+wrongly keyed, too broad, racing), which test would fail?
+
+| Earlier finding | Status at `fbd3f2a98` |
+|---|---|
+| DTA-001 | Standing, changed footprint (new sites below the finding) |
+| DTA-033 | Corrected on 2026-11-13, then regressed in its native half |
+| DTA-027 | Corrected |
+| DTA-006 | Corrected at its one surviving site |
+| DTA-007 | Stands as sound |
+| DTA-010, 011, 013, 015, 019, 020, 023 | Not re-examined |
+
+Much of the new machinery is well tested, and that bounds the findings: the archive open cache
+(cold race, eviction order, header change mid-open), the preparation caches (each determinant
+perturbed, a colliding-hash subclass refused), file and query custody (content confirms
+metadata; reload refused), the CPU worker cache (a tampered digest refused on a warm worker),
+native residency (a stale timer replayed deterministically), the prepared grammar against an
+independent test-only oracle, shared PDF streams (tamper refusal, cross-project isolation,
+reclaim races), and the encoder and GLiNER provider panels (singleton reference under mixed,
+reversed and regrouped cohorts).
+
+<a id="dta-044"></a>
+
+### DTA-044 — Mechanisms that skip a check or carry a result forward are tested only where the reuse is correct
+
+**FP-02, FP-04, FP-05, FP-06; DP-23; A4; companion §1, §4.**
+
+Each item below is a production mechanism whose purpose is to avoid repeating work that was
+already established. In each, the tests exercise the path where skipping is right and not the
+path where it must not happen.
+
+- **PDF round-trip oracle skip.** A build may skip the reconstruction oracle when a passed
+  receipt exists for the same lowering identity and kind, bound to a published revision
+  (`src/corpus_structure/semantic/pdf_certification_native.py:62–90`;
+  `semantic/pdf_publication.py:851–900`). No test asserts that decision, although the skip
+  very likely executes unobserved wherever one test publishes several builds with the same
+  lowering (`tests/semantic/test_pdf_publication_identity.py:390–405`). A search of both
+  test trees for the certification basis, the oracle begin and finish calls and the force flag
+  finds only a key declaration and literal values fed to doubles. The lowering-identity test
+  compares the identity with the digest of the artifact the same function returns
+  (`tests/semantic/test_pdf_producer_certification.py:135–146`); no test perturbs a lowering
+  input or reaches the drift refusals (`semantic/pdf_lowering.py:284–292`). Accepting a failed
+  or unpublished receipt, matching across kinds, or a manifest that omits an input would all
+  pass. This is the one mechanism here that removes an established check rather than reusing a
+  computed value.
+- **Kernel-sealed completion.** The publish-time battery runs only when the receipt's kernel
+  digest differs from the installed one (`semantic/sql/data_operations.sql:1476–1482`). Every
+  test publishes under the installed kernel, so the fallback never executes
+  (`tests/semantic/test_data_operation_storage.py:2860–2880` checks the equal path).
+- **Lowered release facts.** Readers refuse a release whose lowering digest differs and
+  re-admission re-lowers (`:460–466, 2424–2431`). Tests check that the column exists
+  (`tests/semantic/test_data_operation_lowering.py:6–28`).
+- **Set-wise validity.** The scalar check now delegates to the set evaluator
+  (`:391–434`), so scalar tests are no independent reference. One test addresses the closure
+  directly, with duplicate seeds of one episode and a self-loop
+  (`test_data_operation_storage.py:2815–2840`). None has several distinct seeds sharing
+  descendants, mixed valid and invalid seeds, a two-node cycle or population supersession. A
+  scalar journey does show revocation through a shared ancestor invalidating two dependents
+  (`tests/semantic/test_structural_admission_native.py:689–730`).
+- **Query cache budgets.** The demand key includes `max_bytes` so that an entry filled under a
+  larger budget cannot bypass a smaller one (`semantic/demand_queries.py:196–212`). No test
+  varies it against a warm entry, and rich graph-budget refusals run only cold because an
+  autouse fixture clears the cache per test
+  (`tests/semantic/selected_query_cache_support.py:13–17`). Eviction by byte capacity is tested
+  (`tests/semantic/test_selected_query_cache.py:25–46`); the entry-count bound is never
+  exceeded. Consumer tests replace the native recheck with a double that re-implements its
+  refusals (`:27–43`).
+- **Change scope.** An unrelated source edit is shown to change no operation
+  (`tests/semantic/test_change_impact.py:118–127`), but no model with several operations
+  asserts that an unrelated operation stays outside the affected set (the one assertion on it
+  is in a two-operation model, `:136`). By search, no native test shows that a revocation in
+  one source scope leaves a read pinned only to another scope current; the expression-level
+  check covers an added zero-epoch scope only
+  (`tests/semantic/test_data_operation_trust_snapshot_sql.py:46–53`).
+- **Smaller instances.** The racily-clean window of file custody is never derived as true
+  (every fixture advances the clock ten seconds; `tests/semantic/test_file_custody.py:16–21,
+  66–78`). The execution-basis cache key names the source root and run determinants, and
+  neither is varied, although the test's name claims root exactness
+  (`tests/orchestrate/test_execution_host.py:68–125`). As a hypothesis only: the "no
+  re-recognition" guards patch `grammar.syntax`, which production's prepared path calls, so a
+  regression that reached recognition through `grammar.parse` instead would bypass them; no
+  such consumer was shown.
+
+**Consequence.** For each item there is a plausible regression (always skip; drop the refusal;
+validity depends on what else was seeded; a budget dropped from the key) that changes what is
+published or served and fails no test.
+
+**Contrary evidence.** The oracle itself discriminates (it refuses a lossy but callback-valid
+lowering, `test_pdf_producer_certification.py:156–235`); the retention-time battery runs in
+every publishing test; production rechecks native authority before every cached use and that
+ordering is asserted (`tests/semantic/test_demand_results.py:150–163`); the native validity
+journeys have hand-designed expectations and real revocation.
+
+**Limits.** Absence is by search of both test trees with the terms named. Evidence records
+outside the tests (for example the qualification behind ADR-0130) were not examined, so for the
+oracle the finding may narrow to "no repeatable test".
+
+<a id="dta-045"></a>
+
+### DTA-045 — The native host's frozen-profile refusal is asserted against a rule the test double invents
+
+**FP-02, FP-05, FP-06; DP-23; companion §1, §4, §5.**
+
+`test_frozen_artifact_mismatch_refuses_before_starting`
+(`tests/methods/test_characterization_resources.py:243–252`) expects a refusal matching "frozen
+selection". The only source of that message is the test's own `Group.startup` (`:59–61`), which
+refuses before creating a worker, so the accompanying "nothing was opened" assertion holds by
+construction. Production has no such check before startup. The real checks run after spawn: the
+child refuses when shared host artifacts differ from the frozen profile
+(`src/corpus_structure/methods/native_host_adapters.py:42–44`) and the parent refuses when the
+host reports a different profile (`methods/native_host.py:197–213`). Neither message, nor
+`_validate_startup`, appears in a test; the real-process peer always echoes the declared
+profile (`tests/methods/native_host_cases.py:25–39`).
+
+**Consequence.** If the parent comparison lost a field or the child comparison were removed, a
+host running a different checkpoint, dtype or thread policy would serve results under the
+frozen identity that receipts and warm reuse depend on, and no test would fail.
+
+**Contrary evidence.** The runtime-identity refusal has a real control
+(`tests/methods/test_native_host.py:291–296`), and the parser's startup observation is tested
+field by field (`:602–680`). Established.
+
+<a id="dta-046"></a>
+
+### DTA-046 — No controlled encoder-batch test has two surviving members with distinct outputs after a member is dropped
+
+**FP-05, FP-06; DP-23; companion §4, §5.**
+
+The controlled batch tests replace the model with one that returns the same vector for every
+text, with one exception that returns a different, invalid vector at one index
+(`tests/semantic/test_contextual_encoder_batch.py:104–127`;
+`test_contextual_owned_encoder.py:23–31`). That exception does check attribution in a batch
+where nothing is dropped: the failure lands on the right member and the other succeeds
+(`:243–249`). With one member dropped from a two-member batch, the single survivor's slot is
+checked (`:167–178`). The risky step in the batch form is realignment after a drop when
+several members survive, and no controlled test has two or more survivors with distinct
+outputs; an off-by-one there would pass. Attribution across cohorts is otherwise checked by
+the provider panel, which needs provider evidence and model snapshots
+(`test_actual_encoder_batch_semantics.py:19, 148`).
+
+**Consequence.** In the ordinary lanes a realignment regression after a dropped member could
+publish vectors under the wrong occurrence undetected.
+
+**Contrary evidence.** The GLiNER coalescing double keys its reports by context id and does not
+share this blind spot (`tests/methods/test_characterization_resources.py:353–386`). A small
+real encoder with a distinct vocabulary exists in test support
+(`tests/semantic/current_contextual_support.py:12–52`) and drives native workflows over several
+targets (`test_contextual_workflow_native.py:137–140`); whether any of those drops a member and
+asserts per-member vectors was not established.
+
+## Earlier findings
 
 <a id="dta-001"></a>
 
@@ -102,6 +262,15 @@ generic exception assertion alone is not a diagnosis; the sites above are those 
 or the shared class makes a different refusal a plausible pass. Counts for files that were
 sampled rather than read in full come from targeted search and may be incomplete.
 
+**Status, 2026-11-17, source `fbd3f2a98`.** Standing, changed footprint. Corrected sites: the forged-graph family pins an exact SQLSTATE and message per mutation (`tests/semantic/test_data_operation_storage.py:2529–2538`), and `tests/semantic/test_native_closure.py:47–53` pins `42501` per statement. New sites that accept an undifferentiated refusal, each a place where a neighbouring check could refuse in place of the named one:
+
+- bare `DBAPIError`: `tests/semantic/test_established_validity_native.py:122` (six premise perturbations), `test_data_operation_context_fanin_native.py:158`, `test_data_operation_binding_native.py:714`, `test_data_operation_external_native.py:169`, `test_data_operation_authored.py:212`, `test_data_operation_population_selection.py:168`, `test_current_pdf_integration_native.py:107–167` (five forged receipt fields and four reader variants);
+- bare `ValueError`: `test_record_publication_native.py:167–200, 304, 363` (the serving scope gate), `test_definition_model_native.py:132–164` (fourteen cases across two tests);
+- one exception class for twelve distinct corruptions: `test_execution_admission_expectations.py:81–136`;
+- SQLSTATE `23514` alone, a class several checks share: `test_pdf_shared_streams.py:143, 224`.
+
+A positive control precedes most of these. `tests/test_source_cli.py:231, 274, 367` still assert only a nonzero exit.
+
 <a id="dta-033"></a>
 
 ## DTA-033 — The product identity production uses is checked only against itself
@@ -150,58 +319,21 @@ including a self-loop and a two-node cycle; wire bounds are independent and gene
 exercised by behavior, not compared with a regeneration; equal bodies under different contexts
 are shown to give distinct products; and concurrency controls use real transactions.
 
+**Status, 2026-11-17, source `fbd3f2a98`.** Corrected on 2026-11-13, then regressed in its native half. The shared literal product vector gained `subject_definition` on 2026-11-15 (commit `9256dfd94`; `tests/semantic/data_operation_identity_vectors.py:18–24`). The Python consumer builds its input through production's subject context and followed the change. The native consumer builds its input by hand without that field (`tests/semantic/test_data_operation_identity_native.py:25–35`) and compares the native identity with the digest of the literal (`:37–41`). The native function cannot add a missing key (`src/corpus_structure/semantic/sql/data_operations.sql:122–147`), so the five parametrized cases cannot pass as written. Production's own product key includes the field (`:1601`), so the literal is right and the test input is stale. No stored result has run them since 2026-11-15, so this is established from source and not observed. The commit message says "291 focused controls passed"; whether this test was among them is not recorded.
+
+The structural cause: the vector file shares only the expected bytes, and each consumer rebuilds the input. Until the native half is restored, the only native check of the identity that keys products is the storage test that compares the Python and native implementations with each other (`tests/semantic/test_data_operation_storage.py:2289–2294`). The request identity has no literal vector at all, and its completeness test does not vary `subject_definition` (`tests/semantic/test_data_operation_identity.py:407–430`). A related instance on the new search cursor: the expected selection digest is recomputed by running the production projection (`tests/semantic/test_source_search.py:141–185, 222–227`).
+
 <a id="dta-027"></a>
 
-## DTA-027 — The redact-before-clip control passes under either order
+## DTA-027 — Corrected
 
-**FP-05/06, DP-21/23; companion §1/4.** `tests/test_cli.py:93–106` is named for redaction
-before clipping. Production applies `safe_text` and then keeps the last 12,000 characters of
-standard output (`src/corpus_structure/cli/operations.py:161,186`). The test's child output is
-a 45-character credential-bearing URL, 11,960 filler characters and a 63-character tail holding
-two further secrets, 12,068 characters in all. Redaction shortens it to 12,038, of which the
-production clip drops the first 38 and keeps only the path end of the already redacted URL.
-Clipping first would drop the first 68 raw characters, which is the whole URL and some filler.
-Either way the URL credential is gone, and the two tail secrets lie wholly inside the kept
-window, where they are redacted under either order. The test asserts only that the three
-secrets are absent, so clip-then-redact passes. No secret straddles the boundary.
-
-Redaction of standard error has its own controls through the recipe-reporting route
-(`tests/test_cli_recipe_reporting.py:61–64,249–250`); what has no control is ordering at the
-6,000-character diagnostic clip (`operations.py:187`).
-
-No leak is observed. The weak observation is an absence on a success path rather than an
-undifferentiated refusal, which is why this is kept apart from DTA-001. A related, minor
-limit: `tests/test_settings.py:151–154,197–202` assert only that secret substrings are absent
-from rendered endpoints. Both fields pass through one masking function whose preservation of
-host and port is pinned by sibling tests (`tests/test_settings.py:112,118–148`), so only the
-per-field wiring is unpinned there.
+**Corrected (2026-11-17, source `fbd3f2a98`).** `tests/test_cli.py:162–192` covers stdout and stderr with the secret placed at the clip boundary and checks the exact output. Earlier text is in Git at `fbd3f2a98`.
 
 <a id="dta-006"></a>
 
-## DTA-006 — Some assertions establish presence or count where the claim is preservation
+## DTA-006 — Corrected at its surviving site
 
-**FP-04/05, DP-23; companion §4.** The site named on 2026-11-05 is corrected:
-`tests/semantic/test_composed_journey.py:109–158` now spells occurrence and evidence identities
-independently and compares multisets of supports, evidence and reports. Other current sites
-carry the same limit:
-
-- `tests/semantic/test_identity_exclusions.py:127–142` supports a test about grounded
-  memberships with row counts and one distinct `establishment` value; which entities were
-  grounded is not asserted.
-- `tests/semantic/test_exclusion_comparison.py:108–119` compares a run with itself and requires
-  no changes and equal examined counts. A comparison that examined rows but always reported no
-  change would pass; changed cases are covered at dictionary level in the same file, not
-  through the native read.
-- `tests/semantic/test_reference_evaluation.py:127–163` submits the same content as passes A, B
-  and C (B differs only in whitespace, deliberately), so every score is perfect. The flipped-polarity and duplicate-premise cases later in
-  the file can fail a wrong matcher; no case has an unmatched extra or missing claim or a
-  partial precision or recall.
-- `tests/semantic/test_execution_projection.py:127–133` checks diagnostic fields only for
-  truthiness, and `tests/semantic/test_contextual_workflow_native.py:189,198,202` uses substring
-  and non-empty checks for a claim about retained compatible edges.
-
-These bound what the named tests establish; none shows a wrong served result. Exact list and
-tuple assertions are the norm in the surrounding files.
+**Corrected (2026-11-17, source `fbd3f2a98`).** The one surviving cited site now asserts exact edge sets and witness lists (`tests/semantic/test_contextual_workflow_native.py:360–369`); the other cited files were deleted. Earlier text is in Git at `fbd3f2a98`.
 
 <a id="dta-023"></a>
 

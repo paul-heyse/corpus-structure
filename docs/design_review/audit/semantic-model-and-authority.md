@@ -1,230 +1,232 @@
 # Semantic model and authority
 
-**Implemented source inspected, 2026-11-03.** [Baseline and limits](README.md#baseline).
-Source paths below are relative to `python/corpus-structure/src/corpus_structure/` unless
-prefixed `docs/` or `domains/`. Resolved diagnoses are removed; anchors preserve identity and
-Git before this refresh preserves their dated evidence. No implementation-plan closure follows.
+**Interface-checked by source inspection, 2026-11-17**, source `fbd3f2a98`
+([baseline and limits](README.md#baseline)). Source paths omit
+`python/corpus-structure/src/corpus_structure/`; `sql/` means `semantic/sql/`; `domains/` is at
+the repository root. The current model owners are described in the
+[domain model map](domain-model-map.md).
+
+The four findings below share a shape: a fact the declared model already holds, or could hold,
+is written a second time by hand in code or SQL. They differ in what goes wrong when the copies
+drift, so they are separate findings.
+
+<a id="da-070"></a>
+
+## DA-070 — Validity families and family contracts are assigned from hand-written operation-id lists, and an unlisted operation is treated as valid
+
+**FP-04/A2; DP-01, DP-03, DP-06.**
+
+Lowering stores each operation's `validity_family` by calling `ops.ddo_classify_validity`, a
+`CASE` over literal operation ids that returns `NULL` for anything not listed
+(`sql/data_operations.sql:2312–2329, 2398`). Producer validity then dispatches on that column,
+and an operation with no family takes `ELSE true` (`:345–353`): its family's dependency
+premises are never evaluated.
+
+The contextual family repeats its full twelve-id list in the producer guard, the completion
+guard and the dependency validator, beside a per-operation table of Python entry points,
+profile and forms, and partial subsets appear in several more places
+(`semantic/contextual_admission_native.py:16–21, 24–49, 154–159, 214–219`). The model already declares
+those facts for each operation (`support_contract.capabilities`, `profile`,
+`implementation_root`). Further per-operation literals sit in `ddo_require_completion_live`
+(`sql/data_operations.sql:1495–1515`) and `release_data_attempt` (`:1290`).
+
+**Consequence.** An omission fails open, silently, at both points:
+
+- an operation that belongs to a family but is missing from `ddo_classify_validity` (a new
+  member, a rename, a split) has that family's dependency validity skipped;
+- the family completion guards have the shape `IF operation_id NOT IN (...) THEN RETURN`, and
+  completion calls every guard unconditionally, each selecting itself by its own list
+  (`sql/data_operations.sql:1437–1456`; `contextual_admission_native.py:154–159`;
+  `definition_admission_native.py:83, 106`; `operation_event_native.py:52, 248`;
+  `rich_admission_native.py:183`). An operation omitted from a guard's list skips that family's
+  completion checks as well. Only a listed id whose attributes disagree is refused.
+
+What an omitted member loses depends on the family. The generic support walk and revocation
+still apply to every operation. For the artifact, definition and rich families, and for
+contextual operations other than scores, the family validator adds only the digest-gated
+replay of [DA-068](execution-fit.md#da-068). Changing premises are lost for record grade,
+record fit and operation events (cut trust: `record_grade_native.py:416–418`;
+`record_policy_completion_native.py:457–459`; `operation_event_native.py:323–330`) and for
+contextual scores (the linguistic premise, `contextual_admission_native.py:227–231`): for
+those, an omitted operation's derivations stay valid and reusable after their premises change.
+
+The plan defines the column as null "when no per-kind validator applies"
+(`docs/plans/declared-data-operations/products-and-support.md:422–423`), so a missing entry is
+indistinguishable by design from an operation that needs no validator. No test names the
+classification, and no compile-time or admission-time check ties family membership to the
+model. Every such edit is also a native source edit, so it changes the kernel digest.
+
+**Contrary evidence.** Runtime dispatch reads a lowered column rather than matching names on
+each call. `ddo_classify_command` in the same file classifies by eligibility predicates, not by
+an id list (`:2330–2339`), which shows the alternative is already in use.
+
+**Footprint.** Established for the classification, the dispatch and the guard shape. All 27
+listed ids exist in current source, so no member is known to be missing today.
+
+<a id="da-071"></a>
+
+## DA-071 — Support-graph meaning is encoded three times and the change-impact copy disagrees
+
+**FP-04/A2; DP-01, DP-03, DP-07; CI-03.**
+
+What a support edge means (use, episode, population, original) and how a trust scope is keyed
+are not declared anywhere. They are written three times:
+
+- validity: `ops.ddo_validity_edges` (`sql/data_operations.sql:293–336`), scope key
+  `ops.ddo_scope` (`:158–164`);
+- locks, read scopes and access universes: `_support_walk`
+  (`semantic/data_operation_projections.py:132–240`), a deliberate superset;
+- change impact: `_revocation_causes` (`semantic/change_impact.py:332–441`), with its own copy
+  of the scope formula (`:427`).
+
+The change-impact copy differs from validity in two ways. For a `use`, validity follows the
+producer, populations and episode and then the episode's own recorded support, and follows the
+selected support only under value substitution (`sql/data_operations.sql:299–326`). Change
+impact follows the episode without expanding it, deliberately by its own comment, and follows
+the selected support always (`change_impact.py:358–375`). So it misses causes validity sees and
+follows edges validity does not. And it always builds
+`"source:" + sha256([project, source])`, where `ops.ddo_scope` builds a `project:` key when the
+source is null.
+
+Separately, the compiler produces `potential-producers` and `selected-dependencies` projections
+of operation dependencies (`semantic/data_operation_model.py:716–725`). The planner consumes
+the second (`semantic/data_operation_demands.py:160–165`); the first is consumed only by graph
+inspection. `changed_operations` rebuilds an equivalent graph by hand from the dependency lists
+(`change_impact.py:177–193`). Operation dependencies
+themselves are authored as id lists that the compiler only checks for resolution
+(`semantic/data_operation_compilation.py:1830–1838`); by search, nothing checks that a computed
+input role's kind is produced by a declared dependency.
+
+**Consequence.** Change impact is the planner-facing answer to "what does this change affect".
+Where a use reuses an episode from another demand, causes reached only through that episode are
+missed and members are reported `unknown` instead of `revoked`; revocations in a project scope
+never match; and a consumer linked to a changed producer only through a kind or discovery
+relation is reported `unknown` rather than `potential`. These are wrong or weaker explanations,
+not wrong admission: native validity remains the authority. A new edge kind has to be added in
+three places.
+
+**Footprint.** The divergence is established. That it shows through cross-demand reuse is
+likely. Whether any current operation has a project-scoped subject was not established.
+
+<a id="da-072"></a>
+
+## DA-072 — The earlier core and system model is still live beside the released model, with the same closed sets declared in both
+
+**FP-04/A2; DP-01, DP-06, DP-16; H27.**
+
+`model/core.yaml`, `model/system.yaml` and `model/revisions.yaml` are still generated into
+`core/vocab.py`, `core/_model/*` and `core/keys.py`, with their own change classifier
+(`schema/change.py`), revision log and pack loader (`schema/pack.py`, `schema/lookup.py`). The
+released semantic model declares the same value sets again with no derivation between them:
+
+| Value set | Declared in |
+|---|---|
+| `StatementKind`, including the `claim_bearing` subset | `model/core.yaml:893`; `model/semantic/core.yaml:614` |
+| `ClaimModality`, `StatementRole`, `EvidenceRole`, `Establishment`, `ScopeExtent` | both core files |
+| `Relation` / `ComparisonRelation`; `ParseOutcome` / `RuleReadingOutcome`; `MeasurementScope` / `SourceMeasurementScope`; `DocumentSplit` / `ReferenceSplit` | earlier / released |
+| `PdfObservationOutcome` / `DdoPdfObservationOutcome` | `model/semantic/pdf-products.yaml:138`; `data-operation-pdf-capture.yaml:8` (both inside the released model) |
+
+The statistics pack is also declared twice (`domains/statistics/schema/statistics.yaml` and
+`domains/statistics/semantic.yaml` share nine classes, 23 slots and two enums), and same-named
+classes in the two core files have different shapes (`IntervalValue`).
+
+**Consequence.** The pairs agree today. An edit to one side changes behavior only for that
+side's consumers: `core.vocab` users such as `semantic/formal_evidence.py:27, 644–646` and the
+generated native calls (`semantic/native_call_generation.py:105`) on one side, released-model
+consumers on the other. Every model-change cycle also reads and carries the earlier model
+(`schema/model_change.py:426–430, 533–538`).
+
+**Contrary evidence.** Some earlier-model consumers are live (`ParseOutcome`, `TaskUnitType`,
+`CaseRule`, `core.keys.symbol_form`, `core.values`), so this is not simply dead code. D2 states
+that superseded model interpreters retire. Whether any test asserts the pairs equal was not
+examined, and some equal value sets may name different meanings.
+
+**Relation to DA-012.** DA-012 asked, as a bounded question, whether operational values
+correspond to a declaration. This is the first enumerated answer: these values correspond to
+two.
+
+<a id="da-073"></a>
+
+## DA-073 — Which operations a release contains is composed by hand-written flag logic that restates family dependencies
+
+**FP-04, FP-06; DP-01, DP-06, DP-16.**
+
+The acquisition manifest names no operations, only flags (`downstream`, `visual`,
+`source_bindings`, `pdf_contracts`, `protected_references`, `protected_record_policy`;
+`domains/statistics/operations.yaml:28–66`). `primary_operation_inputs` turns the flags into
+about thirty paired bundle transformers and source collections
+(`semantic/primary_operations.py:118–392`). Which family needs which upstream family is then
+restated in each family's source function (`semantic/canonical_sentences.py:263–268`;
+`semantic/hanlp_products.py:631`; `semantic/characterization_ports.py:316, 1152–1177`) and
+again in `semantic/data_operation_preparation.py:235–236`. Target operation ids are built by
+string concatenation (`primary_operations.py:26–57`).
+
+**Consequence.** Adding or reshaping a family means editing several conditional sites that must
+agree with the compiled dependency edges. An omission is refused at compile or at demand
+freeze, so the cost is change locality, not a wrong result. The compiled model holds operation
+dependencies, but nothing maps an operation back to the source family that must be acquired.
+
+**Contrary evidence.** Acquisition has to precede compilation, and the module states that the
+compiled demand closure, not this composition, decides what executes
+(`primary_operations.py:1–6, 82–86`).
+
+## Lower-weight observations
+
+- The token-to-type table is duplicated between the writer and the reader
+  (`semantic/prepare.py:93–104`; `semantic/archive_reader.py:40–51`), and compact-encoding
+  defaults for the effective model are restated in three places
+  (`semantic/data_operation_model.py:133–149, 1000–1027, 1275–1287`). Most drift is caught by a
+  digest or round-trip check.
+- Enforcement claims are typed as documentation or as checked. By search, about 245 records are
+  `documentation` and three are explicitly contract- or native-checked. This is the current
+  form of DA-027's limit: the claims are honest about what they are, and the correspondence of
+  each body remains unexamined.
+
+## Prior identities on this page
 
 <a id="da-001"></a>
-
-## DA-001 — Qualifier-projection diagnosis corrected
-
-`semantic/comparison_projection.py:103–185,201–259` compiles and validates context/compared/evidence
-partitions; preparation archives them and `domain_operations.py:2605–2614` consumes them.
-Fact identity remains separately governed by `types.py:355–387`. Different equivalence keys
-are legitimate when their contracts are explicit; the earlier opposite-default diagnosis is removed.
-
 <a id="da-002"></a>
-
-## DA-002 — Cited independent-subset manifestations corrected
-
-**Source-inspected 2026-11-05.** Consolidation consumes released source admissibility (`semantic/consolidation.py:225–228`);
-proposal roles and evidence/source domains derive from released vocabularies
-(`semantic/proposals.py:88–100`). Executable reference splits come from the exact companion
-(`semantic/contracts.py:1734`; `semantic/types.py:326–343`). A remaining finite physical CHECK
-alone does not demonstrate competing meaning or late rejection. The previous cited diagnosis
-is removed; this is not exhaustive vocabulary-to-native correspondence qualification.
-
 <a id="da-003"></a>
-
-## DA-003 — Cited behavioral-role reconstruction corrected
-
-**Source-inspected 2026-11-05.** Statement behavior consumes released subsets (`semantic/domain_operations.py:200–211`);
-expression behavior does likewise (`semantic/rule_views.py:320–337`). Display lookup consumes
-`prepared.display_properties()` (`serve/read.py:157–175`), whose ordered bindings are owned by
-`semantic/types.py:352–385`. The earlier differently named display-property omission no longer
-follows. This does not establish extension locality for every possible new behavioral role.
-
 <a id="da-004"></a>
-
-## DA-004 — Repeated representation conversion remains an unresolved question
-
-**FP-04/06/07, DP-02/08/10; unresolved, no demonstrated semantic loss.** AgentStoredBatch is
-validated and dumped (`semantic/domain_operations.py:838–845`), with later dictionary-based
-transformations (`:1438–1506,1594–1623`). Proposal location validates/dumps/deep-copies
-(`semantic/proposals.py:758–763,800`). These are observed conversions, not proof of lost meaning.
-`semantic/reference_positions.py:31–52,94–103` consumes cached archived effective positions;
-`:168–193` validates/walks typed models, and `:197–221` revalidates after actual reference mutation.
-This is substantial counterevidence to independent semantic reconstruction. No cited distinction
-was shown to be lost, and no redundant validation was established under unchanged premises.
-The earlier established diagnosis is withdrawn; the locality/execution tradeoff remains a question
-for a concrete consumer scenario. DA-005 records the subsequent correction of the previously demonstrated translation omissions.
-
 <a id="da-005"></a>
-
-## DA-005 — Rule-value and address translation omissions corrected
-
-**Source-inspected 2026-11-05.** `semantic/rule_views.py:250–337` preserves declared range, enum identity, expression form and
-language, missing reason, unavailable reading state and released symbol/binding behavior;
-`:160–165` consumes the resulting behavior. The older evaluator now imports the shared address
-owner (`evaluate/semantic.py:696,718`; `semantic/identity.py:34`). The prior demonstrated loss and
-independent address-authoring premises are removed. Arbitrary future translations remain subject
-to their own fidelity contract.
-
 <a id="da-006"></a>
-
-## DA-006 — Reference-kind diagnosis remains corrected
-
-`semantic/reference_positions.py:24–29,104–147` distinguishes reference kinds/ranges;
-`semantic/proposals.py:777–797` checks nested memberships. DA-007 records the later explicit identity-decision representation.
-
 <a id="da-007"></a>
-
-## DA-007 — Identity-decision state premise corrected
-
-**Source-inspected 2026-11-05.** `semantic/domain_operations.py:1219–1251,1275–1313` retains resolved, ambiguous_anchor,
-incomplete_key and ungrounded_cycle decisions, with candidates, dependencies and policy.
-Publication carries EntityResolutionRow (`semantic/publication.py:79–90,381`;
-`semantic/domain_operations.py:2215`); native closure requires the producing operation/version
-and prevents provisional outcomes from claiming globally resolved identity
-(`semantic/sql/closure.sql:774–795`). Ordinary discoverability of every identity decision was not
-exhaustively examined; that limit is not a replacement established defect.
-
 <a id="da-008"></a>
-
-## DA-008 — Global case-erasure diagnosis remains corrected
-
-`semantic/types.py:329–333,378–381` folds only properties that declare that policy.
-
 <a id="da-009"></a>
-
-## DA-009 — Unicode parity has a bounded qualification owner
-
-**Source-inspected 2026-11-05.** `semantic/unicode_identity.py:99–160,233–246` compares the PostgreSQL-supported scalar folding
-mapping and fences exact Python/PostgreSQL determinants and archived recipe. Activation invokes
-that boundary (`semantic/execution_admission.py:75–79`); keys use its folding owner
-(`semantic/types.py:409–412`). The earlier unowned-parity premise is corrected for the supported
-pair. No universal runtime parity or fresh native execution is claimed.
-
 <a id="da-010"></a>
-
-## DA-010 — Explicit profile acquisition remains corrected
-
-`semantic/regeneration.py:113–132` and `semantic/composed.py:22–60` archive explicit trusted
-operation/query dependencies. DA-028 reassesses execution custody.
-
 <a id="da-011"></a>
-
-## DA-011 — Current compiler guidance supersedes dated descriptions
-
-**Source-inspected 2026-11-05.** D2's current opening names compiler17/execution27 and routes current/readable authority to
-source (`docs/design/D2-schema-and-guidelines.md:15–34`). Constants agree
-(`semantic/types.py:17–19`; `semantic/contracts.py:28`). Earlier implementation paragraphs have
-explicit dates; those historical numbers alone do not sustain the earlier present-tense conflict.
-No whole architectural-document consistency certificate follows.
-
 <a id="da-026"></a>
-
-## DA-026 — Missing operation-product diagnosis corrected
-
-`semantic/composed.py:64–113`, `contracts.py:794–875,1274–1295` and generated _operation_calls.py
-bind executable operations and approved implementations. The old missing-product diagnosis is removed.
-
 <a id="da-027"></a>
-
-## DA-027 — Exhaustive invariant-to-enforcement correspondence remains unexamined
-
-**FP-05, DP-03/21; unresolved.** Typed failure bindings (`contracts.py:339–361`), compile
-validation (`invariant_failures.py:34–90`) and actual native-error classification (`:108–151`)
-have real consumers in operations/source_views. Native execution projection checks operations,
-transitions and effects; native guard bodies enforce attempt ownership and terminal publication.
-This corrects the earlier suggestion that the execution model is decorative. Not every invariant
-body was independently matched to its declared meaning. That is an explicit assurance limit,
-not an established violation merely because a universal correspondence check was not found.
-The November 8 refresh identifies two bounded manifestations in
-[source-value decoding](#da-062) and [definition attribution](#da-065).
-
 <a id="da-028"></a>
-
-## DA-028 — Unpinned query-plugin diagnosis corrected
-
-`cli/query.py:42–67` opens the producing release's registry. `semantic/query_compatibility.py:307–397`
-checks archived contracts, source/runtime and installed compatibility before import; `:432–447`
-checks continuation custody. Unsupported edits refuse instead of silently reinterpreting queries.
-
 <a id="da-034"></a>
-
-## DA-034 — Undeclared scientific-equivalence authority diagnosis corrected
-
-Consolidation uses SemanticComparator and evaluation ReferenceComparisonScope from the shared
-scientific_evidence owner (`domain_operations.py:2592–2595,2768–2778`; `evaluate/semantic_alignment.py:752`).
-Different consolidation/reference policies are explicit and archived (`scientific_evidence.py:150–244,347–373`).
-Different purposes need not use identical equivalence. Representative choice belongs to DA-044.
-
 <a id="da-046"></a>
-
-## DA-046 — Broad statistics-core diagnosis withdrawn; boundary question unresolved
-
-Core mathematical vocabulary alone does not prove statistics coupling. The toy pack binds its
-own statement enum (`domains/toy/semantic.yaml:36–40`) and proposal generation uses effective
-kinds. The cited formula/role manifestations were corrected under DA-003; whether reusable
-mathematical core types exceed the intended boundary remains unresolved, not a second diagnosis.
-
 <a id="da-048"></a>
-
-## DA-048 — Missing pack-input diagnosis corrected; operational scope is explicit
-
-`semantic/regeneration.py:189–297` coalesces equal policies/aliases and refuses conflicting
-operation policies. Scientific/rule-view inputs are deliberately shared. Schema compilation
-accepts multiple packs; regeneration and query context select one canonical domain
-(`cli/schema.py:53–66`; `cli/regenerate.py:33,156–164`; `cli/query.py:54–67`). The earlier claim that
-composition necessarily loses root rules is removed. A simultaneous multi-pack production
-requirement was not established; the operational boundary is not silently promoted to a defect.
-
 <a id="da-049"></a>
-
-## DA-049 — Universal historical-lifetime diagnosis removed against current target
-
-ADR-0047 selects current-only execution with explicit maintained-reader compatibility.
-`semantic/archive_reader.py:243–304` checks readable boundary compatibility; full execution
-verification retains exact producing determinants (`releases.py:511–600`). Native execution has
-ABI/effect checks and explicit read-only exceptions (`sql/execution_projection.sql:7–23`).
-Unsupported historical execution is an intentional support limit, not an accidental promise of
-universal compatibility. Current archived query custody remains protected under DA-028.
-
 <a id="da-062"></a>
-
-## DA-062 — Native report decoding discards object-field positions that replay requires
-
-**Implemented source inspected, 2026-11-08.** FP-02/04/05, A2,
-DP-02/03/08, G2/G3/G6. The released source-value shape represents object
-fields as an ordered sequence of named values with nonnegative positions.
-Python requires contiguous positions in array order and unique names.
-Native decoding aggregates the entries by name, dropping their positions
-and collapsing repeats (`model/semantic/observations.yaml:338–347`;
-`semantic/observations.py:110–135`; `semantic/sql/record_publication.sql:20–40`).
-
-For table correspondence, native admission compares the decoded request
-with the authoritative request. Changing one field's position to a
-different nonnegative integer and recomputing the report digests leaves
-that comparison and the decoded numerical checks unchanged. Python
-validation and detached replay would refuse the same encoded request
-(`semantic/sql/source_contributions.sql:3175–3185,4312–4327`;
-`semantic/local_interpretation_reports.py:325–331`;
-`serve/table_correspondence_replay.py:527–530`).
-The ordinary encoder supplies valid positions and names. The established
-mismatch concerns direct native admission of a malformed report and its
-later consumers. No existing malformed retained result was identified.
-
 <a id="da-065"></a>
 
-## DA-065 — Located definition checks authenticate spans without authenticating the claimed derivation
+Earlier text is in Git at `fbd3f2a98`. "Not re-examined" means the last evidence keeps its
+original date and may describe sources that no longer exist.
 
-**Implemented source inspected, 2026-11-08.** FP-04/05, A2, DP-03/05/08/21,
-G2/G3, CI-01/02. The producer assigns `matched_cue` after checking a
-supported, unambiguous scoped cue with located roles. It assigns
-`native_geometry` after joining a qualified cue to an adjacent display
-(`methods/definition_applicability.py:516–687`). Native completion
-independently reconstructs the `model_reading` subset. For other bases it
-checks the component hash and the actual spans, scope, effective version
-and evidence passage membership
-(`semantic/sql/structural_products.sql:1929–1965`).
-
-A private component can consequently claim either basis with genuine
-source spans that do not satisfy the named derivation. Adding such a
-component leaves the checked model-reading set unchanged. The detached
-model-observation replay checks that same model-derived subset
-(`serve/model_observation_replay.py:156–233`). Separate public admission
-still requires an exact independent witness, so the gap concerns private
-derivation attribution rather than authority to publish a public assertion
-(`semantic/sql/structural_publication.sql:169–206`).
+| ID | Status at `fbd3f2a98` | Note |
+|---|---|---|
+| DA-001 | Changed footprint, not re-verified | `comparison_projection` is still compiled (`semantic/prepare.py:940–945`); the cited consumer is gone |
+| DA-002 | Not re-examined | Cited `consolidation.py` and `contracts.py` are gone |
+| DA-003 | Changed footprint | `display_properties` now at `semantic/types.py:398`; cited consumers gone |
+| DA-004 | Not re-examined | Cited `domain_operations.py` is gone; the question stays open |
+| DA-005 | Not re-examined | Evaluator site gone |
+| DA-006 | Not re-examined | — |
+| DA-007 | Not re-examined | Cited owners gone; the current owner of identity decisions was not located |
+| DA-008 | Correction stands | Casefold only where a property declares it (`semantic/types.py:426–429`) |
+| DA-009 | Stands, not re-verified | `semantic/types.py:427` consumes `unicode_identity` |
+| DA-010 | Changed footprint | Explicit acquisition is `semantic/data_operation_preparation.py:136–268` |
+| DA-011 | Correction stands | Compiler 24 / boundary 13 agree with D2 |
+| DA-026 | No longer applicable | Replaced by the compiled effective model and generated call artifacts |
+| DA-027 | Standing limit, changed footprint | See lower-weight observations above |
+| DA-028 | No longer applicable | Query plugins are gone; the successor concern is [DA-076](served-claims.md#da-076) |
+| DA-034 | Correction stands | One shared scientific owner; the new identity issue is [DA-077](served-claims.md#da-077) |
+| DA-046 | Standing question | `domains/toy/semantic.yaml:36–44`; see DA-072 for the duplicated core vocabulary |
+| DA-048 | Changed footprint | One root per acquisition manifest |
+| DA-049 | Stands | Current-only reading (`semantic/data_operation_model.py:1211–1216`) |
+| DA-062 | Not re-examined | Cited `record_publication.sql` and replay module are gone |
+| DA-065 | Not re-examined | Cited replay module is gone |

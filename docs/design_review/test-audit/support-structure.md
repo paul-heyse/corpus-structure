@@ -1,9 +1,147 @@
 # Support structure and boundary fidelity
 
-**Interface-checked by source inspection, 2026-11-12; additions dated 2026-11-13.** See the
+**Interface-checked by source inspection, 2026-11-12; additions dated 2026-11-13 and 2026-11-17.** See the
 [baseline](README.md#baseline).
 Sharing types, validators and valid setup is useful; an expectation assessing their correctness
 must retain a challenge independent of the relevant mistake.
+
+<a id="refresh-2026-11-17-support"></a>
+
+## Refresh of 2026-11-17
+
+**Interface-checked by source inspection, 2026-11-17**, source `fbd3f2a98`
+([baseline](README.md#baseline)). No test was run.
+
+| Earlier finding | Status at `fbd3f2a98` |
+|---|---|
+| DTA-009 | Standing, changed footprint |
+| DTA-029 | No longer applicable; the same cause recurs as DTA-041 |
+| DTA-028 | Corrected |
+| DTA-034 | Partly corrected, changed footprint |
+| DTA-016, 005 | Changed footprint |
+| DTA-012 | Stands |
+| DTA-008 | No longer applicable |
+
+Support worth preserving, read in this refresh: the sealed scenario seeds (frozen recipe
+values, read-only seed files, a fresh clone per consumer, validation on every reuse); the
+staged declared scenarios that replaced the mode-flag builders; the wire-checked routing double;
+hand-authored record expectations kept deliberately independent
+(`tests/semantic/record_contracts_support.py:124–384`); and `stage_pdf_document`, which routes
+fixtures through real certification (`tests/pdf_acceptance_support.py:34–143`).
+
+<a id="dta-041"></a>
+
+### DTA-041 — The controlled PDF converter is hand-copied nine times, and the copies no longer produce what production requires
+
+**FP-02, FP-03, FP-06; DP-16, DP-23; H1; companion §2, §3, §5.** The cause DTA-029 described,
+now in the scenarios most source tests share.
+
+Integrated source scenarios replace the parent-side `PdfWorker.stream` with a local function
+that builds a document, writes record and occurrence batches and returns
+`PdfStreamReply("success", (), recipe, (), records + occurrences)`. Nine copies exist with no
+owner: `tests/semantic/current_pdf_source_support.py:198–250` and `:372–437`,
+`current_pdf_integration_support.py:260–306`, `current_artifact_support.py:140`,
+`rich_domain_native_support.py:152`, `tests/evaluate/declared_record_native_support.py:247`,
+and inside the test bodies of `test_pdf_materialization_native.py:80`,
+`test_pdf_transform_demand_native.py:110` and `test_nce02_native_scope.py:251`.
+
+The doubles patch the class attribute, so the real `run_private_native_pdf_build` runs and
+calls them (`src/corpus_structure/orchestrate/pdf_streaming.py:409, 493`). Two unconditional
+checks on that fresh path now refuse what they return:
+
+- immediately after the stream, spool completion requires exactly one native-preparation and
+  one native-completion entry (`src/corpus_structure/ingest/pdf_build_spool.py:744–748`). The
+  doubles emit only record and occurrence batches; production emits the completion entry in the
+  worker (`ingest/pdf_worker.py:114–116`). This arrived in commit `7f3951adf` (2026-11-17
+  14:08, "runtime not_run");
+- the caller then raises "native PDF publication has no producer certification" when the
+  reply's certification or access replay is missing (`pdf_streaming.py:529–530`). Both default
+  to `None` and the doubles do not set them (`ingest/pdf_stream_types.py:145–154`). This arrived
+  in `22254ed01` (2026-11-17 15:43, "runtime not_run").
+
+Neither commit changed the copies. The only branch that reuses a reply needs a prior complete
+spool in the same directory, which a fresh per-test directory does not have. The copies also
+write occurrences through a method production no longer calls.
+
+**Consequence.** Every consumer of these scenarios fails during setup: `current_pdf_source` and
+its factory (23 test files), the integration journeys, and the record-policy, rich-domain and
+artifact journeys. One shared setup failure stands in front of every product claim those tests
+make. This is established from source and not observed: no stored result exercises any of
+these consumers after 14:08 on 2026-11-17.
+
+**Contrary evidence.** Replacing only the converter is a sound boundary choice.
+`pdf_acceptance_support.stage_pdf_document` stays current because it certifies through
+production, and one double does supply the fields
+(`tests/orchestrate/test_pdf_private_execution.py:164–172`).
+
+**Footprint.** The nine copies and both refusals are established; the function was read in
+full for the challenge.
+
+<a id="dta-042"></a>
+
+### DTA-042 — Support modules restate how the domain pack and the captured recipe are composed, and one pairs a model with a release that does not contain it
+
+**FP-04/A2; DP-01, DP-06, DP-16; companion §1, §2.**
+
+Five modules hand-list the same statistics base bundle (`semantic.yaml`, `terminology.yaml`,
+`core.yaml`, wrapped by layered inputs): `tests/semantic/record_contracts_support.py:48–66`,
+`tests/evaluation_record_alignment_support.py:45–63`,
+`tests/methods/record_assembly_support.py:23–49`, `tests/methods/m1_producer_support.py:32–54`
+and `tests/evaluate/declared_record_grading_support.py:34–48`. Production owns pack acquisition
+(`src/corpus_structure/semantic/regeneration.py:297–354`); among support modules only
+`tests/statistics_pack_support.py:10–12` uses it. Two recipes write a modified copy of the
+domain schema, removing a class and re-pointing imports
+(`tests/evaluate/declared_record_native_support.py:60–73`;
+`tests/semantic/rich_domain_native_support.py:47–49`).
+
+Each of the five builds its model with its own `compile_data_operations(bundle)` rather than
+binding the model from its release. In `declared_record_grading_support.py:51–56` the model is
+compiled with reading-resolution declarations and Python sources while the paired release is
+prepared without dependencies, so the model under test and the release under test differ.
+
+A related repetition: about twelve recipe builders repeat the same sequence to extend the
+captured PDF recipe (read the captured inputs, drop artifacts under production's private
+`"data-operations/"` prefix, recombine sources and dependencies), and two different functions
+are both named `current_pdf_recipe`
+(`tests/semantic/current_pdf_source_support.py:46`; `current_pdf_integration_support.py:63`).
+
+**Consequence.** A change to the pack layout or to how captured inputs compose has to be
+mirrored by hand in each copy. Drift in the recipe sequence fails loudly. The model and release
+mismatch means a scenario can bind records against a release whose admitted model is not the
+one it compiled; no wrong result from this was established.
+
+**What to keep.** The hand-authored record contents and the deliberate alignment sub-model are
+independent expectations, not duplication.
+
+<a id="dta-043"></a>
+
+### DTA-043 — Byte-admission and execution-basis tests assemble the executor from private fields and carry their own copy of the reservation formula
+
+**FP-01, FP-02, FP-06; DP-23; A1; companion §2, §5.**
+
+`controlled_executor` (`tests/orchestrate/test_data_operation_byte_admission.py:69–197`)
+creates `NativeDemandExecutor` through `__new__`, assigns about eighteen private attributes,
+stubs eight private methods, and patches the planner and storage. It sets
+`reservation = 2*packet + 3*reply` (`:79`, and again in `policy_for`, `:51–57`), a copy of
+production's formula (`src/corpus_structure/orchestrate/data_operations.py:689`). Its claim
+double returns hand-written payloads with no wire validation (`:145–170`).
+`test_data_operation_execution_basis.py` and `test_execution_host.py` import the builder from
+that test module, and the former builds four more executors with `object.__new__`. Sixteen
+test functions depend on the builder.
+
+**Consequence.** If production changes how the reservation or another derived field is
+computed, these tests keep testing admission against a value production no longer uses. Any
+change to executor internals means editing all of them.
+
+**Contrary evidence.** Production exposes a constructor that accepts the execution basis, host,
+database capacity and capability factories and computes the reservation and budget itself
+(`src/corpus_structure/orchestrate/data_operations.py:634–654, 689–693`); these tests bypass
+it. The tests do exercise the real byte budget, process host and CPU call
+planning with a real prepared capsule (`:227–299`), and native execution is covered separately
+through the kernel fixture. The structure and the duplicated formula are established; whether
+any other derived field has already diverged was not examined.
+
+## Earlier findings
 
 <a id="dta-009"></a>
 
@@ -135,71 +273,19 @@ publish controlled views and create a run and task, and the latter always runs r
 producers. Their default proposals define what other cases mean. Consumers that need only a
 fragment are recorded under [DTA-018](execution-and-qualification.md#dta-018).
 
+**Status, 2026-11-17, source `fbd3f2a98`.** Standing, changed footprint. Real support modules now exist for the data-operation tests and are widely used. Test modules still serve as support for others: a scan of both test trees finds 91 files that import a `test_*` module, including across directories without packages, which contradicts the 2026-11-13 reconciliation's search result. Examples: `tests/semantic/test_change_impact.py:655–661` calls another module's test function as its scenario builder; the private `_page` in `test_demand_results.py:20` is imported by eleven modules; `_complete_ready` in `test_data_operation_population_native.py:145` by four; `controlled_executor` travels from one orchestrate test module to two others ([DTA-043](#dta-043)). Generic fixture names are defined in several modules (`prepared` in eight, `acquired` in seven), so which one a test gets depends on its imports. Whether cross-directory imports load a module twice under the current import mode was not run.
+
 <a id="dta-029"></a>
 
-## DTA-029 — The primary-layer assembly scaffold is hand-copied across method tests
+## DTA-029 — No longer applicable; the cause recurs elsewhere
 
-**FP-03/04, DP-06/16; A3; companion §2.** The sequence that turns a controlled annotation into
-a native primary layer — construct `NativeEvidenceBuilder`, call `native.spacy(...)`, build
-`native_run("spacy", "spacy_only", …)`, attach availability rows mapped through
-`SPACY_COLUMNS`, then finish — is written out separately in seven files:
-`tests/methods/primary_reading_fixture.py:83–104`, `tests/methods/navigation_fixture.py:47–75`,
-`tests/native_math_primary.py:84–118`, `tests/methods/test_math_scope_primary.py:82–90`,
-`tests/methods/test_construction_named.py:93–111`, `tests/methods/test_m1_producer.py:187–198`
-and `tests/methods/test_primary_reading_consumers.py:116–142`. Not part of this footprint
-(footprint refined by the [design review](../reviews/design_review_test-architecture-and-efficiency_2026-11-12.md),
-2026-11-12): `tests/methods/test_native_evidence.py` constructs the builder as its subject under
-test, `tests/methods/test_contextual_characterization.py:46–57` only appends provider metadata
-rows, and `tests/methods/test_definition_declaration_primary.py` uses the HanLP path.
-
-The copies restate how production assembles the layer rather than expected results, so they
-are not independent oracles; they are parallel setup. A change to the assembly contract must
-be mirrored in each copy, and a copy that lags keeps passing against an obsolete shape. Each
-copy chooses its own operation, profile and configuration text, which decide what the
-consuming test exercises. The copies already differ in one visible respect: the shared fixture,
-the navigation copy and `native_math_primary` overwrite `configuration_digest` with the pipeline
-digest, while the math-scope, construction-named and M1-producer copies let `native_run` derive
-it (`src/corpus_structure/methods/native_evidence.py:117`). That difference looks
-deliberate; it shows that a reader cannot tell intended variation from drift without comparing
-the copies.
-
-A shared owner exists and is used from eight other files (`primary_product` in
-`primary_reading_fixture.py`). Which other differences between copies are intended was not
-established for every site. Related release preparation is duplicated at module boundaries
-with identical inputs in four modules (`primary_reading_fixture.py:23–28`,
-`test_construction_named.py:34–40`, `test_native_evidence.py:36–42`,
-`test_characterization_composition.py:16–26`); the production cache absorbs that repetition
-within a process, so it is noted as duplicated ownership rather than repeated work.
+**No longer applicable (2026-11-17, source `fbd3f2a98`).** `NativeEvidenceBuilder` and the copied scaffold are gone; primary assembly has one owner (`tests/methods/declared_primary_fixture.py`). The same cause, an unowned hand-copied production sequence, recurs in the PDF converter copies ([DTA-041](#dta-041)). Earlier text is in Git at `fbd3f2a98`.
 
 <a id="dta-028"></a>
 
-## DTA-028 — One provider test identity passes on a controlled branch
+## DTA-028 — Corrected
 
-**FP-02/05/06, DP-21/22; G7; companion §5/6.**
-`tests/semantic/test_pm2_result_native.py:286–563` is a single test whose evidence class is
-chosen by an ambient environment variable read in the body (`:327`). With
-`CORPUS_PM2_NATIVE_TEST_ASSETS` set it opens real workers and settles a claim, and only then
-runs the reassignment-after-lease-loss control for this provider (`:364`, `:565–631`; lease
-expiry itself has controls in other modules). Without it, the same test identity completes
-through hand-written replies with a `controlled-test` checkpoint (from `:366`). A passing
-receipt for that node therefore does not say whether a provider ran. Operator evidence and
-plans do record the variable on the command line, which is how the distinction is carried
-today; the machine receipt does not. The repository's reporting rule is that a mocked provider
-is never `passed`; here the distinction is not carried by the test identity, a marker or the
-recorded outcome.
-
-The neighbouring provider tests show both alternatives: a marker that skips the provider test
-when assets are absent (`tests/semantic/test_pm2_parser_stage_native.py:42–44`) and a separate
-explicitly controlled test in the same file (`test_pm2_result_native.py:104–278`).
-
-A lower-weight footprint of the same labelling concern is naming. Some tests whose
-collaborators are replaced are named for the actual boundary:
-`tests/semantic/test_native_candidate_cli.py:65` asserts rollback on a fake connection;
-`tests/ingest/test_pdf_capacity.py:1` describes restoring GPU ownership through a local HTTP
-double. Module docstrings usually state the limit, as `tests/orchestrate/test_source_operation.py:1`
-does ("native boundaries are controlled") for tests named actual, real and live, and STATUS
-reports controlled panels as controlled. The naming sites alone would not be a finding; they
-matter where a result is read by test name.
+**Corrected (2026-11-17, source `fbd3f2a98`).** The provider tests carry provider-evidence and prerequisite markers and the file has no controlled branch (`tests/semantic/test_pm2_result_native.py:232–235, 258–260, 324–326`). Earlier text is in Git at `fbd3f2a98`.
 
 <a id="dta-034"></a>
 
@@ -232,6 +318,15 @@ execution tests, so this is a fidelity gap of uncertain size and not an observed
 Running pure binding semantics without a database is also the economical choice, and should not
 be lost in closing it.
 
+**Status, 2026-11-17, source `fbd3f2a98`.** Partly corrected, changed footprint. The SQLite substitute is gone, binding semantics run on PostgreSQL with independently authored rows (`tests/semantic/test_data_operation_bindings.py:136–215`), and the wire-checked routing double validates native input and output contracts (`tests/semantic/data_operation_binding_support.py:240–262`). Substitutes that still stand below the boundary they claim, unvalidated:
+
+- `_page`, a hand-written native read-result page that the result reader loads raw, is never checked against the generated wire type and reaches eleven modules (`tests/semantic/test_demand_results.py:20–91`);
+- `control_frontier` re-implements the native recheck's refusals for every query-cache consumer test (`tests/semantic/selected_query_cache_support.py:27–43`);
+- a raw double for closing a population (`tests/semantic/test_data_operation_demands.py:635–660`) and the claim double in [DTA-043](#dta-043);
+- `_native`-named tests on a hand-built substitute schema ([DTA-047](execution-and-qualification.md#dta-047)).
+
+If the native page or refusal changes shape, these consumers keep passing on the old one.
+
 <a id="dta-016"></a>
 
 ## DTA-016 — Actual stdio and production serializer controls correct the substituted-boundary gaps
@@ -245,6 +340,8 @@ mode cancels at a checkpoint before the lease. `tests/semantic/test_pdf_record_r
 still iterates production `iter_native_json` and asserts the chunk bound and exact
 reconstruction. In-memory controls keep their distinct scope.
 
+**Status, 2026-11-17, source `fbd3f2a98`.** Changed footprint: the stdio control moved to `tests/semantic/test_external_runtime_native.py:50` and `structural_production_native_support.py:227–285`. Not re-examined further.
+
 <a id="dta-005"></a>
 
 ## DTA-005 — Selected assembled scenarios use production composition
@@ -253,6 +350,8 @@ reconstruction. In-memory controls keep their distinct scope.
 `tests/semantic/serving_scenarios.py:353–357` and `tests/semantic/test_pack_acquisition.py`
 compose through `prepare_packs`, and `tests/orchestrate/test_policy.py:36–38` does so as a
 module fixture.
+
+**Status, 2026-11-17, source `fbd3f2a98`.** Changed footprint: `serving_scenarios.py` is gone, and production pack composition is used by one support module; see [DTA-042](#dta-042).
 
 <a id="dta-012"></a>
 
@@ -271,3 +370,5 @@ the evaluate tests declare `unit_type` and `Config`
 (`tests/evaluate/test_record_references_native.py:614–621,699–706`,
 `tests/evaluate/test_record_policy_authority_native.py:158–166`). Other `SimpleNamespace`
 descriptors were not audited.
+
+**Status, 2026-11-17, source `fbd3f2a98`.** No longer applicable: the cited evaluation test files are gone.

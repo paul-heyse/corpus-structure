@@ -1,732 +1,238 @@
 # Design principle audit
 
-> Source references · 2026-11-14: retired paths below identify the implementation
-> examined here, with line numbers referring to that version. Recover those sources
-> through [Git history](../../README.md#historical-recovery); they are not current execution entrypoints.
-
 The living diagnostic account maintained by the
 [audit skill](../../../.claude/skills/design-principle-audit/SKILL.md). The
 [repository binding](../design_principles/binding/corpus-structure.md#design-principle-audit)
 owns freshness and disposition. This account diagnoses current design; reviews own solution
-reasoning, and implementation plans own scheduled work and closure evidence.
-
-<a id="declared-data-operations-entry-refresh"></a>
-
-## Declared-data-operations recommendation-audit reconciliation · 2026-11-12
-
-**Interface-checked by source inspection**, product source8c0f4f951, clean starting tree
-8f35f1d07; core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding.
-This bounded reconciliation supplies the requested target recommendation audit, not a fresh
-whole-codebase certification. Earlier entries retain their dates and limits.
-
-DA-054's two-method correction remains bounded: task_dependency_scope.sql:3–17 narrows only
-M1 annotation/candidate manifests; valid_reuse:23–40 still requires release/runtime/input
-binding equality. This is contrary evidence against both universal fine-grained reuse and
-universal absence of useful dependency scoping. DA-041's native lifecycle/attempt protections
-remain preservation requirements, not mechanisms to discard merely because derivations become
-first-class. DA-012 remains a bounded correspondence question, not evidence that all current
-operational values lack a declaration.
-
-Actual contracts require more than kind presence: native_evidence.py:283–293 checks same-base,
-single-document membership; m1_source.py:318–328 checks exact selected projection cardinality;
-structural_products.py:1280–1320 checks two distinct passages/readings with dependency closure.
-OperationContract/call bindings (contracts.py:670–716) already declare cardinality, outcomes,
-effects and transitions. ProductReference remains task/key/digest; evaluation separately binds
-original reference release and prediction view (operation_assessment.py:1612–1667). These
-premises challenge the proposed replacement's sufficiency, not the total-model objective.
-NativeProfile:60–112 includes runtime/thread/device/numerical fields, so semantic recipe and
-execution provenance cannot be separated merely by dropping that whole identity.
-
-Inspection also covered CPU admission/submit ownership (cpu_execution.py:630–743), PDF private
-build adoption (pdf_staging.py:129–174), layer operation declarations and release comparison.
-The failed-submit path retains uncertain submitted credit without a returned handle; it is a
-useful target lifecycle countercase, not proof of the book's original BrokenPipe cause.
-Current diagnosis/remediation of that incident remains with BEP, not this account's execution
-queue. The recommendation audit develops the corrected design. No DB/provider calls, tests,
-benchmarks or protected reference-answer reads were performed for this reconciliation.
-
-<a id="book-ready-execution-refresh"></a>
-
-## Ready-execution entry refresh · 2026-11-11
-
-**Interface-checked**, source380fecc74, core3.3/heuristics1.0/code-intelligence1.4/binding.
-This bounded reconciliation supplies the BEP-04–06 target review; unrelated account observations
-keep their original dates and limits. BEP-00–03 replaces DA-042's book-demand repeated full-load
-manifestation with verified invocation preparation and regional canonical values/proof reuse.
-Native live admission/publication remains independently enforced. No numerical benefit follows.
-
-Current characterization orchestration still comprehends natural regions serially and source
-execution awaits method results synchronously. Provider resources retain ambient ContextVar plus
-nonblocking exclusive-borrower refusal; this is not queued multi-borrower admission. Existing
-spaCy Language.pipe, D1 native batches, GLiNER batch_extract and HanLP length planning are strengths.
-GLiNER request_digest binds the full ordered input population, but classification and cue consumers
-reconstruct singleton identity; changing tuple length without changing those consumers would fail
-authentication. Existing detached SourceValue payload flexibility does not establish changed
-request-hash semantics or historical policy compatibility. CPU operation-wide cancellation from
-the serial foundation does not supply independently cancelled useful siblings. These are bounded
-extension premises for the existing functional review O03–08, not whole-system defect conclusions.
-
-Inspecting source/stage owners, provider resource/launch and GLiNER request/report/projector paths
-was sufficient for this reconciliation. Whole-system/test-architecture audit and actual provider,
-probe or test execution: **not_run**. The [BEP coordinator](../../plans/book-processing-efficiency-and-parallelism_2026-11-11.md)
-owns scheduled disposition; the target review owns alternatives and correction judgment.
-
-<a id="book-execution-entry-refresh"></a>
-
-## Book-execution entry refresh · 2026-11-11
-
-**Interface-checked.** Inspected source `539a437da`; this bounded reconciliation supplies the
-BEP-00 target review. Core3.3, heuristics1.0, code-intelligence1.4 and the binding apply.
-The scope is release loading through book/demand/stage execution, regional source/dependency
-ownership, parser-bearing method boundaries and native completion. It inherits unrelated audit
-observations at their original dates; no whole-system or test-architecture refresh is claimed.
-
-[DA-042](execution-fit.md#da-042)'s earlier absence-of-manifestation conclusion no longer covers
-primary characterization: demand execution fully loads the same release for each regional request
-and final composition. Region-specific work remains necessary, while the repeated verification
-has no distinct changing compiler input. Preparation already passes through stage/registry APIs;
-that existing capability is contrary evidence against requiring a new global cache. BoundReader
-retains source values locally, but successive stage readers reload exact dependency layers.
-Public report payloads remain fresh mutable values and cannot safely become shared cached dictionaries.
-
-The actual CPU seams are formal recognition, witnessed construction and retained contextual
-evaluation. PreparedRelease includes locks/lazy closures; live readers temporarily own connections.
-Neither is a transferable worker input. Native completion retains the independent run/task/attempt/
-holder fence. Provider residency currently uses ambient ContextVar plus nonblocking borrower refusal;
-this is not a waiting/admission contract for parallel work. Publication's existing8MiB layer bound
-remains separate from executor capacity; no claim that scheduling repairs oversized products follows.
-The source functional review retains O01–08; current execution disposition belongs to the
-[BEP coordinator](../../plans/book-processing-efficiency-and-parallelism_2026-11-11.md).
-Tests/providers/probes: **not_run** for this static reconciliation.
-
-<a id="text-characterization-entry-refresh"></a>
-
-## Text-characterization entry refresh · 2026-11-10
-
-**Interface-checked, 2026-11-10.** Source baseline `8318ff74a016c6f9e68b81a0607a41b309f33a78`;
-publication is separate. Core3.3, heuristics1.0, code-intelligence1.4 and the repository binding
-apply. This bounded refresh reconciles the existing account with source-document binding,
-source-view projection, observation/contribution, generated physical-model, release archive,
-protected task completion and native published-document reader boundaries. Earlier account
-entries retain their evidence dates and coverage. Concurrent TC production changes are excluded;
-no other plan supplies scope or disposition.
-
-`semantic/product_reference.py` identifies a product by producing task, product key and content
-digest. `published_document.PublishedDocumentBinding` additionally authenticates physical
-placement and original producer release; SourceViews select projections within that document.
-Those distinctions support full-document composition without elevating a selected section to
-the original document (FP-02/04/05; DP-04/07; CI-01/02/13).
-
-`model/semantic/observations.yaml` already declares attributed questions, independently retained
-contributions, coverage and zero-output operations. `semantic/observations.py` explicitly adds
-the trusted observation module to acquired release inputs. The current finite frame/reading
-vocabulary is useful but does not itself implement TC's factorized operator/binder/choice model.
-That is an accepted new functional requirement, not proof of a defect in the narrower current
-contract (FP-01/03/04; DP-01/02/24).
-
-`semantic/sql/native_task_completion.sql` checks run/task/attempt/holder fences, exact method
-outcomes, selected source custody and original native placement before committing immutable
-results. Private report completion and admitted knowledge publication are different operations.
-Generated `physical.yaml` relations and existing `published_document.py` set-oriented selections
-offer an appropriate route for indexed layer/membership reads. These interfaces do not yet
-establish canonical TC payload/projection equality or choice/source closure; those are new
-boundary obligations, not inherited guarantees (FP-03/05/07; DP-03/08/19; CI-04/11).
-
-No additional demonstrated architectural violation is established in this inspected footprint.
-The [entry target review](../reviews/design_review_text-characterization-entry_2026-11-10.md)
-assesses the replacement contract. The [TC coordinator](../../plans/text-characterization_2026-11-10.md)
-owns delivery and qualification. No broad-system certification, NLP-provider quality, benchmark
-or test-architecture refresh is claimed. Tests, database/provider commands and probes: **not_run**.
+reasoning, and implementation plans own scheduled work and closure evidence. It certifies
+nothing and authorizes no change.
 
 <a id="baseline"></a>
 
-<a id="cld-assembled-refresh"></a>
+## Baseline
 
-## CLI assembled reconciliation · 2026-11-10
+| Item | Inspected state |
+|---|---|
+| Date | 2026-11-17 |
+| Audited source | `fbd3f2a98362da44d9c9bdb9f59bab1ff305bd36`, committed `main`, clean tree. Contributors read a frozen export of that commit, so cited lines are exact for it. The operator stated during the audit that production edits were in progress; later source is outside this refresh |
+| Excluded | The untracked `docs/libraries/analytical_infrastructure/cachetools.md` (read as a library overview, not audited); the migration trees beyond their shape; Chandra OCR as scheduled work |
+| Standard | Core 3.3; efficient-architecture heuristics 1.0; code-intelligence 1.4; repository binding. Test-assessment 1.2 applies through the test account |
+| Previous broad baseline | `67cbe680e` (2026-11-08), about 2,000 commits earlier, followed by ten scoped refreshes to 2026-11-12. All of that text is in Git at `fbd3f2a98` |
+| Kind | Broad refresh by static source reading. No test, database command, provider call or benchmark was run |
+| Emphasis (operator, 2026-11-17) | The comprehensive domain data model, and efficiency of execution, assessed together with the [test account](../test-audit/README.md) at the same commit |
+| Publication | The commit that publishes this account, distinct from the audited source |
 
-**Source-inspected.** Source `6c867bdb6`, following the entry account published at `f25d427ed`;
-core3.3, heuristics1.0, code-intelligence1.4, binding and test-assessment1.2 remain selected.
-The scoped engagement includes native reference/grammar/context, correction/source custody,
-managed observation/read/watch, stdlib/structlog exceptions, provider/MCP/method/regeneration
-adapters and retained recipe-output capture. Adjacent native run, runtime-pin, publication and
-purpose-role owners were inspected where those boundaries depend on them. Earlier broader
-accounts retain their dates and scope; this is not a refresh of all production or test architecture.
+This refresh replaces the stacked scoped entries of the earlier README with one current
+account. It was needed because the declared-data-operations work replaced most of the code
+those entries described: since the 2026-11-12 entry, 364 production files were added, 149
+deleted and 307 modified, and the owners cited by the earlier domain model map were removed on
+2026-11-16.
 
-Native references derive from the constructed Typer tree; lexical declarations do not acquire
-resources or replace domain admission. Configured selection projects one settings snapshot and
-keeps unavailable current configuration separate from historical acquired identity. Correction
-views select original Located5 facts, typed paths and captured-only operation/scope bindings;
-optional source bytes come from actual acquisition and authenticate under existing custody.
-Presentation failures preserve original outcomes. No second validation classifier was introduced
-(FP-01/03/04/05/06; DP-01/02/03/08/15/24; CI-01/02/04/10/11/13).
+Observations are **Interface-checked by source inspection** on 2026-11-17 unless a row says
+"not re-examined", in which case the last evidence keeps its original date. Nothing here is
+labelled Tested or Measured.
 
-The observation owner separates unsealed prefixes, sealed authenticated content and native state.
-One parent writer assigns local sequence while preserving producer identity/assurance. Cursor,
-examination and complete-response budgets govern reads; watch declares its latest-window selection
-and evictions separately from scan progress. Process-scoped routes and restored invocation/tool
-context support concurrent producers. One safe owned event and bounded native exception adaptation
-precede destination fan-out; optional sink failures preserve the original operation. Method callers
-without capture retain ordinary logging (FP-01–07; DP-04/05/08/15/18/19/20/21/23; CI-01/02/04/08/13).
+## Scope and method
 
-Native recipe streams reuse the existing bounded side channel. One safe selection supplies compact
-excerpts and retained output; protected-token truncation, unknown historical basis and collection
-omissions remain explicit. Authenticated paged output does not rerun checks. Cancellation preserves
-signal identity and unresolved custody when draining is unestablished. Full bounded digest scans
-per independent settled read buy content authentication without another chunk/index mechanism;
-held observation readers reuse their authenticated input. This fits the single-host captured-agent
-workload qualitatively, without a speed or capacity claim (FP-03/04/06/07; DP-08/15/18/20/21/23/24).
+The functional target is unchanged: progressively enriched, attributed source knowledge under
+an executable domain release, delivered through typed interfaces to one operator and to agents
+on one host. The development workload is one 518-page book. Agents reach the system through
+the `ci` CLI, which runs one process per command, and through a long-lived MCP server.
 
-Independent implementation review identified corrected boundary defects; the
-[CLD coordinator](../../plans/cli-and-logging_2026-11-10.md#execution-receipts--2026-11-10)
-owns their dispositions and scoped test receipts. No additional demonstrated architectural
-violation remains in this inspected footprint. Complete package runtime capture already includes
-the new helpers; changed source changes runtime identity without changing semantic identity.
-Final source reconciliation at `fe5f3b281` (producer/traceback implementation `123dc1b50`) includes the finite visual acquisition/dispatch split:
-validated run/project/release is durable before effects, with originating engine and native fences
-preserved. The independent target follow-up supports AR01 closure. Native validation now acknowledges
-after cleanup and requires successful terminal exit, sharing existing cancellation authority.
-Test receipt selection also distinguishes ordinary/fault directories from ancillary observation journals;
-actual retained coverage and the observation-enabled regression preserve that domain distinction.
-Retained native pytest locations/chain descriptions are opt-in projections with unknown-format,
-traversal/transport/display omissions; no source/locals or inferred group relations. Implementation
-review and focused controls support these boundaries; prepared native and full final qualification
-remain separate. Math parity's explicit equal test budgets preserve all exact assertions and the
-separate production-deadline controls. Assembled target judgment and full final-source
-functional/nonfunctional qualification remain separate. No external Claude execution, broad test-architecture audit or benefit measurement is
-claimed by this source account.
+Five read-only contributors each read one area against a shared set of ten questions: four on
+the domain model (what is declared, what is restated by hand, where scope is decided without
+the declared dependencies, whether each identity is complete for what it keys), four on
+execution (what repeats while its inputs are unchanged, what is examined in whole where a
+subset is known, the facts of every cache and prepared holder, where assurance is re-proved or
+dropped), and two on where they meet (which model facts could key or invalidate work, and
+which caches key on something the model does not govern).
 
-<a id="cld-entry-refresh"></a>
+| Area | Read |
+|---|---|
+| Model declaration and compilation | Model owners, the compiler and effective model, wire generation, static preparation, release preparation |
+| Dependency, validity, reuse, change impact | Change impact, projections, the demand planner, established validity, demand results, the validity and closure SQL |
+| Execution host and method runtime | The process host and executor, CPU execution, native model hosts, math and construction grammars, PDF capture and recognition |
+| Native storage, admission, publication | Storage, ports, admission, installation, PDF publication and reading, the admission and binding SQL |
+| Serving, evaluation, CLI | The query cache and its six consumers, query custody, the archive reader, reporting, scientific evidence, the MCP servers, CLI entry |
 
-## CLI and observation entry refresh · 2026-11-10
+The coordinator read the decisive source behind each published finding, checked stored test
+results where a finding claimed a test could not pass, and reconciled candidates by structural
+cause across both accounts. A fresh reviewer then challenged the draft against source before
+publication; its effect is recorded under [Independent challenge](#independent-challenge).
 
-**Source-inspected.** Baseline `42d20a2ab`; core3.3, heuristics1.0, code-intelligence1.4,
-binding and test-assessment1.2. A fresh independent reviewer examined CLI output/failure,
-diagnostic custody, managed publication/live test-report reads, provider subprocess ownership
-and semantic MCP event production. Concurrent CLD command changes and ADR/coordinator prose
-are excluded. Earlier broader baselines retain their dates and scope.
+## How the foundations were assessed
 
-Managed publication identity and settled artifact access remain distinct from content digest
-authentication. DMC diagnostic reads compose leases, bounds, retained digests and raw gates.
-Failure translation distinguishes expected refusals from programming defects/cancellation.
-Provider process groups, pipes and receipt links retain their owners; database notice fields
-are copied within callback lifetime. Current safe_text does not establish recursive exception
-disclosure safety. Proposed observation consumers therefore need an owned nested safe boundary
-and explicit live versus sealed semantics, not weaker artifact authentication.
-
-No additional demonstrated production architectural violation was found in this footprint.
-This refresh does not qualify deployment, external-provider behavior or all test architecture.
-Tests/probes/database/provider runs: **not_run**. The CLD coordinator owns scheduled work;
-entry target assessment is published separately.
-
-
-<a id="domain-data-model-assembled-refresh"></a>
-
-## Domain-data-model assembled refresh · 2026-11-10
-
-**Source-inspected, 2026-11-10.** Baseline `d38402708`, with bounded final source reconciliation
-at `a262e476f` (including the F01 correction) and native adoption `4661e5707`; publication is separate.
-An independent reviewer inspected the settled DMC construction, terminology, private
-interpretation, diagnostic, research, independent-consumer and settings boundaries and
-reconciled the final repair diff. Core3.3, heuristics1.0, code-intelligence1.4, binding and
-test-assessment1.2 apply. Earlier broad/PTD/DMC accounts retain their original dates and
-coverage. Concurrent coordinator/evidence prose, CLD planning and unrelated PM2 work are
-excluded. Native adoption and final qualification are separate observations.
-
-**Source-inspected.** Exact archived-field recipe guards compose with the actual class's
-cached Pydantic adapter and constructor invariants. Directional cattrs reconstruction retains
-strict primitives, tuple shape, byte/hex conversion and omissions; authentication and independent
-exact reconstruction remain distinct. Release-local subtree normalization preserves semantic
-and outer validators. Inspection and detached candidates consume authenticated retained products
-(FP-01–06; DP-01/03/08/15/24).
-
-**Source-inspected.** Vocabulary metadata preserves source digests, original predicates and
-projection limits. Lexical lookup proposes candidates; retained interpretations preserve examined
-candidates, explicit decisions, mapping direction and original record references. Native completion
-authenticates result, record, span and vocabulary pins before compact projection. Later authored
-results do not acquire original coordinate custody. Unit/quantity grouping preserves stated or
-unknown basis and unassessed numerical equivalence; external mappings do not become corpus
-denotes or global identity (FP-04/05; DP-02/04/07; CI-01/02/06/10/11).
-
-**Source-inspected.** Selected review populations filter before hydration. Comparison attributes
-one before/after vocabulary-use survey with comparison/population-bound continuation; unknown
-populations remain unknown. SQL result labels become ordinary text at the report boundary without
-weakening source-value key validation. Pinned exclusion comparison distinguishes declarations,
-resolution and evidence under a common release. Incomplete populations do not establish absence
-(FP-03/05/07; DP-08/20; CI-03/04/05/08/13).
-
-**Source-inspected.** One whole-report allocation boundary covers observations, optional detail
-and inline evidence. Outcome/assessment precede truncation; compact reports retain captured
-inventory and rendering coverage. Wrappers preserve typed paths through actual nested lowering,
-relative input paths versus nonroot native locators, schema references, scalar kinds, nonfinite
-values and transport ranges. Membership/containment failures retain state-violation meaning.
-One trusted normalization followed by typed parent-closed subset selection avoids repeated whole-report
-validation; generated MISSING/default serialization remains authoritative. The
-[assembled review F01](../reviews/design_review_domain-data-model-assembled_2026-11-10.md#F01)
-owns the reasoning behind that correction. Outer CLI reporting no longer repeats unbounded error lists. Managed publication reuses bounded
-presentation; leased retrieval authenticates original bytes/sensitivity without revalidation.
-Admitted RDFLib path display preserves grammar/list/cycle bounds and native witnesses/conformance
-(FP-01–06; DP-03/15/19/21/24; CI-02/04/08/11).
-
-**Source-inspected.** Independent preflight consumes exact archived schema bytes with explicit
-dialect, local closure and digest checks; structural validity does not imply source support or
-admission. Settings explanation observes actual constructor/environment acquisition, preserves
-source state/merging and masks credentials; later ambient state does not rewrite its snapshot
-(FP-02/03/05/06; DP-15/18/21; CI-10/13).
-
-No additional demonstrated structural violation was established in this inspected footprint.
-Inherited findings retain their primary homes. The [DMC coordinator](../../plans/domain-data-model_2026-11-10.md#completion-audit)
-owns DMC-CA01–04 disposition and DMC-17 acceptance. This static account certifies neither the
-whole codebase nor deployment, provider behavior or scientific benefit. Preparation reuse and
-reduced duplicate conversion remain qualitative expectations. Tests, database commands, providers
-and benchmarks: **not_run** by the audit contributor. Independent implementation review and its
-bounded production probes have separate coordinator-owned evidence.
-
-<a id="domain-data-model-interpretation-correction-refresh"></a>
-
-## Domain-data-model interpretation and correction refresh · 2026-11-10
-
-**Source-inspected, 2026-11-10.** Baseline committed `0a384a64e`; publication is separate.
-Core3.3/heuristics1.0/code-intelligence1.4/binding/test-assessment1.2 apply. Broad/PTD/DMC accounts
-retain their original coverage. This bounded refresh examines contribution, record-query,
-diagnostic, export and settings seams; concurrent coordinator prose is excluded.
-Typed private contributions and native payload/source-anchor validation are usable foundations,
-not delivered terminology authentication/filtering. Record root reads select before hydration.
-PDF/native wrappers flatten original errors; overloaded report strings do not establish custody.
-Managed owner/role/file authentication does not establish content digest. Class schemas are already
-retained. Settings context explanation is case-sensitive and later rereads ambient names; Nemotron
-URL masking is missing. Existing exclusions preserve observation/local identity and evidence closure.
-The [target review](../reviews/design_review_domain-data-model-interpretation-correction_2026-11-10.md)
-accepts the proposed replacements without additional blocking findings. Existing finding homes
-remain authoritative; DMC coordinator owns selected delivery. Tests/DB/providers/benchmarks: not_run.
-
-<a id="domain-data-model-construction-terminology-refresh"></a>
-
-## Domain-data-model construction and terminology refresh · 2026-11-10
-
-**Implemented source inspected.** Baseline is committed
-`403822dfb6bca2e0fbc1167ebcefc913eccdbccb`; publication is separate. Core3.3,
-heuristics1.0, code-intelligence1.4 and the binding apply; test-assessment1.2 informs
-inspection of verification. The preceding broad/PTD/DMC accounts remain inherited with
-their original limits. This scoped refresh follows the intervening DMC-00–02 boundaries,
-not unrelated PM2 work. Concurrent DMC-03–06 implementation and dependency changes are excluded.
-
-**Source-inspected, 2026-11-10.** `semantic/inspection_metadata.py` captures module/path/digest
-and selected raw declarations during the existing source load; effective constraints remain in
-normalized definitions/recipes. Its release-cached decoded tree is recursively immutable and
-missing/unsupported/corrupt detail is distinct from known absence. The artifact retains only
-class/property detail in v1 despite internal enum capture; enum/PV locators are therefore a
-new capability premise for DMC-06, not an implemented v1 promise (FP-04/05, CI-01/02/04).
-
-**Source-inspected, 2026-11-10.** `semantic/archive_reader.py` factors complete byte/input/manifest
-and product authentication into `open_release_parts`; its database wrapper retains observed
-header, finalization/cache and relational coherence checks. `inspection_capsule.py` composes
-that same authentication before hydration, with a separately bound managed envelope. Candidate
-inspection does not reconstruct from current checkout sources. `contract_inspection.py`, CLI
-and read-only MCP share explicit-release reads, bounded cursors, unresolved scaffolding and
-existing operation/validation reports. Semantic compiler20, archive3/boundary12 and the two
-forward native compatibility guards retain their distinct purposes (FP-02/03/05/06, CI-10/13).
-
-The inspected delta establishes no additional demonstrated architectural violation. The
-[construction/terminology target review](../reviews/design_review_domain-data-model-construction-terminology_2026-11-10.md)
-assesses the new directional-wire, subtree and qualified-source target independently. Inherited
-findings retain their primary homes; the DMC coordinator owns scheduled implementation and
-acceptance. No test, database, provider or benchmark command was run for this static refresh.
-
-<a id="domain-data-model-entry-refresh"></a>
-
-## Domain-data-model execution entry refresh · 2026-11-10
-
-**Implemented source inspected.** Source baseline is committed
-`7e30c5d167675aa36a3af23464bb5b6dc0f9ddd4`; this documentation publication is separate.
-The preceding PTD refresh below, published at `044915435`, retains its original source baseline
-and limits. Core 3.3, heuristics 1.0, code-intelligence 1.4 and binding apply; test-assessment 1.2
-informs the inspection of changed verification. This refresh adds the intervening PTD closure
-changes and the existing preparation/archive/report/candidate boundaries relevant to DMC entry.
-It does not refresh unrelated PM2 work or the entire inherited finding collection.
-
-**Source-inspected, 2026-11-10.** The `8e69e2b5f…7e30c5d167` delta changes no production
-Python implementation or dependency declaration. Its executable changes are a native scoped-reader
-acceptance test and a GLiNER protocol-recovery test startup budget. The native test independently
-asserts candidate identity/channel scores, detached preparation reuse, query refusal on a cache
-hit, distinct reader ownership and closed per-operation connections. The GLiNER test changes its
-startup allowance while retaining the protocol assertions; the separate timeout test remains.
-These changes do not introduce a new production semantic owner or weaken the declared timeout
-contract. D3 now identifies the completed native baseline and separates detached preparation from
-borrowed snapshots. PTD receipts remain dated evidence owned by its coordinator, not fresh runs here.
-
-**Source-inspected, 2026-11-10.** DMC's current foundations preserve the important authority
-separations: `semantic/prepare.py` validates a supplied closed bundle before import merging and
-contextual induction; `semantic/archive_reader.py` authenticates manifest, inputs, products and
-artifact bytes before exact reconstruction; `semantic/types.py` owns strict structural and
-accepted-value boundaries; `semantic/operation_reporting.py` validates reports against its trusted
-model. `intervene/semantic_server.py` separates reader snapshots from lazy write-queue acquisition.
-The current `schema/model_deployment.py` candidate retains release and product digests but no
-prepared-product bytes. This is a capability premise for the selected authoring extension, not a
-claim that today's deployment inspector violates its existing effects-oriented contract.
-
-The scoped inspection establishes no additional demonstrated production architectural violation.
-Inherited findings retain their primary homes and evidence dates. The
-[entry target review](../reviews/design_review_domain-data-model-entry_2026-11-10.md) compares the
-proposed authoring extension and its failure/change scenarios; the
-[DMC coordinator](../../plans/domain-data-model_2026-11-10.md) owns scheduled disposition,
-implementation and qualification. Tests, database commands, providers and benchmarks: **not_run**
-for this static audit contribution.
-
-<a id="ptd-assembled-refresh"></a>
-
-## PostgreSQL typed-domain assembled refresh · 2026-11-10
-
-**Implemented source inspected.** Source baseline is committed
-`8e69e2b5f6dc56bd01c3a63b27b0a7ee28d313da`; publication is a separate commit. Concurrent PTD-11
-qualification, the new native reader-cache test and coordinator/architecture amendments are excluded.
-Core 3.3, heuristics 1.0, code-intelligence 1.4 and the repository binding apply; test-assessment 1.2
-informs the interpretation of inspected test evidence. No test, provider, database or benchmark
-command was run for this audit refresh.
-
-The prior broad and PM2 refreshes below remain the inherited account. This refresh follows the
-intervening PTD contracts across semantic declaration, generation, native evolution, operational
-custody, retrieval and detached serving; it is not a fresh verdict on all intervening PM2 semantic
-work or the unrelated outstanding findings. Current references below are source paths beneath
-`python/corpus-structure/src/corpus_structure/`.
-
-- **Semantic model and generated representations.** `semantic/operation_call_generation.py`
-  resolves qualified correspondence once for calls, columns and companion materializers. Anchors
-  cannot suppress edge validation; induced and schema-level slots preserve declaration provenance.
-  The typed relation remains distinct from local value projection and nullable/SQL representation.
-  This supplies a concrete scoped realization for DA-012's operational-correspondence question;
-  it does not prove arbitrary SQL operators or runtime NewType identity (FP-04/05, DP-01/02/03).
-- **Retained analysis and native expectations.** Projection analysis compiles captured physical
-  sources and recipe closure, including runtime/library determinants; historical analysis v2
-  remains unavailable for occurrence detail instead of being recomputed. Frozen native verification
-  resolves acquired revisions or authenticated function/fence fingerprints, not checkout head.
-  The previous DA-063/067 manifestations are corrected in their existing primary home
-  ([native integrity](native-integrity.md#da-063)); exact catalog/role qualification remains separate.
-- **Boundaries and effect custody.** `core/db/adbc_lifetime.py` owns explicit configured driver and
-  resolver acquisition, child cleanup, connection rollback/close and borrower cancellation.
-  Analytics, export and description compose that owner; Parquet publication follows reader/writer
-  retirement. Managed operation accounts now retain failure, target and known effects, and evidence
-  promotion requires settled custody. DA-059/060's earlier examples are corrected in
-  [their existing home](boundaries-and-composition.md#da-059) (FP-01/02/05/06, DP-18/19/21).
-- **Execution and serving.** `semantic/contextual_retrieval.py` composes exact membership and three
-  channels over one MATERIALIZED eligible relation; full membership evidence remains distinct from
-  top-k output. `semantic/inference.py` retains generation-tagged delta/accumulated state natively
-  with scalar insertion counts and unchanged final proof/publication. `contextual_storage.py` caches
-  only one detached immutable target relation under complete reader/input/profile/dimension bindings;
-  `orchestrate/source_reader.py` retains per-call snapshots. These remove identified transport and
-  reconstruction work without weakening admission or inventing a second transaction/cache owner
-  (FP-03/07, DP-08/09/10/12/19/20). This is qualitative work-shape evidence, not measured speed.
-- **Meaning served to consumers.** Validation v3 delegates bounded occurrence detail to the retained
-  pager while compact completeness remains independent. Coverage comparison retains exact run/cut/
-  release/source/question contexts and does not infer quality. Four-family export authenticates six-part
-  pins, declares directional Arrow schemas and publishes atomically before independent detached reads
-  (`semantic/operation_reporting.py`, `serve/coverage_comparison.py`, `serve/companion_export.py`;
-  FP-02/04/05, CI-01/02/04/05/06/11).
-
-No new demonstrated architectural violation was established in this inspected assembled footprint.
-This conclusion does not close inherited audit findings or certify complete qualification. The
-[assembled target review](../reviews/design_review_postgresql-typed-domain-assembled_2026-11-10.md)
-assesses alternatives and named change scenarios; the PTD coordinator owns implementation and the
-provider/native/nonfunctional qualification union.
-
-<a id="pm2-parser-refresh"></a>
-
-## Production milestone two parser refresh · 2026-11-08
-
-**Implemented source inspected.** Audited source
-`fb3709f4d43b697f6acc08d1fa6b783688343b83`. This refresh excludes concurrent
-edits and follows the foundation changes into task admission, native source
-selection, contribution publication and retained reads. The prior audit
-continues to cover the inherited architecture. The applicable standard is
-core 3.3, heuristics 1.0, code-intelligence 1.4 and the repository binding.
-Test-assessment 1.2 informs the use of retained verification evidence.
-
-- **Private provider custody.** The foundation compares the live attempt,
-  holder, lease, release, profile and effective input before inference. Its
-  settlement uses the existing claim owner. The resident process follows the
-  shared GPU handoff and bounds IPC and lifetime. Historical CPU and CUDA
-  receipts establish the tested profiles and scope. These controls leave the
-  named parser operations and package-level comparison work to the next
-  stage. Claim adapter (`orchestrate/pm2.py:26`) ·
-  [Foundation receipts](../evidence/2026-11-08_pm2-foundation/README.md)
-- **Native products and located products.** The foundation retains the raw
-  reply and maps HanLP roots, Maverick mentions and Dipo EDU extents to source
-  evidence. The separately indexed products are individual source occurrences.
-  Retention at this baseline stops at raw replies and individual occurrences.
-  A consumer seeking HanLP argument and cue-host membership, Maverick cluster
-  membership, or Dipo ordered child yields would need to interpret the provider
-  reply and reestablish source bindings. Existing
-  contribution and predicate validators already own local endpoint closure.
-  The current strong definition basis still identifies the original M1
-  producer. These are distinct boundaries (FP-02/04, DP-02/03/07, CI-02/11).
-  [Foundation result](../../../python/corpus-structure/src/corpus_structure/methods/pm2_result.py#L70) ·
-  [Contribution enforcement](../../../python/corpus-structure/src/corpus_structure/semantic/contributions.py#L69)
-- **Scoped selection and read cardinality.** The named historical source
-  reference guard checks an original finished run, final cut, result revision,
-  native product and view and recipe digests. The same-release source result
-  shortcut expects one row per method and view. Contribution inspection already
-  selects by operation or selected task. Multiple parser scopes per view require
-  that distinction to reach the consumer (FP-05/06, DP-04/09, CI-08/13).
-  [Source custody](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L2) ·
-  [Result cardinality](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py#L1302) ·
-  [Reader selection (historical source)](../../README.md#historical-recovery)
-- **Distinct Dipo input universes.** Interface-checked against installed
-  `dipo==0.2.1`. Raw parsing reconstructs EDUs through `edus_from_breaks`,
-  while `predict_both` reconstructs from supplied EDUs through
-  `tokenize_document(return_source=True)`. The current raw adapter bounds
-  token encoding and recovered EDUs. Its recovery hook is outside the paired
-  path, so that hook alone cannot establish paired-arm mapping or decoder
-  admission (FP-05/07, DP-08/15/20, CI-02/05/06).
-  [Current raw adapter](../../../python/corpus-structure/src/corpus_structure/methods/pm2_dispatched.py#L203) ·
-  [Dipo tagged inference](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/parsers/dmrst/modeling_dmrst.py#L694-L818)
-
-Fresh functional, provider, fault and stage qualification commands were
-`not_run`. The [M2 coordinator](../../plans/production-milestone-two_2026-11-08.md)
-owns scheduled disposition.
-
-<a id="pm2-foundation-refresh"></a>
-
-## Production milestone two foundation refresh · 2026-11-08
-
-**Implemented source inspected.** This refresh examines committed `main` at
-`9bdb0996e47d459b0be01e74ede4d2b5ec5c0b45`. It excludes concurrent working-tree
-edits. The source baseline and publication revision are separate. The preceding
-broad refresh below supplies the inherited account. This delta follows changes in
-source preparation and delivery, executable semantics, native admission,
-managed work and visual evidence. The applied standard is core 3.3,
-efficient-architecture heuristics 1.0, code-intelligence 1.4, the repository
-binding and test-assessment 1.2 for evidence bearing on production behavior.
-
-- **Source fidelity and reuse.** The released `native-section-text-v10` route
-  binds the ordered native field inventory and its selected spelling. An original
-  formula witness binds original digest, pointer, parent, provenance and `orig`
-  digest. The exact Reader retrieves the requested release's retained policy.
-  `progressive-review-bundle-2` separately verifies the archived policy and
-  complete source proof for selected native products. `NativeSourceContext`
-  refuses synthetic crossings even with multiple anchors enabled. The canonical
-  bridge requires unchanged complete native text, and occurrence identity refuses
-  selected-projection coordinates. These checks distinguish provider input
-  coordinates, selected field spelling and canonical occurrence identity
-  (`ingest/pdf_hierarchy.py:252–334`, `serve/review_source_projection.py:72–218`,
-  `semantic/source_contexts.py:484–503,819–868`, `semantic/contributions.py:23–35`;
-  FP-02/04/05, DP-04/08, CI-01/02/11/13). DA-061's former installed-policy
-  premise is superseded. Retained checks cover p416 and p418 at an explicit
-  8 MiB Reader budget and detached exact closure for view 382. Default Reader
-  requests and larger formula-view export attempts refused their respective
-  bounds. The supported workload still has an execution-fit question at these
-  wider delivery sizes (FP-07). [Source projection and delivery evidence](../../plans/domain-model-alignment_2026-11-08.md#audit-repair-execution)
-- **Admission and semantic correspondence.** The native source-value decoder
-  now rejects invalid field positions and repeated names (DA-062). Native
-  verification binds frozen expectations to the acquired revision on the
-  maintenance route and to acquired function and fence digests under restricted
-  principals (DA-063). Projection analysis prepares from retained physical and
-  recipe inputs (DA-067). The current native and detached definition checks bind
-  `definition-scope-1` to `extract.m1_annotations/2`, the source and cue roles,
-  including refusal of competing bindings (DA-065). A new annotation producer
-  needs its own qualified contract. Public eligibility independently requires
-  the governed witness (`semantic/sql/record_publication.sql:26–61`,
-  `semantic/execution_admission.py:184–224`, `semantic/projection_analysis_products.py:118–189`,
-  `semantic/sql/structural_products.sql:2092–2205`; FP-02/04/05, DP-03/08/21,
-  CI-01/02). [Focused DMA evidence and owners](../../plans/domain-model-alignment_2026-11-08.md#execution-queue-and-disposition)
-- **Operation and worker custody.** `semantic/operations.py:create_task`
-  matches project, release, runtime, input realization and revision, method
-  configuration, input, unit and packet, with a declared method dependency
-  projection. `semantic/claim_lifetime.py` retries an eligible rolled-back lease
-  renewal once after checking the same running task attempt, holder and remaining
-  lease. This retry covers only the database renewal transaction. The
-  reviewed PDF slot serializes participating local processes and its Nemotron
-  handoff validates and restores one dedicated service. The independent runtime
-  and resource ownership of future PM2 model workers remains Proposed
-  (`semantic/operations.py:267–325`, `semantic/claim_lifetime.py:124–157,187–256`,
-  `ingest/pdf_capacity.py:22–120`; FP-01/02/05/07, DP-09/18/19/20,
-  H21/H23/H24). [Lease and managed deployment controls](../../plans/domain-model-alignment_2026-11-08.md#audit-repair-execution)
-- **Visual evidence.** `fc111e466` removed the automatic Chandra inference
-  entry point. The explicit request pins the source-ready native product and
-  records private recognition evidence. DA-064 retains its original dry
-  routing scope, with current production inference exposure removed. Retained
-  crop replay and cancellation receipts apply to their captured runtime. The
-  Docling document adapter at this source is called by a separate trial. Its
-  five-page matched comparison observed different rendered pixels and a
-  length-stopped partial response, so the trial leaves same-frame equivalence
-  and whole-book behavior unresolved (FP-02/05/07, DP-15/20/23, CI-02/04).
-  [Matched Chandra trial](../evidence/2026-11-08_chandra-execution/docling-pdf-trial-comparison.md)
-- **Evaluation and serving standing.** The current full-book candidate run
-  settled 29 annotation and 29 candidate tasks and published a private cut.
-  The independent reference set froze one sentence. Grading full-view
-  predictions refused anchors outside that cut, leaving independent evaluation
-  at the declared prediction scope unresolved. Candidate execution, protected
-  selection and public eligibility remain separate (FP-04/05, DP-05/22/23,
-  CI-04/11/12). [Run and evaluation evidence](../../plans/domain-model-alignment_2026-11-08.md#audit-repair-execution)
-
-This is a source inspection and reassessment of retained evidence. Fresh
-product, provider and fault tests and integrated qualification were `not_run`.
-The separate test audit retains its baseline. Provider transfer between document
-domains, abrupt worker death, full production test architecture and assembled
-qualification remain outside this refresh. The DMA and Chandra plans retain
-disposition and qualification ownership. Source paths above are relative to
-`python/corpus-structure/src/corpus_structure/`.
-
-## Broad refresh · 2026-11-08
-
-**Implemented source inspected.** Audited source
-`67cbe680e7ab2b9860576f2ed650d4ff22e0f990`. The source SHA identifies
-committed `main` at acquisition. This account has its own publication commit.
-Concurrent working-tree edits were excluded, including the uncommitted Chandra
-document adapter, Docling trial, held-out evidence changes and visitor drafts.
-
-The refresh uses the November 5 broad source `bc2208f9d` and the intervening
-WCE and Pages inspections to direct attention. It follows changes in owners,
-consumers, deployment, dependencies and supported workflows, including unchanged
-code where those changes alter its role. The selected standard is core 3.3,
-efficient-architecture heuristics 1.0, code-intelligence 1.4, the repository
-binding and test-assessment 1.2 for evidence bearing on production claims.
-
-The functional target is progressively enriched, attributed source knowledge
-under an executable domain release, with typed delivery to operators and agents.
-The current PDF method-development workload is the 518-page Grinstead–Snell
-book. WCE receipts retain their smaller population, and candidate evidence,
-selected output and independently adjudicated public claims have separate
-authority. The operator's local deployment and serialized documentation
-release supply the operational premises.
-[Functional scope](../../design/DESIGN.md#section-1) · [Full-book decision](../../adr/0070-full-book-method-development.md)
+- **FP-04 / A2, domain model and semantic authority (priority).** By mapping where each kind of
+  fact is declared, compiled and realized ([domain model map](domain-model-map.md)), then
+  looking for the same meaning held twice and for decisions taken without the declaration.
+  Findings: [DA-070](semantic-model-and-authority.md#da-070),
+  [DA-071](semantic-model-and-authority.md#da-071),
+  [DA-072](semantic-model-and-authority.md#da-072),
+  [DA-073](semantic-model-and-authority.md#da-073), [DA-074](native-integrity.md#da-074),
+  [DA-076](served-claims.md#da-076), [DA-077](served-claims.md#da-077).
+- **FP-07 / A4, execution fit (priority).** By following what a change invalidates and what a
+  repeated request recomputes, using H5 (smallest sufficient scope), H12 (stable preparation
+  kept apart from changing values), H13 (identity matched to what varies), H18 and H19
+  (assurance placed once and carried while its premises hold) and H21 (shared capacity).
+  Findings: [DA-068](execution-fit.md#da-068), [DA-069](execution-fit.md#da-069),
+  [DA-075](execution-fit.md#da-075), [DA-078](execution-fit.md#da-078),
+  [DA-033](execution-fit.md#da-033), [DA-058](execution-fit.md#da-058).
+- **FP-01 / FP-03, responsibility and composition.** By asking which code still has a consumer:
+  [DA-080](boundaries-and-composition.md#da-080).
+- **FP-02, contracts.** The wire boundary validates once on each side and the native read has
+  one entry point; no new finding.
+- **FP-05, explicit failure.** [DA-079](boundaries-and-composition.md#da-079); and the fail-open
+  direction of DA-070.
+- **FP-06, local reasoning.** Addressed mainly through the test account. On the production
+  side, the hand lists of DA-070, DA-073 and DA-074 are what a reader cannot infer locally.
+- **Code-intelligence profile.** Pinned serving (CI-13) and attributable evidence (CI-10, CI-11)
+  informed DA-076, DA-077 and the contrary evidence for DA-068. Unknown is kept distinct from
+  absent in the served reports read.
 
 ## Diagnostic synthesis
 
-The observations below describe the preceding broad baseline. The
-[foundation refresh](#pm2-foundation-refresh) records changes relevant to the
-current source.
+The integrated argument, with the test account, is on the
+[joint page](model-and-execution.md). In brief:
 
-- **Semantic results.** [DA-055 and DA-057](witnessed-enrichment.md#reconciliation-at-the-november-8-baseline)
-  retain the source-based corrections for table multiplicity and dossier
-  meaning. [DA-056](witnessed-enrichment.md#DA-056) narrows the numerical
-  diagnosis to cross-result consistency. Native request reconstruction,
-  ordinary result reads and detached numerical replay establish different
-  guarantees. [DA-062](semantic-model-and-authority.md#da-062) and
-  [DA-065](semantic-model-and-authority.md#da-065) identify concrete
-  correspondence gaps in report decoding and located-definition attribution.
-- **Source and delivery.** [DA-058](execution-fit.md#da-058) identifies
-  repeated preparation before grouped reuse. [DA-061](served-claims.md#da-061)
-  identifies archived formula reading's dependence on the installed recipe.
-  [DA-064](served-claims.md#da-064) identifies a dry-routing path from
-  unexamined comparison evidence to an apparent negative decision.
-  [DA-066](served-claims.md#da-066) identifies a mismatch between allowed
-  mapped evidence size and the typed Reader budget. Candidate
-  evidence remains separate from the selected incumbent and governed promotion.
-- **Operations.** [DA-059 and DA-060](boundaries-and-composition.md#da-059)
-  concern what managed results and durable evidence retain about outcome,
-  target and cleanup. [DA-063](native-integrity.md#da-063) locates a separate
-  source of authority in the checkout head that can disagree with a bound
-  deployment target. [DA-067](native-integrity.md#da-067) identifies an installed
-  physical profile that can change release analysis without changing its identity.
-- **Inherited premises.** DA-004's original conversion path and DA-012's
-  broad declaration correspondence remain bounded questions. DA-027 now
-  links the concrete enforcement cases above while retaining its broader
-  coverage limit. The specific need for a per-semantic-result deployment
-  ID (DA-032) and the avoidability of cumulative native assurance work
-  (DA-033) remain unresolved. Recent NCE publication materializes grade,
-  origin, case and operation keys for the staged batch
-  (`semantic/sql/record_publication.sql:1081–1132`). That preparation does
-  not establish that wider trust checks can be dropped. DA-046 and DA-048
-  retain their earlier target-scope qualifications.
+- **The model's core is sound and should be preserved.** One compiled model per release, typed
+  origins, refusal of conflicting owners, and a result identity that excludes release and
+  runtime. Where a dependency is expressed through that identity, reuse is exact.
+- **Run-time governance is not yet in the model.** Which validity rules apply to an operation,
+  what a support edge means, which relations are guarded, and which code an answer depends on
+  are held as hand-written lists. An omission from the validity lists fails open (DA-070).
+- **Several identities are far coarser than their premise.** A digest over about forty modules
+  stands for the kernel; whole files and library versions stand for an operation's
+  implementation; the read instance stands for the content of a served result. Each discards
+  valid work on an unrelated edit, and the first also forces indefinite re-validation of
+  history.
+- **Two identities are narrower than their premise.** The served implementation identity and
+  the scientific policy both miss code that shapes results.
+- **Immutable release content is re-proved on every admission and binding** although receipts
+  that record the proof already exist.
+- **The new query cache rarely hits** on five of its six paths, and never for the CLI, because
+  of how it is keyed and because every cache in the system is process-local.
+
+## New and changed findings
+
+| Finding | Summary |
+|---|---|
+| [DA-068](execution-fit.md#da-068) | One digest over every captured native source keys admission, read acquisition and carried assurance |
+| [DA-069](execution-fit.md#da-069) | Implementation identity of construction and formal operations takes whole files, whole model files and library versions |
+| [DA-070](semantic-model-and-authority.md#da-070) | Validity families are assigned from hand-written operation-id lists; an unlisted operation is treated as valid |
+| [DA-071](semantic-model-and-authority.md#da-071) | Support-graph meaning is encoded three times and the change-impact copy disagrees |
+| [DA-072](semantic-model-and-authority.md#da-072) | The earlier core and system model is still live, with the same closed sets declared in both |
+| [DA-073](semantic-model-and-authority.md#da-073) | Release operation membership is composed by hand-written flag logic |
+| [DA-074](native-integrity.md#da-074) | Native authorization and guard membership are code lists outside the declaration |
+| [DA-075](execution-fit.md#da-075) | Five of six query cache keys include the acquisition instance, so identical fresh requests do not share an entry |
+| [DA-076](served-claims.md#da-076) | The implementation identity of a served read omits modules that shape the answer |
+| [DA-077](served-claims.md#da-077) | The archived scientific policy describes the kernel instead of deriving from it |
+| [DA-078](execution-fit.md#da-078) | The readiness watermark is coarser than the declared role dependencies |
+| [DA-079](boundaries-and-composition.md#da-079) | The process host refuses a second concurrent run with an unclassified error |
+| [DA-080](boundaries-and-composition.md#da-080) | Superseded machinery remains, kept alive only by tests or by nothing |
+| [DA-033](execution-fit.md#da-033) (changed) | Admission and binding re-prove immutable release content |
+| [DA-058](execution-fit.md#da-058) (changed) | Visual recognition re-prepares its runtime every four packets |
+
+Eighty DA identities exist; none is retired or reused. Of DA-001–067: 14 no longer apply
+because the machinery they described was removed, 8 are corrections that hold or likely hold,
+3 stand as they were, 15 have a changed footprint recorded on their page, and 27 were not
+re-examined and keep their earlier evidence date. Each topic page lists its own.
 
 <a id="deviations"></a>
 
-## Inspection footprint and limits
+## Limits
 
-Three read-only contributors examined semantic release and consumer
-correspondence, PDF source custody and recovery, and managed operations.
-The coordinator read the decisive source, checked counterexamples and
-reconciled the findings. Scope follows representative operations and credible
-changes, including a new definition basis or formula witness, an interrupted
-visual group, and a registered successor ahead of a bound database.
+- **Read in part or not at all.** Most model YAML bodies and the generators; `ontology.py` and
+  `conditional_rules.py`; the planner's batch, settle and hydrate bodies; family validators
+  other than contextual; most PDF storage and record SQL bodies; the GLiNER, HanLP and PM2
+  method bodies; `cli/model.py`, `cli/managed.py` and `cli/schema.py`; consolidation and the
+  rich rule evaluator; every migration revision except the most recent.
+- **Not established.** Whether equal outputs stop recomputation below the formal operations;
+  whether a content-based cache key is sound; whether any relation is wrongly outside the
+  frontier guard; whether concurrent MCP renders actually overlap; how large any of the
+  repeated work is. Each finding states its own uncertainty.
+- **Not run.** Product tests, native or provider runs, fault injection, measurement and
+  integrated qualification. Several commits that introduced the mechanisms read here record
+  `runtime not_run`; this account judges their design, not whether they currently pass.
+- **Inherited.** Twenty-seven earlier identities were not re-examined. The witnessed-enrichment
+  observations and the documentation-publication observations of 2026-11-08 are among them.
 
-| Facet | Representative inspection and limits |
-|---|---|
-| Model, invariants and serving | Released source-value and operation contracts, native completion and exact-source guards, witnessed definitions, table probabilities, rooted dossiers and their Reader/CLI/MCP or detached paths. Deployed ACLs, all invariant bodies and every output field remain outside fresh inspection. |
-| Source preparation and selection | p416 archive through incumbent view, search and packet, plus explicit visual inference, mapping, group retry and the dry router. Protected A/B/C-only selection and exact raw receipts bound the custody findings. Retained comparator discrepancies show selected-output errors, with the exact causal replacement decision untraced for the sampled pages. Abrupt parent death and orphan GPU recovery remain unqualified. |
-| Effects and assurance | Exact model preview/apply, frozen registration, acquired deployment, release archive/admission, review selection capture and managed result retention. Existing literal and adverse controls inform the claims at their original revisions. Production endpoint, native fault behavior and general test architecture were outside this refresh. |
-| Documentation publication | Discovery, navigation, edit URLs, source links, search startup and the checked Pages artifact. Reconciled the earlier publisher findings below. Hosted overlap and deployment faults were outside this inspection. |
-| Legacy boundaries | The Rust crate contains only its starter module. The former HTML production interface was retired in the PDF pivot. Source profiles and legacy rendition feature extraction remain distinguishable from the current PDF entry points. Legacy internals and unseen-domain transfer were outside fresh inspection. |
+<a id="independent-challenge"></a>
 
-The separate [test audit](../test-audit/README.md) keeps its own baseline.
-Product tests, fresh native or provider runs, fault injection, measurements
-and integrated qualification were `not_run`. Source inspection and retained
-receipts were sufficient for these diagnoses. Publication checks are recorded
-in STATUS and the publishing commit.
+## Independent challenge
 
-<a id="ghv-follow-on-publication-refresh"></a>
+A fresh reviewer, given the criteria and the drafted pages but not the contributors' reports,
+opened the cited sources and tried to refute each new finding and each "corrected" or "no
+longer applicable" claim. Its effect on the published account is recorded here.
 
-## GitHub visitor follow-on publication refresh · 2026-11-08
-
-The earlier inspection used `051b37aa4` and deployed revision `8b694c67b`.
-At the current audited source, `scripts/docs.py:163–192,345–359` derives
-nested navigation with coverage checks, builds edit URLs from source paths
-and removes the generated page's edit action. Explicit publication assets
-cover head images. The search adapter keeps input gated on readiness and
-offers reload on startup failure, including a stale-opening guard
-(`docs/theme/search.js:48–96`). The owning plan's browser and failure
-controls retain their recorded revision and scope.
-[Pages follow-on acceptance](../../plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance)
-
-## Documentation publication refresh — 2026-11-08
-
-The earlier bounded inspection used `248b05cd2`. At the current audited source,
-the workflow still uploads the checked site and deploys it with separate
-permissions. Deploy-job serialization follows independent builds. Source
-ordering still depends on the runbook's one-release-at-a-time workload and
-exact live revision verification. Local preview also specifies one
-publishing command at a time.
-[Publication decision](../../adr/0071-github-pages-publication.md) · [Release runbook](../../publishing.md#github-release)
-
-## Text-characterization producer reconciliation
-
-**Interface-checked, 2026-11-10.** Source `6c50a847fa4da2864c98a569d5cf97da8e7ab9c0`,
-clean at inspection. The foundation supplies released layer/view contracts, protected canonical
-publication and original-release dependency validation; source existence does not establish
-qualification. The bounded inspection covers native annotation retention, formal input/position
-handling, choice validation, reading projection, attachment policies and predicate-role SQL.
-
-The central annotation contract needs typed native/formal payloads. External premise citations
-do not encode required upstream choices. Ordinary child traversal cannot represent packed choice
-sites without expanding parent combinations. Basis-schema authentication alone does not enforce
-witness endpoint relationships. These are extension gaps for TC-03–09, rather than retroactive
-failures of the narrower source-only foundation. The producer target review owns correction
-reasoning; the TC coordinator owns scheduled disposition. No whole-system, provider-quality or
-test-architecture refresh is claimed. Tests and probes: **not_run** for this static reconciliation.
-
-## Inherited audit baselines
-
-The November 5 broad inspection used `bc2208f9d6a12d3ad9cf71575fa1c6df388d885b`
-and was published at `8d4d9e912`. The November 6 WCE inspection used
-`91feb413bf2e9b2d91de37c80ec0303355774397` with its named working-tree
-corrections and was published at `86425f72e`. Topic pages retain the dates
-and limits of observations inherited from those engagements.
+- **Withdrawn:** none.
+- **Reframed as documented choices:** DA-068 (the plan chose the kernel digest for the seal and
+  the full battery on mismatch; the finding is now what that digest covers and one divergence
+  from the plan), DA-078 (the watermark's granularity is the plan's specification) and DA-079
+  (one run per host is ADR-0125's stated trade).
+- **Corrected:** DA-070's claim that the other lists fail closed (an omission fails open at
+  completion too), with the consequence now split by family; DA-071's statement of which
+  projection the planner consumes, and the divergence shown to run both ways; DA-080's count of
+  unreferenced SQL files (fourteen, not twelve); DA-069's list of captured files; three line
+  references in the earlier-identity tables.
+- **Narrowed:** DA-075 from six paths to five, because the exclusion comparison keys on content
+  stamps and can hit; that also shows the "open premise" is already relied on once. DA-058's
+  mechanism: building the runtime only hashes the checkpoints, and the model load follows on
+  first inference.
+- **Sharpened:** DA-033 (the finalization receipt is read immediately before the re-proof it
+  could carry).
+- **Removed as a residual:** the release being derived at registration and again per host
+  basis, which the production-efficiency review records as a deliberate boundary.
+- **Confirmed as drafted:** DA-072, DA-073, DA-076, DA-077.
+- **Not checked by the challenger:** the domain model map beyond a skim, and the PE-F12, F14
+  and F24 rows of the state table.
 
 ## Reading routes
 
 | Topic | Current use |
 |---|---|
-| [Witnessed enrichment](witnessed-enrichment.md) | WCE repairs and remaining numerical consistency gap |
-| [Domain model map](domain-model-map.md) | Concepts, relationships, actions/states, realizations, library inquiry and limits |
-| [Semantic model and authority](semantic-model-and-authority.md) | Corrected semantic authority diagnoses and remaining representation/assurance questions |
-| [Structure and invariants](structure-and-invariants.md) | Operational domains, typed reasons, applicability, attribution and claim ownership |
-| [Native integrity](native-integrity.md) | Trust boundaries, physical parity, publication, runtime custody and evolution |
-| [Served claims](served-claims.md) | Standing, bounded coverage/explanations/walks, split provenance and provider assurance |
-| [Boundaries and composition](boundaries-and-composition.md) | Reader ownership, executable producer binding and truthful operational surfaces |
-| [Execution fit](execution-fit.md) | Dependency granularity, preparation and cumulative assurance questions |
-| [Local reasoning and assurance](local-reasoning-and-assurance.md) | Source versus execution evidence and separate test-account boundaries |
+| [The domain model and execution](model-and-execution.md) | Integrated analysis with the test account; cache inventory; state of the production-efficiency mechanisms |
+| [Domain model map](domain-model-map.md) | Where meaning is declared, compiled and realized; how a change becomes recomputation |
+| [Semantic model and authority](semantic-model-and-authority.md) | Model facts restated by hand (DA-070–073) |
+| [Execution fit](execution-fit.md) | Coarse identities, the query cache, re-proved assurance (DA-068, 069, 075, 078, 033, 058) |
+| [Native integrity](native-integrity.md) | Guard and grant lists (DA-074); native strengths |
+| [Served claims](served-claims.md) | Implementation and policy identity of served results (DA-076, 077) |
+| [Boundaries and composition](boundaries-and-composition.md) | Host concurrency (DA-079); superseded machinery (DA-080) |
+| [Structure and invariants](structure-and-invariants.md) | Earlier identities only |
+| [Witnessed enrichment](witnessed-enrichment.md) | Earlier identities only, not re-examined |
+| [Local reasoning and assurance](local-reasoning-and-assurance.md) | Navigation and the boundary with the test account |
 
 ## Ownership and reuse
 
-Each cause has one primary home. IDs are never reused. Removal of a diagnosis does not close a
-scheduled plan obligation. Follow the [plan directory](../../plans/README.md) for disposition;
-this account creates no implementation queue and selects no library adoption. Consuming reviews
-cite the publication revision and stable anchors, reconciling intervening source/standard changes.
+Each cause has one primary home across this account and the test account. IDs are never
+reused. Removing a diagnosis here does not close a plan obligation. The new findings are
+unscheduled: no plan owns them until the operator asks for a review or a plan revision, and
+their revisit trigger is the next design-review engagement on the declared-data-operations
+target. Findings of the production-efficiency review keep their `PE-Fnn` identities and their
+disposition in the [DDO plan](../../plans/declared-data-operations_2026-11-12.md); this account
+reports their state in source and does not re-own them. Consuming reviews cite this account's
+publication revision and stable anchors, and reconcile intervening source changes.
 
 ## Earlier engagement anchors
 
-These preserve existing links. The original engagement text and its dates remain in Git before
-this refresh; current source observations above do not retroactively broaden those engagements.
+These preserve existing links. The entries they named described source that has since been
+replaced; their text and dates are in Git at `fbd3f2a98` and earlier.
 
+<a id="declared-data-operations-entry-refresh"></a>
+<a id="book-ready-execution-refresh"></a>
+<a id="book-execution-entry-refresh"></a>
+<a id="text-characterization-entry-refresh"></a>
+<a id="cld-assembled-refresh"></a>
+<a id="cld-entry-refresh"></a>
+<a id="domain-data-model-assembled-refresh"></a>
+<a id="domain-data-model-interpretation-correction-refresh"></a>
+<a id="domain-data-model-construction-terminology-refresh"></a>
+<a id="domain-data-model-entry-refresh"></a>
+<a id="ptd-assembled-refresh"></a>
+<a id="pm2-parser-refresh"></a>
+<a id="pm2-foundation-refresh"></a>
+<a id="ghv-follow-on-publication-refresh"></a>
+<a id="documentation-publication-refresh--2026-11-08"></a>
+<a id="text-characterization-producer-reconciliation"></a>
 <a id="m1-admission-refresh"></a>
 <a id="m1-public-reference-refresh"></a>
 <a id="m1-source-evidence-refresh"></a>

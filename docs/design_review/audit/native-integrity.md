@@ -1,118 +1,76 @@
-# Native integrity and evolution
+# Native integrity
 
-**Implemented source inspected, 2026-11-03.** [Baseline](README.md#baseline). Paths below omit
-`python/corpus-structure/src/corpus_structure/`; rev means `python/corpus-structure/semantic_alembic/versions/`.
-No live catalog, ACL, mutation-refusal or migration qualification was run.
+**Interface-checked by source inspection, 2026-11-17**, source `fbd3f2a98`
+([baseline and limits](README.md#baseline)). Source paths omit
+`python/corpus-structure/src/corpus_structure/`; `sql/` means `semantic/sql/`. No catalog was
+read and no database command was run; statements about deployed roles or installed objects are
+about source.
 
-<a id="da-063"></a>
+<a id="da-074"></a>
 
-## DA-063 — Checkout-head native-admission manifestation corrected
+## DA-074 — Native authorization and guard membership are code lists outside the declaration
 
-**Source-inspected correction, 2026-11-10, `8e69e2b5f`.** FP-01/02/04, DP-01/04/08/19/21.
-`schema/model_deployment.py:555–668` observes the acquired revision and invokes
-`verify_deployment_catalog(..., revision=actual)`. `semantic/execution_admission.py:97–116,145–215`
-resolves that revision's frozen expectations. Restricted principals instead select an expectation
-from actual descriptor/enforcing-body hashes plus the realization-fence digest; an Alembic label is
-not invented where the principal cannot read it. Registration of a future head therefore does not
-change the expected native contract of an older acquired target. The prior November8 head-based
-manifestation is removed. The non-head/resume/native deployment test supplies an independent changed
-successor control; this refresh inspected its source and ran no native check. The PTD coordinator
-owns scheduled delivery and actual qualification; this correction does not relabel old receipts.
+**FP-04/A2; DP-01, DP-02, DP-03.**
 
-<a id="da-067"></a>
+The physical model declares tables, columns, keys, checks, indexes, read roles and an
+immutability class per relation, and immutability triggers are derived from that class and
+checked (`semantic/data_operation_storage.py:1551–1576`; `semantic/target_installation.py:314–331`).
+The protocol declares purposes for public operations. The following are held only as literals:
 
-## DA-067 — Installed-physical-profile analysis manifestation corrected
+- which relations are covered by the guard that refuses support and frontier writes in the same
+  transaction after a demand read was acquired: a hand list of twelve tables
+  (`data_operation_storage.py:1679–1703`);
+- which relations get shared-stream mutation triggers, chosen by name
+  (`target_installation.py:332–351`);
+- EXECUTE grants for non-protocol functions (`target_installation.py:186–255`;
+  `data_operation_storage.py:1629–1658`) and GRANT text inside `sql/admission.sql:187–191`;
+- role sets, prohibited memberships and the signatures of earlier private kernels in the
+  admission body (`sql/admission.sql:152, 166–183`).
 
-**Source-inspected correction, 2026-11-10, `8e69e2b5f`.** FP-01/04, DP-08/09/18/21.
-`semantic/projection_analysis_products.py:145–213` compiles the captured physical source closure and
-LinkML types, constructs the retained recipe view, and includes recipe digests, physical ID,
-compiler version and qualified analysis runtime in source identity. It no longer selects analysis
-from the installed physical profile. Unsupported retained inputs yield explicit unavailable detail.
-`read_projection_analysis` reads archived v2/v3 products without current reanalysis; v2 detail is
-explicitly unavailable. The prior November8 ambient-profile manifestation is removed; no fresh
-cross-process or native test ran in this audit. Actual tests and release qualification remain with
-the PTD coordinator.
+**Consequence.** A new demand-graph relation sits outside the frontier guard unless someone
+remembers the list. Admission compares the catalog with a descriptor built from the same
+lists, so it detects a deployment that drifted from the lists, not a relation the lists never
+named. Several existing relations are not in the guard set (`data_publication_receipt`,
+`data_product*`, `data_intent_adoption`, `data_attempt_failure`); whether any should be cannot
+be decided from the model, which is the point. `data_revocation` is outside it deliberately:
+the plan states that revocation is always current.
+
+**Footprint.** Established for the structure. That a relation is wrongly unguarded today is a
+hypothesis for the semantics owner.
+
+<a id="publication-and-retry-strengths"></a>
+
+## Strengths to preserve
+
+- Physical structure is generated from the annotated model, and index definitions enter the
+  admission descriptor and are compared (`semantic/native_admission.py:118–125`;
+  `sql/admission.sql:160–165`).
+- The wire boundary validates once on each side: the definer wrapper validates the request and
+  stamps a contract digest; the client validates the result and refuses a different digest
+  (`data_operation_storage.py:595–610, 824–858`). This realizes PE-F04.
+- Restricted principals resolve frozen expectations from native body fingerprints, not from
+  the checkout head (`semantic/execution_admission.py:122–186`).
+- PDF byte streams are content-addressed and verified once per content key, with each part's
+  hash enforced by a check constraint (`model/semantic/physical.yaml:1812–1846`).
+- Settlement takes shared locks; only revocation takes exclusive ones
+  (`sql/data_operations.sql:189, 209, 1919`).
+
+## Prior identities on this page
 
 <a id="da-029"></a>
-
-## DA-029 — Earlier uneven-immutability diagnosis removed against restricted-runtime contract
-
-**Source-inspected correction; FP-05, DP-03/19/21, CI-01/11/12.** The previous blanket diagnosis
-is removed. `rev/semantic_0031_kernels.sql:454–510` protects semantic content and intrinsic release
-rows from mutation. `semantic/sql/closure.sql:20–55` publishes/finalizes the archive atomically;
-`semantic/source_view_native.py:159–207` derives additional immutable guards, including M1 rows.
-
-The inspected descriptor has observation INSERT and reference-evaluation scientific-decision
-INSERT guards, without equivalent mutation-refusal guards for established reference/pass/frame/grade
-families. Observation structure lacks an immutable annotation (`model/semantic/physical.yaml:1320–1386`);
-evaluator tables are publisher-owned (`rev/semantic_0028_reference.sql:7–9,25–43`). A defect in a
-privileged publisher body would have less preventive protection than admitted semantic content.
-Ordinary principals have restricted writes, and no current public mutation route or corrupt record
-was demonstrated. ADR-0025:45–55 and ADR-0031:42–47 expressly trust complete definer operations under a
-NOLOGIN publisher. Admission denies runtime publisher/owner membership and direct evaluator writes
-(admission.sql:135–152). No mutating callable or privilege bypass was demonstrated. Additional
-mutation triggers would be a defense-in-depth hypothesis, not an established missing requirement;
-absence of that second layer does not sustain the old diagnosis.
-
 <a id="da-030"></a>
-
-## DA-030 — Release-lifecycle and purpose-principal diagnosis corrected
-
-`semantic/runtime.py:21–65,84–93` explicitly resolves purpose credentials, checks common target
-and verifies the purpose principal. Protected archive/activation and caller fences are present
-(`semantic/sql/closure.sql:20–94,133–158,444–460`); admission checks prohibited role membership,
-TEMP and direct writes (`semantic/sql/admission.sql:149–152`). The explicit owner maintenance path
-is not application impersonation. Source correction does not qualify actual provisioned roles;
-M1 qualification receipts retain their own source, dates and scope.
-
 <a id="da-031"></a>
-
-## DA-031 — Name-only physical-parity diagnosis corrected
-
-Ordinary forward authoring compares model-derived metadata through Alembic
-(`semantic/native_candidate.py:1193–1287`), normalizes authored CHECK bodies using temporary
-relations rather than enrolling live drift (`:1085–1136`), and freezes them. Admission compares
-CHECK expressions and unexpected checks (`semantic/sql/admission.sql:8–18`), plus columns,
-nullability/defaults/PK/FK vectors, owners, RLS and ACLs (`:110–124`). Shared metadata supplies
-relation descriptors (`semantic/native_products.py:88–164`). This contradicts the earlier
-hand-maintained/name-only premise. Not every index/unique property was independently assessed;
-that omission alone is not a newly established admission defect.
-
 <a id="da-032"></a>
+<a id="da-063"></a>
+<a id="da-067"></a>
 
-## DA-032 — Forward-evolution diagnosis corrected; result attribution question unresolved
+Earlier text is in Git at `fbd3f2a98`.
 
-`semantic/native_candidate.py:789–827,1023–1039` binds frozen predecessors and their bytes.
-`semantic/alembic_native.py:90–146` refuses stale before-state, installs statements/ACLs and compares
-resulting catalogs. Deployment admission records exact descriptor content under its digest
-(`semantic/native_products.py:331–342`; physical.yaml:58–71). Earlier in-place edits remain dated
-historical evidence, not proof that the current route edits frozen revisions.
-
-Result bindings carry release/realization (`semantic/query.py:387–397`), not a per-result
-admitting deployment. Whether that additional attribution is required beyond the immutable release
-and deployment history remains unresolved; the missing field alone is not diagnosed as a defect.
-
-## Publication and retry strengths
-
-`semantic/publication.py:718–873` owns SERIALIZABLE publication, rollback settlement and immutable
-batch identity. Commit uncertainty uses receipt lookup; cancellation suppresses replay.
-`semantic/sql/derived_publication.sql:28–43,63–99` checks replay before admitting new effects against
-sealed/source-revision fences. `current_operation_guards.sql:19–30` enforces atomic completed-result
-visibility. These bound any general claim of incoherent publication. Repeated assurance scope is
-examined separately at [DA-033](execution-fit.md#da-033).
-
-## Current runtime and progressive publication custody
-
-**Source-inspected 2026-11-05.** `semantic/sql/runtime_bindings.sql:2–100` authenticates
-canonical runtime/archive bytes, semantic inputs and same-release run binding; registration
-refuses conflicting bytes. `semantic/runtime_binding_store.py:34–79` reads the producing runtime,
-using explicit historical archive fallback. This preserves the distinction between logical model
-identity and exact executable provenance without backfilling current runtime over old results.
-
-Local semantic eligibility binds protected grade/digest, selected origins, contribution operation
-and actual source (`semantic/sql/record_publication.sql:965–1041`). Structural publication
-revalidates selected final-cut origin, original source custody, independent passes, policy and
-semantic participant citations (`semantic/sql/structural_publication.sql:77–176`), then requires
-staged assertions to equal the exact native eligible set (`:192–207`). Dossier input membership
-alone cannot establish predecessor-output support. No current integrity violation was established
-in these inspected paths. This does not attest actual deployed ACLs, catalogs or execution.
+| ID | Status at `fbd3f2a98` | Note |
+|---|---|---|
+| DA-029 | Changed footprint | Immutability now derives from the declared class. The trust-in-definer premise is unchanged and bears on [DA-033](execution-fit.md#da-033) |
+| DA-030 | Correction stands | Principal checks at `sql/admission.sql:166–183`; caller fences at `sql/closure.sql:44–50` |
+| DA-031 | Correction stands | Index definitions are in the descriptor and compared |
+| DA-032 | Changed footprint, unresolved | Revisions are frozen and digest-checked; receipts record the validating kernel digest per result. Per-result deployment attribution is still not recorded, and whether it is needed remains open. The kernel digest's breadth is [DA-068](execution-fit.md#da-068) |
+| DA-063 | Correction stands | `semantic/execution_admission.py:122–186` |
+| DA-067 | Not re-examined | Last evidence 2026-11-10 |

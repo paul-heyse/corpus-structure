@@ -1,82 +1,94 @@
 # Boundaries and composition
 
-**Implemented source inspected, 2026-11-03.** [Baseline](README.md#baseline).
-Paths omit `python/corpus-structure/src/corpus_structure/`.
+**Interface-checked by source inspection, 2026-11-17**, source `fbd3f2a98`
+([baseline and limits](README.md#baseline)). Source paths omit
+`python/corpus-structure/src/corpus_structure/`; `sql/` means `semantic/sql/`.
+
+<a id="da-079"></a>
+
+## DA-079 — The process execution host refuses a second concurrent run with an unclassified error
+
+**FP-05, FP-07; DP-20; H21, H25.**
+
+`ProcessExecutionHost.run` takes its run lock without blocking and raises
+`RuntimeError("process execution host already has an active run")` when it is held
+(`orchestrate/execution_host.py:89–92`). The MCP server installs one host for its lifetime
+(`intervene/runtime_engines.py:16–31`). `render_source_region` reaches `host.run` through
+`execute_native_intent` (`semantic/data_operation_service.py:237`), and its refusal wrapper
+converts only `ValueError`, `KeyError` and `OSError` (`intervene/native_render_tools.py:91–92`).
+
+**Consequence.** If two agent renders overlap, the second fails with a generic tool error. It
+neither waits nor receives a typed refusal that says "busy, retry".
+
+**Contrary evidence.** ADR-0125 deliberately allows one active run per host, and one run serves
+all of its claims concurrently. Provider residency itself now waits on a condition rather than
+refusing (`methods/native_host.py:842–863`), which corrects the earlier ready-execution
+observation about non-blocking provider borrowing.
+
+**Limit.** Overlap is likely, not observed: the installed MCP framework runs synchronous tools
+in worker threads by default (installed source read 2026-11-17), and ADR-0125 itself
+anticipates concurrent MCP calls sharing one budget and states that it trades away concurrent
+entry-point execution. Concurrency at the transport level was not checked.
+
+<a id="da-080"></a>
+
+## DA-080 — Superseded machinery remains in the production tree, kept alive only by tests or by nothing
+
+**FP-01, FP-03; DP-01, DP-16; H27.** This is the production home for a cause that also shows
+in the test account ([DTA-035](../test-audit/retirement-transfer.md#dta-035)).
+
+Four groups were found with no current production consumer:
+
+- **Native SQL files.** Fourteen files under `semantic/sql/` (about 1,980 lines) are named by no
+  loader in `src`, `scripts`, `tests`, `domains` or the migration trees: `characterization`,
+  `current_operation_guards`, `definition_declaration`, `exclusions`, `fact`,
+  `native_finalization`, `record_policy`, `record_references`, `selection`,
+  `source_anchor_coordinates`, `source_record_coordinates`, `source_record_report`,
+  `split_decisions`, `validation`. Every loader names a literal file; the one directory walk is
+  the change explanation. `validation.sql` defines `data.validate_state`, which the loaded
+  `source_record_graph.sql:3` also defines. They still enter the model-change source fence and
+  the SQL change explanation (`schema/model_change.py:643–647`; `schema/model_explanation.py:423–455`),
+  so editing them invalidates previews and nothing else. `record_references.sql:623–625` still
+  reads `ops.task_dependency`.
+- **Evaluation modules.** `evaluate/equivalence.py`, `affine.py`, `artifact_pilot.py`,
+  `sampling.py`, `split_decisions.py` and `split.py` (about 1,190 lines with `sets.py`) are
+  imported only by tests or by each other; `sets.py` is imported by nothing.
+- **Rendition keying and translation.** No production caller constructs `KeyContext`
+  (`core/keys.py:928–960`) or imports `core/translations.py` and `core/candidates.py`; the
+  rendition-index branch of `semantic/proposals.py:286–300` is unreachable from its one caller
+  (`:614`). Six test files and about 3,300 test lines exercise this half.
+- **Earlier pack loader.** `schema/pack.py` and `schema/lookup.py` have no production importer
+  outside `schema/` (see [DA-072](semantic-model-and-authority.md#da-072)).
+
+**Consequence.** These read as current authority. Passing tests over them look like assurance
+for paths that do not run, they are paid for in every run, and they stand in the way of the
+removal that the project's design-stage rule asks for.
+
+**Limits.** "No consumer" is by search over the named trees; a loader that builds file names
+dynamically was searched for and not found, and dynamic imports were not excluded. Parts of
+`core/keys.py` and `core/locators.py` are live. Whether the rendition half is meant to return
+(archive reading, prompts) is an owner question.
+
+## Prior identities on this page
 
 <a id="da-018"></a>
-
-## DA-018 — Historical extension-version correction retained
-
-The earlier phase0 extension-pin correction retains its October29 evidence date. No fresh
-provider/version campaign was run. This refresh supplies no reason to reinstate that diagnosis.
-
 <a id="da-019"></a>
-
-## DA-019 — Historical test-sweep lease correction not refreshed
-
-The former phase0 test-lease finding remains historical. The independent test account owns its
-current coverage; this production audit does not renew that baseline.
-
 <a id="da-020"></a>
-
-## DA-020 — Analytics-setting propagation diagnosis corrected
-
-consolidate_cut receives actual AnalyticsSettings and forwards thread/memory/scratch to AnalysisScope
-(`semantic/domain_operations.py:2058–2088`). Finalization forwards settings
-(`orchestrate/commands.py:387`), and both CLI routes pass settings.analytics
-(`cli/regenerate.py:262`; cli/orchestrate.py:287). This is source correction, not performance qualification.
-
 <a id="da-045"></a>
-
-## DA-045 — Exposed method-reader connection premise corrected
-
-**Source-inspected 2026-11-04, M1-20261104-r4.** The method-facing `Reader` now exposes owned
-operations rather than a raw connection (`core/method.py`). `ScopedSourceReader` borrows a read
-snapshot for each operation; `BoundReader` supplies the database adapter. Registration retains
-its transaction ownership without handing that capability through the method protocol. The
-previous exposed-connection diagnosis no longer describes this supported interface. This is
-an ownership correction, not Python sandboxing or a claim about arbitrary reflective code.
-
 <a id="da-047"></a>
-
-## DA-047 — Cited advertised operational surfaces corrected
-
-**Source-inspected 2026-11-05.** Orphan availability is explicit (`orchestrate/commands.py:48,414,456`, `orphaned=None`), and
-CLI exposes only implemented complete/full scope (`cli/orchestrate.py:140–146`). The earlier
-empty-orphan and advertised-by_unit examples no longer sustain a current surface defect. This is
-source inspection of those examples, not qualification of every advertised command.
-
 <a id="da-052"></a>
-
-## DA-052 — Proposal production now shares an executable producer binding
-
-**Source-inspected 2026-11-05.** `methods/llm/producer.py:10–57` owns the finite supported producer contract, including
-agent.opus and agent.general, protocol/version, unit, execution kind, mode and model. Queue,
-snapshot, lease and automation paths consume that owner. The literal agent.opus remains an
-explicit default (`orchestrate/semantic.py:986`), not the former exclusive routing authority.
-The finite implemented support set is honest; arbitrary new providers still require qualification.
-
 <a id="da-059"></a>
-
-## DA-059 — Model-receipt facts now retain their operation account
-
-**Source-inspected correction, 2026-11-10, `8e69e2b5f`.** FP-02/04/06, DP-02/08/19/21.
-`cli/model.py` composes model preview/apply/candidate/deploy through `managed_operation`, records
-acquired target and deployment checkpoints, and returns the same OperationAccount as the retained
-manifest. `cli/managed.py:279–396,476–478` retains classified failure, cleanup, known effects,
-predecessor/reached revision, release and acquired target; failure publication no longer depends
-only on the immediate envelope. Deploy retains this account after releasing candidate registration
-holds (`cli/model.py:1330–1396`). The earlier omission manifestation is corrected, not freshly
-runtime-qualified here. Independent exact apply/deployment tests challenge stale and partial effects;
-the current CLI/PTD plans retain execution disposition and original receipts.
-
 <a id="da-060"></a>
 
-## DA-060 — Evidence promotion now requires established cleanup custody
+Earlier text is in Git at `fbd3f2a98`.
 
-**Source-inspected correction, 2026-11-10, `8e69e2b5f`.** FP-04/05, DP-02/03/19/21/22.
-`cli/managed.py:82–88` distinguishes settlement time, explicit unsettled custody and operation-account
-cleanup. `cli/operations.py:315–321` refuses evidence promotion unless `manifest.custody_settled()`.
-A terminal failed result with uncertain cleanup therefore cannot become finalized evidence through
-this route. The old November8 loss-of-custody example is corrected. This is source evidence; no
-artifact promotion, cleanup fault or qualification command ran during this refresh.
+| ID | Status at `fbd3f2a98` | Note |
+|---|---|---|
+| DA-018 | Not re-examined | Historical correction |
+| DA-019 | Not re-examined | Test-sweep leasing is covered by the [test account](../test-audit/README.md) |
+| DA-020 | Not re-examined | Cited `domain_operations.py` and `orchestrate/commands.py` are gone |
+| DA-045 | Not re-examined | — |
+| DA-047 | No longer applicable | `orchestrate/commands.py` is gone |
+| DA-052 | Not re-examined | — |
+| DA-059 | Not re-examined | Last evidence 2026-11-10 |
+| DA-060 | Not re-examined | Last evidence 2026-11-10 |

@@ -1,97 +1,98 @@
 # Current domain model map
 
-**Implemented source inspected, 2026-11-05.** [Baseline and limits](README.md#baseline).
-This diagnostic map describes the model found in source; architectural owners retain authority.
-Paths below omit `python/corpus-structure/src/corpus_structure/` unless stated otherwise.
+**Interface-checked by source inspection, 2026-11-17**, source `fbd3f2a98`
+([baseline and limits](README.md#baseline)). This is a diagnostic map of the model found in
+source; the architectural owners keep authority. Paths omit
+`python/corpus-structure/src/corpus_structure/`; `domains/` is at the repository root. It
+replaces the map of 2026-11-05, whose owners (`contracts.yaml`, `contracts.py`,
+`domain_operations.py`, `operations.py`, `publication.py`) were removed with the legacy
+execution compiler on 2026-11-16.
 
 <a id="current-model"></a>
 
-## Meaning, behavior and realization
+## Where meaning is declared, compiled and realized
 
-| Context | Authoritative distinctions and executing realization | Limit |
-|---|---|---|
-| Semantic definitions | LinkML definitions and induced slots feed prepared types, property roles, vocabulary subsets and reference positions; `semantic/prepare.py:585–814`, `types.py:313–385` | Multiple representations remain legitimate; complete translation fidelity is not inferred from matching shapes. |
-| Qualified relationships | `model/semantic/contracts.yaml:355–416,878–979` declares endpoints, roles, direction, cardinality/identity scope, qualifications and references; `semantic/contracts.py:1279–1542` validates composition | Not every graph projection or invariant body was independently matched. |
-| Actions | OperationContract (`contracts.yaml:648–720`) binds inputs, results, applicability, dependencies, effects, outcomes and transitions; compiled implementation and generated/native call bindings consume these | Application domain functions legitimately realize algorithms. No general model interpreter is required. |
-| States and transitions | Lifecycle/transition declarations (`contracts.yaml:417–535`) and populated execution-model inputs govern finite transitions; native guards enforce task/attempt/holder and terminal publication | A state name alone is insufficient evidence; actual guards were inspected, not executed. |
-| Policy and invariants | Compiled failure bindings plus actual native guard identities; typed SemanticReason (`semantic/refusals.py:26–83`); executable policy applicability | DA-027 remains bounded assurance scope, not evidence that declarations are decorative. |
-| Identity and representation | Layered occurrence/fact identities, explicit provisional identity decisions and qualified runtime folding (`domain_operations.py:1219–1313`; `unicode_identity.py:99–160`) | No universal historical-runtime support promise; ordinary visibility of every decision was not exhaustively examined. |
-| Progressive contribution | `observations.yaml:173–260` separates operation population, contribution semantics, endpoints, field/score state and private standing; `contributions.py:47–189` governs bindings, source pieces, identity and endpoint closure | Generic retained roles are not automatically admitted knowledge semantics; see the question below. |
-| Local interpretation and admission | Source quotation/occurrence and independently adjudicated contextual denotation have separate policy owners (`local_admission.py`, `local_semantic_admission.py`) | Source location, meaning, canonical identity and scientific support remain separate claims. |
-| Structural products | Definition applicability, comparison and dossier contracts retain original source custody, participant roles and declared selection; `sql/structural_publication.sql:77–207` revalidates actual eligible effects | Lexical agreement is not equivalence; dossier membership is not full-source completeness. |
-| Publication and recovery | Shared immutable batches, SERIALIZABLE settlement, exact receipt recovery, attempt fencing and runtime bindings (`publication.py:755–941`; `sql/runtime_bindings.sql:2–100`) | Source inspection does not attest current deployed roles or replay behavior. |
-| Serving and assessment | QueryRow standing, bounded evidence/coverage/explanation/walks, source-first/output-first frozen cases and explicit population completeness | The inspected test expectations are independent examples, not executed qualification or a universal oracle. |
+| Context | Declared in | Compiled or generated into | Realized by |
+|---|---|---|---|
+| Semantic definitions | LinkML `model/semantic/*.yaml`; pack `domains/<pack>/semantic.yaml` with terminology and ontology sources | `PreparedRelease` (`semantic/prepare.py:825–1060`; `semantic/types.py:236`): definitions, boundary recipe, effective bindings, vocabularies | Boundary adapters, statement types, rule views |
+| Qualified relationships | LinkML slots; operation roles (kind, direction, cardinality, collection, presence, support) | `OperationRole` with input and output kind edges (`semantic/data_operation_compilation.py:1823–1829`); relational binding expressions | Native binding SQL |
+| Operations | `__data_operation__` literals in 85 Python modules; declaration documents built in code; native operations from the protocol | `compile_data_operations` (`data_operation_compilation.py:806`) → `EffectiveDataOperationModel` (`semantic/data_operation_model.py:877`), archived as `data_operations.json`; generated calls, ids and ports | `orchestrate/data_operations.py`; `semantic/sql/data_operations.sql` |
+| Which operations a release contains | Flags in the acquisition manifest, interpreted by hand-written composition ([DA-073](semantic-model-and-authority.md#da-073)) | Bundle and dependency composition | — |
+| Products and kinds | LinkML product classes (`data-operation-*.yaml`); nominal kinds from schema; wire kinds from `data-operation-native.yaml`; physical tables in `data-operation-physical.yaml` | `EffectiveKind` with kind fingerprints; physical and relational generation | Native tables |
+| States and transitions | `data-operation-native.yaml` lifecycle; per-operation state dimensions and transitions | Generated fates module carrying the protocol digest | Native guards |
+| Policy and invariants | `EnforcementClaim` entries typed as documentation or checked (`data_operation_model.py:374–425`); LinkML conditional rules; policy YAML | Enforcement-claim resolution; boundary fragments | Implementation code and native SQL |
+| Identity | Per-operation definition, eligibility and recipe identities; kind and implementation-slice fingerprints (`data_operation_compilation.py:2138–2233`) | `EffectiveIdentity` rows; `release_id` is the digest of the whole input manifest (`prepare.py:963–985`) | The native request key, which excludes release and runtime (`sql/data_operations.sql:1036–1042`) |
+| Dependencies and support | Explicit `dependencies` and `potential_dependencies` id lists; role support (provenance, source, coverage, identity requirements) | Dependency edges; compiled `potential-producers` and `selected-dependencies` projections (`data_operation_model.py:705–731`) | Demand freeze; native consumed-producer closure |
+| Validity family | **Not declared**; a hand list in SQL ([DA-070](semantic-model-and-authority.md#da-070)) | Lowered `validity_family` column | Native validity dispatch |
+| Support-edge meaning and trust-scope key | **Not declared**; three encodings ([DA-071](semantic-model-and-authority.md#da-071)) | — | Validity, locks and scopes, change impact |
+| Native authorization and guard membership | **Not declared**; code lists ([DA-074](native-integrity.md#da-074)) | — | Installation and admission |
+| Contributions, publication, serving | `observations.yaml`, `read-projections.yaml`, `companion-projections.yaml` | Prepared contribution and record projections | Native SQL; one native read entry point validated through generated wire types |
 
-The model therefore covers consequential relationships, possible actions and states as well as
-objects. Its authority is distributed among released declarations, compilation, coherent domain
-functions and native enforcement. An assessment must follow the applicable contract and scope;
-rich schemas alone do not establish model adequacy.
+## One model, and what sits around it
 
-## Representative journeys and credible changes
+Inside the declared-data-operations target there is one compiled model per release. Four
+declaration media feed it (Python literals, LinkML kinds, the protocol, schema-derived kinds),
+their origins are tracked, and conflicting owners and unresolved references are refused
+(`data_operation_compilation.py:823–830, 955–960, 1836–1838`). Semantic identity (recipe, kind
+and slice fingerprints) is kept apart from build provenance (`release_id`), and the native
+request key uses the semantic identity. That separation is what lets a result survive a new
+release.
 
-Source → contribution → local interpretation → optional admission was traced independently of
-complete record assembly. Operation inventory includes empty/failed questions, and a local
-contribution can survive later failure. Serving and evaluation keep retrieval population,
-assessment population, source coverage and scientific quality distinct.
+Around that model sit further inventories that it does not govern:
 
-Operation → admitted execution → claim custody → terminal settlement was traced through native
-projection and Python execution. Only the current method's batch is claimed; renewal includes
-preparation and settlement. Task identity, twin selection and native reuse share one dependency
-projection. These correct DA-053/054 without establishing optimal execution fit.
+- the earlier core and system model, with its own generated code, revision log and pack
+  schemas ([DA-072](semantic-model-and-authority.md#da-072));
+- the hand-written release composition ([DA-073](semantic-model-and-authority.md#da-073));
+- the hand lists inside the native kernel and its installation
+  ([DA-070](semantic-model-and-authority.md#da-070), [DA-074](native-integrity.md#da-074));
+- the three encodings of the support graph ([DA-071](semantic-model-and-authority.md#da-071));
+- the hand-kept file lists that stand for "the code that produced this answer"
+  ([DA-076](served-claims.md#da-076)) and the hand-written description of the scientific
+  kernel ([DA-077](served-claims.md#da-077)).
 
-A renamed display property or released role now reaches consumers through effective bindings
-rather than the cited name sets. A runtime/budget repair can retain semantic release identity
-while carrying an exact executable runtime binding. Archived reads retain producing provenance;
-current operational repair does not retag old results.
+The model therefore covers operations, kinds, roles, states and identities well. What it does
+not yet hold are several facts about how those operations are *governed at run time*: which
+validity rules apply, what a support edge means, what must be guarded, and which code an
+answer depends on.
 
-### Generic contribution roles: bounded adequacy question
+## How a change becomes recomputation
 
-`ContributionEndpoint.role` and contribution disposition are open strings; `contributions.py`
-checks identity, local endpoint closure and minimal relation/composite structure. This is a
-weaker generic contract than a domain-specific relationship definition. Whether a particular
-new role requires stronger declarations depends on the semantic claim its consumers make.
-Free strings alone do not establish a violation. Existing semantic consumers and their guards
-must be examined before treating this as merely opaque transport or as ungoverned meaning.
-The independent challenge inspected current consumers: `methods/contribution_adapter.py:725–915`
-owns table/definition attachment vocabulary, eligible grouping, anchored primary, allowed roles
-and source/geometry constraints; `evaluate/operation_assessment.py:230–292` compares frozen roles
-and anchors without repairing misspellings. `semantic/sql/source_contributions.sql:450–492`
-binds contextual denotation to an actual retained selected decision, statement and dependencies;
-`semantic/sql/record_publication.sql:891–940` additionally requires the exact question/version,
-rubric/context and independent supported case. `serve/contributions.py:68–100` distinguishes
-private interpretation from admitted witnesses. The generic envelope is sufficient for private
-retention under these inspected narrower owners. Complete semantics for arbitrary future
-contribution vocabularies were not established; no new DA identity is assigned to that limit.
+Traced through source for this refresh:
 
-## Library inquiry and capability boundaries
+- **Source bytes.** Product ids are content-addressed, so new source gives new inputs and new
+  request keys.
+- **A changed recipe, kind or result-affecting binding.** The recipe identity changes, the
+  request key changes, and that operation recomputes. Binding nodes that only affect
+  eligibility are dropped from the recipe (`data_operation_compilation.py:2114–2135`).
+- **A changed implementation.** It enters through the implementation-slice fingerprint in the
+  recipe. Where the operation declares an opaque boundary, the fingerprint is much coarser
+  ([DA-069](execution-fit.md#da-069)).
+- **Dependents.** They recompute only if their content-addressed inputs change, unless a role
+  declares an episode identity requirement.
+- **Runtime and execution profile.** Excluded from the request key. Distrust is applied by
+  explicit revocation, evaluated when results are read.
+- **Native kernel source.** Any change invalidates admission, reads and carried assurance at
+  once ([DA-068](execution-fit.md#da-068)).
 
-All 15 guides under [data_model](../../libraries/data_model) were oriented by capability and
-semantic limits, followed by targeted source inspection. Dependency presence is distinct from
-feature adoption. The pinned product manifest is `python/corpus-structure/pyproject.toml`.
+The unit of recomputation is the request generation. The unit of scheduling is the whole
+demand, swept once per round.
 
-| Guides | Current relevance and bounded conclusion |
-|---|---|
-| LinkML; extension libraries | Direct LinkML/runtime1.12.1 and term-validator0.4.5. Effective induced definitions and generated boundaries are used. Actual operation/lifecycle enforcement is application/native realization, not implicit LinkML behavior. |
-| Pydantic; JSON Schema | Direct2.14.1/4.26.0. Typed boundaries use strict/frozen/extra-forbid construction (`semantic/boundary.py:244–269`). Conditional rules use native JSON Schema fragments with explicit unsupported-field refusal (`conditional_rules.py:56–126,168–220`); native lowering separately owns persisted enforcement. |
-| pydantic-settings | Direct2.16.1. Configuration source/default semantics are a boundary; they do not supply independent domain-policy authority. No new settings defect established. |
-| RDFLib; pySHACL | Direct7.6.0/0.40.1. `ontology.py:723–742` explicitly selects conformance-only behavior: no inference, advanced rules, imports or mutation, and separates invalid shapes from runtime failure. Conformance is not external truth. |
-| PyOxigraph; Oxrdflib | PyOxigraph0.5.13 is transitive; Oxrdflib absent. Backend capability does not establish application adoption, relationship preservation or transactional substitution. No new store selected. |
-| valuesets; OAK | Direct0.4.2/0.7.4. `ontology.py` acquires explicit local snapshots and prepares vocabulary membership/meaning. Lexical matching, ontology entailment and equivalence remain different judgments. |
-| linkml-map; linkml-datalog | Absent dependencies. Useful lenses for preservation versus derivation, asserted versus inferred facts and rule provenance; absence alone is not a diagnosis or adoption obligation. |
-| schema-automator | Absent. Inferred keys, enums, cardinalities and relationships are hypotheses about observed data, not complete permitted-domain authority. |
-| msgspec/attrs/cattrs | cattrs26.2.1 direct, attrs26.1.0 transitive, msgspec absent. Conversion/structuring is distinct from semantic interpretation and invariant enforcement; no concrete new loss established. |
+## Strengths to preserve
 
-Context7 lookup on 2026-11-05 used official LinkML SchemaView/generator documentation and
-pySHACL validation/rules documentation. Current online generator examples include behavior
-beyond the pinned version; no such feature was assumed available or required. Local addenda
-also include newer pySHACL/Pydantic material. Exact source and actual settings govern conclusions.
-Primary references: [LinkML SchemaView](https://linkml.io/linkml/developers/schemaview.html),
-[LinkML conditional rules](https://linkml.io/linkml/howtos/skip-logic.html),
-[pySHACL](https://github.com/RDFLib/pySHACL).
+- Operation facts are extracted statically without importing the target, acquisition is closed
+  and workspace-relative, and a file that changes during acquisition is refused
+  (`semantic/python_operation_sources.py:585–645`; `semantic/data_operation_preparation.py:145–155`).
+- Enforcement claims separate documentation from checked enforcement and keep documentation
+  out of the recipe.
+- Generated fates, wire types and physical value sets derive from the one protocol file.
+- Revocation is by selector with scoped epochs, validity is relative to the read boundary, and
+  a directly revoked producer cannot be rehabilitated (`sql/data_operations.sql:1080–1085`).
+- Unknown is kept distinct from absent in served reports
+  (`serve/contribution_facets.py:150–187, 331–341`).
 
-## Workload and assurance limits
+## Limits
 
-Prepared indexes, cached adapters/archives, shared owned reads and bounded result inventories are
-preservation strengths. Cumulative native assurance protects real trust and consistency premises;
-DA-033 retains the unresolved avoidability question. No benchmark, numerical improvement,
-complete non-statistics transfer result or whole-corpus semantic quality is inferred.
+The bodies of most model YAML files, the generators (`typed_generation.py`,
+`native_call_generation.py`, `schema/generate.py`, `schema/stage_b.py`), `ontology.py` and
+`conditional_rules.py` were not read. The library inquiry recorded on 2026-11-05 (LinkML,
+Pydantic, RDFLib, pySHACL and others) was not repeated; it is in Git at `fbd3f2a98`.

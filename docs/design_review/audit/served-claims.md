@@ -1,143 +1,104 @@
-# Served claims and evaluation
+# Served claims
 
-**Implemented source inspected, 2026-11-03.** See the [current baseline](README.md#baseline).
-Paths below are relative to `python/corpus-structure/src/corpus_structure/`, unless prefixed
-with `domains/`. This is static diagnosis, not native or consumer qualification.
+**Interface-checked by source inspection, 2026-11-17**, source `fbd3f2a98`
+([baseline and limits](README.md#baseline)). Source paths omit
+`python/corpus-structure/src/corpus_structure/`.
 
-<a id="da-061"></a>
+<a id="da-076"></a>
 
-## DA-061 — A formula witness depends on the installed release recipe
+## DA-076 — The implementation identity of a served read is a hand-kept file list that leaves out modules that shape the answer
 
-**Implemented source inspected, 2026-11-08.** FP-01/02/04, A1/A2,
-DP-05/08/21/24, CI-01/11/13. The p416 readable formula exception is a single
-object in the semantic release's section text recipe. Python projection and
-native admission require the selected product digest, formula pointer and
-original-spelling digest to match that object. This protects the exact source
-reading. The admitted v9 representation has room for one witness, so adding a
-second independent reading requires changing the policy contract. An unrelated
-change to the integrated product digest disqualifies the otherwise matching
-spelling until the witness is rebound
-(`model/semantic/section-text-recipe.json`; `ingest/pdf_hierarchy.py:271–286,479–494`;
-`semantic/sql/source_views.sql:132–149,170–182`).
+**FP-04; DP-02, DP-04; CI-10, CI-13.**
 
-The exact formula Reader resolves the witness from installed recipe bytes if
-their digest matches the requested release. A subsequent recipe update would
-suppress the archived v9 response's readable fields even though the requested
-release retains its recipe. The original spelling, recognized LaTeX and
-recognition status remain visible. The earlier v8 parity check and retained v9
-projection at run 378 establish their recorded paths. This diagnosis follows
-from the next recipe-change scenario
-(`ingest/pdf_hierarchy.py:239–268`; `serve/native_source.py:582–622`).
-[Comparator and projection qualification](../../plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up)
+Every served read carries an `implementation` digest. It appears in cursors, in
+`resource_handle` replays and in the selected-query cache keys, and it is what lets a resumed
+page claim it comes from the same code. The digest covers only the files named in
+`_query_custody.py:17–117`, whose docstring says it "neither discovers dependencies" (`:1–5`);
+`semantic/demand_queries.py:117–124` keeps a second, separate list.
 
-<a id="da-064"></a>
+Modules on the rich answer path that are not listed include `semantic/releases.py` and
+`semantic/archive_reader.py` (which reconstruct the prepared release used for graph
+validation), `semantic/data_operation_admission.py` (the bound model),
+`semantic/record_contracts.py` and the generated wire module. A static import closure of
+`serve/rich_queries.py` reaches about 380 first-party modules against 36 listed; many of those
+are on other paths, so the closure is an upper bound, not the size of the gap. The native SQL
+kernel is not part of the identity.
 
-## DA-064 — Dry visual routing can classify unexamined cues as a skip
+The six rich statistics query names are also written twice, once for dispatch
+(`semantic/rich_queries.py:460–470`) and once to choose which sources enter the identity
+(`serve/rich_queries.py:43–56`). A query added to the first and not the second would omit the
+module that computes it.
 
-**Implemented source inspected, 2026-11-08.** FP-04/05, DP-02, CI-04. A
-successful A row, parseable B layout and selected content are sufficient
-for the router's page-level assessed flag. Unavailable or over-budget raw
-artifacts become empty readings. Unsupported frame or parse encodings do
-the same. Missing crop-decision bytes become an empty reason list
-(`semantic/visual_routing.py:236–248,383–403,442–448,470–483,650–675`).
-If the remaining cues are quiet, an unexamined comparison can therefore
-become `skip/no_supported_trigger` instead of an unresolved cue
-(`semantic/visual_routing.py:138–185`). This makes the reason less precise
-for an operator selecting follow-up pages.
+**Consequence.** Inside one MCP process this is harmless: custody refuses any reload
+(`_query_custody.py:142–176`). Across processes it is not. A CLI cursor, a `resource_handle` or
+an explicit pin survives an edit to an unlisted module, and the resumed request replays
+ordinals over a population derived by different code (`serve/rich_queries.py:170–187`;
+`semantic/selected_query_cache.py:163–165`). A continued page can then skip or duplicate rows
+with no refusal. Code is edited constantly in this project's working loop, so the case is
+ordinary. The reverse also holds: a comment edit in any listed file invalidates every cursor.
 
-The route already preserves explicit incomplete requests, unsupported
-layout cases and independently checked blank pages. The frozen held-out
-study records real missed pages, but it does not isolate these
-unavailable-evidence branches as their cause. The finding applies to the
-explicit dry and shadow routing policy.
-[Routing scope](../../plans/chandra-2-post-nemotron/automatic-routing-and-qualification.md)
+**Contrary evidence.** ADR-0124 deliberately defines the identity as naming the running code,
+with stat-based drift detection, and that mechanism is implemented and sound. The gap is what
+the list covers. Whether the identity is meant to cover the answer's whole code closure or only
+code likely to change answers is not stated in the ADR.
 
-<a id="da-066"></a>
+**Footprint.** Established for the omission and the duplicated list; the paging consequence is
+likely.
 
-## DA-066 — A bounded mapped artifact can exceed every typed Reader budget
+<a id="da-077"></a>
 
-**Implemented source inspected, 2026-11-08.** FP-02/07, A4, DP-08/10/20.
-Mapped visual evidence permits 10,000 aggregate rows and table cells.
-The Reader permits at most 10,000 work rows. It charges artifact custody
-and then every row and cell before applying an exact occurrence or cell
-selector. A valid artifact at the row limit therefore cannot return even
-one typed candidate through the supported request budget. Continuation
-repeats the scan before selecting the page
-(`serve/pdf_visual_evidence.py:184–195,253–267,583–619,732–780,986–1002`;
-`serve/native_source.py:63–65`).
+## DA-077 — The archived scientific policy is a description of the comparison kernel, not derived from it
 
-The refusal accurately reports the work limit, and raw and PNG byte pages
-have their own route. The mismatch is between the mapped evidence
-contract and the available typed access path. No retained provider output
-at the limit was inspected.
+**FP-04; DP-02, DP-04; CI-13; H19.**
+
+`require_scientific_policy` requires a release's archived `operation/scientific-policy.json` to
+equal a recipe rebuilt in code (`semantic/scientific_evidence.py:246–259`). The recipe is a
+hand-written description of the kernel, for example `"bounds": [0.25, 3]` and the
+`numeric_method` strings (`:192–243`). The kernel uses its own literals
+(`rng.uniform(0.25, 3, …)`, `:1301`).
+
+**Consequence.** The identity and the behavior can move independently:
+
+- a kernel edit leaves the recipe and every archived release unchanged, so existing releases
+  keep validating while computing differently;
+- a wording edit to the recipe makes every release refuse.
+
+The recipe is also rebuilt on each call, including several schema generations, for each rule
+evaluation, each scientific evaluation, each new comparator per distinct macro set and each
+reference comparison scope (`semantic/rich_scientific.py:182, 260–264`;
+`scientific_evidence.py:940–943, 1129–1133`), although both the archived artifact and the
+process code are fixed.
+
+**Contrary evidence.** Archiving the policy and refusing on mismatch is the right shape, and
+the DA-034 correction (one shared owner, separate policies) still holds.
+
+**Footprint.** Established for the duplication and the per-call rebuild; the number of
+comparators per document is not known.
+
+## Prior identities on this page
 
 <a id="da-035"></a>
-
-## DA-035 — Ordinary coverage envelope amplification corrected
-
-**Source-inspected 2026-11-05.** `serve/journey.py:243–267` obtains a summary and requests bounded detail only for an explicit
-predicate requirement. Ordinary unfiltered pages no longer append the cited whole-realization
-coverage population. Full coverage remains a legitimate explicit consumer. No timing or capacity
-result follows from source inspection.
-
 <a id="da-036"></a>
-
-## DA-036 — Ordinary fact rows now carry standing
-
-**Source-inspected 2026-11-05.** `semantic/query.py:178–209` defines FactStanding and QueryRow.standing; hydration supplies it
-at `:644`. Selection, assessment and establishment remain independent dimensions rather than one
-aggregate verdict. The prior missing-row-standing premise is removed; this is not a claim that
-every historical or third-party consumer displays every field.
-
 <a id="da-037"></a>
-
-## DA-037 — Split assignment now preserves immutable policy provenance
-
-**Source-inspected 2026-11-05.** `evaluate/semantic.py:555–603` calls `eval.assign_document_split_decision` with frozen intent.
-`evaluate/split_decisions.py:63–89` retains assignment reason/seed and ordered policy/seed origin.
-The earlier write-path provenance omission is corrected. No evaluation population quality claim
-or new database execution is implied.
-
 <a id="da-038"></a>
-
-## DA-038 — Prior private read-boundary diagnosis removed
-
-**Source-inspected correction, 2026-11-03.** `serve/read.py:43–60` delegates scope, property,
-selection and hydration semantics to public ReadSession methods, including fact_statement and
-hydrate_rows. `serve/queries.py` composes those contracts. The fact that named query policy and
-primitive QuerySpec remain distinct is insufficient to establish duplicate semantic authority.
-The earlier diagnosis is recoverable in Git before this refresh. This does not certify every
-plugin or every query's physical plan.
-
 <a id="da-039"></a>
-
-## DA-039 — Explanation and relation-path bounds corrected
-
-**Source-inspected 2026-11-05.** `serve/explain.py:58–94` supplies explicit limit/max_bytes; unit metadata is paged at
-`:141–199`. `domains/statistics/queries.py:34–40,353–446` bounds depth, examined edges, frontier and retained bytes; the
-old blanket absence-of-bounds claim is removed. Limits constrain exposure and work; they alone
-do not establish normal-workload feasibility or a measured performance benefit.
-
 <a id="da-050"></a>
-
-## DA-050 — Prior missing pinned follow-up route removed
-
-**Source-inspected correction, 2026-11-03.** `cli/explain.py:35–45` accepts a query token and uses
-`cli/query.py:66` followup_context to resolve its pinned run/query compatibility before explaining.
-`serve/explain.py:49–53` checks the producing release and returns its query binding. Explicit run
-selection also remains supported. A fresh promoted request intentionally selecting current state
-is not by itself a violation. Consumers must use the provided binding for continuation of an earlier
-journey. Full actual multi-call transport qualification was not run here.
-
 <a id="da-051"></a>
+<a id="da-061"></a>
+<a id="da-064"></a>
+<a id="da-066"></a>
 
-## DA-051 — Provider attribution now exposes its actual assurance
+Earlier text is in Git at `fbd3f2a98`.
 
-**Source-inspected 2026-11-05.** `intervene/semantic.py:175–186` persists task/attempt/holder, producer binding and explicit
-manual_operator/provider_reported assurance. `intervene/semantic_server.py:90–119` links task
-receipt events to invocation. Recognition declares identity assurance and authenticates managed
-generation manifests (`ingest/pdf_recognition.py:44–52,128–175`); the worker requires the same
-generation header (`services/nemotron-parse/worker.py:78–92` (repository root)). Requested/response model and
-configured digests are separately recorded (`ingest/pdf_recognition.py:647–656`). Configured
-identity is no longer silently presented as measured model bytes in these paths. External service
-execution and every third-party response shape were not qualified in this audit.
+| ID | Status at `fbd3f2a98` | Note |
+|---|---|---|
+| DA-035 | No longer applicable | `serve/journey.py` is gone; paging is `serve/demand_journey.py` and `semantic/demand_queries.py` |
+| DA-036 | No longer applicable | Standing is carried in native frontier and use rows |
+| DA-037 | No longer applicable | Caller gone; `evaluate/split_decisions.py` now has no production importer ([DA-080](boundaries-and-composition.md#da-080)) |
+| DA-038 | No longer applicable | Cited read modules are gone |
+| DA-039 | No longer applicable | Explanation is `semantic/operation_reporting.py:150–212`; rich relation depth is bounded in the request |
+| DA-050 | No longer applicable | Pinned continuation uses `resource_handle` and the read pins |
+| DA-051 | Changed footprint | Recognition identity assurance stands (`ingest/pdf_recognition.py:71, 149–171`); external packets carry actor and model assertions. Not traced end to end |
+| DA-061 | Changed footprint | The formula Reader now resolves the recipe from the retained release (`ingest/pdf_hierarchy.py:353–380`). The single-witness representation was not examined |
+| DA-064 | Corrected | The only route builds unassessed page signals; the skip-without-trigger branch is unreachable, and a skip requires a verified blank body (`semantic/visual_routing.py:587, 623–630, 744–761`) |
+| DA-066 | Likely corrected | Selection and continuation are pushed into the native read (`serve/pdf_visual_evidence.py:34–74, 399–423`); the native scan was not examined |

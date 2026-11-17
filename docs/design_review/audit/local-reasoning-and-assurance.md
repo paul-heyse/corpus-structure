@@ -1,49 +1,36 @@
 # Local reasoning and assurance
 
-The [current broad baseline](README.md#baseline) applies to the current source diagnoses below.
-This is navigation by responsibility, not another finding register:
+**Source `fbd3f2a98`, 2026-11-17** ([baseline and limits](README.md#baseline)). This page is
+navigation by responsibility, not another finding register:
 
-- [Semantic definitions and their consumers](semantic-model-and-authority.md).
-- [Outcomes, policy and outstanding claim ownership](structure-and-invariants.md).
+- [Current model owners](domain-model-map.md) and
+  [semantic definitions and their consumers](semantic-model-and-authority.md).
+- [Outcomes, policy and claim ownership](structure-and-invariants.md).
 - [Native custody, admission and recovery](native-integrity.md).
-- [Served standing, evidence size and evaluation provenance](served-claims.md).
-- [Composition and preparation lifetimes](boundaries-and-composition.md).
+- [Served identity and evaluation policy](served-claims.md).
+- [Composition, hosts and superseded machinery](boundaries-and-composition.md).
 - [Necessary versus repeated work](execution-fit.md).
+- [The domain model and execution together, with the test account](model-and-execution.md).
 
-Tests were read where relevant to the evidence claim; the separate
-[test account](../test-audit/README.md) retains its own baseline, stated there. Production source
-reasoning is not an independent oracle for semantic correctness. Static code inspection is not
-actual database, provider, CLI/MCP or release qualification. No full test campaign follows from
-this diagnostic refresh.
+Whether the tests would detect a wrong implementation of the mechanisms described in this
+account is the subject of the separate [test account](../test-audit/README.md), refreshed in
+the same engagement at the same source commit. Production source reasoning is not an
+independent oracle for semantic correctness, and static inspection is not database, provider,
+CLI, MCP or release qualification. No test campaign follows from this refresh.
+
+Two assurance observations from this refresh belong to the test account and are linked, not
+repeated: several reuse and skip mechanisms are tested only on the path where reuse is correct
+([DTA-044](../test-audit/evidence-and-discrimination.md#dta-044)), and several commits that
+introduced them record `runtime not_run`.
 
 <a id="da-021"></a>
-
-## DA-021 — Historical correction, not requalified
-
-Evidence citation tooling corrected the earlier free-text citation diagnosis at ad4593f,
-2026-10-29. This refresh does not rerun the evidence catalog. That dated correction remains
-historical, recoverable in Git before this refresh.
-
 <a id="da-022"></a>
-
-## DA-022 — Historical correction retained
-
-`scripts/check_pins.py` covers workspace Python and Cargo manifests. Inspection of the command
-surface during this refresh found no reason to reinstate the former narrow-manifest diagnosis;
-`just deps` was not run. The original tested correction remains dated 2026-10-29.
-
 <a id="da-023"></a>
 
-## DA-023 — Historical correction retained
+| ID | Status at `fbd3f2a98` | Note |
+|---|---|---|
+| DA-021 | Not re-examined | Historical correction of 2026-10-29 |
+| DA-022 | Not re-examined | Historical correction of 2026-10-29 |
+| DA-023 | Not re-examined | Historical correction |
 
-The current repository binding maps binding decisions to principles; the earlier empty-map
-premise no longer applies. This is source inspection, not a whole-binding correctness claim.
-
-## Current representative assurance inspection
-
-**Source-inspected 2026-11-05.** `python/corpus-structure/tests/evaluate/test_operation_assessment.py:64–156`
-uses literal role/value/location expectations and missing-output cases; source-first and output-first
-frames retain different populations. These examples challenge production semantics rather than
-merely accepting production validation. They were read, not executed. No inference about every
-fixture, oracle or test follows. The separately edited test account keeps independent ownership
-and freshness; the dated historical statements above were not renewed by this production audit.
+Earlier text is in Git at `fbd3f2a98`.

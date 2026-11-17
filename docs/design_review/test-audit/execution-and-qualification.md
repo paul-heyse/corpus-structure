@@ -1,244 +1,221 @@
 # Execution and qualification
 
-**Interface-checked by source inspection, 2026-11-12, and re-checked 2026-11-13** where a
+**Interface-checked by source inspection, 2026-11-12, and re-checked 2026-11-13 and 2026-11-17** where a
 finding says so. Baseline and limits are in the [account](README.md#baseline). The 2026-11-13
 refresh ran no test; it read durations from stored `uv run ci test` results. Those figures are
 labelled **Measured** with a run id, are collected under [Measurements](#measurements), and were
 taken on a workstation shared with other sessions. A measured duration shows where time went.
 Why it went there is established from source, and no speedup is measured anywhere on this page.
 
+<a id="refresh-2026-11-17-execution"></a>
+
+## Refresh of 2026-11-17
+
+**Interface-checked by source inspection, 2026-11-17**, source `fbd3f2a98`
+([baseline](README.md#baseline)). The findings in this section are new. Each earlier finding
+below carries a dated status line. Durations are **Measured** only where a stored run id is
+given ([Measurements](#measurements)); everything else is unnecessary work established by
+structure. How these relate to the production account is on the
+[joint page](../audit/model-and-execution.md).
+
+| Earlier finding | Status at `fbd3f2a98` |
+|---|---|
+| DTA-024 | Corrected. Residuals are DTA-038 and DTA-039 |
+| DTA-025 | No longer applicable at the cited sites; the data-operation footprint moved to shared rollback bases |
+| DTA-018 | No longer applicable at the cited sites; no new oversized consumer established |
+| DTA-026 | Changed footprint |
+| DTA-031 | Corrected. The residue is DTA-047 |
+| DTA-032 | Corrected by a different mechanism than the plan records |
+| DTA-002, 003, 017 | Stand (configuration read only) |
+| DTA-021, 022 | Corrections stand |
+
+<a id="dta-040"></a>
+
+### DTA-040 — A per-test directory is part of PDF scenario identity, so seed and preparation reuse does not hit
+
+**FP-04 (DP-04), FP-07/A4; DP-09, DP-10; H12, H14; companion §6, §8.**
+
+The scenario-seed registry and the prepared-kernel cache both key on the recipe value
+(`scripts/native_scenario_seeds.py:203–209`; `tests/semantic/data_operation_kernel_support.py:161`).
+For PDF source scenarios the recipe is built by `current_pdf_recipe(directory)`, which calls
+production `pdf_capture_custody`. That writes the resolved asset root and the resolved capture
+directory into the `pdf-capture/execution-custody` artifact
+(`src/corpus_structure/semantic/pdf_capture.py:86–99`), which becomes part of the recipe's
+captured dependencies. The fixtures pass the per-test `tmp_path`
+(`tests/semantic/current_pdf_source_support.py:286`, `current_pdf_integration_support.py:247`,
+`pdf_staging_support.py:347`, `rich_domain_native_support.py:88`,
+`tests/evaluate/declared_record_native_support.py:508`). Nothing normalizes the paths.
+
+**Consequence.** Every such test has a recipe no other test shares, so:
+
+- each seeded scenario clones the head, runs a full uncached release preparation, admits,
+  seals and clones again, and the sealed seed stays registered until the session closes
+  (`native_scenario_seeds.py:272–273, 347–353`): one extra sealed database per test for the
+  rest of that worker's session;
+- direct `prepare_kernel(recipe)` callers with per-test recipes miss the unbounded
+  prepared-kernel cache every time, and the cache still keeps each prepared release, model,
+  runtime and temporary directory for the worker's lifetime
+  (`tests/semantic/test_pdf_transform_operations.py:278–279, 335`;
+  `test_current_pdf_source_inputs.py:13–15`;
+  `tests/evaluate/test_declared_record_native_journey.py:26–29`;
+  `test_declared_rich_native_journey.py:31`). The seed path does not use that cache: it
+  prepares into a supplied directory, uncached by design;
+- production's own preparation cache (eight entries) misses as well. For the roughly fifteen
+  `admit_current_target(…, recipe(tmp_path / "recipe"), …)` consumers, which admit into an
+  existing clone and create no seed, this is the only cost.
+
+The release identity under test also includes a directory that changes nothing about the
+operations being tested.
+
+**Contrary evidence.** The mechanism works when the recipe is stable: the module-scoped recipe
+in `tests/semantic/characterization_native_support.py:86–88` is reused within its module, and
+`declared_scenarios.py:200–208` seeds once per session. Production may have a reason to bind
+the capture directory into custody; whether the directory belongs in release identity is a
+question for the production owner. The test-side defect is choosing a per-test directory.
+
+**Footprint.** Established for the keying and the retention; the number of databases that
+accumulate was not counted.
+
+<a id="dta-038"></a>
+
+### DTA-038 — The deployment key cannot see imports made by executed upgrade bodies, and includes much that a deployment does not depend on
+
+**FP-04/FP-05, FP-07/A4; DP-10, DP-20; companion §6, §8.**
+
+The reusable head database is keyed by `deployment_key()`. Its module component is a walk over
+import statements, outside function bodies, starting from every migration `.py` file
+(`scripts/native_deployment_key.py:126–142`).
+
+*What it misses.* The declared-data-operations revisions do not run their DDL in the `.py`
+file. They read a hash-pinned `*_upgrade.txt` body and `exec` it. Those bodies enter the key as
+artifacts, by size and mtime only (`:130, 146–148`), so their imports are never walked. Twenty
+of them import `corpus_structure.semantic.alembic_privileges` at module level; the matching
+`.py` files import it only inside `upgrade()`, which the walk skips by design
+(`semantic_alembic/versions/semantic_ddo_domain_v9.py:41–42`). Running the snapshot's own
+closure function gives 25 package modules, and `alembic_privileges` (which executes grant and
+revoke admission) is not among them.
+
+*What it over-includes.* The whole `uv.lock`, the interpreter version, artifact mtimes rather
+than the content digests the revisions already pin, and incidental modules in the closure.
+Unrelated edits to any of these rebuild the head.
+
+**Consequence.** An edit to `alembic_privileges.py` that changes the privileges a build produces
+leaves the key unchanged, and narrowed runs reuse a head built by the old code. First-use
+verification bounds this: the head's catalog checks include table, function and schema
+privilege predicates and per-actor read checks against the descriptor, and a failure retires
+the head (`src/corpus_structure/semantic/execution_admission.py:81–118`). The exposure is
+whatever privilege admission produces outside those predicates, and a reused head passing
+narrowed runs where a fresh qualification build would differ.
+
+**This is a gap the plan accepted in kind.** The plan chose a narrow key plus verification and
+explicitly declined to follow imports inside functions, on the ground that the key "does not
+have to be provably complete"
+(`docs/plans/test-system-target-design/native-lifecycle-and-deployment.md:295–296`). What it
+did not anticipate is the executed body: there the import is at module level, in a file the
+walk treats as an opaque artifact.
+
+**Footprint.** The omission is established by source and by running the closure function over
+the snapshot. That a stale head has survived verification was not established.
+
+<a id="dta-039"></a>
+
+### DTA-039 — A key miss replays the whole migration chain, and sealed state is re-verified at several boundaries
+
+**FP-07/A4; DP-10, DP-23; H5, H12, H21; companion §8.**
+
+On any key change `_publish_deployment` builds from the server template and replays all 285
+revisions (`scripts/native_test_support.py:995–1057`; `scripts/native_deployment_build.py:11–19`),
+even when the change is one appended revision and the predecessor head is still retained (three
+are kept). The revision graph is linear and every frozen artifact is digest-pinned in its
+revision, so the delta is named by data the system already holds. The plan's options compared
+key breadths only.
+
+Smaller repetitions of the same kind, each over state that cannot have changed:
+
+- every worker of a narrowed run re-verifies the same sealed head and re-walks the chain to
+  compute the same key (`native_test_support.py:366–384, 896–930`);
+- the role script is spawned twice per process (`:901, 932–935`);
+- the policy is compared twice per clone (`:650–654, 760–762`);
+- every seed hit re-validates ownership, policy and drained sessions on new connections
+  (`native_scenario_seeds.py:206–209, 277–301`).
+
+**Contrary evidence and what to keep.** A build from base is the strongest equivalence claim,
+and qualification runs already build private heads fresh; the cold chain controls keep real
+coverage. Per-process verification is a deliberate trust premise and per-clone policy replay is
+required (ADR-0032). Only the doubled comparison and doubled subprocess are pure repetition.
+The plan's own figure for a head build is about 40 s; it was not re-measured.
+
+**Footprint.** The structure is established. Whether an incremental head is worth its validity
+conditions is open.
+
+<a id="dta-047"></a>
+
+### DTA-047 — Pure SQL-expression checks create a database per case and execute production SQL spliced by string offsets
+
+**FP-02, FP-07/A4; DP-23; H5, H12; companion §5, §6, §8.** Residue of DTA-031.
+
+`semantic_bare_engine` creates a new database for each test; its stated purpose is bootstrap
+and upgrade obligations (`tests/native_fixture_support.py:1–5, 29–38`). Several checks that
+need one session with temporary functions in a rolled-back transaction use it:
+`tests/semantic/test_data_operation_trust_snapshot_sql.py:17–31` (19 cases),
+`test_data_operation_retirement_context_sql.py:21, 102, 144`,
+`test_data_operation_null_scope.py:14, 31`, and `cpu_basis_connection`
+(`test_data_operation_cpu_basis.py:61–90`), which builds a six-table schema by hand without
+foreign keys and is imported by three other modules.
+
+Several of them find production SQL by literal string offsets and execute the slice
+(`test_data_operation_trust_snapshot_sql.py:52–62, 126–131`;
+`test_data_operation_retirement_context_sql.py:31–41`;
+`test_data_operation_identity_native.py:121–124`).
+
+**Consequence.** A database is created per case for checks that write nothing. A
+behavior-preserving reformat of the SQL breaks the tests (loudly). And the subject is a
+re-spliced fragment on a substitute table, so a test named `_native`, such as
+`test_established_validity_native.py:25–123`, runs without the installed function, triggers,
+keys or grants: a defect outside the slice, or in how deployment installs it, is invisible.
+
+**Contrary evidence.** These checks test production's own expression text, not a copy, and are
+cheap to write. An existing alternative is the rollback-family seed in
+`tests/semantic/data_operation_binding_support.py:86–120`. Across the package 35 files use the
+bare engine; those outside the data-operation tests were not examined.
+
+<a id="dta-048"></a>
+
+### DTA-048 — One ordinary-lane control takes the operator's real host-wide GPU lock
+
+**FP-06, FP-07; companion §6, §8.**
+
+`test_residency_hands_off_actual_gpu_capacity_and_restarts_real_host`
+(`tests/methods/test_native_host.py:716–752`) calls the real `pdf_gpu_slot`, which locks
+`/tmp/corpus-structure-pdf-gpu-<uid>.lock`, the lock real PDF captures hold, and polls with a
+two-second deadline (`src/corpus_structure/ingest/pdf_capacity.py:51–64`). Every other test
+replaces the slot or stubs the lock calls.
+
+**Consequence.** If the suite runs while a book is being captured, which is ordinary for this
+workload, the test fails with a message that blames a previous NLP group.
+
+The claim under test, that handoff retires the NLP group before the slot is taken, is genuine.
+One site, established.
+
+## Earlier findings
+
 <a id="dta-024"></a>
 
-## DTA-024 — Each xdist worker rebuilds the same sealed head deployment
+## DTA-024 — Corrected: the head deployment is keyed and reused across workers and runs
 
-**FP-06/07, DP-10/20; A4; H5/H12/H21; companion §6/8.** The frozen semantic deployment that
-every database-backed test clones from is prepared once per pytest process, and the ordinary
-route now starts one process per core whatever the selection.
-
-`tests/conftest.py:255–260` defines `semantic_head_template` as a session fixture whose database
-name embeds `os.getpid()`. `scripts/native_test_support.py:612–630` builds it by creating a
-database from the server template, running Alembic `upgrade(conn)` to head and sealing it; the
-chain currently holds 240 revisions. The session fixture `native_server` (`tests/conftest.py:
-242–252`) additionally checks roles, sweeps leftovers and records server context per process.
-Under xdist each worker is its own session, so each worker that receives a database-backed test
-replays the whole migration chain to produce the same sealed template and drops it at session
-end. Root `pyproject.toml:46–55` sets `-n auto --dist=loadgroup`; the managed ordinary lane
-passes `auto` unless `--workers` is given (`scripts/test_receipts.py:1586–1593`), also for a
-narrowed selection.
-
-[ADR-0032](../../adr/0032-native-test-deployment-equivalence.md) owns this design. On 2026-10-29
-it selected a session-local native template with fresh clones and explicit policy replay, and
-rejected a persistent semantic template cache as unnecessary for that session-local contract.
-Parallel workers arrived afterwards (2026-11-06), which turned one session per run into one
-session per worker. The sealed head is a pure function of the migration chain and server
-template, so the ADR's own validity premise for sharing holds across the workers of one run,
-and the ADR names its revisit trigger as session preparation ceasing to fit the supported test
-workload. The diagnosis is that the workload the decision was fitted to has changed under it:
-a focused selection of a few native tests can now deploy the head once per participating
-worker, and the only lever is the manual `--workers N`. That is unnecessary total server work
-and contention established from source; workers prepare concurrently, so no added latency is
-claimed, and how xdist distributes a small selection across workers was not observed. Nothing
-here attributes the BEP-E05 memory interruption, whose cause remains unknown at its owner.
-
-Counterevidence and limits. Clone-per-test from a sealed template is the right amortizer for
-mutable native state and is preserved; fresh committed clones are essential to the many tests
-that commit, seal or redefine functions (142 package test files mention `semantic_db_engine`).
-Per-worker isolation is simple and safe. The older keyed `cs_tpl_` template cache was part of
-the legacy test engine and was removed with it; it was not a rejected way of sharing the
-semantic head ([DTA-030](retirement-transfer.md#dta-030)). A per-run shared template and a
-narrower default worker count for narrowed selections are solution leads only; either reopens
-the ownership and invalidation questions ADR-0032 deliberately avoided.
-
-**Measured, 2026-11-13 — the premise about latency changes.** None of the files this finding
-cites changed after the 2026-11-12 baseline, so the structure stands as written. Stored results
-now put figures on it:
-
-- In the full run `2e2a0e30…` the largest single setup on every one of the 16 workers is 48–95 s;
-  a contributor's reading of the per-connection event files puts the head build itself at 47–55 s
-  on each worker it could read.
-- In the 442-test union `e332a3ef…` (6 workers) the largest setup per worker is 43–68 s, and the
-  head build is the largest single item in that run's 670 s of setup.
-- A focused run pays it before its first database test. Run `6a6894c8…` is one test on one
-  worker: 104.5 s wall, 93.3 s of it setup. Among the last 60 passed narrowed runs, every run
-  whose tests touch the database shows the same first-setup step on each participating worker.
-- Worker count changes the wait. A contributor's reading of event timestamps gives 37–41 s from
-  template creation to the next native event with one or two workers, and 87–92 s each when 16
-  workers build at once (run `55303ce0…`). The coordinator did not recompute that gap; run
-  `b8ccd2c7…` shows the same direction, with four workers each spending 105–107 s in their first
-  storage-test setup against 57 s each with two workers in `780320d3…`.
-
-The earlier text said no added latency was claimed because workers prepare concurrently. On
-these receipts that no longer holds: concurrent builds slow each other, so a narrowed run on the
-default worker count can wait longer than the same run on one worker. Two consequences follow
-for anyone weighing remedies. Sharing one head per run and sizing workers to the selection
-remove the duplication and the contention, and leave a floor of roughly 40 s for any run that
-touches the database. Only reuse across runs removes that floor, which is the persistent
-template cache ADR-0032 rejected. The semantic migration chain is about 250 revision files today and grows with
-each native change, so the floor rises over time. ADR-0032's revisit trigger (session
-preparation ceasing to fit the supported test workload) now has measured support; the decision
-remains its owner's.
-
-**Related, lower weight — maintenance connection lifecycle.** ADR-0032 establishes that
-PostgreSQL clones omit database ACLs and database and role defaults, so capturing, replaying
-and comparing policy for every clone (`scripts/native_test_support.py:306–371`) is required
-work, not waste. What is incidental is how it is carried: `PgAdmin.connect()` (`:165–179`)
-creates a `NullPool` engine, attaches observation and disposes it on every call, so one clone
-acquisition (`:443–470`) opens and closes several maintenance connections for lease, existence,
-creation, ownership, settings and policy reads. Some are inherently separate, because
-role-self replay authenticates as another login (`:389–415`). This is a different cause from
-the per-worker template and is recorded here only as an observation for whoever revisits the
-ADR. Measured 2026-11-13 by a contributor from connection timestamps in `e332a3ef…`: creating a
-test's clone takes about 0.2–0.7 s, nearly all of it `CREATE DATABASE`, and the other
-maintenance connections including policy replay total about 0.02 s. Consolidating those
-connections would tidy observation records and would not noticeably shorten a run.
+**Corrected (2026-11-17, source `fbd3f2a98`).** The per-process head is gone. Narrowed runs reuse a head database keyed by `deployment_key()` and verified before first use; a qualification run builds one run-private head shared by its workers (`scripts/native_test_support.py:298–313, 937–965`). What remains is the key's coverage ([DTA-038](#dta-038)) and the cost of a key miss ([DTA-039](#dta-039)). The 2026-11-12 and 2026-11-13 text and measurements are in Git at `fbd3f2a98`.
 
 <a id="dta-025"></a>
 
-## DTA-025 — Rollback-only refusal families rebuild an identical committed scenario per case
+## DTA-025 — No longer applicable at the cited sites
 
-**FP-06/07, DP-10/23; A4; H5/H12/H19; companion §6/8.** Many native refusal controls are
-parametrized over forged or mutated inputs. Each case builds the full committed scenario on a
-fresh clone and submits one mutated copy inside a savepoint or transaction that the database
-refuses and rolls back; most then assert that nothing durable remained. The committed state
-after the test is by construction the state before it, yet the next case rebuilds it.
-
-Representative sites:
-
-- `tests/semantic/test_private_records.py:131–176`: twelve forged-custody cases. Each requests
-  function-scoped `private_source` (`tests/semantic/native_record_fixtures.py:791–819`), whose
-  `build_record_source` (`:292–646`) persists a release, creates a run, registers a document,
-  stores a PDF original, publishes the native record product, stores two source views and
-  creates the task and claim in separate transactions. The test deep-copies one candidate,
-  runs the positive control and the refusal in rolled-back savepoints, and asserts no
-  `ops.task_result` or `kb.observation` row exists.
-- `tests/semantic/test_runtime_bindings_native.py:100–148`: eight mutations. Each calls
-  `prepare_operation_scenario` and `prepare_runtime_binding`, mutates a JSON copy and expects
-  one refusal.
-- `tests/semantic/test_local_semantic_admission_native.py:505–660`: ten corruptions, each after
-  `private_source`, a completed relationship case, a finalized run, a reference set with three
-  passes and two grades, a new run and `seal_cut`; the forged publication is rolled back and
-  absence is asserted (`:637–660`).
-- `tests/semantic/test_local_admission_native.py` (seven witness refusals),
-  `tests/semantic/test_arrow_publication.py:456–493` (six) and
-  `tests/semantic/test_contextual_enrichment_native.py:65–157` (thirteen).
-
-Two families first listed here are not in this footprint as written (refined by the
-[design review](../reviews/design_review_test-architecture-and-efficiency_2026-11-12.md),
-2026-11-12, and confirmed in source). `tests/semantic/test_witnessed_applicability_native.py:172–197`
-commits a new run, task and claim in each case before its refusal, so it is rollback-only only
-if those rows move inside the rolled-back transaction.
-`tests/semantic/test_structural_native_replay.py:147–217` gives each of its fourteen cases its
-own source text through the committed source view (`:57–70`), so its scenarios genuinely differ.
-
-**Changed footprint, 2026-11-13 — families that build the scenario inside the test body.** The
-sites above request an expensive fixture, so their cost shows as setup. Four more families have
-the same rollback-only shape and build the whole committed scenario in the test body, where it
-is recorded as call time and is easy to mistake for the behavior under test:
-
-| Family | Cases | Call time in `2e2a0e30…` |
-|---|---|---|
-| `tests/semantic/test_identity_exclusions_native.py:21–52` exclusion tampering; each case calls `exclusion_result` and then refuses inside a `SERIALIZABLE` transaction (`:205–220`) | 18 | 477 s |
-| `tests/semantic/test_imported_declaration_membership.py:231–291` imported membership lineage | 6, one of which commits | 253 s |
-| `tests/semantic/test_occurrence_context.py:143–199` fabricated or omitted context | 8 | 205 s |
-| `tests/semantic/test_domain_operations.py:867–992` declared membership lineage | 6, one of which commits | 144 s |
-
-Together these are about 1,080 worker-seconds of call time (Measured, run `2e2a0e30…`; the
-shape is Interface-checked 2026-11-13, the coordinator having read the first and third family
-and a contributor all four). For scale, the families already listed above measure as follows in
-the same run: forged judged rows in `test_local_semantic_admission_native.py`, ten cases, 471 s
-of setup; `test_contextual_enrichment_native.py` atomic refusal, thirteen cases, 280 s;
-forged custody in `test_private_records.py`, twelve cases, 226 s. A contributor's split of a
-warm `private_source` setup gives about 10–11 s, of which the clone is about 0.25 s and pure
-preparation about 1 s; the rest builds the committed scenario. So the repeated cost is the
-committed build, not the clone.
-
-More generally, `tests/semantic/test_domain_operations.py` calls `build_domain_case` in the body
-of 22 tests (`tests/semantic/domain_scenarios.py:65`), and in the 442-test union `e332a3ef…` that
-file is the largest single cost: 864 s of call time over 35 tests, with a contributor reporting
-a flat median of 27 s per test. Most of those tests commit and consolidate, so they are not in
-this rollback-only footprint; they are the F03 shape in the
-[design review](../reviews/design_review_test-architecture-and-efficiency_2026-11-12.md)
-(identical committed scenarios rebuilt through producers) and are noted here because the cost
-is otherwise invisible to a reading of setup times.
-
-Pure native-function checks show the same shape at smaller scale:
-`tests/semantic/test_local_semantic_admission.py:121–147` gives seventeen parametrized JSON cases
-of one SQL function a clone each, and `tests/semantic/test_contextual_workflow_native.py:29–87,
-104–135` does the same for ten literal-argument calls; neither writes state. The package
-already offers a rollback connection on a shared session clone for exactly this kind of check
-(`db`, `tests/conftest.py:280–291`).
-
-Release preparation itself is not the repeated cost: `prepare_release` memoizes hashable inputs
-(`src/corpus_structure/semantic/prepare.py:544–580`, `lru_cache(maxsize=8)`), and
-`PreparedRelease` is frozen. What repeats is the clone with its policy replay
-([DTA-024](#dta-024)), persistence, native publication and task setup, plus input assembly and
-hashing ahead of the cache lookup. The repository already contains the contrasting design:
-`tests/semantic/serving_scenarios.py:218–344` builds one session-scoped sealed seed, validates
-its identity, policy and recipe, and clones it per test.
-
-Counterevidence. Tests that complete, seal, consolidate or commit need fresh state and are not
-in this footprint. The positive control inside each refusal test is valuable and depends on
-real committed state. Sharing has real validity premises to establish: `case` objects are
-mutable namespaces and some tests assign to them; a claimed task holds a five-minute lease
-taken from the server clock (`src/corpus_structure/semantic/sql/execution_projection.sql:86,103`),
-which matters only for refused operations that reach a lease-checking guard, since
-`ops.complete_task` refuses on status, attempt, holder and sealed run rather than lease expiry
-(`src/corpus_structure/semantic/sql/native_task_completion.sql:15–16`); and whether every helper in these
-families is read-only on the committed database was not verified for all sites. Under
-`--dist=loadgroup` without a group mark, the cases of one family spread across workers, so
-any shared scenario is still per worker and its benefit is bounded by [DTA-024](#dta-024). The
-diagnosis is the mismatch between a rollback-only claim and a per-case committed rebuild, not
-that fixtures are function-scoped in general.
+**No longer applicable (2026-11-17, source `fbd3f2a98`).** The cited modules were deleted. Rollback-only families now share one worker clone under `rollback_family` (`scripts/native_scenario_seeds.py:322–351`), and the forged-graph family moved there (`tests/semantic/test_data_operation_storage.py:2457–2539`). Families that still clone per case commit an attach or claim first, which justifies it. One premise to record, not a finding: shared rollback bases do not stop maintenance connections from advancing sequences, so generated identifiers can depend on case order; no test read asserts literal generated ids there. Earlier text is in Git at `fbd3f2a98`.
 
 <a id="dta-018"></a>
 
-## DTA-018 — Focused controls construct scenario preparation they do not use
+## DTA-018 — No longer applicable at the cited sites
 
-**FP-03/06/07, DP-10/23; A4; H5/H6/H12; companion §8.** The two manifestations recorded on
-2026-11-05 are corrected in source. `tests/math/conftest.py:25–61` now stages session fixtures
-by consumer (`spike_content` → `spike_readings` → `spike_extraction` → `spike_scoped`);
-`tests/math/test_property.py:92` and `tests/math/test_spans.py:158` request only the stage they
-read, and `tests/math/test_workers.py` asserts that coverage and early stages omit downstream
-work. The schema/projection control in `tests/semantic/test_private_records.py:266` now takes
-`private_preparation` rather than the full native scenario.
-
-The same cause has current manifestations elsewhere:
-
-- `tests/evaluate/test_record_policy_native.py:15–47` and the test at `:49` request
-  `private_source` but use it only for candidate identifiers and `prepared.release_id`, then
-  call `eval.record_policy_full_correct`. That function
-  (`src/corpus_structure/semantic/sql/record_policy.sql:103–131`) reads its arguments and one
-  `sem.artifact` row of the release; no run, task, source view, PDF or claim is consulted. The
-  second test describes itself as comparison mechanics only.
-- `tests/semantic/test_cli_failures.py:228–239` builds `build_resubmission_case` — a composed
-  release, controlled PDF views, a run, a queued agent task and real primary, formal and
-  construction producers — and keeps only the prepared release for a `db check` diagnostic.
-- Provider opt-in tests decide to skip inside the body after fixtures have built a clone,
-  release, PDF and published source: `tests/semantic/test_characterization_native.py:1727–1729`
-  and `:2112–2114`, `tests/semantic/test_native_documents.py:93,97`,
-  `tests/semantic/test_pdf_json_publication.py:211`. `tests/semantic/test_pm2_parser_stage_native.py:42–44`
-  shows the marker form that skips before preparation.
-- `tests/ingest/test_pdf_recognition.py:381–417` replaces the recognition call and starts no
-  parser, but obtains its owner through a helper that skips when the isolated parser environment
-  is absent (`:166–172`), so a scheduling control loses coverage for an unrelated prerequisite.
-
-Added 2026-11-13:
-
-- `tests/semantic/test_release_compatibility.py:91–123` needs a second database to show that the
-  release read cache is scoped per database. It obtains one through `semantic_database_at("head")`,
-  which creates a database from the bare server template and replays the whole migration chain
-  (`tests/semantic/conftest.py:48–57`). A second clone of the sealed head would be the same
-  deployment. The test's call phase is 43.5 s in `2e2a0e30…` (Measured, reported by a
-  contributor). The other users of `semantic_database_at` target real historical revisions and
-  need the replay.
-- The declared-data-operations kernel has its own instances, recorded under
-  [DTA-031](#dta-031).
-
-These consumers inherit the cost and the failure coupling of preparation their claim does not
-observe. Integrated siblings need the complete scenarios, and shared realistic setup avoids
-divergent stand-ins; the concern is these focused consumers only. The 32 other
-`build_resubmission_case` and 44 `prepare_operation_scenario` call sites were not individually
-assessed.
+**No longer applicable (2026-11-17, source `fbd3f2a98`).** `build_resubmission_case`, `prepare_operation_scenario` and the cited consumers are gone; `tests/semantic/test_release_compatibility.py:101–118` now uses a committed clone of a seed. No new focused consumer of an oversized scenario was established. Two related observations have their own homes: per-test recipes defeat reuse ([DTA-040](#dta-040)), and `current_pdf_source_factory`, a function-scoped fixture that commits a clone, registers and runs a demand per call, is used by 23 test functions in 17 files (`tests/semantic/current_pdf_source_support.py:350–366`), some of whose subjects need no source run. Earlier text is in Git at `fbd3f2a98`.
 
 <a id="dta-026"></a>
 
@@ -291,119 +268,19 @@ Checked 2026-11-13 and not added to this finding: the four `time.sleep(1.05)` wa
 second. The waits total about four seconds and are the claim. The observation that there is no
 time seam is production's, and the cost is small.
 
+**Status, 2026-11-17, source `fbd3f2a98`.** Changed footprint. Grace periods are injected short with a separate check of the production value (`tests/semantic/test_cpu_lifecycle.py:24–26, 50–51`). The executor class is replaced by patching the module attribute; production has no factory parameter. One test still drives private executor state (`:298–305`).
+
 <a id="dta-031"></a>
 
-## DTA-031 — Declared-data-operation native tests rebuild one identical admitted kernel per case
+## DTA-031 — Corrected: data-operation native tests clone a sealed kernel seed
 
-**FP-06/07, DP-10/23; A4; H5/H6/H12/H19; companion §2/6/8. Interface-checked by source
-inspection, 2026-11-13; durations Measured, runs named.** The native tests of the
-declared-data-operations work default to the most expensive preparation available, whatever the
-case needs.
-
-`kernel` (`tests/semantic/test_data_operation_storage.py:170–252`) is function-scoped. For
-every case it writes the same schema, declarations and target file to `tmp_path`, runs
-`prepare_data_operation_inputs`, `bound_data_operation_model` and
-`prepare_data_operation_runtime`, and then in one transaction persists the release, admits it
-through the real `admit_data_operation_release`, persists the runtime binding and inserts one
-project row (`:223–232`). Nothing in that state depends on the case: it holds no claim, lease or
-clock value. It sits on `ddo_kernel_engine` (`:162–168`), a fresh clone per test. About sixty
-cases in this module use it; `tests/semantic/test_data_operation_service.py` and
-`tests/semantic/test_data_operation_population_native.py` import it, and the population module
-and `tests/orchestrate/test_data_operation_execution.py` each write out the same
-persist–admit–bind sequence again in their own fixtures (`test_data_operation_population_native.py:137–151`,
-`orchestrate/test_data_operation_execution.py:76–80`).
-
-Measured: in `e332a3ef…` the storage module's 26 tests spend 416 s in setup and 44 s in their
-bodies. A contributor's split of one warm case gives about 0.65 s for the clone, about 3.4 s of
-Python before the first write and about 8 s inside the persist-and-admit transaction, for a body
-of about 1 s. `test_data_operation_binding_native.py` spends 181 s of setup for eight tests with
-no measurable call time, and `test_data_operation_identity_native.py` 44 s for one; both figures
-include a worker's first head build ([DTA-024](#dta-024)).
-
-Three kinds of consumer are treated alike:
-
-- **Tests that need fresh committed state.** Most of the module: attach, claim, retain and
-  publish commit in separate transactions, and the concurrency, visibility and purpose-principal
-  controls need real sessions (`:427–449`, `:1822`, `:1862`, `:1898`). A fresh database per case
-  is the claim here. What these cases do not need is to produce the kernel again; it is the same
-  committed state every time.
-- **Rollback-only refusal families.** Invalid output (`:610`), fence renewal (`:1266`) and forged
-  graph (`:1972`), four cases each, rebuild the kernel and then refuse. Each still commits an
-  attach or claim first, the caveat recorded for witnessed applicability under
-  [DTA-025](#dta-025).
-- **Checks that write nothing.** `:738` takes the full kernel to call `data.ddo_normalize`.
-  `:2150–2177` clones to call `data.ddo_json_meaning`. `binding_native_connection`
-  (`tests/semantic/test_data_operation_binding_native.py:42–72`, also used by the parameter and
-  population-selection modules) and both identity-native tests take a clone to run function
-  definitions and calls inside a transaction they roll back. The shared rollback connection `db`
-  (`tests/conftest.py:280–291`) exists for this; nine test files use it and 155 use clone
-  fixtures. The per-case saving here is under a second; the weight is that these checks do not
-  say they write nothing, and each still triggers a head build on whichever worker receives it.
-
-The plan does not help the tests choose. The contracts companion says native checks use the
-working database and need no disposable database
-(`docs/plans/declared-data-operations/contracts-and-compilation.md:359–361`), while the
-coordinator records isolated test databases and a working database that is behind the head. The
-code follows the coordinator. With no stated line between "needs a fresh admitted kernel" and
-"reads installed functions", every native check takes the former. That inconsistency is the
-plan owner's to settle; it is listed in the [account](README.md#observations-for-the-ddo-plan).
-
-Lineage and counterevidence. The cause is the one the design review named F03 and this account
-names [DTA-025](#dta-025): identical committed scenarios rebuilt per consumer. It has its own
-identity here because the review predates these tests and the footprint is the fastest-growing
-part of the suite. `tests/semantic/serving_scenarios.py:218–344` already shows the contrasting
-shape, a sealed seed that is validated once and cloned per test. Whether a seed of the kernel
-is valid to share rests on premises not all checked here: the contributor could not split the
-eight-second transaction between release persistence, catalog verification and runtime binding,
-and whether `prepare_data_operation_inputs` is memoized was not established. A sealed kernel
-seed is a solution lead only.
+**Corrected (2026-11-17, source `fbd3f2a98`).** `ddo_kernel` clones a per-worker sealed seed (`tests/semantic/data_operation_kernel_support.py:288–306`); binding checks use a rollback family; identity and JSON checks use read or rollback connections. Residue: expression checks that still create a database per case ([DTA-047](#dta-047)), and per-worker seed builds without affinity ([DTA-037](retirement-transfer.md#dta-037)). Earlier text is in Git at `fbd3f2a98`.
 
 <a id="dta-032"></a>
 
-## DTA-032 — Standalone interpretation contexts recompute implementation determinants on every call
+## DTA-032 — Corrected by a different mechanism than the plan records
 
-**FP-07, DP-10; A4; H12/H14/H26; companion §8. Interface-checked by source inspection,
-2026-11-13; the share of test time it explains is suspected, not measured.** The cause is in
-production and is reported here because tests are where it is paid most often.
-
-`grammar.parse` prepares an interpretation context whenever the caller passes none, and does so
-before it consults its memo (`src/corpus_structure/methods/math/grammar.py:982–992`), so a memo
-hit pays for the context too. `prepare_interpretation_context`
-(`src/corpus_structure/semantic/analysis_contracts.py:638–659`) always calls `_analysis_runtime`
-(`:472–485`) and, with no release, `_standalone_model` (`:409–412`), which compiles the execution
-model from `trusted_execution_inputs()`. A contributor traced that path to an uncached read of
-about a hundred package files, distribution version lookups and a pure-Python parse of the
-physical model's YAML closure (`src/corpus_structure/semantic/contracts.py:1180–1300`,
-`src/corpus_structure/schema/physical.py:28–52`); the coordinator read the call chain and not the
-bodies of those two functions.
-
-In tests, `tests/math/test_property.py:120–132` calls `G.parse(latex, "any_value", macros)` once
-per generated example with no context, 300 examples under the profile that managed runs select,
-and the grammar tests call it through a helper in the same way. Measured in `2e2a0e30…`:
-`test_generated_layer` takes 198 s, about 0.66 s per example. That one property is most of the
-time spent in Hypothesis tests, which is why the example count is not the first thing to look
-at. The inputs are fixed for the life of the process, so the preparation is stable work repeated
-per call.
-
-**Refined by the [design review](../reviews/design_review_test-system-target-design_2026-11-13.md),
-2026-11-13, and confirmed by the coordinator.** The footprint is wider than the standalone
-route. With a prepared release, `_profile` still compares the model's digests with
-`_semantic_implementation_digests()`, which calls `trusted_execution_inputs()`, and
-`_analysis_runtime` calls `analysis_implementation_inputs()`
-(`src/corpus_structure/semantic/analysis_contracts.py:454–485`); neither is cached, so every
-interpretation context re-reads the determinants at least twice. `trusted_execution_inputs`
-documents the intended lifetime as one read at an application entry boundary
-(`src/corpus_structure/semantic/contracts.py:1166–1169`). A contributor's reading puts
-production callers inside per-span and per-item loops (`methods/math/source_context.py:238`,
-`methods/math/native.py:285,948,1261`); that production consequence is noted for the broad audit
-and not assessed here.
-
-Uncertainty. Nothing was profiled. That context preparation dominates the 0.66 s is a reading of
-source; the generated formulas also do real parsing. Whether the same path inflates the 352 s
-`test_coverage_beside_s5` or the staged-worker controls was not traced. Production callers that
-compose a prepared projection pass their own context and do not take this path, so the
-production cost may be small; the adapter's own comment describes the standalone route as the
-explicit trusted base profile.
+**Corrected (2026-11-17, source `fbd3f2a98`).** The standalone interpretation context is now memoized per macro table and kind (`src/corpus_structure/methods/math/grammar.py:983–993`). The process-snapshot interface the test-system plan cites as the correction no longer exists; it was removed with the legacy compiler (`1f885d9ed`). See the note under [DTA-037](retirement-transfer.md#dta-037). Earlier text is in Git at `fbd3f2a98`.
 
 <a id="dta-002"></a>
 
@@ -480,6 +357,28 @@ The 442-test union `e332a3ef…` (2026-11-13, 6 workers): 504 s wall. Three file
 machinery the declared-data-operations plan removes take 41% of its worker time, almost all of
 it `test_domain_operations.py`; the `test_data_operation_*.py` files take 29%, of which 85% is
 setup.
+
+### Measurements of 2026-11-17
+
+**Measured from stored results; no test was run.** Method and tables are in the
+[evidence folder](../evidence/2026-11-17_joint-audit-refresh/README.md). The host was shared.
+
+- **No passed full run exists after `2e2a0e30…` (2026-11-10).** The full-run figures above
+  therefore predate the declared-data-operations tests, the test-system work and the
+  retirements, and should not be read as current.
+- **The last 120 passed narrowed runs (2026-11-16 15:19 to 2026-11-17 16:53):** median wall
+  29.1 s; median fixed cost outside test phases 7.4 s (0.8–39.9 s), of which collection is a
+  median 2.8 s. Runs with no database fixture finish in a few seconds; runs whose setup reaches
+  a head or seed build show setup of tens of seconds to minutes.
+- **Run `873f904c…` (2026-11-14, 685 tests, 4 workers, passed):** 318 s wall; setup is 42% of
+  worker time (473 of 1,115 worker-seconds) and 403 of those seconds sit in 17 tests whose
+  setup exceeds 15 s. `tests/semantic/` holds 98.6% of worker time. This run predates most of
+  the efficiency slices.
+- **Run `42cd4f8b…` (2026-11-17, 5 tests, 1 worker, private host, failed):** three tests of
+  `tests/semantic/test_operation_event_native_journey.py` spent 382, 448 and 576 s in setup.
+  A failed run shows where time went, not a normal cost; the cause was not examined.
+
+These establish no speedup and no current full-run profile.
 
 Inspected with no shortfall established, 2026-11-13: the one-second sleeps in
 `tests/math/test_grammar.py` and `tests/math/test_stages.py` are interrupted by sub-second
