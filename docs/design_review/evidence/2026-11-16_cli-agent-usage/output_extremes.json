@@ -1,0 +1,24 @@
+{
+ "counts": {
+  "outputs with parsed head": 18111,
+  "exec with parsed result": 18587,
+  ">100000 tokens before cap": 33,
+  ">1000000 tokens before cap": 21,
+  "exec returned a still-running session id (needs write_stdin poll)": 3442,
+  "output begins with direnv load/unload noise": 16748,
+  "output reports direnv blocked / agent environment unavailable": 69
+ },
+ "by_class": {
+  ">100000 rg": 9,
+  ">100000 git": 9,
+  ">1000000 git": 9,
+  ">100000 read": 8,
+  ">1000000 rg": 5,
+  ">1000000 read": 4,
+  ">100000 rg-files": 3,
+  ">100000 python-inline": 3,
+  ">1000000 rg-files": 2,
+  ">100000 other": 1,
+  ">1000000 python-inline": 1
+ }
+}

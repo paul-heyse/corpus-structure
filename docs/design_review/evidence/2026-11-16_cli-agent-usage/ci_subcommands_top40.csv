@@ -1,0 +1,41 @@
+subcommand,count,out_bytes_when_sole_ci,options_used,example
+ci test failures,822,2092023,--json:770;--diagnostic-chars:247;--native-traceback:199;--lane:174;--limit:142;--after:12;--help:8;--process-diagnostic:7,uv run ci test failures bff4975e976d45b3a270ac260558189b --lane ordinary --json
+ci test,758,138591,--:737;--json:604;--workers:549;-k:65;--help:21;-m:3;--collect:1;--providers-only:1,uv run ci test --json -- python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_final_trigger_catalog_tracks_explicit_parent_owner_transfer
+ci results hold,439,150092,--json:391;--help:29;--reason:2,uv run ci results hold ${id} --json
+ci model change,332,749235,--json:294;--view:99;--limit:60;--help:30;--after:11;--stdout:8,uv run ci model change inspect 21a160be58c9460f8121d7a960b0c44e --json
+ci results show,280,148032,--json:278;--help:2;--view:1,uv run ci results show d883163ea6034b0ab32f725026adb3e6 --json
+ci check types,189,24827,--only:189;--json:166;--view:10,uv run ci check --only types --json
+ci test retry,167,26733,--json:160;--lane:153;--workers:44;--help:5,uv run ci test retry bff4975e976d45b3a270ac260558189b --lane ordinary --json
+ci test private,108,15630,--native-host:108;--:108;--json:103;--workers:83;--maxfail:3;--providers-only:3;-p:1,uv run --no-sync ci test --native-host private --workers 1 --json -- python/corpus-structure/tests/semantic/test_record_policy_native_predicate.py
+ci results output,90,262128,--stream:82;--json:79;--max-bytes:20;--step:17;--help:7;--max-chars:2;--limit:1;--tail:1,uv run ci results output f1de2c525ebc41d9b8bd1936ea82a31e --stream stdout --json
+ci test collect,90,12115,--json:85;--:85;--providers-only:6;--help:2;-k:1,uv run --no-sync ci test collect --json -- python/corpus-structure/tests/semantic/test_operation_reporting_native.py
+ci results watch,84,91181,--json:75;--seconds:19;--help:9,uv run ci results watch 62f5f624947344ce8357845bc5131499 --json
+ci test scheduling,73,118575,--json:73;--limit:58,uv run ci test scheduling 62f5f624947344ce8357845bc5131499 --limit 5 --json
+ci docs check,64,10487,--json:64,uv run ci docs check --json
+ci results list,51,108996,--json:42;--limit:31;--help:9;--action:5;--after:3,uv run ci results list --help
+ci results inspect,47,92936,--json:45;--view:31;--limit:14;--severity:2;--help:2,uv run ci results inspect 46b094a92de940f6b651b242d9cd4110 --view observations --json
+ci check lint,43,32780,--json:43;--only:43;--view:1,uv run ci check --only lint --json
+ci db status,29,14751,--json:28;--maintenance:27;--help:1,uv run ci db status --maintenance --json
+ci test coverage,25,37943,--json:22;--view:13;--limit:10;--help:3,uv run ci test coverage 15b7d39814a9427caa19100743f3f1d9 a16cd9c39fad4c2ebec709873ad7a9a7 8a93e554edcd4631a090716bd7c0f80d --view unresolved --limit 20 --json
+ci results,16,22226,--help:11;--json:5,uv run ci results --help
+ci adr new,16,12357,--title:16;--json:3;--help:1,uv run ci adr new postgresql-current-realization --title 'DDO PostgreSQL derives structural wire APIs and reserves renewal custody'
+ci doctor,13,6137,--json:13,uv run ci doctor --json
+ci evidence finalize,10,12601,--help:5;--json:5,uv run ci evidence finalize --help
+ci check,9,5341,--help:6;--json:3;--only:1,uv run ci check --json
+ci db,8,2245,--help:8,UV_NO_SYNC=1 uv run ci db --help
+ci results export,7,9577,--json:5;--role:5;--help:2;--destination:1,uv run ci results export --help
+ci check docs,7,1691,--json:7;--only:7,UV_NO_SYNC=1 uv run ci check --only docs --json
+ci,6,6325,--help:6,UV_NO_SYNC=1 uv run ci --help
+ci evidence check,5,225,--json:5,uv run ci evidence check --json
+ci docs commands,5,6107,--stdout:5,UV_NO_SYNC=1 uv run ci docs commands project init --stdout
+ci evidence,4,8468,--help:4,uv run ci evidence --help
+ci evidence index,4,135,--json:4,uv run ci evidence index --json
+ci adr lint,4,196,--json:1,uv run --no-sync ci adr lint
+ci schema check,4,252,--json:4,UV_NO_SYNC=1 uv run ci schema check --json
+ci project,4,0,--help:4,UV_NO_SYNC=1 uv run ci project --help
+ci project init,4,1868,--help:4,UV_NO_SYNC=1 uv run ci project init --help
+ci run,4,0,--help:4,UV_NO_SYNC=1 uv run ci run --help
+ci evidence retain,3,10375,--help:3,uv run ci evidence retain --help
+ci result,3,1360,--help:3,uv run --no-sync ci result --help
+ci db init,3,7821,--help:3,UV_NO_SYNC=1 uv run ci db init --help
+ci results recover,3,1255,--json:3,UV_NO_SYNC=1 uv run ci results recover b3d0e284fc7d487ab9c99ff9ec397f1c --json

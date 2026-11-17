@@ -1,0 +1,88 @@
+{
+ "code-mapper": {
+  "read": 330,
+  "rg": 261,
+  "rg-files": 59,
+  "git": 25,
+  "fs": 15,
+  "ci": 14,
+  "other": 11,
+  "python-inline": 11
+ },
+ "implementation-reviewer": {
+  "read": 195,
+  "git": 159,
+  "rg": 133,
+  "python-inline": 37,
+  "ci": 33,
+  "rg-files": 27,
+  "other": 11,
+  "fs": 6
+ },
+ "design-reviewer": {
+  "read": 121,
+  "rg": 75,
+  "git": 11,
+  "rg-files": 8,
+  "python-inline": 4
+ },
+ "explorer": {
+  "read": 36,
+  "rg": 32,
+  "rg-files": 4
+ },
+ "executor": {
+  "read": 5649,
+  "rg": 3881,
+  "python-inline": 2597,
+  "git": 1847,
+  "ci": 1699,
+  "other": 364,
+  "rg-files": 305,
+  "pyrefly": 206,
+  "ruff": 129,
+  "python-module": 91,
+  "fs": 80,
+  "trivial": 10,
+  "pytest": 9,
+  "sed-i": 2,
+  "psql": 1,
+  "python-script": 1,
+  "ty": 1
+ },
+ "test-agent": {
+  "read": 80,
+  "ci": 69,
+  "rg": 56,
+  "python-inline": 21,
+  "git": 19,
+  "rg-files": 5,
+  "other": 5
+ },
+ "library-research": {
+  "read": 99,
+  "rg": 36,
+  "rg-files": 11,
+  "fs": 5,
+  "python-inline": 5,
+  "git": 4,
+  "ast-grep": 1,
+  "other": 1
+ },
+ "root": {
+  "read": 1959,
+  "git": 1355,
+  "ci": 1337,
+  "rg": 1247,
+  "python-inline": 690,
+  "rg-files": 146,
+  "just": 93,
+  "other": 65,
+  "python-module": 51,
+  "pyrefly": 49,
+  "fs": 39,
+  "ruff": 30,
+  "sed-i": 2,
+  "python-script": 2
+ }
+}

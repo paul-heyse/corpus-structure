@@ -1,0 +1,209 @@
+{
+ "edit_scripts_total": 2600,
+ "by_kind": {
+  "python edit (loop/multi-file)": 1574,
+  "python edit (single-file)": 1022,
+  "sed-i": 4
+ },
+ "examples": [
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 3,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/native_data_steps.py');s=p.read_text();s+=''' def require_frozen_data_prerequisites(existing, target_metadata): r"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 3,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/source_view_native.py');s=p.read_text().replace(' required = required.replace(\" -- {record_native_admission}\", ad"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 3,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/alembic_privileges.py');s=p.read_text().replace('from alembic.operations import MigrateOperation, Operations\\n','"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 3,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/tests/semantic/test_native_candidate_cli.py');s=p.read_text().replace(' upgrade_ops=UpgradeOps(\\n',' privilege_policies=(),\\n upgrade_ops=Upgra"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 3,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/alembic_privileges.py');s=p.read_text();s=s.replace('\\n\\ndef policy_fact(value) -> PrivilegePolicy:', ''' class L"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 4,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/native_candidate.py');s=p.read_text();s+=''' def verify_frozen_catalog(connection, admission): \"\"\"Run the frozen "
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 3,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/alembic_privileges.py');s=p.read_text();s=s.replace('from sqlalchemy import text\\n','from sqlalchemy import text\\"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 4,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/native_objects.py');s=p.read_text().replace(' \"\"\"Explicit native source, scope, catalog or transition refusal.\"\"\""
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/native_candidate.py');s=p.read_text().replace(' context = {\"operation_kind\": \"rendered_upgrade\", \"sqlstate\": stat"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/alembic_privileges.py');s=p.read_text().replace('def _revoke_acl_edges(connection, policy, target, kind):','def _"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 2,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/native_candidate.py');s=p.read_text().replace('if frame.filename == \"native_candidate.py\"]','if frame.filename =="
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml') p.write_text('baseline: 392738104\\npacks: [statistics]\\nnative_predecessor: semantic_ddo"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');s=p.read_text().replace('baseline: 392738104','baseline: \"392738104\"');p.write_text(s) p"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/sql/data_operations.sql');s=p.read_text();old=''' SELECT jsonb_build_array('mapping',coalesce(jsonb_agg(jsonb_bui"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');s=p.read_text().replace('baseline: \"392738104\"','baseline: \"4f49a3a44\"');p.write_text(s)"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/sql/data_operations.sql');s=p.read_text();old='ORDER BY profile_field.value->>0 COLLATE \"C\"';new='ORDER BY (profi"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path import subprocess p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');s=p.read_text();lines=s.splitlines();lines[0]='baseline: \"'+subprocess"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/alembic_privileges.py');s=p.read_text();needle=''' failure.authoring_context = diagnostic raise failure from erro"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/alembic_privileges.py');s=p.read_text();needle=''' from networkx import DiGraph, NetworkXUnfeasible, lexicographi"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');lines=p.read_text().splitlines();lines[0]='baseline: \"e84bfb617\"';p.write_text('\\n'.join"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/native_candidate.py');s=p.read_text();marker='\\n\\ndef _shape_definition(connection, sql, *, source):';helper=''' "
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/tests/semantic/test_alembic_privileges.py');s=p.read_text();old=''' function = definition_from_sql(conn, f'CREATE FUNCTION \"{schema}\".guard() R"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/tests/semantic/test_alembic_privileges.py');s=p.read_text().replace(''' # The native transition's intermediate owner is still the actual predec"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (single-file)",
+   "files": 1,
+   "example": "from pathlib import Path import subprocess p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');lines=p.read_text().splitlines();lines[0]='baseline: \"'+subprocess.che"
+  },
+  {
+   "session": 9,
+   "role": "executor",
+   "kind": "python edit (loop/multi-file)",
+   "files": 2,
+   "example": "from pathlib import Path p=Path('python/corpus-structure/src/corpus_structure/semantic/native_candidate.py');s=p.read_text();old=''' catalog_json=json.dumps({**item.catalog, \"owner\": owners[parent]}, "
+  }
+ ],
+ "apply_patch_repeated_replacement_episodes": 3,
+ "apply_patch_examples": [
+  {
+   "session": 71,
+   "role": "executor",
+   "files": 5,
+   "removed": "from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId",
+   "added": "from corpus_structure.semantic.identifiers import ProjectId, ReleaseId"
+  },
+  {
+   "session": 69,
+   "role": "executor",
+   "files": 4,
+   "removed": "build = private_build",
+   "added": "build = create_private_build()"
+  },
+  {
+   "session": 21,
+   "role": "root",
+   "files": 3,
+   "removed": "effect[\"authorization\"] = list(effect[\"authorization\"])",
+   "added": "effect = {**asdict(AUTHORIZATION_EFFECT), \"authorization\": list(AUTHORIZATION_EFFECT.authorization)}"
+  }
+ ]
+}

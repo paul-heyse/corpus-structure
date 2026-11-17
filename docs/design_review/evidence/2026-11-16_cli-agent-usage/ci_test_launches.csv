@@ -1,0 +1,759 @@
+session,role,kind,selection,exit,wall_s,still_running_after_yield,ids
+9,executor,ci test (paths),python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_final_trigger_catalog_tracks_explicit_parent_owner_transfer,,1.000811184,True,
+9,executor,ci test (paths),python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_final_trigger_catalog_tracks_explicit_parent_owner_transfer,0,7.02e-06,False,f9c8b3af0f7d47299545f195e17f484a f9c8b3af0f7d47299545f195e17f484a
+9,executor,ci test (paths),python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_final_trigger_catalog_tracks_explicit_parent_owner_transfer,,1.001303984,True,
+9,executor,ci test (full/flags),,0,1.896728822,False,
+9,executor,ci test (paths),python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_reference_table_policies_preserve_evaluation_isolation,1,0.446657639,False,
+9,executor,ci test (paths),python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_rendered_candidate_catalog_failure_keeps_owning_phase,,1.000792381,True,
+9,executor,ci test (paths),python/corpus-structure/tests/test_cli_model_inspect.py::test_candidate_summary_counts_exact_retained_upgrade_without_execution,,1.000281449,True,
+9,executor,ci test (paths),python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_successor_trigger_declarations_use_frozen_parent_before_normalization,,1.001284369,True,
+9,executor,ci test (paths),python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_successor_trigger_declarations_use_frozen_parent_before_normalization,,1.000845032,True,
+12,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_transitive_read_native.py::test_read_and_publication_pin_selected_rebound_support_in_addition_to_orig,,1.00107423,True,
+12,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py::test_explicit_discovery_input_filters_parent_before_scalar_cardinality python/corpus-str,,1.001168995,True,
+12,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py::test_explicit_discovery_input_filters_parent_before_scalar_cardinality,,1.001261933,True,
+12,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_wire.py::test_discovery_role_wire_is_optional_closed_identifier,,1.001205846,True,
+14,test-agent,ci test (paths),python/corpus-structure/tests/math/test_scope.py python/corpus-structure/tests/math/test_source_context.py python/corpus-structure/tests/math/test_spans.py pyth,,1.000717482,True,
+14,test-agent,ci test (paths),python/corpus-structure/tests/semantic/test_metadata.py::test_metadata_deterministic_and_fixed python/corpus-structure/tests/semantic/test_operation_call_genera,,1.000574789,True,
+14,test-agent,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_provider_native.py::test_native_provider_selected_attachment_and_forgery_refusal python/corpus-struct,,1.0012411430000001,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py::test_captured_core_products_own_return_shape_and_keep_scoped_native_parameters p,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/db/test_lifetime_native.py::test_reserved_renewal_runs_while_all_port_capacity_is_borrowed python/corpus-structure/tests/db/test_s,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/test_cli.py::test_help_lists_groups_without_building_settings python/corpus-structure/tests/test_cli.py::test_status_json_is_the_r,,1.000749822,True,
+21,root,ci test (paths),python/corpus-structure/tests/test_cli.py::test_demand_progress_uses_exact_target_and_effectful_native_read python/corpus-structure/tests/test_cli.py::test_dema,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/db/test_claim_renewal.py python/corpus-structure/tests/db/test_store.py python/corpus-structure/tests/semantic/test_native_rowtype,,1.001106727,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_storage.py::test_actual_writer_admits_exact_authored_binding_and_retains_every_input python/corpus-st,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_authored_evaluator_native.py::test_evaluator_authored_reference_allowed_and_ordinary_writer_refused,,1.000253181,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_demand_results.py::test_detached_verifier_uses_disk_index_and_independent_identity_support_controls,,1.000890537,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_demand_results.py::test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json python/corpus-structure/test,0,6.491e-06,False,ec06c0d8a1ae48afb868e14c107abf9e ec06c0d8a1ae48afb868e14c107abf9e ec06c0d8a1ae48afb868e14c107abf9e
+21,root,ci test (paths),python/corpus-structure/tests/db/test_claim_renewal.py python/corpus-structure/tests/semantic/test_visual_routing.py python/corpus-structure/tests/test_cli_dema,,1.000632768,True,
+21,root,ci test (paths),python/corpus-structure/tests/db/test_arrow_types.py python/corpus-structure/tests/db/test_notice_registration.py python/corpus-structure/tests/methods/test_dec,,1.001314269,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_output_witnesses.py python/corpus-structure/tests/semantic/test_pdf_region_operation.py python/corpus,,1.001568676,True,
+21,root,ci test (paths),python/corpus-structure/tests/test_cli.py::test_authored_input_refuses_before_database_acquisition,,1.001269519,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_authored_evaluator_native.py python/corpus-structure/tests/semantic/test_data_operation_body_confidentiality.py pyth,,1.001721514,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_materialization_native.py::test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_body,,1.001454993,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_contextual_selected_encoder.py python/corpus,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_source_inspection_tools.py python/corpus-structure/tests/semantic/test_source_interface_read.py python/corpus-struct,,1.001291073,True,
+21,root,ci test (paths),python/corpus-structure/tests/schema/test_source_discovery.py python/corpus-structure/tests/schema/test_source_migrations.py python/corpus-structure/tests/seman,,1.000809365,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_graph_inspection.py python/corpus-structure/tests/semantic/test_source_inspection_tools.py,,1.001915629,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_graph_projections.py py,128,8.851e-06,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_graph_projections.py py,,1.001120227,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_graph_projections.py py,,1.001750563,True,
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_record_alignment.py python/corpus-structure/tests/evaluate/test_semantic_alignment.py python/corpus-structure/tests/,,1.000722484,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_alembic_privileges.py python/corpus-structure/tests/semantic/test_change_impact.py python/corpus-structure/tests/sem,,1.001435861,True,
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_graph_comparison.py python/corpus-structure/tests/semantic/test_data_operation_graph_projections.py python/corpus-st,,1.001324811,True,
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_characterization_assessment.py python/corpus-structure/tests/evaluate/test_graph_comparison.py python/corpus-structu,,1.001187352,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_assessment_graph_native.py python/corpus-structure/tests/semantic/test_graph_inspection.py python/corpus-structure/t,,1.000974413,True,
+21,root,ci test (full/flags),,0,2.158290284,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_native_definition_projection.py,,1.001502142,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_graph_inspection.py python/corpus-structure/tests/semantic/test_native_definition_projection.py,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_native_definition_projection.py,,1.001212899,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_native_definition_projection.py python/corpus-structure/tests/semantic/test_typed_realization.py,,1.001364666,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_model_comparison.py,,1.00184982,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_model_comparison.py python/corpus-structure/tests/semantic/test_source_comparison.py,,1.001142863,True,
+21,root,ci test (paths),-k not native_cli python/corpus-structure/tests/schema/test_source_migrations.py python/corpus-structure/tests/semantic/test_model_comparison.py,,1.001439545,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_protocol_values.py python/corpus-structure/tests/semantic/test_model_comparison.py python/corpus-stru,,1.001336893,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_downstream_profile_acquisition.py python/corpus-structure/tests/semantic/test_learned_primary.py python/corpus-struc,,1.001189779,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_native_definition_projection.py,,1.001323558,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_native_definition_projection.py::test_linkml_variant_is_checked_at_its_class_owner,,1.001673735,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-structure/tests/semantic/test_model_comparison.py python/corpus-structur,,1.001384433,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_model_comparison.py python/corpus-structure/tests/semantic/test_source_comparison.py,,1.001850641,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_analysis_policies.py python/corpus-structure/tests/semantic/test_math_context_custody.py,,1.001092435,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_artifacts.py python/corpus-structure/tests/semantic/test_data_operation_protocol_values.py,,1.000543491,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_analysis_policies.py python/corpus-structure/tests/semantic/test_data_operation_artifacts.py python/corpus-structure,,1.001032182,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_artifacts.py,,1.001049942,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_artifacts.py python/corpus-structure/tests/semantic/test_data_operation_protocol_values.py python/cor,,1.001383673,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_data_operation_graph_projections.py p,,1.001199181,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py tests/scripts/test_test_receipts.py::test_real_collection_failure tests/scripts/t,,1.000579822,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/missing_test.py python/corpus-structure/tests/semantic/test_pdf_domain.py,,1.000568548,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_data_operation_graph_projections.py,,1.00130528,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_wire.py,,1.001580392,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_companion_export.py python/corpus-structure/tests/semantic/test_native_source_budgets.py python/corpus-structure/tes,,1.000700728,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_selected_source_search.py,,1.000577289,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_selected_source_search.py,,1.000954505,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_projection_analysis.py python/corpus-structure/tests/semantic/test_projection_recipe.py python/corpus-structure/test,,1.001690422,True,
+21,root,ci test (paths),-k not static_operation and not changed_implementation and not live_subject and not declared_class and not alias and not projection and not dependent and not im,,1.001185456,True,
+21,root,ci test (paths),-k not static_operation and not changed_implementation and not live_subject and not declared_class and not alias and not projection and not dependent and not im,,1.00106857,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_record_policy_authority.py python/corpus-structure/tests/semantic/test_prepared_cpu_kernel.py python/corpus,,1.000824934,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_record_policy_authority.py python/corpus-structure/tests/semantic/test_prepared_cpu_kernel.py python/corpus,,1.001212606,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_record_policy_authority.py python/corpus-structure/tests/semantic/test_prepared_cpu_kernel.py python/corpus,,1.000919538,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_data_operation_selected_graph_sql.py ,,1.001156779,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_record_policy_native_predicate.py,,1.001974234,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_authority_leaf.py python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tests/semant,,1.000247991,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_authority_leaf.py python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-struc,,1.000768976,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_record_policy_authority.py,,1.002526488,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_record_policy_authority.py python/corpus-structure/tests/semantic/test_source_comparison.py,,1.000925185,True,
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_policy.py python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corp,,1.000570325,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_data_operation_wire.py python/corpus-,0,7.05e-06,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_data_operation_wire.py python/corpus-,,1.001284774,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_record_policy_authority.py python/corpus-structure/tests/semantic/test_record_feature_fit_read.py python/co,0,4.4325121020000005,False,3cee5281d4a94f9da25d990a4d04bf83 3cee5281d4a94f9da25d990a4d04bf83
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_record_feature_fit_read.py python/corpus-structure/tests/semantic/test_record_policy_completion_native.py,,1.000594333,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contract_inspection.py python/corpus-structure/tests/semantic/test_data_operation_ports.py python/corpus-structure/t,,1.001649775,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_current_operation_explanation.py,,1.003108284,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_record_feature_fit_read.py python/corpus-structure/tests/test_semantic_runtime_settings.py,,1.000770589,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contract_inspection.py python/corpus-structure/tests/semantic/test_current_operation_explanation.py python/corpus-st,,1.001265558,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contract_inspection.py python/corpus-structure/tests/semantic/test_current_operation_explanation.py python/corpus-st,,1.000518066,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contract_inspection.py python/corpus-structure/tests/semantic/test_current_operation_explanation.py python/corpus-st,0,6.46e-06,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_current_operation_explanation.py python/corpus-structure/tests/semantic/test_data_operation_demands.py python/corpus,,1.001188554,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_cli_failures.py python/corpus-structure/tests/semantic/test_native_render_commands.py python/corpus-structure/tests/,,1.001339477,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_native_source_budgets.py python/corpus-structure/tests/semantic/test_selected_source_search.py python/corpus-structu,,1.000724279,True,
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/semantic/test_record_consumers.py python/corpus-structure/tests/semantic,,1.000671165,True,4ea52f2bc4f245ed9f197089bb5badbe
+21,root,ci test (paths),python/corpus-structure/tests/test_cli.py,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_contextual_candidates.py python/corpus-structure/tests/semantic/test_contextual_query_replay.py,,1.00123156,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_json_member_projection.py python/corpus-structure/tests/semantic/test_data_operation_member_projectio,,1.000974723,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_record_feature_fit_transport.py,,1.000994629,True,cf46c67c442c4ba4bc94e5c54295c99a
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_record_feature_fit_read.py,,1.001156273,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py::test_native_admission_policy_remains_a_definition_determinant,,1.000911245,True,3f465efb8eed48bb917842e83acabd41
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py,,1.000854184,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_current_operation_explanation.py python/corpus-structure/tests/semantic/test_operation_reporting.py,,1.000945404,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_record_feature_fit_read.py,,1.000947858,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_current_operation_explanation.py python/corpus-structure/tests/semantic/test_operation_reporting.py,,1.00062062,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_operation_reporting.py::test_native_diagnostic_retains_owner_binding_without_supplied_prepared_context,,1.001058261,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_record_sources.py python/corpus-structure/tests/semantic/test_identity_vectors.py python/corpus-structure/t,,1.00142279,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_cli_failures.py python/corpus-structure/tests/semantic/test_rich_knowledge_identity.py python/corpus-structure/tests,,1.000723317,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_pack_acquisition.py::test_acquire_and_compose_never_invoke_compiler python/corpus-structure/tests/semantic/test_term,,1.00154035,True,d6921bf744844c03aea2dbab62b49a36
+21,root,ci test (paths),python/corpus-structure/tests/orchestrate/test_source_operation.py python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-,,1.001040853,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_sentence_products.py,,1.001095453,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_alias_policy.py python/corpus-structure/tests/semantic/test_pack_acquisition.py python/corpus-structure/tests/semant,,1.001032998,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_demand_export.py python/corpus-structure/tests/test_cli.py,,1.00044417,True,95fa3a785c094177829609ab6de7ec12
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_contextual_candidates.py python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tests/,,1.00115805,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_cpu_execution.py python/corpus-structure/tests/semantic/test_cpu_receipts.py python/corpus-structure/tests/semantic/,,1.001204806,True,ab6d2ce0b3f74df99814ea4fb539041c
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_policy_capabilities.py python/corpus-structure/tests/semantic/test_cpu_execution.py python/corpus-st,,1.001610115,True,
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_demands.py python/corpus-structure/tests/test_cli_observations.py python/corpus-structure/tests/test_cli_source_demands.p,,1.001137058,True,
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_observations.py::test_inspection_bounds_joined_zero_rows_and_withholds_sole_row_cursor python/corpus-structure/tests/test,,1.001421011,True,69be3d7fe3af42589c019286a71b81af
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_demands.py python/corpus-structure/tests/test_cli_observations.py python/corpus-structure/tests/test_cli_source_demands.p,,1.000603815,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_companion_call_bindings.py python/corpus-structure/tests/semantic/test_core_operation_calls.py python/corpus-structu,,1.001341331,True,9d478199d224463a8bfcabfcfefcc6ae
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_companion_call_bindings.py python/corpus-structure/tests/semantic/test_core_operation_calls.py python/corpus-structu,,1.001601651,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_operation_reporting.py python/corpus-structure/tests/test_cli_schema_diagnostic_boundaries.py,,1.000669046,True,26ecd2e9ffa94926bb16f0773295104d
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_reading_resolution.py,,1.000994949,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_rich_knowledge_identity.py,,1.000905483,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_reference_positions.py,,1.000369387,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_rich_knowledge_identity.py,,1.000746717,True,d83ee36adf0e41108459aa0a14e67ea8
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_rich_knowledge_identity.py::test_declared_local_keys_preserve_actual_source_context_without_rewriting_values,,1.001183232,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_read_contracts.py::test_cli_database_failure_is_not_semantic_refusal python/corpus-structure/tests/test_review_cli.p,,1.001369072,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_cli_failures.py::test_cli_database_failure_is_not_semantic_refusal python/corpus-structure/tests/test_review_cli.py:,,1.001439321,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_reference_positions.py,,1.000943904,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_external_extraction_cpu.py python/corpus-structure/tests/semantic/test_model_comparison.py python/corpus-structure/t,,1.001346104,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_native_candidate_cli.py::test_native_retirement_refusal_reports_exact_missing_and_unexpected_intent,,1.000674596,True,609d8c10868644a4873ba0dd063e5812
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_rich_knowledge_sources.py python/corpus-structure/tests/semantic/test_rich_operations.py,,1.001390916,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_pack_acquisition.py,,1.000660217,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_native_definition_projection.py::test_native_projection_preserves_actual_timezone_aware_datetime_meaning,,1.001051678,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_rich_consolidation.py python/corpus-structure/tests/semantic/test_rich_cpu_inputs.py python/corpus-structure/tests/s,,1.001186683,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_integrated_consumers.py python/corpus-structure/tests/semantic/test_pdf_read_cancellation.py python/corpus-structure,,1.001718281,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_companion_export.py python/corpus-structure/tests/semantic/test_native_source_published.py python/corpus-structure/t,,1.001299226,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_current_composite_delivery.py python/corpus-structure/tests/semantic/test_current_contribution_facets.py python/corp,,1.001482991,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_current_pdf_source_inputs.py,,1.000399155,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_alias_policy.py python/corpus-structure/tests/semantic/test_data_operation_runtime.py python/corpus-structure/tests/,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/c,,1.001415117,True,
+21,root,ci test (paths),python/corpus-structure/tests/orchestrate/test_data_operation_batch_activity.py python/corpus-structure/tests/orchestrate/test_data_operation_byte_admission.py ,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contribution_transport.py python/corpus-structure/tests/semantic/test_current_candidate_facets.py python/corpus-stru,,1.000397193,True,
+21,root,ci test (paths),python/corpus-structure/tests/orchestrate/test_data_operation_batch_activity.py python/corpus-structure/tests/orchestrate/test_data_operation_byte_admission.py ,,1.001559096,True,8e4b8a4529e8459084fefefbf632c7ba
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_model_inspect.py,,1.001452888,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_math_analysis.py python/corpus-structure/tests/semantic/test_downstream_profile_acquisition.py python/corpu,0,7.22e-06,False,8b137f210c4b4fc392fba02f7335d82b 8b137f210c4b4fc392fba02f7335d82b
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_companion_call_bindings.py python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/cor,,1.001275268,True,08deee3d862f4af0a01148c687206a35
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_selected_contribution_inputs.py python/corpus-structure/tests/semantic/test_selected_structural_readers.py python/co,,1.000513491,True,6e2736b613d44f63b0d5f7b1f3e3ec32
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_authored_interpretations.py python/corpus-structure/tests/semantic/test_grouped_record_interpretations.py python/cor,,1.001590606,True,41db54fea069407b85c9f17081581fc2
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_authority_leaf.py python/corpus-structure/tests/semantic/test_declared_structural_admission.py python/corpus-structu,,1.004733568,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_ports.py python/corpus-structure/tests/semantic/test_source_profiles.py,,1.001369136,True,835c45d995fd416f9c7630a09ca63fa5
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_storage.py::test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog python/corpus-s,,1.000434156,True,fe54c77b6e8a418091a129bcc12ca0a2
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_target_vectors.py python/corpus-structure/tests/semantic/test_cpu_authority_batch.py python/corpus-struct,,1.001017981,True,887937beea58453aa9b02dd935ec0d14
+21,root,ci test (paths),-m not native_required python/corpus-structure/tests/semantic/test_d1_limitation.py python/corpus-structure/tests/semantic/test_data_operation_constraint_custod,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_d1_limitation.py python/corpus-structure/tests/semantic/test_data_operation_constraint_custody.py::test_constraint_a,,1.001349214,True,50a3ef770563425eb949af245947cdfb
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_rich_domain_external_native.py::test_external_domain_recipe_composes_existing_sentence_and_packet_owners,,1.000974062,True,7f863c2473ae434e95d139ca88c5c0b5
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_test_evidence.py::test_installed_retry_reports_changed_identities_without_repeating_stale_selection python/corpus-structu,,1.001065735,True,77a0c0e6689049158ab971aee8c6ff8c
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_test_evidence.py,,1.000961522,True,
+21,root,ci test (paths),tests/scripts/test_test_receipts.py::test_managed_fault_retry_keeps_only_owned_selection tests/scripts/test_test_receipts.py::test_unresolved_export_fresh_colle,,1.001415758,True,43d22ebb7ca548bb8e0c8f687f3b3399
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_data_operation_storage.py::test_kernel_protocol_,,1.001372244,True,fbdf52e6134c4a2d862294e0a7cd592f
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_demand_result_validation.py python/corpus-struct,,1.001755268,True,e1dfb22a5a104fcd884b27e7778b60c7
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tests/,,1.000258798,True,25bd39b79a534b63951f0531f3920d41
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_selected_graph_sql.py python/corpus-structure/tests/semantic/test_selected_graph.py,,1.000976765,True,4a1c72308c6349e9bd8cf6e439b89a01
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_scores.py python/corpus-structure/tests/semantic/test_data_operation_storage.py::test_kernel_protocol_is_,,1.000790723,True,9b9002f913ff40959c40c4a1dbef275c
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_structural_admission.py python/corpus-structure/tests/semantic/test_selected_structural_readers.py python/c,,1.000771333,True,5d01d93a45724b1780bd7e7b8ed9cf65
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_scores.py python/corpus-structure/tests/semantic/test_controlled_contextual_model.py,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_storage.py::test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog python/corpus-s,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_archive_bootstrap_transport.py python/corpus-structure/tests/semantic/test_execution_admission_expectations.py pytho,,,False,
+21,root,ci test (paths),-m not db python/corpus-structure/tests/evaluate/test_semantic_alignment.py python/corpus-structure/tests/semantic/test_contract_inspection.py python/corpus-str,,1.001809011,True,
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_semantic_alignment.py python/corpus-structure/tests/semantic/test_contract_inspection.py python/corpus-structure/tes,,1.000489438,True,90bc5fdff3114c60b880b2531c4749c5
+21,root,ci test (paths),-k not mult_pack_composition_retains_terminology_sources python/corpus-structure/tests/evaluate/test_semantic_alignment.py python/corpus-structure/tests/semanti,,1.000633751,True,dce4fbe89f55495dab3677ec0c857d1f
+21,root,ci test (paths),-k not mult_pack_composition_retains_terminology_sources python/corpus-structure/tests/evaluate/test_semantic_alignment.py python/corpus-structure/tests/semanti,,1.001791941,True,efcf0ab85f67462a8db18910cf159f44
+21,root,ci test (paths),-k not mult_pack_composition_retains_terminology_sources python/corpus-structure/tests/evaluate/test_semantic_alignment.py python/corpus-structure/tests/semanti,,1.00093036,True,be1a768719b8442ea1d251a9341503a3
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_data_operation_storage.py::test_kerne,,1.000594151,True,7badf2f63b7445acb9436699951eaa04
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_typed_realization.py,,1.000951531,True,bdba3dfebf2345b2b7fbc7a5c8d99fb5
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_typed_realization.py,1,7.801e-06,False,9f1211cbf01b4e9db21035b65ed2e30d 9f1211cbf01b4e9db21035b65ed2e30d bdba3dfebf2345b2b7fbc7a5c8d99fb5
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_test_evidence.py::test_installed_retry_reports_changed_identities_without_repeating_stale_selection python/corpus-structu,,1.001252957,True,f9f291a196de434da1269543c7a4b11a
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_linguistics.py python/corpus-structure/tests/semantic/test_contextual_workflow_preparation.py python/corp,,1.000763267,True,ef7701fb8eb7448ab36944b1b67ba278
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_operation_events.py python/corpus-structure/tests/semantic/test_cpu_basis_values.py python/corpus-structure,,1.001492969,True,de92bc0c092d473ab1439ab655498371
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_selected_operation_events.py python/corpus-structure/tests/semantic/test_ontology.py python/corpus-structure/tests/s,0,9.8e-06,False,9924b10ed5a84fa486c7717b2d2626be
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_domain.py::test_current_pdf_facade_has_canonical_ids_and_no_stage_run_slot,,1.000878421,True,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_selected_references.py,,1.001219009,True,473370b1bde148e88e9b0a1c280f6f30
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_composed.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-structure/tests/,,1.001413425,True,a759a79c2ae248a69cddbd7a48706482
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_archive_wire.py python/corpus-structure/tests/semantic/test_comparison_projection.py python/corpus-structure/tests/s,,1.001744288,True,367dd912025a4201992f73312f939dd1
+21,root,ci test (paths),-k not actual_database_check_preserves_native_admission_diagnostic and not actual_archive_query_failure python/corpus-structure/tests/semantic/test_cli_failures,,1.00122206,True,8fc14f10a2354755aacfdf9763f78074
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_public_refusals.py,,1.001426643,True,faac968d4e9949bb9cf4b70e61d3eb7d
+21,root,ci test (paths),-k grouped_failure or rendered_fixture_failure or rendered_collection_error tests/scripts/test_test_receipts.py,,1.001272445,True,a4a75eaea4f34611a5e0f041935d6dfd
+21,root,ci test (paths),tests/scripts/test_test_receipts.py,,1.000420205,True,fa8a94fc38624bb29117deb31a2c434b
+21,root,ci test (full/flags),,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_payload_native.py::test_payload_forward_state_retains_previous_managed_objects,,1.000459816,True,1b00d63775424e9ea473de36a28b2250
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_current_archive_compiler.py python/corpus-structure/tests/semantic/test_data_operation_consumers.py python/corpus-st,,1.000830487,True,71822ce223314730955bbc8213abd842
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_testing.py tests/scripts/test_test_receipts.py,,1.001774668,True,465874df1d3842fb85607214cf0a8b82
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_test_evidence.py tests/scripts/test_test_receipts.py,1,7.541e-06,False,
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_test_evidence.py tests/scripts/test_test_receipts.py,,1.001286672,True,baec01c7d6a44207b388bb3c30614e1c
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_artifact_cpu_authority.py,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_nullable_source.py,,1.001653453,True,677ddc9db05b479e91b2ca85874afaf0
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_native_journey.py::test_current_record_policy_journey_recipe_has_real_closed_producers python/corpus,,1.000526323,True,51417eec86aa4fe19c1d0be22e90a24d
+21,root,ci test (paths),python/corpus-structure/tests/orchestrate/test_project_retained_source.py,,1.001300975,True,b923bd023a134b63807930baac7fbeb1
+21,root,ci test (full/flags),,0,1.148446384,False,
+21,root,ci test (paths),python/corpus-structure/tests/orchestrate/test_project_retained_source.py python/corpus-structure/tests/semantic/test_record_feature_fit_read.py tests/test_pdf_,,1.000282867,True,c9a47a3750ec4d00a52cea39104f2211
+21,root,ci test (paths),-k not test_native_observation_meaning python/corpus-structure/tests/semantic/test_data_operation_wire_generation.py python/corpus-structure/tests/semantic/test,,1.000699743,True,1f4d857bdb93453a981c31e10c28e716
+21,root,ci test (paths),python/corpus-structure/tests/ingest/test_annotation_rules.py python/corpus-structure/tests/ingest/test_definition_rules.py,,1.000997864,True,d1fe2d70a4ae4990b604558570d3a840
+21,root,ci test (paths),python/corpus-structure/tests/ingest/test_definition_rules.py python/corpus-structure/tests/semantic/test_declared_named_definitions.py,,1.001852568,True,f142dee548834d26b643fa14d8da524e
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py::test_named_attachment_variants_survive_the_actual_retained_producer_roundtrip,,1.001183431,True,b51756ff46bc4928a1641b1413ff10ba
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_test_evidence.py::test_installed_process_diagnostic_is_explicit_redacted_and_not_native_attribution python/corpus-structu,,1.000446852,True,12cf89e485d048258d1f33a63c1c3a34
+21,root,ci test (paths),python/corpus-structure/tests/ingest/test_definition_rules.py python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py,,1.00121826,True,b7bdb04b8a7c4f28a952b9c48bc47410
+21,root,ci test (paths),python/corpus-structure/tests/ingest/test_definition_rules.py python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py,,1.000545607,True,d5d9bf349acf4dbb9832717f7eb188bd
+21,root,ci test (paths),python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/semantic/test_data_operation_wire_generation.py python/corpus-structure/tests/se,,1.000570828,True,1e346c5e0c5b41bea7ba4d7568dab14b
+21,root,ci test (paths),python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/semantic/test_data_operation_wire_generation.py python/corpus-structure/tests/se,,1.000964988,True,c8b8acebd2524d9ca7b82dc2ccbe18b9
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_current_pdf_integration_native.py python/corpus-structure/tests/semantic/test_pdf_json_publication.py python/corpus-,,1.001221961,True,
+21,root,ci test (full/flags),,,,False,
+21,root,ci test (paths),-k not native_observation_meaning python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/semantic/test_data_operation_wire_generation.p,,1.000626782,True,84c1f3d420ca4df5a550083c46b73d28
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_combined_native_qualification.py::test_actual_six_provider_host_preserves_population_streams_and_sources,,1.001253257,True,533f95b5aa0e4a9eb0aec4c1d6e71de1
+21,root,ci test (paths),python/corpus-structure/tests/test_cli_test_evidence.py tests/scripts/test_test_receipts.py,,1.001563831,True,ef83d76b078848a2b21e7b39bfd2e9d9
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_gliner.py::test_native_boundary_diagnostic_observes_and_rescores_exact_occurrence,,1.000675157,True,a5bf6330d0064a1abdbba5845e45b6bb
+21,root,ci test (paths),-k python/corpus-structure/tests/test_cli_test_evidence.py required_phase_skips,,1.00059161,True,65d55ae46bbb41e6804af82231fce384
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_gliner.py::test_native_boundary_diagnostic_observes_and_rescores_exact_occurrence,,1.000837639,True,729ca8b9b045427bbe89303e1c2ceebd
+21,root,ci test (full/flags),,0,1.135848415,False,
+21,root,ci test (paths),tests/scripts/test_private_cohort.py,,1.000551263,True,19a97e04e64b4a8db9f463951f3e9c67
+21,root,ci test (paths),-k not jsonb and not read_back python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/schema/test_change.py python/corpus-structure/tes,,1.001374947,True,1977f6b1c455433684ec143df93b981e
+21,root,ci test (paths),-k not current_native python/corpus-structure/tests/semantic/test_nce02_native_scope.py,,1.001111417,True,36710fe157be49ecb0327eb833f291cc
+21,root,ci test (paths),-k not native and not duplicate_targets python/corpus-structure/tests/semantic/test_declared_neighborhood.py,,1.000602437,True,84f4486567af4cc78f404898ffda1ebc
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_declared_neighborhood.py::test_neighborhood_has_distinct_kind_factory_policy_and_exact_native_asset,,1.001434068,True,6a09b6b9acb64eaea9f5b14071c32644
+21,root,ci test (paths),python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/semantic/test_clause_products.py,,1.001400733,True,8b78c78821be49f99fb06f7b491c7790
+21,root,ci test (paths),-k declared_clause_focus or context_question python/corpus-structure/tests/semantic/test_clause_products.py,,1.000974405,True,f865e535030f4224a548a5581b414994
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_m1_record_frontends.py python/corpus-structure/tests/methods/test_pm2_gliner_classification.py python/corpus-structur,,1.00127476,True,5e89cd1633944ca2b62ab190afd57d30
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_contextual_characterization.py::test_context_keeps_cross_page_selection_gaps_and_rejects_missing_source_piece python/,,1.000345093,True,e9394e4fd09643088bbd09a0443c1b97
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_m1_record_frontends.py::test_policy6_whole_neighborhoods_preserve_distinct_negative_retrieval_dependencies python/cor,,1.002055888,True,f6b69e3e1db84cb0987022393cd7d9f5
+21,root,ci test (paths),python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/methods/test_contextual_characterization.py python/corpus-structure/tests/method,,1.0017721,True,8f0ba70537e546a0b4daafd85a3d729b
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_m1_assertion_qualification.py python/corpus-structure/tests/methods/test_m1_producer.py,,1.000567172,True,9634a2a0beea44e2bac3f15f447b0779
+21,root,ci test (paths),-k missing_cue_columns python/corpus-structure/tests/methods/test_m1_assertion_qualification.py,,1.001707816,True,c6ebeace81bf46ceb45ad350e623fe47
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_observations.py::test_current_grouped_comparison_preserves_encoded_condition_fields,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_observations.py::test_current_grouped_comparison_preserves_encoded_condition_fields,,1.000123312,True,45085840ffdd4610aaf7b13232d85957
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_record_contracts.py python/corpus-structure/tests/semantic/test_rich_record_readings.py python/corpus-structure/test,,1.000533957,True,19731bbfae52437dba0266e8c3e89d2e
+21,root,ci test (paths),python/corpus-structure/tests/methods/test_record_assembly.py python/corpus-structure/tests/semantic/test_record_contracts.py python/corpus-structure/tests/sema,,1.001368776,True,268354cf4f9643788ff1b810e03846dd
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-structure/tests/evaluate/test_record_alignment.py python/corpus-structure/t,,,False,
+21,root,ci test (paths),-k not native and not fresh python/corpus-structure/tests/evaluate/test_declared_record_native_journey.py::test_current_record_policy_journey_recipe_has_real_cl,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_native_journey.py::test_current_record_policy_journey_recipe_has_real_closed_producers python/corpus,,1.000550555,True,c5c0ef6b340445199e01c55c3310cf3f
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_pm2_result_native.py::test_literal_provider_recipe_has_checked_profile_without_claiming_execution,,1.004148915,True,b217da205a06480181e369e9359e4d66
+21,root,ci test (paths),python/corpus-structure/tests/orchestrate/test_data_operation_claim_source_native.py::test_production_claim_source_item_prepares_with_authoritative_builtin_kind,,1.001326188,True,8c657a449e3649fca136c60a012b930e
+21,root,ci test (full/flags),,,,False,
+21,root,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_transform_operations.py::test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery,,1.003906858,True,1d71749fda9549478a2689f382015670
+26,executor,ci test (paths),-k not native_tagged_recursive python/corpus-structure/tests/semantic/test_data_operation_artifacts.py python/corpus-structure/tests/semantic/test_data_operatio,,1.00083843,True,
+26,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_wire_generation.py,,1.000550712,True,
+26,executor,ci test (paths),-k not native_tagged_recursive python/corpus-structure/tests/semantic/test_data_operation_wire.py python/corpus-structure/tests/semantic/test_data_operation_wir,,1.001491066,True,
+26,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_demands.py python/corpus-structure/tests/semantic/test_data_operation_external.py python/corpus-struc,,1.001826121,True,
+26,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_body_confidentiality.py::test_captured_member_contract_excludes_abstract_nominal_union,,1.001172239,True,
+27,executor,ci test (paths),python/corpus-structure/tests/methods/test_contextual_query.py python/corpus-structure/tests/semantic/test_demand_results.py,,1.001008932,True,
+27,executor,ci test (paths),python/corpus-structure/tests/methods/test_contextual_query.py python/corpus-structure/tests/methods/test_declared_contextual_query.py python/corpus-structure/t,0,8.161e-06,False,e92028b1e8774f5ca2f983405ebc0994 e92028b1e8774f5ca2f983405ebc0994
+27,executor,ci test (paths),python/corpus-structure/tests/semantic/test_demand_results.py::test_product_selector_enters_protected_scope_before_unrelated_body_admission,,1.001288705,True,
+27,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_characterization_assessment.py python/corpus-structure/tests/semantic/test_data_operation_output_witnesses.py python,,1.001410901,True,
+27,executor,ci test (paths),python/corpus-structure/tests/methods/test_declared_contextual_query.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py,,1.000701156,True,
+27,executor,ci test (paths),python/corpus-structure/tests/methods/test_declared_contextual_query.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-st,,1.000340588,True,
+27,executor,ci test (paths),python/corpus-structure/tests/methods/test_declared_contextual_query.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-st,,1.001217331,True,
+27,executor,ci test (paths),python/corpus-structure/tests/methods/test_declared_contextual_query.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-st,,1.000808902,True,
+27,executor,ci test (paths),python/corpus-structure/tests/methods/test_declared_contextual_query.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-st,,1.000895227,True,
+27,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_selected_encoder.py,,1.001591468,True,
+28,executor,ci test (paths),python/corpus-structure/tests/db/test_arrow_types.py python/corpus-structure/tests/db/test_claim_renewal.py python/corpus-structure/tests/schema/test_model.py p,,1.001559808,True,
+28,executor,ci test (paths),python/corpus-structure/tests/db/test_arrow_types.py python/corpus-structure/tests/db/test_claim_renewal.py python/corpus-structure/tests/schema/test_model.py p,,1.001075104,True,
+28,executor,ci test (paths),python/corpus-structure/tests/schema/test_model.py::test_historical_compiler_provenance_is_preserved_when_current_generators_change python/corpus-structure/test,,1.001598008,True,
+28,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contracts.py::test_all_transitioned_families_and_measurement_context python/corpus-structure/tests/semantic/test_inv,,1.000982308,True,
+28,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_service.py::test_evaluator_execution_still_refuses_a_different_admission_target python/corpus-structu,,1.002021308,True,
+28,executor,ci test (paths),python/corpus-structure/tests/semantic/test_visual_routing.py python/corpus-structure/tests/test_cli_demands.py python/corpus-structure/tests/test_native_region,,1.000259177,True,
+28,executor,ci test (paths),python/corpus-structure/tests/semantic/test_visual_routing.py python/corpus-structure/tests/test_cli_demands.py tests/test_native_region_render.py,,1.001452484,True,
+28,executor,ci test (paths),-k not test_read_routes_complete_native_continuation_without_semantic_defaults python/corpus-structure/tests/semantic/test_pdf_visual_requests.py python/corpus-,,1.000430263,True,
+35,executor,ci test (paths),python/corpus-structure/tests/schema/test_model_change_preview.py::test_structural_discovery_qualifies_coordinates_without_claiming_binding python/corpus-struct,,1.001056456,True,
+35,executor,ci test (paths),python/corpus-structure/tests/schema/test_model_change_preview.py python/corpus-structure/tests/schema/test_source_discovery.py python/corpus-structure/tests/sc,,1.001440336,True,
+35,executor,ci test (paths),python/corpus-structure/tests/schema/test_source_migrations.py::test_authored_body_update_compiles_drift_without_renaming python/corpus-structure/tests/schema/t,,1.001367122,True,
+35,executor,ci test (paths),python/corpus-structure/tests/schema/test_source_migrations.py::test_actual_family_source_and_caller_move_preserves_dispatch python/corpus-structure/tests/schem,,1.000990125,True,
+35,executor,ci test (paths),python/corpus-structure/tests/schema/test_model_change_preview.py python/corpus-structure/tests/schema/test_source_discovery.py python/corpus-structure/tests/sc,,1.001115015,True,
+35,executor,ci test (paths),python/corpus-structure/tests/schema/test_source_migrations.py::test_owned_class_move_compiles_complete_interface_and_existing_apply,,1.001652727,True,
+35,executor,ci test (paths),python/corpus-structure/tests/schema/test_source_migrations.py::test_actual_family_source_and_caller_move_preserves_dispatch python/corpus-structure/tests/schem,,1.000946799,True,
+35,executor,ci test (paths),python/corpus-structure/tests/schema/test_source_migrations.py::test_actual_family_source_and_caller_move_preserves_dispatch python/corpus-structure/tests/schem,,1.000803162,True,
+35,executor,ci test (paths),python/corpus-structure/tests/schema/test_source_migrations.py::test_native_cli_compares_archived_ddo_without_source_migrations,,1.001559528,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-structure/tests/semantic/test_python_operation_sources.py python/corpus-,,1.000941849,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_python_operation_sources.py python/corpus-structure/tests/semantic/test_source_comparison.py,0,1.0831e-05,False,1eab52026c484d959120ddbe4b4f401c 1eab52026c484d959120ddbe4b4f401c
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-structure/tests/semantic/test_python_operation_sources.py python/corpus-,,1.001332191,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-structure/tests/semantic/test_python_operation_sources.py python/corpus-,,1.00092771,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_archive_reader.py python/corpus-structure/tests/semantic/test_source_comparison.py,,1.001589048,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_source_comparison.py,,1.000485585,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_source_comparison.py,,1.000714224,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_source_comparison.py,,1.001608881,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_archive_reader.py python/corpus-structure/tests/semantic/test_source_comparison.py python/corpus-structure/tests/sem,,1.000801576,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_demand_export_native.py::test_selected_export_preserves_actual_episode_closure_and_offline_identity,,1.00147343,True,
+36,executor,ci test (paths),python/corpus-structure/tests/semantic/test_demand_export_native.py,,1.000840587,True,
+37,executor,ci test (paths),python/corpus-structure/tests/semantic/test_change_impact.py python/corpus-structure/tests/semantic/test_data_operation_storage.py::test_directly_revoked_produc,,1.000571165,True,
+37,executor,ci test (paths),-k not actual_native and not cancelled_target and not changed_python_helper python/corpus-structure/tests/semantic/test_change_impact.py,,1.000733657,True,
+37,executor,ci test (paths),python/corpus-structure/tests/semantic/test_change_impact.py::test_real_changed_helper_recipe_preserves_downstream_recipe,,1.00097555,True,
+37,executor,ci test (paths),-k not actual_native and not cancelled_target and not changed_python_helper python/corpus-structure/tests/semantic/test_change_impact.py,,1.001428956,True,
+37,executor,ci test (paths),-k actual_native or cancelled_target or changed_python_helper_executes python/corpus-structure/tests/semantic/test_change_impact.py,,1.001519535,True,
+37,executor,ci test (paths),python/corpus-structure/tests/semantic/test_change_impact.py::test_native_population_closure_requires_each_frozen_producer_context python/corpus-structure/tests,,1.001630715,True,
+37,executor,ci test (paths),python/corpus-structure/tests/semantic/test_change_impact.py::test_changed_python_helper_executes_new_recipe_and_equal_output_cuts_off_consumer python/corpus-st,,1.001437615,True,
+37,executor,ci test (paths),python/corpus-structure/tests/semantic/test_change_impact.py,,1.001303838,True,
+37,executor,ci test (paths),-k not actual_native and not cancelled_target and not changed_python_helper_executes and not native_population_closure and not native_rebound_selected_support p,,1.00154686,True,
+37,executor,ci test (paths),python/corpus-structure/tests/semantic/test_change_impact.py,,1.000872568,True,
+41,executor,ci test (paths),python/corpus-structure/tests/semantic/test_archive_predecessor_sources.py python/corpus-structure/tests/semantic/test_data_operation_demands.py python/corpus-s,,1.000864181,True,
+41,executor,ci test (paths),python/corpus-structure/tests/semantic/test_selected_graph.py python/corpus-structure/tests/semantic/test_selected_graph_native.py,,1.001261277,True,
+41,executor,ci test (paths),python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tests/semantic/test_selected_graph.py,,1.001020012,True,
+41,executor,ci test (paths),python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tests/semantic/test_selected_graph.py python/corpus-structure/tests/semant,1,0.04447769,False,
+41,executor,ci test (paths),python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tests/semantic/test_selected_graph.py python/corpus-structure/tests/semant,,1.000719492,True,
+41,executor,ci test (paths),python/corpus-structure/tests/semantic/test_assessment_graph_native.py python/corpus-structure/tests/semantic/test_graph_inspection.py python/corpus-structure/t,,1.001001616,True,
+42,executor,ci test (paths),python/corpus-structure/tests/semantic/test_assessment_graph_native.py python/corpus-structure/tests/semantic/test_selected_references.py::test_admitted_assessm,,1.00050703,True,
+42,executor,ci test (paths),python/corpus-structure/tests/semantic/test_assessment_graph_native.py,,1.000621983,True,
+42,executor,ci test (paths),python/corpus-structure/tests/semantic/test_assessment_graph_native.py,,1.000995932,True,
+42,executor,ci test (paths),python/corpus-structure/tests/semantic/test_assessment_graph_native.py,,1.000715832,True,
+42,executor,ci test (paths),python/corpus-structure/tests/semantic/test_assessment_graph_native.py python/corpus-structure/tests/semantic/test_selected_references.py::test_admitted_assessm,,1.000881901,True,
+43,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-structure/tests/semantic/test_data_operation_graph_projections.py python,,1.000750874,True,
+43,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-structure/tests/semantic/test_data_operation_graph_projections.py python,,1.001571316,True,
+43,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/c,,1.000992542,True,
+43,executor,ci test (paths),-k kernel_protocol_is_captured or native_nominal_topology_capture or native_graph_execution_capture python/corpus-structure/tests/semantic/test_data_operation_s,,1.00136189,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_capabilities.py python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/,,1.001690356,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/c,,1.001679644,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/c,,1.000949891,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/c,,1.001060498,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/c,,1.000698207,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/c,,1.000700442,True,
+49,executor,ci test (full/flags),,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-s,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-s,,1.001200442,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-s,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py python/corpus-structure/tests/semantic/test_clause_products.py python/corpus-stru,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_clause_products.py python/corpus-structure/tests/semantic/test_declaration_products.py python/corpus-structure/tests,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/c,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-s,,1.0012131,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-s,,5.00118423,True,c60716e4431743599b7a6862cad63de6
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py::test_bound_members_require_explicit_support_references,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_output_witnesses.py python/corpus-structure/tests/semantic/test_declared_contextual_operations.py pyt,,1.001751537,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_enrichment.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-struc,,1.001280713,True,
+49,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_operation_fitting.py python/corpus-structure/tests/orchestrate/test_source_operation.py python/corpus-structure/test,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-structure/tests/semantic/test_data_operation_demands.py python/corpus-st,,1.000663549,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/cor,,1.001464307,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_contextual_selected_encoder.py python/corpus,,1.001166977,True,
+49,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_source_operation.py python/corpus-structure/tests/semantic/test_data_operation_wire.py python/corpus-structure/te,,1.000492397,True,
+49,executor,ci test (paths),python/corpus-structure/tests/methods/test_local_interpretation.py python/corpus-structure/tests/methods/test_record_readings.py python/corpus-structure/tests/s,,1.001681565,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py,,1.000841051,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_compilation.py,,1.001307303,True,
+49,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_source_operation.py python/corpus-structure/tests/semantic/test_data_operation_body_confidentiality.py python/cor,,1.001406362,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py,,1.000568058,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_coverage.py python/corpus-stru,,1.001158768,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-s,,1.00082731,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py::test_project_source_filters_distinguish_unqualified_null_and_actual_source python/corpus,,1.00165613,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-s,,1.001719199,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_retrieval_numerics.py python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py pytho,,1.000997399,True,
+49,executor,ci test (full/flags),,0,2.312655412,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_consumers.py python/corpus-structure/tests/semantic/test_data_operation_preparation.py python/corpus-,,1.000797194,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_consumers.py python/corpus-structure/tests/semantic/test_data_operation_preparation.py python/corpus-,,1.000804685,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_current_pdf_source_inputs.py,0,1.137e-05,False,20c501c1289a45238dec297dc3f9869c 20c501c1289a45238dec297dc3f9869c
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_interpretations.py,,1.000995338,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_interpretation_authoring.py python/corpus-structure/tests/semantic/test_selected_interpretations.py python/corpus-st,,1.001801231,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_interpretations.py python/corpus-structure/tests/semantic/test_selected_interpretations.py python/corpus-structure/t,,1.001111732,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tests/semantic/test_record_consumers.py python/corpus-structure/tests/sema,,1.001105229,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_replay.py python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tes,,1.000718473,True,
+49,executor,ci test (paths),--collect-only python/corpus-structure/tests/semantic/test_characterization_native.py python/corpus-structure/tests/semantic/test_interpretations_native.py pyth,,1.001795707,True,
+49,executor,ci test (full/flags),,0,2.468646104,False,
+49,executor,ci test (paths),python/corpus-structure/tests/methods/test_characterization_composition.py python/corpus-structure/tests/semantic/test_characterization_replay.py python/corpus-,,1.001042464,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_replay.py python/corpus-structure/tests/semantic/test_contextual_query_replay.py python/corpus-stru,,1.001943302,True,
+49,executor,ci test (paths),python/corpus-structure/tests/db/test_serve.py python/corpus-structure/tests/semantic/test_native_source_budgets.py python/corpus-structure/tests/semantic/test_,,1.001147379,True,
+49,executor,ci test (paths),python/corpus-structure/tests/db/test_serve.py python/corpus-structure/tests/semantic/test_selected_source_search.py,,1.000904251,True,
+49,executor,ci test (paths),python/corpus-structure/tests/db/test_serve.py python/corpus-structure/tests/semantic/test_native_source_budgets.py python/corpus-structure/tests/semantic/test_,,,False,
+49,executor,ci test (paths),-k not actual_database_check_preserves_native_admission_diagnostic python/corpus-structure/tests/semantic/test_cli_failures.py python/corpus-structure/tests/sem,,1.004163597,True,
+49,executor,ci test (paths),-k not actual_database_check_preserves_native_admission_diagnostic python/corpus-structure/tests/semantic/test_cli_failures.py python/corpus-structure/tests/sem,,1.001014617,True,
+49,executor,ci test (paths),-k not actual_database_check_preserves_native_admission_diagnostic python/corpus-structure/tests/semantic/test_cli_failures.py python/corpus-structure/tests/sem,,1.000626685,True,
+49,executor,ci test (paths),-k not actual_database_check_preserves_native_admission_diagnostic python/corpus-structure/tests/orchestrate/test_source_operation.py python/corpus-structure/te,,,False,
+49,executor,ci test (paths),-k not native python/corpus-structure/tests/semantic/test_data_operation_release_inspection.py python/corpus-structure/tests/semantic/test_data_operation_wire.p,,1.001427681,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_release_inspection.py,,1.001400908,True,
+49,executor,ci test (paths),-k not test_native_tagged_recursive_wire_preserves_the_same_independent_cases python/corpus-structure/tests/semantic/test_data_operation_release_inspection.py p,,,False,
+49,executor,ci test (paths),-k not actual_database_check_preserves_native_admission_diagnostic python/corpus-structure/tests/semantic/test_cli_failures.py python/corpus-structure/tests/sem,,1.001467597,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_release_inspection.py,,1.001908118,True,
+49,executor,ci test (full/flags),,0,6.412e-06,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_current_pdf_source_inputs.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus,,1.001044787,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_typed_realization.py::test_current_wire_and_column_nominals_share_the_canonical_owner,0,7.137e-06,False,ef6bec5d232c4b73a6451424fb8f33ff ef6bec5d232c4b73a6451424fb8f33ff
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_binding_native.py::test_native_binding_source_closure_and_helper_syntax python/corpus-structure/tests,,1.001242181,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_sentence_products.py::test_original_source_identity_excludes_legacy_task_recipe_and_diagnostic_salts,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_source_operation.py python/corpus-structure/tests/semantic/test_cli_failures.py,,1.001271952,True,
+49,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-structure/tests/evaluate/test_declared_record_policy.py python/corpus-struc,,1.001368247,True,
+49,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_record_references.py,,1.000442414,True,0c6e4a56c21b456484e184bf987482b8
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contract_inspection.py python/corpus-structure/tests/semantic/test_contribution_transport.py python/corpus-structure,,1.001437267,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_queries.py python/corpus-structure/tests/semantic/test_rich_query_delivery.py,,1.000422137,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_identity_exclusions.py python/corpus-structure/tests/semantic/test_rich_value_graph.py::test_actual_rich_consol,,1.000977646,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contribution_transport.py python/corpus-structure/tests/semantic/test_current_composite_delivery.py python/corpus-st,,,False,
+49,executor,ci test (full/flags),,,5.001837803,True,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_current_composite_delivery.py python/corpus-structure/tests/semantic/test_current_contribution_facets.py python/corp,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contribution_transport.py python/corpus-structure/tests/semantic/test_current_composite_delivery.py python/corpus-st,,,False,
+49,executor,ci test (paths),python/corpus-structure/tests/semantic/test_current_composite_delivery.py python/corpus-structure/tests/semantic/test_current_nonrich_facets.py,,,False,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_change_impact.py python/corpus-structure/tests/semantic/test_data_operation_protocol_values.py,,1.000803353,True,
+50,executor,ci test (paths),-k not native and not changed_python python/corpus-structure/tests/semantic/test_change_impact.py python/corpus-structure/tests/semantic/test_data_operation_pro,,1.001202706,True,
+50,executor,ci test (paths),-k not native and not changed_python python/corpus-structure/tests/semantic/test_change_impact.py python/corpus-structure/tests/semantic/test_data_operation_pro,,1.000889817,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_change_impact.py::test_unknown_protocol_fate_is_rejected_at_observation_boundary,,1.001464171,True,
+50,executor,ci test (paths),python/corpus-structure/tests/core/test_execution_policy.py python/corpus-structure/tests/semantic/test_data_operation_capabilities.py python/corpus-structure/t,,1.001375049,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_retirement_context_sql.py::test_retired_attempt_preserves_holder_until_a_new_claim_fence,,,False,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_successor_trigger_declarations_use_frozen_parent_before_normalization,,,False,
+50,executor,ci test (full/flags),,,,False,
+50,executor,ci test (paths),-m not db python/corpus-structure/tests/semantic/test_native_source_published.py python/corpus-structure/tests/semantic/test_pdf_candidate_capture.py python/cor,,1.001444244,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_source_published.py python/corpus-structure/tests/semantic/test_pdf_candidate_capture.py python/corpus-struct,,1.000671638,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_source_published.py python/corpus-structure/tests/semantic/test_pdf_candidate_capture.py python/corpus-struct,,1.000993305,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_source_native.py::test_native_source_helper_capture_and_compilation python/corpus-structure/tests/sem,,,False,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_source_native.py::test_native_source_helper_capture_and_compilation python/corpus-structure/tests/sem,,1.001702589,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_selected_visual_read.py python/corpus-structure/tests/semantic/test_visual_routing.py,,1.000907805,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_mcp_source_transport.py,,1.001798012,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_mcp_source_transport.py python/corpus-structure/tests/semantic/test_pdf_visual_evidence.py,0,7.144e-06,False,9fde46e983744839be2a9f6d98552058 9fde46e983744839be2a9f6d98552058
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-structure/tests/semantic/test_data_operation_subjects.py python/cor,,1.00049037,True,
+50,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_semantic_alignment.py::test_plain_value_equivalence_remains_independent_of_scientific_profile python/corpus-structur,,1.001379754,True,
+50,executor,ci test (paths),python/corpus-structure/tests/methods/test_contribution_adapter.py python/corpus-structure/tests/methods/test_formula_first_use.py python/corpus-structure/tests,,1.000710431,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_json_member_projection.py python/corpus-structure/tests/semantic/test_data_operation_member_projectio,,1.000393677,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_json_member_projection.py python/corpus-structure/tests/semantic/test_rich_knowledge_sources.py pytho,,1.000827186,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_identity_vectors.py python/corpus-structure/tests/semantic/test_qualification_subclasses.py python/corpus-structure/,,1.001271209,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_knowledge_sources.py python/corpus-structure/tests/semantic/test_rich_value_graph.py python/corpus-structure/te,,1.001714317,True,afce79da6ad741598476d8f8400000fc
+50,executor,ci test (paths),-k python/corpus-structure/tests/semantic/test_analytics.py views or fuse or disagreement,,1.00068496,True,
+50,executor,ci test (full/flags),,0,1.519788699,False,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_consolidation.py python/corpus-structure/tests/semantic/test_rich_cpu_inputs.py python/corpus-structure/tests/s,,1.000684993,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_proposal_lowering.py,,1.000616944,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_runtime.py,,1.000845841,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_source_budgets.py,,1.001308128,True,
+50,executor,ci test (paths),python/corpus-structure/tests/semantic/test_read_snapshot.py,,1.000791617,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_clause_products.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/t,,1.001523916,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_clause_products.py python/corpus-structure/tests/semantic/test_declared_structural_calls.py python/corpus-structure/,,1.001318342,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_artifacts.py python/corpus-structure/tests/semantic/test_typed_realization.py,,1.000968519,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_wire.py python/corpus-structure/tests/semantic/test_data_operation_wire_generation.py python/corpus-s,,1.001726859,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_wire.py python/corpus-structure/tests/semantic/test_data_operation_wire_generation.py python/corpus-s,,1.001567679,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_analysis_contracts.py python/corpus-structure/tests/semantic/test_declared_math_analysis.py python/corpus-structure/,0,1.0171e-05,False,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_wire_generation.py python/corpus-structure/tests/semantic/test_native_call_sources.py python/corpus-s,,1.000848043,True,
+51,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_project_retained_source.py python/corpus-structure/tests/semantic/test_core_operation_calls.py python/corpus-stru,,1.001975243,True,
+51,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_project_retained_source.py python/corpus-structure/tests/semantic/test_core_operation_calls.py python/corpus-stru,1,7.07e-06,False,33e5866166994bf2ac7a1083d3b408a0 33e5866166994bf2ac7a1083d3b408a0
+51,executor,ci test (paths),-k not actual and not provider python/corpus-structure/tests/orchestrate/test_project_retained_source.py python/corpus-structure/tests/semantic/test_core_operat,,1.001606828,True,
+51,executor,ci test (full/flags),,,,False,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_runtime.py python/corpus-structure/tests/semantic/test_data_operation_wire_generation.py python/corpu,,1.00120498,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_runtime.py python/corpus-structure/tests/semantic/test_data_operation_wire_generation.py python/corpu,,,False,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_typed_realization.py,,,False,
+51,executor,ci test (paths),python/corpus-structure/tests/test_cli_model_inspect.py::test_current_preview_retains_query_analysis_in_existing_model_view python/corpus-structure/tests/test_c,,,False,
+51,executor,ci test (paths),python/corpus-structure/tests/test_cli_model_inspect.py::test_current_preview_retains_query_analysis_in_existing_model_view python/corpus-structure/tests/test_c,,,False,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-structure/tests/evaluate/test_declared_record_policy.py python/corpus-struc,,1.000430192,True,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-structure/tests/evaluate/test_declared_record_policy.py python/corpus-struc,,1.000464509,True,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-structure/tests/evaluate/test_declared_record_policy.py python/corpus-struc,,1.001016077,True,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-structure/tests/evaluate/test_declared_record_policy_capabilities.py python,,1.001171699,True,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-structure/tests/evaluate/test_declared_record_policy_capabilities.py python,,1.000617169,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_record_grade_native.py,,1.001608797,True,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_native_journey.py::test_current_record_policy_journey_recipe_has_real_closed_producers,,1.001249322,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_record_fit_native.py,,1.001272662,True,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_policy_capabilities.py,,1.001018241,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_admission_native.py,,1.001332474,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_admission_native.py,,1.00074222,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_cpu_basis.py python/corpus-structure/tests/semantic/test_rich_admission_native.py,,1.001174584,True,6e3635f1e17b4afbb3449b43eb2b89d3
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_cpu_basis.py python/corpus-structure/tests/semantic/test_rich_admission_native.py,,1.000993122,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_cpu_basis.py python/corpus-structure/tests/semantic/test_rich_admission_native.py,,1.001104674,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_cpu_basis.py python/corpus-structure/tests/semantic/test_rich_admission_native.py,,1.001232029,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_cpu_basis.py python/corpus-structure/tests/semantic/test_rich_admission_native.py,,1.001400878,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_cpu_basis.py python/corpus-structure/tests/semantic/test_rich_admission_native.py,0,9.679e-06,False,2223a80d01314b848d9e6bbeee6a202c
+51,executor,ci test (paths),python/corpus-structure/tests/schema/test_rules.py python/corpus-structure/tests/semantic/test_analytics.py python/corpus-structure/tests/semantic/test_rich_rel,,1.001094261,True,ca6f0ba9fe0749998c1e77f9f8a58a96
+51,executor,ci test (paths),python/corpus-structure/tests/schema/test_rules.py::test_actual_class_sets_preserve_every_membership_and_ancestor_without_scalar_alias python/corpus-structure/t,,1.001422246,True,
+51,executor,ci test (paths),python/corpus-structure/tests/schema/test_rules.py::test_policy_applies_to_actual_property_without_legacy_candidate_adapter,,1.001149263,True,d4dac385e25041f6a5b9d98cc717bf46
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_rule_evaluation.py,,1.002041335,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_rule_evaluation.py,,1.000944103,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_rule_evaluation.py,,1.000443726,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_relations.py python/corpus-structure/tests/semantic/test_rich_rule_evaluation.py python/corpus-structure/tests/,,1.00128349,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_rule_evaluation.py::test_actual_undecided_scientific_reading_is_candidate_not_inequality,,5.001110516,True,a7f10357c0a14faa8397d814f2ac739e
+51,executor,ci test (full/flags),,0,1.611678345,False,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_external_extraction_cpu.py python/corpus-structure/tests/semantic/test_external_rich_extraction.py,,1.001347967,True,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_native_journey.py::test_current_record_policy_journey_recipe_has_real_closed_producers,,1.000759125,True,
+51,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_consolidation.py python/corpus-structure/tests/semantic/test_rich_operations.py python/corpus-structure/tests/s,,1.001161957,True,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_rich_native_journey.py::test_current_rich_recipe_preserves_actual_producers_and_complete_reading_fields,,1.001607469,True,
+51,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_rich_native_journey.py::test_current_rich_recipe_preserves_actual_producers_and_complete_reading_fields pyt,,1.000734921,True,
+51,executor,ci test (full/flags),,,,False,
+60,executor,ci test (full/flags),,0,1.177198679,False,
+65,code-mapper,ci test (full/flags),,,,False,
+66,executor,ci test (paths),python/corpus-structure/tests/math/test_prepared.py python/corpus-structure/tests/math/test_stages.py python/corpus-structure/tests/semantic/test_analysis_polic,,1.001819427,True,
+66,executor,ci test (paths),python/corpus-structure/tests/math/test_prepared.py python/corpus-structure/tests/math/test_stages.py python/corpus-structure/tests/semantic/test_analysis_polic,,1.000608319,True,
+66,executor,ci test (paths),python/corpus-structure/tests/math/test_source_context.py python/corpus-structure/tests/semantic/test_declared_math_analysis.py python/corpus-structure/tests/se,0,7.32e-06,False,de1e9f006f514090b344883e1a5dd7e5
+66,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_affine.py python/corpus-structure/tests/semantic/test_math_context_custody.py python/corpus-structure/tests/semantic,,1.001235927,True,
+66,executor,ci test (paths),python/corpus-structure/tests/semantic/test_analysis_contracts.py::test_archived_snapshot_read_uses_unchanged_owned_contract,,1.001178782,True,afc932d9d17043ec8497f732b689e758
+67,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_finite_interpretation.py python/corpus-structure/tests/semantic/test_grouped_record_interpretations.py pyth,,1.001389939,True,
+67,executor,ci test (paths),python/corpus-structure/tests/semantic/test_grouped_record_interpretations.py python/corpus-structure/tests/semantic/test_selected_interpretations.py python/cor,,1.00115446,True,
+68,executor,ci test (paths),-k not native_neighborhood python/corpus-structure/tests/semantic/test_declared_neighborhood.py,,1.00113906,True,
+68,executor,ci test (paths),-k not native_neighborhood python/corpus-structure/tests/semantic/test_declared_neighborhood.py,,1.000955125,True,
+68,executor,ci test (paths),-k not native_neighborhood python/corpus-structure/tests/semantic/test_declared_neighborhood.py,,1.00077992,True,
+68,executor,ci test (paths),-k not native python/corpus-structure/tests/semantic/test_contextual_retrieval_numerics.py python/corpus-structure/tests/semantic/test_declared_contextual_opera,,1.000798062,True,
+68,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_neighborhood.py::test_cli_neighborhood_carries_explicit_selected_product_pins python/corpus-structure/tests,0,7.94e-06,False,5087073d8aa542abac9a90c555fdb135
+68,executor,ci test (paths),-k not native_neighborhood python/corpus-structure/tests/semantic/test_declared_neighborhood.py,,1.001490416,True,17a8c24c8bbe4c10b2f74e3176d94c8b
+68,executor,ci test (paths),-k not native_neighborhood python/corpus-structure/tests/semantic/test_declared_neighborhood.py,,1.001356161,True,eab551bfb8254554ba2b68f3bd2243d1
+68,executor,ci test (paths),-k not native_neighborhood python/corpus-structure/tests/semantic/test_declared_neighborhood.py,,1.001760467,True,b19f147315a7402087d434104b53dfaf
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contribution_transport.py python/corpus-structure/tests/semantic/test_selected_structural_readers.py,,1.000932622,True,94c3e0d547984f00a1498309c923ef87
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_demand_results.py python/corpus-structure/tests/semantic/test_selected_structural_readers.py python/corpus-structure,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_selected_structural_readers.py python/corpus-structure/tests/semantic/test_selected_structural_review.py python/corp,0,8.48e-06,False,62aace45712e431fa47271fde70e87a8
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_selected_structural_readers.py python/corpus-structure/tests/semantic/test_selected_structural_review.py python/corp,,1.000357177,True,f374c61279414acbb357abe8c9b4595b
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_structural_admission.py,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_structural_admission.py::test_actual_structural_issuer_compiles_with_protected_inputs_and_one_ordinary_effe,,1.000673287,True,c1f03fa468be4749a2e9ba306d6cf1ea
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_structural_admission.py python/corpus-structure/tests/semantic/test_dossier_comparison_bindings.py python/c,,1.001168488,True,3c8d2e9bafbd4b59aa3e8658ffc0132a
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_structural_admission.py python/corpus-structure/tests/semantic/test_dossier_comparison_bindings.py::test_do,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_structural_admission.py python/corpus-structure/tests/semantic/test_dossier_comparison_bindings.py::test_si,1,8.53e-06,False,edc1ff176b014ff0aee92d960c2c97e5 edc1ff176b014ff0aee92d960c2c97e5
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_structural_statement_lowering.py,,1.001659731,True,88f26e8358724df4b6f620953f972c47
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_current_nonrich_facets.py python/corpus-structure/tests/semantic/test_declared_structural_admission.py python/corpus,,1.000763351,True,ba3f690eccc8437d89b2e84eb4f97e33
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_current_nonrich_facets.py python/corpus-structure/tests/semantic/test_declared_structural_admission.py python/corpus,,1.000579655,True,1960ef28662d47e9b452ca96fb3f5d13
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_current_pdf_source_inputs.py python/corpus-structure/tests/semantic/test_pdf_stage_context.py::test_pdf_sealed_publi,,1.001707879,True,5c1fbe8fa81f485082776f705fb84605
+69,executor,ci test (paths),python/corpus-structure/tests/serve/test_characterization_inspection.py,,1.00098343,True,dfa44e47a2f74faf8078f3d3c5bf3e80
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_native.py::test_current_composition_missing_dependency_and_source_only_claim_refuse python/corpus-s,,1.000813294,True,68b50fab5d49429888e25fbc714d8e19
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_native.py::test_current_composition_missing_dependency_and_source_only_claim_refuse python/corpus-s,,1.000422312,True,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_current_characterization_inputs.py::test_current_formal_kernel_retains_original_syntax_without_recognized_text,,1.000606425,True,1810ea5a4fbe450c8b115b73c9a4290f
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py::test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory,,1.001032303,True,9a192a716e31464ba4f96a085f3a0843
+69,executor,ci test (paths),-k not native_ranking python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_contextual_selected_en,,1.001216386,True,ec7bb2559c0340f4bad4d25dfa2c5bba
+69,executor,ci test (paths),-k not native_ranking python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_contextual_selected_en,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py::test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory python/corpu,,,False,
+69,executor,ci test (paths),-k not native_ranking python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_contextual_selected_en,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_contextual_operations.py::test_contextual_retrieval_captures_factory_and_source_witness,,1.000907786,True,f399e42978dc4c088724ce48ea155142
+69,executor,ci test (paths),-k not native_ranking python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_contextual_selected_en,,1.001046713,True,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py::test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory python/corpu,,1.00151055,True,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_target_vectors.py,,1.000942264,True,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_consolidation.py python/corpus-structure/tests/semantic/test_rich_cpu_inputs.py python/corpus-structure/tests/s,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_cpu_authority_batch.py python/corpus-structure/tests/semantic/test_rich_cpu_inputs.py,,1.000803244,True,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_cpu_authority_batch.py python/corpus-structure/tests/semantic/test_rich_cpu_inputs.py,,1.002040741,True,f15c25dfa53b4925b1a3ee76a7c538ed
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_cpu_authority_batch.py python/corpus-structure/tests/semantic/test_prepared_authority_batch_native.py::test_controll,,1.001281519,True,276c931fdbe641dc93182d94af7d7817
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_cpu_authority_batch.py python/corpus-structure/tests/semantic/test_data_operation_cpu.py python/corpus-structure/tes,,1.001786905,True,b739bfaca6714cdb98fd50bb0de940bc
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_contextual_selected_encoder.py python/corpus,,1.001466166,True,30ef3bd6532043edb325c8a1107e1689
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_execution_evidence_leaf.py,,1.001025418,True,0c40ca0d401742979cb64be1f22ce6b6
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_contextual_selected_encoder.py python/corpus-str,,1.001841057,True,34b44c42425d473b94d4f06c2b44032f
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-struct,,1.000560506,True,5513f04e9761418da4e9aac9f84f5956
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py::test_retrieval_reduction_uses_owned_cpu_with_exact_controlled_score_input python/corpus-str,,1.001067214,True,96a8b4edc88d4d87ab8fb0295e11dfe6
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_controlled_contextual_model.py,,1.001685226,True,6883cc9556574a43b7035d41ab7288c1
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_retrieval_numerics.py::test_selected_backend_changes_retrieval_recipe_without_salting_inventory python/co,,1.000989162,True,dda52f28e63240f3b1e6be26977b5f18
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_enrichment.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-struc,,1.000319643,True,5c4e795bbfba4d628476f74dcd5abd27
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_contextual_scores.py::test_score_product_is_,,1.001571336,True,4b6e3fd79d6a4959b924cc59cf83c544
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_contextual_witnesses.py,,1.001544458,True,8c725b67b9f94904b4732d8123bd092b
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py::test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory python/corpu,,1.001654187,True,673edf9a4b124af983cae8afa994ce02
+69,executor,ci test (paths),python/corpus-structure/tests/methods/test_contextual_candidates.py python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/,,1.000287961,True,fad1e39d5b0349d28594e55049e3c552
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_scores.py::test_score_product_is_valid_under_its_current_nominal_contract python/corpus-structure/tests/s,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_witnesses.py,0,7.071e-06,False,fa1fff34b91e4616b71a01d462cc33b5
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_workflow_preparation.py,,1.00128019,True,8038f38726694ccfb4c6ba1a500560e7
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_workflow_preparation.py,,1.001587025,True,79703133c1584195ba574f2916d8904f
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_workflow_preparation.py,,1.000941154,True,c25c756dd2fb4edd9e1e0be36f9e9204
+69,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_data_operation_batch_activity.py python/corpus-structure/tests/semantic/test_contextual_workflow_preparation.py p,,1.001349807,True,0673a93b748d4e77903ad4b83cd43c79
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py::test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory python/corpu,,1.000647492,True,4806eb04e6db466fb740d8a9a1552b5a
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_scores.py::test_score_product_is_valid_under_its_current_nominal_contract python/corpus-structure/tests/s,,1.000735778,True,4e2a4cdf655b44cabddd3add50630f0b
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_preparation.py::test_public_downstream_profile_acquires_native_consumers_without_model_execution pyth,,1.000808828,True,31faef06b632454789b54db25dba1ad6
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_workflow_preparation.py python/corpus-structure/tests/semantic/test_cpu_authority_batch.py python/corpus-,,1.00129407,True,4b27d90a815545f2b82b51bbb706e447
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_workflow_preparation.py python/corpus-structure/tests/semantic/test_cpu_authority_batch.py python/corpus-,,1.002045008,True,b5a2a2ebd4db4b6db02f278ac070721b
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_contextual_selected_encoder.py python/corpus-str,,1.001314987,True,23e9d7e94440432492ba3ee74415509c
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_contextual_selected_encoder.py python/corpus-str,,1.000452151,True,19649779fde244fb8ac2b107a6b8a50f
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_source_metadata_codec_native.py,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_linguistics.py python/corpus-structure/tests/semantic/test_contextual_scores.py,,1.001674688,True,6d4b2692791645488de58d89df140e23
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_authority.py python/corpus-structure/tests/semantic/test_contextual_linguistics.py::test_known_dictionary,,1.001437162,True,78e085faba854c34b3e541f2827a176e
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_scores.py::test_score_consumer_requires_current_closed_linguistic_observation,,1.00084073,True,6ba6953feb4b43419e78368aa4d22a0d
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_artifact_cpu_authority.py python/corpus-structure/tests/semantic/test_artifact_nomination_products.py,,1.001423642,True,f0f836ac27f24b2fae0cbe0fe7624507
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_artifact_cpu_authority.py::test_artifact_wrapper_binds_complete_role_values_support_and_typed_policy,,1.001266431,True,afe041da000343edaf2a87dfe847abfc
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_artifact_cpu_authority.py::test_artifact_native_helper_compiles_without_an_artifact_numerical_reimplementation,,1.001543817,True,87c059a638b14e59ab96a2c1db608136
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_artifact_cpu_authority.py::test_artifact_native_helper_declares_exact_private_completion_and_validity_signatures,,1.000786122,True,0ca724a94ed34b7997bfc9f61705cbb2
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_ontology.py,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_ontology.py,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_ontology.py::test_graph_validation_keeps_supplied_data_shapes_and_ontology_operation_local,,1.002632223,True,5d67d797971a4f939854d8f45f3b7e11
+69,executor,ci test (paths),tests/scripts/test_test_receipts.py::test_prerequisite_does_not_hide_teardown_failure tests/scripts/test_test_receipts.py::test_prerequisite_explains_only_pytes,,1.000794364,True,d13433a02d0f4ce09f05d9ead1fd761b
+69,executor,ci test (paths),python/corpus-structure/tests/schema/test_model_change_preview.py python/corpus-structure/tests/schema/test_model_runtime_custody.py python/corpus-structure/tes,,1.000472146,True,4af3e9c1cad24ebfa320a43fc79f98a9
+69,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-structure/tests/evaluate/test_declared_record_policy.py python/corpus-struc,,1.001452767,True,78cc1ad85aea4354994f45bda427b42a
+69,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py::test_current_record_recipe_preserves_one_source_view_definition,,1.001011613,True,edf403ce8fd24a6799f9e85c4f8d18d8
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_enrichment.py python/corpus-structure/tests/semantic/test_contextual_scores.py python/corpus-structure/te,,1.001707957,True,4ac954ae6d7b448d8c684fe03ab441c0
+69,executor,ci test (paths),-k not current_native_comparison and not native_model_report and not current_named_definition python/corpus-structure/tests/semantic/test_definition_model_nativ,,1.001018678,True,bacb441aaedc43ac99dfd2df87577796
+69,executor,ci test (paths),python/corpus-structure/tests/ingest/test_definition_rules.py python/corpus-structure/tests/semantic/test_declared_named_definitions.py python/corpus-structure/,,1.001364495,True,ce1aa58e30914e08aca1db888a830d79
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_structural_native_replay.py::test_current_dossier_page_excludes_unselected_member_source_closure,,1.00105905,True,1bc42f9649ff4138937aea5cd398f019
+69,executor,ci test (paths),python/corpus-structure/tests/ingest/test_definition_rules.py,,1.000760149,True,ba5719743da247f1ac320b406391b80d
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py python/corpus-structure/tests/semantic/test_declared_math_analysis.py python/corp,,1.000835872,True,1b5eee88c7ca4b8a9a33e8604884d13a
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py,,1.001037976,True,5aa031a878a44be99c6fb7e0c8e014d3
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py python/corpus-structure/tests/semantic/test_declaration_syntax_products.py python,,1.00101067,True,d461fca84402451892a67588b3fab90b
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py python/corpus-structure/tests/semantic/test_primary_operations.py::test_standalon,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py::test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_typed_,,1.001077881,True,99d3143d1b504acf8e2e5c49f2759bad
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_prepared_ports.py python/corpus-structure/tests/semantic/test_declaration_syntax_products.py,,1.000916021,True,e653a1360d8b4f569e09382f227dc2ea
+69,executor,ci test (paths),-k not postgresql and not native_record_frame and not native_observation_meaning_keeps python/corpus-structure/tests/semantic/test_pdf_observations.py python/co,,1.00105647,True,f59fd31d4bed4927939665cbc6370c2a
+69,executor,ci test (paths),-k not postgresql and not native_record_frame and not native_observation_meaning_keeps python/corpus-structure/tests/semantic/test_pdf_domain.py python/corpus-s,,1.001137316,True,ad43d6dfb2ca46dba10ad1ab6afe0969
+69,executor,ci test (paths),python/corpus-structure/tests/methods/test_contextual_query.py python/corpus-structure/tests/methods/test_declared_contextual_query.py,,1.000857846,True,3211567279c34841aeece0de57780137
+69,executor,ci test (paths),python/corpus-structure/tests/methods/test_contextual_query.py python/corpus-structure/tests/methods/test_declared_contextual_query.py,,1.001115413,True,32141aba216a467c9c068695acdee2e1
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_contextual_operations.py::test_curated_target_validator_bytes_belong_to_actual_retrieval_assets,,,False,
+69,executor,ci test (paths),python/corpus-structure/tests/semantic/test_cpu_authority_batch.py python/corpus-structure/tests/semantic/test_cpu_basis_values.py python/corpus-structure/tests,,1.000988772,True,e960bb8c0b9443f9b839fbcb0e07b0b1
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_authored_interpretations.py python/corpus-structure/tests/semantic/test_grouped_record_interpretations.py python/cor,,1.001381883,True,
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_authored_interpretations.py::test_source_reading_link_keeps_complete_alternatives_and_authored_unit_basis_distinctio,,1.00033856,True,e3698bb0b6e5452db662d53d10b5956f
+70,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_policy_capabilities.py python/corpus-structure/tests/semantic/test_cli_failures.py python/corpus-str,,1.000732452,True,26c97884c3be49ebad82c163b3e5214a
+70,executor,ci test (paths),python/corpus-structure/tests/methods/test_characterization_composition.py python/corpus-structure/tests/methods/test_clause_classification.py python/corpus-str,,1.000811008,True,
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_structural_gaps.py::test_pre_hydration_budget,,1.000859466,True,bec1bc1039e64ea299e7bb0a599e4c8e
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_structural_admission_native.py::test_controlled_structural_fixture_has_complete_checked_source_and_independent_expec,,1.001085553,True,
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_d1_limitation.py python/corpus-structure/tests/semantic/test_data_operation_wire.py::test_attempt_release_requires_c,,,False,
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_d1_limitation.py python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-struct,,1.000457821,True,dce874137919437e9a2bb1522eb551cb
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_d1_limitation.py python/corpus-structure/tests/semantic/test_data_operation_core_projections.py python/corpus-struct,0,6.96e-06,False,
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_core_projections.py::test_native_sql_uses_frozen_core_products_without_ambient_builder,,1.000261575,True,fd79a6796c1a41ffb949c20b195af36e
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pm2_result_native.py::test_current_decoder_keeps_empty_raw_answer_and_unresolved_question_distinct python/corpus-str,,1.002215518,True,
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pm2_parser_stage_native.py::test_partial_original_scope_is_ineligible_for_whole_block_inspection python/corpus-struc,,1.000651445,True,c305f9dff5fd487eaccca0f2216d7d92
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pm2_parser_stage_native.py::test_partial_original_scope_is_ineligible_for_whole_block_inspection python/corpus-struc,,1.001075353,True,40f6d310a58e4298989326f60cf81a99
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pm2_result_native.py::test_literal_provider_recipe_has_checked_profile_without_claiming_execution,,1.000915121,True,ba525eef337b412485b1cf566e9344ca
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_constraint_custody.py::test_constraint_admission_and_graph_guard_sql_parse python/corpus-structure/te,,1.001802442,True,648bd2a433e94c2ca9f7c28411711b8c
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_constraint_custody.py::test_current_question_projection_preserves_exact_patterns_and_class_ownership,,1.001046563,True,8c8b8c2bb09245be93fb6f649ab1ca15
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_target_installation.py,,1.000445442,True,c9f55a49f03a4848a688b77170889f8f
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_target_installation.py::test_target_native_capture_and_shared_task_checks_have_no_legacy_task_branch,,1.000608914,True,99236219dd4c43849b278b7d0c68c829
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_protocol_values.py::test_task_guard_uses_captured_protocol_states_and_transitions python/corpus-struc,,1.000806763,True,cb172fe3378e426ab69c09cffc822f8f
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_admission_retirement.py::test_retired_overload_does_not_return_in_next_unchanged_admission python/corpus-stru,,1.001070361,True,81e757829e414ac8a78afdacfa220d7d
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_target_installation.py::test_explicit_pdf_metadata_controls_lossless_equality_and_native_read_types,,1.001650142,True,06b803e3385548f8bf52d6cdc75dd603
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_target_installation.py::test_native_definition_source_cohort_cannot_be_mixed_with_another_physical_capture,,1.000974943,True,d6b80671374946dc8161238713b48006
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_target_installation.py::test_frozen_target_environment_does_not_import_current_metadata,,1.001337617,True,e21c6081704c40e593c58cae9005fb22
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_authoring_inputs.py::test_explicit_physical_capture_reaches_native_helper_assets_and_guards python/corpus-str,,1.001555192,True,98f15a8617694701b840463234169013
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_target_installation.py,,1.001742734,True,c95d362939f543dfb27d899bab2eeb37
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_target_installation.py,,1.000714815,True,16e4a27a7cbb44b591d9192491633cf0
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_analysis_contracts.py python/corpus-structure/tests/semantic/test_analysis_policies.py python/corpus-structure/tests,,1.001694768,True,24f4a34eb2f04582a65d4f32ed00ca90
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_text_comparison_policies.py::test_alignment_mechanism_cannot_silently_change,,1.001277343,True,bd73e0ec8313410582537f772397c752
+70,executor,ci test (paths),python/corpus-structure/tests/evaluate/golden/test_split.py python/corpus-structure/tests/evaluate/test_split_decisions.py python/corpus-structure/tests/methods,,1.000523444,True,3ed59a47eac64ae9ab514403a8451612
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_qualification_subclasses.py python/corpus-structure/tests/semantic/test_reference_split_authority.py python/corpus-s,,1.000637821,True,6d104f4d2630415a83d5ddbf5b63bbb0
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declaration_products.py python/corpus-structure/tests/semantic/test_declared_named_definitions.py,,1.001082245,True,706dabdea28d4b72abd397175658e7dc
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declaration_products.py::test_declared_applicability_preserves_unknown_transfer_and_explicit_introduction python/cor,,1.000536231,True,6febae13f25441d6abe4556076925552
+70,executor,ci test (paths),python/corpus-structure/tests/methods/test_clause_classification.py python/corpus-structure/tests/semantic/test_clause_products.py python/corpus-structure/tests,,1.001692928,True,a0a12bc56caf440984d042c801f9448a
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_preparation.py::test_explicit_ontology_selection_reaches_actual_dependency_owner python/corpus-struct,,1.000962661,True,8ca2084d4121421796a270dadf6622e5
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_source_discovery.py::test_source_discovery_refuses_changed_owned_module_and_reserved_root python/corpus-structure/te,,1.001654374,True,cec16a83dda047e3a96ed5209d9d211f
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_preparation.py python/corpus-structure/tests/semantic/test_source_discovery.py,,1.001090527,True,af792a55ca3c4c19a1be62429a7e9cc7
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_conditional_rules.py python/corpus-structure/tests/semantic/test_effective_bindings.py python/corpus-structure/tests,,,False,
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_target_installation.py::test_captured_recognition_reader_is_an_exact_current_pdf_authoring_input python/corpus-struc,,1.000761947,True,2a1a0490a2034e428d7ac09684f9337d
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_observations.py,,,False,
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_authoring_inputs.py::test_explicit_physical_capture_reaches_native_helper_assets_and_guards python/corpus-str,,1.000439857,True,f1e2e680ccfc4b17bd410515754f50af
+70,executor,ci test (paths),python/corpus-structure/tests/ingest/test_pdf_recognition_methods.py python/corpus-structure/tests/semantic/test_pdf_observations.py python/corpus-structure/tes,,1.001288213,True,75b78d6e956a4911aa27521d5b149e05
+70,executor,ci test (paths),python/corpus-structure/tests/ingest/test_pdf_recognition_methods.py python/corpus-structure/tests/semantic/test_pdf_observations.py python/corpus-structure/tes,,1.001239054,True,766589bc5ced4957bff644c6b3094346
+70,executor,ci test (paths),-k not test_native_observation_meaning python/corpus-structure/tests/semantic/test_data_operation_execution_evidence.py::test_observation_transport_keeps_first_,,1.001663031,True,be42774050ce473b874b127f818495bd
+70,executor,ci test (paths),-k not test_native_observation_meaning python/corpus-structure/tests/semantic/test_pdf_call_bindings.py python/corpus-structure/tests/semantic/test_pdf_domain.p,,1.000973271,True,f90544c9c7394d218fd11469028c6e57
+70,executor,ci test (paths),-k not test_public_native_writer_checks_word_custody_and_retains_partial and not test_actual_capture_refuses_forged_ocr_word_geometry_and_address python/corpus-,,1.001218263,True,7c2277d1d1774c86bba714b3fe467ec6
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_ocr_contracts.py::test_current_candidate_font_omission_is_distinct_from_explicit_null,,1.00153955,True,0e72a54e5c104b5a84624ec6cab74928
+70,executor,ci test (paths),-k not test_decomposed_cardinality_is_derived_from_effective_model python/corpus-structure/tests/semantic/test_pdf_integrated_contracts.py,,1.001390208,True,30c03e031c554e73bc9c426752710d81
+70,executor,ci test (paths),-k not test_native_observation_meaning python/corpus-structure/tests/semantic/test_data_operation_source_native.py::test_native_source_helper_capture_and_compil,,1.000889151,True,85f59b156e96474ea82020b4a06cf87e
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_source_native.py::test_native_source_helper_capture_and_compilation python/corpus-structure/tests/sem,,,False,
+70,executor,ci test (paths),python/corpus-structure/tests/methods/test_gliner.py python/corpus-structure/tests/methods/test_pm2_source.py python/corpus-structure/tests/methods/test_record_,,1.001216399,True,99f1aff33e23484fb9e2dc033bb4f5ce
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_call_bindings.py python/corpus-structure/tests/semantic/test_pdf_domain.py python/corpus-structure/tests/semanti,,1.000597347,True,
+70,executor,ci test (paths),python/corpus-structure/tests/methods/test_gliner.py::test_actual_context_owner_synthetic_crossing_and_classified_offsets python/corpus-structure/tests/methods/,,,False,
+70,executor,ci test (paths),python/corpus-structure/tests/methods/test_contribution_adapter.py,,1.001770025,True,c32224a494fe4c3680a666d905c50830
+70,executor,ci test (paths),python/corpus-structure/tests/methods/test_m1_source_preparation.py::test_dense_native_table_targets_every_data_cell_once_with_complete_bounded_paths,,1.000487642,True,a6d079b603b141dfb7d316cf2861ae9b
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_formal_readings.py,,1.00109904,True,83e09309506248e5a0f78bd97017e089
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_formal_sources.py,,1.000916826,True,7b7d82f91bff4f22842bc14b1d6933b3
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_typed_structural_composition.py,,1.000974192,True,c6fdae000e0442f9b064f6f9ac90152e
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_source_contexts.py,,1.000553311,True,f3e2c6efbe204218abed3cb80abf1bc5
+70,executor,ci test (paths),python/corpus-structure/tests/methods/test_m1_source_preparation.py,,1.001836205,True,5437fbd7d4714ce2ad55bb2425039da8
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_integrated_consumers.py tests/test_native_proposal_frame.py,,1.000571923,True,a691eef11ca94edf939e3766727229e9
+70,executor,ci test (paths),python/corpus-structure/tests/ingest/test_source_capture.py python/corpus-structure/tests/semantic/test_attributed_source_evidence.py,,,False,
+70,executor,ci test (paths),python/corpus-structure/tests/methods/test_m1_source_preparation.py python/corpus-structure/tests/semantic/test_source_contexts.py,,1.000812763,True,6b266019178b40e3a03e0b26583c6c4a
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_structural_products.py python/corpus-structure/tests/semantic/test_typed_structural_composition.py,,1.000910304,True,60d25c4344ba406597e479a2332b9bcf
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_formal_evidence.py python/corpus-structure/tests/semantic/test_formal_products.py python/corpus-structure/tests/sema,,1.001115822,True,80a24a14e34a449183c352c0c0a33a9b
+70,executor,ci test (paths),-k not typed_source_dependency python/corpus-structure/tests/semantic/test_dossier_comparison_bindings.py,,1.002045507,True,51aaf47c80c54e6a8668a1ca39d89334
+70,executor,ci test (paths),python/corpus-structure/tests/methods/test_math_scope_primary.py,,1.000287674,True,e74df373c9ed48d0aa4d580a4863e512
+70,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_product_reference.py,,1.000821093,True,d3d15e2a8f154ba78428f058cc8d4e44
+70,executor,ci test (paths),-k not variant_attempts python/corpus-structure/tests/methods/test_m1_source_profile.py,,1.001339473,True,6cbebaf1ee674593a6b620d56b6c03f4
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_companion_call_bindings.py python/corpus-structure/tests/semantic/test_operation_call_generation.py python/corpus-st,,1.00110313,True,db0b5abc079d4039826cab443398690d
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_companion_call_bindings.py python/corpus-structure/tests/semantic/test_companion_export.py python/corpus-structure/t,,1.001694934,True,4589dfb46db540c896de4953bb20c95c
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_authored_sql.py::test_authored_sql_does_not_fall_back_to_legacy_execution_inputs python/corpus-structure/tests/seman,,1.001372937,True,9e9d95bfd5724b39af6ae1b96a208626
+71,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_project_retained_source.py python/corpus-structure/tests/semantic/test_data_operation_wire.py python/corpus-struc,,1.001143664,True,c7730941e28644da843b39bfa95c943a
+71,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_project_retained_source.py python/corpus-structure/tests/semantic/test_data_operation_wire.py python/corpus-struc,,1.000389714,True,e250509073114c51831213cbb0e00473
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_current_pdf_source_inputs.py,,1.001719156,True,3f736997160f42a98c26f43b8ec4a7e9
+71,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_project_retained_source.py python/corpus-structure/tests/semantic/test_core_operation_calls.py python/corpus-stru,,1.000825077,True,afceacd3c6a1409dafc9298f43cdf492
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_structural_assessment.py python/corpus-structure/tests/semantic/test_operation_call_generation.py python/corpus-stru,,1.000455604,True,f4cfc184debc4034a58db391185732bf
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_analysis_resources.py python/corpus-structure/tests/semantic/test_characterization_inventory.py python/corpus-struct,,1.00136297,True,
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_rich_native_journey.py::test_current_rich_recipe_preserves_actual_producers_and_complete_reading_fields pyt,,1.001381139,True,
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_rich_native_journey.py::test_current_rich_recipe_preserves_actual_producers_and_complete_reading_fields pyt,,1.000692361,True,12c5629a713d4e5aa269f941a1d47f29
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_domain_preservation.py,,1.002550429,True,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_domain_preservation.py python/corpus-structure/tests/semantic/test_rich_domain_preservation_native.py::test_act,,1.00141884,True,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_domain_preservation.py python/corpus-structure/tests/semantic/test_rich_domain_preservation_native.py::test_act,,1.001360292,True,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_domain_external_native.py::test_external_domain_recipe_composes_existing_sentence_and_packet_owners,,1.000662701,True,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_domain_preservation.py::test_current_ownership_applicability_keeps_partial_dates_unknown,,1.001375132,True,99d4f1ecbda440d7bee5cbf4bc9259d5
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_domain_preservation_native.py::test_actual_toy_native_recipe_retains_its_own_qualification_and_rules,,1.001284714,True,66d54cbd812e4c2d85740027b91817be
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_domain_preservation.py python/corpus-structure/tests/semantic/test_rich_domain_preservation_native.py::test_act,,1.001155983,True,c68a184109244f609e52fb62f304c886
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_domain_preservation.py::test_current_ownership_date_has_exact_json_query_and_resource_wire,,1.000889382,True,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_structural_admission.py python/corpus-structure/tests/semantic/test_structural_admission_native.py::test_co,,1.001538471,True,cdc874d6d8ca4ae9b4f198d028e14554
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_downstream_profile_acquisition.py python/corpus-structure/tests/semantic/test_selected_structural_review.py,0,8.182e-06,False,d4dfaaef35554f88a752ed15860ab789
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_adapter_contracts.py python/corpus-structure/tests/semantic/test_operation_call_generation.py python/corpus-s,,1.001016307,True,8707eebe2ad541ee9521aa9954e0134e
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_runtime.py python/corpus-structure/tests/semantic/test_operation_call_generation.py::test_generated_c,1,8.343e-06,False,5374d156e82b4405b99f450986e3e1b8
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_archive_bootstrap_transport.py python/corpus-structure/tests/semantic/test_archive_transport.py python/corpus-struct,,1.000927163,True,f3035bc6c4d44b9c8382b4b0f7f77d66
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_archive_bootstrap_transport.py python/corpus-structure/tests/semantic/test_execution_projection.py::test_changed_eff,,1.00155868,True,581a107303b44046bde91c5d87a94d26
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_native_scoring.py python/corpus-structure/tests/evaluate/test_selected_native_question.py python/corpus-structure/te,,1.000901473,True,917ce804aab84468a410466b11851367
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_native_scoring.py python/corpus-structure/tests/evaluate/test_operation_fitting.py python/corpus-structure/tests/eva,,1.001033109,True,5321427a6ab04aa6a660d96289494b0e
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_policy_capabilities.py python/corpus-structure/tests/semantic/test_record_feature_fit_read.py,0,6.619e-06,False,
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_operation_events.py,,1.000755832,True,53cbd2f4bcf4454abdb6598c2a0874d2
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_operation_events.py python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-st,,1.000554587,True,d0d919bb4b8b497bb42d4451e22b128d
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contribution_composition.py,,1.000774153,True,02ac9f3b82e04a8899f34bf63dbab1f2
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_scoped_relations.py python/corpus-structure/tests/semantic/test_contribution_composition.py python/corpus-structure/t,,1.001372708,True,64d9620a893442ed93b79fab0e1f9b2d
+71,executor,ci test (full/flags),,0,1.095287362,False,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_audit_closure_semantics.py python/corpus-structure/tests/semantic/test_capture_storage.py python/corpus-structure/te,,1.001168369,True,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_identity_resolution.py python/corpus-structure/tests/semantic/test_rich_knowledge_identity.py,,1.002084184,True,418c99fda54345889b43577e4a581c65
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_arrow_transfer.py python/corpus-structure/tests/semantic/test_record_projection.py python/corpus-structure/tests/sem,,1.00108078,True,54aa0f9f604843208fb424a24ff51442
+71,executor,ci test (paths),python/corpus-structure/tests/ingest/test_pdf_section_health.py python/corpus-structure/tests/orchestrate/test_whole_document.py python/corpus-structure/tests/s,,1.000990146,True,e5a50444548a40fc9a33fc673a963f8f
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_formal_evidence.py,,1.000800916,True,7918065e78234485957a7a4923f1e38a
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_operation_events.py python/corpus-structure/tests/evaluate/test_selected_operation_events.py python/corpus-,,1.000841866,True,24a212e1bd62499c96f8e5a54aa8b26d
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_frozen_health.py python/corpus-structure/tests/semantic/test_pdf_payload_validation.py python/corpus-structure/t,,1.000994122,True,e5d342f98bb4400fad60c4c757e5a247
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_child_edge_guard.py python/corpus-structure/tests/semantic/test_pdf_frozen_health.py python/corpus-structure/,,1.00118727,True,51f7d9ac71c74ab69cd5eac43ad01919
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_transform_operations.py::test_pdf_only_modes_declare_their_actual_source_member_contexts,,1.001176494,True,0f7585c50c6b4c10a861bed6d7598b4e
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_downstream_profile_acquisition.py python/corpus-structure/tests/semantic/test_m1_declared_products.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_call_sources.py python/corpus-structure/tests/semantic/test_pdf_call_bindings.py,,1.000721883,True,dcfa2d206db44386adc9ba6d16df7aed
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_downstream_profile_acquisition.py python/corpus-structure/tests/semantic/test_m1_declared_products.py::test_m1_seman,,1.00107019,True,c408169dafe4423e94b3691bafc373ee
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_record_policy_authority.py python/corpus-structure/tests/semantic/test_record_policy.py python/corpus-struc,,1.001697321,True,79ee7323796540c4a554aef49d34d746
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_record_readings.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_identity.py python/corpus-structure/tests/semantic/test_native_call_sources.py,,1.000317156,True,d52c805551e4426e9aec272c7b698194
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_table_interpretation.py python/corpus-structure/tests/semantic/test_scientific_numerical_policies.py,,1.000898487,True,2eeb2daf619e4e3f844755ce278e651e
+71,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_pdf_private_execution.py python/corpus-structure/tests/orchestrate/test_pdf_published_execution.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_call_sources.py python/corpus-structure/tests/semantic/test_pdf_call_bindings.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/ingest/test_pdf_snapshot_loading.py python/corpus-structure/tests/ingest/test_pdf_streaming.py python/corpus-structure/tests/orche,,,False,
+71,executor,ci test (paths),tests/test_native_math_requests.py,,1.001490991,True,647aeed83e7c492cb6bf857cd5ca7076
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_call_bindings.py python/corpus-structure/tests/semantic/test_pdf_domain.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/ingest/test_pdf_snapshot_loading.py python/corpus-structure/tests/ingest/test_pdf_streaming.py python/corpus-structure/tests/orche,,1.000981193,True,3a5803d65f2545a5a6330492ea8a3674
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_math_analysis.py python/corpus-structure/tests/semantic/test_declared_math_products.py tests/test_native_ma,1,1.359e-05,False,4047341302f94915a4b75857fea78277
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_math_readings.py tests/test_native_math_methods.py::test_current_domain_markers_are_explicit_source_rules_w,,1.000727011,True,699953aacbc64d41a4e96e05903cad88
+71,executor,ci test (paths),-k not contextual_native_ranking python/corpus-structure/tests/semantic/test_contextual_target_vectors.py python/corpus-structure/tests/semantic/test_declared_c,,1.000950877,True,a3dc8571b67541e5b0f78dda1c02c80d
+71,executor,ci test (paths),python/corpus-structure/tests/ingest/test_pdf_candidate_source.py python/corpus-structure/tests/semantic/test_native_source_published.py python/corpus-structure,,1.001903877,True,40298ca94158484e8325dd757a28e097
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_native_call_sources.py python/corpus-structure/tests/semantic/test_pdf_call_bindings.py tests/test_pdf_conversion.py,,1.000484159,True,e59c366a78224e15a7e649bf12086b92
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_math_analysis.py python/corpus-structure/tests/semantic/test_declared_math_products.py python/corpus-struct,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/core/test_references.py,,1.001988576,True,be46728191c54802ae3af9e1aa8cc81a
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_correspondence_numerical_meaning.py python/corpus-structure/tests/methods/test_table_interpretation.py python/corpus-,,1.001259706,True,92f6c98b5a244f41b0a82f376434b21f
+71,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_declared_record_grading.py python/corpus-structure/tests/evaluate/test_record_alignment.py python/corpus-structure/t,,1.001745567,True,b90885f6f85842d195cf933d863e44af
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_attributed_source_evidence.py python/corpus-structure/tests/semantic/test_record_contracts.py,,1.000982374,True,64788db7260d4d549152f89f4a3911fe
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_contribution_adapter.py python/corpus-structure/tests/semantic/test_contributions.py python/corpus-structure/tests/se,,1.000695025,True,e707abcfcbbf4182937bfd92ac65763c
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contributions.py python/corpus-structure/tests/semantic/test_selected_contribution_scope.py,,1.001620277,True,d37df4beb2e9423694a6397c8639c13b
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contributions.py python/corpus-structure/tests/semantic/test_selected_contribution_scope.py python/corpus-structure/,,1.000989809,True,10b42ff102b84637b2fee4a9f91b12d3
+71,executor,ci test (paths),python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/semantic/test_current_characterization_inputs.py python/corpus-structure/tests/s,,1.001243512,True,ab32a99ebceb477193f20cb6533bdfd9
+71,executor,ci test (paths),python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/semantic/test_current_characterization_inputs.py,,1.001075136,True,aee7ae76ea864361a3df71587777c3da
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_reading_admission.py python/corpus-structure/tests/semantic/test_rich_record_readings.py python/corpus-structur,,1.001352236,True,146f2ea861bb4c459ff9edcf259add75
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_rich_record_readings.py python/corpus-structure/tests/semantic/test_value_codec.py,,1.000604878,True,ba258ced43824f16b50fea4aa3d8f91e
+71,executor,ci test (paths),python/corpus-structure/tests/orchestrate/test_project_retained_source.py python/corpus-structure/tests/semantic/test_original_documents.py,,1.001237327,True,6bbbb6dcacde46099a61eda608dfc254
+71,executor,ci test (paths),-k not postgresql python/corpus-structure/tests/semantic/test_native_source_budgets.py python/corpus-structure/tests/semantic/test_scoped_native_inspection.py,,1.001236776,True,9a80b0b8f74a4946912db3af2a12b424
+71,executor,ci test (paths),-k not postgresql python/corpus-structure/tests/ingest/test_pdf_section_health.py python/corpus-structure/tests/semantic/test_native_source_budgets.py python/co,,1.000447188,True,e1e61d301bd244f18f907dc313f3bcf8
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_m1_declared_products.py::test_m1_semantic_profile_excludes_snapshot_path_and_captures_record_schema,,1.000741714,True,8f471de8f7514909a9d2955c6d5f0984
+71,executor,ci test (paths),python/corpus-structure/tests/db/test_claim_renewal.py,,1.001366601,True,7106144a6ce140a192833bfc1c5a0c8f
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_pdf_domain.py::test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execution,,1.000429056,True,29c3712c67294cfa8e597a4d2c525375
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_construction_named.py::test_primary_naming_nomination_retains_exact_antecedent_and_prior_sentence_context python/corp,,1.001475577,True,87ccd9476f284e9a8f54531cccd466dc
+71,executor,ci test (paths),python/corpus-structure/tests/ingest/test_definition_rules.py python/corpus-structure/tests/methods/test_construction_named.py::test_primary_naming_nomination_r,,1.00190918,True,0b03fe145cca44019f304aabe421bb9c
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization_completion.py python/corpus-structure/tests/semantic/test_current_characterization_inputs.py python,,1.001247712,True,92b31f68e9fd48bfa7ff58c62146e152
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_artifacts.py python/corpus-structure/tests/semantic/test_native_call_sources.py python/corpus-structu,,1.001331199,True,c697fa5fb97446b4a05036ed5d5ed518
+71,executor,ci test (paths),python/corpus-structure/tests/core/test_method.py python/corpus-structure/tests/schema/test_change.py python/corpus-structure/tests/schema/test_model.py,0,7.691e-06,False,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_source_annotations.py::test_current_native_columns_restore_whole_doc_without_pipeline_and_preserve_whitespace,,1.001179955,True,34aa0f7076804c5b9f0fce572d3db469
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_source_annotations.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_construction_named.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declared_named_definitions.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_m1_declared_products.py,,1.000764081,True,82e6083a3a5c4470a137dfd0cc7fb83a
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_m1_predicate_inputs.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_m1_predicate_inputs.py,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_m1_predicate_inputs.py python/corpus-structure/tests/semantic/test_m1_declared_products.py,,1.000866406,True,a96861c5721a4d298a159db7c7c3ceea
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_structural_roles.py,,1.000579663,True,af5b8397407d4387880f364e00a8479e
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_m1_assertion_qualification.py::test_missing_primary_layout_is_unknown python/corpus-structure/tests/methods/test_m1_p,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/semantic/test_declaration_products.py,,1.001073533,True,1c3e4593e0ff4e5e9956009f536f8d96
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_m1_assertion_qualification.py::test_missing_primary_layout_is_unknown python/corpus-structure/tests/methods/test_m1_p,,1.000469276,True,b3409fcb22684ea3aa8687b2ddbe302b
+71,executor,ci test (paths),-k not constructive_copula and not nist and not primary python/corpus-structure/tests/ingest/test_annotations.py,,1.000406453,True,2bdb671e2f88490180578635b368ecd4
+71,executor,ci test (paths),-k constructive_copula python/corpus-structure/tests/ingest/test_annotations.py,,1.000690237,True,b128982ff6124d7183f49b3bd78b0a87
+71,executor,ci test (paths),python/corpus-structure/tests/ingest/test_annotations.py,,1.001108209,True,ac30d27d1e854723813d5bdddad3f440
+71,executor,ci test (paths),python/corpus-structure/tests/methods/test_m1_producer.py::test_dense_native_structure_emits_only_the_explicit_context_target_cells python/corpus-structure/test,,,False,
+71,executor,ci test (paths),python/corpus-structure/tests/ingest/test_annotations.py::test_annotation_reuses_layout_without_tokenization_and_batches_pinned_block_contexts python/corpus-str,,,False,
+75,executor,ci test (paths),python/corpus-structure/tests/semantic/test_dossier_contributions.py python/corpus-structure/tests/semantic/test_dossier_semantic_states.py,,1.001628691,True,fa9a4dab342f4de99607544708aed1fc
+75,executor,ci test (paths),python/corpus-structure/tests/semantic/test_dossier_contributions.py python/corpus-structure/tests/semantic/test_dossier_semantic_states.py,,,False,
+75,executor,ci test (paths),python/corpus-structure/tests/semantic/test_dossier_contributions.py::test_public_source_membership_identity_excludes_execution_custody_aliases,,,False,
+76,executor,ci test (paths),python/corpus-structure/tests/methods/test_primary_reading_consumers.py python/corpus-structure/tests/semantic/test_constructions.py python/corpus-structure/tes,,1.000724086,True,952469def3a54f0faf332adeda52d29c
+76,executor,ci test (paths),python/corpus-structure/tests/methods/test_primary_reading_consumers.py::test_optional_native_columns_do_not_taint_independent_source_reading_coverage,,1.000967309,True,f45fa718a4934766a153d197071a9f42
+76,executor,ci test (paths),python/corpus-structure/tests/semantic/test_characterization.py::test_score_codec_rejects_nonfinite_or_noncanonical_value python/corpus-structure/tests/semantic,,1.001387023,True,e48dddaa0c364604a669ab8f6f8b092f
+76,executor,ci test (paths),python/corpus-structure/tests/core/test_method.py::test_a_unit_result_keeps_rule_2 python/corpus-structure/tests/methods/test_contextual_characterization.py pyt,,1.001268115,True,afab399bcd8c455dbd8556c7c757bd7f
+76,executor,ci test (paths),python/corpus-structure/tests/methods/test_contextual_query.py python/corpus-structure/tests/methods/test_declared_contextual_query.py,,1.001658671,True,0f1a5d7cec094826a7e4ad19928890ef
+76,executor,ci test (paths),python/corpus-structure/tests/methods/test_definition_applicability.py python/corpus-structure/tests/semantic/test_clause_products.py python/corpus-structure/te,,,False,
+77,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_evaluation.py,,,False,
+77,executor,ci test (paths),python/corpus-structure/tests/semantic/test_contextual_evaluation.py,,1.000670186,True,d43b073aab6f46ed9e673c668b036c14
+77,executor,ci test (paths),-k not native python/corpus-structure/tests/orchestrate/test_data_operation_byte_admission.py python/corpus-structure/tests/orchestrate/test_data_operation_exec,,1.001147318,True,c30eca1afb6f40a78d53ce2ea31edc7c
+77,executor,ci test (paths),-k not native python/corpus-structure/tests/orchestrate/test_data_operation_byte_admission.py python/corpus-structure/tests/orchestrate/test_data_operation_exec,,1.00112387,True,c1ce65e4003a46c9acdfd3021e0415d7
+78,implementation-reviewer,ci test (full/flags),,0,3.4253453130000002,False,
+80,executor,ci test (paths),python/corpus-structure/tests/semantic/test_artifact_identity.py python/corpus-structure/tests/semantic/test_artifact_nomination_products.py,,1.000884602,True,2d9548e5c34444a4978c77644ef7bd00
+80,executor,ci test (paths),python/corpus-structure/tests/evaluate/test_characterization_assessment.py python/corpus-structure/tests/methods/test_navigation.py::test_artifact_fields_and_ta,,1.000423224,True,
+82,executor,ci test (paths),python/corpus-structure/tests/semantic/test_record_publication_native.py::test_publication_prepares_current_rich_contracts_and_authored_semantics python/corpus-,,1.001268049,True,ef83ff9ba1e4466eadc5315cceef758d
+84,executor,ci test (paths),-k not test_native_observation_meaning_keeps_numeric_settings_and_separates_custody python/corpus-structure/tests/semantic/test_pdf_observations.py python/corpu,,1.00082027,True,807129b88ddd403abfd018c141edad94
+84,executor,ci test (paths),python/corpus-structure/tests/semantic/test_data_operation_test_support.py::test_actual_package_kernel_inputs_preserve_read_only_source_custody python/corpus-st,,1.001016523,True,92d9c64e077b4d8aaadf1b598ae9a587

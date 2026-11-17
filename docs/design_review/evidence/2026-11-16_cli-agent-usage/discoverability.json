@@ -1,0 +1,119 @@
+{
+ "help_by_ci_group": {
+  "results": 71,
+  "test": 40,
+  "model": 34,
+  "evidence": 12,
+  "check": 6,
+  "adr": 2,
+  "result": 3,
+  "schema": 2,
+  "db": 14,
+  "corpus": 2,
+  "(root)": 6,
+  "project": 8,
+  "regenerate": 2,
+  "ingest": 2,
+  "run": 5,
+  "release": 2,
+  "query": 2,
+  "records": 1,
+  "golden": 1,
+  "eval": 1,
+  "retained-golden": 1,
+  "retained-explain": 1,
+  "research": 1,
+  "modelchange": 1,
+  "status": 1
+ },
+ "docs_commands_invocations": {
+  "UV_NO_SYNC=1 uv run ci docs commands project init --stdout": 1,
+  "UV_NO_SYNC=1 uv run ci docs commands model.change.inspect-candidate --stdout": 1,
+  "uv run ci docs commands test --stdout": 1,
+  "uv run ci docs commands schema check --stdout": 1,
+  "uv run ci docs commands db status --stdout": 1
+ },
+ "usage_errors": 9,
+ "next_after_usage_error": {
+  "sed": 3,
+  "UV_NO_SYNC=1": 2,
+  "--help": 1,
+  "cat": 1,
+  "uv": 1,
+  "python": 1
+ },
+ "examples": [
+  {
+   "session": 21,
+   "role": "root",
+   "cmd": "uv run ci results output d5796e9353be497eacf4f23df04e2048 --max-bytes 12000",
+   "msg": "refused: retained recipe output unavailable for this result",
+   "next": "sed -n '250,285p' python/corpus-structure/tests/semantic/test_selected_graph_native.py",
+   "exit": 1
+  },
+  {
+   "session": 21,
+   "role": "root",
+   "cmd": "uv run --no-sync ci results hold fcb0f833de364a4fa7e30381a49ffee8 --reason DDO-current-runtime --json",
+   "msg": "Usage: ci results hold [OPTIONS] {result}",
+   "next": "sed -n '150,240p' python/corpus-structure/src/corpus_structure/semantic/sql/data_operations.sql",
+   "exit": 2
+  },
+  {
+   "session": 21,
+   "role": "root",
+   "cmd": "UV_NO_SYNC=1 uv run ci model change inspect 24a8fc228d71421faa1fe620798fe253 --view summary --json",
+   "msg": "Usage: ci model change inspect [OPTIONS] {PREVIEW_ID}",
+   "next": "UV_NO_SYNC=1 uv run ci model change inspect 24a8fc228d71421faa1fe620798fe253 --json | UV_NO_SYNC=1 uv run python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps(d)[:5000])'",
+   "exit": 2
+  },
+  {
+   "session": 21,
+   "role": "root",
+   "cmd": "UV_NO_SYNC=1 uv run ci results output 0c8c1ff9ae4347b199ab46fe8f129d78 --stream stdout --json --limit 65000",
+   "msg": "Usage: ci results output [OPTIONS] {result}",
+   "next": "UV_NO_SYNC=1 uv run ci results output --help",
+   "exit": 2
+  },
+  {
+   "session": 21,
+   "role": "root",
+   "cmd": "UV_NO_SYNC=1 uv run ci results output a476c748af0d4635aae151b187be45e4 --stream stdout --json --max-chars 24000",
+   "msg": "Usage: ci results output [OPTIONS] {result}",
+   "next": "UV_NO_SYNC=1 uv run ci test failures 3493f037c86a4f7f94dca7844c1dc16a --json | uv run python -c 'import json,sys; r=json.load(sys.stdin); print(json.dumps([{k:x[k] for k in (\"nodeid\",\"phase\",\"diagnost",
+   "exit": 2
+  },
+  {
+   "session": 35,
+   "role": "executor",
+   "cmd": "CORPUS_CI_RESULTS=/tmp/ddo-source-edit-results uv run ci test inspect 955a9abb75f5438488763dfad24ed6e2 --json",
+   "msg": "Usage: ci test [OPTIONS] COMMAND [ARGS]...",
+   "next": "cat .claude/skills/ci/references/testing-and-results.md",
+   "exit": 2
+  },
+  {
+   "session": 51,
+   "role": "executor",
+   "cmd": "uv run ci test results 749dd5d7d76f4368b81b46c3cdbe4335 --json",
+   "msg": "Usage: ci test [OPTIONS] COMMAND [ARGS]...",
+   "next": "uv run ci results list --limit 3 --json",
+   "exit": 2
+  },
+  {
+   "session": 51,
+   "role": "executor",
+   "cmd": "uv run ci test failures ${id}",
+   "msg": "refused: a settled test result is required",
+   "next": "python - <<'PY' import json from pathlib import Path for i in ['5bacfaa6cb2a439795002c59622830fb','d563fb91561148e298c111d6eb7d8219','7f7401897aea4525858daf5c2c7069da']: d=json.loads((Path('build/ci')",
+   "exit": 1
+  },
+  {
+   "session": 70,
+   "role": "executor",
+   "cmd": "UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/.venv UV_NO_SYNC=1 PYTHONPATH=/home/paul/ddo-d1-limitation-attempt/python/corpus-structure/src:/home/paul/ddo-d1-limitation-attempt/python/corpus-str",
+   "msg": "Usage: ci test [OPTIONS] COMMAND [ARGS]...",
+   "next": "sed -n '1,115p' .claude/skills/ci/references/testing-and-results.md; ps -eo etime,pcpu,args | rg 'pytest|execnet' | head -12",
+   "exit": 2
+  }
+ ]
+}

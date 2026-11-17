@@ -1,0 +1,31 @@
+out_bytes,orig_tokens,class,command
+39782,50866,rg,rg -n 'CA0[89]|SQLA|I0[123]|binding.row|typed comparison' docs/plans STATUS.md
+39684,11007,pyrefly,"uv run --no-sync pyrefly check --min-severity warn --summary=none --output-format json | uv run --no-sync python -c 'import json,sys; d=json.load(sys.stdin); [print(e[""path""]+"":""+str(e[""line""])+"": ""+e"
+39529,11639,read,cat docs/plans/declared-data-operations/postgresql-realization-and-retirement.md git diff --stat git diff -- docs/plans/declared-data-operations_2026-11-12.md
+39529,12109,read,"sed -n '1,165p' python/corpus-structure/src/corpus_structure/semantic/sql/pdf_observation.sql; sed -n '162,368p' python/corpus-structure/src/corpus_structure/semantic/sql/pdf_observation.sql; sed -n '"
+39501,16622,rg,rg -n '_operation_calls|_operation_ids|compile_execution_model|trusted_execution_inputs' python/corpus-structure/src python/corpus-structure/tests && rg -n '^def |^class |operation_calls|call_sources|
+39499,32237,read,cat docs/plans/declared-data-operations_2026-11-12.md
+39493,47395,read,cat docs/libraries/scientific_compute/networkx.md rg -n -i 'DDO|networkx' docs/plans pyproject.toml tools | head -90
+39486,10428,read,cat docs/plans/declared-data-operations/postgresql-realization-and-retirement.md && rg -n 'I0[567]|notice|renew|retry|archive|legacy|HalfVec' docs/plan_improvement_reviews/declared-data-operations-pos
+39450,11134,read,"sed -n '210,350p' /home/paul/ddo-native-refusals/python/corpus-structure/src/corpus_structure/semantic/record_policy_native.py; sed -n '160,370p' /home/paul/ddo-native-refusals/python/corpus-structure"
+39447,27893,read,cat docs/plans/declared-data-operations/operations-and-adapter-cutover.md && cat docs/plans/declared-data-operations/postgresql-realization-and-retirement.md && cat docs/plans/declared-data-operations
+39419,21304,rg-files,rg --files /home/paul/ddo-subject-closure/python /home/paul/ddo-subject-closure/tests /home/paul/ddo-subject-closure/crates | rg 'data_operation_compilation|identity|projection|data_operations' cat /h
+39345,10056,read,"sed -n '90,140p' python/corpus-structure/src/corpus_structure/semantic/sql/data_operations.sql sed -n '115,180p' python/corpus-structure/src/corpus_structure/serve/companion_export.py rg -n ""class Jso"
+39287,11821,read,cat docs/plan_improvement_reviews/declared-data-operations-domain-model_2026-11-15.md
+39234,116886,read,cat docs/design_review/design_principles/standard.toml; cat docs/libraries/postgresql/psycopg.md docs/libraries/postgresql/psycopg-pool.md docs/libraries/postgresql/pgpq.md docs/libraries/postgresql/a
+39227,2610856,git,pwd && git status --short && cat .agents/roles/worker.md && cat .agents/roles/executor.md
+39226,2610698,git,pwd; git -C /home/paul/ddo-profile-retirement status --short; cat .agents/roles/worker.md .agents/roles/executor.md
+39221,2610430,git,git -C /home/paul/ddo-byte-admission status --short; rg -n 'CA-13|demand.*companion|demand-driven' /home/paul/ddo-byte-admission/docs/plans; cat /home/paul/ddo-byte-admission/.claude/skills/ci/SKILL.m
+39216,2610858,read,pwd && cat .agents/roles/worker.md .agents/roles/executor.md && git status --short
+39207,2611038,read,cat .claude/skills/ci/SKILL.md && git -C /home/paul/ddo-grouped-interpretations status --short && rg --files docs/plans | rg 'phase.?0|ddo|rich|coordinator' && rg -n 'group|retained_reading|SourceReco
+39077,11005,read,"cat .claude/skills/execute-plan/SKILL.md; cat .claude/skills/ci/SKILL.md; sed -n '1,280p' python/corpus-structure/src/corpus_structure/semantic/rich_consolidation.py; cat python/corpus-structure/src/c"
+39059,14452,read,"sed -n '1,320p' docs/plans/declared-data-operations/demand-planning-and-execution.md; sed -n '1,240p' python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py; sed -n '650,1150p' py"
+39034,23017,read,"sed -n '640,920p' python/corpus-structure/tests/methods/test_m1_source_preparation.py rg -n 'NativeSource|SourceFrame|native_source_frame|SourceSlice|PreparedSourceView|SourcePin|SourcePreparationRead"
+39001,9882,read,"sed -n '1100,1380p' python/corpus-structure/src/corpus_structure/semantic/data_operation_projections.py; sed -n '140,265p' python/corpus-structure/src/corpus_structure/semantic/sql/data_operations.sql"
+38976,10094,git,git status --short && git rev-parse --short HEAD && rg -n '\b(create_run|start_run|record_method|claim_tasks|release_claim)\b' python/corpus-structure/src python/corpus-structure/tests tests --glob '*
+38951,11965,read,"sed -n '890,1105p' python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml && sed -n '1,160p' python/corpus-structure/src/corpus_structure/semantic/declared_record_sources.py && "
+38935,16928,read,cat python/corpus-structure/tests/semantic/current_pm2_provider_fixture.py rg -n 'python_operation|source.*closure|collect.*source|acquire.*source|source_modules|def provider_recipe|canonical_bytes|de
+38910,24394,read,"sed -n '525,825p' python/corpus-structure/src/corpus_structure/semantic/operations.py; cat python/corpus-structure/src/corpus_structure/semantic/characterization_store.py; cat python/corpus-structure/"
+38892,13478,read,"cat python/corpus-structure/src/corpus_structure/semantic/composed.py sed -n '1,125p' python/corpus-structure/src/corpus_structure/semantic/contracts.py sed -n '300,390p' python/corpus-structure/src/c"
+38824,18980,read,"cat python/corpus-structure/tests/methods/contextual_characterization_support.py && sed -n '1,165p' python/corpus-structure/tests/methods/test_contextual_characterization.py && rg -n '(native_run|_ava"
+38790,10097,read,cat python/corpus-structure/src/corpus_structure/semantic/declared_structural_admission.py; cat python/corpus-structure/src/corpus_structure/evaluate/declared_structural_admission.py; cat python/corpu

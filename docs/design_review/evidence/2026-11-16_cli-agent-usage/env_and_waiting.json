@@ -1,0 +1,71 @@
+{
+ "output_flags": {
+  "sandbox": 8,
+  "module_or_cmd_missing": 24,
+  "permission_or_disk": 7
+ },
+ "examples": {
+  "sandbox": [
+   "ps -eo pid,etime,args",
+   "ps -eo pid,ppid,etime,pcpu,stat,args --sort=-pcpu | head -18",
+   "ps -eo pid,ppid,etime,pcpu,args --sort=-pcpu | head -12; UV_NO_SYNC=1 uv run ci results show 7cdf9247c86846e987e40a54255",
+   "ps -eo pid,ppid,etime,stat,pcpu,comm,args --sort=-pcpu | head -18"
+  ],
+  "module_or_cmd_missing": [
+   "python - <<'PY' from pathlib import Path import yaml p=Path('python/corpus-structure/src/corpus_structure/model/semantic",
+   "uv run --no-sync ci test failures 96262cd84b2a497fa858c25c06f61065 --json --limit 3 && rg --files python/corpus-structur",
+   "uv run --no-sync ci test failures 627230cfdf8f4d699e5e69af351f9d45 --json",
+   "python - <<'PY' import json from pathlib import Path from corpus_structure_placeholder import nope PY"
+  ],
+  "permission_or_disk": [
+   "UV_NO_SYNC=1 uv run ci test failures d56655d1af804c7caaa966966ad026c6 --lane ordinary --native-traceback --diagnostic-ch",
+   "UV_NO_SYNC=1 uv run python - <<'PY' import json,re from pathlib import Path p=Path('build/ci/4495ffc7e3e543058a4f47fd4fb",
+   "UV_NO_SYNC=1 uv run ci test failures 293dfd03d61f4f20a7a097da0e54afa1 --lane ordinary --json --diagnostic-chars 1800",
+   "uv run --no-sync python - <<'PY' from pathlib import Path import os ids = set('07053a12aa624aa1b2952c6f1dbc098a 0d3b9648"
+  ]
+ },
+ "write_stdin_polls": 4732,
+ "sleep_calls": 51,
+ "next_class_after_ci": {
+  "ci test failures -> read": 223,
+  "ci test failures -> rg": 175,
+  "ci model change -> ci": 163,
+  "ci test -> rg": 124,
+  "ci test failures -> ci": 123,
+  "ci test failures -> python-inline": 122,
+  "ci test -> git": 113,
+  "ci results hold -> git": 107,
+  "ci test -> read": 104,
+  "ci test -> ci": 100,
+  "ci results show -> ci": 72,
+  "ci results hold -> ci": 69,
+  "ci test -> python-inline": 67,
+  "ci test failures -> git": 65,
+  "ci model change -> git": 51,
+  "ci check types -> ci": 48,
+  "ci test retry -> ci": 45,
+  "ci results hold -> read": 42,
+  "ci test private -> ci": 41,
+  "builtin -> other": 36,
+  "ci results show -> git": 35,
+  "ci check types -> git": 34,
+  "ci results show -> read": 33,
+  "ci results watch -> ci": 32,
+  "ci test -> pyrefly": 32,
+  "ci model change -> rg": 29,
+  "ci test scheduling -> ci": 27,
+  "ci results show -> rg": 25,
+  "rg -> read": 25,
+  "ci test retry -> rg": 25,
+  "ci docs check -> git": 25,
+  "ci check types -> python-inline": 24,
+  "ci results hold -> rg": 24,
+  "ci results hold -> python-inline": 24,
+  "ci test retry -> git": 24,
+  "ci check types -> read": 23,
+  "ci results output -> ci": 23,
+  "ci test retry -> read": 22,
+  "python inline -> git": 21,
+  "ci check types -> rg": 21
+ }
+}

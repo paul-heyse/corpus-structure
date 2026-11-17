@@ -1,0 +1,772 @@
+{
+ "python-inline": {
+  "launches": 890,
+  "polls": 1372,
+  "empty_polls": 78,
+  "completed": 202,
+  "duration_s": {
+   "n": 202,
+   "sum": 23041.031,
+   "median": 70.3635,
+   "p90": 218.746,
+   "p99": 852.292,
+   "max": 1678.007
+  }
+ },
+ "ci test": {
+  "launches": 468,
+  "polls": 778,
+  "empty_polls": 68,
+  "completed": 70,
+  "duration_s": {
+   "n": 70,
+   "sum": 10203.687,
+   "median": 94.8225,
+   "p90": 313.102,
+   "p99": 840.849,
+   "max": 840.849
+  }
+ },
+ "read": {
+  "launches": 286,
+  "polls": 624,
+  "empty_polls": 91,
+  "completed": 57,
+  "duration_s": {
+   "n": 57,
+   "sum": 7032.185,
+   "median": 81.124,
+   "p90": 184.055,
+   "p99": 1838.708,
+   "max": 1838.708
+  }
+ },
+ "git": {
+  "launches": 264,
+  "polls": 693,
+  "empty_polls": 79,
+  "completed": 60,
+  "duration_s": {
+   "n": 60,
+   "sum": 11312.955,
+   "median": 120.6665,
+   "p90": 411.531,
+   "p99": 1693.071,
+   "max": 1693.071
+  }
+ },
+ "ci test failures": {
+  "launches": 261,
+  "polls": 228,
+  "empty_polls": 24,
+  "completed": 71,
+  "duration_s": {
+   "n": 71,
+   "sum": 2024.493,
+   "median": 11.112,
+   "p90": 60.244,
+   "p99": 294.601,
+   "max": 294.601
+  }
+ },
+ "ci model change": {
+  "launches": 186,
+  "polls": 285,
+  "empty_polls": 12,
+  "completed": 43,
+  "duration_s": {
+   "n": 43,
+   "sum": 10330.811,
+   "median": 53.842,
+   "p90": 259.56,
+   "p99": 6784.29,
+   "max": 6784.29
+  }
+ },
+ "rg": {
+  "launches": 139,
+  "polls": 385,
+  "empty_polls": 54,
+  "completed": 24,
+  "duration_s": {
+   "n": 24,
+   "sum": 4925.266,
+   "median": 102.844,
+   "p90": 336.035,
+   "p99": 1479.261,
+   "max": 1479.261
+  }
+ },
+ "ci check types": {
+  "launches": 123,
+  "polls": 120,
+  "empty_polls": 1,
+  "completed": 25,
+  "duration_s": {
+   "n": 25,
+   "sum": 1509.446,
+   "median": 43.446,
+   "p90": 90.107,
+   "p99": 380.651,
+   "max": 380.651
+  }
+ },
+ "ci test retry": {
+  "launches": 99,
+  "polls": 263,
+  "empty_polls": 76,
+  "completed": 22,
+  "duration_s": {
+   "n": 22,
+   "sum": 5373.273,
+   "median": 95.0255,
+   "p90": 736.509,
+   "p99": 891.369,
+   "max": 891.369
+  }
+ },
+ "other": {
+  "launches": 85,
+  "polls": 134,
+  "empty_polls": 22,
+  "completed": 34,
+  "duration_s": {
+   "n": 34,
+   "sum": 5195.918,
+   "median": 79.31,
+   "p90": 289.326,
+   "p99": 835.327,
+   "max": 835.327
+  }
+ },
+ "ci test private": {
+  "launches": 83,
+  "polls": 289,
+  "empty_polls": 106,
+  "completed": 27,
+  "duration_s": {
+   "n": 27,
+   "sum": 7610.993,
+   "median": 85.817,
+   "p90": 990.699,
+   "p99": 2179.414,
+   "max": 2179.414
+  }
+ },
+ "ci results hold": {
+  "launches": 75,
+  "polls": 80,
+  "empty_polls": 8,
+  "completed": 11,
+  "duration_s": {
+   "n": 11,
+   "sum": 244.092,
+   "median": 6.698,
+   "p90": 83.057,
+   "p99": 90.656,
+   "max": 90.656
+  }
+ },
+ "python-module": {
+  "launches": 67,
+  "polls": 74,
+  "empty_polls": 2,
+  "completed": 8,
+  "duration_s": {
+   "n": 8,
+   "sum": 476.837,
+   "median": 28.649500000000003,
+   "p90": 226.423,
+   "p99": 226.423,
+   "max": 226.423
+  }
+ },
+ "ci test collect": {
+  "launches": 52,
+  "polls": 53,
+  "empty_polls": 1,
+  "completed": 14,
+  "duration_s": {
+   "n": 14,
+   "sum": 1121.391,
+   "median": 50.911500000000004,
+   "p90": 173.819,
+   "p99": 173.819,
+   "max": 173.819
+  }
+ },
+ "ci docs check": {
+  "launches": 47,
+  "polls": 46,
+  "empty_polls": 0,
+  "completed": 7,
+  "duration_s": {
+   "n": 7,
+   "sum": 292.58299999999997,
+   "median": 33.474,
+   "p90": 111.204,
+   "p99": 111.204,
+   "max": 111.204
+  }
+ },
+ "ci results watch": {
+  "launches": 46,
+  "polls": 62,
+  "empty_polls": 20,
+  "completed": 14,
+  "duration_s": {
+   "n": 14,
+   "sum": 1996.402,
+   "median": 61.667,
+   "p90": 224.742,
+   "p99": 1030.737,
+   "max": 1030.737
+  }
+ },
+ "ci results show": {
+  "launches": 42,
+  "polls": 81,
+  "empty_polls": 20,
+  "completed": 9,
+  "duration_s": {
+   "n": 9,
+   "sum": 489.68399999999997,
+   "median": 64.522,
+   "p90": 101.05,
+   "p99": 101.05,
+   "max": 101.05
+  }
+ },
+ "ci check lint": {
+  "launches": 33,
+  "polls": 16,
+  "empty_polls": 2,
+  "completed": 6,
+  "duration_s": {
+   "n": 6,
+   "sum": 548.792,
+   "median": 33.863,
+   "p90": 380.651,
+   "p99": 380.651,
+   "max": 380.651
+  }
+ },
+ "ci test scheduling": {
+  "launches": 24,
+  "polls": 66,
+  "empty_polls": 29,
+  "completed": 9,
+  "duration_s": {
+   "n": 9,
+   "sum": 915.1189999999999,
+   "median": 11.372,
+   "p90": 764.006,
+   "p99": 764.006,
+   "max": 764.006
+  }
+ },
+ "pyrefly": {
+  "launches": 20,
+  "polls": 40,
+  "empty_polls": 3,
+  "completed": 6,
+  "duration_s": {
+   "n": 6,
+   "sum": 720.7520000000001,
+   "median": 95.12100000000001,
+   "p90": 258.38,
+   "p99": 258.38,
+   "max": 258.38
+  }
+ },
+ "ci results output": {
+  "launches": 16,
+  "polls": 16,
+  "empty_polls": 0,
+  "completed": 4,
+  "duration_s": {
+   "n": 4,
+   "sum": 66.207,
+   "median": 11.843499999999999,
+   "p90": 36.672,
+   "p99": 36.672,
+   "max": 36.672
+  }
+ },
+ "ruff": {
+  "launches": 13,
+  "polls": 32,
+  "empty_polls": 6,
+  "completed": 7,
+  "duration_s": {
+   "n": 7,
+   "sum": 511.808,
+   "median": 62.672,
+   "p90": 173.306,
+   "p99": 173.306,
+   "max": 173.306
+  }
+ },
+ "ci db status": {
+  "launches": 13,
+  "polls": 5,
+  "empty_polls": 0,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 2.96,
+   "median": 2.96,
+   "p90": 2.96,
+   "p99": 2.96,
+   "max": 2.96
+  }
+ },
+ "rg-files": {
+  "launches": 13,
+  "polls": 29,
+  "empty_polls": 3,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 63.004,
+   "median": 63.004,
+   "p90": 63.004,
+   "p99": 63.004,
+   "max": 63.004
+  }
+ },
+ "ci doctor": {
+  "launches": 11,
+  "polls": 11,
+  "empty_polls": 1,
+  "completed": 3,
+  "duration_s": {
+   "n": 3,
+   "sum": 168.77100000000002,
+   "median": 37.697,
+   "p90": 105.479,
+   "p99": 105.479,
+   "max": 105.479
+  }
+ },
+ "ci results inspect": {
+  "launches": 10,
+  "polls": 29,
+  "empty_polls": 14,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 45.147,
+   "median": 45.147,
+   "p90": 45.147,
+   "p99": 45.147,
+   "max": 45.147
+  }
+ },
+ "pytest": {
+  "launches": 9,
+  "polls": 13,
+  "empty_polls": 4,
+  "completed": 6,
+  "duration_s": {
+   "n": 6,
+   "sum": 185.277,
+   "median": 33.7375,
+   "p90": 39.007,
+   "p99": 39.007,
+   "max": 39.007
+  }
+ },
+ "ci check docs": {
+  "launches": 6,
+  "polls": 5,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "fs": {
+  "launches": 5,
+  "polls": 14,
+  "empty_polls": 3,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 16.112,
+   "median": 16.112,
+   "p90": 16.112,
+   "p99": 16.112,
+   "max": 16.112
+  }
+ },
+ "ci results list": {
+  "launches": 5,
+  "polls": 5,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "just turn-end": {
+  "launches": 5,
+  "polls": 12,
+  "empty_polls": 0,
+  "completed": 2,
+  "duration_s": {
+   "n": 2,
+   "sum": 164.077,
+   "median": 82.0385,
+   "p90": 120.631,
+   "p99": 120.631,
+   "max": 120.631
+  }
+ },
+ "ci test coverage": {
+  "launches": 5,
+  "polls": 3,
+  "empty_polls": 1,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 4.954,
+   "median": 4.954,
+   "p90": 4.954,
+   "p99": 4.954,
+   "max": 4.954
+  }
+ },
+ "ci evidence check": {
+  "launches": 5,
+  "polls": 5,
+  "empty_polls": 0,
+  "completed": 2,
+  "duration_s": {
+   "n": 2,
+   "sum": 36.686,
+   "median": 18.343,
+   "p90": 24.509,
+   "p99": 24.509,
+   "max": 24.509
+  }
+ },
+ "ci evidence finalize": {
+  "launches": 4,
+  "polls": 8,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci schema check": {
+  "launches": 4,
+  "polls": 8,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci evidence index": {
+  "launches": 3,
+  "polls": 3,
+  "empty_polls": 0,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 25.711,
+   "median": 25.711,
+   "p90": 25.711,
+   "p99": 25.711,
+   "max": 25.711
+  }
+ },
+ "ci check": {
+  "launches": 2,
+  "polls": 2,
+  "empty_polls": 0,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 27.529,
+   "median": 27.529,
+   "p90": 27.529,
+   "p99": 27.529,
+   "max": 27.529
+  }
+ },
+ "ci adr new": {
+  "launches": 2,
+  "polls": 1,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci adr lint": {
+  "launches": 2,
+  "polls": 2,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci query": {
+  "launches": 2,
+  "polls": 2,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "sed-i": {
+  "launches": 2,
+  "polls": 2,
+  "empty_polls": 0,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 53.852,
+   "median": 53.852,
+   "p90": 53.852,
+   "p99": 53.852,
+   "max": 53.852
+  }
+ },
+ "ci results recover": {
+  "launches": 2,
+  "polls": 2,
+  "empty_polls": 0,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 36.574,
+   "median": 36.574,
+   "p90": 36.574,
+   "p99": 36.574,
+   "max": 36.574
+  }
+ },
+ "python-script": {
+  "launches": 1,
+  "polls": 6,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci check deps": {
+  "launches": 1,
+  "polls": 1,
+  "empty_polls": 0,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 59.608,
+   "median": 59.608,
+   "p90": 59.608,
+   "p99": 59.608,
+   "max": 59.608
+  }
+ },
+ "ci evidence retain": {
+  "launches": 1,
+  "polls": 1,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci results export": {
+  "launches": 1,
+  "polls": 0,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci": {
+  "launches": 1,
+  "polls": 0,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci project init": {
+  "launches": 1,
+  "polls": 0,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci model": {
+  "launches": 1,
+  "polls": 0,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci db describe": {
+  "launches": 1,
+  "polls": 1,
+  "empty_polls": 0,
+  "completed": 1,
+  "duration_s": {
+   "n": 1,
+   "sum": 165.46,
+   "median": 165.46,
+   "p90": 165.46,
+   "p99": 165.46,
+   "max": 165.46
+  }
+ },
+ "ci db check": {
+  "launches": 1,
+  "polls": 0,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci records list": {
+  "launches": 1,
+  "polls": 1,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci test inspect": {
+  "launches": 1,
+  "polls": 1,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci results": {
+  "launches": 1,
+  "polls": 1,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ },
+ "ci test status": {
+  "launches": 1,
+  "polls": 2,
+  "empty_polls": 0,
+  "completed": 0,
+  "duration_s": {
+   "n": 0,
+   "sum": 0,
+   "median": 0,
+   "p90": 0,
+   "p99": 0,
+   "max": 0
+  }
+ }
+}

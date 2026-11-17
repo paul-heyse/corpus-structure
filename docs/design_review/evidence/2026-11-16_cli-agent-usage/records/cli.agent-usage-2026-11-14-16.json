@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "cli.agent-usage-2026-11-14-16",
+  "title": "What coding agents ran in this repository, 14-16 November 2026",
+  "group": "agent-cli",
+  "package": null,
+  "finalized": "2026-11-16",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How do Codex agents actually use the ci CLI and direct tools when working in this repository, and where do they spend commands and output?",
+  "answers": [],
+  "method": "Stdlib extraction over Codex rollout logs for 14-16 November whose session cwd is this repository; every exec_command is classified by leading tool and aggregated. Forked-subagent history replays are excluded. Raw logs stay outside the repository.",
+  "commands": [
+    "python3 docs/design_review/evidence/2026-11-16_cli-agent-usage/extract.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "extract.py",
+      "role": "Extraction and classification script",
+      "sha256": "818264a1b369377a12b676eeccc5cc639a0e4e7f80994243b38d171d2b0b8686"
+    },
+    {
+      "path": "summary.json",
+      "role": "Aggregate counts",
+      "sha256": "58d627202b9c2e7d2f0dccbb9306bff5d0ca7e2255724e74b303ff4f1e8d23b4"
+    },
+    {
+      "path": "tables.md",
+      "role": "Readable tables for every measured topic",
+      "sha256": "270d890f6efff0b58f5cb82f88b0777f30be263d12fbd7be3dfcf33d7f68401c"
+    },
+    {
+      "path": "ci_pipelines.json",
+      "role": "ci commands piped into another tool",
+      "sha256": "87be3660916acc34607a46843bf80141be2026c65729bea45cb9e18656245ce2"
+    },
+    {
+      "path": "test_loop.json",
+      "role": "Test launch and result-read sequences",
+      "sha256": "68f2927592a1660476b10c0296af8097047d119730cc1f0077455ffd46b43f5f"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "sessions",
+      "value": 88,
+      "of": null,
+      "unit": "sessions",
+      "note": null
+    },
+    {
+      "name": "shell_commands",
+      "value": 26159,
+      "of": null,
+      "unit": "commands",
+      "note": null
+    },
+    {
+      "name": "ci_commands",
+      "value": 3152,
+      "of": 26159,
+      "unit": "commands",
+      "note": "classified by first statement"
+    },
+    {
+      "name": "read_and_search_commands",
+      "value": 14190,
+      "of": 26159,
+      "unit": "commands",
+      "note": "file reads 8469 plus rg/grep 5721"
+    },
+    {
+      "name": "ci_json_piped_to_inline_python",
+      "value": 255,
+      "of": 283,
+      "unit": "piped ci stages",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Agents run tests and checks almost entirely through ci (758 ci test launches against 9 direct pytest calls), read failures with --json and reduce them in inline Python, hold results they cannot attribute to a consumer, and spend more than half of all commands reading and searching source. Established for this three-day window, which one plan (DDO) dominates. Not established: agent intent, what the piped scripts extract, and whether multi-file edit scripts are mechanical renames; the usage-error table keeps only the first line of each error and undercounts 'No such option' errors.",
+  "consumed_by": []
+}

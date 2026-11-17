@@ -1,0 +1,273 @@
+[
+ {
+  "old": "from pathlib import Path\\n",
+  "new": "",
+  "sessions": [
+   19,
+   21,
+   27,
+   49,
+   70,
+   75,
+   76
+  ],
+  "scripts": 7
+ },
+ {
+  "old": "from corpus_structure.semantic.identity import canonical_bytes\\n",
+  "new": "",
+  "sessions": [
+   20,
+   49,
+   70,
+   71,
+   76,
+   77
+  ],
+  "scripts": 6
+ },
+ {
+  "old": "from hashlib import sha256\\n",
+  "new": "",
+  "sessions": [
+   12,
+   49,
+   66,
+   70,
+   71
+  ],
+  "scripts": 5
+ },
+ {
+  "old": "from corpus_structure.semantic.product_reference import ProductReference\\n",
+  "new": "",
+  "sessions": [
+   18,
+   21,
+   70,
+   71,
+   75
+  ],
+  "scripts": 5
+ },
+ {
+  "old": "from corpus_structure.semantic.proposals import native_source_frame\\n",
+  "new": "",
+  "sessions": [
+   18,
+   21,
+   70,
+   71,
+   75
+  ],
+  "scripts": 5
+ },
+ {
+  "old": "from types import SimpleNamespace\\n",
+  "new": "",
+  "sessions": [
+   19,
+   20,
+   70,
+   71,
+   76
+  ],
+  "scripts": 5
+ },
+ {
+  "old": "from copy import deepcopy\\n",
+  "new": "",
+  "sessions": [
+   20,
+   49,
+   51,
+   69,
+   71
+  ],
+  "scripts": 5
+ },
+ {
+  "old": "from dataclasses import dataclass\\n",
+  "new": "",
+  "sessions": [
+   12,
+   28,
+   49,
+   76
+  ],
+  "scripts": 4
+ },
+ {
+  "old": "from corpus_structure.semantic.metadata import table\\n",
+  "new": "",
+  "sessions": [
+   18,
+   21,
+   49,
+   51
+  ],
+  "scripts": 4
+ },
+ {
+  "old": "from .product_reference import ProductReference\\n",
+  "new": "",
+  "sessions": [
+   20,
+   70,
+   71,
+   76
+  ],
+  "scripts": 4
+ },
+ {
+  "old": "from dataclasses import replace\\n",
+  "new": "",
+  "sessions": [
+   49,
+   70,
+   71,
+   76
+  ],
+  "scripts": 4
+ },
+ {
+  "old": "from dataclasses import asdict\\n",
+  "new": "",
+  "sessions": [
+   18,
+   19,
+   70
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "from corpus_structure.core.vocab import TaskUnitType\\n",
+  "new": "",
+  "sessions": [
+   18,
+   20,
+   71
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult\\",
+  "new": "",
+  "sessions": [
+   18,
+   19,
+   20
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOut",
+  "new": "",
+  "sessions": [
+   18,
+   19,
+   20
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "Field, JsonValue, model_validator",
+  "new": "Field, model_validator",
+  "sessions": [
+   18,
+   21,
+   50
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "    from corpus_structure.core.method import UnitRef\\n",
+  "new": "",
+  "sessions": [
+   18,
+   19,
+   20
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "    from corpus_structure.core.vocab import TaskUnitType\\n",
+  "new": "",
+  "sessions": [
+   18,
+   19,
+   20
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "from dataclasses import asdict, dataclass",
+  "new": "from dataclasses import dataclass",
+  "sessions": [
+   20,
+   28,
+   71
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "from functools import cache\\n",
+  "new": "",
+  "sessions": [
+   20,
+   51,
+   71
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "from dataclasses import replace",
+  "new": "from dataclasses import replace\\nfrom decimal import Decimal",
+  "sessions": [
+   21,
+   37,
+   49
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "NativeSourcePin.from_source(context.primary)",
+  "new": "context.primary.pin",
+  "sessions": [
+   21,
+   70,
+   71
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "from corpus_structure.semantic.source_views import PreparedSourceView\\n",
+  "new": "",
+  "sessions": [
+   21,
+   70,
+   71
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "from corpus_structure.semantic.identity import canonical_bytes",
+  "new": "from corpus_structure.semantic.identity import canonical_bytes\\nfrom corpus_stru",
+  "sessions": [
+   49,
+   51,
+   76
+  ],
+  "scripts": 3
+ },
+ {
+  "old": "    declarations, sources = acquired\\n",
+  "new": "    declarations, sources = acquired\\n    assert sources is not None\\n",
+  "sessions": [
+   51,
+   69,
+   71
+  ],
+  "scripts": 3
+ }
+]

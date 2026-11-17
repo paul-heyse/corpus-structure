@@ -1,0 +1,30 @@
+{
+ "sessions": 88,
+ "paths_in_first_10_reads_by_session_count": {
+  ".agents/roles/worker.md": 88,
+  ".claude/skills/ci/SKILL.md": 35,
+  ".agents/roles/executor.md": 35,
+  "docs/plans/declared-data-operations_2026-11-12.md": 30,
+  ".agents/roles/code-mapper.md": 25,
+  "STATUS.md": 19,
+  "docs/plans/declared-data-operations/operations-and-adapter-cutover.md": 14,
+  "docs/plans/declared-data-operations/interfaces-and-evaluation.md": 11,
+  ".agents/roles/implementation-reviewer.md": 10,
+  ".claude/skills/execute-plan/SKILL.md": 10,
+  ".claude/skills/ci/references/testing-and-results.md": 10,
+  "docs/plans/declared-data-operations/preservation-adoption-and-qualification.md": 9,
+  "docs/plans/declared-data-operations/postgresql-realization-and-retirement.md": 9,
+  "docs/plans/declared-data-operations/change-reuse-and-consolidation.md": 8,
+  "docs/design_review/design_principles/core/efficient-architecture-heuristics.md": 8,
+  "python/corpus-structure/src/corpus_structure/semantic/sql/data_operations.sql": 8,
+  "docs/plans/declared-data-operations/rich-domain-integration.md": 8,
+  ".claude/skills/plan-completion-audit/SKILL.md": 7,
+  "docs/plans/declared-data-operations/implementation-contracts-and-fingerprints.md": 7,
+  "docs/plans/declared-data-operations/demand-planning-and-execution.md": 7,
+  ".agents/roles/design-reviewer.md": 6,
+  "docs/design_review/design_principles/core/design-principles.md": 6,
+  "python/corpus-structure/src/corpus_structure/semantic/data_operation_storage.py": 5,
+  "docs/plans/declared-data-operations/contracts-and-compilation.md": 5,
+  "python/corpus-structure/src/corpus_structure/semantic/data_operation_model.py": 5
+ }
+}

@@ -1,0 +1,126 @@
+{
+ "launches_by_kind": {
+  "ci test (paths)": 737,
+  "ci test (full/flags)": 21
+ },
+ "other_test_routes_primary": {
+  "pytest": 9,
+  "cargo": 0,
+  "just": 93
+ },
+ "reads_after_launch": {
+  "n": 604,
+  "median_gap_s": 80.22,
+  "by_kind": {
+   "ci results": 3,
+   "ci results hold": 76,
+   "ci test failures": 273,
+   "ci results watch": 19,
+   "ci results show": 51,
+   "ci results list": 9,
+   "build/ci file read": 139,
+   "ci model change": 2,
+   "ci results output": 21,
+   "ci test scheduling": 4,
+   "ci results export": 1,
+   "ci results inspect": 3,
+   "ci check types": 1,
+   "ci test retry": 2
+  },
+  "median_steps": 4.0
+ },
+ "launch_returned_still_running": 629,
+ "selections_rerun_in_session": 90,
+ "rerun_top": [
+  [
+   [
+    49,
+    "python/corpus-structure/tests/semantic/test_data_operation_bindings.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/corpus-s"
+   ],
+   7
+  ],
+  [
+   [
+    21,
+    ""
+   ],
+   6
+  ],
+  [
+   [
+    49,
+    "python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_compilation.py python/c"
+   ],
+   6
+  ],
+  [
+   [
+    51,
+    "python/corpus-structure/tests/semantic/test_data_operation_cpu_basis.py python/corpus-structure/tests/semantic/test_rich_admission_native.py"
+   ],
+   6
+  ],
+  [
+   [
+    68,
+    "-k not native_neighborhood python/corpus-structure/tests/semantic/test_declared_neighborhood.py"
+   ],
+   6
+  ],
+  [
+   [
+    49,
+    ""
+   ],
+   5
+  ],
+  [
+   [
+    27,
+    "python/corpus-structure/tests/methods/test_declared_contextual_query.py python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-st"
+   ],
+   4
+  ],
+  [
+   [
+    49,
+    "-k not actual_database_check_preserves_native_admission_diagnostic python/corpus-structure/tests/semantic/test_cli_failures.py python/corpus-structure/tests/sem"
+   ],
+   4
+  ],
+  [
+   [
+    69,
+    "-k not native_ranking python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py python/corpus-structure/tests/semantic/test_contextual_selected_en"
+   ],
+   4
+  ],
+  [
+   [
+    69,
+    "python/corpus-structure/tests/semantic/test_contextual_owned_encoder.py::test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory python/corpu"
+   ],
+   4
+  ],
+  [
+   [
+    9,
+    "python/corpus-structure/tests/semantic/test_alembic_privileges.py::test_final_trigger_catalog_tracks_explicit_parent_owner_transfer"
+   ],
+   3
+  ],
+  [
+   [
+    21,
+    "python/corpus-structure/tests/semantic/test_data_operation_compact_archive.py python/corpus-structure/tests/semantic/test_data_operation_graph_projections.py py"
+   ],
+   3
+  ]
+ ],
+ "launch_exit_codes": {
+  "null": 715,
+  "0": 34,
+  "1": 8,
+  "128": 1
+ }
+}

@@ -1,0 +1,119 @@
+{
+ "rg_pattern_classes": {
+  "other_regex_or_prose": 2182,
+  "heading": 101,
+  "identifier_like_mixed": 3104,
+  "def_anchor": 5351,
+  "bare_identifier": 1226,
+  "identifier_alternation": 4462,
+  "import": 275
+ },
+ "rg_scopes": {
+  "src": 10879,
+  "docs": 634,
+  "other+src": 394,
+  "src+tests": 1235,
+  "docs+src": 65,
+  "tests": 2938,
+  "other": 136,
+  "other+src+tests": 171,
+  "docs+other": 53,
+  "unscoped(cwd)": 48,
+  "other+tests": 97,
+  "docs+other+src+tests": 8,
+  "docs+other+src": 21,
+  "docs+tests": 8,
+  "docs+src+tests": 13,
+  "docs+other+tests": 1
+ },
+ "rg_patterns_with_4plus_alternatives": 4985,
+ "read_target_categories": {
+  "docs/skills/roles": 2772,
+  "src": 18095,
+  "other": 1404,
+  "tests": 7625
+ },
+ "sed_window_line_counts": {
+  "n": 24981,
+  "sum": 2013509,
+  "median": 63,
+  "p90": 160,
+  "p99": 280,
+  "max": 800
+ },
+ "cmd_env_prefix": {
+  "alternate worktree path": 13836,
+  "cd in command": 255,
+  "PYTHONPATH=": 1939,
+  "UV_NO_SYNC/--no-sync": 4129,
+  "CORPUS_DATABASE__*": 162,
+  "UV_PROJECT_ENVIRONMENT=": 1892
+ },
+ "examples": {
+  "other_regex_or_prose": [
+   "rg -n \"DataOperation|data_operation|OperationDefinition|operation registry|METHODS|MethodRegistry|method_registry|method.*register|Reader|CPU|cpu|execute_demand",
+   "rg -n \"data_operation|stage run|Reader|CPU|default|primary\" docs/plans/declared-data-operations/operations-and-adapter-cutover.md docs/plans/declared-data-opera",
+   "rg -n \"\\.run\\(.*ctx|method\\.run|method\\.produce|METHODS:|CHARACTERIZATION_METHODS|registry\\(\" python/corpus-structure/src/corpus_structure/orchestrate --glob '*",
+   "rg -n \"current vs|legacy|fallback|codec|reader|migration|archive|runtime binding|fixtures|seed|default|configuration|task|request|stage_run|reused_task_id\" docs",
+   "rg -n '009[2-9]|0100|declared|data operation' docs/design/DESIGN.md docs/design/sections/*.md",
+   "rg -n '^CREATE|^create|canonical|subject_context|support_episodes|original_support|original_fact|scope|TRUST|FOR UPDATE|FOR SHARE' python/corpus-structure/src/c"
+  ],
+  "heading": [
+   "rg -n '^#{1,4} .*DDO|^## .*checkpoint|^### .*DDO|^## Remaining|^## DDO' docs/plans/declared-data-operations_2026-11-12.md",
+   "rg -n \"^## DDO-06–08 authorized|ordinary|caller|cutover|partial|Reader|CPU|frontdoor|MCP|export|evaluate|serve|Rust\" docs/plans/declared-data-operations_2026-11",
+   "rg -n '^#{1,4} |CA-|DDO-0[0-5]|\\| F' docs/plans/declared-data-operations_2026-11-12.md",
+   "rg -n '^##|^###|I02|I03' docs/plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md",
+   "rg -n '^#{1,4} |DDO-07|DDO-08|combined_native_evidence|dual reference|legacy CPU|CPU facade|family|ordinary caller|publication' docs/plans/declared-data-operati",
+   "rg -n '^#|^##|PM2|maverick|D1|GLiNER|formula_syntax|annotation_rules|finite|readings' docs/plans/production-milestone-two_*.md docs/plans/production-milestone-t"
+  ],
+  "identifier_like_mixed": [
+   "rg -n \"BoundReader\\(|data_operation_service|execute_data_demand|DemandPlanner|plan_cpu_coroutine|run\\(self, units\" python/corpus-structure/src/corpus_structure/",
+   "rg -n \"run_source_operation|run_phase0|run_characterization|SourceRunRequest|_worker|method\\.run|\\.run\\(units\" python/corpus-structure/src/corpus_structure/orch",
+   "rg -n \"corpus_structure|pyo3|crate-type|path = \\\"crates/corpus-structure\\\"|corpus-structure\" Cargo.toml pyproject.toml python/corpus-structure/pyproject.toml cr",
+   "rg -n \"register|FastMCP|@mcp|native_source|SourceSearch|BoundReader|serve\\.read|ctx\\.reader|reader\" python/corpus-structure/src/corpus_structure/intervene/seman",
+   "rg -n \"stage_run|max_active_stage_runs|reused_task_id|legacy|fallback|decode.*version|version.*decode|compat|schema_version|archive|archived|run_key|task_id\" py",
+   "rg -n \"fallback|legacy.*key|product_key.*decode|decode.*product_key|key.*version|schema_version|version.*schema\" python/corpus-structure/src/corpus_structure/se"
+  ],
+  "def_anchor": [
+   "rg -n '^class BoundReader|^class .*Reader|def invoke|def plan_cpu|def execute_data_demand|def create.*demand|class .*Operation' python/corpus-structure/src/corp",
+   "rg -n \"class .*Protocol|Reader\\(ctx\\)|semantic_server|export_.*record|evaluate|OperationAssessment|BoundReader|\\.claims\\(\" python/corpus-structure/src/corpus_st",
+   "rg -n \"register\\(.*app|REGISTRY|def register\" python/corpus-structure/src/corpus_structure/cli/__init__.py python/corpus-structure/src/corpus_structure/cli/*.py",
+   "rg -n \"def .*run|default=.*run|create_run|task\" python/corpus-structure/src/corpus_structure/orchestrate/runner.py python/corpus-structure/src/corpus_structure/",
+   "rg -n '^class |^def |format|v2|v3|v4|histor' python/corpus-structure/src/corpus_structure/semantic/data_operation_model.py",
+   "rg -n '^class |^def |version|legacy|TODO|NotImplemented' python/corpus-structure/src/corpus_structure/semantic/data_operation_{compilation,identity,ports,bindin"
+  ],
+  "bare_identifier": [
+   "rg -n \"data_operation\" python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py python/corpus-structure/src/corpus_structure/cli/app.py p",
+   "rg -n \"__data_operation__\" python/corpus-structure/src/corpus_structure/methods --glob '*.py'",
+   "rg -n 'source_projection' python/corpus-structure/src/corpus_structure/semantic/domain_operations.py",
+   "rg -n 'legacy_split' python/corpus-structure/src -g '*.py' -g '!_*.py'",
+   "rg -n -A 9 -B 4 'dispatch' .venv/lib/python3.14/site-packages/alembic/autogenerate/compare/tables.py --max-count 4",
+   "rg -n 'provider' python/corpus-structure/tests/semantic/test_data_operation_{identity,bindings,binding_native,compilation,pinned_reuse_native}.py"
+  ],
+  "identifier_alternation": [
+   "rg -n \"__data_operation__|operation_factories|python_operations|PythonOperation|OperationDefinition\" python/corpus-structure/src/corpus_structure/semantic/data_",
+   "rg -n \"data_request|data_demand|fulfill|stage_run|reused_task_id|result_recipe|recipe_identity|data_operation\" python/corpus-structure/src/corpus_structure/sema",
+   "rg -n \"max_active_stage_runs|stage_run\" python/corpus-structure/src python/corpus-structure/tests python/corpus-structure/pyproject.toml",
+   "rg -n 'provider|alternative|episode' docs/plans/declared-data-operations/{contracts-and-compilation,products-and-support,demand-planning-and-execution}.md",
+   "rg -n 'builtins|builtin|keyword|lexical|closure' python/corpus-structure/src/corpus_structure/semantic/python_operation_sources.py",
+   "rg -n 'transitive|scope|snapshot|cross' python/corpus-structure/tests/semantic/test_data_operation_{trust_snapshot_sql,native,admission_native,purpose_native,re"
+  ],
+  "import": [
+   "rg -n 'PHASE0|phase0_registry|phase0\\.registry|from .*phase0 import|run_source_methods\\(|MethodRegistry\\(|OperationDescriptor\\(' python/corpus-structure/src too",
+   "rg -n 'profile_segments|source_projection|SegmentIndex|RenditionContent|from .*content import|source_markup' python/corpus-structure/src/corpus_structure --glob",
+   "rg -n 'ingest.profile_segments|from \\.profile_segments|import profile_segments|profile_segments\\.' --glob '*.py'",
+   "rg -n 'ingest.renditions|from \\.renditions|import renditions|renditions\\.' python/corpus-structure/src python/corpus-structure/tests tests --glob '*.py'",
+   "rg -n 'from .*locators|import locators|LocatorIndex|RenditionContent' python/corpus-structure/src/corpus_structure --glob '*.py' --glob '!*/_model/*'",
+   "rg -n '(sentences\\.split\\(|from .*sentences import|import .*sentences)' python/corpus-structure/src --glob '*.py'"
+  ]
+ },
+ "rg_total": 16701,
+ "rg_files": 565,
+ "rg_then_reads_chains": 766,
+ "share_of_execs_pct": {
+  "rg": 21.9,
+  "read": 32.4,
+  "rg-files": 2.2,
+  "fs": 0.6
+ }
+}

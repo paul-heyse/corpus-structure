@@ -1,0 +1,94 @@
+{
+ "counts": {
+  "code-intel (ast/inspect/importlib/walk)": 149,
+  "other": 331,
+  "file-edit script (src)": 1646,
+  "file-edit script (tests)": 757,
+  "file-edit script (docs)": 193,
+  "parses ci output/receipts": 410,
+  "reads docs/text": 144,
+  "database/sql": 27
+ },
+ "examples": {
+  "code-intel (ast/inspect/importlib/walk)": [
+   "from pathlib import Path | import re | for path in [Path('python/corpus-structure/src/corpus_structure/semantic/routines.py'), *Path('python/corpus-structure/semantic_alembic/versions').glob('*.py')]:",
+   "from pathlib import Path | import ast | for path in Path('python/corpus-structure/semantic_alembic/versions').glob('*'): | if path.suffix not in {'.py','.txt'}: continue | try: tree=ast.parse(path.rea",
+   "import inspect | from alembic.ext import checkconstraint_byname | print(inspect.getsource(checkconstraint_byname)[-4500:])",
+   "import ast,collections,json | from pathlib import Path | p=Path('/tmp/ddo-found-candidate-d1a421/native_candidate.py'); tree=ast.parse(p.read_text()); f=next(n for n in tree.body if isinstance(n,ast.F",
+   "import pglast | from corpus_structure.semantic.data_operation_storage import native_protocol_sources,native_sql | sources=native_protocol_sources() | sql=native_sql(sources) | statements=pglast.parse_",
+   "import ast,subprocess,pglast | from pathlib import Path | from corpus_structure.semantic.data_operation_storage import native_protocol_sources,native_sql | from corpus_structure.semantic.prepared_sql ",
+   "import pglast | print(pglast.parse_plpgsql.__doc__[:2300])",
+   "import ast,subprocess | from pathlib import Path | r=Path('/home/paul/corpus-structure-ddo-final-contextual') | for name in subprocess.check_output(['git','-C',str(r),'diff','--name-only'],text=True)."
+  ],
+  "other": [
+   "from pathlib import Path | import json,re | p=Path('python/corpus-structure/semantic_alembic/versions/semantic_ddo_origeps_v1_native.json') | s=json.loads(p.read_bytes()) | a=next(x for x in s['desire",
+   "import json | from pathlib import Path | p=Path('python/corpus-structure/semantic_alembic/versions/semantic_ddo_origeps_v1_native.json') | x=json.loads(p.read_bytes()) | for obj in x['desired']: | if ",
+   "from corpus_structure.semantic.metadata import metadata | from corpus_structure.semantic.alembic_privileges import table_policy | for table in metadata.tables.values(): | if table.schema=='eval' and a",
+   "from corpus_structure.semantic.data_operation_storage import native_protocol_sources,native_sql | sql=native_sql(native_protocol_sources()) | print(sql[171880:172140])",
+   "from pathlib import Path | from dataclasses import asdict | from corpus_structure.semantic.data_operation_compilation import compile_data_operations | from corpus_structure.semantic.finite_interpretat",
+   "from pathlib import Path | from dataclasses import asdict | from corpus_structure.semantic.data_operation_compilation import compile_data_operations | from corpus_structure.semantic.contextual_operati",
+   "from pathlib import Path | from dataclasses import asdict | from corpus_structure.semantic.data_operation_compilation import compile_data_operations | from corpus_structure.semantic.contextual_operati",
+   "from pathlib import Path | for name in ('python/corpus-structure/src/corpus_structure/intervene/server.py','python/corpus-structure/src/corpus_structure/intervene/external_server.py','python/corpus-st"
+  ],
+  "file-edit script (src)": [
+   "from pathlib import Path | p=Path('python/corpus-structure/src/corpus_structure/semantic/native_data_steps.py');s=p.read_text();s+=''' | | def require_frozen_data_prerequisites(existing, target_metada",
+   "from pathlib import Path | p=Path('python/corpus-structure/src/corpus_structure/semantic/source_view_native.py');s=p.read_text().replace(' required = required.replace(\" -- {record_native_admission}\", ",
+   "from pathlib import Path | p=Path('python/corpus-structure/src/corpus_structure/semantic/alembic_privileges.py');s=p.read_text().replace('from alembic.operations import MigrateOperation, Operations\\n'",
+   "from pathlib import Path | p=Path('python/corpus-structure/src/corpus_structure/semantic/alembic_privileges.py');s=p.read_text();s=s.replace('\\n\\ndef policy_fact(value) -> PrivilegePolicy:', ''' | | c",
+   "from pathlib import Path | p=Path('python/corpus-structure/src/corpus_structure/semantic/native_candidate.py');s=p.read_text();s+=''' | | def verify_frozen_catalog(connection, admission): | \"\"\"Run the",
+   "from pathlib import Path | p=Path('python/corpus-structure/src/corpus_structure/semantic/alembic_privileges.py');s=p.read_text();s=s.replace('from sqlalchemy import text\\n','from sqlalchemy import tex",
+   "from pathlib import Path | p=Path('python/corpus-structure/src/corpus_structure/semantic/native_objects.py');s=p.read_text().replace(' \"\"\"Explicit native source, scope, catalog or transition refusal.\"",
+   "from pathlib import Path | p=Path('python/corpus-structure/src/corpus_structure/semantic/native_candidate.py');s=p.read_text().replace(' context = {\"operation_kind\": \"rendered_upgrade\", \"sqlstate\": st"
+  ],
+  "file-edit script (tests)": [
+   "from pathlib import Path | p=Path('python/corpus-structure/tests/semantic/test_native_candidate_cli.py');s=p.read_text().replace(' upgrade_ops=UpgradeOps(\\n',' privilege_policies=(),\\n upgrade_ops=Upg",
+   "from pathlib import Path | p=Path('python/corpus-structure/tests/semantic/test_alembic_privileges.py');s=p.read_text();old=''' function = definition_from_sql(conn, f'CREATE FUNCTION \"{schema}\".guard()",
+   "from pathlib import Path | p=Path('python/corpus-structure/tests/semantic/test_alembic_privileges.py');s=p.read_text().replace(''' # The native transition's intermediate owner is still the actual pred",
+   "from pathlib import Path | p=Path('python/corpus-structure/tests/test_cli_model_inspect.py');s=p.read_text();s=s.replace('assert \"differs from candidate binding\" in damaged.stderr','assert \"differs fr",
+   "from pathlib import Path | p=Path('python/corpus-structure/tests/math_support.py');s=p.read_text();s=s.replace(' prepared_source=None,\\n','');a=s.index(' if prepared_source is not None');b=s.index(' f",
+   "from pathlib import Path | p=Path('python/corpus-structure/tests/math_support.py');s=p.read_text().replace('Callable, Iterable, Mapping','Callable, Iterable, Mapping, Sequence').replace(' macros = pre",
+   "from pathlib import Path | p=Path('python/corpus-structure/tests/semantic/test_data_operation_provider_native.py');s=p.read_text().replace('from semantic.test_data_operation_pinned_reuse_native import",
+   "from pathlib import Path | p=Path('python/corpus-structure/tests/semantic/test_data_operation_provider_native.py');s=p.read_text().replace('PINNED, PRODUCER, _produce','PINNED, PRODUCER, CONSUMER, _pr"
+  ],
+  "file-edit script (docs)": [
+   "from pathlib import Path | p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml') | p.write_text('baseline: 392738104\\npacks: [statistics]\\nnative_predecessor: semantic",
+   "from pathlib import Path | p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');s=p.read_text().replace('baseline: 392738104','baseline: \"392738104\"');p.write_text(s)",
+   "from pathlib import Path | p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');s=p.read_text().replace('baseline: \"392738104\"','baseline: \"4f49a3a44\"');p.write_text(",
+   "from pathlib import Path | import subprocess | p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');s=p.read_text();lines=s.splitlines();lines[0]='baseline: \"'+subpro",
+   "from pathlib import Path | p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');lines=p.read_text().splitlines();lines[0]='baseline: \"e84bfb617\"';p.write_text('\\n'.jo",
+   "from pathlib import Path | import subprocess | p=Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml');lines=p.read_text().splitlines();lines[0]='baseline: \"'+subprocess",
+   "import pathlib,subprocess,yaml | p=pathlib.Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml') | d=yaml.safe_load(p.read_text()); d['baseline']=subprocess.check_output",
+   "import pathlib,subprocess,yaml | p=pathlib.Path('docs/design_review/evidence/2026-11-14_ddo-foundation-governance/change.yaml'); d=yaml.safe_load(p.read_text()); d['baseline']=subprocess.check_output("
+  ],
+  "parses ci output/receipts": [
+   "import json,subprocess | rows=[]; after=None | while True: | args=['uv','run','ci','results','list','--action','test','--limit','100','--json'] | if after: args += ['--after',after] | d=json.loads(sub",
+   "import json,subprocess | ident='d1a42177213a44f9bcd291901c8fd4ed' | after=0; rows=[] | while True: | d=json.loads(subprocess.check_output(['uv','run','ci','model','change','inspect-candidate',ident,'-",
+   "import collections,json,subprocess | ident='d1a42177213a44f9bcd291901c8fd4ed'; after=0; rows=[] | while True: | d=json.loads(subprocess.check_output(['uv','run','ci','model','change','inspect-candidat",
+   "uv run python -c 'from pathlib import Path; import json; rows=[] | for p in Path(\"build/ci\").glob(\"*/manifest.json\"): | try: | m=json.loads(p.read_text()); rows.append((p.stat().st_mtime,p.parent.name",
+   "from pathlib import Path | import shutil | source=Path('/tmp/corpus-pg-runtime-results'); target=Path('build/ci') | copied=0 | for directory in source.iterdir(): | if not directory.is_dir() or not (di",
+   "from pathlib import Path | import shutil | source=Path('/tmp/corpus-pg-runtime-results'); target=Path('build/ci') | count=0 | for directory in source.iterdir(): | if directory.is_dir() and (directory/",
+   "from pathlib import Path | import hashlib | source=Path('/tmp/corpus-pg-runtime-results'); target=Path('build/ci') | missing=[str(p.relative_to(source)) for p in source.rglob('*') if p.is_file() and n",
+   "from pathlib import Path | from concurrent.futures import ThreadPoolExecutor | import re,subprocess,json | s=Path('docs/plans/declared-data-operations_2026-11-12.md').read_text().split('### PostgreSQL"
+  ],
+  "reads docs/text": [
+   "import json | from pathlib import Path | p=Path('python/corpus-structure/semantic_alembic/versions/semantic_ddo_origeps_v1_native.json') | d=json.loads(p.read_text()); print(type(d).__name__, list(d) ",
+   "import re, subprocess | selections = { | 'python/corpus-structure/src/corpus_structure/semantic/native_candidate.py': ('target_metadata=None', 'data_operation_native_definitions(connection, target_met",
+   "from pathlib import Path | for name in ('data_operations.sql','data_operation_external.sql'): | s=(Path('python/corpus-structure/src/corpus_structure/semantic/sql')/name).read_text() | print(name,len(",
+   "from pathlib import Path | from pglast import parse_sql | from yaml import safe_load | root=Path('python/corpus-structure/src/corpus_structure') | parse_sql((root/'semantic/sql/data_operation_external",
+   "from pathlib import Path | from pglast import parse_plpgsql | sql=Path('python/corpus-structure/src/corpus_structure/semantic/sql/data_operation_external.sql').read_text() | try: | parse_plpgsql(sql) ",
+   "import difflib | import subprocess | path='python/corpus-structure/src/corpus_structure/semantic/data_operation_model.py' | old=subprocess.check_output(['git','show','HEAD:'+path]).decode() | new=old.",
+   "from pathlib import Path | import subprocess | import yaml | from pglast import parse_sql | paths=subprocess.check_output(['git','diff','--name-only']).decode().splitlines() | paths+=subprocess.check_",
+   "from pathlib import Path | import subprocess | import yaml | names=subprocess.check_output(['git','diff','--name-only']).decode().splitlines()+subprocess.check_output(['git','ls-files','--others','--e"
+  ],
+  "database/sql": [
+   "import runpy | import sys | from pathlib import Path | from types import SimpleNamespace | | sys.path.insert(0, str(Path('python/corpus-structure/src').resolve())) | namespace = runpy.run_path('python",
+   "from pathlib import Path | names=['sqlalchemy','psycopg','psycopg-pool','alembic','pglast','sqlglot','pgpq','adbc-driver-postgresql'] | for name in names: | p=Path('docs/libraries/postgresql')/(name+'",
+   "import psycopg,json | with psycopg.connect('host=/var/run/postgresql port=5434 dbname=corpus_structure_dev user=paul',autocommit=True) as c: | c.execute('SET default_transaction_read_only=on') | with ",
+   "import psycopg,json | with psycopg.connect('host=/var/run/postgresql port=5434 dbname=corpus_structure_dev user=paul',autocommit=True) as c: | c.execute('SET default_transaction_read_only=on') | with ",
+   "import psycopg,json | from pathlib import Path | from hashlib import file_digest | with psycopg.connect('host=/var/run/postgresql port=5434 dbname=corpus_structure_dev user=paul',autocommit=True) as c",
+   "import json | from sqlalchemy import text | from corpus_structure.settings import Settings,DatabaseSettings | from corpus_structure.semantic.runtime import open_runtime_engine,require_runtime_principa",
+   "import json,psycopg | with psycopg.connect('postgresql:///postgres?host=/var/run/postgresql&port=33097',options='-c default_transaction_read_only=on -c statement_timeout=5000') as c: | rows=c.execute(",
+   "import json,psycopg | from pathlib import Path | e=dict(x.split('=',1) for x in Path('/proc/1468539/environ').read_bytes().decode().split('\\0') if '=' in x) | kw={name:e[key] for name,key in [('host',"
+  ]
+ }
+}

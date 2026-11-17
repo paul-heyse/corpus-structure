@@ -1,0 +1,41 @@
+normalized_command,sessions_with_>=3_repeats
+UV_NO_SYNC=1 UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/.venv PYTHONPATH=/home/paul/ddo-fixed-call-retirement/python/corpus-structure/src:/home/paul/ddo-fixed-call-retirement/python/corpus-str,14
+UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/.venv UV_NO_SYNC=1 PYTHONPATH=/home/paul/ddo-d1-limitation-attempt/python/corpus-structure/src:/home/paul/ddo-d1-limitation-attempt/python/corpus-str,13
+UV_NO_SYNC=1 UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/.venv PYTHONPATH=/home/paul/ddo-contextual-target-reuse/python/corpus-structure/src:/home/paul/ddo-contextual-target-reuse/python/corpus,11
+CORPUS_DATABASE__URL='postgresql:///corpus_structure_ddo_stage?host=/var/run/postgresql&port=5434' CORPUS_DATABASE__MAINTENANCE_URL='postgresql:///corpus_structure_ddo_stage?host=/var/run/postgresql&p,7
+git diff --check,6
+uv run ci test failures <ID> --json,6
+UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/.venv UV_NO_SYNC=1 PYTHONPATH=/home/paul/ddo-authored-interpretations/python/corpus-structure/src:/home/paul/ddo-authored-interpretations/python/corp,6
+uv run ci check --only types --json,5
+UV_NO_SYNC=1 uv run ci results show <ID> --json,5
+UV_NO_SYNC=1 uv run ci test failures <ID> --json,4
+UV_NO_SYNC=1 uv run ci results hold <ID> --json,4
+cat .claude/skills/ci/SKILL.md,3
+cat .claude/skills/ci/references/testing-and-results.md,3
+git merge main --no-edit,3
+builtin cd /home/paul/ddo-structural-readers && UV_NO_SYNC=1 UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/.venv PYTHONPATH=/home/paul/ddo-structural-readers/python/corpus-structure/src:/home/pau,3
+uv run ci model change candidate <ID> --json,2
+uv run ci test retry <ID> --lane ordinary --json,2
+uv run ci test failures <ID> --lane ordinary --json,2
+cat .agents/roles/worker.md .agents/roles/executor.md .claude/skills/ci/SKILL.md,2
+git diff --check; git status --short,2
+UV_NO_SYNC=1 uv run ci test failures <ID> --lane ordinary --json,2
+UV_NO_SYNC=1 uv run ci results inspect <ID> --json,2
+uv run ci check --only types,2
+git commit --no-edit,2
+pwd && git status --short && cat .agents/roles/worker.md && cat .agents/roles/executor.md,2
+cat .agents/roles/worker.md .agents/roles/executor.md,2
+export UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/.venv export UV_NO_SYNC=1 export PYTHONPATH=/home/paul/ddo-d1-limitation-attempt/python/corpus-structure/src:/home/paul/ddo-d1-limitation-atte,2
+UV_NO_SYNC=1 UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/.venv PYTHONPATH=$PWD/python/corpus-structure/src:$PWD/python/corpus-structure/tests uv run --project /home/paul/corpus-structure ci res,2
+uv run ci results hold ${id} --json,1
+uv run ci test scheduling <ID> --limit 5 --json,1
+git -C /home/paul/corpus-structure-ddo-final-structural diff --check,1
+git -C /home/paul/corpus-structure-ddo-final-structural diff --stat,1
+uv run ci docs check --json,1
+cat .claude/skills/create-plan/SKILL.md,1
+cat .claude/skills/execute-plan/SKILL.md,1
+cat STATUS.md,1
+uv run ci results hold --help,1
+uv run ci model change register <ID> --json,1
+uv run ci check --only lint --json,1
+uv run python -m corpus_structure.semantic.data_operation_wire,1

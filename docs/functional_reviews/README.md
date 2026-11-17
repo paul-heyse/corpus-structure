@@ -13,6 +13,15 @@ retains its separate audit prerequisite and review conventions.
 
 ## Outputs and traceability
 
+The [agent CLI capabilities review](agent-cli-capabilities_2026-11-16.md) develops O01–O11 for
+`ci` as a coding agent's working tool: pipe-first output, failure digests in the test report,
+finding results without an ID, holds that name their consumer, a per-result table with source
+currency and a two-run delta, change-partitioned diagnostics, working-tree code questions through
+`ty` and the import graph, and worktree support. It rests on three days of Codex usage
+[evidence](../design_review/evidence/2026-11-16_cli-agent-usage/README.md), declines a cross-run
+SQLite store while history is out of scope, and names the earlier CLI recommendations it carries
+forward. Recommendations remain Proposed.
+
 The [agent CLI and diagnostics review](cli-and-logging_2026-11-10.md) develops O01–O08
 from all ten Typer/Rich/structlog discovery leads and their conditional capabilities. Three
 companions compare command authoring, correction/replay and correlated execution inspection.

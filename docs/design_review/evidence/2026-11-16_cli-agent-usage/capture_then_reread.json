@@ -1,0 +1,65 @@
+{
+ "sequences": 5,
+ "by_reader": {
+  "python inline": 4,
+  "rg": 1
+ },
+ "by_producer": {
+  "ci model change": 3,
+  "ci test coverage": 1,
+  "sed": 1
+ },
+ "median_gap_execs": 1,
+ "examples": [
+  {
+   "session": 21,
+   "role": "root",
+   "producer": "ci model change",
+   "path": "build/nx-operations.json",
+   "gap": 1,
+   "reader": "python inline",
+   "producer_cmd": "uv run ci model change inspect-candidate 03865244a72143fe84071d15f8e60680 --view operations --limit 20 --json > build/nx-operations.json",
+   "follow_cmd": "uv run python - <<'PY' import json from pathlib import Path x=json.loads(Path('build/nx-operations.json').read_bytes()) print(json.dumps(dict(total=x['total'],i"
+  },
+  {
+   "session": 21,
+   "role": "root",
+   "producer": "ci model change",
+   "path": "build/nx-registration.json",
+   "gap": 1,
+   "reader": "python inline",
+   "producer_cmd": "uv run ci model change register 03865244a72143fe84071d15f8e60680 --json > build/nx-registration.json",
+   "follow_cmd": "uv run python - <<'PY' import json from pathlib import Path x=json.loads(Path('build/nx-registration.json').read_bytes()) print(x['result_id'],x['stage'],x['cha"
+  },
+  {
+   "session": 21,
+   "role": "root",
+   "producer": "ci model change",
+   "path": "build/nx-operations-v2.json",
+   "gap": 1,
+   "reader": "python inline",
+   "producer_cmd": "uv run ci model change inspect-candidate 191be16eb18b48e4992be9a6f55498d0 --view operations --limit 20 --json > build/nx-operations-v2.json",
+   "follow_cmd": "uv run python - <<'PY' import json from pathlib import Path x=json.loads(Path('build/nx-operations-v2.json').read_bytes()) print(x['total'],[(i['identity']['nam"
+  },
+  {
+   "session": 21,
+   "role": "root",
+   "producer": "ci test coverage",
+   "path": "build/nx-native-coverage.json",
+   "gap": 1,
+   "reader": "python inline",
+   "producer_cmd": "uv run ci test coverage a75eae9a6e4d4d9e9b3b693173999657 09d4f0460a94499a81cf4705c2d0b0b1 5a3ce63905ab42a9ae5e3da247608c4a --json > build/nx-native-coverage.jso",
+   "follow_cmd": "python - <<'PY' import json from pathlib import Path p=Path('build/nx-native-coverage.json') if p.stat().st_size: x=json.loads(p.read_bytes());print(list(x));pr"
+  },
+  {
+   "session": 26,
+   "role": "executor",
+   "producer": "sed",
+   "path": "/tmp/pg-wire-types.txt",
+   "gap": 1,
+   "reader": "rg",
+   "producer_cmd": "sed -n '1120,1167p' python/corpus-structure/src/corpus_structure/model/semantic/data-operation-native.yaml; uv run --no-sync pyrefly check python/corpus-structu",
+   "follow_cmd": "rg '^ERROR|^ INFO' /tmp/pg-wire-types.txt | tail -35; sed -n '1912,1953p' python/corpus-structure/src/corpus_structure/semantic/data_operation_ports.py; head -3"
+  }
+ ]
+}

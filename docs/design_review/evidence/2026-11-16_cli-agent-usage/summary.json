@@ -1,0 +1,94 @@
+{
+ "window": {
+  "days": [
+   "14",
+   "15",
+   "16"
+  ],
+  "cwd": "/home/paul/corpus-structure"
+ },
+ "sessions": 88,
+ "sessions_by_role": {
+  "code-mapper": 25,
+  "implementation-reviewer": 10,
+  "design-reviewer": 6,
+  "explorer": 3,
+  "executor": 35,
+  "test-agent": 3,
+  "library-research": 5,
+  "root": 1
+ },
+ "exec_commands": 26161,
+ "unparsed_cmd_literal": 189,
+ "execs_by_role": {
+  "code-mapper": 728,
+  "implementation-reviewer": 601,
+  "design-reviewer": 221,
+  "explorer": 72,
+  "executor": 17009,
+  "test-agent": 255,
+  "library-research": 162,
+  "root": 7113
+ },
+ "apply_patch_calls": 1148,
+ "write_stdin_polls": 4732,
+ "sleep_calls": 51,
+ "function_calls": {
+  "send_message": 5156,
+  "wait_agent": 105,
+  "wait": 56,
+  "list_agents": 41,
+  "spawn_agent": 68,
+  "request_user_input": 9,
+  "followup_task": 195,
+  "request_user_input_async": 1,
+  "interrupt_agent": 1,
+  "sleep": 51
+ },
+ "output_bytes_total": 81089159,
+ "output_bytes_by_role": {
+  "code-mapper": 140903,
+  "implementation-reviewer": 2690927,
+  "design-reviewer": 1747370,
+  "explorer": 335295,
+  "executor": 55020539,
+  "test-agent": 297786,
+  "root": 20321860,
+  "library-research": 534479
+ },
+ "rg_chain_rg_then_2plus_reads_of_hits": 766,
+ "rg_chain_examples": [
+  "rg -n '^class |^def |version|legacy|TODO|NotImplemented' python/corpus-structure/src/corpus_structure/semantic/data_operation_{compilation,i",
+  "rg -n '^CREATE OR REPLACE FUNCTION' python/corpus-structure/src/corpus_structure/semantic/sql/data_operations.sql python/corpus-structure/sr",
+  "rg -n 'not yet|unsupported|outside.*profile|not materializ|requires.*profile' python/corpus-structure/src/corpus_structure/semantic/{data_op",
+  "rg -n 'read_effective_data_operations|PREVIOUS_MODEL_VERSION|ARCHIVED_MODEL_VERSION' python/corpus-structure/src python/corpus-structure/tes",
+  "rg -n 'privilege|descriptor|schema_usage|read_roles|prepare_series_candidate|data_step' python/corpus-structure/src/corpus_structure/semanti",
+  "rg -n 'historical_fate|visible_fate|recordable_fate|DemandFate|Fate|protocol|data_operation_wire' python/corpus-structure/src/corpus_structu",
+  "rg -n 'prepare_series_candidate|predecessor|native_base|require_.*head|registered|authoring' python/corpus-structure/src/corpus_structure/cl",
+  "rg -n 'SQLAlchemy/Alembic|SQLAlchemy|I04|I05|native alignment|Native alignment' docs/plans/declared-data-operations_2026-11-12.md docs/plans",
+  "rg -n 'payload|NativeTransitionOp|forward_base|predecessor_state|descriptor|prepare_series_candidate|operation_count' python/corpus-structur",
+  "rg -n '^def test_' python/corpus-structure/tests/semantic/test_native_candidate_cli.py python/corpus-structure/tests/schema/test_model_chang",
+  "rg -n 'native_operations|version|NativeObject|admit_native|migration_wrapper' python/corpus-structure/src/corpus_structure/schema/model_depl",
+  "rg -n 'CA0[89]|SQLA|I0[123]|binding.row|typed comparison' docs/plans STATUS.md"
+ ],
+ "commands_containing_class_anywhere": {
+  "read": 14862,
+  "git": 5165,
+  "rg-files": 1020,
+  "fs": 462,
+  "rg": 11374,
+  "other": 532,
+  "python-inline": 3904,
+  "python-module": 170,
+  "ci": 3680,
+  "ruff": 257,
+  "psql": 1,
+  "python-script": 7,
+  "pyrefly": 405,
+  "just": 106,
+  "ty": 3,
+  "sed-i": 4,
+  "ast-grep": 2,
+  "pytest": 9
+ }
+}
