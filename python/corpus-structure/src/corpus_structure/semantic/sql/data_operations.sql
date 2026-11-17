@@ -867,7 +867,7 @@ BEGIN
  IF NOT ops.ddo_node_valid('population',old.id) THEN RAISE EXCEPTION 'population witness is historical or no longer admitted'; END IF;
  INSERT INTO ops.data_obligation
  WITH RECURSIVE allowed_operations(id) AS (
- SELECT rel->>'target' FROM jsonb_array_elements(d.selection->'discovery') rel WHERE rel->>'population'=old.name
+ SELECT discovery_relation->>'target' FROM jsonb_array_elements(d.selection->'discovery') discovery_relation WHERE discovery_relation->>'population'=old.name
  UNION SELECT dependency FROM allowed_operations allowed
  JOIN LATERAL jsonb_array_elements(d.selection->'operations') selected ON selected->>'operation'=allowed.id
  CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency),
@@ -1578,7 +1578,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_install_product_context(context jsonb,o jsonb,subject_scopes jsonb) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE k sem.data_kind_contract; key text; b jsonb; bd text; m jsonb; raw jsonb; f jsonb; n bigint; previous kb.data_product; packet jsonb; member_context jsonb; member_kind sem.data_kind_contract; inserted_product bigint;
+DECLARE k sem.data_kind_contract; key text; b jsonb; bd text; m jsonb; raw jsonb; family_value jsonb; n bigint; previous kb.data_product; packet jsonb; member_context jsonb; member_kind sem.data_kind_contract; inserted_product bigint;
 BEGIN
  PERFORM ops.ddo_fields(context,ARRAY['project_id','release_id','subject','subject_definition','original_source','analyzed_scope']);
  PERFORM ops.ddo_require_subject_source(subject_scopes,context->>'subject_definition',context->>'original_source');
@@ -1634,26 +1634,26 @@ BEGIN
  -- All local endpoints exist before family insertion. Cross-product endpoints require exact custody.
  FOR m IN SELECT value FROM jsonb_array_elements(o->'members') LOOP
  SELECT * INTO STRICT member_kind FROM sem.data_kind_contract WHERE kind_contract=m->>'kind_contract';
- FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'coordinates','[]')) WITH ORDINALITY a(value,ord) LOOP
- PERFORM ops.ddo_fields(f,ARRAY['original_source','start','end'],ARRAY['page']);
- IF context->>'original_source' IS NULL OR f->>'original_source' IS DISTINCT FROM (context->>'original_source') OR NOT member_kind.families ? 'coordinate' THEN RAISE EXCEPTION 'coordinate source/family mismatch'; END IF;
+ FOR family_value,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'coordinates','[]')) WITH ORDINALITY a(value,ord) LOOP
+ PERFORM ops.ddo_fields(family_value,ARRAY['original_source','start','end'],ARRAY['page']);
+ IF context->>'original_source' IS NULL OR family_value->>'original_source' IS DISTINCT FROM (context->>'original_source') OR NOT member_kind.families ? 'coordinate' THEN RAISE EXCEPTION 'coordinate source/family mismatch'; END IF;
  END LOOP;
- FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'roles','[]')) WITH ORDINALITY a(value,ord) LOOP
- PERFORM ops.ddo_fields(f,ARRAY['role','position','multiplicity']);
+ FOR family_value,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'roles','[]')) WITH ORDINALITY a(value,ord) LOOP
+ PERFORM ops.ddo_fields(family_value,ARRAY['role','position','multiplicity']);
  IF NOT member_kind.families ? 'role' THEN RAISE EXCEPTION 'undeclared role family'; END IF;
  END LOOP;
- FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'endpoints','[]')) WITH ORDINALITY a(value,ord) LOOP
- IF f->>'scope'='local' THEN PERFORM ops.ddo_fields(f,ARRAY['scope','role','member_id']);
- ELSIF f->>'scope'='external' THEN PERFORM ops.ddo_fields(f,ARRAY['scope','role','product_id','member_id']);
+ FOR family_value,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'endpoints','[]')) WITH ORDINALITY a(value,ord) LOOP
+ IF family_value->>'scope'='local' THEN PERFORM ops.ddo_fields(family_value,ARRAY['scope','role','member_id']);
+ ELSIF family_value->>'scope'='external' THEN PERFORM ops.ddo_fields(family_value,ARRAY['scope','role','product_id','member_id']);
  ELSE RAISE EXCEPTION 'endpoint requires explicit local/external scope'; END IF;
- IF NOT member_kind.families ? 'endpoint' OR NOT EXISTS(SELECT FROM kb.data_product x WHERE x.id=CASE WHEN f->>'scope'='local' THEN key ELSE f->>'product_id' END AND x.project_id=(context->>'project_id') AND x.original_source IS NOT DISTINCT FROM (context->>'original_source')) THEN RAISE EXCEPTION 'endpoint custody/family mismatch'; END IF;
+ IF NOT member_kind.families ? 'endpoint' OR NOT EXISTS(SELECT FROM kb.data_product x WHERE x.id=CASE WHEN family_value->>'scope'='local' THEN key ELSE family_value->>'product_id' END AND x.project_id=(context->>'project_id') AND x.original_source IS NOT DISTINCT FROM (context->>'original_source')) THEN RAISE EXCEPTION 'endpoint custody/family mismatch'; END IF;
  END LOOP;
- FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'coverage','[]')) WITH ORDINALITY a(value,ord) LOOP
- PERFORM ops.ddo_fields(f,ARRAY['scope','start','end','complete']);
+ FOR family_value,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'coverage','[]')) WITH ORDINALITY a(value,ord) LOOP
+ PERFORM ops.ddo_fields(family_value,ARRAY['scope','start','end','complete']);
  IF NOT member_kind.families ? 'coverage' THEN RAISE EXCEPTION 'undeclared coverage family'; END IF;
  END LOOP;
- FOR f,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'choices','[]')) WITH ORDINALITY a(value,ord) LOOP
- PERFORM ops.ddo_fields(f,ARRAY['choice_group','alternative','selected']);
+ FOR family_value,n IN SELECT value,ord-1 FROM jsonb_array_elements(coalesce(m->'choices','[]')) WITH ORDINALITY a(value,ord) LOOP
+ PERFORM ops.ddo_fields(family_value,ARRAY['choice_group','alternative','selected']);
  IF NOT member_kind.families ? 'choice' THEN RAISE EXCEPTION 'undeclared choice family'; END IF;
  END LOOP;
  END LOOP;

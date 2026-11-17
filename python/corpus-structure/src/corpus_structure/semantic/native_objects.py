@@ -837,9 +837,16 @@ def _check_plpgsql_authoring(
                 break
     if diagnostics:
         suffix = "; diagnostic limit: " + "; ".join(omissions) if omissions else ""
-        raise NativeAuthoringError(
+        failure = NativeAuthoringError(
             "PL/pgSQL authoring check failed for " + "; ".join(diagnostics) + suffix
         )
+        failure.authoring_context = {
+            "phase": "plpgsql_check",
+            "diagnostics": diagnostics,
+            "omissions": omissions,
+            "error_count": error_count,
+        }
+        raise failure
 
 
 def prepare_native_authoring(
