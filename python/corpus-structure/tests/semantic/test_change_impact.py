@@ -550,7 +550,6 @@ def test_native_population_closure_requires_each_frozen_producer_context(ddo_ker
 
     from corpus_structure.semantic._data_operation_wire import (
         WireCloseDataPopulationRequest,
-        WireExpandDataObligationRequest,
         WireRetainDataCompletionIntentRequest,
     )
     from corpus_structure.semantic.change_impact import _acquire
@@ -581,20 +580,10 @@ def test_native_population_closure_requires_each_frozen_producer_context(ddo_ker
     assert acquire()[3] is False
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        planner.storage.expand_data_obligation(
-            cast(
-                WireExpandDataObligationRequest,
-                dict(
-                    demand_id=demand["demand_id"],
-                    operation_id="urn:discover",
-                    subject="doc:two",
-                    original_source="source:test",
-                    analyzed_scope={"page": 2},
-                    parameters={},
-                ),
-            )
-        )
-        ready = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+        snapshot = planner.resume(demand["demand_id"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        ready = planner.ready(snapshot, authorization=b"{}")
         second = next(
             row for row in ready if row.operation == "urn:discover" and row.subject == "doc:two"
         )

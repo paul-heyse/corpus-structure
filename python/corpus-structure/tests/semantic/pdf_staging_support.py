@@ -13,6 +13,7 @@ import pytest
 from corpus_structure.core.evidence import document_key
 from corpus_structure.semantic._data_operation_wire import (
     WireAttemptFence,
+    WireClaimDataRequestsRequest,
     WireCompletion,
     WireRequestId,
     wire_attempt_fence,
@@ -99,16 +100,14 @@ class _PrivatePdfBuildFactory:
                 release=self.kernel.prepared.release_id,
                 runtime=self.kernel.runtime,
             )
-            (ready,) = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
-            claim = DataOperationStorage(conn).claim_data_request(
-                {
-                    "request_id": WireRequestId(json.loads(ready.native)["request_id"]),
-                    "generation": json.loads(ready.native)["generation"],
-                    "holder": "stage-owner",
-                    "lease_seconds": 300,
-                }
-            )
+        with self.kernel.purpose("write").begin() as conn:
+            snapshot = DemandPlanner(self.kernel.model, DataOperationStorage(conn)).resume(demand["demand_id"])
+        with self.kernel.purpose("write").begin() as conn:
+            planner = DemandPlanner(self.kernel.model, DataOperationStorage(conn))
+            (ready,) = planner.ready(snapshot, authorization=b"{}")
+            claim = DataOperationStorage(conn).claim_data_requests(cast(WireClaimDataRequestsRequest, {'holder': 'stage-owner', 'lease_seconds': 300, 'items': [{'request_id': WireRequestId(json.loads(ready.native)['request_id']), 'generation': json.loads(ready.native)['generation']}]}))["items"][0]
             assert claim["state"] == "claimed"
+            claim = claim["result"]
             fence = wire_attempt_fence(claim)
             store_pdf_original(
                 conn,
@@ -162,15 +161,9 @@ class _PrivatePdfBuildFactory:
 
     def reclaim(self, connection, build, *, holder):
         previous = self.requests[build.build_id]
-        claimed = DataOperationStorage(connection).claim_data_request(
-            {
-                "request_id": previous.fence["request_id"],
-                "generation": previous.fence["generation"],
-                "holder": holder,
-                "lease_seconds": 300,
-            }
-        )
+        claimed = DataOperationStorage(connection).claim_data_requests(cast(WireClaimDataRequestsRequest, {'holder': holder, 'lease_seconds': 300, 'items': [{'request_id': previous.fence['request_id'], 'generation': previous.fence['generation']}]}))["items"][0]
         assert claimed["state"] == "claimed"
+        claimed = claimed["result"]
         fence = wire_attempt_fence(claimed)
         assert fence["request_id"] == previous.fence["request_id"]
         assert fence["generation"] == previous.fence["generation"]

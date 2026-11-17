@@ -9,7 +9,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitExternalDataResultRequest,
     WireCancelDataDemandRequest,
-    WireClaimDataRequestRequest,
+    WireClaimDataRequestsRequest,
     WireReadDemandResultRequest,
     WireReleaseDataAttemptRequest,
     WireRetainExternalDataPacketRequest,
@@ -50,17 +50,7 @@ def test_external_packet_waits_without_fulfillment_then_publishes_real_native_re
         assert any(use["fate"] == "awaiting-external" for use in snapshot["uses"])
         assert all(not use["products"] for use in snapshot["uses"])
         assert (
-            storage.claim_data_request(
-                typing_cast(
-                    WireClaimDataRequestRequest,
-                    {
-                        "request_id": attached["request_id"],
-                        "generation": attached["generation"],
-                        "holder": "ordinary",
-                        "lease_seconds": 30,
-                    },
-                )
-            )["state"]
+            storage.claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {'holder': 'ordinary', 'lease_seconds': 30, 'items': [{'request_id': attached['request_id'], 'generation': attached['generation']}]}))["items"][0]["state"]
             == "no-work"
         )
     leased = session.claim(retained["packet_id"])

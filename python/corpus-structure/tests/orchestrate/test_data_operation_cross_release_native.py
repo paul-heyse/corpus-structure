@@ -13,7 +13,7 @@ from corpus_structure.orchestrate.data_operations import (
     NativeDemandExecutionError,
     NativeDemandExecutor,
 )
-from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestRequest
+from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestsRequest
 from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
@@ -163,17 +163,7 @@ def test_stale_attach_generation_cannot_claim_a_replacement_basis(ddo_kernel):
     assert successor["request_id"] == attached["request_id"]
     assert successor["generation"] == attached["generation"] + 1
     with ddo_kernel.engine.begin() as connection:
-        denied = DataOperationStorage(connection).claim_data_request(
-            cast(
-                WireClaimDataRequestRequest,
-                dict(
-                    request_id=attached["request_id"],
-                    generation=attached["generation"],
-                    holder="stale-basis",
-                    lease_seconds=30,
-                ),
-            )
-        )
+        denied = DataOperationStorage(connection).claim_data_requests(cast(WireClaimDataRequestsRequest, {'holder': 'stale-basis', 'lease_seconds': 30, 'items': [{'request_id': attached['request_id'], 'generation': attached['generation']}]}))["items"][0]
         assert denied == {"state": "no-work"}
         assert (
             connection.scalar(

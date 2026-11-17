@@ -431,7 +431,7 @@ def current_integration_journey(
             from typing import cast
 
             from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
-            from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestRequest
+            from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestsRequest
             from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 
             retain_answer = NativeDemandExecutor._retain_answer
@@ -464,18 +464,9 @@ def current_integration_journey(
                             == 1
                         )
                         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
-                        changed = DataOperationStorage(connection).claim_data_request(
-                            cast(
-                                WireClaimDataRequestRequest,
-                                dict(
-                                    request_id=claim.request_id,
-                                    generation=claim.generation,
-                                    holder="recognition-successor",
-                                    lease_seconds=300,
-                                ),
-                            )
-                        )
+                        changed = DataOperationStorage(connection).claim_data_requests(cast(WireClaimDataRequestsRequest, {'holder': 'recognition-successor', 'lease_seconds': 300, 'items': [{'request_id': claim.request_id, 'generation': claim.generation}]}))["items"][0]
                         assert changed["state"] == "claimed"
+                        changed = changed["result"]
                         case.reclaimed_fence = {
                             name: changed[name]
                             for name in ("request_id", "generation", "task_id", "attempt", "holder")
