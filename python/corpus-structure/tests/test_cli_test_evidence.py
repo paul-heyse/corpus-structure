@@ -318,6 +318,39 @@ def test_lane_owns_run_scope_instead_of_inheriting_outer_value(
         )
 
 
+@pytest.mark.parametrize("authenticated_refusal", [False, True])
+def test_preflight_without_child_retains_explicit_settlement(
+    tmp_path, monkeypatch, authenticated_refusal
+):
+    from corpus_structure.cli import testing
+
+    def recipe(name, *args, env):
+        assert name == "test-all"
+        assert not Path(env["CORPUS_CI_RECEIPT_DIR"]).exists()
+        return subprocess.CompletedProcess(
+            [],
+            2,
+            json.dumps(
+                {
+                    "version": "managed-test-preflight-1",
+                    "preflight_refusal": "invalid pytest selection",
+                    "custody_unsettled": not authenticated_refusal,
+                }
+            ),
+            "",
+        )
+
+    monkeypatch.setattr(testing, "run_recipe", recipe)
+    with ResultStore(tmp_path / "results").operation("test", scope={}) as result:
+        assert testing._lane(result, "ordinary") == "failed"
+        if authenticated_refusal:
+            assert result.manifest.details["selection_refusal"] == "invalid pytest selection"
+            assert not result.manifest.details.get("custody_unsettled")
+        else:
+            assert result.manifest.details["custody_unsettled"] is True
+            assert "selection_refusal" not in result.manifest.details
+
+
 def test_installed_compact_coverage_and_exact_failures(tmp_path):
     store = ResultStore(tmp_path)
     nodes = [f"tests/test_sample.py::test_case_{index:03}" for index in range(103)]

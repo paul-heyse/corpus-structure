@@ -644,10 +644,15 @@ def _render_failures(report: Failures) -> Group:
 def _supervisor(*args: str, opened: dict[Path, int] | None = None) -> dict[str, Any]:
     root = checkout()
     descriptors = {str(path): f"/proc/self/fd/{fd}" for path, fd in (opened or {}).items()}
+    if args[:1] == ("classify",):
+        receipts = [args[index + 1] for index, arg in enumerate(args) if arg == "--receipt-dir"]
+        if receipts and all(path in descriptors for path in receipts):
+            args = (*args, "--settled-receipts")
     process = run_owned(
         [
             "uv",
             "run",
+            "--no-sync",
             "python",
             "scripts/test_receipts.py",
             *(descriptors.get(arg, arg) for arg in args),
@@ -680,24 +685,25 @@ def _supervisor(*args: str, opened: dict[Path, int] | None = None) -> dict[str, 
 
 
 def _validate(args: tuple[str, ...]) -> bool:
-    if not args:
-        return False
-    check = run_owned(
-        [
-            "uv",
-            "run",
-            "python",
-            "scripts/test_receipts.py",
-            "validate-pytest",
-            "--report-selection",
-            "--",
-            *args,
-        ],
-        cwd=checkout(),
-    )
-    if check.returncode:
-        raise ResultError(safe_text(check.stderr.strip())[-2000:] or "unsupported pytest options")
-    return check.stdout.strip() == "true"
+    """Choose the lane; the owning supervisor validates arguments before execution."""
+    skip_value = False
+    for arg in args:
+        if skip_value:
+            if not arg.isdecimal():
+                return True
+            skip_value = False
+        elif arg == "--maxfail":
+            skip_value = True
+        elif arg.startswith("--maxfail="):
+            if not arg.partition("=")[2].isdecimal():
+                return True
+        elif arg in {
+            "-q", "-qq", "-v", "-vv", "--quiet", "--verbose"
+        }:
+            continue
+        else:
+            return True
+    return skip_value
 
 
 def _lane(
@@ -755,6 +761,21 @@ def _lane(
         raise
     report = directory / "classification.json"
     if not report.is_file():
+        try:
+            refusal = jsonlib.loads(process.stdout)
+        except ValueError:
+            refusal = None
+        if (
+            isinstance(refusal, dict)
+            and refusal.get("version") == "managed-test-preflight-1"
+            and refusal.get("custody_unsettled") is False
+            and isinstance(refusal.get("preflight_refusal"), str)
+        ):
+            result.confirm_settlement()
+            reason = safe_text(refusal["preflight_refusal"])
+            result.manifest.details["selection_refusal"] = reason
+            diagnostic(reason)
+            return "failed"
         result.manifest.details["custody_unsettled"] = True
         diagnostic(safe_text(process.stderr.strip())[-2000:] or "test lane did not settle")
         return "interrupted" if process.returncode in (130, 143) else "failed"
@@ -942,6 +963,7 @@ def run_tests(
                 and lane != "ordinary"
                 and outcomes.get("ordinary") != "interrupted"
                 and not result.manifest.details.get("custody_unsettled")
+                and not result.manifest.details.get("selection_refusal")
             ):
                 outcomes["fault"] = _lane(result, "fault", args)
             _finish(result, outcomes, json)
@@ -1648,7 +1670,14 @@ def retry(
                     path, fd = receipts[current]
                     selection = result.directory / f"{current}-selection.txt"
                     flags = ["--receipt-dir", str(path), *_manifest_paths([path])]
-                    report = _supervisor("classify", "--summary", *flags, opened={path: fd})
+                    report = _supervisor(
+                        "classify", "--summary", *flags,
+                        "--write-unresolved", str(selection), "--if-retryable",
+                        "--selection-lane", current, "--managed-selection",
+                        "--expected-evidence-selection", manifest.scope.get("evidence_selection", "ordinary"),
+                        "--expected-native-host", manifest.scope.get("native_host", "shared"),
+                        opened={path: fd},
+                    )
                     if report["custody_unsettled"]:
                         raise ResultError(
                             "supervisor settlement unproven. "
@@ -1679,18 +1708,7 @@ def retry(
                                 f"{current} context changed ({', '.join(changed)}); "
                                 "review coverage applicability after retry"
                             )
-                        recollected = _supervisor(
-                            "classify",
-                            "--summary",
-                            *flags,
-                            "--write-unresolved",
-                            str(selection),
-                            "--selection-lane",
-                            current,
-                            "--managed-selection",
-                            opened={path: fd},
-                        )
-                        validation = recollected.get("unresolved_selection", {})
+                        validation = report.get("unresolved_selection", {})
                         if validation.get("validation") == "failed":
                             directory = Path(validation["validation_receipt"]).resolve()
                             if directory.parent != result.directory.resolve():

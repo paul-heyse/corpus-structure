@@ -212,6 +212,72 @@ def report(phase: str, outcome: str = "passed", **extra: object) -> dict[str, ob
     return {"$report_type": "TestReport", "nodeid": "a", "when": phase, "outcome": outcome, **extra}
 
 
+def test_settled_classification_reuses_payload_without_replaying_streams(tmp_path, monkeypatch):
+    import test_receipts as owner
+
+    receipt(tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    expected = classify([tmp_path])
+    owner._write_classification(tmp_path, expected)
+
+    def unexpected(_):
+        raise AssertionError("settled receipt replayed raw streams")
+
+    monkeypatch.setattr(owner, "classify_receipt", unexpected)
+    reused = classify([tmp_path], settled=True)
+    assert reused["status"] == "passed"
+    assert reused["receipts"][0]["selected"] == ["a"]
+    assert reused["receipts"][0]["nodes"]["a"]["status"] == "passed"
+
+
+@pytest.mark.parametrize("change", ["input", "classifier", "unsettled", "unversioned", "malformed"])
+def test_settled_cache_requires_unchanged_inputs_and_classifier(tmp_path, monkeypatch, change):
+    import test_receipts as owner
+
+    receipt(tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    value = classify([tmp_path])
+    if change == "unsettled":
+        value["custody_unsettled"] = True
+    owner._write_classification(tmp_path, value)
+    if change == "input":
+        with (tmp_path / "reportlog.jsonl").open("a") as stream:
+            stream.write("\n")
+    elif change == "classifier":
+        monkeypatch.setattr(owner, "CLASSIFIER_IDENTITY", "different-implementation")
+    elif change == "unversioned":
+        del value["classification_basis"]
+        owner.write_json(tmp_path / "classification.json", value)
+    elif change == "malformed":
+        owner.write_json(tmp_path / "classification.json", [])
+    calls = []
+    original = owner.classify_receipt
+
+    def observed(path):
+        calls.append(path)
+        return original(path)
+
+    monkeypatch.setattr(owner, "classify_receipt", observed)
+    result = classify([tmp_path], settled=True)
+    assert calls == [tmp_path]
+    assert result["receipts"][0]["nodes"]["a"]["status"] == "passed"
+
+
+def test_cached_receipts_still_compose_required_union(tmp_path):
+    import test_receipts as owner
+
+    original, retry = tmp_path / "original", tmp_path / "retry"
+    original.mkdir()
+    retry.mkdir()
+    receipt(original, [report("setup"), report("call", "failed"), report("teardown")], selected=("a",), returncode=1)
+    receipt(retry, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    for directory in (original, retry):
+        owner._write_classification(directory, classify([directory]))
+    observed = classify([original, retry], required_from=[original], settled=True)
+    assert observed["required"] == ["a"]
+    assert observed["required_unresolved"] == []
+    assert observed["receipts"][0]["status"] == "failed"
+    assert observed == classify([original, retry], required_from=[original])
+
+
 def test_teardown_failure_overrides_call_and_keeps_unstarted(tmp_path: Path) -> None:
     result = classify_receipt(
         receipt(

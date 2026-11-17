@@ -33,6 +33,56 @@ ROOT = Path(__file__).resolve().parents[1]
 SESSION_TIMEOUT = 14400
 TEST_TIMEOUT = 900
 
+# Cached interpretation belongs to the exact supervisor and local helper closure.
+CLASSIFIER_IDENTITY = hashlib.sha256(
+    sys.version.encode()
+    + b"\0".join(
+        (ROOT / "scripts" / name).read_bytes()
+        for name in ("test_receipts.py", "native_private_cohort.py", "sql_batch_receipts.py")
+    )
+).hexdigest()
+
+
+def _receipt_basis(directory: Path) -> dict[str, Any]:
+    owner = directory.stat()
+    inputs = {}
+    for path in sorted(directory.iterdir()):
+        if path.name == "classification.json":
+            continue
+        info = path.lstat()
+        inputs[path.name] = [
+            info.st_dev, info.st_ino, info.st_mode, info.st_size,
+            info.st_mtime_ns, info.st_ctime_ns,
+        ]
+    return {
+        "version": 1, "classifier": CLASSIFIER_IDENTITY,
+        "owner": [owner.st_dev, owner.st_ino], "inputs": inputs,
+    }
+
+
+def _write_classification(directory: Path, result: dict[str, Any]) -> None:
+    result["classification_basis"] = _receipt_basis(directory)
+    write_json(directory / "classification.json", result)
+
+
+def _settled_classification(directory: Path) -> dict[str, Any] | None:
+    """Reuse an authenticated settled publication with unchanged premises."""
+    try:
+        basis = _receipt_basis(directory)
+        result = read_json(directory / "classification.json")
+        if (
+            not isinstance(result, dict)
+            or result.get("classification_basis") != basis
+            or result.get("custody_unsettled") is not False
+            or len(result.get("receipts", ())) != 1
+            or _receipt_basis(directory) != basis
+        ):
+            return None
+        result["receipts"][0]["directory"] = str(directory)
+        return result
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
 
 @dataclass
 class RunControl:
@@ -982,6 +1032,7 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         "status": status,
         "nodes": nodes,
         "selected": sorted(selected),
+        "collection_manifests": collection_manifests,
         "evidence_selection": evidence_selection,
         "scheduling": {
             "group_metadata_complete": group_metadata_complete
@@ -1155,13 +1206,28 @@ def classify(
     required_from: list[Path] | None = None,
     *,
     required_lanes: dict[str, list[Path]] | None = None,
+    settled: bool = False,
 ) -> dict[str, Any]:
-    receipts = [classify_receipt(path) for path in directories]
+    cached = {path: _settled_classification(path) if settled else None for path in directories}
+    receipts = []
+    for path in directories:
+        saved = cached[path]
+        receipts.append(saved["receipts"][0] if saved is not None else classify_receipt(path))
+
+    def required_manifests(paths):
+        manifests = []
+        for path in paths:
+            saved = cached.get(path)
+            if saved is not None and "collection_manifests" in saved["receipts"][0]:
+                manifests.extend(saved["receipts"][0]["collection_manifests"])
+            else:
+                manifests.extend(_required_manifests([path]))
+        return manifests
     required: set[str] = set()
     native_required: set[str] = set()
     required_evidence: dict[str, str] = {}
     required_hosts: dict[str, str] = {}
-    manifests = _required_manifests(required_from or [])
+    manifests = required_manifests(required_from or [])
     missing_lanes = []
     lane_selections = {}
     for lane, candidates in (required_lanes or {}).items():
@@ -1180,7 +1246,7 @@ def classify(
                     expected_host = initial_manifest.get("native_host", "shared")
         for candidate in candidates:
             try:
-                selected = _required_manifests([candidate])
+                selected = required_manifests([candidate])
                 for manifest in selected:
                     _node_aliases([manifest])
                     if _manifest_evidence_selection(manifest) != expected_mode:
@@ -1221,8 +1287,12 @@ def classify(
         for node in sorted(required)
     }
     missing = [node for node, states in union.items() if "passed" not in states]
+    def rust_receipt(path):
+        saved = cached[path]
+        return saved["rust"][0] if saved is not None and saved.get("rust") else classify_rust(path)
+
     rust = [
-        classify_rust(path)
+        rust_receipt(path)
         for path, receipt in zip(directories, receipts, strict=True)
         if (path / "nextest.process.json").exists()
         or (path / "rust-state.json").exists()
@@ -2239,10 +2309,14 @@ def main(argv: list[str] | None = None) -> int:
     inspect.add_argument("--receipt-dir", action="append", type=Path, required=True)
     inspect.add_argument("--required-from", action="append", type=Path, default=[])
     inspect.add_argument("--write-unresolved", type=Path)
+    inspect.add_argument("--if-retryable", action="store_true")
+    inspect.add_argument("--expected-evidence-selection", choices=("ordinary", "providers"))
+    inspect.add_argument("--expected-native-host", choices=("shared", "private"))
     inspect.add_argument("--selection-lane", choices=("ordinary", "fault"), default="ordinary")
     inspect.add_argument("--managed-selection", action="store_true")
     projection = inspect.add_mutually_exclusive_group()
     projection.add_argument("--summary", action="store_true")
+    inspect.add_argument("--settled-receipts", action="store_true")
     projection.add_argument(
         "--projection", choices=("coverage", "unresolved", "failures", "scheduling")
     )
@@ -2312,8 +2386,22 @@ def main(argv: list[str] | None = None) -> int:
             lanes = {name: [] for name in args.required_lane}
             for name, path in args.required_lane_from:
                 lanes[name].append(Path(path))
-            result = classify(args.receipt_dir, args.required_from, required_lanes=lanes)
-            if args.write_unresolved is not None:
+            result = classify(
+                args.receipt_dir, args.required_from, required_lanes=lanes,
+                settled=args.settled_receipts,
+            )
+            for receipt in result["receipts"]:
+                invocation = receipt.get("invocation") or {}
+                for expected, key, default in (
+                    (args.expected_evidence_selection, "evidence_selection", "ordinary"),
+                    (args.expected_native_host, "native_host", "shared"),
+                ):
+                    if expected is not None and invocation.get(key, default) != expected:
+                        raise ValueError("retained manifest and receipt disagree on " + key)
+            if args.write_unresolved is not None and (
+                not args.if_retryable
+                or (_retryable(result) and result["required_unresolved"] and not result["custody_unsettled"])
+            ):
                 result["unresolved_selection"] = write_unresolved(
                     result,
                     args.write_unresolved,
@@ -2366,6 +2454,13 @@ def main(argv: list[str] | None = None) -> int:
             elif args.workers is not None:
                 raise ValueError("--workers requires the managed ordinary lane")
         except (OSError, ValueError) as error:
+            if args.managed_lane:
+                print(json.dumps({
+                    "version": "managed-test-preflight-1",
+                    "preflight_refusal": str(error),
+                    "custody_unsettled": False,
+                }))
+                raise SystemExit(2) from error
             parser.error(str(error))
         directory.mkdir(parents=not args.managed_lane, exist_ok=False, mode=0o700)
         with supervision(directory) as control:
@@ -2428,7 +2523,8 @@ def main(argv: list[str] | None = None) -> int:
             invocation = result["receipts"][0]["invocation"]
             invocation["workers"]["actual"] = result["receipts"][0]["worker_facts"]["actual"]
             write_json(directory / "invocation.json", invocation)
-            write_json(directory / "classification.json", result)
+        result["receipts"][0]["runner"] = read_json(directory / "runner.process.json")
+        _write_classification(directory, result)
     if args.action == "run" and args.managed_lane:
         receipt = result["receipts"][0]
         print(
