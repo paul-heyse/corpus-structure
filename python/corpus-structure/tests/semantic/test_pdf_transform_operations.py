@@ -386,3 +386,45 @@ def test_pdf_only_modes_declare_their_actual_source_member_contexts(tmp_path):
         }
         with pytest.raises(PortRefusal, match="original"):
             project_product_members(profile.model, kind, invalid)
+
+
+def test_recognition_custody_keeps_virtualenv_entrypoint_and_checks_executable_bytes(tmp_path):
+    import subprocess
+    import venv
+    from hashlib import sha256
+
+    from corpus_structure.semantic.pdf_transforms import pdf_transform_custody
+
+    environment = tmp_path / "environment"
+    venv.EnvBuilder(with_pip=False, symlinks=True).create(environment)
+    interpreter = environment / "bin/python"
+    assert interpreter.is_symlink()
+    purelib = subprocess.check_output(
+        [str(interpreter), "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"],
+        text=True,
+    ).strip()
+    marker = "ddo_virtualenv_entrypoint_marker"
+    Path(purelib, marker + ".py").write_text("VALUE = 41\n")
+    worker = tmp_path / "worker.py"
+    worker.write_text("# Explicit worker bytes, no provider invocation.\n")
+    resources = PdfRecognitionResources(
+        python=str(interpreter), script=str(worker), endpoint="http://127.0.0.1:8123/v1",
+        receipts=str(tmp_path / "receipts"), timeout_seconds=7,
+    )
+    custody = pdf_transform_custody(
+        "recognized", directory=tmp_path / "work", options=PdfRecognitionOptions(recovery_policy=None),
+        recognition_recipe=NemotronRecipe("2" * 64, "3" * 64), resources=resources,
+    )
+    record = json.loads(custody.content)
+    assert record["resources"]["python"] == str(interpreter)
+    assert record["interpreter_digest"] == sha256(interpreter.read_bytes()).hexdigest()
+    code = (
+        "import importlib.util,json,sys; print(json.dumps([sys.prefix, "
+        f"importlib.util.find_spec({marker!r}) is not None]))"
+    )
+    assert json.loads(subprocess.check_output([record["resources"]["python"], "-c", code])) == [
+        str(environment), True,
+    ]
+    base_prefix, found = json.loads(subprocess.check_output([str(interpreter.resolve()), "-c", code]))
+    assert base_prefix != str(environment)
+    assert found is False

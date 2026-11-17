@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass
 from hashlib import file_digest, sha256
@@ -179,7 +180,8 @@ def pdf_transform_custody(
             raise ValueError("recognition requires an explicit immutable NemotronRecipe")
         resources = PdfRecognitionResources.model_validate(resources)
         worker = Path(resources.script).resolve()
-        interpreter = Path(resources.python).resolve()
+        # Preserve the venv entrypoint; _file_hash still follows its executable bytes.
+        interpreter = Path(os.path.abspath(resources.python))
         record.update(
             recognition_recipe=asdict(recognition_recipe),
             recognition_bytes=recognition_recipe.to_bytes().hex(),
@@ -1148,9 +1150,15 @@ def prepare_recognition_report(page, recipe):
             or json.loads(content).get("ordinal") != ordinal
         ):
             raise ValueError("recognition request inventory is unordered or incomplete")
-    if not requests:
-        raise RuntimeError("recognition page has no admitted request inventory")
     reported = page.result.get("requests")
+    if not requests:
+        if reported:
+            raise ValueError("recognition reported requests have no retained request inventory")
+        diagnostic = page.result.get("diagnostic")
+        detail = f": {diagnostic}" if isinstance(diagnostic, str) and diagnostic else ""
+        raise RuntimeError(
+            f"recognition page {page.page_no} has no admitted request inventory{detail}"
+        )
     if reported is not None and reported != [json.loads(content) for content in requests]:
         raise ValueError("recognition request bytes differ from actual adapter result")
     report = PdfObservationPageReport(

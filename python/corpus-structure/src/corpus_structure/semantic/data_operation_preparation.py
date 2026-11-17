@@ -7,6 +7,7 @@ the effective model; checkout paths do not become operation identity.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -488,7 +489,9 @@ def _acquire_primary_profile(
             # are retained and authenticated by the effect profile before every invocation.
             resources = resources.model_copy(
                 update={
-                    "python": str(location(resources.python)),
+                    # Invocation through a venv symlink selects its pyvenv.cfg and packages.
+                    # Resolving the executable itself would instead launch the base interpreter.
+                    "python": os.path.abspath(root / resources.python),
                     "script": str(location(resources.script)),
                     "receipts": str(location(resources.receipts)),
                 }
