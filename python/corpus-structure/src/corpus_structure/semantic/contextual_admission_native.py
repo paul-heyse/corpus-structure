@@ -3,7 +3,7 @@
 This helper adds no model, scoring implementation, receipt or validity owner.
 The caller installs its hook alongside the authenticated CPU-basis helpers.
 Retrieval requires a separately authenticated native scoring input; it is not
-silently treated as a CPU result by this scalar encoder/selection guard.
+silently treated as a CPU result by the declared encoder/selection guard.
 """
 
 
@@ -40,7 +40,10 @@ BEGIN
  OR operation.profile IS DISTINCT FROM (CASE WHEN r.operation_id IN
  ('retrieve.contextual_targets/curated','retrieve.contextual_targets/components') THEN 'discovery' ELSE 'derivation' END)
  OR operation.recipe IS DISTINCT FROM r.recipe
- OR operation.support_contract->'capabilities'->'forms' IS DISTINCT FROM '["scalar"]'::jsonb
+ OR operation.support_contract->'capabilities'->'forms' IS DISTINCT FROM
+ (CASE WHEN r.operation_id IN ('retrieve.contextual_query/declared',
+ 'retrieve.contextual_query/selected-context','retrieve.contextual_target_vector/declared')
+ THEN '["batch"]'::jsonb ELSE '["scalar"]'::jsonb END)
  OR operation.support_contract->'capabilities'->>'preparation' IS DISTINCT FROM 'resource'
  OR operation.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
  OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>
@@ -146,6 +149,7 @@ END $contextual$;
 CREATE OR REPLACE FUNCTION ops.ddo_require_contextual_completion(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $contextual$
 DECLARE actual jsonb; expected jsonb; item jsonb; values_ jsonb; definition sem.data_operation_definition;
+ failure_ jsonb; code_ jsonb; detail_ jsonb;
 BEGIN
  IF r.operation_id NOT IN ('retrieve.contextual_query/declared','retrieve.contextual_query/selected-context',
  'retrieve.contextual_target_vector/declared','retrieve.contextual_vectors/selection',
@@ -173,6 +177,27 @@ BEGIN
  actual:=ops.ddo_contextual_score_meaning(ops.ddo_contextual_native_scores(values_->'query',values_->'inventory',
  values_->'vectors',values_->'policy',definition.support_contract->'numerical_policy'->'body'->'json'));
  ELSE actual:=ops.ddo_cpu_reply_output(r,completion); END IF;
+ IF r.operation_id IN ('retrieve.contextual_query/declared',
+ 'retrieve.contextual_query/selected-context','retrieve.contextual_target_vector/declared') THEN
+ failure_:=data.ddo_field(actual,'encoder_member_failure');
+ IF failure_ IS NOT NULL THEN
+ code_:=data.ddo_field(failure_,'code'); detail_:=data.ddo_field(failure_,'detail');
+ IF actual->>0 IS DISTINCT FROM 'mapping' OR jsonb_array_length(actual->1)<>1
+ OR failure_->>0 IS DISTINCT FROM 'mapping' OR jsonb_array_length(failure_->1)<>3
+ OR data.ddo_field(failure_,'version') IS DISTINCT FROM
+ '["string","contextual-encoder-member-failure-1"]'::jsonb
+ OR code_->>0 IS DISTINCT FROM 'string'
+ OR COALESCE(code_->>1,'') NOT IN ('source-coordinate-mismatch','selected-context-unavailable',
+ 'token-core-limit','invalid-vector')
+ OR detail_->>0 IS DISTINCT FROM 'string' OR length(detail_->>1)>1024
+ OR completion->>'outcome' IS DISTINCT FROM 'failed'
+ OR completion->'outputs' IS DISTINCT FROM '[]'::jsonb THEN
+ RAISE EXCEPTION 'encoder failure completion differs from its authenticated member slot' USING ERRCODE='23514'; END IF;
+ RETURN;
+ ELSIF completion->>'outcome' IS DISTINCT FROM 'success' THEN
+ RAISE EXCEPTION 'encoder failure lacks its authenticated native member failure' USING ERRCODE='23514';
+ END IF;
+ END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(completion->'outputs') LOOP
  expected:=CASE WHEN r.operation_id IN ('retrieve.contextual_query/declared','retrieve.contextual_query/selected-context')
  THEN data.ddo_field(actual,item->>'role') ELSE actual END;

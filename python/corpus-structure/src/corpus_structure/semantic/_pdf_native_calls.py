@@ -3989,6 +3989,399 @@ def resume_pdf_build(
     return None
 
 
+REGISTER_PDF_SPOOL_PRODUCER_CONTRACT_DIGEST = (
+    "5df2f4378b75ea9d6b1f3086559b5b2f1b2a180ee98521090c48e05d4864b10c"
+)
+
+
+class _register_pdf_spool_producerRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    runtime_id: RuntimeId
+    writer_device: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    writer_inode: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    premises_bytes: bytes
+
+
+_register_pdf_spool_producer_function = func.ops.register_pdf_spool_producer(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("runtime_id", type_=Text()),
+    bindparam("writer_device", type_=BigInteger()),
+    bindparam("writer_inode", type_=BigInteger()),
+    bindparam("premises_bytes", type_=BYTEA()),
+    type_=Text(),
+)
+_register_pdf_spool_producer_statement = select(_register_pdf_spool_producer_function)
+
+
+def prepare_register_pdf_spool_producer(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    runtime_id: RuntimeId,
+    writer_device: int,
+    writer_inode: int,
+    premises_bytes: bytes,
+    projection_context: PreparedRelease | None = None,
+) -> Select[str]:
+    _request = _register_pdf_spool_producerRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        runtime_id=runtime_id,
+        writer_device=writer_device,
+        writer_inode=writer_inode,
+        premises_bytes=premises_bytes,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "retain_pdf_original",
+            "register_pdf_spool_producer",
+            REGISTER_PDF_SPOOL_PRODUCER_CONTRACT_DIGEST,
+        )
+    return _register_pdf_spool_producer_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "runtime_id": _request.runtime_id,
+            "writer_device": _request.writer_device,
+            "writer_inode": _request.writer_inode,
+            "premises_bytes": _request.premises_bytes,
+        }
+    )
+
+
+_register_pdf_spool_producer_adapter = TypeAdapter(str)
+
+
+def materialize_register_pdf_spool_producer(row: tuple[str]) -> str:
+    with native_result_scope("retain_pdf_original", "register_pdf_spool_producer", "identity"):
+        checked = _register_pdf_spool_producer_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def register_pdf_spool_producer(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    runtime_id: RuntimeId,
+    writer_device: int,
+    writer_inode: int,
+    premises_bytes: bytes,
+    projection_context: PreparedRelease | None = None,
+) -> str:
+    _statement = prepare_register_pdf_spool_producer(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        runtime_id=runtime_id,
+        writer_device=writer_device,
+        writer_inode=writer_inode,
+        premises_bytes=premises_bytes,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("retain_pdf_original", "register_pdf_spool_producer"):
+        row = _native_result.one()
+        return materialize_register_pdf_spool_producer(row)
+
+
+REGISTER_PDF_SPOOL_CONTRIBUTOR_CONTRACT_DIGEST = (
+    "bc88f401d15f96c324c42f1f4568054992d5a3d0358b1952be2154c1c6c7feea"
+)
+
+
+class _register_pdf_spool_contributorRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    runtime_id: RuntimeId
+    producer_id: str
+    manifest_bytes: bytes
+    selected_replays: bytes
+
+
+_register_pdf_spool_contributor_function = func.ops.register_pdf_spool_contributor(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("runtime_id", type_=Text()),
+    bindparam("producer_id", type_=Text()),
+    bindparam("manifest_bytes", type_=BYTEA()),
+    bindparam("selected_replays", type_=BYTEA()),
+    type_=Text(),
+)
+_register_pdf_spool_contributor_statement = select(_register_pdf_spool_contributor_function)
+
+
+def prepare_register_pdf_spool_contributor(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    runtime_id: RuntimeId,
+    producer_id: str,
+    manifest_bytes: bytes,
+    selected_replays: bytes,
+    projection_context: PreparedRelease | None = None,
+) -> Select[str]:
+    _request = _register_pdf_spool_contributorRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        runtime_id=runtime_id,
+        producer_id=producer_id,
+        manifest_bytes=manifest_bytes,
+        selected_replays=selected_replays,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "retain_pdf_original",
+            "register_pdf_spool_contributor",
+            REGISTER_PDF_SPOOL_CONTRIBUTOR_CONTRACT_DIGEST,
+        )
+    return _register_pdf_spool_contributor_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "runtime_id": _request.runtime_id,
+            "producer_id": _request.producer_id,
+            "manifest_bytes": _request.manifest_bytes,
+            "selected_replays": _request.selected_replays,
+        }
+    )
+
+
+_register_pdf_spool_contributor_adapter = TypeAdapter(str)
+
+
+def materialize_register_pdf_spool_contributor(row: tuple[str]) -> str:
+    with native_result_scope("retain_pdf_original", "register_pdf_spool_contributor", "identity"):
+        checked = _register_pdf_spool_contributor_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def register_pdf_spool_contributor(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    runtime_id: RuntimeId,
+    producer_id: str,
+    manifest_bytes: bytes,
+    selected_replays: bytes,
+    projection_context: PreparedRelease | None = None,
+) -> str:
+    _statement = prepare_register_pdf_spool_contributor(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        runtime_id=runtime_id,
+        producer_id=producer_id,
+        manifest_bytes=manifest_bytes,
+        selected_replays=selected_replays,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("retain_pdf_original", "register_pdf_spool_contributor"):
+        row = _native_result.one()
+        return materialize_register_pdf_spool_contributor(row)
+
+
+READ_PDF_SPOOL_CONTRIBUTORS_CONTRACT_DIGEST = (
+    "ca4df249ef2fbfde28e65ee5f9c23436259cc96348d2136d2f35d3a54c2dbef1"
+)
+
+
+class PdfSpoolContributorReceipt(NativeRowResult):
+    producer_id: str
+    task_id: int
+    producer_attempt: int
+    producer_holder: str
+    runtime_id: str
+    runtime_manifest_digest: str
+    manifest_digest: str
+    selection_digest: str
+    adopter_attempt: int
+    adopter_holder: str
+
+
+class _read_pdf_spool_contributorsRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+
+
+_read_pdf_spool_contributors_function = func.ops.read_pdf_spool_contributors(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+).table_valued(
+    column("producer_id", Text()),
+    column("task_id", BigInteger()),
+    column("producer_attempt", BigInteger()),
+    column("producer_holder", Text()),
+    column("runtime_id", Text()),
+    column("runtime_manifest_digest", Text()),
+    column("manifest_digest", Text()),
+    column("selection_digest", Text()),
+    column("adopter_attempt", BigInteger()),
+    column("adopter_holder", Text()),
+)
+
+
+class _read_pdf_spool_contributorsColumns(Protocol):
+    producer_id: Column[str]
+    task_id: Column[int]
+    producer_attempt: Column[int]
+    producer_holder: Column[str]
+    runtime_id: Column[str]
+    runtime_manifest_digest: Column[str]
+    manifest_digest: Column[str]
+    selection_digest: Column[str]
+    adopter_attempt: Column[int]
+    adopter_holder: Column[str]
+
+
+_read_pdf_spool_contributors_columns = cast(
+    _read_pdf_spool_contributorsColumns, _read_pdf_spool_contributors_function.c
+)
+_read_pdf_spool_contributors_statement = select(
+    _read_pdf_spool_contributors_columns.producer_id,
+    _read_pdf_spool_contributors_columns.task_id,
+    _read_pdf_spool_contributors_columns.producer_attempt,
+    _read_pdf_spool_contributors_columns.producer_holder,
+    _read_pdf_spool_contributors_columns.runtime_id,
+    _read_pdf_spool_contributors_columns.runtime_manifest_digest,
+    _read_pdf_spool_contributors_columns.manifest_digest,
+    _read_pdf_spool_contributors_columns.selection_digest,
+    _read_pdf_spool_contributors_columns.adopter_attempt,
+    _read_pdf_spool_contributors_columns.adopter_holder,
+).order_by(
+    _read_pdf_spool_contributors_columns.producer_id.collate("C"),
+    _read_pdf_spool_contributors_columns.manifest_digest.collate("C"),
+    _read_pdf_spool_contributors_columns.selection_digest.collate("C"),
+)
+
+
+def _read_pdf_spool_contributors_result(
+    row: tuple[str, int, int, str, str, str, str, str, int, str],
+) -> PdfSpoolContributorReceipt:
+    with native_result_scope("retain_pdf_original", "PdfSpoolContributorReceipt"):
+        return PdfSpoolContributorReceipt(
+            producer_id=row[0],
+            task_id=row[1],
+            producer_attempt=row[2],
+            producer_holder=row[3],
+            runtime_id=row[4],
+            runtime_manifest_digest=row[5],
+            manifest_digest=row[6],
+            selection_digest=row[7],
+            adopter_attempt=row[8],
+            adopter_holder=row[9],
+        )
+
+
+def prepare_read_pdf_spool_contributors(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    projection_context: PreparedRelease | None = None,
+) -> Select[str, int, int, str, str, str, str, str, int, str]:
+    _request = _read_pdf_spool_contributorsRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "retain_pdf_original",
+            "read_pdf_spool_contributors",
+            READ_PDF_SPOOL_CONTRIBUTORS_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[str, int, int, str, str, str, str, str, int, str],
+        _read_pdf_spool_contributors_statement.params(
+            **{
+                "build_id": _request.build_id,
+                "task_id": _request.task_id,
+                "attempt": _request.attempt,
+                "holder": _request.holder,
+            }
+        ),
+    )
+
+
+materialize_read_pdf_spool_contributors = _read_pdf_spool_contributors_result
+
+
+def read_pdf_spool_contributors(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    projection_context: PreparedRelease | None = None,
+) -> tuple[PdfSpoolContributorReceipt, ...]:
+    _statement = prepare_read_pdf_spool_contributors(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("retain_pdf_original", "PdfSpoolContributorReceipt"):
+        return tuple(_read_pdf_spool_contributors_result(row) for row in _native_result)
+
+
 READ_PDF_PRODUCER_BASIS_CONTRACT_DIGEST = (
     "50f278989ed5ef70af527ab36e0457e0aae5cb81059ab893649ad971f453c4a8"
 )
@@ -5151,4 +5544,4 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "76ad1d0d70d302f09cb5b29509af79157ac95df25aef521dd42c834398454ff1"
+CALL_CONTRACT_DIGEST = "64c0c3da4fa39ac96c90202d1959c1877deccc7b600883db6e00521a2f938f9b"
