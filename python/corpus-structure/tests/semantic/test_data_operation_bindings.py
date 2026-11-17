@@ -1249,10 +1249,27 @@ def test_native_population_member_ids_are_qualified_by_owning_product(storage):
 def test_explicit_discovery_input_filters_parent_before_scalar_cardinality(storage):
     connection, table, projection = storage
     row = dict(connection.execute(table.select().where(table.c.product == "p2")).mappings().one())
+    row["support_references"] = [
+        {"kind": "computation", "derivation_id": "ep2", "admission_use_id": "use:current"}
+    ]
+    connection.execute(table.update().where(table.c.product == "p2").values(**row))
     connection.execute(table.insert(), {**row, "product": "same-context-other-parent"})
     connection.execute(
         table.insert(), {**row, "member": "m2-other-scope", "analyzed_scope": {"page": 2}}
     )
+    # Both are genuine competing headers for the same address/context. Matching
+    # only the episode would still admit the earlier use of that same episode.
+    for episode, use in (("episode:earlier", "use:earlier"), ("ep2", "use:earlier")):
+        connection.execute(
+            table.insert(),
+            {
+                **row,
+                "support_episodes": [episode],
+                "support_references": [
+                    {"kind": "computation", "derivation_id": episode, "admission_use_id": use}
+                ],
+            },
+        )
     context = SubjectContext(
         "project", "doc", "source", b'{"page":1}', subject_definition="document"
     )
@@ -1262,7 +1279,7 @@ def test_explicit_discovery_input_filters_parent_before_scalar_cardinality(stora
         "population:exact-parent",
         False,
         ("m2", "m2-other-scope"),
-        b'{"product_id":"p2"}',
+        b'{"product_id":"p2","derivation_id":"ep2","admission_use_id":"use:current"}',
     )
     associated = compile_binding(
         schema,
@@ -1276,6 +1293,9 @@ def test_explicit_discovery_input_filters_parent_before_scalar_cardinality(stora
     result = execute_binding(connection, associated)
     assert result.status == "ready"
     assert [(member.product, member.member) for member in result.roles[0].members] == [("p2", "m2")]
+    assert result.roles[0].members[0].support_references == (
+        ComputationalSupportReference(derivation_id="ep2", admission_use_id="use:current"),
+    )
     assert result.roles[0].population_witness is not None
     missing = compile_binding(
         schema,
@@ -1286,6 +1306,126 @@ def test_explicit_discovery_input_filters_parent_before_scalar_cardinality(stora
         discovery_roles=(("items", "discovered"),),
     )
     assert execute_binding(connection, missing).status == "awaiting-population"
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        {},
+        {"product_id": "p2"},
+        {"product_id": "p2", "derivation_id": "ep2"},
+        {"product_id": "p2", "derivation_id": "ep2", "admission_use_id": None},
+        {"product_id": "p2", "derivation_id": "ep2", "admission_use_id": ""},
+        {"product_id": "p2", "derivation_id": 2, "admission_use_id": "use:current"},
+        {"product_id": "p2", "derivation_id": "ep2", "admission_use_id": ["use:current"]},
+        [],
+    ],
+)
+def test_discovery_input_requires_complete_typed_producing_support(evidence):
+    from corpus_structure.semantic.data_operation_projections import binding_row_contract
+
+    projection = ProjectionBinding("urn:item", binding_row_contract().subquery(), (), b"{}")
+    schema = model(BindingExpression("scan", roles=("items",)), collection="scalar", maximum=1)
+    with pytest.raises(ValueError, match="exact parent product and support"):
+        compile_binding(
+            schema,
+            "urn:op",
+            (projection,),
+            subject="doc",
+            subject_context=SubjectContext(
+                "project", "doc", "source", b'{"page":1}', subject_definition="document"
+            ),
+            populations=(PopulationBinding("discovered", "closed", True, ("m2",), canonical_bytes(evidence)),),
+            discovery_roles=(("items", "discovered"),),
+        )
+
+
+@pytest.mark.parametrize("duplicate", ["distinct-slot", "multiplicity"])
+def test_discovery_proof_selection_preserves_real_output_cardinality(storage, duplicate):
+    connection, table, projection = storage
+    row = dict(connection.execute(table.select().where(table.c.product == "p2")).mappings().one())
+    row["support_references"] = [
+        {"kind": "computation", "derivation_id": "ep2", "admission_use_id": "use:current"}
+    ]
+    if duplicate == "multiplicity":
+        row["multiplicity"] = 2
+        row["support_evidence"]["producer_output"]["multiplicity"] = 2
+    connection.execute(table.update().where(table.c.product == "p2").values(**row))
+    if duplicate == "distinct-slot":
+        connection.execute(
+            table.insert(),
+            {
+                **row,
+                "position": 2,
+                "support_evidence": {
+                    "trust": "pinned",
+                    "producer_output": {"member_id": None, "role": "result", "position": 1, "multiplicity": 1},
+                },
+            },
+        )
+    result = execute_binding(
+        connection,
+        compile_binding(
+            model(BindingExpression("scan", roles=("items",)), collection="scalar", maximum=1),
+            "urn:op",
+            (projection,),
+            subject="doc",
+            subject_context=SubjectContext(
+                "project", "doc", "source", b'{"page":1}', subject_definition="document"
+            ),
+            populations=(PopulationBinding(
+                "discovered", "closed", True, ("m2",),
+                b'{"product_id":"p2","derivation_id":"ep2","admission_use_id":"use:current"}',
+            ),),
+            discovery_roles=(("items", "discovered"),),
+        ),
+    )
+    assert result.status != "ready"
+
+
+def test_discovery_does_not_override_conflicting_selected_source_proof(storage):
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+    from semantic.test_data_operation_source_sets import selected_entry
+
+    connection, table, projection = storage
+    row = dict(connection.execute(table.select().where(table.c.product == "p2")).mappings().one())
+    row["support_references"] = [
+        {"kind": "computation", "derivation_id": "ep2", "admission_use_id": "use:current"}
+    ]
+    connection.execute(table.update().where(table.c.product == "p2").values(**row))
+    connection.execute(table.insert(), {
+        **row,
+        "support_references": [
+            {"kind": "computation", "derivation_id": "ep2", "admission_use_id": "use:earlier"}
+        ],
+    })
+    selected = selected_entry(product="p2", member="m2", episode="ep2", use="use:earlier")
+    selected = replace(selected, entry=replace(selected.entry, subject="doc", original_source="source"))
+    base = model(BindingExpression("scan", roles=("items",)), collection="scalar", maximum=1)
+    role = base.operations[0].roles[0]
+    assert role.support is not None
+    role = replace(role, support=replace(role.support, source="frozen-source-set", source_set="inputs"))
+    schema = replace(base, operations=(replace(base.operations[0], roles=(role,)),))
+
+    def bind(scope):
+        return execute_binding(connection, compile_binding(
+            schema, "urn:op", (projection,), subject="doc",
+            subject_context=SubjectContext(
+                "project", "doc", "source", b'{"page":1}', subject_definition="document"
+            ),
+            populations=(PopulationBinding(
+                "discovered", "closed", True, ("m2",),
+                b'{"product_id":"p2","derivation_id":"ep2","admission_use_id":"use:current"}',
+            ),),
+            discovery_roles=(("items", "discovered"),), source_sets=(scope,),
+        ))
+
+    assert bind(FrozenSourceSet.from_selected("inputs", (selected,))).status == "awaiting-inputs"
+    current = bind(FrozenSourceSet.unqualified("inputs", (selected.entry,)))
+    assert current.status == "ready"
+    assert current.roles[0].members[0].support_references == (
+        ComputationalSupportReference(derivation_id="ep2", admission_use_id="use:current"),
+    )
 
 
 def test_native_membership_and_absence_cannot_use_another_containers_local_member(storage):
