@@ -418,7 +418,9 @@ def _native_candidate_python(upgrade_ops) -> str:
     from alembic.runtime.migration import MigrationContext
     from sqlalchemy.dialects.postgresql import dialect
 
-    migration_context = MigrationContext.configure(dialect=dialect())
+    # The candidate contains SQL expressions for a later compilation, not DBAPI SQL.
+    # A pyformat dialect escapes percent signs before Alembic freezes those expressions.
+    migration_context = MigrationContext.configure(dialect=dialect(paramstyle="named"))
     source = (
         "from alembic import op\nimport sqlalchemy as sa\n"
         "from sqlalchemy import Text\nfrom sqlalchemy.dialects import postgresql\n"
