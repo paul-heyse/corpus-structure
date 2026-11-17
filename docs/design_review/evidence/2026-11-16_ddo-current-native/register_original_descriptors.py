@@ -11,7 +11,11 @@ from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
 from corpus_structure.semantic.original_document_contracts import require_source_operation_context
-from corpus_structure.semantic.original_documents import register_original_document
+from corpus_structure.semantic.original_documents import (
+    acquire_original_document_selection,
+    read_original_document_bytes,
+    register_original_document,
+)
 from corpus_structure.semantic.releases import load_release
 from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.storage_target import StorageTarget, verify_target
@@ -68,9 +72,28 @@ with open_runtime_engine(
             original=originals[row["project_id"], row["key"]], mime=row["mime"],
             title=row["title"], metadata=row["metadata"],
         )
+# A separate ordinary reader verifies committed retained bytes, without reopening
+# the historical database or falling back to the local originals.
+with open_runtime_engine(
+    Settings(), "ddo-original-readback", purpose="read"
+) as engine, engine.begin() as connection:
+    verify_target(connection, expected, purpose="read")
+    prepared = load_release(connection, args.release)
+    for row in rows:
+        acquired = acquire_original_document_selection(
+            connection, project_id=row["project_id"], document_key=row["key"]
+        )
+        reference = acquired.reference
+        if (reference.project_id, reference.document_key, reference.content_hash, reference.mime) != (
+            row["project_id"], row["key"], row["content_hash"], row["mime"]
+        ):
+            raise ValueError("committed original reference differs")
+        retained = read_original_document_bytes(connection, reference, prepared=prepared)
+        if retained != originals[row["project_id"], row["key"]]:
+            raise ValueError("committed retained original bytes differ")
 print(json_bytes(dict(
     observed_at=datetime.now(UTC).isoformat(), target=target.model_dump(mode="json"),
     snapshot_sha256=args.snapshot_sha256, release=args.release,
-    documents=len(rows), projects=projects,
-    scope="current atomic raw-original registration; no generated OCR or judgments imported",
+    documents=len(rows), reader_verified=len(rows), projects=projects,
+    scope="current atomic raw-original registration and committed reader byte equality; no generated OCR or judgments imported",
 )).decode())
