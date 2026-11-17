@@ -124,6 +124,34 @@ BEGIN
  context.generation,context.document_id,context.source_digest;
 END $stage$;
 REVOKE ALL ON FUNCTION ops.require_pdf_stage_owner(bigint,bigint,text) FROM PUBLIC;
+CREATE OR REPLACE FUNCTION ops.read_pdf_producer_basis(p_task bigint,p_attempt bigint,p_holder text,p_runtime text)
+RETURNS TABLE(request_id text,generation bigint,release_id text,operation text,definition text,
+ recipe text,implementation text,execution_profile text,runtime_id text,
+ runtime_manifest_digest text,pdf_domain_digest text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$
+DECLARE owner record;
+BEGIN
+ SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ PERFORM ops.require_pdf_operation(owner.release_id,'retain_pdf_original');
+ PERFORM sem.require_runtime_binding(owner.release_id,p_runtime);
+ RETURN QUERY SELECT request.id,request.generation,request.release_id,request.operation_id,
+ definition_.definition_identity,definition_.recipe,definition_.implementation_revision,
+ runtime.execution_profile,runtime.runtime_id,encode(sha256(runtime.manifest_bytes),'hex'),
+ facet.content_digest
+ FROM ops.data_request request JOIN sem.data_operation_definition definition_
+ ON definition_.release_id=request.release_id AND definition_.operation_id=request.operation_id
+ JOIN sem.runtime_binding runtime ON runtime.release_id=request.release_id
+ AND runtime.runtime_id=p_runtime
+ JOIN sem.input facet ON facet.release_id=request.release_id
+ AND facet.input_kind='dependency' AND facet.input_name='pdf-domain/contract.json'
+ AND encode(sha256(facet.content),'hex')=facet.content_digest
+ WHERE request.id=owner.request_id AND request.generation=owner.generation
+ AND request.runtime_id=p_runtime;
+ IF NOT FOUND THEN
+ RAISE EXCEPTION 'PDF producer runtime differs from current request fence' USING ERRCODE='P0004'; END IF;
+END $stage$;
+REVOKE ALL ON FUNCTION ops.read_pdf_producer_basis(bigint,bigint,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.read_pdf_producer_basis(bigint,bigint,text,text) TO corpus_sem_writer;
 CREATE OR REPLACE FUNCTION ops.retain_pdf_original(p_task bigint,p_attempt bigint,p_holder text,
  p_original bytea,p_recipe bytea)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $stage$

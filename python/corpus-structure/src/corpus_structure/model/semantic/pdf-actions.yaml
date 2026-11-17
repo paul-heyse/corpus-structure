@@ -1,6 +1,34 @@
 actions:
 - calls:
   - cardinality: one
+    id: read_pdf_producer_basis
+    order_by: []
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.task.id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: physical:ops.task.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: physical:ops.task.claimed_by
+    - name: runtime_id
+      native_parameter: p_runtime
+      nullable: false
+      semantic_type: RuntimeId
+      source: physical:sem.runtime_binding.runtime_id
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfSpoolProducerBasis
+    symbol: ops.read_pdf_producer_basis
+  - cardinality: one
     id: retain_pdf_original
     order_by: []
     ordered: false

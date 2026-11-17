@@ -65,6 +65,20 @@ enums:
       native: {}
       integrated: {}
 classes:
+  PdfSpoolProducerBasis:
+    description: Exact admitted producer identity acquired under the live PDF task fence; never inferred from process settings.
+    attributes:
+      request_id: {required: true}
+      generation: {range: PdfRecordInteger, required: true}
+      release_id: {required: true}
+      operation: {required: true}
+      definition: {required: true}
+      recipe: {required: true}
+      implementation: {required: true}
+      execution_profile: {required: true}
+      runtime_id: {required: true}
+      runtime_manifest_digest: {required: true}
+      pdf_domain_digest: {required: true}
   PdfStageBuild:
     description: Private mutable producer build, fenced by the existing task attempt; never a published
       product.
