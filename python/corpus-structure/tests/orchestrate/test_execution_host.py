@@ -27,7 +27,8 @@ def controlled_archive(monkeypatch):
     from corpus_structure.semantic import archive_reader, cpu_execution, data_operation_service, determinants
 
     Header = namedtuple("Header", "release_id profile content_digest finalized_digest marker")
-    state = SimpleNamespace(marker="original", runtime_marker="original", acquisitions=[])
+    state = SimpleNamespace(marker="original", runtime_marker="original", acquisitions=[],
+                            runtime_manifest=b"runtime-manifest", runtime_archive=b"runtime-archive")
     monkeypatch.setattr(archive_reader, "_archive_header", lambda _, release: Header(
         release, "test", release, release, state.marker
     ))
@@ -35,7 +36,8 @@ def controlled_archive(monkeypatch):
 
     def acquire(_connection, release, runtime, *, source_root):
         state.acquisitions.append((release, runtime, source_root))
-        return SimpleNamespace(prepared=SimpleNamespace(release_id=release))
+        return SimpleNamespace(prepared=SimpleNamespace(release_id=release),
+                               runtime=SimpleNamespace(manifest=state.runtime_manifest, archive=state.runtime_archive))
 
     monkeypatch.setattr(data_operation_service, "acquire_data_execution_basis", acquire)
     monkeypatch.setattr(cpu_execution, "release_capsule", lambda prepared: prepared.release_id.encode())
@@ -52,7 +54,7 @@ def test_verified_basis_reuses_only_exact_engine_header_runtime_and_root(monkeyp
         with host.run(policy) as token:
             first = host.acquire_basis(first_engine, connection, "release:first", "runtime", source_root=tmp_path, token=token)
             assert host._borrowed[0].references == 1
-        assert host.budget.used_bytes == len(b"release:first")
+        assert host.budget.used_bytes == len(b"release:first") + len(state.runtime_manifest) + len(state.runtime_archive)
         with host.run(policy) as token:
             assert host.acquire_basis(first_engine, connection, "release:first", "runtime", source_root=tmp_path, token=token) is first
         assert len(state.acquisitions) == 1
@@ -78,7 +80,7 @@ def test_runtime_rewrite_refuses_and_idle_lru_releases_real_credit(monkeypatch):
             with host.run(policy) as token:
                 host.acquire_basis(engine, connection, release, "runtime", source_root=None, token=token)
         assert [key[1] for key in host._bases] == ["new"]
-        assert host.budget.used_bytes == len(b"new")
+        assert host.budget.used_bytes == len(b"new") + len(state.runtime_manifest) + len(state.runtime_archive)
         state.runtime_marker = "rewritten"
         with host.run(policy) as token:
             with pytest.raises(SemanticRefusal, match="archive/runtime changed"):
@@ -212,3 +214,48 @@ def test_unconfirmed_join_quarantines_host_without_releasing_owned_credit():
         reservation.release()
         host._quarantine = None
     host.close()
+
+
+def test_large_runtime_bodies_participate_in_idle_limit_and_total_admission(monkeypatch):
+    from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+    state, connection = controlled_archive(monkeypatch)
+    state.runtime_manifest = b"m" * 1000
+    state.runtime_archive = b"a" * 9000
+    host = ProcessExecutionHost()
+    policy = CharacterizationExecutionPolicy(max_idle_capsule_bytes=100)
+    try:
+        with host.run(policy) as token:
+            host.acquire_basis(object(), connection, "tiny", "runtime", source_root=None, token=token)
+            assert host.budget.used_bytes == 10004
+        assert not host._bases and host.budget.used_bytes == 0
+        small = CharacterizationExecutionPolicy(
+            max_owned_bytes=100, max_packet_bytes=1, max_reply_bytes=1,
+            max_native_request_bytes=1, max_native_reply_bytes=1,
+        )
+        with host.run(small) as token:
+            with pytest.raises(CapacityExceeded, match="one complete request"):
+                host.acquire_basis(object(), connection, "tiny", "runtime", source_root=None, token=token)
+            assert not host._bases and host.budget.used_bytes == 0
+    finally:
+        host.close()
+
+
+def test_shared_immutable_runtime_buffers_are_charged_once_until_last_basis_eviction(monkeypatch):
+    state, connection = controlled_archive(monkeypatch)
+    shared = b"one actual retained buffer" * 100
+    state.runtime_manifest = state.runtime_archive = shared
+    host = ProcessExecutionHost()
+    try:
+        for engine in (object(), object()):
+            with host.run(CharacterizationExecutionPolicy()) as token:
+                host.acquire_basis(engine, connection, "tiny", "runtime", source_root=None, token=token)
+        # The two independently encoded capsules are separate owned buffers;
+        # both runtime fields and both cached bases share exactly one byte object.
+        assert host.budget.used_bytes == len(shared) + 2 * len(b"tiny")
+        first = next(iter(host._bases))
+        host._evict(first)
+        assert host.budget.used_bytes == len(shared) + len(b"tiny")
+    finally:
+        host.close()
+    assert not host._bodies and host.budget.used_bytes == 0

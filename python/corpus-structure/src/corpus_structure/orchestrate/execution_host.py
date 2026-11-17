@@ -14,12 +14,19 @@ class ExecutionPreparationDeferred(Exception):
 
 
 @dataclass
+class _OwnedBody:
+    content: bytes
+    credit: Any
+    references: int = 0
+
+
+@dataclass
 class _VerifiedBasis:
     basis: Any
     header: tuple
     runtime: tuple
     capsule: bytes
-    credit: Any
+    bodies: tuple[_OwnedBody, ...]
     context: Any = None
     references: int = 0
 
@@ -37,6 +44,7 @@ class ProcessExecutionHost:
         self.budget: Any = None
         self.resources: Any = None
         self._bases: OrderedDict[tuple, _VerifiedBasis] = OrderedDict()
+        self._bodies: dict[int, _OwnedBody] = {}
         self._run_lock = Lock()
         self._token = None
         self._execution = None
@@ -102,8 +110,32 @@ class ProcessExecutionHost:
         if entry.references:
             raise RuntimeError("active execution capsule cannot be evicted")
         self.retire_cpu()
-        entry.credit.release()
+        self._release_bodies(entry.bodies)
         del self._bases[key]
+
+    def _retain_bodies(self, buffers):
+        bodies = []
+        try:
+            for content in {id(value): value for value in buffers}.values():
+                if type(content) is not bytes:
+                    raise TypeError("execution basis retains immutable encoded bytes")
+                body = self._bodies.get(id(content))
+                if body is None:
+                    body = _OwnedBody(content, self.budget.admit(len(content)))
+                    self._bodies[id(content)] = body
+                body.references += 1
+                bodies.append(body)
+        except BaseException:
+            self._release_bodies(bodies)
+            raise
+        return tuple(bodies)
+
+    def _release_bodies(self, bodies):
+        for body in bodies:
+            body.references -= 1
+            if not body.references:
+                body.credit.release()
+                del self._bodies[id(body.content)]
 
     def _trim_idle(self):
         if self.policy is None or self._quarantine is not None:
@@ -115,8 +147,13 @@ class ProcessExecutionHost:
                 self.retire_resources()
         while True:
             idle = [(key, entry) for key, entry in self._bases.items() if not entry.references]
+            active_bodies = {id(body) for entry in self._bases.values() if entry.references for body in entry.bodies}
+            idle_bodies = {id(body): body for _, entry in idle for body in entry.bodies}
+            idle_bytes = sum(len(body.content) for identity, body in idle_bodies.items() if identity not in active_bodies)
+            cpu_bytes = (self.resources.cpu.preparation_bytes
+                         if self.resources is not None and self.resources.cpu is not None else 0)
             if (len(idle) <= self.policy.max_idle_capsules
-                and sum(len(entry.capsule) for _, entry in idle) <= self.policy.max_idle_capsule_bytes):
+                and idle_bytes + cpu_bytes <= self.policy.max_idle_capsule_bytes):
                 return
             self._evict(idle[0][0])
 
@@ -155,13 +192,17 @@ class ProcessExecutionHost:
             if observed is None or tuple(observed) != tuple(header):
                 raise SemanticRefusal("execution archive changed while verifying its basis")
             capsule = release_capsule(basis.prepared)
-            required = len(capsule) + 2 * self.policy.max_packet_bytes + 3 * self.policy.max_reply_bytes
+            buffers = (capsule, basis.runtime.manifest, basis.runtime.archive)
+            unique = {id(content): content for content in buffers}
+            request_bytes = 2 * self.policy.max_packet_bytes + 3 * self.policy.max_reply_bytes
+            required = sum(len(content) for identity, content in unique.items() if identity not in self._bodies) + request_bytes
             while required > self.budget.limit - self.budget.used_bytes:
                 idle = next((key for key, item in self._bases.items() if not item.references), None)
                 if idle is None:
                     raise CapacityExceeded("execution capsules and one complete request exceed owned capacity")
                 self._evict(idle)
-            entry = _VerifiedBasis(basis, tuple(header), tuple(runtime), capsule, self.budget.admit(len(capsule)))
+                required = sum(len(content) for identity, content in unique.items() if identity not in self._bodies) + request_bytes
+            entry = _VerifiedBasis(basis, tuple(header), tuple(runtime), capsule, self._retain_bodies(buffers))
             self._bases[key] = entry
         self._bases.move_to_end(key)
         if not any(held is entry for held in self._borrowed):
