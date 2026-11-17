@@ -115,7 +115,7 @@ def _references(value):
             yield from _references(item)
 
 
-class RichGraphIndex:
+class RichGraphState:
     def __init__(self, prepared, model, context, graph, inputs, whole_inputs, retained_states=(), *, boundary_checks=True):
         self.prepared, self.model, self.context = prepared, model, context
         self.graph = graph
@@ -804,7 +804,7 @@ class RichGraphIndex:
                 )
 
 
-class _RetainedRichGraph(RichGraphIndex):
+class _RetainedRichGraph(RichGraphState):
     """Local current meaning, with only its actual root's embedded opaque provenance."""
 
     def __init__(self, prepared, model, context, graph, selection):
@@ -870,7 +870,7 @@ def index_rich_assembly(
     prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
     graph: RichGraphAssembly, inputs: tuple[DdoRichSelectedMember, ...],
     whole_inputs: tuple[RichWholeInput, ...], retained_states: tuple[_RetainedRichGraph, ...],
-) -> RichGraphIndex:
+) -> RichGraphState:
     """Index a typed in-process builder graph; its output boundary still validates fully.
 
     This grants no established validity to hydrated or adopted retained products.
@@ -878,7 +878,7 @@ def index_rich_assembly(
     """
     if type(graph) is not RichGraphAssembly:
         raise ValueError("in-process rich indexing requires the builder's actual assembly")
-    return RichGraphIndex(
+    return RichGraphState(
         prepared, model, context, graph, inputs, whole_inputs, retained_states,
         boundary_checks=False,
     )
@@ -911,7 +911,7 @@ def read_rich_graph(
     whole_inputs: tuple[RichWholeInput, ...] = (),
     retained_graphs: tuple[RichWholeInput, ...] = (),
     _retained_states: tuple[_RetainedRichGraph, ...] | None = None,
-) -> RichGraphIndex:
+) -> RichGraphState:
     """Validate once and expose the same finite typed decoder to current CPU consumers."""
     validate_subject_context(model, context)
     if (
@@ -957,7 +957,7 @@ def read_rich_graph(
         ):
             raise ValueError("rich retained indexes differ from their exact in-process inputs")
         retained_states = _retained_states
-    state = RichGraphIndex(
+    state = RichGraphState(
         prepared, model, context, checked, inputs, whole_inputs, retained_states
     )
     if isinstance(checked, DdoRichAdmission):

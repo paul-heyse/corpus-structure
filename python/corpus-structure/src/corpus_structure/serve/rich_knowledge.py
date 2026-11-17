@@ -17,7 +17,7 @@ from corpus_structure.semantic.demand_results import CutSelection, read_demand_r
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.rich_graph_validation import (
     RichWholeInput,
-    RichGraphIndex,
+    RichGraphState,
     read_retained_rich_graph,
 )
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
@@ -29,7 +29,7 @@ class SelectedRichKnowledge:
     read_request: bytes
     reference: DdoRichSelectedMember
     context: SubjectContext
-    state: RichGraphIndex
+    state: RichGraphState
 
 
 def read_selected_rich_knowledge(

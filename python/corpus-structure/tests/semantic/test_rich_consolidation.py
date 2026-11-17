@@ -154,19 +154,19 @@ def test_actual_scientific_disagreement_creates_complete_alternative_and_withhol
 def test_consolidation_checks_builder_output_once_and_reuses_frozen_release_policy(scientific, monkeypatch):
     import pytest
 
-    from corpus_structure.semantic.rich_graph_validation import RichGraphIndex
+    from corpus_structure.semantic.rich_graph_validation import RichGraphState
     from corpus_structure.semantic.rich_knowledge_contracts import DdoRichConsolidation
     from corpus_structure.semantic.rich_rules import prepared_rich_rule_policy
 
     prepared, model, inputs = authored_inputs(scientific, ({"kind": "number", "number": Decimal("1")},))
     checked = []
-    original = RichGraphIndex.check
+    original = RichGraphState.check
 
     def count(self):
         checked.append(type(self.graph))
         return original(self)
 
-    monkeypatch.setattr(RichGraphIndex, "check", count)
+    monkeypatch.setattr(RichGraphState, "check", count)
     output = consolidate_rich_knowledge(prepared, model, inputs=inputs, check_active=lambda: None)
     assert checked == [DdoRichAuthoredPropositions, DdoRichConsolidation]
     assert output.eligibility.selected_fact_ids

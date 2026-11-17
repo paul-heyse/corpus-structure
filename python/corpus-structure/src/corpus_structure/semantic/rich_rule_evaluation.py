@@ -28,7 +28,7 @@ from .identity import canonical_bytes
 from .math_context import AnalysisContextProfile, prepare_interpretation_context
 from .refusals import SemanticReason, SemanticRefusal, semantic_reason_identity
 from .rich_decisions import OccurrenceStatus, RuleOutcome, RuleSeverity
-from .rich_graph_validation import RichWholeInput, RichGraphIndex, checked_stage_index, read_rich_graph
+from .rich_graph_validation import RichWholeInput, RichGraphState, checked_stage_index, read_rich_graph
 from .rich_knowledge_contracts import (
     DdoRichAlternative,
     DdoRichAssessment,
@@ -332,7 +332,7 @@ def evaluate_rich_rules(
     scientific_assessments: tuple[DdoRichAssessment, ...] = (),
     whole_inputs: tuple[RichWholeInput, ...] = (),
     retained_graphs: tuple[RichWholeInput, ...] = (),
-    _index: RichGraphIndex | None = None,
+    _index: RichGraphState | None = None,
 ) -> RichRuleEvaluation:
     """Evaluate actual occurrence views; publication and complete-reading grading stay separate."""
     relations.check_active()

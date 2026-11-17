@@ -22,7 +22,7 @@ from .identity import canonical_bytes
 from .math_context import AnalysisContextProfile
 from .observations import source_python
 from .refusals import SemanticReason
-from .rich_graph_validation import RichWholeInput, RichGraphIndex, checked_stage_index, read_rich_graph
+from .rich_graph_validation import RichWholeInput, RichGraphState, checked_stage_index, read_rich_graph
 from .rich_knowledge_contracts import (
     DdoRichAssessment,
     DdoRichAuthoredPropositions,
@@ -102,7 +102,7 @@ def checked_rich_operand_macros(
 
 def checked_rich_source_contexts(
     prepared: PreparedRelease,
-    state: RichGraphIndex,
+    state: RichGraphState,
     *,
     source_contexts: tuple[RichScientificSourceContext, ...],
     whole_inputs: tuple[RichWholeInput, ...],
@@ -164,7 +164,7 @@ def assess_rich_scientific(
     source_contexts: tuple[RichScientificSourceContext, ...],
     whole_inputs: tuple[RichWholeInput, ...] = (),
     retained_graphs: tuple[RichWholeInput, ...] = (),
-    _index: RichGraphIndex | None = None,
+    _index: RichGraphState | None = None,
 ) -> tuple[DdoRichAssessment, ...]:
     """Compare distinct functional accepted-value facts within exact qualification slots.
 

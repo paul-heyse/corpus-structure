@@ -396,17 +396,20 @@ def test_premise_relations_use_actual_statement_context_and_canonical_fact_refs(
 
 
 @pytest.mark.parametrize("error_type", [ValueError, KeyError])
-def test_unexpected_rule_execution_errors_keep_their_identity(rules, error_type):
+def test_unexpected_rule_execution_errors_keep_their_identity(rules, error_type, monkeypatch):
     prepared, _, _, _policy = rules
     actual = error_type("unexpected rule implementation defect")
 
-    class BrokenCheck:
-        def evaluate(self, values):
-            raise actual
-
     changed = RichRulePolicy(prepared)
-    raw, when, _ = next(row for row in changed.rules if row[0]["id"] == "check.reject")
-    changed.rules = [(raw, when, BrokenCheck())]
+    _raw, _when, check = next(row for row in changed.rules if row[0]["id"] == "check.reject")
+    original = type(check).evaluate
+
+    def broken_evaluate(self, values):
+        if self is check:
+            raise actual
+        return original(self, values)
+
+    monkeypatch.setattr(type(check), "evaluate", broken_evaluate)
     with pytest.raises(error_type) as caught:
         evaluate(rules, graph_inputs(rules, source_values("good")), policy=changed)
     assert caught.value is actual

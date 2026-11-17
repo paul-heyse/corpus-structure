@@ -38,8 +38,9 @@ def test_layout_index_uses_nearest_preceding_heading_of_exact_parent():
         "next": {"parent": "local", "label": "text"},
     }
     index = SourceLayoutIndex(pieces, items)
-    assert index.preceding(14)["item_ref"] == "example"
-    assert index.preceding(32)["item_ref"] == "instruction"
+    first, second = index.preceding(14), index.preceding(32)
+    assert first is not None and first["item_ref"] == "example"
+    assert second is not None and second["item_ref"] == "instruction"
     assert index.preceding(0) is None
 
 
