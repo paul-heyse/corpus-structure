@@ -344,7 +344,7 @@ but no wholesale upgrade or parser audit is scheduled.
   one admitted bound. Both reuse the typed-transfer owners in this document.
 - **Content-addressed streams (PE-S40)** add a project-scoped content key to stream descriptors
   and one verification receipt per key. Retention and collection of shared content when a build
-  is abandoned are settled in that slice's design/target review.
+  is abandoned follow the accepted last-reference and physical-retirement ownership contract in that slice.
 - **Retirement.** `orchestrate/liveness.py`, already listed here, is removed in PE-S14.
 
 Acceptance for the lifespan engine: N tool calls in one session create one pool and one

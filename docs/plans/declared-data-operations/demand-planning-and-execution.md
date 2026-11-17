@@ -820,7 +820,7 @@ Registration and activation remain full verification boundaries.
 - **Basis:** read consumers never call release preparation; an archive header altered by a
   test superuser is detected by the carried basis; a different engine re-verifies.
 
-### For the design/target review due before PE-S23 and PE-S25
+### Host and admission implementation preservation criteria
 
 Whether two-stage admission is free of deadlock and how it interacts with the driver's stall
 error; generation-quarantine correctness; the one-run-per-host simplification; whether

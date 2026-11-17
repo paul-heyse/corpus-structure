@@ -67,7 +67,7 @@ source credit for the overlapping earlier selections; failed originals remain re
 Independent review repairs are covered. No speedup or full DDO qualification is claimed.
 
 Next: PE-S03/04/05/07/08/10/12–15 and the required target
-reviews/ADR routes before native N1, host, failure, batch and PDF rule changes. S28/S30 actual
+accepted ADR routes for native N1, host, failure, batch and PDF rule changes. S28/S30 actual
 qualification remains due. N1–N4, development adoption, whole-book and final union are **not_run**.
 
 ### Position in the completion sequence
@@ -113,7 +113,7 @@ durable completion intents, which are the retained-intent recovery point.
 | PE-RC04 | The three encoder operations keep one request, product and vector per occurrence or target and declare the batch form under a new encoder numerical policy with authentic-observation batch semantics. Every encoder vector identity changes; existing vectors are regenerated | ADR-E supersedes ADR-0114, changing its paragraph "Encoder model execution remains scalar under its existing exact profile until an explicit released encoder policy selects cross-request batching" and restating the rest; ADR-0084 and ADR-0085 are not contradicted; D6 amended. Text: operations companion | PE-S29 |
 | PE-RC05 | One execution host per process owns the budget, worker generations, capsules, prepared ports, provider lanes and verified bases; a run proves retirement of its own work; one run is active per host; native model residency is process-scoped only under an explicit keep-warm setting | ADR-D supersedes ADR-0083, changing "One invocation owns verified preparation, regional lifetimes, physical admission and worker/provider scopes" and "No global verification cache…", and restating the rest, including established validation under original premises and "a digest is not proof"; D6 amended. Text: demand-planning companion | PE-S25 (PE-S08 relies on the restated clause) |
 | PE-RC06 | The producer certifies each PDF publication before staging; PostgreSQL certifies custody and structure and seal requires equal logical digests; the reconstruct-from-rows round trip runs per lowering identity, on explicit verify and in qualification. Independent per-publication reconstruction is given up; this is an accepted weakening, not an equivalence | ADR-F supersedes ADR-0045, changing "The model-bound finite runtime validates actual immutable payload interiors and required closure, then derives access projections" and restating the rest; D3 amended. Text: operations companion | PE-S36 |
-| PE-RC07 | An operation outcome is terminal or an execution failure; execution failures are never published or reused. Draft stages finish frozen builds; capture resumes from the spool; a sealed receipt names every contributing attempt | ADR-G supersedes ADR-0094, changing only "Native refusal, cancellation, failed/empty/partial and externally awaiting work remain distinct" and restating the rest, including durable exact completion intents. ADR-H supersedes ADR-0099, changing only "A sealed PDF publication retains its actual publisher task, attempt, holder…" to name every contributing attempt, and restating the rest. Both are written after the failure-classification review. Text: operations companion | PE-S09 (both), PE-S39 (ADR-H resume) |
+| PE-RC07 | An operation outcome is terminal or an execution failure; execution failures are never published or reused. Draft stages finish frozen builds; capture resumes from the spool; a sealed receipt names every contributing attempt | ADR-G supersedes ADR-0094, changing only "Native refusal, cancellation, failed/empty/partial and externally awaiting work remain distinct" and restating the rest, including durable exact completion intents. ADR-H supersedes ADR-0099, changing only "A sealed PDF publication retains its actual publisher task, attempt, holder…" to name every contributing attempt, and restating the rest. Both record the failure classification settled in detailed execution planning. Text: operations companion | PE-S09 (both), PE-S39 (ADR-H resume) |
 | PE-RC08 | A serving identity names the running code; drift is detected by file metadata with content confirmation, and changed content refuses with a restart instruction | ADR-I, a new record that supersedes nothing (the guarantee was in no ADR); D8 amended. Text: interfaces companion | PE-S06 |
 
 Preserved without change: §B1–§B6; ADR-0110; ADR-0121's rule that no authenticated cut or
@@ -207,12 +207,11 @@ the set forms of N2. PE-S29 and PE-S31 each follow their qualification slice. Th
 start with PE-S09 and PE-S34. The root serializes native captures and owns integration; shared
 kernel, projection, storage, executor and physical-model files have one editing owner at a time.
 
-A design/target review is due, under the binding, before the first package of each of these
-executes: the native validity, binding, read and wire-placement target; the execution host and
-admission model; PDF publication assurance; failure classification and recovery units, before
-ADR-G and ADR-H are written; and encoder and GLiNER batch semantics, after their qualification
-slices. The focused advice used to author this integration does not replace them. Other slices
-proceed under change/target review.
+**Operator clarification · 2026-11-17:** detailed execution planning and independent boundary
+assessment already establish these designs. No repeated planning, formal design review or audit
+is required before implementing this scope. Preserve the implementation criteria, actual model
+qualification, ordinary implementation review, and accepted ADR routes. Reopen concrete material
+mismatches when implementation reveals them, while continuing independent work.
 
 ## Operator-requested closeout · 2026-11-17
 

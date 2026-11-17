@@ -396,21 +396,16 @@ Each companion states the evidence for its slices. The common rules:
 
 ## Formal review
 
-This revision changes ownership boundaries and eight accepted decisions. Under the binding's
-cadence a design/target review is due before the first package of each of these executes:
+**Operator clarification · 2026-11-17:** the detailed execution planning and its independent
+boundary assessments establish the design basis for these accepted changes. Do not repeat that
+planning or introduce another formal design-review/audit engagement as an implementation gate.
+The previously listed blanket prerequisites are withdrawn. Ordinary implementation review,
+functional verification and the accepted ADR routes remain. Reopen only a concrete consequential
+choice or mismatch revealed by implementation; continue independent authorized work.
 
-1. the native validity, binding and read target (PE-S16–S22, PE-S26 and PE-S27);
-2. the execution host and admission model (PE-S23, PE-S25);
-3. PDF publication assurance (PE-S36, PE-S40);
-4. failure classification and recovery units (PE-S09), held before ADR-G and ADR-H are
-   written. ADR-G is scoped to recognition and PDF provider outcomes unless this review extends
-   it to other operations;
-5. encoder and GLiNER batch semantics (PE-S29, PE-S31), held after their qualification slices.
-
-The focused advice that informed this plan does not replace those reviews. Each companion lists
-what its review must examine. PE-S06 receives a change/target review that covers PE-RC08.
-Other Wave 1 slices change no rule and no ownership boundary and proceed under change/target
-review of the slice.
+The preservation questions in the native, host, PDF, failure and model companions remain useful
+implementation criteria. Model qualification still precedes larger batches. Recognition/PDF is
+the accepted scope of the failure-classification change; extending it requires an actual reason.
 
 ## Library behaviors the target relies on
 

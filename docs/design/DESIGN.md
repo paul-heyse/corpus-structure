@@ -210,7 +210,7 @@ subjects/enforcement/numerical contracts replace meaningful labels; descriptive 
 is outside semantic identity. ADR-0109 owns this accepted target; implementation remains open. The DDO coordinator owns implementation and
 scope; D1–D8 label the accepted target separately from older implemented mechanisms.
 
-> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
+> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0122](../adr/0122-set-wise-support-validity.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 ### Audit-closure contract qualification
 
@@ -482,6 +482,16 @@ legacy wait barrier rather than implying that every old option is supported.
 <a id="section-b4"></a>
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
+
+**Accepted target; implementation/qualification Proposed · 2026-11-17.** Support validity is
+statement-local and set-wise. Pinned reads carry immutable closure evidence and recheck live
+scoped epochs, kernel and caller authority. A native owner-transaction boundary prevents later
+graph writes from escaping that closure. Settlements share ordered scope locks; revocation takes
+them exclusively. Immutable completion correspondence is reusable only under its actual validator
+identity; protected traversal, mutable family checks and durable separate retain/publish remain.
+
+> Decision: [ADR-0122](../adr/0122-set-wise-support-validity.md)
+
 
 **Accepted selected-support target; implementation/qualification Proposed · 2026-11-17.**
 Native acquisition validates exact selected proof and current authority per consuming role before

@@ -579,8 +579,7 @@ the order change is versioned as a recipe change.
 **Rule change PE-RC07** (ADR-G supersedes ADR-0094, changing only its outcome clause and
 restating the rest, including durable completion intents; ADR-H supersedes ADR-0099, changing
 only its sealed-publisher clause and restating the rest, and records the PDF failure-reuse
-rule). ADR-G is scoped to recognition and PDF provider outcomes unless the review held before
-it is written extends it.
+rule). ADR-G is scoped to recognition and PDF provider outcomes unless a concrete implementation finding warrants an explicitly recorded extension.
 
 **PE-S09.** An operation outcome is either terminal or an execution failure. A terminal outcome
 is a fact about the declared input under the recipe (success, empty, partial or capped, or a
@@ -670,11 +669,11 @@ spooled pages.
   part refuses every build that references it; another project's key is not reusable.
 - **Prepared grammar (PE-S33):** adopted only on exact forest equality over the book's regions.
 
-### For the design/target review due before PE-S36 and PE-S40
+### PDF assurance implementation preservation criteria
 
 Whether the release captures the lowering and reconstruction sources; the certification-basis
 receipt and the DP-23 residual risk; Python and native frame parity now being load-bearing for
 seal; project scoping, retention and collection of shared content; attempt-fenced spool
 ownership and spool retention; multi-attempt attribution in sealed receipts; and whether
 page-subset resume preserves global assembly semantics. The failure classification table and
-its reach beyond PDF are examined earlier, in the review held before PE-S09.
+its reach beyond PDF remain bounded to recognition and PDF unless a concrete implementation finding warrants extension.

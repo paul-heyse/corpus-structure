@@ -1,10 +1,10 @@
 ---
 id: ADR-0093
 title: Semantic products retain authentic support independently of execution
-status: accepted
+status: superseded
 date: 2026-11-12
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0122
 design: [§B1, §B4, §B5]
 evidence: Proposed
 revisit: An admitted operation or preservation consumer cannot be represented without duplicated semantic authority or lost custody.

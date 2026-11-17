@@ -629,7 +629,7 @@ Expectations are specified by hand per fixture, under both a null and a pinned b
 - **Release facts:** lowered rows equal facts parsed independently from the artifact bytes; a
   differing `lowering_digest` refuses.
 
-### For the design/target review due before N1
+### Native implementation preservation criteria
 
 Equivalence of set-wise validity including value-substitution OR semantics and boundary
 composition; the owner-row visibility tie; coverage of nested member kinds by stored universes;
