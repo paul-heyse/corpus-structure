@@ -2040,3 +2040,34 @@ def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage
     for member in result.roles[0].members:
         assert json_loads(member.analyzed_scope) == {"fraction": exact}
         assert json_loads(member.support_evidence) == {"fraction": exact}
+
+
+@pytest.mark.parametrize("values", [(), (True, False), (None, None)])
+def test_binding_transport_refuses_missing_or_duplicate_check_rows(storage, values):
+    from sqlalchemy import Boolean, false, literal, select, union_all
+
+    from corpus_structure.semantic.data_operation_bindings import BindingCheck, BindingReason
+
+    connection, _, projection = storage
+    compiled = compile_binding(
+        model(BindingExpression("scan", roles=("items",))),
+        "urn:op",
+        (projection,),
+        subject="doc",
+    )
+    if values:
+        records = union_all(
+            *(select(literal(value, type_=Boolean()).label("valid")) for value in values)
+        ).subquery()
+        query = select(records.c.valid)
+    else:
+        query = select(literal(None, type_=Boolean())).where(false())
+    compiled = replace(
+        compiled,
+        checks=(
+            BindingCheck(BindingReason("control", "transport-control", "control"), query, "invalid"),
+        ),
+    )
+    message = "duplicate or unexpected" if values else "incomplete"
+    with pytest.raises(ValueError, match=message + " SQL binding check"):
+        execute_binding(connection, compiled)

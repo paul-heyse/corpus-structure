@@ -1590,11 +1590,15 @@ def binding_statement(compiled: CompiledBinding) -> Select | None:
             )
         )
     for ordinal, check in enumerate(compiled.checks):
+        # Preserve the check's row cardinality. A scalar subquery would turn a
+        # missing row into NULL, conflating malformed output with unknown.
+        result = check.query.subquery("binding_check_" + str(ordinal))
+        value = next(iter(result.c))
         arms.append(
             select(
                 literal("check", type_=Text()).label("binding_kind"),
                 literal(ordinal, type_=Integer()).label("binding_ordinal"),
-                sql_cast(check.query.scalar_subquery(), Boolean()).label("binding_valid"),
+                sql_cast(value, Boolean()).label("binding_valid"),
                 sql_cast(null(), Text()).label("binding_subject"),
                 *(sql_cast(null(), kind).label(column) for column, kind in native_types.items()),
             )
