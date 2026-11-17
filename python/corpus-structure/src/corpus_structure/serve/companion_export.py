@@ -371,6 +371,10 @@ def _verified(path: Path):
 
 def inventory_companion_export(path: Path) -> dict:
     manifest, files = _verified(path)
+    return _inventory_verified_export(manifest, files)
+
+
+def _inventory_verified_export(manifest, files) -> dict:
     from corpus_structure.semantic.companion_projection import installed_projection_id
 
     supported = (
@@ -501,8 +505,8 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
         and lm.producer_release_id == rm.producer_release_id
     )
     result: dict[str, Any] = {
-        "left": inventory_companion_export(left),
-        "right": inventory_companion_export(right),
+        "left": _inventory_verified_export(lm, lf),
+        "right": _inventory_verified_export(rm, rf),
         "comparable": comparable,
         "differences": {},
     }

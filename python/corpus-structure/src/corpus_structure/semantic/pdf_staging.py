@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, fields
+from functools import cache
 
 import pyarrow as pa
 from sqlalchemy import Connection
@@ -108,19 +109,27 @@ def stage_schemas() -> dict[str, pa.Schema]:
     return {name: stage_schema(name) for name in STAGE_FAMILIES}
 
 
-def artifact_profile(kind: str) -> str:
-    """Resolve fixed producer artifact encodings from their semantic owner.
-
-    Native scalar/opaque encodings retain the PDF record model's separate
-    profiles; this lookup describes the finite producer artifacts only.
-    """
+@cache
+def _profile_definitions():
     import json
     from importlib.resources import files
+    from hashlib import sha256
+    from pathlib import Path
 
     import yaml
+    from .file_custody import FileCustody
 
-    source = files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml").read_bytes()
-    profiles = json.loads(yaml.safe_load(source)["annotations"]["pds:artifact_profiles"])
+    path = Path(str(files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml")))
+    source = path.read_bytes()
+    custody = FileCustody.acquire(path, sha256(source).hexdigest())
+    annotations = yaml.safe_load(source)["annotations"]
+    return custody, json.loads(annotations["pds:artifact_profiles"]), json.loads(annotations["pds:companion_profile"])
+
+
+def artifact_profile(kind: str) -> str:
+    """Resolve fixed producer artifact encodings under process source custody."""
+    custody, profiles, _ = _profile_definitions()
+    custody.check()
     if kind not in profiles:
         raise ValueError(f"unknown private PDF producer artifact: {kind}")
     return profiles[kind]
@@ -247,13 +256,8 @@ def abandon_pdf_build(conn: Connection, build: PdfBuildRef) -> None:
 
 def companion_profile(family: str) -> str:
     """Resolve an admitted companion replay encoding from the same semantic owner."""
-    import json
-    from importlib.resources import files
-
-    import yaml
-
-    source = files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml").read_bytes()
-    profile = json.loads(yaml.safe_load(source)["annotations"]["pds:companion_profile"])
+    custody, _, profile = _profile_definitions()
+    custody.check()
     if family not in profile["families"]:
         raise ValueError("unsupported private companion family")
     return profile["prefix"] + family

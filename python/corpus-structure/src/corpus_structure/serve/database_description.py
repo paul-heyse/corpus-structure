@@ -160,6 +160,13 @@ def describe_database(
     request: DatabaseDescriptionRequest, settings: Settings
 ) -> DatabaseDescription:
     """Describe only selected visible objects; never execute a submitted data query."""
+    if request.query is not None and request.release_id is None:
+        raise SemanticRefusal("query release binding is missing")
+    with open_runtime_engine(settings, "description-catalog", purpose="read") as engine:
+        return _describe_database(request, settings, engine)
+
+
+def _describe_database(request: DatabaseDescriptionRequest, settings: Settings, catalog_engine):
     import adbc_driver_manager
 
     from corpus_structure.semantic.authored_sql import admit_sql
@@ -169,18 +176,15 @@ def describe_database(
     if request.query is not None:
         if request.release_id is None:
             raise SemanticRefusal("query release binding is missing")
-        with (
-            open_runtime_engine(settings, "describe-release", purpose="read") as engine,
-            engine.connect() as conn,
-        ):
+        with catalog_engine.connect() as conn:
             try:
                 open_release(conn, request.release_id)
             except KeyError as error:
                 raise SemanticRefusal("unknown description release") from error
-        with (
-            open_runtime_engine(settings, "describe-admission", purpose="read") as engine,
-            engine.connect() as conn,
-        ):
+        # SQL admission establishes its own read-only transaction on a fresh
+        # borrower. Reuse the engine, while keeping archive reads out of that
+        # transaction's setup premises.
+        with catalog_engine.connect() as conn:
             admit_sql(
                 conn,
                 request.query,
@@ -222,7 +226,6 @@ def describe_database(
         observations.append(item)
 
     with (
-        open_runtime_engine(settings, "description-catalog", purpose="read") as catalog_engine,
         catalog_engine.connect() as catalog_conn,
         owned_adbc_read(
             open_adbc_connection(

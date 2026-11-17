@@ -8,6 +8,7 @@ record declarations. JSON uses a declared UTF-8 wire representation in Arrow.
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -114,7 +115,17 @@ def record_write_profile(
     name: str, *, release_id: str, model: MetaData | None = None
 ) -> ArrowWriteProfile:
     """Derive private write fields and wire types from the same physical projection."""
-    selected = metadata if model is None else model
+    if model is None:
+        return _default_write_profile(name, release_id)
+    return _write_profile(name, release_id, model)
+
+
+@lru_cache(maxsize=128)
+def _default_write_profile(name: str, release_id: str) -> ArrowWriteProfile:
+    return _write_profile(name, release_id, metadata)
+
+
+def _write_profile(name: str, release_id: str, selected: MetaData) -> ArrowWriteProfile:
     return ArrowWriteProfile.prepare(
         release_id=release_id,
         physical_id=PHYSICAL_MODEL_ID,

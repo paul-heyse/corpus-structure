@@ -187,6 +187,7 @@ def test_query_schema_uses_actual_reader_and_refuses_effects(
     )
     from corpus_structure.semantic.analytical_profile import analytical_inputs
     from corpus_structure.semantic.authored_sql import SQLAdmissionError
+    from corpus_structure.semantic.composed import data_operation_dependencies
     from corpus_structure.semantic.releases import persist_release
 
     bundle, dependencies = analytical_inputs(
@@ -207,6 +208,9 @@ classes: {}
             ),
         )
     )
+    # This query-only fixture declares an explicit current empty operation model;
+    # historical releases without a DDO interpretation cannot be persisted.
+    dependencies = data_operation_dependencies(dependencies)
     prepared = prepare_release(bundle, dependencies)
     with commit_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
