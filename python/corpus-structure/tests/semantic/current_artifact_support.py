@@ -149,12 +149,14 @@ def companion_source(source, directory, monkeypatch, rows):
 
     from corpus_structure.core.evidence import document_key
     from corpus_structure.ingest import pdf_worker
-    from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
-    from corpus_structure.semantic.data_operation_service import (
-        DemandOperationSelection,
-        execute_data_demand,
+    from corpus_structure.semantic.data_operation_demands import (
+        DemandPlanner,
+        OperationSelection,
+        freeze_demand,
     )
+    from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.original_documents import (
         acquire_original_document_selection,
         register_original_document,
@@ -193,9 +195,11 @@ def companion_source(source, directory, monkeypatch, rows):
                 targets=("source.pdf_views/discovery",),
                 original_sources=(selected.selection(),),
                 selections=(
-                    DemandOperationSelection(
+                    OperationSelection(
                         operation="source.pdf_views/discovery",
-                        parameters={"sections": ["#/groups/0"], "membership": "descendants"},
+                        parameters=canonical_bytes(
+                            {"sections": ["#/groups/0"], "membership": "descendants"}
+                        ),
                     ),
                 ),
                 inference="independent-cross-work-original",

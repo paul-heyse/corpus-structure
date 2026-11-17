@@ -26,7 +26,7 @@ Avoid permissive normalization or interpretation of malformed old values.
 Valid historical values retain their meaning. Affected invalid derived data
 follows DMA-13.
 [Python codec](../../../python/corpus-structure/src/corpus_structure/semantic/observations.py#L110) ·
-[Native codec](../../../python/corpus-structure/src/corpus_structure/semantic/sql/record_publication.sql#L20)
+[Native codec](https://github.com/paul-heyse/corpus-structure/blob/2cc4e4d9dee660bda19fa1fabbb170ea61cb1bcc/python/corpus-structure/src/corpus_structure/semantic/sql/record_publication.sql#L20)
 
 **Closure.** Submit valid nested values and independently construct resealed
 position gaps, order changes and repeated names. Native completion and

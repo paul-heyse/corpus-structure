@@ -27,7 +27,7 @@ eligibility changed.
 
 ## Public eligibility boundary
 
-The native [local semantic policy](../../../../python/corpus-structure/src/corpus_structure/semantic/sql/record_publication.sql)
+The native [local semantic policy](https://github.com/paul-heyse/corpus-structure/blob/2cc4e4d9dee660bda19fa1fabbb170ea61cb1bcc/python/corpus-structure/src/corpus_structure/semantic/sql/record_publication.sql)
 accepts only a directly anchored contextual relationship proposal under its
 specific question, rubric, context policy and protected case. A predicate
 qualification is an anchorless directed relation to exact typed components.

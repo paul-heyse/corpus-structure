@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and14successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; no slice has started.**
+**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and15successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; no slice has started.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -38,8 +38,8 @@ The numbered completion sequence above continues. This integration changes it as
 - Steps 1–4 are recorded complete in the repair section above. Step 5 continues. A step-5
   result covers only the source it ran on; a later production-efficiency slice that changes
   that source does not inherit it.
-- Step 6's explicit `reuse_failures=False` attempt has run; its bounded native demand remains.
-  PE-S09 then removes the flag by classifying recognition failures at their origin, after
+- Step 6's explicit `reuse_failures=False` attempt has run.
+  The bounded native integrated demand subsequently passed all five obligations (closeout below). PE-S09 then removes the flag by classifying recognition failures at their origin, after
   which no manual retry step is needed.
 - Step 7 (development adoption) follows the last production-efficiency native successor and
   the encoder policy of PE-S29, so the adopted database starts at the corrected head and
@@ -175,6 +175,64 @@ ADR-G and ADR-H are written; and encoder and GLiNER batch semantics, after their
 slices. The focused advice used to author this integration does not replace them. Other slices
 proceed under change/target review.
 
+## Operator-requested closeout · 2026-11-17
+
+**Current tasks concluded; enclosing plan incomplete.** The operator requested finishing active work,
+merging/cleaning worktrees, updating documentation and ending the turn. New production-efficiency
+scope will receive separate execution planning; no PE slice or rule-change implementation started.
+Its accepted42-slice scope and dependencies remain authoritative in the integration companion.
+Development adoption and whole-book execution wait for that integration, as the new queue requires.
+
+**Passed current stage:** new application release check and normal CAS activation to generation4.
+Actual integrated invocation0b7229a9d67842e6a5c6267c79e132dc passed, with4new receipts and all5
+obligations fulfilled: capture, organization, recognition, reconciliation and integrated discovery.
+Demand0f740abce0760e28a1d3570d762f76959900527fe058c367083f5c909d3c1d62 consumed the preserved
+three-page original and the actual successful recognition attempts. Separate reader confirmed every
+fate and no frontier continuation. Earlier capture attribution/reuse and failed attempts are retained.
+This is bounded actual adapter/native integration, not linguistic accuracy, development adoption or
+whole-book qualification. Managed receipt held; custody settled/cleanup established.
+
+The healthy owned Nemo generation25d449a38fbc4533994baeb9b99119b2 was deliberately stopped after
+that settled demand: launcher exit0, API/engine absent, GPU back to unrelated Sunshine8145 baseline.
+No active inference or owned test processes remain. Restart normal launcher when next selected work
+needs it. No Chandra execution was introduced.
+
+**Passed source evolution:** test_source_migrations.py full39, held4742724a4bdc4456b9b41cd06010bc0e,
+commitadacfd000. Fresh truthful temporary-operation metadata replaces borrowed production enforcement
+claims, and actual dispatch fixtures pass current construction/scores inputs and correct contextual
+owner. Independent old/new/type/caller/coverage/alias/shadow/partial-apply/staleness expectations remain.
+Original failed5c180…/48b484… and recollection-failedb43f801… remain held with their actual limits;
+no old ID is relabelled passed. Managed pytest fail-fast support398e62b7d passed16controls1305da44…
+and preserves the complete required selection without PYTEST_ADDOPTS or policy bypasses.
+
+**Unresolved, no new retry cycle:**
+
+- Controlled policy gate00ab2…/57a8…/6567…/3390a4de7c034f599d2064add5f1797b remains before scoring.
+  Source discovery and the real finite producer commit2receipts, but the query awaits inputs with
+  no bound encoder roles. Direct arbitrary source-set wiring was correctly refused; the final
+  combined-discovery/member-acquisition setup remains unresolved. Commit9e6b01616 preserves exact
+  Ada/span/contribution expectations and bounded diagnostics; the final diagnostic presentation-only
+  edit is not_run. No production binding or guard is weakened.
+- Actual E5 all3, held162839e4631c43d4935e9de4a85b730a:1failed/2not_run under fail-fast. Frame setup
+  and upstream actual encoding/query/vector/target publication assertions pass, but retrieval emits
+  no DdoContextualNativeScores product at line436. No complete scoring/provider qualification;
+  reporting complete/native no_claim/custody settled. Investigate explicit retained-input acquisition
+  before claiming a numerical-policy guard verdict.
+- Artifact/event5, held8eb83f52626949cabe2dac388e0448f0:1failed/4not_run. Artifact fixture used default
+  direct scope while its helper requires descendants. Root commit6f889e4a5 makes both primary and
+  companion fixture discovery explicitly select group0/descendants; functional retry not_run.
+- Independent event3, heldfe1481d68c744387b27614807636e05f:1setup failure/2not_run after source setup
+  passes. operation_event.frame fails `CPU kernel lacks its exact admitted prepared release capsule`
+  at data_operation_cpu.py:258 before fitting/policy assertions. Exact capsule registration/propagation
+  needs investigation; no fallback, fabricated preparation or weakened check was added. Reporting
+  complete/native no_claim/custody settled/GPU drained.
+
+All source edits are on main; every worktree is merged and removed after verified original-receipt
+transfer and root holds. Final maintenance/type/lint/docs receipts are in STATUS; source typing619d2b… and publication412284… passed after correcting the artifact fixture to internal OperationSelection/canonical parameter bytes. Functional artifact retry remains not_run. Historical-source
+links affected by SQL removal point to the last retained Git source, without changing result payloads.
+Remaining native/public/provider/fault acceptance, the above findings, PE integration, adoption and
+DDO-12 remain open. No push.
+
 ## Current repair and successor integration · 2026-11-17
 
 **Implemented; bounded Tested; full qualification/adoption open.** SI31 projection522ee1f94 and
@@ -207,7 +265,7 @@ Release2f794245a4f3ce1c31a25a646e08dcf5e106c111fcef81d793c76c88c0f935d7/runtime
 e2cfb482465cff70e1decc30a5926c90066e2cdd31bbbae419d0833e9c3af26f archives the lexical virtualenv
 entrypoint, verified directly in its recognized execution-custody input. Runtime archive SHA256
 3e08e20305a15e879a6ac7a1db59cc00ae18abcb17a72e65ae780ab1fd30a9a0. Ordinary reader db check passed;
-release check/activation and actual native PDF publication remain pending.
+release check/activation and actual native PDF publication passed in the closeout above.
 
 Root managed Nemo generation25d449a38fbc4533994baeb9b99119b2 is healthy, session3299/API1948728/
 engine1949820. One existing-worker API attempt with exact source/recipe/pages1–3 and reuse_failures=False
@@ -216,8 +274,7 @@ adapter inference, not native demand/publication or linguistic-accuracy qualific
 
 New policy regression00ab2eefe883461ca80963ab88f545fd failed setup before scoring: the contextual
 fixture omitted the retained occurrence/source acquisition and found no expected Ada query. Held,
-reporting complete/native no_claim/custody settled. Test-only explicit-input repair and retry57a8c7e3…
-are active; no production guard is relaxed. E5 all3 remains not_run after that gate. Event/artifact,
+reporting complete/native no_claim/custody settled. The test-only explicit-input repair remains unresolved at the closeout above; no production guard is relaxed. E5 all3 remains not_run after that gate. Event/artifact,
 eight PM2 providers, remaining consumers, development adoption, whole-book resume and final union
 remain open. All29 original files were rehashed successfully against the finalized descriptor
 snapshot; no development fencing/rename/import/adoption has occurred.
@@ -843,11 +900,13 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-24 | A/B/C reference authoring repeatedly reacquires one exact source cut in the same invocation. | **Implemented; bounded Tested**, merged48599df9f, pure43 `40bf89f72dc44cd99f0d8163d363c098`. One authenticated cut per pinned authoring invocation; every reference independently checked. Actual grade sibling later failed its fitted-body substitution observation, not a passing full journey. |
 | DDO-SI-25 | Empty-carrier verification captures four originals although its scope uses one. | **Implemented; bounded native Tested2026-11-17**, empty-carrier passed in `88b69d7384984e1eb5fba40c20c1d524`. Fitting/calibration retain4originals and their independent criteria. |
 | DDO-SI-26 | Explicit recovery cannot remove the owned selected-read SQLite scratch left by a watchdog interruption. | **Implemented; bounded Tested**, af7978555/628c34944, recovery38 passed `be12c03a33ee4539aa20540357b81cc1`, integrated pure43 passed. After proven process drain, recognize only exact owned scratch files; refuse unknown/symlink/foreign/hardlinked paths. Actual recovery of dd0147… established cleanup; original failure remains held. |
-| DDO-SI-27 | Frozen semantic source entries discard the selected producing proof, admitting unrelated genuine producers and their dependencies. | **Implemented; bounded Tested2026-11-17**, ADR-0121/currentv9/demandv2/CPU3. Current callers migrated, role-local candidates/seeds and actual use/output correspondence retained, cut/anchor work shared within invocation. Source/frozen artifact review closed; normal successor registered261f68157/deployedaf7bfdd… on stage. Pure81/affected13/CPU parity and types/lint passed at their stated bounds. Focused native4 are covered by60a565…/9e04da… and binding68 passed2c3fcb…; v9 application admitted/checked/activated. Actual E5/grade/event/artifact/provider completion remains open; exact discovery parent selection is repaired and passed integrated binding79; actual E5 all3 retry remains open. No historical decoder or fallback. |
+| DDO-SI-27 | Frozen semantic source entries discard the selected producing proof, admitting unrelated genuine producers and their dependencies. | **Implemented; bounded Tested2026-11-17**, ADR-0121/currentv9/demandv2/CPU3. Current callers migrated, role-local candidates/seeds and actual use/output correspondence retained, cut/anchor work shared within invocation. Source/frozen artifact review closed; normal successor registered261f68157/deployedaf7bfdd… on stage. Pure81/affected13/CPU parity and types/lint passed at their stated bounds. Focused native4 are covered by60a565…/9e04da… and binding68 passed2c3fcb…; v9 application admitted/checked/activated. Actual E5/grade/event/artifact/provider completion remains open; exact discovery parent selection is repaired and passed integrated binding79; actual E5 all3 remains open at SI32. No historical decoder or fallback. |
 | DDO-SI-28 | Frozen PDF coverage validation rejects the supported residual body/direct source scope because its native group label is unspecified. | **Implemented; bounded Tested2026-11-17**, actual enriched failure31c742… retained; shared checker admits exact body/direct, real sections/chapters, and still rejects descendant-body/arbitrary nonsection scopes. Pure PDF68 passed5684f1…; types/lint passed. Current v9 application recaptured/admitted/activated; actual enrichment/integration qualification remains open. |
 | DDO-SI-29 | Source-interface binding repeatedly clones an immutable effective model, defeating cached canonical serialization during runtime checks. | **Implemented; bounded Tested2026-11-17**, bounded LRU8 keyed by exact model/interface artifact bytes. Per-call manifest/cardinality/version validation and all live authority checks remain. Independent review closed; pure11/private SQL4 and integrated binding79 passed51b7e794…; types/lint passed. Source mapping establishes no application recapture/native successor needed for these live package modules alone; actual E5 qualification remains open. Runtime improvement unmeasured. |
 | DDO-SI-30 | Actual integrated recognition fails without admitted request inventory, masking the worker/page diagnostic before publication. | **Investigation open**, failed8fdb444d45dd4345a2ed20193aca4544. Stage reader maps task9/attempt1 to source.pdf_recognition/observe; capture/organization fulfilled. Preserve authentic worker failure detail before raising missing-inventory refusal. No invalid page publication or fabricated request. Underlying provider/child/page cause is not established by retained observations. |
 | DDO-SI-31 | Current canonical numerical-policy body wrapper reaches native score computation without inner JSON projection. | **Cause established; implementation/qualification open**, eef09f11… first actual recipe failed after repaired discovery ingress. Inner policy agrees with actual PostgreSQL180007/vector0.8.7. Correct current-only governed-body projection in contextual native admission, retain exact score-policy checks, then normal frozen successor/matching application acquisition and all3 actual E5 recipes. |
+| DDO-SI-32 | Current contextual consumers do not acquire their required query/score population after authentic upstream production. | **Investigation open**, controlled3390a4… commits discovery/finite producer but query awaits encoder inputs; E5 frame162839… passes encoding/publication then emits no score product. Policy assertions remain unreached. Preserve exact Ada/source/occurrence expectations and explicit retained/member acquisition; no ambient fallback. Closeout owns exact receipts and boundaries. |
+| DDO-SI-33 | Operation-event frame CPU call lacks its exact admitted prepared-release capsule. | **Investigation open**, fe1481d68c744387b27614807636e05f first setup fails at data_operation_cpu.py:258 after source setup, remaining2not_run. Trace authentic capsule registration/propagation; do not fabricate preparation or weaken the release identity check. |
 
 
 
