@@ -209,7 +209,7 @@ BEGIN
  PERFORM ops.ddo_authorize_request(producer);
  IF NOT EXISTS(SELECT FROM sem.data_operation_definition definition
  WHERE definition.release_id=derivation.release_id AND definition.operation_id=producer.operation_id
- AND coalesce(ops.ddo_pdf_command_eligible(definition),false)) THEN
+ AND coalesce((definition.command_class=\'pdf\'),false)) THEN
  RAISE EXCEPTION 'selected source derivation is not an exact approved native PDF command' USING ERRCODE='23514'; END IF;
  PERFORM ops.require_pdf_operation(producer.release_id,'read_native_source');
  SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=derivation.intent_id;
@@ -281,7 +281,7 @@ BEGIN
  PERFORM ops.ddo_authorize_request(producer);
  IF NOT EXISTS(SELECT FROM sem.data_operation_definition definition
  WHERE definition.release_id=derivation.release_id AND definition.operation_id=producer.operation_id
- AND coalesce(ops.ddo_pdf_command_eligible(definition),false)
+ AND coalesce((definition.command_class=\'pdf\'),false)
  AND definition.support_contract->'effects'->0->>'name'='retain_pdf_observations') THEN
  RAISE EXCEPTION 'selected observation derivation is not an approved recognition command' USING ERRCODE='23514'; END IF;
  PERFORM ops.require_pdf_operation(producer.release_id,'read_pdf_product');

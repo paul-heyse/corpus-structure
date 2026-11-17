@@ -55,7 +55,7 @@ BEGIN
  IF receipts<>'[]'::jsonb OR observations<>'[]'::jsonb THEN
  RAISE EXCEPTION 'non-PDF computation cannot acquire a PDF execution event' USING ERRCODE='23514';
  END IF; RETURN; END IF;
- IF NOT coalesce(ops.ddo_pdf_command_eligible(definition),false) THEN
+ IF NOT coalesce((definition.command_class=\'pdf\'),false) THEN
  RAISE EXCEPTION 'PDF completion requires its exact approved command/effect/factory pair'
  USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);

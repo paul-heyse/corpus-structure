@@ -13,6 +13,45 @@ enums:
     annotations:
       ph:values_from: data-operation-native.yaml#/definitions/revoke_data_support_request/properties/selector_kind/enum
 classes:
+  data_operation_release:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      model_digest: {range: string, required: true}
+      native_definitions_digest: {range: string, required: true}
+      native_kernel_digest: {range: string, required: true}
+      lowering_digest: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
+  data_subject_scope:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      subject_definition: {range: string, required: true}
+      scope: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, subject_definition]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
+  pdf_operation_contract:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      contract_id: {range: string, required: true}
+      contract_digest: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, operation_id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
   data_kind_contract:
     in_subset: [sem]
     attributes:
@@ -42,6 +81,13 @@ classes:
       input_roles: {range: json_payload, required: true}
       output_roles: {range: json_payload, required: true}
       support_contract: {range: json_payload, required: true}
+      binding_expression: {range: json_payload, required: true}
+      definition_identity: {range: string, required: true}
+      eligibility_identity: {range: string, required: true}
+      quantified: {range: boolean, required: true}
+      validity_family: {range: string, required: false}
+      command_class: {range: string, required: false}
+      dependencies: {range: json_payload, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [release_id, operation_id]}
       unique_0: {unique_key_slots: [release_id, recipe]}
@@ -116,6 +162,7 @@ classes:
     unique_keys:
       primary_key: {unique_key_slots: [id]}
     annotations:
+      ph:indexes: '[["demand_id","id"]]'
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}]'
@@ -370,6 +417,7 @@ classes:
       primary_key: {unique_key_slots: [id]}
       unique_0: {unique_key_slots: [intent_id]}
     annotations:
+      ph:indexes: '[["request_id","generation"]]'
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["intent_id"], "target": "ops.data_completion_intent.id"}, {"columns": ["request_id", "generation"], "target": "ops.data_request_generation.request_id,generation"}]'
@@ -401,6 +449,7 @@ classes:
     unique_keys:
       primary_key: {unique_key_slots: [derivation_id, role, position]}
     annotations:
+      ph:indexes: '[["product_id","member_id"]]'
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["product_id"], "target": "kb.data_product.id"}, {"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
@@ -455,6 +504,7 @@ classes:
     unique_keys:
       primary_key: {unique_key_slots: [id]}
     annotations:
+      ph:indexes: '[["obligation_id","created_at","id"],{"columns":["demand_id","fate"],"include":["obligation_id","derivation_id","created_at"]},["request_id","generation"],{"columns":["derivation_id"],"where":"derivation_id IS NOT NULL"}]'
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}, {"columns": ["obligation_id"], "target": "ops.data_obligation.id"}, {"columns": ["request_id"], "target": "ops.data_request.id"}, {"columns": ["derivation_id"], "target": "ops.data_derivation.id"}]'
@@ -472,6 +522,7 @@ classes:
       primary_key: {unique_key_slots: [id]}
       unique_0: {unique_key_slots: [scope, epoch]}
     annotations:
+      ph:indexes: '[["scope","selector_kind","selector"]]'
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["scope"], "target": "ops.data_trust_scope.scope"}]'
@@ -483,6 +534,7 @@ classes:
       selected_obligation_id: {range: string}
       semantic_key: {range: string, required: true}
       name: {range: string, required: true}
+      context_key: {range: string, required: true}
       members: {range: json_payload, required: true}
       complete: {range: boolean, required: true}
       evidence: {range: json_payload, required: true}
@@ -492,7 +544,7 @@ classes:
       primary_key: {unique_key_slots: [id]}
     annotations:
       ph:read_roles: '[]'
-      ph:indexes: '[["demand_id","name","created_at"],["demand_id","selected_obligation_id"]]'
+      ph:indexes: '[["demand_id","name","context_key","created_at","id"],["demand_id","selected_obligation_id"]]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"},{"columns":["selected_obligation_id"],"target":"ops.data_obligation.id"}]'
       ph:checks: '["selected_obligation_id IS NOT DISTINCT FROM (evidence->''selection''->>''obligation_id'')"]'
@@ -575,6 +627,7 @@ classes:
     unique_keys:
       primary_key: {unique_key_slots: [id]}
     annotations:
+      ph:indexes: '[["owner_xid"]]'
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns":["demand_id"],"target":"ops.data_demand.id"}]'

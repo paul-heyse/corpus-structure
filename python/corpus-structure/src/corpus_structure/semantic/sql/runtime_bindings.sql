@@ -78,8 +78,8 @@ RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_tem
 DECLARE previous sem.runtime_binding;
 BEGIN
  PERFORM sem.validate_runtime_binding(r,runtime,manifest_content,archive_content);
- INSERT INTO sem.runtime_binding(release_id,runtime_id,manifest_bytes,archive_bytes)
- VALUES(r,runtime,manifest_content,archive_content) ON CONFLICT DO NOTHING;
+ INSERT INTO sem.runtime_binding(release_id,runtime_id,manifest_bytes,archive_bytes,execution_profile)
+ VALUES(r,runtime,manifest_content,archive_content,convert_from(manifest_content,'UTF8')::jsonb->>'execution_profile') ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT previous FROM sem.runtime_binding WHERE release_id=r AND runtime_id=runtime;
  IF previous.manifest_bytes IS DISTINCT FROM manifest_content OR previous.archive_bytes IS DISTINCT FROM archive_content THEN
   RAISE EXCEPTION 'runtime identity already denotes different provenance' USING ERRCODE='23505'; END IF;

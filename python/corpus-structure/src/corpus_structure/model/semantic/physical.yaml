@@ -68,6 +68,9 @@ classes:
       manifest_bytes:
         range: bytes
         required: true
+      execution_profile:
+        range: string
+        required: true
       archive_bytes:
         range: bytes
         required: true

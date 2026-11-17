@@ -225,7 +225,7 @@ RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog
 DECLARE definition sem.data_operation_definition; output jsonb;
 BEGIN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF NOT coalesce(ops.ddo_rich_command_eligible(definition),false)
+ IF NOT coalesce((definition.command_class=\'rich\'),false)
  OR completion->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
  OR r.recipe IS DISTINCT FROM definition.recipe OR r.original_source IS NOT NULL
  OR completion->'inputs' IS DISTINCT FROM r.binding->'inputs'

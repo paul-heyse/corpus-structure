@@ -25,7 +25,7 @@ BEGIN
  IF EXISTS(WITH expected AS (
  SELECT value->>'operation_id' AS key,value-ARRAY['binding','definition','eligibility']::text[] AS body
  FROM jsonb_array_elements(projection->'operations')),
- actual AS (SELECT definition.operation_id AS key,to_jsonb(definition)-'release_id' AS body
+ actual AS (SELECT definition.operation_id AS key,to_jsonb(definition)-ARRAY['release_id','binding_expression','definition_identity','eligibility_identity','quantified','validity_family','command_class','dependencies']::text[] AS body
  FROM sem.data_operation_definition definition WHERE definition.release_id=p->>'release_id')
  SELECT FROM expected FULL JOIN actual USING(key) WHERE expected.body IS DISTINCT FROM actual.body) THEN
  RAISE EXCEPTION 'read-only inspection admitted operation rowset differs from archived contracts' USING ERRCODE='23514'; END IF;
@@ -332,20 +332,22 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
  WHERE episode.id=pop.evidence->>'derivation_id'
 $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_require_release_facts(p_release text) RETURNS sem.data_operation_release
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE facts sem.data_operation_release;
+BEGIN
+ SELECT * INTO facts FROM sem.data_operation_release WHERE release_id=p_release;
+ IF facts.release_id IS NULL OR facts.lowering_digest IS DISTINCT FROM '__DDO_LOWERING_DIGEST__' THEN
+ RAISE EXCEPTION 'release facts require current authenticated re-lowering' USING ERRCODE='23514'; END IF;
+ RETURN facts;
+END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_release_subject_scopes(p_release text) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE declarations jsonb; scopes jsonb;
+DECLARE scopes jsonb;
 BEGIN
- SELECT convert_from(content,'UTF8')::jsonb->'subject_definitions' INTO STRICT declarations
- FROM sem.artifact WHERE release_id=p_release AND artifact_name='data_operations.json';
- IF jsonb_typeof(declarations) IS DISTINCT FROM 'array' OR EXISTS(
- SELECT FROM jsonb_array_elements(declarations) subject WHERE nullif(subject->>'semantic_id','') IS NULL
- OR jsonb_typeof(subject->'scope') IS DISTINCT FROM 'string'
- OR NOT '__DDO_SUBJECT_SCOPES__'::jsonb ? (subject->>'scope'))
- OR EXISTS(SELECT FROM jsonb_array_elements(declarations) subject GROUP BY subject->>'semantic_id' HAVING count(*)<>1) THEN
- RAISE EXCEPTION 'release subject definitions are unavailable or invalid' USING ERRCODE='23514'; END IF;
- SELECT coalesce(jsonb_object_agg(subject->>'semantic_id',subject->>'scope'),'{}') INTO scopes
- FROM jsonb_array_elements(declarations) subject;
+ PERFORM ops.ddo_require_release_facts(p_release);
+ SELECT coalesce(jsonb_object_agg(subject_definition,scope),'{}') INTO scopes
+ FROM sem.data_subject_scope WHERE release_id=p_release;
  RETURN scopes;
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_require_subject_source(scopes jsonb,subject text,source text) RETURNS void
@@ -358,19 +360,27 @@ BEGIN
  RAISE EXCEPTION 'only a checked project subject can have no original source' USING ERRCODE='23514'; END IF;
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_population_evidence_scope(evidence jsonb) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT CASE WHEN evidence ? 'selection' THEN jsonb_build_object(
+ 'operation_id',evidence->'selection'->'operation_id','subject',evidence->'selection'->'subject','subject_definition',evidence->'selection'->'subject_definition',
+ 'original_source',evidence->'selection'->'original_source','analyzed_scope',evidence->'selection'->'analyzed_scope')
+ ELSE (SELECT jsonb_build_object('operation_id',r.operation_id,'subject',r.subject,
+ 'subject_definition',ops.ddo_operation_subject(r.release_id,r.operation_id),
+ 'original_source',r.original_source,'analyzed_scope',r.analyzed_scope)
+ FROM ops.data_derivation episode JOIN ops.data_request r ON r.id=episode.request_id
+ WHERE episode.id=evidence->>'derivation_id') END
+$$;
 CREATE OR REPLACE FUNCTION ops.ddo_population_scope(pop ops.data_population) RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT CASE WHEN pop.evidence ? 'selection' THEN jsonb_build_object(
- 'operation_id',pop.evidence->'selection'->'operation_id','subject',pop.evidence->'selection'->'subject','subject_definition',pop.evidence->'selection'->'subject_definition',
- 'original_source',pop.evidence->'selection'->'original_source','analyzed_scope',pop.evidence->'selection'->'analyzed_scope')
- ELSE ops.ddo_population_producer_context(pop) END
+ SELECT ops.ddo_population_evidence_scope(pop.evidence)
 $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_population_valid(pop ops.data_population,boundary ops.data_demand_read DEFAULT NULL) RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE source_use ops.demand_use; parent ops.data_population;
 BEGIN
- IF pop.id IS NULL OR EXISTS(SELECT FROM ops.data_population newer WHERE newer.demand_id=pop.demand_id AND newer.name=pop.name AND ops.ddo_population_scope(newer)=ops.ddo_population_scope(pop) AND (newer.created_at,newer.id)>(pop.created_at,pop.id) AND (boundary.id IS NULL OR ops.ddo_read_visible(newer.created_at,newer.created_xid,boundary))) THEN RETURN false; END IF;
+ IF pop.id IS NULL OR EXISTS(SELECT FROM ops.data_population newer WHERE newer.demand_id=pop.demand_id AND newer.name=pop.name AND newer.context_key=pop.context_key AND (newer.created_at,newer.id)>(pop.created_at,pop.id) AND (boundary.id IS NULL OR ops.ddo_read_visible(newer.created_at,newer.created_xid,boundary))) THEN RETURN false; END IF;
  IF pop.evidence ? 'selection' THEN
  SELECT * INTO parent FROM ops.data_population WHERE id=pop.evidence->'selection'->>'parent_population_id' AND demand_id=pop.demand_id;
  IF parent.id IS NULL OR parent.id=pop.id OR NOT ops.ddo_population_valid(parent,boundary) THEN RETURN false; END IF;
@@ -758,7 +768,7 @@ BEGIN
  key:='population:'||ops.ddo_digest(jsonb_build_array(d.id,p->>'name',semantic_key,evidence));
  evidence:=evidence||jsonb_build_object('population_id',key);
  PERFORM 1 FROM ops.data_demand WHERE id=d.id FOR UPDATE;
- INSERT INTO ops.data_population (id,demand_id,semantic_key,name,members,complete,evidence,created_at,created_xid) VALUES(key,d.id,semantic_key,p->>'name',members,complete,evidence,clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
+ INSERT INTO ops.data_population (id,demand_id,semantic_key,name,context_key,members,complete,evidence,created_at,created_xid) VALUES(key,d.id,semantic_key,p->>'name',ops.ddo_digest(ops.ddo_population_evidence_scope(evidence)),members,complete,evidence,clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT old FROM ops.data_population WHERE id=key;
  IF NOT ops.ddo_population_valid(old) THEN RAISE EXCEPTION 'population witness is historical or no longer admitted'; END IF;
  RETURN jsonb_build_object('payload',jsonb_build_object('population_id',key,'semantic_key',semantic_key,'name',old.name,'complete',old.complete,'members',old.members,'evidence',old.evidence));
@@ -797,7 +807,8 @@ BEGIN
  SELECT * INTO STRICT pop FROM ops.data_population WHERE id=population_reference->>'population_id' AND demand_id=d.id AND name=population_reference->>'name';
  IF NOT ops.ddo_population_valid(pop) THEN RAISE EXCEPTION 'population witness is historical or revoked'; END IF;
  IF pop.evidence ? 'selection' AND (pop.evidence->'selection'->>'obligation_id',pop.evidence->'selection'->>'operation_id',pop.evidence->'selection'->>'subject',pop.evidence->'selection'->>'subject_definition',pop.evidence->'selection'->>'original_source') IS DISTINCT FROM (o.id,o.operation_id,o.subject,ops.ddo_operation_subject(d.release_id,o.operation_id),o.original_source) THEN RAISE EXCEPTION 'selected population belongs to another binding context'; END IF;
- SELECT operation->'binding' INTO STRICT frozen_binding FROM sem.artifact artifact CROSS JOIN LATERAL jsonb_array_elements((convert_from(artifact.content,'UTF8')::jsonb)->'operations') operation WHERE artifact.release_id=d.release_id AND artifact.artifact_name='data_operation_native_definitions.json' AND operation->>'operation_id'=o.operation_id;
+ PERFORM ops.ddo_require_release_facts(d.release_id);
+ SELECT binding_expression INTO STRICT frozen_binding FROM sem.data_operation_definition WHERE release_id=d.release_id AND operation_id=o.operation_id;
  expected:=ops.ddo_binding_population_meaning(ops.ddo_project_population(pop.semantic_key,pop.complete,pop.members,pop.evidence,d.project_id,
  coalesce(ops.ddo_binding_population_projection(frozen_binding,jsonb_build_object('choices',(SELECT chosen->'choices' FROM jsonb_array_elements(d.selection->'operations') chosen WHERE chosen->>'operation'=o.operation_id)),roledef->>'name'),'member')),roledef->'identity_requirements' ? 'episode');
  IF witness IS DISTINCT FROM expected THEN RAISE EXCEPTION 'population semantic witness differs from native closure value'; END IF;
@@ -892,13 +903,13 @@ BEGIN
  SELECT * INTO STRICT def FROM sem.data_operation_definition WHERE release_id=d.release_id AND operation_id=o.operation_id;
  PERFORM ops.ddo_require_subject_source(ops.ddo_release_subject_scopes(d.release_id),def.subject_definition,o.original_source);
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(def.input_roles||def.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
- IF coalesce(ops.ddo_pdf_command_eligible(def),false) THEN
+ IF coalesce((def.command_class=\'pdf\'),false) THEN
  PERFORM ops.require_pdf_operation(d.release_id,'retain_pdf_original');
- ELSIF coalesce(ops.ddo_rich_command_eligible(def),false) THEN
+ ELSIF coalesce((def.command_class=\'rich\'),false) THEN
  IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_writer','MEMBER') THEN
  RAISE EXCEPTION 'rich admission requires native write purpose' USING ERRCODE='42501'; END IF;
- ELSIF coalesce(ops.ddo_policy_command_eligible(def),false) OR coalesce(ops.ddo_structural_command_eligible(def),false)
- OR coalesce(ops.ddo_operation_event_command_eligible(def),false) THEN
+ ELSIF coalesce((def.command_class=\'policy\'),false) OR coalesce((def.command_class=\'structural\'),false)
+ OR coalesce((def.command_class=\'operation_event\'),false) THEN
  IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_evaluator','MEMBER') THEN
  RAISE EXCEPTION 'policy authorization requires native evaluator purpose' USING ERRCODE='42501'; END IF;
  ELSIF def.profile NOT IN ('derivation','discovery') OR coalesce(def.support_contract->'effects','[]')<>'[]'::jsonb THEN
@@ -1263,7 +1274,7 @@ BEGIN
  PERFORM sem.require_runtime_binding(r.release_id,p->>'runtime_id');
  PERFORM ops.ddo_require_provider_profile(r.release_id,r.operation_id,p->>'runtime_id');
  IF NOT EXISTS(SELECT FROM sem.runtime_binding runtime WHERE runtime.release_id=r.release_id AND runtime.runtime_id=p->>'runtime_id'
- AND convert_from(runtime.manifest_bytes,'UTF8')::jsonb->>'execution_profile'=r.binding->>'execution_profile') THEN RAISE EXCEPTION 'actual producer runtime execution profile differs from admitted request'; END IF;
+ AND runtime.execution_profile=r.binding->>'execution_profile') THEN RAISE EXCEPTION 'actual producer runtime execution profile differs from admitted request'; END IF;
  IF r.generation<>(p->>'generation')::integer OR p->'completion'->'inputs' IS DISTINCT FROM r.binding->'inputs' OR p->'completion'->'support' IS DISTINCT FROM r.binding->'support'
  OR NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id AND implementation_revision=p->'completion'->>'implementation_revision') THEN RAISE EXCEPTION 'completion differs from admitted request/implementation'; END IF;
  PERFORM ops.ddo_assert_support(r,p->'completion'->'support');
@@ -1902,7 +1913,7 @@ BEGIN
  'definition',selection->>'definition','eligibility',selection->>'eligibility','filter',predicate,'parameter_meaning',selection->'parameter_meaning','choices',selection->'choices'));
  key:='population:'||ops.ddo_digest(jsonb_build_array(demand.id,p->>'population_name',value_key,evidence));
  evidence:=evidence||jsonb_build_object('population_id',key);
- INSERT INTO ops.data_population (id,demand_id,selected_obligation_id,semantic_key,name,members,complete,evidence,created_at,created_xid) VALUES(key,demand.id,obligation.id,value_key,p->>'population_name',members,parent.complete,evidence,clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
+ INSERT INTO ops.data_population (id,demand_id,selected_obligation_id,semantic_key,name,context_key,members,complete,evidence,created_at,created_xid) VALUES(key,demand.id,obligation.id,value_key,p->>'population_name',ops.ddo_digest(ops.ddo_population_evidence_scope(evidence)),members,parent.complete,evidence,clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT selected FROM ops.data_population WHERE id=key;
  END IF;
  RETURN jsonb_build_object('payload',jsonb_build_object('population_id',selected.id,'name',selected.name,'semantic_key',selected.semantic_key,
@@ -1999,15 +2010,47 @@ BEGIN
  RETURN ops.ddo_require_provider_profile(episode.release_id,operation_,intent.runtime_id);
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_classify_validity(operation text) RETURNS text
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+ SELECT CASE
+ WHEN operation='record_policy.grade' THEN 'record-grade'
+ WHEN operation='record_policy.fit' THEN 'record-fit'
+ WHEN operation IN ('operation_event.frame','operation_event.fit','operation_event.authorize','urn:corpus:operation:score-operation-event') THEN 'operation-event'
+ WHEN operation IN ('retrieve.contextual_query/declared','retrieve.contextual_query/selected-context',
+ 'retrieve.contextual_target_vector/declared','retrieve.contextual_vectors/selection',
+ 'retrieve.contextual_targets/curated','retrieve.contextual_targets/components',
+ 'retrieve.contextual_target/declared','retrieve.contextual_inventory/declared',
+ 'retrieve.contextual_scores/declared','retrieve.contextual/declared',
+ 'retrieve.contextual_witnesses/declared','retrieve.contextual/with-witnesses') THEN 'contextual'
+ WHEN operation IN ('structure.definition_applicability/declared','structure.definition_declaration_components/declared',
+ 'structure.definition_components/declared','structure.definition_named_components/declared') THEN 'definition'
+ WHEN operation='structure.artifact_identity/declared' THEN 'artifact'
+ WHEN operation IN ('rich.admit','rich.consolidate','prepare.external_extraction','locate.external_extraction') THEN 'rich'
+ ELSE NULL END
+$$;
+CREATE OR REPLACE FUNCTION ops.ddo_classify_command(definition sem.data_operation_definition) RETURNS text
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ RETURN CASE WHEN ops.ddo_pdf_command_eligible(definition) THEN 'pdf'
+ WHEN ops.ddo_policy_command_eligible(definition) THEN 'policy'
+ WHEN ops.ddo_structural_command_eligible(definition) THEN 'structural'
+ WHEN ops.ddo_rich_command_eligible(definition) THEN 'rich'
+ WHEN ops.ddo_operation_event_command_eligible(definition) THEN 'operation_event'
+ ELSE NULL END;
+END $$;
 CREATE OR REPLACE FUNCTION sem.admit_data_operation_definitions(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; k jsonb; o jsonb; archived jsonb; old sem.data_kind_contract; operation jsonb; expected_inputs jsonb; expected_outputs jsonb; expected_support jsonb;
+DECLARE p jsonb:=p_payload; k jsonb; o jsonb; archived jsonb; old sem.data_kind_contract; operation jsonb; expected_inputs jsonb; expected_outputs jsonb; expected_support jsonb; lowered sem.data_operation_definition; header sem.data_operation_release; subject jsonb;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['release_id','model_digest','native_digest','kinds','operations']);
  IF p->>'native_digest' IS DISTINCT FROM sem.data_operation_native_descriptor()->>'source_digest' THEN RAISE EXCEPTION 'native source correspondence mismatch'; END IF;
  SELECT convert_from(content,'UTF8')::jsonb INTO archived FROM sem.artifact WHERE release_id=p->>'release_id' AND artifact_name='data_operations.json' AND encode(sha256(content),'hex')=p->>'model_digest';
  IF archived IS NULL THEN RAISE EXCEPTION 'effective operation archive is absent or differs'; END IF;
- PERFORM ops.ddo_release_subject_scopes(p->>'release_id');
+ IF jsonb_typeof(archived->'subject_definitions') IS DISTINCT FROM 'array'
+ OR EXISTS(SELECT FROM jsonb_array_elements(archived->'subject_definitions') subject
+ WHERE nullif(subject->>'semantic_id','') IS NULL OR NOT '__DDO_SUBJECT_SCOPES__'::jsonb ? (subject->>'scope'))
+ OR EXISTS(SELECT FROM jsonb_array_elements(archived->'subject_definitions') subject GROUP BY subject->>'semantic_id' HAVING count(*)<>1) THEN
+ RAISE EXCEPTION 'release subject definitions are unavailable or invalid' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM sem.artifact a WHERE a.release_id=p->>'release_id'
  AND a.artifact_name='data_operation_native_definitions.json'
  AND convert_from(a.content,'UTF8')::jsonb=p-'release_id') THEN
@@ -2045,9 +2088,38 @@ BEGIN
  OR o->>'eligibility' IS DISTINCT FROM (SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=o->>'operation_id' AND id->>'domain'='eligibility')
  OR o->>'implementation_revision' IS DISTINCT FROM coalesce((SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=operation->>'implementation_root' AND id->>'domain'='implementation-slice'),CASE WHEN operation->'external' IS NULL THEN operation->>'behavior' ELSE 'external:'||(o->>'recipe') END) THEN RAISE EXCEPTION 'native definition projection disagrees with archived operation facts'; END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') a WHERE a->>'owner'=o->>'operation_id' AND a->>'domain'='recipe' AND a->>'key'=o->>'recipe') THEN RAISE EXCEPTION 'recipe differs from archived effective model'; END IF;
- INSERT INTO sem.data_operation_definition (release_id,operation_id,subject_definition,recipe,profile,implementation_revision,input_roles,output_roles,support_contract) VALUES(p->>'release_id',o->>'operation_id',o->>'subject_definition',o->>'recipe',o->>'profile',o->>'implementation_revision',o->'input_roles',o->'output_roles',o->'support_contract') ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM sem.data_operation_definition d WHERE d.release_id=p->>'release_id' AND d.operation_id=o->>'operation_id' AND d.subject_definition=o->>'subject_definition' AND d.recipe=o->>'recipe' AND d.profile=o->>'profile' AND d.implementation_revision=o->>'implementation_revision' AND d.input_roles=o->'input_roles' AND d.output_roles=o->'output_roles' AND d.support_contract=o->'support_contract') THEN RAISE EXCEPTION 'operation definition changed under admitted release'; END IF;
+ lowered:=jsonb_populate_record(NULL::sem.data_operation_definition,o||jsonb_build_object(
+ 'release_id',p->>'release_id','binding_expression',o->'binding',
+ 'definition_identity',o->>'definition','eligibility_identity',o->>'eligibility',
+ 'dependencies',jsonb_build_object('required',coalesce(operation->'dependencies','[]'),
+ 'potential',coalesce(operation->'potential_dependencies','[]'))));
+ SELECT EXISTS(WITH RECURSIVE nodes(n) AS (SELECT o->'binding' UNION ALL
+ SELECT value FROM nodes CROSS JOIN LATERAL jsonb_array_elements(coalesce(n->'children','[]')))
+ SELECT FROM nodes WHERE n->>'operator' IN ('forall','absent','membership','covers')) INTO lowered.quantified;
+ lowered.validity_family:=ops.ddo_classify_validity(lowered.operation_id);
+ lowered.command_class:=ops.ddo_classify_command(lowered);
+ INSERT INTO sem.data_operation_definition SELECT (lowered).* ON CONFLICT DO NOTHING;
+ IF NOT EXISTS(SELECT FROM sem.data_operation_definition d WHERE d.release_id=lowered.release_id
+ AND d.operation_id=lowered.operation_id AND to_jsonb(d)=to_jsonb(lowered)) THEN
+ RAISE EXCEPTION 'operation definition changed under admitted release'; END IF;
  END LOOP;
+ FOR subject IN SELECT value FROM jsonb_array_elements(archived->'subject_definitions') LOOP
+ INSERT INTO sem.data_subject_scope VALUES(p->>'release_id',subject->>'semantic_id',subject->>'scope') ON CONFLICT DO NOTHING;
+ IF NOT EXISTS(SELECT FROM sem.data_subject_scope WHERE release_id=p->>'release_id'
+ AND subject_definition=subject->>'semantic_id' AND scope=subject->>'scope') THEN
+ RAISE EXCEPTION 'subject scope changed under admitted release'; END IF;
+ END LOOP;
+ INSERT INTO sem.data_operation_release(release_id,model_digest,native_definitions_digest,native_kernel_digest,lowering_digest)
+ SELECT p->>'release_id',p->>'model_digest',artifact.content_digest,p->>'native_digest','__DDO_LOWERING_DIGEST__'
+ FROM sem.artifact artifact WHERE artifact.release_id=p->>'release_id'
+ AND artifact.artifact_name='data_operation_native_definitions.json' ON CONFLICT DO NOTHING;
+ SELECT * INTO STRICT header FROM sem.data_operation_release WHERE release_id=p->>'release_id';
+ IF header.model_digest IS DISTINCT FROM p->>'model_digest' OR header.native_kernel_digest IS DISTINCT FROM p->>'native_digest'
+ OR header.lowering_digest IS DISTINCT FROM '__DDO_LOWERING_DIGEST__'
+ OR header.native_definitions_digest IS DISTINCT FROM (SELECT content_digest FROM sem.artifact
+ WHERE release_id=p->>'release_id' AND artifact_name='data_operation_native_definitions.json') THEN
+ RAISE EXCEPTION 'release facts changed under admitted release'; END IF;
+ PERFORM sem.admit_pdf_operation_contracts(p->>'release_id');
  RETURN jsonb_build_object('release_id',p->>'release_id','model_digest',p->>'model_digest');
 END $$;
 

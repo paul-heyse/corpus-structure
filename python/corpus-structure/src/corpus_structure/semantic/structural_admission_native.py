@@ -246,7 +246,7 @@ DECLARE definition sem.data_operation_definition; selected jsonb; output jsonb; 
  report_kind text; variant text; report_role text; policy_id text; selected_component text;
 BEGIN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF NOT coalesce(ops.ddo_structural_command_eligible(definition),false) THEN
+ IF NOT coalesce((definition.command_class=\'structural\'),false) THEN
  IF definition.operation_id='__OPERATION__' OR EXISTS(SELECT FROM jsonb_array_elements(definition.support_contract->'effects') effect
  WHERE effect->>'name'='native-evaluator-structural-admission') THEN
  RAISE EXCEPTION 'structural admission requires its exact command/effect/factory' USING ERRCODE='23514'; END IF;
@@ -395,7 +395,7 @@ BEGIN
  JOIN sem.data_operation_definition issuer ON issuer.release_id=episode.release_id AND issuer.operation_id=request.operation_id
  WHERE output.product_id=conclusion.id AND output.member_id IS NULL AND output.role='admission'
  AND output.position=0 AND output.multiplicity=1 AND episode.outcome='success'
- AND ops.ddo_structural_command_eligible(issuer) AND episode.recipe=issuer.recipe
+ AND (issuer.command_class=\'structural\') AND episode.recipe=issuer.recipe
  AND intent.payload->>'implementation_revision'=issuer.implementation_revision
  AND (SELECT count(*) FROM ops.data_derivation_output other WHERE other.derivation_id=episode.id)=1
  AND data.ddo_normalize(intent.payload->'outputs'->0->'product'->'body')=conclusion.canonical_body
@@ -438,7 +438,7 @@ BEGIN
  SELECT definition.* INTO STRICT issuer FROM sem.data_operation_definition definition
  JOIN ops.data_request request ON request.operation_id=definition.operation_id AND definition.release_id=episode.release_id
  WHERE request.id=episode.request_id AND request.project_id=demand.project_id;
- IF NOT coalesce(ops.ddo_structural_command_eligible(issuer),false)
+ IF NOT coalesce((issuer.command_class=\'structural\'),false)
  OR NOT coalesce(ops.ddo_policy_authority_leaf(episode.id),false) THEN RETURN NULL; END IF;
  SELECT product.* INTO STRICT conclusion FROM ops.data_derivation_output output
  JOIN kb.data_product product ON product.id=output.product_id

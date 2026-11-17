@@ -226,7 +226,7 @@ BEGIN
  JOIN sem.data_operation_definition definition ON definition.release_id=producer.release_id AND definition.operation_id=request.operation_id
  WHERE output.product_id=chosen->>'product_id' AND output.member_id IS NULL AND output.role='parameters'
  AND output.position=0 AND output.multiplicity=1 AND producer.outcome='success'
- AND ops.ddo_operation_event_command_eligible(definition)
+ AND (definition.command_class=\'operation_event\')
  AND EXISTS(SELECT FROM jsonb_array_elements(r.binding->'support') support WHERE support->>'role'='parameters' AND support->>'derivation_id'=producer.id)
  AND ops.ddo_input_support_selection(chosen) ? producer.id;
  SELECT * INTO STRICT issuer_request FROM ops.data_request WHERE id=issuing.request_id AND project_id=r.project_id;
@@ -257,7 +257,7 @@ BEGIN
  RAISE EXCEPTION 'operation event completion changes exact current request/implementation' USING ERRCODE='23514'; END IF;
  output:=completion->'outputs'->0;
  IF r.operation_id='operation_event.authorize' THEN
- IF NOT coalesce(ops.ddo_operation_event_command_eligible(definition),false) OR jsonb_array_length(completion->'inputs')<>1 THEN
+ IF NOT coalesce((definition.command_class=\'operation_event\'),false) OR jsonb_array_length(completion->'inputs')<>1 THEN
  RAISE EXCEPTION 'operation event issuer requires exact command/effect/factory and fit basis' USING ERRCODE='23514'; END IF;
  output_role:='parameters'; output_kind:='urn:corpus:kind:operation-event:parameters';
  selected:=completion->'inputs'->0;

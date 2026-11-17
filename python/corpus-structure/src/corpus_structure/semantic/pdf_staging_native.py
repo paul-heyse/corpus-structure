@@ -87,7 +87,7 @@ BEGIN
  AND request.release_id IS NOT DISTINCT FROM job.release_id
  AND EXISTS(SELECT FROM sem.data_operation_definition definition
  WHERE definition.release_id=request.release_id AND definition.operation_id=request.operation_id
- AND coalesce(ops.ddo_pdf_command_eligible(definition),false))
+ AND coalesce((definition.command_class=\'pdf\'),false))
  AND EXISTS(SELECT FROM ops.demand_use use_ WHERE use_.request_id=request.id
  AND use_.generation=request.generation AND use_.fate='attached'
  AND ops.ddo_demand_active(use_.demand_id))

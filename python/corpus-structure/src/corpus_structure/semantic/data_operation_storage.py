@@ -285,6 +285,7 @@ def native_protocol_sources(
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
+        SourceArtifact("native/contextual-neighborhood.sql", _SQL.with_name("contextual_neighborhood.sql").read_bytes()),
         SourceArtifact(
             "native/data-operation-external.sql",
             _SQL.with_name("data_operation_external.sql").read_bytes(),
@@ -355,6 +356,7 @@ def _captured(sources) -> dict[str, bytes]:
     required = {
         "native/data-operation-protocol.yaml",
         "native/data-operations.sql",
+        "native/contextual-neighborhood.sql",
         "native/data-operation-storage.py",
         "native/data-operation-member-contracts.py",
         "native/data-operation-physical.yaml",
@@ -515,6 +517,7 @@ def native_sql(sources=None) -> str:
             # SQL-language structural helpers resolve the tagged-value functions
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
+            "native/contextual-neighborhood.sql",
             "native/data-operation-definition-admission.sql",
             "native/data-operation-artifact-admission.sql",
             "native/data-operation-contextual-definition.sql",
@@ -533,6 +536,10 @@ def native_sql(sources=None) -> str:
     sql += "\n" + bodies["native/data-operation-external.sql"].decode()
     # Every private completion guard attests the same captured native kernel.
     sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
+    sql = sql.replace(
+        "__DDO_LOWERING_DIGEST__",
+        sha256(bodies["native/data-operations.sql"]).hexdigest(),
+    )
     if "__DDO_SUBJECT_SCOPES__" in sql:
         sql = sql.replace(
             "__DDO_SUBJECT_SCOPES__",

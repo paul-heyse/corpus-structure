@@ -546,15 +546,7 @@ def binding_branches(metadata):
             _visible(later),
         )
     )
-    distinct = (
-        uses.c.id,
-        episodes.c.id,
-        outputs.c.role,
-        outputs.c.position,
-        products.c.id,
-        outputs.c.member_id,
-    )
-    admitted = (
+    admitted_base = (
         select(
             products.c.id.label("product_id"),
             products.c.kind_contract.label("parent_kind"),
@@ -578,7 +570,6 @@ def binding_branches(metadata):
             .join(products, products.c.id == outputs.c.product_id)
         )
         .where(
-            or_(uses.c.demand_id == demand, exact_pin),
             uses.c.fate == "fulfilled",
             products.c.project_id == project,
             selected_key(products.c.id),
@@ -588,11 +579,16 @@ def binding_branches(metadata):
             # production dependencies constrain default acquisition, not that
             # independent source workflow. Role/header/access checks below and
             # the selected read/support validity above still apply to both.
-            or_(exact_pin, allowed_producer),
-            or_(exact_pin, ~later_exists),
         )
-        .distinct(*distinct)
-        .order_by(*distinct, uses.c.id)
+    )
+    # Preserve exact pins from other demands without an OR across the keyed
+    # demand-use and product/member access paths. UNION removes a use reached
+    # by both arms without discarding distinct emitting outputs.
+    admitted = (
+        union(
+            admitted_base.where(uses.c.demand_id == demand, allowed_producer, ~later_exists),
+            admitted_base.where(exact_pin),
+        )
         .cte("admitted")
         .prefix_with("MATERIALIZED")
     )
