@@ -483,6 +483,7 @@ definitions:
   reason_selection:
     type: object
     properties:
+      inputs_watermark: {type: string, minLength: 1}
       reasons:
         type: array
         items:

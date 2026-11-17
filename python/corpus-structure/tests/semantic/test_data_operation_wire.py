@@ -1171,3 +1171,17 @@ def test_read_obligation_carries_required_checked_subject_definition(mutation):
     else:
         with pytest.raises(ValueError):
             validate_wire_schema(schema, value)
+
+
+def test_waiting_fate_retains_the_inputs_watermark_in_its_closed_reason_selection():
+    payload = {
+        "obligation_id": "obligation:waiting",
+        "fate": "awaiting-inputs",
+        "selection": {"reasons": [], "inputs_watermark": "watermark:visible-prerequisites"},
+    }
+    assert validate_native_wire("record_data_fate", "input", payload) == payload
+    for invalid in (0, "", None):
+        malformed = copy.deepcopy(payload)
+        malformed["selection"]["inputs_watermark"] = invalid
+        with pytest.raises(ValueError):
+            validate_native_wire("record_data_fate", "input", malformed)
