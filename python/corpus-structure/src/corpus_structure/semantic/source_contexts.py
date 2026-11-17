@@ -336,7 +336,7 @@ class PreparedNativeSources:
             or not 0 < len(self.sources) <= self.max_sources
         ):
             raise ContextRefused("prepared sources require a bounded immutable tuple")
-        prepared = {source.source_key: PreparedNativeSource(source) for source in self.sources}
+        prepared = {source.source_key: source.prepared_source for source in self.sources}
         if len(prepared) != len(self.sources):
             raise ContextRefused("prepared source identities must be distinct")
         object.__setattr__(self, "by_id", MappingProxyType(prepared))

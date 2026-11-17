@@ -285,6 +285,13 @@ class DeclaredNativeFrameSource:
         return self.view.ancestors
 
     @cached_property
+    def prepared_source(self):
+        """Invocation-owned context preparation shared by this frame's block scopes."""
+        from .source_contexts import PreparedNativeSource
+
+        return PreparedNativeSource(self)
+
+    @cached_property
     def selected_ranges(self):
         """Exact inspectable original extents from this member's own frozen selectors."""
         from .source_products import selected_source_ranges

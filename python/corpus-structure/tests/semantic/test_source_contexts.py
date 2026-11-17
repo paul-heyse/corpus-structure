@@ -551,6 +551,7 @@ def test_prepared_source_view_is_shared_recursively_immutable_and_ordered():
     ])
     assert primary.pieces is primary.pieces
     assert primary.items is primary.items
+    assert PreparedNativeSources((primary,)).require(primary) is PreparedNativeSources((primary,)).require(primary)
     assert primary.view.ends == (3, 4, 7)
     assert [piece["start"] for piece in primary.view.selected_pieces(3, 5)] == [3, 4]
     assert [pointer for pointer, _ in primary.view.selected_items(2, 5)] == [
