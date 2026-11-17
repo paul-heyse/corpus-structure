@@ -236,7 +236,7 @@ dependency, not synchronization barriers: any slice whose prerequisites are met 
 | **Wave 6 — PDF (native successor N3, then N4)** | | | | |
 | PE-S34 | Set-wise companion adoption | PE-F12 (companions) | operations, postgresql / DDO-07 | — |
 | PE-S35 | Single adoption of page artifacts from the spool | PE-F25 | operations / DDO-07 | PE-S34 |
-| PE-S36 | Producer certification; round-trip oracle per lowering identity | PE-F26, PE-RC06 | operations / DDO-07 | PE-S00, ADR-F |
+| PE-S36 | Producer certification; round-trip oracle per lowering identity | PE-F26, PE-RC06 | operations / DDO-07 | PE-S00, ADR-0130 |
 | PE-S37 | Admitted bulk scalar read; narrow inventory read; ordered observation read | PE-F14 | operations, postgresql / DDO-07 | — |
 | PE-S38 | Recognition worker per slot; context once per operation; page-atomic publication | PE-F20 | operations / DDO-07 | PE-S09 |
 | PE-S39 | Capture resumes from the spool | PE-F28 (capture) | operations / DDO-07 | PE-S35, ADR-0127 |

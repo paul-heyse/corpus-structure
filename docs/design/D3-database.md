@@ -639,7 +639,18 @@ completed knowledge or operational adoption.
 [PDF-20/21](../plans/pdf-docling-pipeline/staged-publication-and-validation.md) own durable staging/seal;
 PDF-24/25 own shared consumer/export migration and operational handoff. The coordinator owns evidence.
 
-> Decision: [ADR-0045](../adr/0045-structured-pdf-payload-validation.md)
+**Accepted target; implementation/qualification Proposed · 2026-11-17.** DDO PE-S36 moves
+complete output certification to the producer over its document and exact staged bytes. Native
+callbacks, payload/metadata checks, access/region projection and the Python logical fold precede
+freeze. PostgreSQL independently checks frozen stored-byte roots, structure, access correspondence,
+metadata and logical-digest equality. Receipts identify certification basis and the exact
+release-captured lowering/reconstruction contract. The first publication of each kind under an
+unqualified lowering identity, explicit verification and DDO-12 retain the reconstruction oracle.
+Subsequent ordinary publications use that qualified oracle plus per-publication producer/native
+checks; unexamined content-specific lowering defects are an accepted assurance limit (DP-23).
+The DDO coordinator owns implementation and qualification; this does not relabel prior evidence.
+
+> Decision: [ADR-0130](../adr/0130-pdf-producer-certified-publication.md)
 
 **Accepted target (2026-11-01):** New segmented streams use independently verified actual parts,
 lengths and canonical byte folds. Conventional serialization SHA-256 is optional, separately
@@ -694,7 +705,7 @@ then use the existing dedicated-cluster provisioning route. An existing owned ap
 also needs `CREATE EXTENSION pg_jsonschema VERSION '0.3.4'` as its provisioner. Earlier frozen
 migrations remain unchanged. The PDF coordinator owns deployment and qualification state.
 
-> Decision: [ADR-0045](../adr/0045-structured-pdf-payload-validation.md)
+> Decision: [ADR-0130](../adr/0130-pdf-producer-certified-publication.md)
 
 ## Current task authority and historical storage
 

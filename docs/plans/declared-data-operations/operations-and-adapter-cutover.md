@@ -409,7 +409,7 @@ only on admitted lengths in order.
 
 ### PE-S28, PE-S29 — encoder batch form (PE-F13, PE-RC04)
 
-**Rule change PE-RC04** (ADR-E, superseding ADR-0129's encoder paragraph and restating its
+**Rule change PE-RC04** (ADR-0129, superseding ADR-0114's encoder paragraph and restating its
 other decisions unchanged; ADR-0084 and ADR-0085 are not contradicted and stay). The three
 encoder operations (declared query, selected-context query, target vector) keep one logical
 request, product and vector observation per occurrence or target and declare the `batch` form.
@@ -507,7 +507,9 @@ attempt's manifest only after that attempt's physical retirement is proven. The 
 retained until the build is sealed or abandoned; the slice states the rule for keeping or
 collecting rasters and assemblies after that. After conversion the parent adopts once, set-wise: candidates as the companion (their
 only reader's source), records and occurrences as now. Rasters and assemblies stay in the spool
-as producer working state, with their digests recorded in the runtime report. Removed: per-page
+as producer working state, with original manifest bytes/file digests retained in the native
+producer/contributor custody and frozen receipt. These physical facts stay outside semantic
+`runtime_report` metadata so a new attempt’s private paths cannot change PDF meaning. Removed: per-page
 database adoption, the end-of-run re-emission of page streams, and the unused artifact profiles.
 
 Page memory is still released only after durable spool custody. Frozen digests of new builds
@@ -516,7 +518,7 @@ and acceptance checks that.
 
 ### PE-S36 — producer certification and the round-trip oracle (PE-F26, PE-RC06)
 
-**Rule change PE-RC06** (ADR-F, superseding ADR-0045; D3 amended). On the record path today the
+**Rule change PE-RC06** (ADR-0130, superseding ADR-0045; D3 amended). On the record path today the
 read-back child is the only complete output certification (PE-D04). The target moves
 certification to the producer and keeps the round trip as an oracle.
 
