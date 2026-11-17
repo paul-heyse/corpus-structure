@@ -2,16 +2,15 @@
 
 from semantic.record_contracts_support import release_inputs
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.pm2_maverick_products import (
     LocalCluster,
     earlier_local_members,
     maverick_products,
 )
 from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
-from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
+from corpus_structure.methods.pm2_result import pm2_contribution_values, pm2_input_digest
 from corpus_structure.methods.pm2_source import PM2TokenMap, ProviderToken, SourceMapRefused
+from corpus_structure.semantic.contributions import operation_identity
 from methods.pm2_source_support import identity_map
 
 
@@ -50,18 +49,21 @@ def test_maverick_retains_nested_and_unassigned_detection_independently_of_clust
     profile = {"provider": "maverick"}
     question = PARSER_QUESTIONS["maverick"]
     dimensions = {"question": question, "operation_version": "1"}
-    result = pm2_unit_result(
-        UnitRef(TaskUnitType.SOURCE_VIEW, 1, "unit:1"),
+    digest = pm2_input_digest(mapping, profile, request, **dimensions)
+    contributions, _, locations = pm2_contribution_values(
         mapping,
-        profile=profile,
-        request=request,
-        reply=reply,
-        input_digest=pm2_input_digest(mapping, profile, request, **dimensions),
+        product.locations,
+        product.products,
         prepared=release_inputs()[2],
-        **dimensions,
+        provider="maverick",
+        input_digest=digest,
+        operation_key=operation_identity(
+            question, "1", mapping.mapping.context.primary.source_key, digest
+        ),
+        question=question,
     )
-    assert result.contributions is not None
-    rows = {row["item_key"]: row for row in result.contributions}
+    rows = {row["item_key"]: row for row in contributions}
+    assert locations["mention:4:5:extent"]["outcome"] == "unsupported"
     assert rows["cluster:0"]["members"] == tuple(
         rows[key]["contribution_id"] for key in by_key["cluster:0"].members
     )

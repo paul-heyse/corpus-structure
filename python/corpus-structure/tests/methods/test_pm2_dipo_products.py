@@ -5,11 +5,9 @@ from dataclasses import replace
 import pytest
 from semantic.record_contracts_support import release_inputs
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.pm2_dipo_products import dipo_context, dipo_products
 from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
-from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
+from corpus_structure.methods.pm2_result import pm2_contribution_values, pm2_input_digest
 from corpus_structure.methods.pm2_source import (
     MappedSource,
     PM2SourceMap,
@@ -17,6 +15,7 @@ from corpus_structure.methods.pm2_source import (
     SourceMapRefused,
     SourceMapSegment,
 )
+from corpus_structure.semantic.contributions import operation_identity
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.source_contexts import PreparedNativeSources
 from methods.pm2_source_support import identity_map, source_context
@@ -76,17 +75,21 @@ def test_raw_tree_preserves_leading_gap_coincident_and_merged_breaks():
 
     dimensions = {"question": PARSER_QUESTIONS["dipo"], "operation_version": "1"}
     profile = {"provider": "dipo"}
-    retained = pm2_unit_result(
-        UnitRef(TaskUnitType.SOURCE_VIEW, 1, "unit:1"),
+    digest = pm2_input_digest(mapping, profile, request, **dimensions)
+    contributions, _, locations = pm2_contribution_values(
         mapping,
-        profile=profile,
-        request=request,
-        reply=dict(reply, outcome="succeeded"),
-        input_digest=pm2_input_digest(mapping, profile, request, **dimensions),
+        result.locations,
+        result.products,
         prepared=release_inputs()[2],
-        **dimensions,
+        provider="dipo",
+        input_digest=digest,
+        operation_key=operation_identity(
+            dimensions["question"], "1", mapping.context.primary.source_key, digest
+        ),
+        question=dimensions["question"],
     )
-    rows = {row["item_key"]: row for row in retained.contributions or ()}
+    rows = {row["item_key"]: row for row in contributions}
+    assert locations[second.members[0]]["outcome"] == "succeeded"
     root = rows["layout_forced:tree"]
     assert root["contract"] == "PM2DipoTreeContributionV1"
     assert source_python(root["value"])["provider_gaps"] == [{"start": 0, "end": 2}]

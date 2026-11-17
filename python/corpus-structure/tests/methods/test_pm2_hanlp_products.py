@@ -7,12 +7,11 @@ from copy import deepcopy
 import pytest
 from semantic.record_contracts_support import release_inputs
 
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.pm2_hanlp_products import hanlp_products
 from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
-from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
+from corpus_structure.methods.pm2_result import pm2_contribution_values, pm2_input_digest
 from corpus_structure.methods.pm2_source import PM2TokenMap, ProviderToken, SourceMapRefused
+from corpus_structure.semantic.contributions import operation_identity
 from methods.pm2_source_support import identity_map
 
 
@@ -91,17 +90,21 @@ def test_conditional_host_alternatives_and_srl_roles_remain_independent():
 
     dimensions = {"question": PARSER_QUESTIONS["hanlp"], "operation_version": "1"}
     profile = {"provider": "hanlp"}
-    retained = pm2_unit_result(
-        UnitRef(TaskUnitType.SOURCE_VIEW, 1, "unit:1"),
+    digest = pm2_input_digest(mapping, profile, request, **dimensions)
+    rows, _, locations = pm2_contribution_values(
         mapping,
-        profile=profile,
-        request=request,
-        reply=dict(native, outcome="succeeded"),
-        input_digest=pm2_input_digest(mapping, profile, request, **dimensions),
+        result.locations,
+        result.products,
         prepared=release_inputs()[2],
-        **dimensions,
+        provider="hanlp",
+        input_digest=digest,
+        operation_key=operation_identity(
+            dimensions["question"], "1", mapping.mapping.context.primary.source_key, digest
+        ),
+        question=dimensions["question"],
     )
-    assert {row["semantic_type"]: row["contract"] for row in retained.contributions or ()} == {
+    assert locations[phrase["location"]]["outcome"] == "succeeded"
+    assert {row["semantic_type"]: row["contract"] for row in rows} == {
         "source_occurrence": "RetainedContributionSemantics",
         "linguistic.constituent": "PM2HanLPPhraseContributionV1",
     }

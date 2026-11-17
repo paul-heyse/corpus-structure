@@ -1,25 +1,19 @@
-"""Retain bounded native model observations through the existing private result contract."""
+"""Map native observations into declared source contributions and exact locations."""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import asdict
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from corpus_structure.core.method import UnitRef, UnitResult
-from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.contributions import (
     contribution_identity,
     contribution_payload_contracts,
     occurrence_identity,
-    operation_identity,
     validate_contribution_semantics,
 )
-from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.interpretation_questions import ANSWER_READS, declared_families
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -28,7 +22,6 @@ from corpus_structure.semantic.source_contexts import (
 )
 
 from .pm2_products import (
-    PARSER_QUESTIONS,
     ParserProducts,
     parser_member_types,
     parser_value_for_contract,
@@ -42,14 +35,7 @@ from .pm2_source import (
     ProviderSpan,
     SourceMapRefused,
     map_d1,
-    map_dipo,
-    map_hanlp,
-    map_maverick,
 )
-
-if TYPE_CHECKING:
-    from corpus_structure.semantic.types import PreparedRelease
-
 
 def _parser_products(provider, mapping, request, reply, prepared) -> ParserProducts:
     if provider == "maverick" and isinstance(mapping, PM2TokenMap):
@@ -100,90 +86,6 @@ def d1_evidence(
     return located
 
 
-def projects_completed_empty_d1(
-    provider: str, operation_version: str, request: Mapping[str, Any], reply: Mapping[str, Any]
-) -> bool:
-    """A successor interpretation retains missing answers from a completed empty read."""
-    return (
-        provider == "d1"
-        and operation_version == "3"
-        and "interpretation" in request
-        and reply.get("outcome") == "empty"
-    )
-
-
-def _native_evidence(
-    mapping: PM2SourceMap | PM2TokenMap,
-    provider: str,
-    request: Mapping[str, Any],
-    reply: Mapping[str, Any],
-    field: D1SourceField | None,
-    source_path: str | None,
-) -> dict[str, MappedSource | SourceMapRefused]:
-    if provider == "d1" and isinstance(mapping, PM2SourceMap):
-        rendered = reply["rendered_state"]
-        state = rendered if field is None else json.loads(rendered)
-        if canonical_bytes(state) != canonical_bytes(request["state"]):
-            raise ValueError("d1 rendered state differs from the admitted request")
-        return d1_evidence(
-            mapping,
-            reply,
-            field=field,
-            source_path=source_path,
-            native=request.get("interpretation", {}).get("version") in ("2", "3"),
-        )
-
-    located: dict[str, MappedSource | SourceMapRefused] = {}
-    if provider == "dipo" and isinstance(mapping, PM2SourceMap):
-        text = mapping.provider_text
-        if text != request["text"]:
-            raise ValueError("Dipo request differs from its exact character map")
-        for index, edu in enumerate(reply["edus"]):
-            start, end = edu["chars"]
-            literal = text[start:end]
-            if " ".join(literal.split()) != edu["text"]:
-                raise ValueError("Dipo EDU differs from the retained source text")
-            try:
-                located[str(index)] = map_dipo(
-                    mapping, (ProviderSpan(start, end, literal),), scope_digest=mapping.scope_digest
-                )
-            except SourceMapRefused as exc:
-                located[str(index)] = exc
-        return located
-
-    if not isinstance(mapping, PM2TokenMap) or provider not in {"hanlp", "maverick"}:
-        raise ValueError("unsupported native profile and source map combination")
-    sentences = [
-        [token.text for token in mapping.sentence_tokens(index)]
-        for index in sorted({token.sentence for token in mapping.tokens})
-    ]
-    if request["sentences"] != sentences:
-        raise ValueError("native request differs from its exact token map")
-    scope = mapping.mapping.scope_digest
-    if provider == "maverick":
-        if reply["tokens"] != [token.text for token in mapping.tokens]:
-            raise ValueError("Maverick returned a different token population")
-        for first, last in reply["mentions"]:
-            key = f"{first}:{last}"
-            try:
-                located[key] = map_maverick(mapping, first, last, scope_digest=scope)
-            except SourceMapRefused as exc:
-                located[key] = exc
-    else:
-        native = reply["native"]
-        if native["tok"] != sentences:
-            raise ValueError("HanLP returned a different token population")
-        (dependency_head,) = (key for key in native if key.split("/")[0] == "dep")
-        for sentence, arcs in enumerate(native[dependency_head]):
-            (root,) = (index for index, arc in enumerate(arcs) if arc[0] == 0)
-            key = f"{sentence}:root"
-            try:
-                located[key] = map_hanlp(mapping, sentence, ((root, root + 1),), scope_digest=scope)
-            except SourceMapRefused as exc:
-                located[key] = exc
-    return located
-
-
 def pm2_input_digest(
     mapping: PM2SourceMap | PM2TokenMap,
     profile: Mapping[str, Any],
@@ -222,11 +124,7 @@ def pm2_contribution_values(
     source_path=None,
     parser_operation=True,
 ):
-    """Project exact source contributions independently of historical unit/task custody.
-
-    Both declared producers and the retained legacy result adapter use the same
-    source-map, original-anchor, payload and ordered-member semantics.
-    """
+    """Project declared source occurrences and products with ordered member semantics."""
     source_map = mapping.mapping if isinstance(mapping, PM2TokenMap) else mapping
     pin = record_source_pin(source_map.context.primary)
     rows, coordinates, locations = [], [], {}
@@ -332,193 +230,3 @@ def pm2_contribution_values(
         member_types[product.key] = product.semantic_type
         rows.append(row)
     return tuple(rows), tuple(coordinates), locations
-
-
-def pm2_unit_result(
-    ref: UnitRef,
-    mapping: PM2SourceMap | PM2TokenMap,
-    *,
-    profile: Mapping[str, Any],
-    request: Mapping[str, Any],
-    reply: dict[str, Any],
-    question: str,
-    operation_version: str,
-    input_digest: str,
-    source_path: str | None = None,
-    field: D1SourceField | None = None,
-    prepared: PreparedRelease | None = None,
-) -> UnitResult:
-    """Bind the native reply, exact selected evidence, and eligible physical locations.
-
-    A projected spelling that differs from the native field survives in the report.
-    Only source-owner-confirmed native pieces enter the physical occurrence inventory.
-    """
-    outcome = reply["outcome"]
-    if outcome not in {"succeeded", "empty", "limited", "failed"}:
-        raise ValueError("unexpected native result outcome")
-    if input_digest != pm2_input_digest(
-        mapping,
-        profile,
-        request,
-        question=question,
-        operation_version=operation_version,
-        source_path=source_path,
-    ):
-        raise ValueError("admitted task input differs from the effective PM2 input")
-    operation_key = operation_identity(question, operation_version, ref.unit_key, input_digest)
-    source_map = mapping.mapping if isinstance(mapping, PM2TokenMap) else mapping
-    pin = record_source_pin(source_map.context.primary)
-    if (ref.unit_type, ref.unit_id, ref.unit_key) != (
-        TaskUnitType.SOURCE_VIEW,
-        pin["source_view_id"],
-        pin["source"],
-    ):
-        raise ValueError("admitted task unit differs from the PM2 source view")
-    provider = str(profile["provider"])
-    parser_operation = question in PARSER_QUESTIONS.values()
-    if parser_operation and question != PARSER_QUESTIONS.get(provider):
-        raise ValueError("parser question differs from the admitted provider")
-    layout = mapping.layout if isinstance(mapping, PM2TokenMap) else None
-    if parser_operation and (
-        (layout is not None) != (provider == "hanlp" and operation_version == "2")
-        or (operation_version != "1" and not (provider == "hanlp" and operation_version == "2"))
-    ):
-        raise ValueError("native parser version differs from its exact layout policy")
-    products = ()
-    evidence = {}
-    project_empty = not parser_operation and projects_completed_empty_d1(
-        provider, operation_version, request, reply
-    )
-    if project_empty:
-        native_reply = reply.get("native")
-        answers = native_reply.get("answers") if isinstance(native_reply, Mapping) else None
-        if (
-            not isinstance(answers, Mapping)
-            or not answers
-            or any(
-                not isinstance(answer, Mapping)
-                or "span" not in answer
-                or answer["span"] is not None
-                or answer.get("type") not in ANSWER_READS
-                for answer in answers.values()
-            )
-        ):
-            raise ValueError("d1 empty reply differs from completed absent span answers")
-    if outcome == "succeeded" or project_empty:
-        if parser_operation:
-            parsed = _parser_products(provider, mapping, request, reply, prepared)
-            evidence, products = parsed.locations, parsed.products
-        elif provider == "gliner":
-            from .model_observation import released_policy
-            from .pm2_gliner_classification import (
-                FAMILY,
-                VERSION,
-                ClassificationProfile,
-                classification_product,
-                classification_request,
-                require_classification_request,
-            )
-
-            if (
-                prepared is None
-                or not isinstance(mapping, PM2SourceMap)
-                or (question, operation_version) != (FAMILY, VERSION)
-                or source_path is not None
-                or field is not None
-            ):
-                raise ValueError("GLiNER classification differs from the admitted operation")
-            family = declared_families(prepared.registry_rows).get(question)
-            if family is None:
-                raise ValueError("classification question is not in the selected release")
-            selected = ClassificationProfile.model_validate(profile)
-            expected = classification_request(
-                prepared.release_id,
-                family,
-                request["question_key"],
-                mapping,
-                selected,
-                released_policy(prepared)["inference"],
-            )
-            require_classification_request(dict(request), expected)
-            products = (classification_product(expected, reply["gliner"], selected),)
-        else:
-            evidence = _native_evidence(mapping, provider, request, reply, field, source_path)
-            if provider == "d1" and "interpretation" in request:
-                from .pm2_interpretation_products import interpretation_products
-
-                family = (
-                    None
-                    if prepared is None
-                    else declared_families(prepared.registry_rows).get(question)
-                )
-                if family is None:
-                    raise ValueError("interpretation question is not in the selected release")
-                if request["interpretation"].get("version", family.version) != operation_version:
-                    raise ValueError("interpretation rendering differs from the admitted version")
-                assessed = request["interpretation"]["assessed_scope"]
-                (scope,) = source_map.context.pieces
-                if (
-                    not isinstance(scope, DeclaredSourceSlice)
-                    or assessed["pin"] != pin
-                    or assessed["scope_digest"] != source_map.scope_digest
-                    or assessed["projection_extent"] != [scope.start, scope.end]
-                ):
-                    raise ValueError("interpretation scope differs from the authenticated source")
-                products = interpretation_products(family, dict(request), reply, evidence)
-    rows, coordinates, locations = pm2_contribution_values(
-        mapping,
-        evidence,
-        products,
-        prepared=prepared,
-        provider=provider,
-        input_digest=input_digest,
-        operation_key=operation_key,
-        question=question,
-        source_path=source_path,
-        parser_operation=parser_operation,
-    )
-    report: dict[str, Any] = {
-        "native": reply,
-        "locations": locations,
-        "scope_digest": source_map.scope_digest,
-        "input_digest": input_digest,
-        "source_map_digest": source_map.input_digest,
-        "authorized_source_path": source_path,
-        "source_map": {
-            "context_pieces": [asdict(piece) for piece in source_map.context.pieces],
-            "segments": [asdict(segment) for segment in source_map.segments],
-            "protected_atoms": source_map.protected_atoms,
-            "tokens": [asdict(token) for token in mapping.tokens]
-            if isinstance(mapping, PM2TokenMap)
-            else [],
-            **({"layout": asdict(layout)} if layout is not None else {}),
-        },
-        "effective_profile_digest": sha256(canonical_bytes(dict(profile))).hexdigest(),
-        "request": dict(request),
-    }
-    operation = {
-        "operation_key": operation_key,
-        "question": question,
-        "operation_version": operation_version,
-        # The provider's empty reply is retained verbatim in the report.
-        # Projection succeeds when it produces independently readable question states.
-        "outcome": "succeeded" if project_empty else outcome,
-        "inspected_count": 0 if outcome in {"limited", "failed"} else 1,
-        "emitted_count": len(rows),
-        "report_digest": sha256(canonical_bytes(report)).hexdigest(),
-        "computation_dependencies": (input_digest,),
-    }
-    if outcome in {"limited", "failed"}:
-        operation["reason"] = reply["reason"]
-    unit_outcome = ObservationOutcome.PRODUCED if rows else ObservationOutcome.EMPTY
-    if outcome == "failed":
-        unit_outcome = ObservationOutcome.FAILED
-    return UnitResult(
-        ref=ref,
-        outcome=unit_outcome,
-        error=reply["reason"] if outcome == "failed" else None,
-        parse_detail={"pm2_native": report},
-        contribution_operations=(operation,),
-        contributions=tuple(rows),
-        contribution_coordinate_texts=tuple(coordinates),
-    )
