@@ -180,9 +180,9 @@ def run_private_native_pdf_build(
     directory.mkdir(parents=True, exist_ok=True)
     owner = OwnedPdfSource.acquire(original, directory, expected_digest=source_digest)
     worker = None
+    spool = None
     entered = False
     try:
-        worker = PdfWorker(recipe, assets=assets)
 
         def check_active():
             cancellation.check_active()
@@ -217,41 +217,27 @@ def run_private_native_pdf_build(
             from corpus_structure.ingest.pdf_build_spool import PdfBuildSpool
 
             spool = PdfBuildSpool(
-                directory,
-                build_id=build.build_id,
-                task_id=claim.task_id,
-                attempt=claim.attempt,
-                holder=holder,
-                check_active=check_active,
+                directory, build_id=build.build_id, task_id=claim.task_id,
+                attempt=claim.attempt, holder=holder, check_active=check_active,
             )
+            worker = PdfWorker(recipe, assets=assets, writer_lease=spool.writer_lease)
             replay_root = spool.root
 
             def retain_replay(replay: PdfReplayRef) -> None:
-                if replay.family not in {
-                    *STAGE_FAMILIES,
-                    "page",
-                    "candidate_payload",
-                    "companion:occurrence",
-                }:
+                if replay.family not in {*STAGE_FAMILIES, "page", "candidate_payload", "companion:occurrence"}:
                     raise ValueError("unknown private PDF replay family")
                 if replay.family == "page":
                     import json
-
                     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 
                     replay.verify()
                     with replay.path.open() as source:
                         page = json.load(source)
                     raster = page["raster"]
-                    spool.append(
-                        PdfReplayRef(
-                            Path(raster["path"]),
-                            raster["digest"],
-                            raster["byte_length"],
-                            "native-raster",
-                            page_no=page["page"]["page_no"],
-                        )
-                    )
+                    spool.append(PdfReplayRef(
+                        Path(raster["path"]), raster["digest"], raster["byte_length"],
+                        "native-raster", page_no=page["page"]["page_no"],
+                    ))
                 spool.append(replay)
 
             def adopt_replay(replay: PdfReplayRef) -> None:
@@ -346,20 +332,12 @@ def run_private_native_pdf_build(
                 for replay in spool.entries:
                     if replay.family == "candidate_payload":
                         encoded = encoded_replay(replay, payload_family)
-                        yield {
-                            "kind": "inline_candidate_pages",
-                            "ordinal": encoded.page_no,
-                            "value": encoded,
-                        }
+                        yield {"kind": "inline_candidate_pages", "ordinal": encoded.page_no,
+                               "value": encoded}
 
             adopt_pdf_companions(
-                engine,
-                build,
-                "native_metadata",
-                candidates(),
-                "native:candidate-metadata",
-                check_active=check_active,
-                cancellation=cancellation,
+                engine, build, "native_metadata", candidates(), "native:candidate-metadata",
+                check_active=check_active, cancellation=cancellation,
             )
             for replay in spool.entries:
                 if replay.family not in {"page", "native-raster", "candidate_payload"}:
@@ -375,10 +353,7 @@ def run_private_native_pdf_build(
                         {
                             "kind": "runtime_report",
                             "ordinal": 0,
-                            "value": {
-                                "effective_options": reply.effective_options.decode(),
-                                "spool": spool.report(),
-                            },
+                            "value": {"effective_options": reply.effective_options.decode(), "spool": spool.report()},
                         },
                     ),
                     replay_key="native:runtime-report",
@@ -405,7 +380,6 @@ def run_private_native_pdf_build(
 
             completion = replay_root / "records" / "completion.jsonl"
             if completion.exists():
-
                 def formula_outcomes():
                     with completion.open() as completion_file:
                         for ordinal, line in enumerate(completion_file):
@@ -418,19 +392,16 @@ def run_private_native_pdf_build(
                             yield {"kind": "formula_outcomes", "ordinal": ordinal, "value": body}
 
                 adopt_pdf_companions(
-                    engine,
-                    build,
-                    "native_metadata",
-                    formula_outcomes(),
-                    "native:formulas",
-                    check_active=check_active,
-                    cancellation=cancellation,
+                    engine, build, "native_metadata", formula_outcomes(), "native:formulas",
+                    check_active=check_active, cancellation=cancellation,
                 )
             check_active()
         finally:
             # Stop native borrowers before ending claim maintenance or source custody.
-            if not worker.closed or worker.pid is not None:
+            if worker is not None and (not worker.closed or worker.pid is not None):
                 worker.close()
+            if spool is not None:
+                spool.close()
             owner.close()
     finally:
         if not entered:
@@ -510,7 +481,6 @@ def publish_pdf_record_draft(
     failure leaves authenticated private progress and original custody available.
     """
     from hashlib import sha256
-
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
     from corpus_structure.semantic.pdf_publication import (
         freeze_pdf_build,
@@ -549,121 +519,115 @@ def publish_pdf_record_draft(
         )
     from corpus_structure.ingest.pdf_build_spool import PdfBuildSpool
 
-    draft_spool = PdfBuildSpool(
-        directory,
-        build_id=build.build_id,
-        task_id=claim.task_id,
-        attempt=claim.attempt,
-        holder=holder,
-        check_active=check_active,
-    )
-    owner = draft_spool.root
-    spool = PdfStreamSpool(owner / "pages", check_active=check_active)
-    streamed = StreamingPdfResult(
-        draft.document,
-        spool,
-        str(draft.health.get("conversion", "success")),
-        (),
-        draft.recipe_bytes,
-        (),
-    )
-
-    def adopt(replay: PdfReplayRef) -> None:
-        batches = ipc_replay_batches((replay,), check_active)
-        try:
-            for batch in batches:
-                check_active()
-                with _pdf_transaction(engine, cancellation) as connection:
-                    adopt_pdf_batch(
-                        connection,
-                        build,
-                        batch.replay_key,
-                        batch.relations,
-                        cancellation=cancellation,
-                    )
-        finally:
-            batches.close()
-
-    streamed.write_record_batches(
-        owner / "records",
-        build_id=build.build_id,
-        release_id=build.release_id,
-        source_digest=source_digest,
-        on_batch=draft_spool.append,
-    )
-    for replay in draft_spool.entries:
-        adopt(replay)
-    if draft.kind == "native" and "occurrence" not in draft.companions:
-        from corpus_structure.ingest.pdf_record_product import native_occurrence_rows
-
-        native_occurrences = native_occurrence_rows(draft.document)
-    else:
-        native_occurrences = None
-    companions = dict(draft.companions)
-    if native_occurrences is not None:
-        companions["occurrence"] = native_occurrences
-    native_health = dict(draft.health)
-    captured_metadata = dict(draft.metadata)
-    if "formula_outcomes" in native_health:
-        captured_metadata.setdefault("formula_outcomes", native_health.pop("formula_outcomes"))
-    if captured_metadata:
-
-        def metadata_rows():
-            for kind, values in captured_metadata.items():
-                rows = (values,) if isinstance(values, Mapping) else values
-                for ordinal, value in enumerate(rows):
-                    yield {"kind": kind, "ordinal": ordinal, "value": value}
-
-        from itertools import chain
-
-        companions["native_metadata"] = chain(
-            companions.get("native_metadata", ()), metadata_rows()
+    with PdfBuildSpool(directory, build_id=build.build_id, task_id=claim.task_id,
+                               attempt=claim.attempt, holder=holder, check_active=check_active) as draft_spool:
+        owner = draft_spool.root
+        spool = PdfStreamSpool(owner / "pages", check_active=check_active)
+        streamed = StreamingPdfResult(
+            draft.document,
+            spool,
+            str(draft.health.get("conversion", "success")),
+            (),
+            draft.recipe_bytes,
+            (),
         )
-    if "health" in companions:
-        health_rows = companions["health"]
 
-        def bounded_health_rows():
-            for row in health_rows:
-                body = dict(row)
-                embedded = body.pop("health", None)
-                if embedded is not None:
-                    body = {**embedded, **body}
-                body.pop("formula_outcomes", None)
-                yield body
+        def adopt(replay: PdfReplayRef) -> None:
+            batches = ipc_replay_batches((replay,), check_active)
+            try:
+                for batch in batches:
+                    check_active()
+                    with _pdf_transaction(engine, cancellation) as connection:
+                        adopt_pdf_batch(
+                            connection,
+                            build,
+                            batch.replay_key,
+                            batch.relations,
+                            cancellation=cancellation,
+                        )
+            finally:
+                batches.close()
 
-        companions["health"] = bounded_health_rows()
-    companions.setdefault(
-        "health",
-        (
-            {
-                **native_health,
-                "source_scope": draft.source_scope,
-            },
-        ),
-    )
-    for family, records in companions.items():
-        adopt_pdf_companions(
-            engine,
-            build,
-            family,
-            records,
-            replay_key=f"companion:{family}",
-            check_active=check_active,
-            cancellation=cancellation,
+        streamed.write_record_batches(
+            owner / "records",
+            build_id=build.build_id,
+            release_id=build.release_id,
+            source_digest=source_digest,
+            on_batch=draft_spool.append,
         )
-    if draft.retained_serialization is not None:
-        _adopt_retained_serialization(
-            engine, build, draft.retained_serialization, check_active, cancellation=cancellation
+        for replay in draft_spool.entries:
+            adopt(replay)
+        if draft.kind == "native" and "occurrence" not in draft.companions:
+            from corpus_structure.ingest.pdf_record_product import native_occurrence_rows
+
+            native_occurrences = native_occurrence_rows(draft.document)
+        else:
+            native_occurrences = None
+        companions = dict(draft.companions)
+        if native_occurrences is not None:
+            companions["occurrence"] = native_occurrences
+        native_health = dict(draft.health)
+        captured_metadata = dict(draft.metadata)
+        if "formula_outcomes" in native_health:
+            captured_metadata.setdefault("formula_outcomes", native_health.pop("formula_outcomes"))
+        if captured_metadata:
+
+            def metadata_rows():
+                for kind, values in captured_metadata.items():
+                    rows = (values,) if isinstance(values, Mapping) else values
+                    for ordinal, value in enumerate(rows):
+                        yield {"kind": kind, "ordinal": ordinal, "value": value}
+
+            from itertools import chain
+
+            companions["native_metadata"] = chain(
+                companions.get("native_metadata", ()), metadata_rows()
+            )
+        if "health" in companions:
+            health_rows = companions["health"]
+
+            def bounded_health_rows():
+                for row in health_rows:
+                    body = dict(row)
+                    embedded = body.pop("health", None)
+                    if embedded is not None:
+                        body = {**embedded, **body}
+                    body.pop("formula_outcomes", None)
+                    yield body
+
+            companions["health"] = bounded_health_rows()
+        companions.setdefault(
+            "health",
+            (
+                {
+                    **native_health,
+                    "source_scope": draft.source_scope,
+                },
+            ),
         )
-    check_active()
-    with _pdf_transaction(engine, cancellation) as connection:
-        frozen = freeze_pdf_build(connection, build, kind=draft.kind)
-    with _pdf_transaction(engine, cancellation) as connection:
-        prepare_pdf_build(connection, frozen)
-    validate_pdf_build(engine, frozen, check_active=check_active, cancellation=cancellation)
-    check_active()
-    with _pdf_transaction(engine, cancellation) as connection:
-        return seal_pdf_build(connection, frozen, product_key=draft.product_key)
+        for family, records in companions.items():
+            adopt_pdf_companions(
+                engine,
+                build,
+                family,
+                records,
+                replay_key=f"companion:{family}",
+                check_active=check_active,
+                cancellation=cancellation,
+            )
+        if draft.retained_serialization is not None:
+            _adopt_retained_serialization(
+                engine, build, draft.retained_serialization, check_active, cancellation=cancellation
+            )
+        check_active()
+        with _pdf_transaction(engine, cancellation) as connection:
+            frozen = freeze_pdf_build(connection, build, kind=draft.kind)
+        with _pdf_transaction(engine, cancellation) as connection:
+            prepare_pdf_build(connection, frozen)
+        validate_pdf_build(engine, frozen, check_active=check_active, cancellation=cancellation)
+        check_active()
+        with _pdf_transaction(engine, cancellation) as connection:
+            return seal_pdf_build(connection, frozen, product_key=draft.product_key)
 
 
 def produce_published_pdf_records(

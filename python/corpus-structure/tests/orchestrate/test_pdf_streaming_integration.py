@@ -84,7 +84,7 @@ class _ScriptedDocumentConverter:
         )
 
 
-def _controlled_native_child(connection, recipe, assets):
+def _controlled_native_child(connection, recipe, assets, writer_lease=None):
     # Replace only the external library provider, preserving model-owned application bindings.
     from docling import document_converter
 
@@ -92,7 +92,7 @@ def _controlled_native_child(connection, recipe, assets):
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(document_converter, "DocumentConverter", _ScriptedDocumentConverter)
-        pdf_worker._native_child(connection, recipe, assets)
+        pdf_worker._native_child(connection, recipe, assets, writer_lease)
 
 
 def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement(

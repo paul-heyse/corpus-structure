@@ -16,6 +16,7 @@ from corpus_structure.core.work import PhysicalRetirementUncertain
 
 from .pdf import PdfConversion, PdfConverter, PdfRecipe
 from .pdf_assets import PreparedPdfAssets
+from .pdf_build_spool import PdfSpoolWriterLease
 from .pdf_enrichment import PdfEnrichmentRequest, PdfEnrichmentResult, compute_enrichment
 from .pdf_health import error_summary
 from .pdf_stream_types import (
@@ -53,12 +54,17 @@ class PdfRetirementUncertain(PdfWorkerError, PhysicalRetirementUncertain):
 
 
 def _native_child(
-    connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None
+    connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None,
+    writer_lease: PdfSpoolWriterLease | None = None,
 ) -> None:
     # Replies have their own Pipe; inherited stdout belongs to the parent CLI's
     # structured output. Redirect the descriptor so prebound logging handlers and
     # native FD writes retain their diagnostics on stderr as well.
     os.dup2(2, 1)
+    if writer_lease is not None:
+        # Do not close this raw descriptor in request/finally cleanup. Docling
+        # may have abandoned a model thread; only OS death ends its writer lease.
+        _ = writer_lease.identity
     converter = PdfConverter(recipe, assets=assets)
     try:
         while True:
@@ -182,9 +188,11 @@ class PdfWorker:
 
     _child_target = staticmethod(_native_child)
 
-    def __init__(self, recipe: PdfRecipe, *, assets: PreparedPdfAssets | None = None) -> None:
+    def __init__(self, recipe: PdfRecipe, *, assets: PreparedPdfAssets | None = None,
+                 writer_lease: PdfSpoolWriterLease | None = None) -> None:
         self.recipe = recipe
         self.assets = assets
+        self.writer_lease = writer_lease
         self._process: BaseProcess | None = None
         self._connection: Connection | None = None
         self._lock = Lock()
@@ -211,6 +219,7 @@ class PdfWorker:
                 child,
                 self.recipe,
                 self.assets.with_custody() if self.assets is not None else None,
+                self.writer_lease,
             ),
             name="native-pdf",
             daemon=True,
