@@ -10,7 +10,9 @@ import pytest
 from orchestrate.test_data_operation_byte_admission import (
     Active,
     controlled_executor,
+    execution_resources,
     policy_for,
+    prepared as prepared,
 )
 
 from corpus_structure.orchestrate import data_operations
@@ -163,14 +165,17 @@ def test_batches_never_mix_distinct_execution_bases(monkeypatch, prepared):
             model=executor.model,
             basis=SimpleNamespace(key=("release:" + name, "runtime:" + name)),
             cpu=None,
+            admitted_operations=set(),
         )
         for name in ("old", "new")
     ]
+    for item in executor._ready_items:
+        release, runtime = contexts[int(item.obligation) % 2].basis.key
+        item.native = canonical_bytes({**json.loads(item.native), "release_id": release, "runtime_id": runtime})
     executor._ready_context = lambda item: contexts[int(item.obligation) % 2]
     executor._execution_context = lambda claim: contexts[int(claim.request_id) % 2]
-    from corpus_structure.orchestrate.data_operations import _InvocationExecution, _OwnedPythonPool
 
-    with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
+    with execution_resources(executor) as physical:
         executor._physical = physical
         receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
     assert len(receipts) == 4 and not failures

@@ -8,7 +8,7 @@ import stat
 import threading
 from collections.abc import Generator
 from contextlib import contextmanager
-from contextvars import ContextVar
+from contextvars import Context, ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TextIO
@@ -234,6 +234,11 @@ def routes(*names: str) -> Generator[None]:
                     route.setLevel(policy.level)
                     route.propagate = policy.propagate
                     del _ROUTES[name]
+
+
+def same_observation_destination(left: Context, right: Context) -> bool:
+    """Coalesced physical work keeps one actual managed journal destination."""
+    return left.get(_DESTINATION) is right.get(_DESTINATION)
 
 
 @contextmanager

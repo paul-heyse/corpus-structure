@@ -6,6 +6,7 @@ from typing import Annotated, ClassVar
 from pydantic import ConfigDict, Field
 
 _PositiveInt = Annotated[int, Field(strict=True, ge=1)]
+_NonnegativeInt = Annotated[int, Field(strict=True, ge=0)]
 
 
 @dataclass(frozen=True)
@@ -25,9 +26,14 @@ class CharacterizationExecutionPolicy:
     max_reply_bytes: _PositiveInt = 64 * 1024**2
     max_native_request_bytes: _PositiveInt = 8 * 1024**2
     max_native_reply_bytes: _PositiveInt = 8 * 1024**2
+    max_idle_capsule_bytes: _NonnegativeInt = 256 * 1024**2
+    max_idle_capsules: _PositiveInt = 2
+    native_keep_warm_seconds: _NonnegativeInt = 0
 
     def __post_init__(self):
-        if any(type(value) is not int or value < 1 for value in asdict(self).values()):
+        nonnegative = {"max_idle_capsule_bytes", "native_keep_warm_seconds"}
+        if any(type(value) is not int or value < (0 if name in nonnegative else 1)
+               for name, value in asdict(self).items()):
             raise ValueError("execution policy requires positive finite integer bounds")
         if self.max_packet_bytes + self.max_reply_bytes > self.max_owned_bytes:
             raise ValueError("CPU transfer bounds exceed combined owned-state capacity")

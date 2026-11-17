@@ -141,6 +141,7 @@ class _CapsuleReference:
 class _SharedCapsule:
     memory: Any
     reference: _CapsuleReference
+    prepared: PreparedRelease
     ready: bool = False
 
 
@@ -635,8 +636,8 @@ def _report_cleanup_failure(error: BaseException) -> None:
 class _ReleaseCPUView:
     """Exact per-call capsule on the invocation's existing pool and byte owner."""
 
-    def __init__(self, scope, capsule):
-        self.scope, self.capsule = scope, capsule
+    def __init__(self, scope, capsule, prepared):
+        self.scope, self.capsule, self.prepared = scope, capsule, prepared
 
     def __getattr__(self, name):
         return getattr(self.scope, name)
@@ -718,7 +719,9 @@ class CPUExecutionScope:
         """Retain the one schema capsule before request credits consume capacity."""
         self._executor()
 
-    def for_release(self, prepared: PreparedRelease, *, request_bytes: int | None = None):
+    def for_release(
+        self, prepared: PreparedRelease, *, request_bytes: int | None = None, capsule_bytes: bytes | None = None
+    ):
         """Retain one shared archive; submit only its bounded authenticated descriptor."""
         from multiprocessing.shared_memory import SharedMemory
 
@@ -727,7 +730,7 @@ class CPUExecutionScope:
                 raise RuntimeError("CPU invocation is closed")
             owned = self._release_capsules.get(prepared.release_id)
             if owned is None:
-                content = release_capsule(prepared)
+                content = release_capsule(prepared) if capsule_bytes is None else capsule_bytes
                 size = len(content)
                 required = (
                     self.policy.max_packet_bytes + self.policy.max_reply_bytes
@@ -756,7 +759,7 @@ class CPUExecutionScope:
                     reference = _CapsuleReference(
                         memory.name, memory.size, sha256(content).hexdigest(), prepared.release_id
                     )
-                    owned = _SharedCapsule(memory, reference)
+                    owned = _SharedCapsule(memory, reference, prepared)
                     self._release_capsules[prepared.release_id] = owned
                     self._capsule_bytes += memory.size
                     buffer = memory.buf
@@ -767,9 +770,11 @@ class CPUExecutionScope:
                 finally:
                     del content
                     self.budget.release(size)
+            if owned.prepared is not prepared and sha256(release_capsule(prepared)).hexdigest() != owned.reference.digest:
+                raise ValueError("CPU release capsule differs under its retained identity")
             if not owned.ready:
                 raise RuntimeError("CPU shared capsule preparation did not complete")
-            return _ReleaseCPUView(self, owned.reference)
+            return _ReleaseCPUView(self, owned.reference, prepared)
 
     @property
     def preparation_bytes(self) -> int:

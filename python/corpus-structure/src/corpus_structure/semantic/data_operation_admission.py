@@ -279,7 +279,7 @@ def acquire_python_execution(
     """Acquire permissions briefly; no DB connection is retained through computation."""
     from .data_operation_ports import python_port_identity
     from .data_operation_runtime import validate_data_operation_runtime
-    from .data_operation_storage import DataOperationStorage, require_data_operation_native
+    from .data_operation_storage import require_data_operation_native
 
     model = bound_data_operation_model(prepared)
     require_data_operation_native(connection, prepared)
@@ -299,26 +299,7 @@ def acquire_python_execution(
         declarations=declarations,
         captured_contracts=captured_contracts,
     )
-    retained = DataOperationStorage(connection).inspect_data_execution(
-        cast(
-            WireInspectDataExecutionRequest,
-            {
-                "release_id": prepared.release_id,
-                "operation_id": operation,
-                "runtime_id": runtime.runtime_id,
-            },
-        )
-    )
-    if (
-        retained["recipe"] != identity.recipe
-        or retained["implementation_revision"] != identity.implementation
-    ):
-        raise SemanticRefusal("Python implementation differs from native admitted recipe")
-    if retained["runtime"] != {
-        "manifest_sha256": sha256(runtime.manifest).hexdigest(),
-        "archive_sha256": sha256(runtime.archive).hexdigest(),
-    }:
-        raise SemanticRefusal("Python runtime differs from native retained custody")
+    _inspect_execution_identity(connection, prepared, runtime, identity)
     # Every supplied module must be among the exact captured executable inputs.
     retained = {item["sha256"] for item in json.loads(runtime.manifest)["implementation_inputs"]}
     if any(sha256(source.content).hexdigest() not in retained for source in sources.sources):
@@ -338,6 +319,40 @@ def acquire_python_execution(
         runtime.runtime_id,
         json.loads(runtime.manifest)["attestation"],
     )
+
+
+def _inspect_execution_identity(connection, prepared, runtime, identity):
+    """The native correspondence check shared by new and retained ports."""
+    from .data_operation_storage import DataOperationStorage
+
+    retained = DataOperationStorage(connection).inspect_data_execution(
+        cast(
+            WireInspectDataExecutionRequest,
+            {
+                "release_id": prepared.release_id,
+                "operation_id": identity.operation,
+                "runtime_id": runtime.runtime_id,
+            },
+        )
+    )
+    if (
+        retained["recipe"] != identity.recipe
+        or retained["implementation_revision"] != identity.implementation
+    ):
+        raise SemanticRefusal("Python implementation differs from native admitted recipe")
+    if retained["runtime"] != {
+        "manifest_sha256": sha256(runtime.manifest).hexdigest(),
+        "archive_sha256": sha256(runtime.archive).hexdigest(),
+    }:
+        raise SemanticRefusal("Python runtime differs from native retained custody")
+
+
+def recheck_cached_execution(connection, prepared, runtime, identity):
+    """Acquire current native permission for immutable cached port preparation."""
+    from .data_operation_storage import require_data_operation_native
+
+    require_data_operation_native(connection, prepared)
+    _inspect_execution_identity(connection, prepared, runtime, identity)
 
 
 def _native_role_contracts(values) -> dict[str, str]:

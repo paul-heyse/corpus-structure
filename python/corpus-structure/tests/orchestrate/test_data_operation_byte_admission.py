@@ -4,7 +4,7 @@ import importlib
 import inspect
 import json
 from concurrent.futures import Future
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from threading import Event
 from types import SimpleNamespace
 from typing import Any, cast
@@ -15,8 +15,6 @@ from corpus_structure.core.execution_policy import CharacterizationExecutionPoli
 from corpus_structure.orchestrate import data_operations
 from corpus_structure.orchestrate.data_operations import (
     NativeDemandExecutor,
-    _InvocationExecution,
-    _OwnedPythonPool,
 )
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.cpu_execution import (
@@ -96,6 +94,7 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
         model=executor.model,
         cpu=None,
         prepared_schema=False,
+        admitted_operations=set(),
     )
     executor._target_context = context
     executor._contexts = {context.basis.key: context}
@@ -107,11 +106,13 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
         SimpleNamespace(
             operation=operation,
             obligation=str(index),
-            native=json.dumps({"request_id": str(index), "generation": 1}).encode(),
+            native=json.dumps({"request_id": str(index), "generation": 1,
+                               "release_id": prepared.release_id, "runtime_id": "runtime:controlled"}).encode(),
             binding_result=None,
         )
         for index, operation in enumerate(requests)
     )
+    executor._ready_items = ready
     monkeypatch.setattr(
         data_operations,
         "DemandPlanner",
@@ -131,6 +132,8 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
             request_id=index,
             generation=1,
             attempt=1,
+            runtime_id="runtime:controlled",
+            release_id=prepared.release_id,
             fence=dict(
                 request_id=index,
                 generation=1,
@@ -162,6 +165,21 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
     executor._publish = publish
     executor._known_failure = failed
     return executor, observed
+
+
+@contextmanager
+def execution_resources(executor):
+    from corpus_structure.orchestrate.execution_host import ProcessExecutionHost
+
+    host = ProcessExecutionHost()
+    try:
+        with host.run(executor.policy) as token:
+            # The controlled fixture wraps this exact production budget.
+            host.budget = executor.budget
+            with host.execution(executor, token) as physical:
+                yield physical
+    finally:
+        host.close()
 
 
 class Active:
@@ -221,7 +239,7 @@ def derive(value: int, fail_first: bool, prepared: PreparedRelease) -> int:
     capsule_size = len(release_capsule(prepared))
     assert 0 < capsule_size < executor.reservation
     assert policy.max_owned_bytes == 2 * executor.reservation and policy.max_claims == 2
-    with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
+    with execution_resources(executor) as physical:
         executor._physical = physical
         physical.select_operations(("prepared",))
         assert executor.budget.used_bytes == capsule_size
@@ -235,8 +253,8 @@ def derive(value: int, fail_first: bool, prepared: PreparedRelease) -> int:
         for _, used in observed.claims
     )
     assert max(observed.windows) <= policy.max_claims
-    assert observed.receipts == (
-        [("1", 8), ("2", 9)] if fail_first else [("0", 7), ("1", 8), ("2", 9)]
+    assert dict(observed.receipts) == (
+        {"1": 8, "2": 9} if fail_first else {"0": 7, "1": 8, "2": 9}
     )
     assert not observed.live and executor.budget.used_bytes == 0
 
@@ -272,7 +290,7 @@ def test_batch_chunks_and_scalar_sibling_share_claim_and_byte_bounds(monkeypatch
         ("batch",) * 5 + ("scalar",),
         ports,
     )
-    with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
+    with execution_resources(executor) as physical:
         executor._physical = physical
         physical.select_operations(ports)
         receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
@@ -289,7 +307,7 @@ def test_preparation_that_cannot_hold_one_request_refuses_before_claim(monkeypat
     executor, observed = controlled_executor(
         monkeypatch, prepared, policy, ("prepared",), {"prepared": port}
     )
-    with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
+    with execution_resources(executor) as physical:
         executor._physical = physical
         with pytest.raises(CapacityExceeded, match="preparation and one complete request"):
             physical.select_operations(("prepared",))
@@ -353,7 +371,7 @@ def test_reduced_credit_allows_progress_while_an_old_physical_share_retires(
         ("scalar",) * 3,
         {"scalar": SimpleNamespace(native_selections=(), plan_python=plan)},
     )
-    with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
+    with execution_resources(executor) as physical:
         executor._physical = physical
         physical.select_operations(("scalar",))
         receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
@@ -454,7 +472,7 @@ def test_measured_batch_boundary_rehydrates_without_reclaiming(monkeypatch, prep
         return body
 
     executor._hydrate = hydrate
-    with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
+    with execution_resources(executor) as physical:
         executor._physical = physical
         physical.select_operations(("batch",))
         receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
@@ -484,7 +502,8 @@ def test_one_frontier_replenishes_multiple_logical_pages(monkeypatch, prepared):
         return [
             SimpleNamespace(
                 operation="scalar", obligation=str(identifier), binding_result=None,
-                native=json.dumps({"request_id": str(identifier), "generation": 1}).encode(),
+                native=json.dumps({"request_id": str(identifier), "generation": 1,
+                                   "release_id": prepared.release_id, "runtime_id": "runtime:controlled"}).encode(),
             )
             for identifier in range(2 * index, 2 * index + 2)
         ], (), (), ()
@@ -497,10 +516,49 @@ def test_one_frontier_replenishes_multiple_logical_pages(monkeypatch, prepared):
         return driver(plan, owner)
 
     monkeypatch.setattr(data_operations, "drive_prepared_work", drive)
-    with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
+    with execution_resources(executor) as physical:
         executor._physical = physical
         physical.select_operations(("scalar",))
         receipts, _, _, failures = executor._drive_sweep(range(3), b"{}", Active())
     assert prepared_pages == [0, 1, 2] and driver_calls == [1]
     assert len(receipts) == 6 and not failures
     assert max(observed.windows) <= 2 and executor.budget.used_bytes == 0
+
+
+def test_cold_preparation_defers_to_driver_ticks_without_failing_or_claiming_early(monkeypatch, prepared):
+    from corpus_structure.orchestrate.execution_host import ExecutionPreparationDeferred
+
+    deferred = Event()
+    calls = []
+
+    def scalar(value, *, execution_owner, **_):
+        def compute():
+            if value == 0:
+                assert deferred.wait(5), "cold preparation blocked the physical driver"
+            return value
+
+        (answer,) = yield (data_operations.PreparedWork(lambda: execution_owner.submit_python(compute)),)
+        return answer
+
+    executor, observed = controlled_executor(
+        monkeypatch, prepared, policy_for(prepared), ("scalar",) * 2,
+        {"scalar": SimpleNamespace(native_selections=(), plan_python=scalar)},
+    )
+
+    def prepare(item, _authorization):
+        calls.append(item.obligation)
+        if item.obligation == "1" and not observed.receipts:
+            assert not any(identifier == "1" for identifier, _ in observed.claims)
+            deferred.set()
+            raise ExecutionPreparationDeferred("previous physical reply remains owned")
+        return item
+
+    executor._prepare_ready = prepare
+    with execution_resources(executor) as physical:
+        executor._physical = physical
+        physical.select_operations(("scalar",))
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
+    assert deferred.is_set() and not failures
+    assert dict(observed.receipts) == {"0": 0, "1": 1}
+    assert len(receipts) == 2 and calls.count("1") >= 2
+    assert executor.budget.used_bytes == 0

@@ -10,17 +10,19 @@ import subprocess
 import time
 from concurrent.futures import CancelledError, Future, TimeoutError
 from contextlib import ExitStack, contextmanager, suppress
-from dataclasses import dataclass
+from contextvars import Context, copy_context
+from dataclasses import dataclass, field
 from hashlib import sha256
 from queue import Queue
-from threading import BoundedSemaphore, Condition, Event, Lock, Thread, current_thread
+from threading import BoundedSemaphore, Condition, Event, Lock, Thread, Timer, current_thread
 from uuid import uuid4
 
+from corpus_structure.core.process_lifetime import _live_group, physical_retirement_uncertain
 from corpus_structure.core.work import PhysicalRetirementUncertain
 from corpus_structure.ingest.pdf_capacity import suspend_resident_nemotron
 
 from .native_profiles import NativeSelection
-from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused, _finite_float, _json_object, _live_group
+from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused, _finite_float, _json_object
 
 
 class NativeRetirementUncertain(Pm2WorkerError, PhysicalRetirementUncertain):
@@ -95,6 +97,7 @@ class _Pending:
     selection: NativeSelection
     future: Future
     permit: BoundedSemaphore
+    context: Context = field(default_factory=copy_context, repr=False)
 
 
 class NativeHost:
@@ -143,7 +146,7 @@ class NativeHost:
             bufsize=0,
         )
         self._reader = Thread(
-            target=self._read, name="nlp-host-reader-" + self.generation[:8], daemon=True
+            target=self._read, name="nlp-host-reader-" + self.generation[:8], daemon=True, context=Context()
         )
         self._reader.start()
         try:
@@ -168,6 +171,8 @@ class NativeHost:
                     )
                     break
                 except TimeoutError:
+                    if self._ready.done():
+                        raise
                     if time.monotonic() >= deadline:
                         raise Pm2WorkerError("native host startup timed out") from None
             expected = {s.native.fingerprint: s for s in self.selections}
@@ -250,7 +255,7 @@ class NativeHost:
         for request in pending.values():
             request.permit.release()
             if not request.future.done():
-                request.future.set_exception(error)
+                request.context.run(request.future.set_exception, error)
 
     def _read(self):
         process = self._process
@@ -279,6 +284,8 @@ class NativeHost:
                         line, object_pairs_hook=_json_object, parse_float=_finite_float
                     )
                     self._route(message)
+                    message = line = rest = None
+                chunk = None
                 if len(buffer) >= self.policy.max_native_reply_bytes:
                     raise Pm2WorkerError("native host reply exceeds frame byte bound")
         except BaseException as error:
@@ -310,12 +317,12 @@ class NativeHost:
         pending.permit.release()
         if message["kind"] == "result":
             if not isinstance(message.get("payload"), dict):
-                pending.future.set_exception(Pm2WorkerError("native result is not an object"))
+                pending.context.run(pending.future.set_exception, Pm2WorkerError("native result is not an object"))
                 raise Pm2WorkerError("native result is not an object")
-            pending.future.set_result(message["payload"])
+            pending.context.run(pending.future.set_result, message["payload"])
         else:
             kind = CancelledError if message["kind"] == "cancelled" else Pm2WorkerRefused
-            pending.future.set_exception(kind(str(message.get("message", message["kind"]))[:1800]))
+            pending.context.run(pending.future.set_exception, kind(str(message.get("message", message["kind"]))[:1800]))
 
     def infer(self, selection, payload, *, check_active, timeout=120.0):
         return self.infer_result(
@@ -381,6 +388,8 @@ class NativeHost:
                         ),
                     )
                 except TimeoutError:
+                    if future.done():
+                        raise
                     if time.monotonic() >= deadline:
                         raise Pm2WorkerError("native host inference timed out") from None
         except CancelledError, Pm2WorkerRefused:
@@ -539,7 +548,7 @@ class NativeHostGroup:
                     raise Pm2WorkerRefused("native host group has no declared residents")
                 self._serving = True
                 self._ready = Future()
-                self._thread = Thread(target=self._manage, name="native-gpu-custody", daemon=True)
+                self._thread = Thread(target=self._manage, name="native-gpu-custody", daemon=True, context=Context())
                 self._thread.start()
             ready = self._ready
         while True:
@@ -548,7 +557,8 @@ class NativeHostGroup:
                 ready.result(timeout=0.1)
                 return
             except TimeoutError:
-                pass
+                if ready.done():
+                    raise
 
     def _manage(self):
         ready = self._ready
@@ -657,6 +667,10 @@ class NativeHostResidency:
         self._served = False
         self._closed = False
         self._quarantine = None
+        self._idle_timer = None
+        self._idle_epoch = 0
+        self._run_selections = None
+        self._calls_this_run = False
 
     def _check(self):
         if self._quarantine is not None:
@@ -702,11 +716,83 @@ class NativeHostResidency:
                 and (self._group is None or self._group.physical_drained)
             )
 
+    def begin_run(self):
+        with self._condition:
+            self._idle_epoch += 1
+            if self._idle_timer is not None:
+                self._idle_timer.cancel()
+                self._idle_timer = None
+            while self._suspended:
+                self._condition.wait(0.1)
+            self._check()
+            self._run_selections = {}
+            self._calls_this_run = False
+
+    def finish_run(self, keep_warm_seconds):
+        with self._condition:
+            self._idle_epoch += 1
+            epoch = self._idle_epoch
+        if not keep_warm_seconds:
+            self.retire_idle()
+            return
+
+        def expire():
+            try:
+                self.retire_idle(expected_epoch=epoch)
+            except BaseException as error:
+                with self._condition:
+                    self._quarantine = error
+                    self._condition.notify_all()
+
+        with self._condition:
+            self._check()
+            timer = Timer(keep_warm_seconds, expire)
+            timer.daemon = True
+            self._idle_timer = timer
+            timer.start()
+
+    def retire_idle(self, *, expected_epoch=None):
+        """Prove the previous GPU generation dead before releasing its residency."""
+        with self._condition:
+            if expected_epoch is not None and expected_epoch != self._idle_epoch:
+                return
+            self._check()
+            if self._active_calls or self._suspended:
+                raise NativeRetirementUncertain("cannot retire a borrowed native generation")
+            self._suspended = True
+            group = self._group
+        try:
+            if group is not None:
+                group.close()
+            with self._condition:
+                self._group = None
+                self._served = False
+                self._selections = {}
+        except BaseException as error:
+            with self._condition:
+                self._quarantine = error
+            raise
+        finally:
+            with self._condition:
+                self._suspended = False
+                self._condition.notify_all()
+
     def declare(self, selections):
         with self._condition:
             self._check()
+            incoming = tuple(selections)
+            missing = any(item.native.fingerprint not in self._selections for item in incoming)
+            if self._run_selections is not None:
+                for item in incoming:
+                    self._run_selections[item.native.fingerprint] = item
+            replace_warm = missing and self._served and not self._calls_this_run and self._run_selections is not None
+        if replace_warm:
+            self.retire_idle()
+            incoming = tuple(self._run_selections.values())
+        with self._condition:
+            self._check()
             proposed = dict(self._selections)
-            for selection in selections:
+            for selection in incoming:
                 key = selection.native.fingerprint
                 old = proposed.get(key)
                 if old is not None and old.identity != selection.identity:
@@ -737,6 +823,7 @@ class NativeHostResidency:
                 self._group = self._factory(self.policy, self.endpoint)
                 self._group.declare(tuple(self._selections.values()))
             self._served = True
+            self._calls_this_run = True
             self._active_calls += 1
             group = self._group
         try:
@@ -790,16 +877,10 @@ class NativeHostResidency:
             yield
         except BaseException as error:
 
-            def uncertain(failure):
-                return isinstance(failure, PhysicalRetirementUncertain) or (
-                    isinstance(failure, BaseExceptionGroup)
-                    and any(uncertain(child) for child in failure.exceptions)
-                )
-
             # A failed close retains ownership even when its exception did not
             # originate in a provider (for example, transport owner timeout).
             with self._condition:
-                if self._group is not None or uncertain(error):
+                if self._group is not None or physical_retirement_uncertain(error):
                     self._quarantine = error
             raise
         finally:
@@ -809,6 +890,10 @@ class NativeHostResidency:
 
     def close(self):
         with self._condition:
+            self._idle_epoch += 1
+            if self._idle_timer is not None:
+                self._idle_timer.cancel()
+                self._idle_timer = None
             self._closed = True
             self._condition.notify_all()
             deadline = time.monotonic() + 330

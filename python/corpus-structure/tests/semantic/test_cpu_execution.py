@@ -186,7 +186,7 @@ def test_actual_child_error_and_misrouted_reply_are_not_polling_waits(
 
 
 def _gated_compute(
-    content, max_reply_bytes, slot, generation, profile, stream_connection, started, release
+    content, max_reply_bytes, slot, generation, profile, stream_connection, capsule, started, release
 ):
     from time import monotonic
 
@@ -201,7 +201,7 @@ def _gated_compute(
             if monotonic() > deadline:
                 raise RuntimeError("test synchronization did not release CPU worker")
     return cpu_execution._dispatch(
-        content, max_reply_bytes, slot, generation, profile, stream_connection
+        content, max_reply_bytes, slot, generation, profile, stream_connection, capsule
     )
 
 

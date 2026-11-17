@@ -230,41 +230,51 @@ def execute_data_demand(
     """
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
 
-    if purpose not in {"write", "evaluate"}:
-        raise SemanticRefusal("native execution purpose must be write or evaluate")
-    with engine.begin() as connection:
-        if admission_engine is not None:
-            from .storage_target import acquired_target
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.orchestrate.execution_host import execution_host_scope
 
-            target = acquired_target(connection, purpose=purpose)
-            with admission_engine.begin() as admitted:
-                if acquired_target(admitted, purpose="admit") != target.model_copy(
-                    update={"purpose": "admit"}
-                ):
-                    raise SemanticRefusal("demand admission belongs to another PostgreSQL target")
-        snapshot = read_data_demand(connection, demand_id, limit=1)
-        if project_id is not None and snapshot["project_id"] != project_id:
-            raise SemanticRefusal("retained demand belongs to another project")
-        basis = acquire_data_execution_basis(
-            connection, snapshot["release_id"], snapshot["runtime_id"], source_root=source_root
+    selected_policy = policy or CharacterizationExecutionPolicy()
+    with execution_host_scope() as host, host.run(selected_policy) as token:
+        if purpose not in {"write", "evaluate"}:
+            raise SemanticRefusal("native execution purpose must be write or evaluate")
+        with engine.begin() as connection:
+            if admission_engine is not None:
+                from .storage_target import acquired_target
+
+                target = acquired_target(connection, purpose=purpose)
+                with admission_engine.begin() as admitted:
+                    if acquired_target(admitted, purpose="admit") != target.model_copy(
+                        update={"purpose": "admit"}
+                    ):
+                        raise SemanticRefusal("demand admission belongs to another PostgreSQL target")
+            snapshot = read_data_demand(connection, demand_id, limit=1)
+            if project_id is not None and snapshot["project_id"] != project_id:
+                raise SemanticRefusal("retained demand belongs to another project")
+            basis = host.acquire_basis(
+                engine, connection, snapshot["release_id"], snapshot["runtime_id"],
+                source_root=source_root, token=token,
+            )
+        executor = NativeDemandExecutor(
+            engine,
+            basis.prepared,
+            basis.runtime,
+            basis.sources,
+            runtime_locations=basis.runtime_locations,
+            schema=basis.schema,
+            declarations=basis.declarations,
+            captured_contracts=basis.captured_contracts,
+            source_root=source_root,
+            policy=policy,
+            nemotron_endpoint=nemotron_endpoint,
+            admission_engine=admission_engine,
+            fitter_engine=fitter_engine,
+            database_capacity=database_capacity,
+            execution_host=host,
+            host_run=token,
+            execution_basis=basis,
         )
-    executor = NativeDemandExecutor(
-        engine,
-        basis.prepared,
-        basis.runtime,
-        basis.sources,
-        runtime_locations=basis.runtime_locations,
-        schema=basis.schema,
-        declarations=basis.declarations,
-        captured_contracts=basis.captured_contracts,
-        source_root=source_root,
-        policy=policy,
-        nemotron_endpoint=nemotron_endpoint,
-        admission_engine=admission_engine,
-        fitter_engine=fitter_engine,
-        database_capacity=database_capacity,
-    )
-    return executor.run(demand_id, limit=limit, max_rounds=max_rounds)
+        return executor.run(demand_id, limit=limit, max_rounds=max_rounds)
+
 
 
 class CreateDataDemand(BaseModel):

@@ -8,7 +8,7 @@ import pytest
 
 from corpus_structure.core.work import PhysicalRetirementUncertain
 from corpus_structure.methods.native_host import NativeHostResidency, NativeRetirementUncertain
-from corpus_structure.orchestrate.data_operations import _InvocationExecution, _PythonWork
+from corpus_structure.orchestrate.data_operations import _RunExecution, _PythonWork
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope, OwnedByteBudget
 
 
@@ -41,7 +41,7 @@ def test_provider_residents_follow_frozen_demand_not_all_available_factories():
         acquired.append(operation)
         return SimpleNamespace(native_selections=("selected-profile",))
 
-    scope = _InvocationExecution.__new__(_InvocationExecution)
+    scope = _RunExecution.__new__(_RunExecution)
     scope.executor = SimpleNamespace(
         capability_factories={"selected-provider": object(), "unrequested-provider": object()},
         _port=acquire,
@@ -54,6 +54,7 @@ def test_provider_residents_follow_frozen_demand_not_all_available_factories():
     scope.executor._target_context = SimpleNamespace(
         model=scope.executor.model, cpu=None, prepared_schema=False
     )
+    scope.host = SimpleNamespace(ensure_request_room=lambda _: None)
     scope.cpu = cast(CPUExecutionScope, SimpleNamespace(prepare=lambda: None, preparation_bytes=0))
     scope.native_hosts = cast(NativeHostResidency, SimpleNamespace(declare=declared.append))
     scope._selected_operations = None

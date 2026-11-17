@@ -614,6 +614,7 @@ def hanlp_execution_custody(selection=None):
         root / "data_operation_ports.py",
         root.parent / "methods/native_profiles.py",
         root.parent / "methods/native_host.py",
+        root.parent / "core/process_lifetime.py",
     )
     return SourceArtifact(
         "hanlp/execution-custody",

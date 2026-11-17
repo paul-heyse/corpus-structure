@@ -26,6 +26,9 @@ def test_selected_defaults_and_frozen_roundtrip():
         max_reply_bytes=64 * 1024**2,
         max_native_request_bytes=8 * 1024**2,
         max_native_reply_bytes=8 * 1024**2,
+        max_idle_capsule_bytes=256 * 1024**2,
+        max_idle_capsules=2,
+        native_keep_warm_seconds=0,
     )
     assert _POLICY.validate_json(_POLICY.dump_json(policy)) == policy
     field = "workers"
@@ -36,6 +39,10 @@ def test_selected_defaults_and_frozen_roundtrip():
 @pytest.mark.parametrize("value", [True, False, 0, -1, 1.5, "2", None, float("inf")])
 def test_every_bound_is_a_strict_positive_integer(value):
     for field in asdict(CharacterizationExecutionPolicy()):
+        if value == 0 and type(value) is int and field in {"max_idle_capsule_bytes", "native_keep_warm_seconds"}:
+            assert getattr(CharacterizationExecutionPolicy(**{field: value}), field) == 0
+            assert getattr(_POLICY.validate_python({field: value}), field) == 0
+            continue
         with pytest.raises(ValueError):
             CharacterizationExecutionPolicy(**{field: value})
         with pytest.raises(ValidationError):

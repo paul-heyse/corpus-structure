@@ -113,19 +113,3 @@ def _finite_float(value: str) -> float:
     if not math.isfinite(number):
         raise ValueError("nonfinite JSON value")
     return number
-
-
-def _live_group(group: int) -> bool:
-    # Linux reports zombies as group members too. They have no device resources
-    # and adopted descendants may remain zombies until their new parent reaps them.
-    with os.scandir("/proc") as entries:
-        for entry in entries:
-            if not entry.name.isdecimal():
-                continue
-            try:
-                stat = Path(entry.path, "stat").read_bytes().rpartition(b")")[2].split()
-            except FileNotFoundError, ProcessLookupError, PermissionError:
-                continue
-            if int(stat[2]) == group and stat[0] not in {b"Z", b"X", b"x"}:
-                return True
-    return False

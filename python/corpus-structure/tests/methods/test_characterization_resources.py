@@ -950,3 +950,37 @@ def test_borrowed_uncertain_retirement_keeps_credit_until_residency_drains(runti
     monkeypatch.setattr(type(execution.native_group), "physical_drained", True)
     assert execution.retire()
     assert execution.budget.used_bytes == 0
+
+
+def test_reused_provider_lane_attaches_each_jobs_actual_observation_context(runtime, monkeypatch):
+    from typing import Any, cast
+
+    from corpus_structure.cli.observation_logging import capture, logger
+
+    execution, _, _ = runtime
+    records = [[], []]
+
+    class Sink:
+        def __init__(self, records):
+            self.records = records
+
+        def append(self, payload, **_):
+            self.records.append(payload)
+
+    exchange = execution.exchange
+
+    def observed(lane, group):
+        logger().info("Controlled physical exchange", kind="provider_context_control")
+        return exchange(lane, group)
+
+    monkeypatch.setattr(execution, "exchange", observed)
+    for index in range(2):
+        with capture(cast(Any, Sink(records[index])), request_id=f"request:{index}", task_id=index + 10, attempt=index + 1):
+            handle = execution.try_submit(work(str(index), {"value": index}))
+            assert result(handle) == {"value": index}
+    for index, retained in enumerate(records):
+        selected = [row for row in retained if row.get("kind") == "provider_context_control"]
+        assert len(selected) == 1
+        assert selected[0]["bindings"]["request_id"] == f"request:{index}"
+        assert selected[0]["bindings"]["task_id"] == index + 10
+        assert selected[0]["bindings"]["attempt"] == index + 1

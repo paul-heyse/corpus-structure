@@ -28,7 +28,7 @@ from corpus_structure.methods.native_profiles import (
     pm2_selection,
     preflight_native_runtime,
 )
-from corpus_structure.methods.pm2_worker import _live_group
+from corpus_structure.core.process_lifetime import _live_group
 from corpus_structure.settings import Settings
 
 

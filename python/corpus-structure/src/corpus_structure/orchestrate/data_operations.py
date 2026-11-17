@@ -12,6 +12,7 @@ from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager, nullcontext
+from contextvars import copy_context
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -29,7 +30,7 @@ from corpus_structure.core.work import (
     ReadyFrontier,
     drive_prepared_work,
 )
-from corpus_structure.methods.native_host import NativeHostResidency, NativeRetirementUncertain
+from corpus_structure.methods.native_host import NativeRetirementUncertain
 from corpus_structure.semantic._data_operation_wire import (
     WireAttemptFence,
     WireClaimDataRequestResult,
@@ -45,7 +46,6 @@ from corpus_structure.semantic.claim_lifetime import (
 )
 from corpus_structure.semantic.cpu_execution import (
     CapacityExceeded,
-    CPUExecutionScope,
     OwnedByteBudget,
 )
 from corpus_structure.semantic.data_operation_admission import (
@@ -65,7 +65,6 @@ from corpus_structure.semantic.data_operation_ports import (
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 from corpus_structure.semantic.data_operation_service import (
     DataExecutionBasis,
-    acquire_data_execution_basis,
 )
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
@@ -101,6 +100,7 @@ class _BasisExecution:
         self.ports, self.consumer_selectors = {}, {}
         self.cpu = None
         self.prepared_schema = False
+        self.admitted_operations = set()
 
 
 @dataclass(frozen=True)
@@ -169,6 +169,11 @@ class _ExecutionResult:
     receipts: tuple[bytes, ...] = ()
     failures: tuple[Exception, ...] = ()
     deferred: tuple[Any, ...] = ()
+
+
+@dataclass(frozen=True)
+class _PreparedReady:
+    ready: ReadyDataRequest
 
 
 @dataclass(frozen=True)
@@ -283,7 +288,10 @@ class _RequestExecution:
         self.engine = invocation.executor.engine
         self.fitter_engine = invocation.executor.fitter_engine
         self.claim: NativeRequestClaim | None = None
+        self.claims: tuple[NativeRequestClaim, ...] = ()
         self.handles = []
+        self.running = True
+        invocation.requests.append(self)
         self.consumer_inputs = {}
         self.consumer_results = {}
         self.binding_rows = {}
@@ -297,6 +305,7 @@ class _RequestExecution:
             raise RuntimeError("provider transport executor is unavailable before submission")
         share = self.reservation.share()
         completed = Event()
+        context = copy_context()
 
         def owned():
             try:
@@ -305,7 +314,7 @@ class _RequestExecution:
                 completed.set()
 
         try:
-            work = _PythonWork(self.invocation.pool.submit(owned), share.release)
+            work = _PythonWork(self.invocation.pool.submit(lambda: context.run(owned)), share.release)
         except BaseException:
             # Submit may have accepted work before losing its acknowledgement.
             # No future is not proof that this reservation is free.
@@ -331,7 +340,19 @@ class _RequestExecution:
 
                 def capture(item):
                     def submit():
-                        handle = item.try_submit()
+                        from corpus_structure.cli.observation_logging import bound
+
+                        claims = self.claims or ((self.claim,) if self.claim is not None else ())
+                        bindings: dict[str, Any] = {"demand_id": getattr(self.invocation.executor, "demand", None)}
+                        if len(claims) == 1:
+                            claim = claims[0]
+                            bindings.update(dict(claim.fence, runtime_id=claim.runtime_id,
+                                                 release_id=claim.release_id))
+                        elif claims:
+                            bindings.update(request_id=None, task_id=None, attempt=None,
+                                            logical_requests=[dict(claim.fence) for claim in claims])
+                        with bound(**bindings):
+                            handle = item.try_submit()
                         if handle is not None:
                             self.handles.append(handle)
                         return handle
@@ -354,21 +375,18 @@ class _RequestExecution:
         )
 
 
-class _InvocationExecution:
-    def __init__(self, executor, pool):
-        self.pool, self.python_work = pool, []
+class _RunExecution:
+    def __init__(self, executor, host):
+        self.host = host
+        resources = host.resources
+        self.pool, self.python_work = resources.pool, []
         self.uncertain_python = []
         self.pending_failures = []
+        self.requests = []
         self.physical_retired = False
-        self.cpu = CPUExecutionScope(
-            executor.prepared, executor.policy, budget=executor.budget, retain_schema=False
-        )
-        self.native_hosts = NativeHostResidency(executor.policy, executor.nemotron_endpoint)
-        from corpus_structure.methods.characterization_resources import ProviderExecution
-
-        self.providers = ProviderExecution(
-            executor.budget, executor.policy, native_group=self.native_hosts
-        )
+        self.cpu = resources.cpu
+        self.native_hosts = resources.native_hosts
+        self.providers = resources.providers
         self.executor = executor
         self._selected_operations = None
         self._target_ports = ()
@@ -377,6 +395,8 @@ class _InvocationExecution:
         self.executor._preparation_bytes = 0
         for context in self.executor._contexts.values():
             context.cpu, context.prepared_schema = None, False
+            context.admitted_operations.clear()
+        self.host._execution = self
         return self
 
     def declare_operations(self, operations, context):
@@ -412,10 +432,11 @@ class _InvocationExecution:
             else self.declare_operations(operations, context)
         )
         context = self.executor._target_context if context is None else context
+        self.host.ensure_request_room(self.executor.reservation)
         for port in ports:
             if getattr(port, "requires_prepared_schema", False) and not context.prepared_schema:
-                context.cpu = self.cpu.for_release(
-                    context.basis.prepared, request_bytes=self.executor.reservation
+                context.cpu = self.host.cpu_for_release(
+                    context.basis.prepared, self.executor.reservation
                 )
                 context.prepared_schema = True
         if context.cpu is None:
@@ -427,33 +448,56 @@ class _InvocationExecution:
                 "native preparation and one complete request exceed owned capacity"
             )
 
+    def has_live_requests(self):
+        self.requests[:] = [request for request in self.requests if request.running or not request.retired()]
+        return bool(self.requests)
+
+    def _release_retired_claims(self):
+        owner = getattr(self.executor, "_claim_owner", None)
+        if owner is None:
+            return
+        with owner.lock:
+            claims = tuple(
+                claim for key, claim in owner.active.items()
+                if key not in owner.uncertain and key not in owner.lost
+            )
+        for claim in claims:
+            failure = RuntimeError("execution run ended before native settlement")
+            self.executor._known_failure(claim, owner, failure, phase="run retirement")
+            self.executor._member_failures.append(failure)
+
     def __exit__(self, *error):
+        try:
+            return self._finish_run(*error)
+        finally:
+            self.host._execution = None
+
+    def _finish_run(self, *error):
+        healthy = (
+            not self.uncertain_python and not self.pending_failures
+            and not self.pool.failed and not self.cpu._submission_uncertain
+            and not self.cpu._admissions and not self.cpu._stream_transports
+            and self.providers.retire()
+            and all(work.retire() for work in self.python_work)
+        )
+        if healthy:
+            self.physical_retired = True
+            self._release_retired_claims()
+            try:
+                self.native_hosts.finish_run(self.executor.policy.native_keep_warm_seconds)
+            except BaseException as failure:
+                self.host._quarantine = failure
+                raise
+            return
         failures = []
-        native_drained = False
-        providers_drained = False
         try:
-            self.providers.close()
+            # Submitted cancellation is not retirement. Existing bounded native
+            # close/kill/join must complete before its charges or attempts retire.
+            self.host.retire_resources()
         except BaseException as failure:
             failures.append(failure)
-        try:
-            self.native_hosts.close()
-            native_drained = True
-        except BaseException as failure:
-            failures.append(failure)
-        try:
-            providers_drained = self.providers.retire()
-            if not providers_drained:
-                raise PhysicalRetirementUncertain("provider lanes retain unretired physical work")
-        except BaseException as failure:
-            failures.append(failure)
-        try:
-            self.cpu.close()
-        except BaseException as failure:
-            failures.append(failure)
-        try:
-            self.pool.close()
-        except BaseException as failure:
-            failures.append(failure)
+        native_drained = self.native_hosts.physical_drained
+        providers_drained = self.providers.retire()
         if (
             self.pool.drained
             and native_drained
@@ -491,6 +535,8 @@ class _InvocationExecution:
                             "deferred native attempt still has unretired physical work"
                         )
                     )
+        if self.physical_retired:
+            self._release_retired_claims()
         if failures:
             raise BaseExceptionGroup("native demand physical cleanup failed", failures)
 
@@ -533,16 +579,20 @@ class NativeDemandExecutor:
         nemotron_endpoint: str | None = None,
         database_capacity: int | None = None,
         source_root: Path | None = None,
+        execution_host=None,
+        host_run=None,
+        execution_basis=None,
     ):
         if runtime.release_id != prepared.release_id:
             raise ValueError("runtime belongs to another release")
         self.engine, self.prepared, self.runtime, self.sources = engine, prepared, runtime, sources
         self.fitter_engine = fitter_engine
         self.admission_engine = engine if admission_engine is None else admission_engine
-        basis = DataExecutionBasis(
+        basis = execution_basis or DataExecutionBasis(
             prepared, runtime, sources, schema, declarations, captured_contracts, runtime_locations
         )
-        self._target_context = _BasisExecution(basis)
+        self._host, self._host_run = execution_host, host_run
+        self._target_context = execution_host.context(basis) if execution_host is not None else _BasisExecution(basis)
         self._contexts = {basis.key: self._target_context}
         self.source_root = source_root
         self.model = self._target_context.model
@@ -578,7 +628,8 @@ class NativeDemandExecutor:
     def _port(self, operation, context=None):
         context = self._target_context if context is None else context
         basis = context.basis
-        if operation not in context.ports:
+        created = operation not in context.ports
+        if created:
             selected = context.model.operation(operation)
             if selected.effects and selected.capabilities.prepared_factory is None:
                 raise PortRefusal("effectful operation requires its captured native effect owner")
@@ -677,6 +728,14 @@ class NativeDemandExecutor:
                             port.identity
                         ),
                     )
+        if created:
+            context.admitted_operations.add(operation)
+        elif operation not in context.admitted_operations:
+            from corpus_structure.semantic.data_operation_admission import recheck_cached_execution
+
+            with self.admission_engine.begin() as connection:
+                recheck_cached_execution(connection, basis.prepared, basis.runtime, context.ports[operation].identity)
+            context.admitted_operations.add(operation)
         return context.ports[operation]
 
     def _basis_context(self, release_id, runtime_id):
@@ -685,8 +744,13 @@ class NativeDemandExecutor:
         key = release_id, runtime_id
         if key not in self._contexts:
             with self.engine.begin() as connection:
-                basis = acquire_data_execution_basis(connection, *key, source_root=self.source_root)
-            self._contexts[key] = _BasisExecution(basis)
+                basis = self._host.acquire_basis(
+                    self.engine, connection, *key, source_root=self.source_root, token=self._host_run
+                )
+            self._contexts[key] = self._host.context(basis)
+            context = self._contexts[key]
+            context.admitted_operations.clear()
+            context.cpu, context.prepared_schema = None, False
         return self._contexts[key]
 
     def _execution_context(self, claim):
@@ -1135,6 +1199,7 @@ class NativeDemandExecutor:
             error.add_note("native obligation: " + ready.obligation)
             return _ExecutionResult(failures=(error,))
         finally:
+            physical.running = False
             reservation.release()
 
     def _execute_batch(self, ready, owner, reservation, *, retain_claim=lambda item: None):
@@ -1227,6 +1292,7 @@ class NativeDemandExecutor:
                     self._failed_requests.add((claim.request_id, claim.generation))
                     failures.append(error)
                 pending = tuple(active)
+                physical.claims = tuple(row[2] for row in pending)
                 try:
                     answer = None
                     if pending:
@@ -1287,6 +1353,7 @@ class NativeDemandExecutor:
                             failures.append(error)
             return _ExecutionResult(tuple(receipts), tuple(failures), tuple(deferred))
         finally:
+            physical.running = False
             reservation.release()
 
     def _prepare_page(self, snapshot, authorization):
@@ -1298,18 +1365,12 @@ class NativeDemandExecutor:
             )
             selected = tuple(getattr(planner, "selected_population_ids", ()))
             fulfilled = planner.fulfilled_request_ids
-        prepared, failures = [], []
-        for item in ready:
-            native = wire_json_loads(item.native)
-            if (native["request_id"], native.get("generation")) in self._failed_requests:
-                continue
-            try:
-                prepared.append(self._prepare_ready(item, authorization))
-            except Exception as error:
-                self._failed_requests.add((native["request_id"], native.get("generation")))
-                error.add_note("native obligation: " + item.obligation)
-                failures.append(error)
-        return prepared, selected, fulfilled, failures
+        ready = tuple(
+            item for item in ready
+            if (wire_json_loads(item.native)["request_id"], wire_json_loads(item.native).get("generation"))
+            not in self._failed_requests
+        )
+        return ready, selected, fulfilled, ()
 
     def _drive_sweep(self, pages, authorization, owner):
         """One frontier binds bounded compact pages between physical-work ticks."""
@@ -1330,11 +1391,11 @@ class NativeDemandExecutor:
                 try:
                     result = yield from (
                         self._execute_batch(
-                            items, owner, reservation,
+                            tuple(item.ready if isinstance(item, _PreparedReady) else item for item in items), owner, reservation,
                             retain_claim=lambda item: held_claims.__setitem__(item.claim.request_id, item),
                         )
                         if batch
-                        else self._execute(items[0], owner, reservation)
+                        else self._execute(items[0].ready if isinstance(items[0], _PreparedReady) else items[0], owner, reservation)
                     )
                     receipts.extend(result.receipts)
                     failures.extend(result.failures)
@@ -1345,7 +1406,10 @@ class NativeDemandExecutor:
                     for item in deferred:
                         if isinstance(item, _ClaimedReady):
                             held_claims[item.claim.request_id] = item
-                    pending.extendleft(reversed(deferred))
+                    pending.extendleft(reversed(tuple(
+                        item if isinstance(item, _ClaimedReady) else _PreparedReady(item)
+                        for item in deferred
+                    )))
                 finally:
                     active_requests -= len(items) - sum(
                         isinstance(item, _ClaimedReady) for item in deferred
@@ -1364,10 +1428,9 @@ class NativeDemandExecutor:
                         break
                     ready, populations, done, errors = self._prepare_page(snapshot, authorization)
                     groups = {}
-                    for index, item in enumerate(ready):
-                        context = self._ready_context(item)
-                        batch = context.model.operation(item.operation).capabilities.forms == ("batch",)
-                        key = (context.basis.key, item.operation) if batch else ("scalar", index)
+                    for item in ready:
+                        native = wire_json_loads(item.native)
+                        key = (native["release_id"], native["runtime_id"], item.operation)
                         groups.setdefault(key, []).append(item)
                     pending.extend(item for group in groups.values() for item in group)
                     selected.extend(populations)
@@ -1376,35 +1439,63 @@ class NativeDemandExecutor:
 
             def admit():
                 nonlocal active_requests
-                refill()
-                if not pending:
-                    return None
-                first = pending[0]
-                ready = first.ready if isinstance(first, _ClaimedReady) else first
-                context = self._ready_context(ready)
-                batch = context.model.operation(ready.operation).capabilities.forms == ("batch",)
-                items, fresh = [], 0
-                for queued in pending:
-                    item = queued.ready if isinstance(queued, _ClaimedReady) else queued
-                    if items and (not batch or item.operation != ready.operation
-                                  or self._ready_context(item).basis.key != context.basis.key):
-                        break
-                    is_fresh = not isinstance(queued, _ClaimedReady)
-                    if len(items) == self.policy.max_claims or active_requests + fresh + is_fresh > self.policy.max_claims:
-                        break
-                    items.append(queued)
-                    fresh += is_fresh
-                if not items:
-                    return None
-                # Each physical call, including a batch, has one stage-A charge.
-                reservation = self.budget.try_admit(self.reservation)
-                if reservation is None:
-                    return None
-                reservations.add(reservation)
-                active_requests += fresh
-                for _ in items:
-                    pending.popleft()
-                return execute(batch, tuple(items), reservation)
+                from corpus_structure.orchestrate.execution_host import ExecutionPreparationDeferred
+
+                def prepare(index):
+                    queued = pending[index]
+                    if not isinstance(queued, (_PreparedReady, _ClaimedReady)):
+                        queued = _PreparedReady(self._prepare_ready(queued, authorization))
+                        pending[index] = queued
+                    else:
+                        ready = queued.ready
+                        self._physical.select_operations((ready.operation,), self._ready_context(ready))
+                    return queued
+
+                while True:
+                    refill()
+                    if not pending:
+                        return None
+                    index = 0
+                    try:
+                        first = prepare(0)
+                        ready = first.ready
+                        context = self._ready_context(ready)
+                        batch = context.model.operation(ready.operation).capabilities.forms == ("batch",)
+                        items, fresh = [], 0
+                        for index in range(min(len(pending), self.policy.max_claims)):
+                            queued = pending[index]
+                            item = queued.ready if isinstance(queued, (_PreparedReady, _ClaimedReady)) else queued
+                            native = wire_json_loads(item.native)
+                            if items and (not batch or item.operation != ready.operation
+                                or (native["release_id"], native["runtime_id"]) != context.basis.key):
+                                break
+                            is_fresh = not isinstance(queued, _ClaimedReady)
+                            if active_requests + fresh + is_fresh > self.policy.max_claims:
+                                break
+                            items.append(prepare(index))
+                            fresh += is_fresh
+                    except ExecutionPreparationDeferred:
+                        return None
+                    except Exception as error:
+                        queued = pending[index]
+                        item = queued.ready if isinstance(queued, (_PreparedReady, _ClaimedReady)) else queued
+                        native = wire_json_loads(item.native)
+                        self._failed_requests.add((native["request_id"], native.get("generation")))
+                        error.add_note("native obligation: " + item.obligation)
+                        failures.append(error)
+                        del pending[index]
+                        continue
+                    if not items:
+                        return None
+                    # Each physical call, including a batch, has one stage-A charge.
+                    reservation = self.budget.try_admit(self.reservation)
+                    if reservation is None:
+                        return None
+                    reservations.add(reservation)
+                    active_requests += fresh
+                    for _ in items:
+                        pending.popleft()
+                    return execute(batch, tuple(items), reservation)
 
             try:
                 yield ReadyFrontier(
@@ -1449,7 +1540,19 @@ class NativeDemandExecutor:
             result = self._result(demand, self._last_snapshot or b"{}", standing="last-pinned")
             raise NativeDemandExecutionError(result, failures) from error
 
-    def run(
+    def run(self, demand: str, *, authorization: bytes = b"{}", limit: int = 100, max_rounds: int = 100):
+        if self._host_run is not None:
+            return self._run(demand, authorization=authorization, limit=limit, max_rounds=max_rounds)
+        from corpus_structure.orchestrate.execution_host import execution_host_scope
+
+        with execution_host_scope() as host, host.run(self.policy) as token:
+            self._host, self._host_run = host, token
+            try:
+                return self._run(demand, authorization=authorization, limit=limit, max_rounds=max_rounds)
+            finally:
+                self._host, self._host_run = None, None
+
+    def _run(
         self, demand: str, *, authorization: bytes = b"{}", limit: int = 100, max_rounds: int = 100
     ):
         """Replenish dependency-ready work until idle or an explicit round bound.
@@ -1480,10 +1583,10 @@ class NativeDemandExecutor:
             with (
                 self._report_execution_failure(demand),
                 maintained_claims(self.engine, (), self.holder, renew=self._renew) as owner,
-                _OwnedPythonPool(self.port_workers) as pool,
-                _InvocationExecution(self, pool) as physical,
+                self._host.execution(self, self._host_run) as physical,
             ):
                 self._physical = physical
+                self._claim_owner = owner
                 for _ in range(max_rounds):
                     progress = False
                     def pages():

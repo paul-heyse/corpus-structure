@@ -6,7 +6,7 @@ import fcntl
 import os
 import socket
 from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from pathlib import Path
 from time import sleep
@@ -16,16 +16,35 @@ import httpx
 
 _owns_pdf_gpu: ContextVar[bool] = ContextVar("owns_pdf_gpu", default=False)
 _nemotron_asleep: ContextVar[str | None] = ContextVar("nemotron_asleep", default=None)
+_quarantined_gpu_fds: list[int] = []
+_gpu_quarantine: BaseException | None = None
 
 
 @contextmanager
-def pdf_gpu_slot(check_active: Callable[[], None] | None = None) -> Generator[None]:
+def pdf_gpu_slot(
+    check_active: Callable[[], None] | None = None, *, native_residency: bool = False
+) -> Generator[None]:
     """Serialize the local operator's participating PDF GPU work across processes."""
     if _owns_pdf_gpu.get():
         yield
         return
+    from corpus_structure.orchestrate.execution_host import external_execution_gpu
+
+    borrower = nullcontext() if native_residency else external_execution_gpu(check_active or (lambda: None))
+    with borrower:
+        yield from _locked_gpu_slot(check_active)
+
+
+def _locked_gpu_slot(check_active):
+    global _gpu_quarantine
+    from corpus_structure.core.process_lifetime import physical_retirement_uncertain
+    from corpus_structure.core.work import PhysicalRetirementUncertain
+
+    if _gpu_quarantine is not None:
+        raise PhysicalRetirementUncertain("PDF GPU slot is quarantined; confirm managed group cleanup before process restart") from _gpu_quarantine
     path = Path("/tmp") / f"corpus-structure-pdf-gpu-{os.getuid()}.lock"
     fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    quarantined = False
     try:
         if os.fstat(fd).st_uid != os.getuid():
             raise PermissionError("PDF GPU slot belongs to another operator")
@@ -42,8 +61,17 @@ def pdf_gpu_slot(check_active: Callable[[], None] | None = None) -> Generator[No
             yield
         finally:
             _owns_pdf_gpu.reset(token)
+    except BaseException as error:
+        if physical_retirement_uncertain(error):
+            # Keep the actual interprocess lease unavailable. Closing a failed
+            # operation's descriptor would advertise GPU capacity without proof.
+            _quarantined_gpu_fds.append(fd)
+            _gpu_quarantine = error
+            quarantined = True
+        raise
     finally:
-        os.close(fd)
+        if not quarantined:
+            os.close(fd)
 
 
 @contextmanager
@@ -131,7 +159,7 @@ def suspend_resident_nemotron(
     endpoint: str | None, *, check_active: Callable[[], None] | None = None
 ) -> Generator[None]:
     """Hold local capacity and hand off the configured service when it is resident."""
-    with pdf_gpu_slot(check_active):
+    with pdf_gpu_slot(check_active, native_residency=True):
         if endpoint is not None:
             address = urlsplit(endpoint)
             if (

@@ -782,3 +782,65 @@ def test_residency_public_inspection_preserves_closed_population_without_activat
     assert residency.host_closed(selected.native.host)
     with pytest.raises(Exception, match="closed"):
         residency.configure_endpoint("http://changed-endpoint")
+
+
+def test_process_residency_reuses_warm_population_and_retires_before_profile_change():
+    from types import SimpleNamespace
+
+    events = []
+
+    class Group:
+        def __init__(self, *_):
+            self.physical_drained = True
+            self.closed = False
+            events.append(("create", self))
+
+        def declare(self, selections):
+            assert not self.closed
+            events.append(("declare", tuple(item.native.fingerprint for item in selections)))
+
+        def infer_result(self, selected, payload, check_active, **_):
+            assert not self.closed
+            return SimpleNamespace(payload=payload)
+
+        def close(self):
+            events.append(("close", self))
+            self.closed = True
+
+    residency = native_host.NativeHostResidency(CharacterizationExecutionPolicy(), group_factory=Group)
+    first, changed = selection(), selection("maverick")
+    try:
+        residency.begin_run()
+        residency.declare((first,))
+        residency.infer_result(first, {}, lambda: None)
+        original = residency._group
+        residency.finish_run(60)
+        residency.begin_run()
+        residency.declare((first,))
+        assert residency._group is original and not original.closed
+        residency.finish_run(60)
+        residency.begin_run()
+        residency.declare((changed,))
+        assert original.closed
+        assert residency._group is not original
+        assert residency.declared_selections == (changed,)
+        residency.finish_run(0)
+        assert residency._group is None
+    finally:
+        residency.close()
+
+
+def test_completed_startup_timeout_is_not_retried_as_an_unfinished_wait():
+    group = native_host.NativeHostGroup(CharacterizationExecutionPolicy())
+    failure = TimeoutError("completed startup failed")
+    group._ready = Future()
+    group._ready.set_exception(failure)
+    checks = []
+
+    def active():
+        checks.append(True)
+        assert len(checks) == 1, "completed startup exception was swallowed and retried"
+
+    with pytest.raises(TimeoutError) as caught:
+        group.ensure(active)
+    assert caught.value is failure and checks == [True]

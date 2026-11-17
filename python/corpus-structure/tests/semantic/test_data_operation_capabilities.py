@@ -132,28 +132,32 @@ def request_invocation():
     from types import SimpleNamespace
 
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
-    from corpus_structure.orchestrate.data_operations import _InvocationExecution
+    from contextlib import ExitStack
 
-    invocations = []
+    from corpus_structure.orchestrate.execution_host import ProcessExecutionHost
+
+    resources = []
 
     def make(pool, budget):
         executor = SimpleNamespace(
             prepared=SimpleNamespace(release_id="test:request-transport"),
             policy=CharacterizationExecutionPolicy(workers=1, max_submissions=1),
-            budget=budget,
-            nemotron_endpoint=None,
-            engine=None,
-            fitter_engine=None,
+            budget=budget, nemotron_endpoint=None, engine=None, fitter_engine=None,
+            port_workers=1,
         )
-        invocation = _InvocationExecution(executor, pool)
-        invocations.append(invocation)
+        host = ProcessExecutionHost()
+        stack = ExitStack()
+        token = stack.enter_context(host.run(executor.policy))
+        host.budget = budget
+        invocation = host.execution(executor, token)
+        invocation.pool = pool  # Inject only the deliberately failing transport.
+        resources.append((host, stack))
         return invocation
 
     yield make
-    for invocation in invocations:
-        invocation.providers.close()
-        invocation.native_hosts.close()
-        invocation.cpu.close()
+    for host, stack in resources:
+        stack.close()
+        host.close()
 
 
 def test_no_future_submission_keeps_its_byte_credit_until_physical_retirement(request_invocation):

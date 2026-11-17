@@ -101,3 +101,26 @@ def test_standalone_handoff_can_nest_inside_the_integrated_phase(capacity_servic
         assert state["sleeping"]
     assert state["events"] == ["/sleep", "/wake_up"]
     assert not state["sleeping"]
+
+
+def test_uncertain_group_retirement_keeps_gpu_descriptor_quarantined(monkeypatch):
+    import os
+    from types import SimpleNamespace
+
+    from corpus_structure.core.work import PhysicalRetirementUncertain
+    from corpus_structure.ingest import pdf_capacity
+
+    closed = []
+    monkeypatch.setattr(pdf_capacity, "_quarantined_gpu_fds", [])
+    monkeypatch.setattr(pdf_capacity, "_gpu_quarantine", None)
+    monkeypatch.setattr(pdf_capacity.os, "open", lambda *_: 41)
+    monkeypatch.setattr(pdf_capacity.os, "fstat", lambda _: SimpleNamespace(st_uid=os.getuid()))
+    monkeypatch.setattr(pdf_capacity.os, "close", closed.append)
+    monkeypatch.setattr(pdf_capacity.fcntl, "flock", lambda *_: None)
+    with pytest.raises(ExceptionGroup, match="managed child"):
+        with pdf_capacity.pdf_gpu_slot():
+            raise ExceptionGroup("managed child", [PhysicalRetirementUncertain("group:123 remains live")])
+    assert pdf_capacity._quarantined_gpu_fds == [41] and not closed
+    with pytest.raises(PhysicalRetirementUncertain, match="managed group cleanup"):
+        with pdf_capacity.pdf_gpu_slot():
+            pytest.fail("uncertain group retirement advertised free GPU capacity")

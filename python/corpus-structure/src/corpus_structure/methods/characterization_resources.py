@@ -7,6 +7,7 @@ from collections import deque
 from collections.abc import Callable
 from concurrent.futures import CancelledError, Future
 from contextlib import ExitStack, contextmanager, suppress
+from contextvars import Context, copy_context
 from dataclasses import asdict, dataclass, field, replace
 from hashlib import sha256
 from threading import BoundedSemaphore, Event, Lock, Thread
@@ -14,6 +15,7 @@ from typing import Any, Literal
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.method import PreparedWork
+from corpus_structure.core.process_lifetime import physical_retirement_uncertain
 from corpus_structure.semantic.identity import canonical_bytes
 
 from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
@@ -28,15 +30,6 @@ from .native_host import (
 )
 from .native_profiles import NativeSelection, pm2_selection
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
-
-
-def _retirement_uncertain(error):
-    from corpus_structure.core.work import PhysicalRetirementUncertain
-
-    return isinstance(error, PhysicalRetirementUncertain) or (
-        isinstance(error, BaseExceptionGroup)
-        and any(_retirement_uncertain(child) for child in error.exceptions)
-    )
 
 
 @dataclass(frozen=True)
@@ -215,6 +208,7 @@ class ProviderHandle:
     credit: Any = None
     credit_owner: Any = None
     uncertain: bool = False
+    context: Context = field(default_factory=copy_context, repr=False, compare=False)
 
     def flush(self):
         self.lane.flush()
@@ -277,7 +271,7 @@ class ProviderHandle:
             return False
         if not self.future.cancelled():
             error = self.future.exception()
-            self.uncertain = self.uncertain or _retirement_uncertain(error)
+            self.uncertain = self.uncertain or physical_retirement_uncertain(error)
             if error is None:
                 self.uncertain = self.uncertain or self.future.result().retirement_uncertain
         if self.uncertain and not self.owner.native_group.physical_drained:
@@ -432,7 +426,7 @@ class _Lane:
                 raise CapacityExceeded("native reply exceeds admitted byte capacity")
             return reply
         except Exception as error:
-            uncertain = _retirement_uncertain(error)
+            uncertain = physical_retirement_uncertain(error)
             try:
                 if (
                     not isinstance(error, (Pm2WorkerRefused, GlinerRefused))
@@ -441,7 +435,7 @@ class _Lane:
                 ):
                     self.discard()
             except BaseException as cleanup:
-                uncertain = uncertain or _retirement_uncertain(cleanup)
+                uncertain = uncertain or physical_retirement_uncertain(cleanup)
                 error.add_note("native teardown failed: " + str(cleanup))
             detail = "; ".join((str(error), *getattr(error, "__notes__", ())))[:1800]
             return ProviderReply(
@@ -464,7 +458,7 @@ class _Lane:
                 return
             self.wake.set()
             if self.thread is None:
-                self.thread = Thread(target=self.drain, name="native-" + self.name, daemon=True)
+                self.thread = Thread(target=self.drain, name="native-" + self.name, daemon=True, context=Context())
                 self.thread.start()
 
     def drain(self):
@@ -479,6 +473,7 @@ class _Lane:
                     else:
                         first = self.pending.popleft()
                         if not first.future.set_running_or_notify_cancel():
+                            first = None
                             continue
                         group = [first]
                         provider = (
@@ -494,14 +489,40 @@ class _Lane:
                 if group is None:
                     self.wake.wait()
                     continue
+                context = group[0].context.copy()
+
+                def exchange():
+                    from structlog.contextvars import get_contextvars
+
+                    from corpus_structure.cli.observation_logging import bound
+                    from corpus_structure.cli.observations import Bindings
+
+                    if len(group) == 1:
+                        return self.owner.exchange(self, group)
+                    # A coalesced exchange belongs to all actual producers,
+                    # rather than relabelling the first member as its owner.
+                    members = [
+                        {"correlation": handle.request.correlation,
+                         **{key: value for key, value in handle.context.run(get_contextvars).items()
+                            if key in Bindings.model_fields and value is not None}}
+                        for handle in group
+                    ]
+                    with bound(request_id=None, task_id=None, attempt=None,
+                               runtime_id=None, release_id=None, demand_id=None,
+                               logical_requests=members):
+                        return self.owner.exchange(self, group)
+
                 try:
-                    replies = self.owner.exchange(self, group)
+                    replies = context.run(exchange)
                 except BaseException as error:
                     for handle in group:
-                        handle.future.set_exception(error)
+                        handle.context.run(handle.future.set_exception, error)
                 else:
                     for handle, reply in zip(group, replies, strict=True):
-                        handle.future.set_result(reply)
+                        handle.context.run(handle.future.set_result, reply)
+                # A reusable lane must not retain the previous run's borrower
+                # callbacks or encoded replies in its waiting thread frame.
+                first = following = handle = reply = replies = group = context = exchange = None
         finally:
             try:
                 # Native context/device tokens are created and closed by this same
@@ -714,6 +735,10 @@ class ProviderExecution:
     def compatible(self, group, following):
         from corpus_structure.semantic.cpu_execution import CapacityExceeded
 
+        from corpus_structure.cli.observation_logging import same_observation_destination
+
+        if not same_observation_destination(group[0].context, following.context):
+            return False
         first = group[0].request
         other = following.request
         payloads: list[Any] = []

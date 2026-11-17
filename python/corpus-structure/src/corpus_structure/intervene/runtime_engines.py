@@ -20,7 +20,10 @@ class McpRuntimeEngines:
                 raise RuntimeError("MCP engine lifespan is already active")
             self._resources = ExitStack()
         try:
-            yield self
+            from corpus_structure.orchestrate.execution_host import execution_host_scope
+
+            with execution_host_scope():
+                yield self
         finally:
             with self._lock:
                 resources, self._resources = self._resources, None
