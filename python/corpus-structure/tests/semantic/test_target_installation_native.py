@@ -208,7 +208,7 @@ def install_target_root(engine, epoch, tmp_path):
             )
         )
         assert candidate.upgrade_ops is not None
-        rendered = _native_candidate_python(candidate.upgrade_ops, "")
+        rendered = _native_candidate_python(candidate.upgrade_ops)
         admission = authored_admission_sql(authoring)
         verify_rendered_candidate(
             connection,
@@ -457,7 +457,7 @@ def test_actual_target_successor_uses_registered_state_and_preserves_installatio
         )
         verify_frozen_catalog(connection, root_admission)
         assert candidate.upgrade_ops is not None and candidate.upgrade_ops.ops
-        rendered = _native_candidate_python(candidate.upgrade_ops, "")
+        rendered = _native_candidate_python(candidate.upgrade_ops)
         admission = authored_admission_sql(authoring)
         verify_rendered_candidate(
             connection, rendered, authoring, candidate.privilege_policies, admission

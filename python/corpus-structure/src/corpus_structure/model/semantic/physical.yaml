@@ -1540,7 +1540,8 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["build_id"], "target": "ops.pdf_stage_build.build_id"},
-        {"columns": ["build_id"], "target": "ops.pdf_producer_certification.build_id"},
+        {"name": "fk_pdf_build_validation_producer_certification", "columns": ["build_id"],
+        "target": "ops.pdf_producer_certification.build_id"},
         {"columns":["oracle_receipt_id"],"target":"ops.pdf_roundtrip_oracle.oracle_receipt_id"}]'
   pdf_published_revision:
     is_a: PdfPublishedRevision

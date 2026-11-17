@@ -280,7 +280,9 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
             local = fk["columns"]
             target = [f"{target_name}.{col}" for col in remote.split(",")]
             table.append_constraint(
-                ForeignKeyConstraint(local, target, info={"shared": tuple(local[:-1])})
+                ForeignKeyConstraint(
+                    local, target, name=fk.get("name"), info={"shared": tuple(local[:-1])}
+                )
             )
         for sql in json.loads(ann.get("ph:checks", "[]")):
             table.append_constraint(

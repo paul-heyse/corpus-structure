@@ -238,7 +238,7 @@ def test_frozen_upgrade_executes_sql_without_resolving_current_builders(monkeypa
     (step,) = n1()
     upgrade = ops.UpgradeOps([])
     data_steps.order_data_steps(upgrade, (step,), guarded_authoring(step))
-    source = _native_candidate_python(upgrade, "unused authoring login")
+    source = _native_candidate_python(upgrade)
     assert "schema.data_steps" not in source
     namespace = {}
     exec(compile(source, "frozen_data_candidate.py", "exec"), namespace)

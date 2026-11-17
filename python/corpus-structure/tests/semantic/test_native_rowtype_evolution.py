@@ -99,7 +99,7 @@ def test_rowtype_alter_recreates_only_frozen_declared_dependents(infrastructure_
         return
     # Exercise Alembic's frozen renderer, rather than only invoking the producer objects.
     namespace = {}
-    source = _native_candidate_python(upgrade, "")
+    source = _native_candidate_python(upgrade)
     exec(compile(source, "native-rowtype-regression.py", "exec"), namespace)
     with Operations.context(MigrationContext.configure(connection)):
         namespace["upgrade"]()

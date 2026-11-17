@@ -411,18 +411,23 @@ def _render_native_candidate(result):
     return table
 
 
-def _native_candidate_python(upgrade_ops, restore_sql: str) -> str:
-    """Render operation-owned role custody without author-login restoration strings."""
+def _native_candidate_python(upgrade_ops) -> str:
+    """Freeze the operations using PostgreSQL's DDL expression compiler."""
 
     from alembic.autogenerate import render_python_code
+    from alembic.runtime.migration import MigrationContext
+    from sqlalchemy.dialects.postgresql import dialect
 
+    migration_context = MigrationContext.configure(dialect=dialect())
     source = (
         "from alembic import op\nimport sqlalchemy as sa\n"
         "from sqlalchemy import Text\nfrom sqlalchemy.dialects import postgresql\n"
         "import pgvector.sqlalchemy\n"
         "from corpus_structure.semantic import alembic_native, alembic_privileges\n\n"
         "from pgvector.sqlalchemy import VECTOR as Vector\n\n"
-        "def upgrade():\n" + render_python_code(upgrade_ops) + "\n"
+        "def upgrade():\n"
+        + render_python_code(upgrade_ops, migration_context=migration_context)
+        + "\n"
     )
     return source
 
@@ -567,11 +572,7 @@ def author_native_candidate(
                 for item in upgrade_ops.ops
                 if isinstance(item, (NativeTransitionOp, PrivilegeTransitionOp))
             ]
-            migration_role = conn.exec_driver_sql("SELECT current_user").scalar_one()
-            python_source = _native_candidate_python(
-                upgrade_ops,
-                "SET LOCAL ROLE " + conn.dialect.identifier_preparer.quote(migration_role),
-            )
+            python_source = _native_candidate_python(upgrade_ops)
             compile(python_source, "native_candidate.py", "exec")
             # Reuse the admission already normalized with the candidate's new
             # physical row types in scope; rebuilding after its savepoint rolls
