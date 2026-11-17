@@ -99,7 +99,9 @@ def test_native_planner_selects_on_one_read_and_attaches_only_after_fresh_read(d
         snapshot = planner.resume(demand["demand_id"])
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        assert planner.ready(snapshot, authorization=b"{}") == ()
+        children = planner.ready(snapshot, authorization=b"{}")
+        assert len(children) == 3 and all(item.operation == "urn:child" for item in children)
+        assert consumer["obligation_id"] not in {item.obligation for item in children}
         assert len(planner.selected_population_ids) == 1
         refreshed = planner.resume(demand["demand_id"])
         assert refreshed["read_id"] != snapshot["read_id"]
@@ -107,8 +109,9 @@ def test_native_planner_selects_on_one_read_and_attaches_only_after_fresh_read(d
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         ready = planner.ready(refreshed, authorization=b"{}")
         assert planner.selected_population_ids == ()
-        assert len(ready) == 1
-        assert ready[0].obligation == consumer["obligation_id"]
+        consumers = [item for item in ready if item.operation == "urn:consumer"]
+        assert len(consumers) == 1 and consumers[0].obligation == consumer["obligation_id"]
+        assert all(item.operation in {"urn:child", "urn:consumer"} for item in ready)
 
 
 def test_native_planner_preserves_ambiguous_authentic_parent_populations(ddo_kernel):
@@ -120,7 +123,9 @@ def test_native_planner_preserves_ambiguous_authentic_parent_populations(ddo_ker
         snapshot = planner.resume(demand["demand_id"])
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        assert planner.ready(snapshot, authorization=b"{}") == ()
+        children = planner.ready(snapshot, authorization=b"{}")
+        assert len(children) == 3 and all(item.operation == "urn:child" for item in children)
+        assert consumer["obligation_id"] not in {item.obligation for item in children}
         assert planner.selected_population_ids == ()
         current = planner.resume(demand["demand_id"])
         use = next(

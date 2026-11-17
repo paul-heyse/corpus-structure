@@ -11,6 +11,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import (
     WireCancelDataDemandRequest,
+    WireClaimDataRequestsRequest,
     WireRevokeDataSupportRequest,
 )
 from corpus_structure.semantic.data_operation_demands import (
@@ -218,7 +219,7 @@ def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(
     assert untrusted == ()
     with (
         ddo_kernel["engine"].begin() as connection,
-        pytest.raises(DBAPIError, match="trust snapshot changed"),
+        pytest.raises(DBAPIError, match="read trust changed; reacquire demand read"),
         connection.begin_nested(),
     ):
         connection.execute(
@@ -235,8 +236,17 @@ def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(
                 "scope": '{"focus":true}',
             },
         )
-    with pytest.raises(DBAPIError, match=r"support|revoked"):
-        _complete_ready(ddo_kernel, answer)
+    attached = json.loads(answer.native)
+    with ddo_kernel["engine"].begin() as connection:
+        refused = DataOperationStorage(connection).claim_data_requests(
+            typing_cast(WireClaimDataRequestsRequest, {
+                "holder": "withdrawn-exact-pin", "lease_seconds": 30,
+                "items": [{"request_id": attached["request_id"], "generation": attached["generation"]}],
+            })
+        )["items"]
+        assert len(refused) == 1 and refused[0]["state"] == "refused"
+        assert refused[0]["sqlstate"] == "23514"
+        assert re.search(r"support|revoked", refused[0]["reason"])
     with ddo_kernel["engine"].connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 2
 

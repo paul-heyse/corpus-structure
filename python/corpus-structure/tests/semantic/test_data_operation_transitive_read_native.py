@@ -158,7 +158,7 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 2
     with ddo_kernel["engine"].begin() as connection:
         with (
-            pytest.raises(DBAPIError, match="pins or current trust differ"),
+            pytest.raises(DBAPIError, match="read trust changed; reacquire demand read"),
             connection.begin_nested(),
         ):
             DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection)).resume(
@@ -341,7 +341,7 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         with (
-            pytest.raises(DBAPIError, match="pins or current trust differ"),
+            pytest.raises(DBAPIError, match="read trust changed; reacquire demand read"),
             connection.begin_nested(),
         ):
             planner.resume(demand_d["demand_id"], read_id=pinned["read_id"])
