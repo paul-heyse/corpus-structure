@@ -150,7 +150,7 @@ def test_stable_actual_pdf_resource_capture_verifies_without_native_execution(
     ),
 )
 @pytest.mark.parametrize("helper", ("pdf_health", "pdf_hierarchy", "pdf_build_spool"))
-def test_changed_helper_refuses_before_authorization(
+def test_helper_mutation_respects_actual_capability_resources(
     captured_pdf_ports, operation, helper, monkeypatch
 ):
     port, authorized, identity = acquired_port(captured_pdf_ports, operation)
@@ -174,9 +174,17 @@ def test_changed_helper_refuses_before_authorization(
         return changed if source.resolve() == path else original(source)
 
     monkeypatch.setattr(Path, "read_bytes", altered)
-    with pytest.raises((PortRefusal, ValueError), match=r"resources differ|implementation changed"):
+    if helper == "pdf_build_spool" and operation in {
+        "source.pdf_views/discovery", "source.pdf_organized_views/discovery"
+    }:
+        # Discovery reads a sealed publication and owns no producer spool. Its
+        # own captured reader resources remain current when spool code changes.
         port._verify()
-    assert authorized == [identity]
+        assert authorized == [identity, identity]
+    else:
+        with pytest.raises((PortRefusal, ValueError), match=r"resources differ|implementation changed"):
+            port._verify()
+        assert authorized == [identity]
 
 
 def test_moved_health_bytes_belong_to_both_actual_resource_owners(captured_pdf_ports):
