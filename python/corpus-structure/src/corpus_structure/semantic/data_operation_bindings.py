@@ -679,7 +679,9 @@ def compile_binding(
                             for key in ("derivation_id", "admission_use_id")
                         )
                     ):
-                        raise ValueError("discovery input requires exact parent product and support")
+                        raise ValueError(
+                            "discovery input requires exact parent product and support"
+                        )
                     condition = and_(
                         condition,
                         alias.c.product == evidence["product_id"],

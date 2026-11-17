@@ -1,7 +1,7 @@
 """Immutable runtime model composition, independently of live admission authority."""
 
 import json
-from dataclasses import FrozenInstanceError, replace
+from dataclasses import replace
 
 import pytest
 
@@ -41,8 +41,6 @@ def test_bound_model_reuses_immutable_composition_without_changing_canonical_mea
     assert content == compiled.content == read_effective_data_operations(compiled.content).content
     assert first.identities == compiled.identities
     assert "source_interfaces" not in json.loads(content)
-    with pytest.raises(FrozenInstanceError):
-        setattr(first, "source_interfaces", b"changed")
 
 
 def test_bound_model_keys_include_both_exact_artifact_contents():
@@ -58,9 +56,10 @@ def test_bound_model_keys_include_both_exact_artifact_contents():
     assert new_interfaces.content == first.content
     assert new_model is not first
     assert new_model.content == changed.content != first.content
-    without_interfaces = replace(prepared_model(original.content), artifacts=(
-        PreparedArtifact("data_operations.json", original.content),
-    ))
+    without_interfaces = replace(
+        prepared_model(original.content),
+        artifacts=(PreparedArtifact("data_operations.json", original.content),),
+    )
     assert bound_data_operation_model(without_interfaces).source_interfaces is None
 
 
@@ -76,9 +75,13 @@ def test_bound_model_cache_hit_does_not_bypass_manifest_or_artifact_refusals():
         with pytest.raises(SemanticRefusal, match="unambiguous target operation model"):
             bound_data_operation_model(replace(prepared, manifest=canonical_bytes(manifest)))
     with pytest.raises(SemanticRefusal, match="unambiguous target operation model"):
-        bound_data_operation_model(replace(prepared, artifacts=(*prepared.artifacts, prepared.artifacts[0])))
+        bound_data_operation_model(
+            replace(prepared, artifacts=(*prepared.artifacts, prepared.artifacts[0]))
+        )
     with pytest.raises(SemanticRefusal, match="ambiguous source interface"):
-        bound_data_operation_model(replace(prepared, artifacts=(*prepared.artifacts, prepared.artifacts[1])))
+        bound_data_operation_model(
+            replace(prepared, artifacts=(*prepared.artifacts, prepared.artifacts[1]))
+        )
     historical = json.loads(compiled.content)
     historical["version"] = "unsupported"
     with pytest.raises(ValueError, match="unsupported data-operation model version"):

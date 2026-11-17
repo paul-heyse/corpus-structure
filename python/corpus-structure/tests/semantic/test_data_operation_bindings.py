@@ -1335,7 +1335,9 @@ def test_discovery_input_requires_complete_typed_producing_support(evidence):
             subject_context=SubjectContext(
                 "project", "doc", "source", b'{"page":1}', subject_definition="document"
             ),
-            populations=(PopulationBinding("discovered", "closed", True, ("m2",), canonical_bytes(evidence)),),
+            populations=(
+                PopulationBinding("discovered", "closed", True, ("m2",), canonical_bytes(evidence)),
+            ),
             discovery_roles=(("items", "discovered"),),
         )
 
@@ -1359,7 +1361,12 @@ def test_discovery_proof_selection_preserves_real_output_cardinality(storage, du
                 "position": 2,
                 "support_evidence": {
                     "trust": "pinned",
-                    "producer_output": {"member_id": None, "role": "result", "position": 1, "multiplicity": 1},
+                    "producer_output": {
+                        "member_id": None,
+                        "role": "result",
+                        "position": 1,
+                        "multiplicity": 1,
+                    },
                 },
             },
         )
@@ -1373,10 +1380,15 @@ def test_discovery_proof_selection_preserves_real_output_cardinality(storage, du
             subject_context=SubjectContext(
                 "project", "doc", "source", b'{"page":1}', subject_definition="document"
             ),
-            populations=(PopulationBinding(
-                "discovered", "closed", True, ("m2",),
-                b'{"product_id":"p2","derivation_id":"ep2","admission_use_id":"use:current"}',
-            ),),
+            populations=(
+                PopulationBinding(
+                    "discovered",
+                    "closed",
+                    True,
+                    ("m2",),
+                    b'{"product_id":"p2","derivation_id":"ep2","admission_use_id":"use:current"}',
+                ),
+            ),
             discovery_roles=(("items", "discovered"),),
         ),
     )
@@ -1393,32 +1405,51 @@ def test_discovery_does_not_override_conflicting_selected_source_proof(storage):
         {"kind": "computation", "derivation_id": "ep2", "admission_use_id": "use:current"}
     ]
     connection.execute(table.update().where(table.c.product == "p2").values(**row))
-    connection.execute(table.insert(), {
-        **row,
-        "support_references": [
-            {"kind": "computation", "derivation_id": "ep2", "admission_use_id": "use:earlier"}
-        ],
-    })
+    connection.execute(
+        table.insert(),
+        {
+            **row,
+            "support_references": [
+                {"kind": "computation", "derivation_id": "ep2", "admission_use_id": "use:earlier"}
+            ],
+        },
+    )
     selected = selected_entry(product="p2", member="m2", episode="ep2", use="use:earlier")
-    selected = replace(selected, entry=replace(selected.entry, subject="doc", original_source="source"))
+    selected = replace(
+        selected, entry=replace(selected.entry, subject="doc", original_source="source")
+    )
     base = model(BindingExpression("scan", roles=("items",)), collection="scalar", maximum=1)
     role = base.operations[0].roles[0]
     assert role.support is not None
-    role = replace(role, support=replace(role.support, source="frozen-source-set", source_set="inputs"))
+    role = replace(
+        role, support=replace(role.support, source="frozen-source-set", source_set="inputs")
+    )
     schema = replace(base, operations=(replace(base.operations[0], roles=(role,)),))
 
     def bind(scope):
-        return execute_binding(connection, compile_binding(
-            schema, "urn:op", (projection,), subject="doc",
-            subject_context=SubjectContext(
-                "project", "doc", "source", b'{"page":1}', subject_definition="document"
+        return execute_binding(
+            connection,
+            compile_binding(
+                schema,
+                "urn:op",
+                (projection,),
+                subject="doc",
+                subject_context=SubjectContext(
+                    "project", "doc", "source", b'{"page":1}', subject_definition="document"
+                ),
+                populations=(
+                    PopulationBinding(
+                        "discovered",
+                        "closed",
+                        True,
+                        ("m2",),
+                        b'{"product_id":"p2","derivation_id":"ep2","admission_use_id":"use:current"}',
+                    ),
+                ),
+                discovery_roles=(("items", "discovered"),),
+                source_sets=(scope,),
             ),
-            populations=(PopulationBinding(
-                "discovered", "closed", True, ("m2",),
-                b'{"product_id":"p2","derivation_id":"ep2","admission_use_id":"use:current"}',
-            ),),
-            discovery_roles=(("items", "discovered"),), source_sets=(scope,),
-        ))
+        )
 
     assert bind(FrozenSourceSet.from_selected("inputs", (selected,))).status == "awaiting-inputs"
     current = bind(FrozenSourceSet.unqualified("inputs", (selected.entry,)))
