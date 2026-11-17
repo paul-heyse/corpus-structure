@@ -1,9 +1,7 @@
 """Ordered source joins preserve independently stated interval and output semantics."""
 
-from types import SimpleNamespace
-
 from corpus_structure.semantic.construction_products import _clip_sentence_regions
-from corpus_structure.semantic.constructions.retained_rules import SourceLayoutIndex, source_layout
+from corpus_structure.semantic.constructions.retained_rules import SourceLayoutIndex
 from corpus_structure.semantic.positioned_rows import PositionedRows
 
 
@@ -23,7 +21,6 @@ def test_sentence_sweep_restores_region_and_retained_sentence_order():
 
 
 def test_layout_index_uses_nearest_preceding_heading_of_exact_parent():
-    text = "Example\nPolicy\nbody\nInstructions\nnext"
     pieces = (
         {"start": 0, "end": 7, "item_ref": "example"},
         {"start": 7, "end": 8, "kind": "synthetic_separator"},
@@ -40,9 +37,6 @@ def test_layout_index_uses_nearest_preceding_heading_of_exact_parent():
         "next": {"parent": "local", "label": "text"},
     }
     index = SourceLayoutIndex(pieces, items)
-    product = SimpleNamespace(block_start=14, source=SimpleNamespace(projection_digest="projection"))
-    layout, heading = source_layout(product, text, pieces, items, with_context=True, index=index)
-    assert layout == "example" and heading["native_pointer"] == "example"
-    product.block_start = 32
-    _layout, heading = source_layout(product, text, pieces, items, with_context=True, index=index)
-    assert heading["native_pointer"] == "instruction"
+    assert index.preceding(14)["item_ref"] == "example"
+    assert index.preceding(32)["item_ref"] == "instruction"
+    assert index.preceding(0) is None

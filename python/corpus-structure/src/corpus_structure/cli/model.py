@@ -1902,6 +1902,7 @@ def candidate(
                     check_preview(root, staged, applied=True)
                     prepared = None
                     release_inputs = None
+                    capsule: bytes | None = None
                     sql_inputs = None
                     if staged.effects.admission:
                         from corpus_structure.schema.model_change import compilation_fingerprint
@@ -2001,7 +2002,7 @@ def candidate(
                     )
                     if prepared is not None:
                         # Publish the authenticated preview capsule verbatim.
-                        assert release_inputs is not None
+                        assert release_inputs is not None and capsule is not None
                         capsule_path = result.directory / "inspection.json"
                         capsule_path.write_bytes(capsule)
                         result.publish("inspection", capsule_path)
