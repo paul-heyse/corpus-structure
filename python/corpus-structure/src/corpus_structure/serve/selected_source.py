@@ -869,13 +869,9 @@ class SelectedSourceReader:
             if item["body"]["target"].get("pointer") in required
             or item["body"]["target"].get("occurrence_id") in required
         ]
-        missing = required - {
-            row[0] for row in self._index.execute("SELECT pointer FROM records")
-        }
+        missing = required - {row[0] for row in self._index.execute("SELECT pointer FROM records")}
         if needed or missing:
-            raise AdditionalContextRequired(
-                needed, required_outside_values=sorted(missing)
-            )
+            raise AdditionalContextRequired(needed, required_outside_values=sorted(missing))
         outcomes = {}
         for (path,) in self._index.execute(
             "SELECT path FROM companions WHERE family='native_metadata'"

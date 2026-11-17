@@ -1,5 +1,7 @@
 """Actual current protected grade/fitting journeys; controlled extraction only."""
 
+from typing import Any
+
 import pytest
 from evaluate.declared_record_native_support import (
     PROJECT,
@@ -95,7 +97,7 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
     )
     from corpus_structure.semantic.source_products import native_projection_identity
 
-    body = {
+    body: dict[str, Any] = {
         "text": "12\n12",
         "pieces": [
             dict(
@@ -122,7 +124,7 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
                 "self_ref": "#/tables/0",
                 "data": {"table_cells": [{"text": "12"}, {"text": "12"}]},
             }
-        ]
+        ],
     }
     projection = native_projection_identity(body["text"], body["pieces"], body["items"])
     selected = selected.model_copy(update={"projection_digest": projection})

@@ -477,9 +477,9 @@ def test_one_literal_set_cannot_overlap_or_reverse_a_source_coordinate(
 
 def test_equal_literal_pieces_retain_actual_coordinate_order():
     record, contexts = table_record()
-    pieces = tuple(anchor(pointer, "12", 0, 2) for pointer in (
-        "#/tables/0/cells/9", "#/tables/0/cells/10"
-    ))
+    pieces = tuple(
+        anchor(pointer, "12", 0, 2) for pointer in ("#/tables/0/cells/9", "#/tables/0/cells/10")
+    )
     record["anchors"] = (*record["anchors"][:5], *pieces, *record["anchors"][6:])
     evidence = record["evidence_sets"][4]
     evidence["anchors"] = tuple(piece["anchor_id"] for piece in pieces)
@@ -492,18 +492,25 @@ def test_equal_literal_pieces_retain_actual_coordinate_order():
         evidence_sets=(evidence["set_id"],),
     )
     contexts = tuple(row for row in contexts if row["pointer"] != "#/tables/0/cells/3") + tuple(
-        {"pin": dict(PIN), "space": "native", "pointer": piece["pointer"], "text": "12",
-         "projection_start": 40 + index * 2}
+        {
+            "pin": dict(PIN),
+            "space": "native",
+            "pointer": piece["pointer"],
+            "text": "12",
+            "projection_start": 40 + index * 2,
+        }
         for index, piece in enumerate(pieces)
     )
     # Discovery order is deliberately the reverse of the independently supplied bridge.
     contexts = tuple(reversed(contexts))
     finish(record)
     assert bind(record, contexts).model_dump(mode="python")["fields"][4]["original_pieces"] == (
-        "12", "12"
+        "12",
+        "12",
     )
-    unknown = tuple({key: value for key, value in row.items() if key != "projection_start"}
-                    for row in contexts)
+    unknown = tuple(
+        {key: value for key, value in row.items() if key != "projection_start"} for row in contexts
+    )
     with pytest.raises(ValueError, match="coordinate order is unavailable"):
         bind(record, unknown)
     evidence["anchors"] = tuple(reversed(evidence["anchors"]))

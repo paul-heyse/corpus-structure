@@ -257,9 +257,7 @@ def bind_record_candidates(
         origin = 0 if row["space"] == "selected_projection" else row.get("projection_start")
         if row.get("projection_start") is not None and row["space"] != "native":
             raise ValueError("projection bridge requires native coordinate text")
-        if key in contexts and (
-            contexts[key] != row["text"] or coordinate_origins[key] != origin
-        ):
+        if key in contexts and (contexts[key] != row["text"] or coordinate_origins[key] != origin):
             raise ValueError("conflicting pinned coordinate text")
         coordinate_origins[key] = origin
         contexts[key] = row["text"]
@@ -456,15 +454,20 @@ def bind_record_candidates(
                                     if coordinate != previous_coordinate and (
                                         origin is None or previous_end is None
                                     ):
-                                        raise ValueError("literal source coordinate order is unavailable")
-                                    if origin is not None and previous_end is not None and (
-                                        origin + piece["start"] < previous_end
+                                        raise ValueError(
+                                            "literal source coordinate order is unavailable"
+                                        )
+                                    if (
+                                        origin is not None
+                                        and previous_end is not None
+                                        and (origin + piece["start"] < previous_end)
                                     ):
                                         raise ValueError(
                                             "literal evidence intervals overlap or reverse source order"
                                         )
                                 previous_coordinates[coordinate_space] = (
-                                    coordinate, None if origin is None else origin + piece["end"]
+                                    coordinate,
+                                    None if origin is None else origin + piece["end"],
                                 )
                                 if piece["start"] < previous_ends.get(coordinate, 0):
                                     raise ValueError(

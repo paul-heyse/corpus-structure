@@ -223,7 +223,12 @@ def reading(family):
                 }
                 if text is not None:
                     anchor.update(start=0, end=len(text), source_piece=text)
-                    coordinate = {"pin": dict(PIN), "space": space, "pointer": pointer, "text": text}
+                    coordinate = {
+                        "pin": dict(PIN),
+                        "space": space,
+                        "pointer": pointer,
+                        "text": text,
+                    }
                     if space == "native":
                         coordinate["projection_start"] = projection_position
                     contexts.append(coordinate)

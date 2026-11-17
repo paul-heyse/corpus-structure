@@ -686,6 +686,7 @@ def evidence_anchor(
         pointer += f"/data/table_cells/{piece.cell_index}"
     pin = record_source_pin(source)
     start, end, text, space = piece.start, piece.end, source.text, "selected_projection"
+    projection_start = 0
     if native:
         # The projection owner emits complete unchanged native fields. Establish that
         # exact bridge before dropping view-relative offsets from physical identity.
