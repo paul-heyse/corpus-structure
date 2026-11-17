@@ -276,7 +276,9 @@ class CurrentRecordPolicyJourney:
     sources: tuple[SourceChoice, ...]
     source_cut: CutSelection
 
-    def selected_products(self, engine, demand, *, kind, scope=None):
+    def selected_products(
+        self, engine, demand, *, kind, scope=None, page_rows=100, max_bytes=8 * 1024**2
+    ):
         from corpus_structure.evaluate.declared_record_policy import _selected_body
         from corpus_structure.semantic.demand_results import selected_record_index
 
@@ -293,6 +295,8 @@ class CurrentRecordPolicyJourney:
                 demand,
                 project_id=PROJECT,
                 scope={} if scope is None else scope,
+                page_rows=page_rows,
+                max_bytes=max_bytes,
                 capture_frontier=True,
             ) as (cut, index),
         ):
@@ -762,6 +766,8 @@ def run_readings(
     family="table",
     variant="standard",
     diagnostic_bytes=0,
+    page_rows=100,
+    max_bytes=8 * 1024**2,
 ):
     from corpus_structure.evaluate.declared_record_policy import (
         DdoRecordGradeSpecification,
@@ -841,6 +847,8 @@ def run_readings(
             "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport",
             "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
         ),
+        page_rows=page_rows,
+        max_bytes=max_bytes,
     )
     kinds = {
         item.owner: item.key for item in journey.kernel.model.identities if item.domain == "kind"

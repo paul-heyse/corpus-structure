@@ -133,6 +133,10 @@ def test_native_large_diagnostics_remain_in_actual_support_without_forcing_publi
         (source,),
         policy=None,
         diagnostic_bytes=2 * 1024**2,
+        # Inspect the actual large private payload one obligation at a time;
+        # the separate public read below retains its 64 KiB contract.
+        page_rows=1,
+        max_bytes=16 * 1024**2,
         inference="actual-large-record-diagnostic",
     )
     ((raw_product, raw),) = readings.raw
