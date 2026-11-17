@@ -10,6 +10,33 @@ at `4f32589d0`. All actionable I01–I09 scope is scheduled below, with explicit
 conditional choices retained. Existing F01–F14/C1–C7/CA identities and scoped closures survive.
 Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No broad audit is initiated.
 
+## Resumed remaining execution · 2026-11-16
+
+**Execution authorized; incomplete.** The operator approved the full remaining execution approach
+following the closeout. Keep the existing current rich/policy/query/projection-analysis implementation;
+older proposed sections do not schedule a second redesign. Complete current native/provider/public
+qualification, remaining orphan retirement, faithful original registration, fenced development adoption,
+whole-book same-demand interruption/resume and the DDO-12 union.
+
+**Chandra OCR excluded by operator.** Do not activate, migrate, qualify or build compatibility for
+Chandra-generated results. If their migration presents a problem, discard those results rather than
+retaining legacy code. Raw original PDFs remain eligible for normal faithful source registration;
+Chandra experiment provenance does not turn their bytes into generated OCR. Current Docling/RapidOCR
+and Nemotron capabilities remain selected. The whole-book demand must pin one intended original
+explicitly: its project has two registrations with the same source hash.
+
+Concrete source retirement removes orphan `semantic.pm2_coverage` and
+`semantic.interpretation_queries`; no current production/test/script/tool callers were found.
+Their useful current coverage/query contracts already have current owners. Preserve frozen migrations,
+plans, historical evidence and physical custody. Actual E5 selected-context publication/retrieval is
+required by the active profile and missing from the old10-provider collection; add the real configured
+model journey for all3 declared selected-context recipes, retaining controlled tests separately.
+
+Finalized descriptor record `ddo.original-descriptor-registration-basis` supplies all29 titles and
+metadata, verified source bytes and keys matching the current document-key function. It adds to, rather
+than edits, the earlier census. It establishes inputs only; no current registration, fencing or
+adoption has occurred. Current native2 retry and isolated E5 implementation own the next feedback.
+
 ## Current execution boundary · 2026-11-16
 
 **Implemented; bounded Tested.** The97-relation physical declaration and maintained PDF actions now
