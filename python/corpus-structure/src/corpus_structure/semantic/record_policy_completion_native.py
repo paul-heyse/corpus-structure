@@ -304,11 +304,14 @@ BEGIN
  AND project_id=ddo_record_fit_cut_scopes.project;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=ddo_record_fit_cut_scopes.selection->>'read_id' AND demand_id=d.id;
  p:=jsonb_build_object('scope',boundary.scope);
- PERFORM ops.ddo_record_fit_require_finite_cut(d,boundary);
+ IF NOT coalesce(ops.ddo_read_acquisition_present(boundary),false) THEN
+ RAISE EXCEPTION 'fit grade cut requires read reacquisition' USING ERRCODE='23514'; END IF;
+ IF NOT boundary.fit_census_eligible THEN RAISE EXCEPTION 'fit grade selection support reaches fitted policy authority' USING ERRCODE='23514'; END IF;
  __DDO_CORE_CUT_SELECTION__ INTO actual;
  IF actual IS DISTINCT FROM (selection->>'cut_canonical_json')::jsonb THEN
  RAISE EXCEPTION 'fit grade cut differs from exact native retained selection' USING ERRCODE='23514'; END IF;
- RETURN QUERY __DDO_CORE_SUPPORT_SCOPES__;
+ RETURN QUERY SELECT retained.scope FROM ops.data_demand_read_scope retained
+ WHERE retained.read_id=boundary.id AND retained.ordinary ORDER BY retained.scope;
 END $fit$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_record_fit_completion_scopes(r ops.data_request)
@@ -341,20 +344,15 @@ END $fit$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_record_fit_require_selection(r ops.data_request,role_name text,selection jsonb,authenticate_output boolean)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
-DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; actual jsonb; scope_key text; current_trust jsonb:='{}'; epoch bigint;
+DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb;
  p_use text:=selection->>'use_id'; p_product text:=selection->>'product_id'; p_derivation text:=selection->>'derivation_id'; admitted boolean;
  chosen jsonb; grade jsonb; producer ops.data_derivation; definition sem.data_operation_definition; intent ops.data_completion_intent;
 BEGIN
- -- scopes() authenticates the exact project/cut and refuses recursive fit graphs
- -- before invoking ordinary read validity. The enclosing owner locks this same
- -- scope union once in canonical order before request/task fences.
- FOR scope_key IN SELECT * FROM ops.ddo_record_fit_cut_scopes(r.project_id,selection) LOOP
- SELECT coalesce((SELECT scope.epoch FROM ops.data_trust_scope scope WHERE scope.scope=scope_key AND scope.project_id=r.project_id),0) INTO epoch;
- current_trust:=current_trust||jsonb_build_object(scope_key,epoch);
- END LOOP;
+ -- The immutable eligibility/cut proof and its ordinary scopes were recorded
+ -- at acquisition. Current epochs and caller membership are never cached.
+ PERFORM ops.ddo_record_fit_cut_scopes(r.project_id,selection);
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=selection->>'read_id' AND demand_id=selection->>'demand_id';
- IF ops.ddo_trust_snapshot_meaning(current_trust) IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) THEN
- RAISE EXCEPTION 'fit grade current trust differs from original retained cut' USING ERRCODE='23514'; END IF;
+ PERFORM ops.ddo_require_read_current(boundary,r.project_id,true);
  IF NOT authenticate_output THEN RETURN NULL; END IF;
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=boundary.demand_id AND project_id=r.project_id;
  p:=jsonb_build_object('scope',boundary.scope);

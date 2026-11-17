@@ -159,21 +159,17 @@ RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog
 DECLARE specification jsonb:=ops.ddo_record_grade_input(r,'specification')->'body'; selected jsonb:=specification->'frame';
  selection_ jsonb:=selected->'selection'; d ops.data_demand; boundary ops.data_demand_read; p jsonb;
  p_use text:=selected->>'use_id'; p_product text:=selected->'reference'->>'product_id'; p_derivation text:=selected->>'derivation_id';
- admitted boolean; scope_key text; epoch bigint; current_trust jsonb:='{}'; chosen jsonb;
+ admitted boolean; chosen jsonb;
  producer ops.data_derivation; frame_request ops.data_request; intent ops.data_completion_intent; actual kb.data_product; definition sem.data_operation_definition;
 BEGIN
  IF selection_->>'project_id' IS DISTINCT FROM r.project_id
  OR selected->'reference'->>'member_id' IS NOT NULL
  OR selection_->>'cut_id' IS DISTINCT FROM 'cut-selection:'||encode(sha256(convert_to(selection_->>'cut_canonical_json','UTF8')),'hex') THEN
  RAISE EXCEPTION 'event fit changes exact selected frame project/cut' USING ERRCODE='23514'; END IF;
- FOR scope_key IN SELECT * FROM ops.ddo_record_fit_cut_scopes(r.project_id,selection_) LOOP
- SELECT coalesce((SELECT scope.epoch FROM ops.data_trust_scope scope WHERE scope.scope=scope_key AND scope.project_id=r.project_id),0) INTO epoch;
- current_trust:=current_trust||jsonb_build_object(scope_key,epoch);
- END LOOP;
+ PERFORM ops.ddo_record_fit_cut_scopes(r.project_id,selection_);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=selection_->>'demand_id' AND project_id=r.project_id;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=selection_->>'read_id' AND demand_id=d.id;
- IF ops.ddo_trust_snapshot_meaning(current_trust) IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) THEN
- RAISE EXCEPTION 'event frame current trust differs from original selected fit cut' USING ERRCODE='23514'; END IF;
+ PERFORM ops.ddo_require_read_current(boundary,r.project_id,true);
  p:=jsonb_build_object('scope',boundary.scope);
  __DDO_CORE_SELECTED_SUPPORT_OUTPUT__ INTO admitted;
  IF NOT coalesce(admitted,false) THEN RAISE EXCEPTION 'event frame is outside exact native selected support' USING ERRCODE='23514'; END IF;
@@ -315,7 +311,7 @@ END $event$;
 CREATE OR REPLACE FUNCTION ops.ddo_operation_event_dependencies_valid(episode text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
 DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
- selected jsonb; boundary ops.data_demand_read; scope_key text; epoch bigint; current_trust jsonb;
+ selected jsonb; boundary ops.data_demand_read;
 BEGIN
  SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
@@ -337,13 +333,9 @@ BEGIN
  END LOOP;
  ELSIF r.operation_id='operation_event.fit' THEN
  selected:=ops.ddo_record_grade_input(r,'specification')->'body'->'frame'->'selection';
- current_trust:='{}';
- FOR scope_key IN SELECT * FROM ops.ddo_record_fit_cut_scopes(r.project_id,selected) LOOP
- SELECT coalesce((SELECT scope.epoch FROM ops.data_trust_scope scope WHERE scope.scope=scope_key AND scope.project_id=r.project_id),0) INTO epoch;
- current_trust:=current_trust||jsonb_build_object(scope_key,epoch);
- END LOOP;
+ PERFORM ops.ddo_record_fit_cut_scopes(r.project_id,selected);
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=selected->>'read_id' AND demand_id=selected->>'demand_id';
- IF ops.ddo_trust_snapshot_meaning(current_trust) IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) THEN RETURN false; END IF;
+ PERFORM ops.ddo_require_read_current(boundary,r.project_id,true);
  END IF;
  RETURN true;
  EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;

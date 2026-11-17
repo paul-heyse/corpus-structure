@@ -2754,3 +2754,27 @@ def test_native_completion_receipt_records_actual_validator_not_release_expectat
     with ddo_kernel["engine"].begin() as connection:
         actual = connection.scalar(text("SELECT validating_kernel_digest FROM ops.data_publication_receipt WHERE id=:id"), {"id": receipt["receipt_id"]})
         assert actual == seal["kernel"]
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_native_read_records_zero_epochs_and_refuses_unrecorded_old_reads(ddo_kernel):
+    demand, _, _, _ = attach(ddo_kernel)
+    with ddo_kernel["engine"].begin() as connection:
+        read = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
+        scopes = connection.execute(text(
+            "SELECT scope,epoch,ordinary,domain FROM ops.data_demand_read_scope WHERE read_id=:read ORDER BY scope"
+        ), {"read": read["read_id"]}).all()
+        assert scopes and {row.scope: row.epoch for row in scopes} == read["trust_snapshot"]
+        assert all(row.epoch == 0 and row.ordinary and not row.domain for row in scopes)
+        eligibility = connection.execute(text(
+            "SELECT grade_census_eligible,fit_census_eligible FROM ops.data_demand_read WHERE id=:read"
+        ), {"read": read["read_id"]}).one()
+        assert eligibility.grade_census_eligible and eligibility.fit_census_eligible
+    with ddo_kernel["engine"].begin() as connection:
+        old_id = read["read_id"] + ":unrecorded"
+        connection.execute(text(
+            "INSERT INTO ops.data_demand_read(id,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope) "
+            "SELECT :old,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope FROM ops.data_demand_read WHERE id=:read"
+        ), {"old": old_id, "read": read["read_id"]})
+    with ddo_kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="reacquisition"):
+        DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {**demand, "read_id": old_id}))

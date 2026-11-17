@@ -625,8 +625,9 @@ classes:
       frontier_at: {range: timestamp, required: true}
       owner_xid: {range: string, required: true}
       trust_snapshot: {range: json_payload, required: true}
-      locked_scopes: {range: json_payload, required: false}
       access_universes: {range: json_payload, required: false}
+      grade_census_eligible: {range: boolean, required: false}
+      fit_census_eligible: {range: boolean, required: false}
       kernel_digest: {range: string, required: false}
       scope: {range: json_payload, required: true, annotations: {ph:default: "'{}'::jsonb"}}
     unique_keys:
@@ -636,3 +637,19 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns":["demand_id"],"target":"ops.data_demand.id"}]'
+
+  data_demand_read_scope:
+    in_subset: [ops]
+    attributes:
+      read_id: {range: string, required: true}
+      scope: {range: string, required: true}
+      epoch: {range: integer, required: true}
+      ordinary: {range: boolean, required: true}
+      domain: {range: boolean, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [read_id, scope]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["read_id"],"target":"ops.data_demand_read.id"},{"columns":["scope"],"target":"ops.data_trust_scope.scope"}]'
+      ph:checks: '["epoch >= 0", "ordinary OR domain"]'

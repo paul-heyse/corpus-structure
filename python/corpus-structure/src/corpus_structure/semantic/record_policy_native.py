@@ -254,7 +254,7 @@ CREATE OR REPLACE FUNCTION ops.read_selected_feature_fit_frame(p_payload jsonb) 
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
 DECLARE p jsonb:=p_payload; d ops.data_demand; boundary ops.data_demand_read;
  p_use text:=p->>'use_id'; p_product text:=p->>'product_id'; p_derivation text:=p->>'derivation_id';
- scope_key text; epoch bigint; snapshot jsonb:='{}'; admitted boolean; cut jsonb;
+ snapshot jsonb; admitted boolean; cut jsonb;
  grade jsonb; receipt_id text; result jsonb; definition sem.data_operation_definition;
  episode ops.data_derivation; intent ops.data_completion_intent; variant text:=p->>'variant';
  expected_operation text; expected_factory text; expected_kind text; expected_role text;
@@ -272,12 +272,9 @@ BEGIN
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id' AND project_id=p->>'project_id';
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=d.id;
  p:=p||jsonb_build_object('scope',boundary.scope);
- FOR scope_key IN __DDO_CORE_SUPPORT_SCOPES__ LOOP
- SELECT s.epoch INTO STRICT epoch FROM ops.data_trust_scope s WHERE s.scope=scope_key AND s.project_id=d.project_id FOR SHARE;
- snapshot:=snapshot||jsonb_build_object(scope_key,epoch);
- END LOOP;
- IF ops.ddo_trust_snapshot_meaning(snapshot) IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) THEN
- RAISE EXCEPTION 'feature fit current trust differs from retained cut' USING ERRCODE='23514'; END IF;
+ -- This route has its own narrower live fitter principal and selected-body
+ -- policy. Share acquisition/epoch custody without widening that purpose.
+ snapshot:=ops.ddo_require_read_epochs(boundary,d.project_id);
  __DDO_CORE_SELECTED_FEATURE_FIT_OUTPUT__ INTO admitted;
  IF NOT coalesce(admitted,false) THEN
  RAISE EXCEPTION 'feature fit grade is outside exact current selected support' USING ERRCODE='23514'; END IF;

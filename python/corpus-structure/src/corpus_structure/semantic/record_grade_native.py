@@ -91,35 +91,28 @@ DECLARE captured jsonb:=cut_text::jsonb; d ops.data_demand; boundary ops.data_de
 BEGIN
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=captured->>'demand_id' AND project_id=project;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=captured->>'read_id' AND demand_id=d.id;
+ IF NOT coalesce(ops.ddo_read_acquisition_present(boundary),false) THEN
+ RAISE EXCEPTION 'record census requires read reacquisition' USING ERRCODE='23514'; END IF;
+ IF NOT boundary.grade_census_eligible THEN RAISE EXCEPTION 'record census support reaches a protected judgment' USING ERRCODE='23514'; END IF;
  p:=jsonb_build_object('scope',boundary.scope);
- PERFORM ops.ddo_record_grade_require_finite_census(d,boundary);
  __DDO_CORE_CUT_SELECTION__ INTO actual;
  IF captured IS DISTINCT FROM actual THEN
  RAISE EXCEPTION 'record grade scope acquisition differs from actual project/cut' USING ERRCODE='23514'; END IF;
- RETURN QUERY __DDO_CORE_RECORD_GRADE_CENSUS_SCOPES__;
+ RETURN QUERY SELECT retained.scope FROM ops.data_demand_read_scope retained
+ WHERE retained.read_id=boundary.id AND retained.ordinary ORDER BY retained.scope;
 END $grade$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_record_grade_require_cut(project text,cut_text text,cut_id text)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE captured jsonb:=cut_text::jsonb; d ops.data_demand; boundary ops.data_demand_read; p jsonb;
- actual jsonb; current_trust jsonb:='{}'; scope_key text; epoch bigint;
+DECLARE captured jsonb:=cut_text::jsonb; d ops.data_demand; boundary ops.data_demand_read;
 BEGIN
+ -- Authenticate immutable cut/census correspondence before current premise use.
+ PERFORM ops.ddo_record_grade_cut_scopes(project,cut_text);
+ IF cut_id IS DISTINCT FROM 'cut-selection:'||encode(sha256(convert_to(cut_text,'UTF8')),'hex') THEN
+ RAISE EXCEPTION 'record grade differs from exact retained native cut' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=captured->>'demand_id' AND project_id=project;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=captured->>'read_id' AND demand_id=d.id;
- p:=jsonb_build_object('scope',boundary.scope);
- PERFORM ops.ddo_record_grade_require_finite_census(d,boundary);
- __DDO_CORE_CUT_SELECTION__ INTO actual;
- IF captured IS DISTINCT FROM actual OR cut_id IS DISTINCT FROM 'cut-selection:'||encode(sha256(convert_to(cut_text,'UTF8')),'hex') THEN
- RAISE EXCEPTION 'record grade differs from exact retained native cut' USING ERRCODE='23514'; END IF;
- -- The enclosing read/completion owns one canonical lock union. Zero epochs are
- -- omitted from the persisted meaning, but every structurally relevant scope is
- -- included in that union and compared here, including failed-use support.
- FOR scope_key IN __DDO_CORE_RECORD_GRADE_CENSUS_SCOPES__ LOOP
- SELECT coalesce((SELECT scope.epoch FROM ops.data_trust_scope scope WHERE scope.scope=scope_key AND scope.project_id=project),0) INTO epoch;
- current_trust:=current_trust||jsonb_build_object(scope_key,epoch);
- END LOOP;
- IF ops.ddo_trust_snapshot_meaning(current_trust) IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) THEN
- RAISE EXCEPTION 'record census trust differs from its retained cut' USING ERRCODE='23514'; END IF;
+ PERFORM ops.ddo_require_read_current(boundary,project,true);
 END $grade$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_record_grade_acquire_census(project text,cut_text text,cut_id text)

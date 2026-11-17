@@ -25,3 +25,13 @@ def test_frontier_indexes_follow_actual_lookup_keys():
     use_indexes = indexes("ops.demand_use")
     assert use_indexes[("demand_id", "fate")].dialect_options["postgresql"]["include"] == ["obligation_id", "derivation_id", "created_at"]
     assert str(use_indexes[("derivation_id",)].dialect_options["postgresql"]["where"]) == "derivation_id IS NOT NULL"
+
+
+def test_read_scope_evidence_is_typed_and_keeps_both_origins():
+    scopes = table("ops.data_demand_read_scope")
+    assert list(scopes.primary_key.columns.keys()) == ["read_id", "scope"]
+    assert {"epoch", "ordinary", "domain"} <= set(scopes.c.keys())
+    assert all(not scopes.c[name].nullable for name in ("epoch", "ordinary", "domain"))
+    read = table("ops.data_demand_read")
+    assert "locked_scopes" not in read.c
+    assert {"kernel_digest", "access_universes", "grade_census_eligible", "fit_census_eligible"} <= set(read.c.keys())

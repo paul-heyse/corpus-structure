@@ -231,7 +231,7 @@ def _support_walk(metadata, seed, *, public=False):
     )
 
 
-def _scope_projection(metadata, nodes, project, direct_sources, *, domain_dependencies=True):
+def _scope_projection(metadata, nodes, project, direct_sources, *, domain_dependencies=True, domain_only=False):
     episodes = metadata.tables["ops.data_derivation"]
     requests = metadata.tables["ops.data_request"]
     admissions = metadata.tables["ops.original_source_admission"]
@@ -270,7 +270,7 @@ def _scope_projection(metadata, nodes, project, direct_sources, *, domain_depend
         )
 
     return union(
-        ordinary,
+        *(() if domain_only else (ordinary,)),
         domain_scopes(func.ops.ddo_record_grade_dependency_scopes, "record_grade_scope"),
         domain_scopes(func.ops.ddo_record_fit_dependency_scopes, "record_fit_scope"),
         domain_scopes(func.ops.ddo_operation_event_dependency_scopes, "operation_event_scope"),
@@ -352,16 +352,17 @@ def _demand_support_scope_inputs(metadata, *, include_unfulfilled=False):
     return _support_walk(metadata, seed), select(direct.c.source)
 
 
-def support_scopes(metadata, *, domain_dependencies=True, include_unfulfilled=True):
-    """Pinned reader validity and publication use the same selected-support walk."""
-    nodes, direct = _demand_support_scope_inputs(metadata, include_unfulfilled=include_unfulfilled)
-    return _scope_projection(
-        metadata,
-        nodes,
-        _var("d.project_id", Text),
-        direct,
-        domain_dependencies=domain_dependencies,
-    )
+def read_scope_rows(metadata):
+    """Retain each scope's exact ordinary/domain provenance at acquisition."""
+    nodes, direct = _demand_support_scope_inputs(metadata, include_unfulfilled=True)
+    args = (metadata, nodes, _var("d.project_id", Text), direct)
+    ordinary = _scope_projection(*args, domain_dependencies=False).subquery("ordinary_read_scopes")
+    domain = _scope_projection(*args, domain_only=True).subquery("domain_read_scopes")
+    origins = union_all(
+        select(ordinary.c.scope, literal(True).label("ordinary"), literal(False).label("domain")),
+        select(domain.c.scope, literal(False).label("ordinary"), literal(True).label("domain")),
+    ).subquery("read_scope_origins")
+    return select(origins.c.scope, func.bool_or(origins.c.ordinary).label("ordinary"), func.bool_or(origins.c.domain).label("domain")).group_by(origins.c.scope).order_by(origins.c.scope)
 
 
 def read_access_universes(metadata):
@@ -375,9 +376,17 @@ def read_access_universes(metadata):
         select(admissions.c.product_id).select_from(nodes.join(admissions, and_(nodes.c.kind == "original", nodes.c.id == admissions.c.id))),
     ).cte("access_products")
     nested = func.ops.ddo_body_kind_contracts(products.c.kind_contract, products.c.canonical_body).table_valued(column("kind_contract", Text)).render_derived(name="nested_access_kind")
-    universes = select(kinds.c.universe).select_from(
+    observed = select(kinds.c.universe).select_from(
         reached.join(products, products.c.id == reached.c.product_id).join(nested, literal(True)).join(kinds, kinds.c.kind_contract == nested.c.kind_contract)
-    ).distinct().subquery("acquired_access_universes")
+    )
+    definitions = metadata.tables["sem.data_operation_definition"]
+    selected = _items(_var("d.selection", JSONB)["operations"], "access_operation")
+    roles = _items(definitions.c.input_roles.op("||")(definitions.c.output_roles), "access_role")
+    declared = select(kinds.c.universe).select_from(
+        definitions.join(selected, selected.c.value["operation"].astext == definitions.c.operation_id)
+        .join(roles, literal(True)).join(kinds, kinds.c.kind_contract == roles.c.value["kind_contract"].astext)
+    ).where(definitions.c.release_id == _var("d.release_id", Text))
+    universes = union(observed, declared).subquery("acquired_access_universes")
     return select(func.coalesce(func.jsonb_agg(universes.c.universe), _json([])))
 
 
@@ -2057,11 +2066,8 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None):
     metadata = compile_physical(sources, linkml_types=types)
     branches = binding_branches(metadata)
     products = {
-        "support_scopes": compiled(support_scopes(metadata)),
         "access_universes": compiled(read_access_universes(metadata)),
-        "record_grade_census_scopes": compiled(
-            support_scopes(metadata, domain_dependencies=False, include_unfulfilled=True)
-        ),
+        "read_scope_rows": compiled(read_scope_rows(metadata)),
         "record_grade_census_nodes": compiled(record_grade_census_nodes(metadata)),
         "record_grade_selected_outputs": compiled(record_grade_selected_outputs(metadata)),
         "lock_support_scopes": compiled(lock_support_scopes(metadata)),
