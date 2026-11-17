@@ -992,6 +992,18 @@ classes:
     attributes:
       name: {range: PdfString, required: true, slot_uri: 'pdf:PdfRuntimeBinding_name'}
       value: {range: PdfString, required: true, slot_uri: 'pdf:PdfRuntimeBinding_value'}
+  PdfProducerSpoolArtifact:
+    description: Content identity of a private producer file; not a published artifact or source coordinate.
+    attributes:
+      digest: {range: PdfDigest, required: true, slot_uri: 'pdf:PdfProducerSpoolArtifact_digest'}
+      byte_length: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfProducerSpoolArtifact_byte_length'}
+      family: {range: PdfString, required: true, slot_uri: 'pdf:PdfProducerSpoolArtifact_family'}
+      page_no: {range: PdfInteger, minimum_value: 1, slot_uri: 'pdf:PdfProducerSpoolArtifact_page_no'}
+  PdfProducerSpool:
+    description: Observed durable producer manifest and its file identities; conveys no native publication or recovery authorization.
+    attributes:
+      manifest_sha256: {range: PdfDigest, required: true, slot_uri: 'pdf:PdfProducerSpool_manifest_sha256'}
+      artifacts: {range: PdfProducerSpoolArtifact, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfProducerSpool_artifacts'}
   PdfRuntimeReport:
     description: Observed native package/provider bindings and upstream-owned effective options; not an execution-success assertion.
     attributes:
@@ -999,6 +1011,7 @@ classes:
       bindings: {range: PdfRuntimeBinding, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfRuntimeReport_bindings'}
       effective_options: {range: PdfString, required: true, slot_uri: 'pdf:PdfRuntimeReport_effective_options'}
       confidence: {range: PdfString, slot_uri: 'pdf:PdfRuntimeReport_confidence'}
+      spool: {range: PdfProducerSpool, inlined: true, slot_uri: 'pdf:PdfRuntimeReport_spool'}
   PdfRecognitionCoverage:
     abstract: true
     attributes:

@@ -49,6 +49,28 @@ def test_manifest_records_exact_relative_descriptor_and_attempt(tmp_path):
     assert later.entries == ()
 
 
+def test_runtime_report_declares_spool_identity_and_rejects_forged_digest(tmp_path):
+    from copy import deepcopy
+
+    from jsonschema.exceptions import ValidationError
+
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from corpus_structure.semantic.pdf_payloads import prepare_schema_validator
+
+    owner = spool(tmp_path)
+    owner.append(replay(owner))
+    report = {"effective_options": "{}", "spool": owner.report()}
+    assert "page_no" not in report["spool"]["artifacts"][0]
+    validator = prepare_schema_validator(
+        trusted_pdf_context().boundary.json_schema("PdfRuntimeReport")
+    )
+    validator.validate(report)
+    forged = deepcopy(report)
+    forged["spool"]["artifacts"][0]["digest"] = "invented"
+    with pytest.raises(ValidationError):
+        validator.validate(forged)
+
+
 def test_manifest_refuses_expired_fence_without_acknowledging_file(tmp_path):
     active = True
 

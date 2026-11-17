@@ -109,7 +109,7 @@ class PdfBuildSpool:
                     "digest": replay.digest,
                     "byte_length": replay.byte_length,
                     "family": replay.family,
-                    "page_no": replay.page_no,
+                    **({"page_no": replay.page_no} if replay.page_no is not None else {}),
                 }
                 for replay in self.entries
             ],

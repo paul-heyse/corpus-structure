@@ -153,6 +153,9 @@ def gliner_panel():
     try:
         actual = preflight_native_runtime("gliner", profile.snapshot)
         execution.declare_native((gliner_selection(profile, actual["runtime_identity"]),))
+        # Startup has its own bounded native-host contract. Per-exchange deadlines
+        # below measure calls on that resident, rather than timing cold model load.
+        execution.native_group.ensure(lambda: None)
         yield prepared, panel, profile, execution, _packs(prepared, panel, profile, cfg)
     finally:
         execution.close()
