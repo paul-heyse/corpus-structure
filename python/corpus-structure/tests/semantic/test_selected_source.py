@@ -221,6 +221,11 @@ def test_exact_offline_membership_table_original_addresses_and_formula_preparati
         with pytest.raises(AdditionalContextRequired) as error:
             reader.prepare_formula_inputs(context, required_outside_values=["#/texts/99"])
         assert error.value.references[0]["target"]["content_digest"] == "2" * 64
+        assert error.value.required_outside_values == ("#/texts/99",)
+        with pytest.raises(AdditionalContextRequired) as missing:
+            reader.prepare_formula_inputs(context, required_outside_values=["#/texts/absent"])
+        assert missing.value.references == ()
+        assert missing.value.required_outside_values == ("#/texts/absent",)
     with pytest.raises(SelectedSourceUnavailable, match="closed"):
         reader.prepare_formula_inputs(context)
 

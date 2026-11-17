@@ -109,8 +109,9 @@ class SelectedSourceInputRequired(SelectedSourceUnavailable):
 class AdditionalContextRequired(SelectedSourceUnavailable):
     outcome = "additional_context_required"
 
-    def __init__(self, references):
+    def __init__(self, references, *, required_outside_values=()):
         self.references = tuple(references)
+        self.required_outside_values = tuple(required_outside_values)
         super().__init__(
             "additional_context_required: selected source omits requested outside values"
         )
@@ -868,12 +869,13 @@ class SelectedSourceReader:
             if item["body"]["target"].get("pointer") in required
             or item["body"]["target"].get("occurrence_id") in required
         ]
-        if required and (
-            needed
-            or not required
-            <= {row[0] for row in self._index.execute("SELECT pointer FROM records")}
-        ):
-            raise AdditionalContextRequired(needed or external)
+        missing = required - {
+            row[0] for row in self._index.execute("SELECT pointer FROM records")
+        }
+        if needed or missing:
+            raise AdditionalContextRequired(
+                needed, required_outside_values=sorted(missing)
+            )
         outcomes = {}
         for (path,) in self._index.execute(
             "SELECT path FROM companions WHERE family='native_metadata'"

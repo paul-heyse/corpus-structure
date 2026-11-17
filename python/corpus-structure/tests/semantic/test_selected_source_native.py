@@ -56,4 +56,4 @@ def test_native_selection_context_and_offline_preparation(
             ]
             with pytest.raises(AdditionalContextRequired) as error:
                 reader.prepare_formula_inputs(context, required_outside_values=["#/texts/1"])
-            assert any(row["target"]["pointer"] == "#/texts/1" for row in error.value.references)
+            assert error.value.required_outside_values == ("#/texts/1",)

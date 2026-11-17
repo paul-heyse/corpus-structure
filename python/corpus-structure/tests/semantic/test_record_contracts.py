@@ -475,6 +475,38 @@ def test_one_literal_set_cannot_overlap_or_reverse_a_source_coordinate(
         bind(record, contexts)
 
 
+def test_equal_literal_pieces_retain_actual_coordinate_order():
+    record, contexts = table_record()
+    pieces = tuple(anchor(pointer, "12", 0, 2) for pointer in (
+        "#/tables/0/cells/9", "#/tables/0/cells/10"
+    ))
+    record["anchors"] = (*record["anchors"][:5], *pieces, *record["anchors"][6:])
+    evidence = record["evidence_sets"][4]
+    evidence["anchors"] = tuple(piece["anchor_id"] for piece in pieces)
+    evidence["set_id"] = evidence_set_identity(evidence)
+    value = record["fields"][4]
+    value.pop("original")
+    value.update(
+        original_pieces=("12", "12"),
+        value={"kind": "text_sequence", "items": ("12", "12")},
+        evidence_sets=(evidence["set_id"],),
+    )
+    contexts = tuple(row for row in contexts if row["pointer"] != "#/tables/0/cells/3") + tuple(
+        {"pin": dict(PIN), "space": "native", "pointer": piece["pointer"], "text": "12"}
+        for piece in pieces
+    )
+    finish(record)
+    assert bind(record, contexts).model_dump(mode="python")["fields"][4]["original_pieces"] == (
+        "12", "12"
+    )
+    evidence["anchors"] = tuple(reversed(evidence["anchors"]))
+    evidence["set_id"] = evidence_set_identity(evidence)
+    value["evidence_sets"] = (evidence["set_id"],)
+    finish(record)
+    with pytest.raises(ValueError, match="reverse source order"):
+        bind(record, contexts)
+
+
 def test_unordered_multi_piece_literal_has_no_invented_reconstruction_order():
     record, contexts = table_record()
     header = record["evidence_sets"][3]
