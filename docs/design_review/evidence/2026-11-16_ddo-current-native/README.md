@@ -553,3 +553,45 @@ in the accepted collection source/tests. These diagnostics do not establish nati
   otherwise regenerate/reassess without restoring legacy code.
 - The coordinator's required functional/provider/fault/nonfunctional DDO-12 union. A fresh install,
   selected pass or accepted architectural decision does not close these obligations.
+
+## Registered rich-command and refusal successor · 2026-11-16
+
+**Implemented; normal stage deployment verified, actual consumers pending.**
+[Request](rich-refusals-successor.yaml) was reacquired after the complete source packet.
+Preview `cdf05f43d77a4ee2877807e0f39d098d`, apply `88d0243721ca432d8828f712b3f1cf4c`,
+rollback-only candidate `95c2f3de66c247eeb0a02bb009d56333`, registration
+`874f21c3b0994e58be324970857b5b79` and deployment `dfe982d966584a399639e7c43f19fb19`
+passed. Registered `e54d0efdc` supplies `semantic_ddo_rich_refusals` after
+`semantic_ddo_selected_source`; no frozen predecessor was edited. The acquired stage remains
+OID130661481/system7701811359771751232, PG18/5434. Development is untouched.
+
+The complete hash-verified candidate has14native operations: one private publisher-only rich
+eligibility helper, four intended attachment/admission/grade/profile body corrections,
+seven native-digest guard updates and two descriptors. All510 desired identities are accounted
+for, with no object removed; existing nonbody catalog attributes and all101 privilege entries
+are unchanged. Ordinary operations and privilege changes are zero. Full descriptor inspection
+confirms only the private helper,12 body hashes and exact changed authoring-input/model hashes;
+unrelated descriptor contracts remain identical. Native digest is
+`c97df90d869dd7e69c4fa1a5bfc6606a5fbecbf0cb9ac20812b9cf9f65bc521a`;
+physical identity remains `physical:712bb15e4d66153ca86e006bfa383aa8233d34b02f81162b755912293cc4a2e2`.
+Candidate Python/operations/admission SHA256 respectively:
+`1688850942bd05304e17587ed637ecbf073931acdcf2a8523fe4711ad30869fc`,
+`8767995851622d62c0f727bf628c907a87d552e436b4b19cea14d81516c32411`,
+`b5345324777724f53129abb86dab40f446e2384c25be731457e12a3d8e745804`.
+Computed source_x/y expressions and physical columns remain unchanged; Alembic's existing
+computed-default warnings do not describe a planned column change.
+
+Earlier rollback-only candidate `20fcfd878af3447aa64c1fe71724ff04` is superseded before
+registration: the exact source guard correctly refused after the identity declaration changed.
+No deployment follows from that candidate. Current maintained-source typing and lint passed
+`657583a4ddb243c69e2d3cb2372fef9b` / `1735ae3bba4c4ec4a8b55aabbabb3cd5`.
+Actual native/public/provider qualification, development adoption and DDO-12 remain open.
+
+Application-only capture at earlier frozen `6271711eb` passed preview
+`bdfa8a81eaa042a886ff18ddbe526c2b`, apply `5fc07bf26e8841a38409218aefb9389c`, candidate
+`481474fce4b2437f9d93918b98a73b2b` and deployment `56037e3fe67148d38962b40c1d0c8f9a`.
+It admitted release `release:acac13d3f4261a33a6db15242c373f0e7ac7a1b969669dbe7a46e51683a7dc0a`
+and runtime `runtime:e22cc8bea886b3406a3645d54b5930231cb54c6be295618a702ae09a228fffca`;
+separate `ci db check` and `ci release check` passed at that source/native basis, with no activation.
+That retained capture is inert against the new kernel and is not current application qualification.
+A fresh current application acquisition remains required before execution/adoption.

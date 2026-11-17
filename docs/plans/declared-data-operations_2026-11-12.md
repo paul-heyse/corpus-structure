@@ -303,6 +303,15 @@ zeroordinary/privilege operations, but subsequent identity source changes correc
 registration. It is superseded before registration, with no persistent deployment. Reacquire a
 coherent frozen successor rather than bypassing the exact source check.
 
+The coherent rich/refusal successor is now registered `e54d0efdc` and deployed on the unchanged
+owned stage, result `dfe982d966584a399639e7c43f19fb19`. Full14native/zeroordinary/zeroprivilege
+inspection and exact lifecycle receipts belong to the [native evidence owner](../design_review/evidence/2026-11-16_ddo-current-native/README.md#registered-rich-command-and-refusal-successor--2026-11-16).
+Source typing/lint passed `657583a4ddb243c69e2d3cb2372fef9b` /
+`1735ae3bba4c4ec4a8b55aabbabb3cd5`. All worker edits are merged; managed results were
+inode-preserving transferred/root-held, and fully merged worktrees removed. No native/public/provider
+retry or development adoption is established by registration. Actual qualification remains the next boundary.
+
+
 
 
 Cross-release request execution (`c0e1b6f4d`, `f5ac9e2a3`, `726a411bc`) uses authenticated attach
