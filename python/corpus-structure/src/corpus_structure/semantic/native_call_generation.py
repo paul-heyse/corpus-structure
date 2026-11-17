@@ -89,7 +89,7 @@ def render_call_bindings(
         "from __future__ import annotations",
         "",
         "from dataclasses import dataclass",
-        "from collections.abc import Mapping, Sequence",
+        "from collections.abc import Callable, Mapping, Sequence",
         "from datetime import datetime",
         "from decimal import Decimal",
         "from typing import Annotated, "
@@ -127,6 +127,8 @@ def render_call_bindings(
         for _, call in calls
         if any(f.wire_schema is not None for f in (*call.parameters, *call.result_fields))
     ]
+    if structural or wire_schemas:
+        out += ["from .data_operation_wire import prepare_wire_schema"]
     definitions, nominals = {}, {}
     if structural:
         for call in structural:
@@ -145,7 +147,6 @@ def render_call_bindings(
                         raise ValueError("structural native nominal collision at " + path)
                     nominals[path] = name
         out += [
-            "from .data_operation_wire import validate_wire_schema",
             "from .data_operation_json import json_bytes, wire_json_loads",
             "",
             render_wire_types(definitions, tuple(nominals.items())),
@@ -359,8 +360,8 @@ def render_call_bindings(
                 f"class {call.result_class}(TypedDict):",
                 f"    {result.name}: {result_type}",
                 "",
-                f"_{name}_input_schema = {boundary_input!r}",
-                f"_{name}_output_schema = {boundary_output!r}",
+                f"_{name}_validate_input = prepare_wire_schema({boundary_input!r})",
+                f"_{name}_validate_output = prepare_wire_schema({boundary_output!r})",
                 "",
                 f"_{name}_statement = select(func.{call.symbol}(",
                 f"    bindparam({parameter.name!r}, type_=Text()).cast(JSONB()),",
@@ -381,7 +382,7 @@ def render_call_bindings(
                     context_check("        ", operation, name),
                 ]
             out += [
-                f"    checked = validate_wire_schema(_{name}_input_schema, {{{parameter.name!r}: {parameter.name}}})",
+                f"    checked = _{name}_validate_input({{{parameter.name!r}: {parameter.name}}})",
                 f"    return _{name}_statement.params({parameter.name}=json_bytes(checked[{parameter.name!r}]).decode())",
                 "",
                 f"def {name}(conn: Connection, *,",
@@ -394,7 +395,7 @@ def render_call_bindings(
                 f"    with native_result_scope({operation!r}, {call.result_class!r}):",
                 "        encoded = conn.scalar(statement)",
                 "        value = wire_json_loads(encoded)",
-                f"        return cast({call.result_class}, validate_wire_schema(_{name}_output_schema, value))",
+                f"        return cast({call.result_class}, _{name}_validate_output(value))",
             ]
             continue
         out += [
@@ -418,7 +419,11 @@ def render_call_bindings(
                 )
             ]
             if wire_schemas and (schema := wire_schemas.get(call.id, {}).get("output")) is not None:
-                out += [f"    __wire_schema__: ClassVar[bytes | None] = {schema!r}"]
+                out += [
+                    f"    __wire_schema__: ClassVar[bytes | None] = {schema!r}",
+                    "    __wire_validation__: ClassVar[tuple[bytes, Callable[[Any], Any]] | None] = "
+                    "(cast(bytes, __wire_schema__), prepare_wire_schema(cast(bytes, __wire_schema__)))",
+                ]
             json_fields = tuple(
                 f.name
                 for f in call.result_fields
@@ -431,7 +436,11 @@ def render_call_bindings(
             ]
         out += ["", f"class {request_class}(OperationResult):"]
         if wire_schemas and (schema := wire_schemas.get(call.id, {}).get("input")) is not None:
-            out += [f"    __wire_schema__: ClassVar[bytes | None] = {schema!r}"]
+            out += [
+                f"    __wire_schema__: ClassVar[bytes | None] = {schema!r}",
+                "    __wire_validation__: ClassVar[tuple[bytes, Callable[[Any], Any]] | None] = "
+                "(cast(bytes, __wire_schema__), prepare_wire_schema(cast(bytes, __wire_schema__)))",
+            ]
         out += [
             f"    {f.name}: {request_type(f)}"
             + ("" if f.default_json is None else " = " + repr(json.loads(f.default_json)))

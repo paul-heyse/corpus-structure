@@ -25,6 +25,74 @@ from semantic.data_operation_declaration_support import contract
 from semantic.data_operation_port_support import captured
 
 
+def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeypatch):
+    from corpus_structure.semantic import data_operation_wire as wire
+
+    prepare = wire._prepare_protocol_content
+    preparations = []
+
+    def observed(sources):
+        preparations.append(sources)
+        return prepare(sources)
+
+    wire._ambient_protocol.cache_clear()
+    wire._ambient_protocol_content.cache_clear()
+    monkeypatch.setattr(wire, "_prepare_protocol_content", observed)
+    try:
+        first = wire.wire_contracts()
+        first["claim_data_request"]["input"].clear()
+        assert wire.wire_role_kind("claim_data_request", "input").endswith(
+            "claim_data_request_request"
+        )
+        payload = {"request_id": "request:x", "generation": 1, "holder": "worker", "lease_seconds": 3}
+        assert wire.validate_native_wire("claim_data_request", "input", payload) == payload
+        assert wire.wire_contracts()["claim_data_request"]["input"]
+        assert preparations == [None]
+    finally:
+        wire._ambient_protocol.cache_clear()
+        wire._ambient_protocol_content.cache_clear()
+
+
+def test_ambient_validation_and_role_lookup_survive_captured_cache_eviction(monkeypatch):
+    from corpus_structure.semantic import data_operation_wire as wire
+
+    payload = {"request_id": "request:x", "generation": 1, "holder": "worker", "lease_seconds": 3}
+    assert wire.validate_native_wire("claim_data_request", "input", payload) == payload
+    wire._prepared_protocol.cache_clear()
+    wire._validator.cache_clear()
+
+    def unexpected_preparation(*args, **kwargs):
+        raise AssertionError("ambient operation repeated preparation")
+
+    monkeypatch.setattr(wire, "_prepared_protocol", unexpected_preparation)
+    monkeypatch.setattr(wire, "_validator", unexpected_preparation)
+    assert wire.validate_native_wire("claim_data_request", "input", payload) == payload
+    assert wire.wire_role_kind("claim_data_request", "input") == (
+        KIND_PREFIX + "claim_data_request_request"
+    )
+    with pytest.raises(ValueError, match="schema"):
+        wire.validate_native_wire("claim_data_request", "input", {**payload, "generation": "1"})
+
+
+def test_prepared_wire_validator_owns_its_schema_after_caller_mutation_and_eviction(monkeypatch):
+    from corpus_structure.semantic import data_operation_wire as wire
+
+    schema = {"type": "integer", "minimum": 2}
+    validate = wire.prepare_wire_schema(schema)
+    schema.clear()
+    wire._validator.cache_clear()
+
+    def unexpected_preparation(*args, **kwargs):
+        raise AssertionError("prepared call rebuilt its validator")
+
+    monkeypatch.setattr(wire, "_validator", unexpected_preparation)
+    assert validate(3) == 3
+    with pytest.raises(ValueError, match="schema"):
+        validate(1)
+    with pytest.raises(ValueError, match="schema"):
+        validate("3")
+
+
 def controlled_wire_declaration():
     declaration: dict[str, Any] = contract(
         id="data.claim_data_request",
@@ -84,12 +152,12 @@ def test_native_wire_integer_type_and_declared_limits_do_not_coerce(lease):
         validate_native_wire(
             "claim_data_request",
             "input",
-            {"request_id": "request:x", "holder": "worker", "lease_seconds": lease},
+            {"request_id": "request:x", "generation": 1, "holder": "worker", "lease_seconds": lease},
         )
 
 
 def test_exact_wire_fields_and_result_variants_are_explicit():
-    payload = {"request_id": "request:x", "holder": "worker", "lease_seconds": 3}
+    payload = {"request_id": "request:x", "generation": 1, "holder": "worker", "lease_seconds": 3}
     assert validate_native_wire("claim_data_request", "input", payload) == payload
     with pytest.raises(ValueError):
         validate_native_wire("claim_data_request", "input", {**payload, "extra": 2})
@@ -155,6 +223,7 @@ def test_generated_boundaries_execute_the_captured_nested_wire_contract(monkeypa
 
     from pydantic import ValidationError
 
+    from corpus_structure.semantic import data_operation_wire as wire
     from corpus_structure.semantic.data_operation_artifacts import compile_data_operation_artifacts
     from corpus_structure.semantic.native_call_contracts import (
         OperationCallBinding,
@@ -187,16 +256,31 @@ def test_generated_boundaries_execute_the_captured_nested_wire_contract(monkeypa
     module = ModuleType("corpus_structure.semantic._test_captured_wire")
     module.__package__ = "corpus_structure.semantic"
     monkeypatch.setitem(sys.modules, module.__name__, module)
+    prepare = wire.prepare_wire_schema
+    preparations = []
+
+    def observed(schema):
+        preparations.append(schema)
+        return prepare(schema)
+
+    monkeypatch.setattr(wire, "prepare_wire_schema", observed)
     exec(compile(artifact.calls, "captured_wire.py", "exec"), module.__dict__)
+    assert len(preparations) == 2
+    wire._validator.cache_clear()
+
+    def unexpected_preparation(*args, **kwargs):
+        raise AssertionError("generated call repeated schema preparation")
+
+    monkeypatch.setattr(wire, "_validator", unexpected_preparation)
     request = module.__dict__["_claim_data_requestRequest"]
     result_type = module.__dict__["ClaimDataRequestResult"]
     checked = request.model_validate_json(
-        '{"payload":{"request_id":"request:x","holder":"worker","lease_seconds":3}}', strict=True
+        '{"payload":{"request_id":"request:x","generation":1,"holder":"worker","lease_seconds":3}}', strict=True
     )
     assert checked.payload["lease_seconds"] == 3
     with pytest.raises(ValidationError):
         request.model_validate_json(
-            '{"payload":{"request_id":"request:x","holder":"worker","lease_seconds":"3"}}',
+            '{"payload":{"request_id":"request:x","generation":1,"holder":"worker","lease_seconds":"3"}}',
             strict=True,
         )
     assert result_type.model_validate_json(

@@ -9,15 +9,19 @@ https://github.com/supabase/pg_jsonschema for the shared validation realization.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal
 
 import yaml
 from jsonschema import Draft7Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 from pydantic import TypeAdapter
+from referencing import Registry
 
 from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
@@ -33,6 +37,19 @@ _JSON_VALUE = TypeAdapter(ExactJSONValue)
 
 
 def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
+    if sources is None:
+        return _ambient_protocol_content()
+    return _prepare_protocol_content(sources)
+
+
+@lru_cache(maxsize=1)
+def _ambient_protocol_content() -> bytes:
+    """Bind ambient protocol preparation to the code imported by this process."""
+    return _prepare_protocol_content(None)
+
+
+@lru_cache(maxsize=16)
+def _prepare_protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
     if sources is None:
         path = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-native.yaml"
         content = path.read_bytes()
@@ -189,7 +206,9 @@ def _checked_protocol(content: bytes) -> bytes:
 
 
 def _protocol(sources: tuple[SourceArtifact, ...] | None) -> dict[str, Any]:
-    return json.loads(_checked_protocol(_protocol_content(sources)))
+    # The mutable document is a detached compiler/inspection view, never the
+    # process's retained preparation or the per-call validation path.
+    return json.loads(_protocol_state(sources).checked)
 
 
 def _references(value: Any) -> set[str]:
@@ -274,61 +293,107 @@ def schema_closure(root: dict[str, Any], definitions: dict[str, Any]) -> dict[st
     return result
 
 
+@dataclass(frozen=True)
+class _PreparedProtocol:
+    checked: bytes
+    contracts: bytes
+    operations: tuple[bytes, ...]
+    schemas: Mapping[tuple[str, str], bytes]
+    role_kinds: Mapping[tuple[str, str], str]
+    validators: Mapping[tuple[str, str], Callable[[Any], Any]]
+
+
 @lru_cache(maxsize=16)
-def _wire_contract_bytes(content: bytes) -> bytes:
-    protocol = json.loads(_checked_protocol(content))
-    return canonical_bytes(
-        {
-            operation["name"]: {
-                direction: schema_closure(
-                    {"$ref": "#/definitions/" + operation[side]}, protocol["definitions"]
-                )
+def _prepared_protocol(content: bytes) -> _PreparedProtocol:
+    checked = _checked_protocol(content)
+    protocol = json.loads(checked)
+    contracts = {
+        operation["name"]: {
+            direction: schema_closure(
+                {"$ref": "#/definitions/" + operation[side]}, protocol["definitions"]
+            )
+            for direction, side in (("input", "request"), ("output", "result"))
+        }
+        for operation in protocol["operations"]
+    }
+    schemas = {
+        (name, direction): canonical_bytes(schema)
+        for name, directions in contracts.items()
+        for direction, schema in directions.items()
+    }
+    return _PreparedProtocol(
+        checked,
+        canonical_bytes(contracts),
+        tuple(canonical_bytes(operation) for operation in protocol["operations"]),
+        MappingProxyType(schemas),
+        MappingProxyType(
+            {
+                (operation["name"], direction): KIND_PREFIX + operation[side]
+                for operation in protocol["operations"]
                 for direction, side in (("input", "request"), ("output", "result"))
             }
-            for operation in protocol["operations"]
-        }
+        ),
+        MappingProxyType({key: prepare_wire_schema(schema) for key, schema in schemas.items()}),
     )
+
+
+@lru_cache(maxsize=1)
+def _ambient_protocol() -> _PreparedProtocol:
+    # Retain this separately from captured-protocol LRUs: archived inspection
+    # cannot evict the running process's authoritative protocol preparation.
+    return _prepared_protocol(_ambient_protocol_content())
+
+
+def _protocol_state(sources: tuple[SourceArtifact, ...] | None) -> _PreparedProtocol:
+    return _ambient_protocol() if sources is None else _prepared_protocol(_protocol_content(sources))
 
 
 def wire_operations(
     sources: tuple[SourceArtifact, ...] | None = None,
 ) -> tuple[dict[str, Any], ...]:
     """Detached operation facts, including explicit purpose capabilities, from one parser."""
-    return tuple(_protocol(sources)["operations"])
+    return tuple(json.loads(operation) for operation in _protocol_state(sources).operations)
 
 
 def wire_contracts(sources: tuple[SourceArtifact, ...] | None = None) -> dict[str, Any]:
     """Return detached self-contained schemas used verbatim by SQL and Python."""
-    return json.loads(_wire_contract_bytes(_protocol_content(sources)))
+    return json.loads(_protocol_state(sources).contracts)
 
 
 @lru_cache(maxsize=256)
 def _validator(content: bytes) -> Draft7Validator:
     schema = checked_json_schema(json.loads(content))
-    return Draft7Validator(schema)
+    return Draft7Validator(schema, registry=Registry())
 
 
 def validate_wire_schema(schema: dict[str, Any] | bytes, value: Any) -> Any:
     """Strict JSON-value ingress; return an owned detached snapshot, never coerce."""
+    encoded = schema if isinstance(schema, bytes) else canonical_bytes(schema)
+    return _validate_wire_value(_validator(encoded), value)
+
+
+def prepare_wire_schema(schema: dict[str, Any] | bytes) -> Callable[[Any], Any]:
+    """Bind checked private validator state to a generated call's module lifetime."""
+    encoded = schema if isinstance(schema, bytes) else canonical_bytes(schema)
+    validator = _validator(encoded)
+
+    def validate(value: Any) -> Any:
+        return _validate_wire_value(validator, value)
+
+    return validate
+
+
+def _validate_wire_value(validator: Draft7Validator, value: Any) -> Any:
     checked = _JSON_VALUE.validate_python(value, strict=True)
     snapshot = json_bytes(checked)  # also excludes non-finite JSON numbers
     result = wire_json_loads(snapshot)
     json_bytes(result)  # finite non-context numbers must remain representable as floats
-    encoded = schema if isinstance(schema, bytes) else canonical_bytes(schema)
     try:
-        _validator(encoded).validate(result)
+        validator.validate(result)
     except ValidationError as exc:
         path = "/".join(str(part) for part in exc.absolute_path) or "<root>"
         raise ValueError("native wire violates schema at " + path + ": " + exc.message) from exc
     return result
-
-
-@lru_cache(maxsize=256)
-def _operation_schema(content: bytes, operation: str, direction: str) -> bytes:
-    contracts = json.loads(_wire_contract_bytes(content))
-    if direction not in {"input", "output"} or operation not in contracts:
-        raise ValueError("unknown native wire operation/direction")
-    return canonical_bytes(contracts[operation][direction])
 
 
 def validate_native_wire(
@@ -338,8 +403,11 @@ def validate_native_wire(
     *,
     sources: tuple[SourceArtifact, ...] | None = None,
 ) -> dict[str, Any]:
-    schema = _operation_schema(_protocol_content(sources), operation, direction)
-    result = validate_wire_schema(schema, value)
+    try:
+        validate = _protocol_state(sources).validators[operation, direction]
+    except KeyError as exc:
+        raise ValueError("unknown native wire operation/direction") from exc
+    result = validate(value)
     if not isinstance(result, dict):
         raise ValueError("native wire record must be an object")
     return result
@@ -362,11 +430,10 @@ def wire_kind_declarations(
 
 
 def wire_role_kind(operation: str, direction: Literal["input", "output"], sources=None) -> str:
-    protocol = _protocol(sources)
-    selected = next((item for item in protocol["operations"] if item["name"] == operation), None)
-    if selected is None or direction not in {"input", "output"}:
-        raise ValueError("unknown native wire operation/direction")
-    return KIND_PREFIX + selected["request" if direction == "input" else "result"]
+    try:
+        return _protocol_state(sources).role_kinds[operation, direction]
+    except KeyError as exc:
+        raise ValueError("unknown native wire operation/direction") from exc
 
 
 def json_schema_properties(schema: dict[str, Any]) -> tuple[tuple[str, dict[str, Any], bool], ...]:

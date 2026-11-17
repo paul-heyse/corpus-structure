@@ -72,14 +72,21 @@ class DataOperationWireValue(BaseModel):
     )
 
     __wire_schema__: ClassVar[bytes | None] = None
+    __wire_validation__: ClassVar[tuple[bytes, Callable[[Any], Any]] | None] = None
 
     @model_validator(mode="after")
     def validate_captured_wire(self) -> Self:
         schema = type(self).__wire_schema__
         if schema is not None:
-            from .data_operation_wire import validate_wire_schema
+            prepared = type(self).__wire_validation__
+            if prepared is not None:
+                if prepared[0] != schema:
+                    raise ValueError("prepared native wire schema differs from its declaration")
+                prepared[1](self.model_dump(mode="python"))
+            else:
+                from .data_operation_wire import validate_wire_schema
 
-            validate_wire_schema(schema, self.model_dump(mode="python"))
+                validate_wire_schema(schema, self.model_dump(mode="python"))
         return self
 
     def model_post_init(self, context: Any) -> None:
