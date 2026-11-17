@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 PUBLICATION_FILL_BYTES = 128 * 1024 * 1024
 PUBLICATION_FILL_ROWS = 1_000_000
 CONTRACT = "native/pdf-source-search-contract.json"
+_PIN_SQL = "native/pdf-search-pin.sql"
 _SQL = Path(__file__).with_name("sql") / "pdf_source_search.sql"
 _RENDERER_FILES = (
     "ingest/pdf_section_views.py",
@@ -37,7 +38,7 @@ _RENDERER_FILES = (
 )
 
 
-def search_projection_sources() -> tuple[SourceArtifact, ...]:
+def search_projection_sources(*, target_metadata=None) -> tuple[SourceArtifact, ...]:
     root = Path(__file__).resolve().parents[1]
     captured = tuple(
         SourceArtifact("native/search-renderer/" + name, root.joinpath(name).read_bytes())
@@ -50,6 +51,12 @@ def search_projection_sources() -> tuple[SourceArtifact, ...]:
     policy = next(
         source.content for source in captured if source.name.endswith("section-text-recipe.json")
     )
+    renderer_digest = sha256(canonical_bytes(renderer)).hexdigest()
+    policy_digest = sha256(policy).hexdigest()
+    if target_metadata is None:
+        from .metadata import metadata
+
+        target_metadata = metadata
     return (
         *captured,
         SourceArtifact(
@@ -57,14 +64,123 @@ def search_projection_sources() -> tuple[SourceArtifact, ...]:
             canonical_bytes(
                 {
                     "version": "pdf-source-search-v1",
-                    "renderer": sha256(canonical_bytes(renderer)).hexdigest(),
-                    "default_policy_digest": sha256(policy).hexdigest(),
+                    "renderer": renderer_digest,
+                    "default_policy_digest": policy_digest,
                     "max_fill_bytes": PUBLICATION_FILL_BYTES,
                 }
             ),
         ),
+        SourceArtifact(
+            _PIN_SQL,
+            _search_pin_sql(
+                target_metadata,
+                renderer=renderer_digest,
+                default_policy_digest=policy_digest,
+            ).encode(),
+        ),
         SourceArtifact("native/pdf-source-search.sql", _SQL.read_bytes()),
     )
+
+
+def _search_pin_sql(metadata, *, renderer: str, default_policy_digest: str) -> str:
+    """Authenticate one selected publication against its captured rendering recipe."""
+    from sqlalchemy import Text, func, literal, select
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from .native_program import (
+        Assign, Block, If, Local, Parameter, Perform, Raise, Return, SelectInto,
+        call, core_variable, function, literal as pg_literal, pg_type, variable,
+    )
+
+    publication = metadata.tables["ops.pdf_published_revision"]
+    revision = publication.alias("revision")
+    input_ = metadata.tables["sem.input"]
+    selected = core_variable("selected", JSONB())
+    source = core_variable("p_source", JSONB())
+    recipe = core_variable("p_recipe", JSONB())
+    expected = core_variable("expected", JSONB())
+    policy = core_variable("policy", input_.c.content.type)
+    policy_digest = core_variable("policy_digest", input_.c.content_digest.type)
+    recipe_digest = core_variable("recipe_digest", Text())
+    receipt = selected["receipt"]["publication"]
+    release = selected["cut"]["release_id"].astext
+
+    def field(name: str):
+        return core_variable("publication", publication.c[name].type, name)
+
+    return function(
+        "ops", "ddo_pdf_search_pin",
+        parameters=(Parameter("p_source", pg_type("jsonb")),
+                    Parameter("p_recipe", pg_type("jsonb"))),
+        returns=pg_type("jsonb"), volatility="volatile", security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            locals=(
+                Local("selected", pg_type("jsonb")), Local("publication", publication),
+                Local("policy_digest", pg_type("text")), Local("policy", pg_type("bytea")),
+                Local("expected", pg_type("jsonb")), Local("recipe_digest", pg_type("text")),
+                Local("population", pg_type("text")),
+            ),
+            statements=(
+                Assign("selected", func.ops.ddo_impl_read_selected_pdf_source(
+                    source, type_=JSONB())["payload"]),
+                Perform(func.ops.require_pdf_operation(release, literal("search_native_source"))),
+                SelectInto(
+                    select(*revision.c).where(
+                        revision.c.build_id == receipt["build_id"].astext,
+                        revision.c.task_id == receipt["task_id"].astext.cast(revision.c.task_id.type),
+                        revision.c.product_key == receipt["product_key"].astext,
+                        revision.c.logical_digest == receipt["logical_digest"].astext,
+                    ),
+                    ("publication",), strict=True,
+                ),
+                SelectInto(
+                    select(input_.c.content, input_.c.content_digest).where(
+                        input_.c.release_id == release,
+                        input_.c.input_kind == "dependency",
+                        input_.c.input_name == "execution/implementation/pdf/section-text-recipe.json",
+                    ),
+                    ("policy", "policy_digest"),
+                ),
+                If(
+                    policy_digest.is_(None),
+                    (Assign("policy_digest", literal(default_policy_digest)),),
+                    (If(
+                        func.encode(func.sha256(policy), literal("hex")).is_distinct_from(policy_digest),
+                        (Raise("search policy differs from retained release bytes", "23514"),),
+                    ),),
+                ),
+                Assign("expected", func.jsonb_build_object(
+                    "version", "pdf-source-search-v1", "renderer", renderer,
+                    "policy_digest", policy_digest,
+                    "organization_owner", func.jsonb_build_object(
+                        "task_id", field("task_id"), "product_key", field("product_key"),
+                        "content_digest", field("logical_digest"),
+                    ),
+                    "analysis_eligible", True,
+                    type_=JSONB(),
+                )),
+                If(
+                    recipe.is_distinct_from(expected),
+                    (Raise("search projection recipe differs from selected publication/code", "23514"),),
+                ),
+                Assign("recipe_digest", func.ops.ddo_digest(expected, type_=Text())),
+                Assign("population", literal("pdf-search:") + func.ops.ddo_digest(
+                    func.jsonb_build_array(
+                        source["project_id"].astext, field("build_id"), field("task_id"),
+                        field("product_key"), field("logical_digest"), recipe_digest, "english",
+                    ),
+                    type_=Text(),
+                )),
+                Return(call("pg_catalog", "jsonb_build_object",
+                    pg_literal("population_id"), variable("population"),
+                    pg_literal("recipe_digest"), variable("recipe_digest"),
+                    pg_literal("publication"), call("pg_catalog", "to_jsonb", variable("publication")),
+                    pg_literal("selected"), variable("selected"),
+                )),
+            ),
+        ),
+    ) + ";\n"
 
 
 @cache
@@ -77,14 +193,10 @@ def _running_contract() -> dict:
 def search_projection_sql(sources) -> str:
     captured = {source.name: source.content for source in sources}
     contract = json.loads(captured[CONTRACT])
-    sql = captured["native/pdf-source-search.sql"].decode()
-    for token, value in (
-        ("__SEARCH_RENDERER__", contract["renderer"]),
-        ("__SEARCH_DEFAULT_POLICY__", contract["default_policy_digest"]),
-        ("__SEARCH_FILL_BYTES__", str(contract["max_fill_bytes"])),
-    ):
-        sql = sql.replace(token, value)
-    return sql
+    sql = captured["native/pdf-source-search.sql"].decode().replace(
+        "__SEARCH_FILL_BYTES__", str(contract["max_fill_bytes"])
+    )
+    return captured[_PIN_SQL].decode() + "\n" + sql
 
 
 def projection_recipe(connection, source: SelectedPdfSource) -> tuple[dict, bytes | None]:

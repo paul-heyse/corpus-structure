@@ -1,34 +1,4 @@
 -- Derived immutable search is never an admission or a retained-read capability.
-CREATE OR REPLACE FUNCTION ops.ddo_pdf_search_pin(p_source jsonb,p_recipe jsonb) RETURNS jsonb
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $search$
-DECLARE selected jsonb; publication ops.pdf_published_revision; policy_digest text;
- policy bytea; expected jsonb; recipe_digest text; population text;
-BEGIN
- selected:=ops.ddo_impl_read_selected_pdf_source(p_source)->'payload';
- PERFORM ops.require_pdf_operation(selected->'cut'->>'release_id','search_native_source');
- SELECT revision.* INTO STRICT publication FROM ops.pdf_published_revision revision
- WHERE revision.build_id=selected->'receipt'->'publication'->>'build_id'
- AND revision.task_id=(selected->'receipt'->'publication'->>'task_id')::bigint
- AND revision.product_key=selected->'receipt'->'publication'->>'product_key'
- AND revision.logical_digest=selected->'receipt'->'publication'->>'logical_digest';
- SELECT content,content_digest INTO policy,policy_digest FROM sem.input
- WHERE release_id=selected->'cut'->>'release_id' AND input_kind='dependency'
- AND input_name='execution/implementation/pdf/section-text-recipe.json';
- IF policy_digest IS NULL THEN policy_digest:='__SEARCH_DEFAULT_POLICY__';
- ELSIF encode(sha256(policy),'hex') IS DISTINCT FROM policy_digest THEN
- RAISE EXCEPTION 'search policy differs from retained release bytes' USING ERRCODE='23514'; END IF;
- expected:=jsonb_build_object('version','pdf-source-search-v1','renderer','__SEARCH_RENDERER__',
- 'policy_digest',policy_digest,'organization_owner',jsonb_build_object('task_id',publication.task_id,
- 'product_key',publication.product_key,'content_digest',publication.logical_digest),'analysis_eligible',true);
- IF p_recipe IS DISTINCT FROM expected THEN
- RAISE EXCEPTION 'search projection recipe differs from selected publication/code' USING ERRCODE='23514'; END IF;
- recipe_digest:=ops.ddo_digest(expected);
- population:='pdf-search:'||ops.ddo_digest(jsonb_build_array(p_source->>'project_id',publication.build_id,
- publication.task_id,publication.product_key,publication.logical_digest,recipe_digest,'english'));
- RETURN jsonb_build_object('population_id',population,'recipe_digest',recipe_digest,
- 'publication',to_jsonb(publication),'selected',selected);
-END $search$;
-
 CREATE OR REPLACE FUNCTION ops.ensure_pdf_search_projection(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $search$
 DECLARE p jsonb:=p_payload; pin jsonb; publication ops.pdf_published_revision;
