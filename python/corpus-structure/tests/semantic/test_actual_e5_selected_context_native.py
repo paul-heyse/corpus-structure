@@ -18,6 +18,7 @@ from corpus_structure.semantic.composed import (
     read_data_operation_inputs,
 )
 from corpus_structure.semantic.contextual_registry import RegistryTarget
+from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.observations import source_python
@@ -187,6 +188,62 @@ def assert_published_cpu(kernel, product, operation):
     assert len(cpu["request_digest"]) == len(cpu["result_digest"]) == 64
 
 
+def query_request(kernel, original, primary, *, recipe, member, inference):
+    # Re-select the genuine finite producer into this demand. Its declared pin
+    # admits the source, and its fulfilled output admits the focal occurrence.
+    # Only the primary product belongs to the selected primary closure.
+    return request(
+        kernel,
+        (OPERATION, "retrieve.contextual_query/selected-context"),
+        original.context,
+        source_sets=(
+            FrozenSourceSet("fixture-selected-context-source", (original.entry(),)),
+            FrozenSourceSet("query-context-primary", (primary.entry(),)),
+        ),
+        selections=(
+            DemandOperationSelection(operation=OPERATION, parameters={"recipe": recipe}),
+            DemandOperationSelection(
+                operation="retrieve.contextual_query/selected-context",
+                replicate="actual-E5:" + recipe,
+                parameters={
+                    "context_selection": {
+                        "recipe": recipe,
+                        "evidence": {"product_id": primary.row["product_id"], "member_id": member},
+                    },
+                },
+            ),
+        ),
+        inference=inference,
+    )
+
+
+def assert_query_fulfilled(result, operation):
+    # DemandAdvance.snapshot is the native WireReadDemandResultResult frontier.
+    frontier = json_loads(result.snapshot)
+    obligations = {
+        row["obligation_id"]: row for row in frontier["obligations"]
+        if row["operation_id"] == operation
+    }
+    uses = [row for row in frontier["uses"] if row["obligation_id"] in obligations]
+    diagnostic = {
+        "receipts": result.receipt_count,
+        "obligations": [(row["operation_id"], row["fate"]) for row in obligations.values()],
+        "uses": [
+            {
+                "fate": row["fate"],
+                "completion_state": row["completion_state"],
+                "reasons": [
+                    {key: str(reason[key])[:512] for key in ("code", "location", "detail")}
+                    for reason in row["selection"].get("reasons", [])[:8]
+                ],
+            }
+            for row in uses[:8]
+        ],
+    }
+    assert result.receipt_count >= 1, diagnostic
+    assert len(uses) == 1 and uses[0]["fate"] == "fulfilled", diagnostic
+
+
 @pytest.mark.parametrize(
     "recipe,member,literal,expected_context", CASES, ids=[value[0] for value in CASES]
 )
@@ -194,6 +251,7 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
     actual_e5_native_case, recipe, member, literal, expected_context
 ):
     kernel, original, encoder, target_demand, targets = actual_e5_native_case
+    inference = "actual-configured-E5-selected-context:" + recipe
     finite, result = execute(
         kernel,
         request(
@@ -204,7 +262,7 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
             selections=(
                 DemandOperationSelection(operation=OPERATION, parameters={"recipe": recipe}),
             ),
-            inference="finite-primary-context:" + recipe,
+            inference=inference,
         ),
     )
     assert result.receipt_count == 1
@@ -221,29 +279,9 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
     query_operation = "retrieve.contextual_query/selected-context"
     retained, result = execute(
         kernel,
-        request(
-            kernel,
-            (query_operation,),
-            original.context,
-            source_sets=(FrozenSourceSet("query-context-primary", (primary.entry(),)),),
-            selections=(
-                DemandOperationSelection(
-                    operation=query_operation,
-                    replicate="actual-E5:" + recipe,
-                    parameters={
-                        "context_selection": {
-                            "recipe": recipe,
-                            "evidence": {
-                                "product_id": primary.row["product_id"],
-                                "member_id": member,
-                            },
-                        },
-                    },
-                ),
-            ),
-            inference="actual-configured-E5-selected-context:" + recipe,
-        ),
+        query_request(kernel, original, primary, recipe=recipe, member=member, inference=inference),
     )
+    assert_query_fulfilled(result, query_operation)
     query_demand = retained["demand_id"]
     (query,) = retained_products(kernel, query_demand, "DdoContextualQuery")
     (query_vector,) = retained_products(kernel, query_demand, "DdoContextualQueryVector")
