@@ -6,10 +6,9 @@ import json
 from typing import cast as typing_cast
 
 from corpus_structure.semantic._data_operation_wire import (
-    WireAttachDataRequestRequest,
+    WireAttachDataRequestsRequest,
     WireCancelDataDemandRequest,
-    WireClaimDataRequestRequest,
-    WireExpandDataObligationRequest,
+    WireClaimDataRequestsRequest,
     WirePublishDataDerivationRequest,
     WireReadDemandResultRequest,
     WireRegisterDataDemandRequest,
@@ -63,20 +62,18 @@ def attach(
                 },
             )
         )
-        obligation = storage.expand_data_obligation(
-            typing_cast(
-                WireExpandDataObligationRequest,
-                {
-                    "demand_id": demand["demand_id"],
-                    "operation_id": operation,
-                    **root,
-                    "parameters": {},
-                },
-            )
-        )
+        # Registration installs roots atomically. Select the authenticated
+        # obligation from the native frontier rather than recreating its identity.
+        demand = {name: demand[name] for name in ("demand_id", "selection")}
         acquired = storage.read_demand_result(
             typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]})
         )
+        obligation = {"obligation_id": next(
+            row["obligation_id"] for row in acquired["obligations"]
+            if row["operation_id"] == operation and row["subject"] == subject
+            and row["original_source"] == original_source
+            and row["analyzed_scope"] == root["analyzed_scope"]
+        )}
         request = SemanticRequestKey(
             kernel["identities"][operation, "recipe"],
             subject,
@@ -108,26 +105,26 @@ def attach(
     # Acquiring a read closes this transaction's graph-writing boundary. Attach
     # under its recorded evidence from a fresh transaction, as the executor does.
     with (engine or kernel["engine"]).begin() as connection:
-        attached = DataOperationStorage(connection).attach_data_request(
-            typing_cast(WireAttachDataRequestRequest, wire)
-        )
+        result = DataOperationStorage(connection).attach_data_requests(
+            typing_cast(WireAttachDataRequestsRequest, {"read_id": acquired["read_id"], "items": [wire]})
+        )["items"][0]
+        assert result["state"] in {"attached", "fulfilled"}, result
+        attached = result["result"]
     return demand, obligation, wire, attached
 
 
 def claim(kernel, attached, holder="producer", seconds=30):
     with kernel["engine"].begin() as connection:
-        result = DataOperationStorage(connection).claim_data_request(
+        item = DataOperationStorage(connection).claim_data_requests(
             typing_cast(
-                WireClaimDataRequestRequest,
-                {
-                    "request_id": attached["request_id"],
-                    "generation": attached["generation"],
-                    "holder": holder,
-                    "lease_seconds": seconds,
-                },
+                WireClaimDataRequestsRequest,
+                {"holder": holder, "lease_seconds": seconds, "items": [{
+                    "request_id": attached["request_id"], "generation": attached["generation"],
+                }]},
             )
-        )
-        assert result["state"] == "claimed"
+        )["items"][0]
+        assert item["state"] == "claimed", item
+        result = item["result"]
     return {
         name: result[name] for name in ("request_id", "generation", "task_id", "attempt", "holder")
     }

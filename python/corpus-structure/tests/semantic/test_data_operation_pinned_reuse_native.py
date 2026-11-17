@@ -1,6 +1,7 @@
 """Explicit retained semantic pins reuse facts, never another demand's work policy."""
 
 import json
+import re
 from dataclasses import replace
 from typing import cast as typing_cast
 
@@ -134,6 +135,8 @@ def _ready(kernel, demand):
     with kernel["engine"].begin() as connection:
         planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
+    with kernel["engine"].begin() as connection:
+        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
         return snapshot, planner.ready(snapshot, authorization=b"{}")
 
 
@@ -401,24 +404,32 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
                         position=target["position"],
                     )
                 )
-            with (
-                pytest.raises(DBAPIError, match=r"wire|support|native manifest member"),
-                connection.begin_nested(),
-            ):
-                connection.execute(
-                    text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"),
-                    {
-                        "payload": json.dumps(
-                            dict(
-                                obligation_id=ready.obligation,
-                                request_meaning=json.loads(ready.request),
-                                request_key=json.loads(ready.native)["request_id"],
-                                binding=changed,
-                                replicate=None,
-                            )
-                        )
-                    },
-                )
+            payload = {"read_id": changed["read_id"], "items": [dict(
+                obligation_id=ready.obligation,
+                request_meaning=json.loads(ready.request),
+                request_key=json.loads(ready.native)["request_id"],
+                binding=changed,
+                replicate=None,
+            )]}
+            if mutation == "missing":
+                # A malformed set request fails its one outer SQL schema check.
+                with (
+                    pytest.raises(DBAPIError, match="wire"),
+                    connection.begin_nested(),
+                ):
+                    connection.scalar(
+                        text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"),
+                        {"payload": json.dumps(payload)},
+                    )
+            else:
+                # Well-shaped semantic refusals are isolated to their set item.
+                result = connection.scalar(
+                    text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"),
+                    {"payload": json.dumps(payload)},
+                )["payload"]["items"][0]
+                assert result["state"] == "refused"
+                assert result["sqlstate"] == "23514"
+                assert re.search(r"wire|support|native manifest member", result["reason"])
             assert counts(connection) == before
     from corpus_structure.semantic.data_operation_identity import (
         CollectionValue,
@@ -440,24 +451,19 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
     grouped_key = canonical_identity("semantic-request", meaning)
     with ddo_kernel["engine"].begin() as connection:
         before = counts(connection)
-        with (
-            pytest.raises(DBAPIError, match="support set has no exact native binding row"),
-            connection.begin_nested(),
-        ):
-            connection.execute(
-                text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"),
-                {
-                    "payload": json.dumps(
-                        dict(
-                            obligation_id=ready.obligation,
-                            request_meaning=json.loads(grouped_key.canonical_input),
-                            request_key=grouped_key.key,
-                            binding=grouped,
-                            replicate=None,
-                        )
-                    )
-                },
-            )
+        result = connection.scalar(
+            text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"),
+            {"payload": json.dumps({"read_id": grouped["read_id"], "items": [dict(
+                obligation_id=ready.obligation,
+                request_meaning=json.loads(grouped_key.canonical_input),
+                request_key=grouped_key.key,
+                binding=grouped,
+                replicate=None,
+            )]})},
+        )["payload"]["items"][0]
+        assert result["state"] == "refused"
+        assert result["sqlstate"] == "23514"
+        assert "support set has no exact native binding row" in result["reason"]
         assert counts(connection) == before
     receipt = _complete_ready(ddo_kernel, ready)
     with ddo_kernel["engine"].connect() as connection:

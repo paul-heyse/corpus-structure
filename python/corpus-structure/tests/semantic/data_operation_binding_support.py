@@ -20,9 +20,8 @@ from sqlalchemy import text
 
 from corpus_structure.semantic._data_operation_wire import (
     DataOperationCalls,
-    WireAttachDataRequestRequest,
+    WireAttachDataRequestsRequest,
     WireCloseDataPopulationRequest,
-    WireExpandDataObligationRequest,
     WireReadDemandResultRequest,
     WireRegisterDataDemandRequest,
     WireRetainDataCompletionIntentRequest,
@@ -549,29 +548,14 @@ def discover(
                 },
             )
         )
-        producer = storage.expand_data_obligation(
-            typing_cast(
-                WireExpandDataObligationRequest,
-                {
-                    "demand_id": demand["demand_id"],
-                    "operation_id": "urn:discover",
-                    **root,
-                    "parameters": {},
-                },
-            )
-        )
-        consumer = storage.expand_data_obligation(
-            typing_cast(
-                WireExpandDataObligationRequest,
-                {
-                    "demand_id": demand["demand_id"],
-                    "operation_id": "urn:consumer",
-                    **root,
-                    "parameters": {},
-                },
-            )
-        )
+        demand = {name: demand[name] for name in ("demand_id", "selection")}
         acquired = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
+        obligations = {row["operation_id"]: {"obligation_id": row["obligation_id"]}
+                       for row in acquired["obligations"]
+                       if row["subject"] == root["subject"]
+                       and row["original_source"] == root["original_source"]
+                       and row["analyzed_scope"] == root["analyzed_scope"]}
+        producer, consumer = obligations["urn:discover"], obligations["urn:consumer"]
         request = SemanticRequestKey(
             ddo_kernel["identities"]["urn:discover", "recipe"],
             "doc",
@@ -586,10 +570,13 @@ def discover(
                 subject_definition=ddo_kernel["model"].operation("urn:discover").subject,
             ),
         )
-        attached = storage.attach_data_request(
+    # The read evidence is retained; graph writes require a new owner transaction.
+    with ddo_kernel["engine"].begin() as connection:
+        storage = DataOperationStorage(connection)
+        attached_item = storage.attach_data_requests(
             typing_cast(
-                WireAttachDataRequestRequest,
-                {
+                WireAttachDataRequestsRequest,
+                {"read_id": acquired["read_id"], "items": [{
                     **producer,
                     "request_meaning": json.loads(request.identity.canonical_input),
                     "request_key": request.identity.key,
@@ -603,9 +590,11 @@ def discover(
                         "populations": [],
                         "read_id": acquired["read_id"],
                     },
-                },
+                }]},
             )
-        )
+        )["items"][0]
+        assert attached_item["state"] == "attached", attached_item
+        attached = attached_item["result"]
     sample_kind = ddo_kernel["identities"][
         next(k.semantic_id for k in ddo_kernel["model"].kinds if k.name == "Sample"), "kind"
     ]
@@ -688,6 +677,8 @@ def discover(
             )
         )
         product = next(use["products"][0] for use in products["uses"] if use["products"])
+    with ddo_kernel["engine"].begin() as connection:
+        storage = DataOperationStorage(connection)
         parent = storage.close_data_population(
             typing_cast(
                 WireCloseDataPopulationRequest,

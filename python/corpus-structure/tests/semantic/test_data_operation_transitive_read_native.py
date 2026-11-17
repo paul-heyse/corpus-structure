@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import (
-    WireClaimDataRequestRequest,
+    WireClaimDataRequestsRequest,
     WireRevokeDataSupportRequest,
 )
 from corpus_structure.semantic.data_operation_demands import (
@@ -90,6 +90,8 @@ def _demand(kernel, entry, *, source, operation, inference, subject=None, scope=
             runtime=kernel["runtime"],
         )
         page = planner.resume(demand["demand_id"])
+    with kernel["engine"].begin() as connection:
+        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
         ready = planner.ready(page, authorization=b"{}")
     return demand, page, ready
 
@@ -166,6 +168,7 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
             demand_a["demand_id"]
         )
         assert current["trust_snapshot"][scope_c] == 1
+    with ddo_kernel["engine"].begin() as connection:
         assert (
             DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection)).ready(
                 current, authorization=b"{}"
@@ -173,17 +176,13 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
             == ()
         )
     with ddo_kernel["engine"].begin() as connection:
-        denied = DataOperationStorage(connection).claim_data_request(
-            typing_cast(
-                WireClaimDataRequestRequest,
-                {
-                    "request_id": json.loads(ready_a.native)["request_id"],
-                    "generation": json.loads(ready_a.native)["generation"],
-                    "holder": "after-revocation",
-                    "lease_seconds": 30,
-                },
-            )
-        )
+        denied = DataOperationStorage(connection).claim_data_requests(
+            typing_cast(WireClaimDataRequestsRequest, {
+                "holder": "after-revocation", "lease_seconds": 30,
+                "items": [{"request_id": json.loads(ready_a.native)["request_id"],
+                           "generation": json.loads(ready_a.native)["generation"]}],
+            })
+        )["items"][0]
         assert denied == {"state": "no-work"}
     # A new C event after revocation has the same support scope at nonzero epoch;
     # fresh B/A requests must carry it rather than fail containment as incomplete.
@@ -288,7 +287,10 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
             )
         )
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        assert planner.ready(planner.resume(demand_a["demand_id"]), authorization=b"{}") == ()
+        snapshot_a = planner.resume(demand_a["demand_id"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        assert planner.ready(snapshot_a, authorization=b"{}") == ()
         assert planner.fulfilled_request_ids
         current_a = planner.resume(demand_a["demand_id"])
         assert any(
@@ -337,17 +339,15 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
             planner.resume(demand_d["demand_id"], read_id=pinned["read_id"])
         current = planner.resume(demand_d["demand_id"])
         assert current["trust_snapshot"][scope_c] == 1
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         assert planner.ready(current, authorization=b"{}") == ()
     with ddo_kernel["engine"].begin() as connection:
-        denied = DataOperationStorage(connection).claim_data_request(
-            typing_cast(
-                WireClaimDataRequestRequest,
-                {
-                    "request_id": json.loads(ready_d.native)["request_id"],
-                    "generation": json.loads(ready_d.native)["generation"],
-                    "holder": "after-rebound-revocation",
-                    "lease_seconds": 30,
-                },
-            )
-        )
+        denied = DataOperationStorage(connection).claim_data_requests(
+            typing_cast(WireClaimDataRequestsRequest, {
+                "holder": "after-rebound-revocation", "lease_seconds": 30,
+                "items": [{"request_id": json.loads(ready_d.native)["request_id"],
+                           "generation": json.loads(ready_d.native)["generation"]}],
+            })
+        )["items"][0]
         assert denied == {"state": "no-work"}

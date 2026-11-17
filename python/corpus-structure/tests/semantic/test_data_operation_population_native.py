@@ -33,6 +33,8 @@ def test_native_selected_population_has_authentic_parent_and_frozen_filter(
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
         acquired = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
+    with ddo_kernel["engine"].begin() as connection:
+        storage = DataOperationStorage(connection)
         request = {
             **consumer,
             "population_name": "selected-items",
@@ -95,10 +97,14 @@ def test_native_planner_selects_on_one_read_and_attaches_only_after_fresh_read(d
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         assert planner.ready(snapshot, authorization=b"{}") == ()
         assert len(planner.selected_population_ids) == 1
         refreshed = planner.resume(demand["demand_id"])
         assert refreshed["read_id"] != snapshot["read_id"]
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         ready = planner.ready(refreshed, authorization=b"{}")
         assert planner.selected_population_ids == ()
         assert len(ready) == 1
@@ -112,6 +118,8 @@ def test_native_planner_preserves_ambiguous_authentic_parent_populations(ddo_ker
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         assert planner.ready(snapshot, authorization=b"{}") == ()
         assert planner.selected_population_ids == ()
         current = planner.resume(demand["demand_id"])
@@ -179,6 +187,8 @@ def test_native_discovery_children_closed_fanin_and_pinned_resume(ddo_kernel):
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
         producing_use = next(use for use in snapshot["uses"] if use["products"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         planner.expand_discovery(
             snapshot,
             population="all-items",
@@ -186,6 +196,8 @@ def test_native_discovery_children_closed_fanin_and_pinned_resume(ddo_kernel):
             derivation=cast(str, producing_use["derivation_id"]),
         )
         current = planner.resume(demand["demand_id"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         children = planner.ready(current, authorization=b"{}")
         assert planner.selected_population_ids  # fan-in waits for its fresh selection read
         assert {request.subject for request in children} == {"item:5", "item:15", "item:25"}
@@ -198,7 +210,10 @@ def test_native_discovery_children_closed_fanin_and_pinned_resume(ddo_kernel):
         _complete_ready(ddo_kernel, child)
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        frontier = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+        snapshot = planner.resume(demand["demand_id"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        frontier = planner.ready(snapshot, authorization=b"{}")
         aggregate = [request for request in frontier if request.operation == "urn:consumer"]
         assert any(request.operation == "urn:child" for request in frontier)
         assert len(aggregate) == 1 and aggregate[0].obligation == consumer["obligation_id"]
@@ -210,7 +225,10 @@ def test_native_discovery_children_closed_fanin_and_pinned_resume(ddo_kernel):
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         count = connection.execute(text("SELECT count(*) FROM ops.data_derivation")).scalar_one()
-        assert planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}") == ()
+        snapshot = planner.resume(demand["demand_id"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        assert planner.ready(snapshot, authorization=b"{}") == ()
         page = planner.resume(demand["demand_id"], limit=1)
         selection, trust, read = page["selection"], page["trust_snapshot"], page["read_id"]
         obligations = list(page["obligations"])
@@ -244,6 +262,8 @@ def test_native_empty_partial_populations_do_not_invent_closed_children(
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
         producing_use = next(use for use in snapshot["uses"] if use["products"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         population = planner.expand_discovery(
             snapshot,
             population="all-items",
@@ -254,6 +274,8 @@ def test_native_empty_partial_populations_do_not_invent_closed_children(
         current = planner.resume(demand["demand_id"])
         children = [row for row in current["obligations"] if row["operation_id"] == "urn:child"]
         assert {row["subject"] for row in children} == {f"item:{value}" for value in values}
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         ready = planner.ready(current, authorization=b"{}")
         if not complete:
             assert all(request.operation != "urn:consumer" for request in ready)
@@ -280,15 +302,20 @@ def test_discovery_same_local_subject_distinct_contexts_reach_child_publication(
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
         producer = next(use for use in snapshot["uses"] if use["products"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         planner.expand_discovery(
             snapshot,
             population="all-items",
             product=producer["products"][0]["product_id"],
             derivation=cast(str, producer["derivation_id"]),
         )
+        snapshot = planner.resume(demand["demand_id"])
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         children = tuple(
             request
-            for request in planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+            for request in planner.ready(snapshot, authorization=b"{}")
             if request.operation == "urn:child"
         )
     assert len(children) == 2
