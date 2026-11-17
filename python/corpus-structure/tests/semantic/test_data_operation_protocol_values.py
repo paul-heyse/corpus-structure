@@ -125,10 +125,8 @@ def test_ready_binding_cannot_be_recorded_as_missing_work():
 
 
 def test_task_guard_uses_captured_protocol_states_and_transitions():
-    from corpus_structure.semantic.data_operation_protocol import (
-        data_task_lifecycle,
-        render_data_task_guard,
-    )
+    from corpus_structure.semantic.data_operation_protocol import data_task_lifecycle
+    from corpus_structure.semantic.target_installation import target_task_guard_sql
 
     sources = captured()
     content = sources["data-operation-native.yaml"]
@@ -147,13 +145,13 @@ def test_task_guard_uses_captured_protocol_states_and_transitions():
             ["running", "cancelled"],
         ],
     }
-    template = (
+    checks = (
         Path(__file__)
         .parents[2]
-        .joinpath("src/corpus_structure/semantic/sql/execution_guards.sql")
+        .joinpath("src/corpus_structure/semantic/sql/data_operation_task_checks.sql")
         .read_text()
     )
-    rendered = render_data_task_guard(content, template)
+    rendered = target_task_guard_sql(content, checks)
     assert "__DDO_TASK_" not in rendered
     assert "NEW.attempt<>OLD.attempt+1" in rendered
     assert "NEW.claimed_by IS DISTINCT FROM OLD.claimed_by" in rendered
@@ -162,7 +160,7 @@ def test_task_guard_uses_captured_protocol_states_and_transitions():
     changed["definitions"]["data_task_state"]["x-ddo-lifecycle"]["same_attempt"].remove(
         ["running", "pending"]
     )
-    modified = render_data_task_guard(yaml.safe_dump(changed).encode(), template)
+    modified = target_task_guard_sql(yaml.safe_dump(changed).encode(), checks)
     assert "('running','pending')" not in modified
     assert "('running','failed')" in modified
 

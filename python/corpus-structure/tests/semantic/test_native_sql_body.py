@@ -197,7 +197,7 @@ LANGUAGE sql BEGIN ATOMIC SELECT 1; END;"""
         )
 
 
-def test_current_release_guards_separate_readable_archives_from_current_projection_compiler():
+def test_current_release_guards_require_current_archive_and_projection_compiler():
     from pathlib import Path
 
     from corpus_structure.semantic.native_products import function_bodies
@@ -208,9 +208,9 @@ def test_current_release_guards_separate_readable_archives_from_current_projecti
         "sem.require_execution_projection"
     ]
     assert "document->>'format' IS DISTINCT FROM 'semantic-release-archive-3'" in archive
-    assert (
-        "COALESCE(manifest->'profile'->>'compiler_version','') "
-        "NOT IN ('14','15','16','17','18','19','20','21','22')" in archive
-    )
-    assert "IS DISTINCT FROM '22' THEN RAISE EXCEPTION" in projection
+    # IS DISTINCT FROM also rejects missing compiler metadata; accepting only 24
+    # leaves historical compilers outside both current guard boundaries.
+    assert "manifest->'profile'->>'compiler_version' IS DISTINCT FROM '24'" in archive
+    assert "IS DISTINCT FROM '24' THEN RAISE EXCEPTION" in projection
+    assert "THEN RETURN;" not in archive
     assert "THEN RETURN;" not in projection
