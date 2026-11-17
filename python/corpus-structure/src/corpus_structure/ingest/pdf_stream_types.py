@@ -129,11 +129,11 @@ class PdfStreamRequest:
     record_root: Path
     build_id: str
     release_id: str
+    validation_contract: bytes
+    lowering_identity: str
+    payload_schema: bytes
     page_range: tuple[int, int] | None = None
-    payload_schema: bytes | None = None
     recovery_pages: tuple[PdfPageRecovery, ...] = ()
-    validation_contract: bytes | None = None
-    lowering_identity: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

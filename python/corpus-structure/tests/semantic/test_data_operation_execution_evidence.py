@@ -179,7 +179,7 @@ def test_cpu_receipt_keeps_matched_process_facts_without_product_or_reply_copy()
 
 def test_pdf_receipt_keeps_original_sealed_publisher_separate_from_admitting_attempt():
     from corpus_structure.semantic.pdf_publication import (
-        PdfExecutionReceipt,
+        PdfExecutionReceipt, PdfPublicationCertification,
         PublishedPdfDocumentRef,
     )
 
@@ -199,6 +199,7 @@ def test_pdf_receipt_keeps_original_sealed_publisher_separate_from_admitting_att
         publisher_attempt=1,
         publisher_holder="sealed-owner",
         contributors=(),
+        certification=PdfPublicationCertification("round-trip-verified", "lowering", "logical", "native", "oracle"),
     )
     value = bind_execution_evidence(
         None,

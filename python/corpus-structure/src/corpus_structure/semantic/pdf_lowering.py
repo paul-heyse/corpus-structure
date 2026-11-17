@@ -19,12 +19,13 @@ LOWERING_LIBRARIES = (
 # checkout hash substituted for an archived lowering contract.
 LOWERING_FILES = (
     "semantic/pdf_lowering.py", "semantic/pdf_certification.py",
-    "semantic/pdf_publication_native.py", "semantic/pdf_domain_native.py",
-    "semantic/pdf_publication.py", "semantic/pdf_records.py",
+    "semantic/native_sql_body.py", "semantic/pdf_certification_native.py", "semantic/pdf_publication_native.py", "semantic/pdf_domain_native.py",
+    "semantic/pdf_publication.py", "semantic/pdf_record_reader.py", "semantic/pdf_record_reader_native.py", "semantic/pdf_records.py",
     "semantic/pdf_record_identity.py", "semantic/pdf_record_model.py",
     "semantic/pdf_payloads.py", "semantic/pdf_payload_validation.py",
     "semantic/pdf_ocr_contracts.py", "semantic/pdf_contracts.py", "semantic/pdf_integrated.py",
-    "semantic/identity.py", "semantic/value_codec.py", "ingest/pdf_streaming.py", "ingest/pdf_record_product.py",
+    "semantic/identity.py", "semantic/value_codec.py", "semantic/arrow_transfer.py",
+    "ingest/pdf.py", "ingest/pdf_worker.py", "ingest/pdf_stream_types.py", "ingest/pdf_streaming.py", "ingest/pdf_record_product.py",
     "model/semantic/pdf-records.yaml", "model/semantic/pdf-staging.yaml",
     "model/semantic/pdf-products.yaml", "model/semantic/core.yaml", "model/semantic/docling-validation.schema.json",
     "semantic/sql/pdf_record_identity.sql", "semantic/sql/pdf_record_artifact_identity.sql",

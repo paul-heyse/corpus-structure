@@ -12,27 +12,49 @@ from dataclasses import asdict, dataclass
 from decimal import Decimal
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pyarrow as pa
 
 from .identity import canonical_bytes
 from .pdf_payload_validation import FrozenPayloadStore
-from .pdf_record_identity import ABSENT, LogicalIdentity, ScalarDescriptor, byte_root, record_frame, structured_payload_scalar
+from .pdf_record_identity import ABSENT, IdentityFold, LogicalIdentity, ScalarDescriptor, byte_root, record_frame, structured_payload_scalar
 
 
 @dataclass(frozen=True, slots=True)
 class PdfProducerCertification:
     lowering_identity: str
-    kind: str
+    kind: Literal["native", "integrated"]
     logical_digest: str
     native_document_digest: str
+    stream_inventory_digest: str
     source_digest: str
     recipe_digest: str
     schema_digest: str
 
     def to_bytes(self) -> bytes:
         return canonical_bytes(asdict(self))
+
+
+@dataclass(frozen=True, slots=True)
+class PdfProducerContract:
+    validation_contract: bytes
+    lowering_identity: str
+    payload_schema: bytes
+
+
+def prepare_pdf_producer_contract(context, *, kind: Literal["native", "integrated"]) -> PdfProducerContract:
+    """Explicit captured contract for deployed producers or unadmitted provider probes."""
+    from .pdf_contracts import integrated_metadata_policy
+    from .pdf_lowering import require_lowering_identity
+    from .pdf_payload_validation import metadata_classes
+    from .pdf_payloads import prepare_payload_family, schema_dump
+
+    family = prepare_payload_family(context)
+    contract = {"schemas": {key: context.boundary.json_schema(cls) for key, cls in metadata_classes().items()},
+        "publication_kind": kind, "schema_digest": context.native_schema_digest,
+        "integrated_metadata_policy": integrated_metadata_policy(context) if kind == "integrated" else None}
+    return PdfProducerContract(schema_dump(contract), require_lowering_identity(context), schema_dump(family.json_schema))
 
 
 def jsonb_canonical_text(value: Any) -> str:
@@ -141,7 +163,8 @@ class PdfProducerPayloads(FrozenPayloadStore):
             self.db.execute("INSERT INTO identity_frame VALUES(?,?,?)", (family, key, encoded))
 
         # Validate every actual stream, including shared and unreferenced streams.
-        for (raw,) in self.db.execute("SELECT body FROM entry WHERE family='artifact_stream'"):
+        streams = IdentityFold("pdf-producer-streams-v1")
+        for (raw,) in self.db.execute("SELECT body FROM entry WHERE family='artifact_stream' ORDER BY key COLLATE BINARY"):
             descriptor = json.loads(raw)
             digest = sha256()
             def chunks():
@@ -153,6 +176,12 @@ class PdfProducerPayloads(FrozenPayloadStore):
                 descriptor.get("serialization_sha256") is not None and descriptor["serialization_sha256"] != digest.hexdigest()
             ):
                 raise ValueError("producer actual bytes differ from their stream descriptor")
+            streams.add(record_frame(schema_digest, "producer-stream", descriptor["stream_id"], (
+                ("byte_length", length), ("byte_root", root.hex()),
+                ("encoding_profile", descriptor["encoding_profile"]),
+                ("serialization_sha256", descriptor.get("serialization_sha256")),
+            )))
+        self.stream_inventory_digest = streams.digest().hex()
         for family, raw in self.db.execute("SELECT family,body FROM native_entry"):
             row = {key: value for key, value in json.loads(raw).items() if value is not None}
             for name in ("scalars_json", "structure_json", "scalar_json"):
@@ -198,7 +227,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
         return logical.pin().logical_digest
 
     def certify(self, document: Any, projection: Path, *, release_id: str, source_digest: str,
-                recipe_digest: str, schema_digest: str, kind: str, lowering_identity: str,
+                recipe_digest: str, schema_digest: str, kind: Literal["native", "integrated"], lowering_identity: str,
                 target_meanings: Mapping[tuple[int, str, str], Any]) -> PdfProducerCertification:
         from corpus_structure.ingest.pdf_streaming import _json_view
         from .pdf_publication import write_pdf_access_projection
@@ -211,7 +240,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
         digest = self.logical_digest(release_id=release_id, source_digest=source_digest,
             recipe_digest=recipe_digest, schema_digest=schema_digest, kind=kind, target_meanings=target_meanings)
         return PdfProducerCertification(lowering_identity, kind, digest,
-            sha256(canonical_bytes(actual)).hexdigest(), source_digest, recipe_digest, schema_digest)
+            sha256(canonical_bytes(actual)).hexdigest(), self.stream_inventory_digest, source_digest, recipe_digest, schema_digest)
 
 
 def write_pdf_companion_sets(root: Path, build, companions: Mapping[str, Iterable[Mapping[str, Any]]], *,
@@ -269,8 +298,6 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
     from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
     from .pdf_publication import PdfCompanionEncodingBasis
 
-    if request.validation_contract is None or request.lowering_identity is None:
-        raise ValueError("PDF publication producer has no captured certification contract")
     contract = json.loads(request.validation_contract)
     if contract["publication_kind"] != "native":
         raise ValueError("native capture certification requires the native publication kind")
@@ -282,7 +309,7 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
                    "value": encoded_replay(streamed.spool.candidates[number], streamed.spool.payload_family)}
         yield {"kind": "runtime_report", "ordinal": 0,
                "value": {"effective_options": streamed.effective_options.decode()}}
-        for ordinal, outcome in enumerate(streamed.formula_outcomes):
+        for ordinal, outcome in enumerate(streamed.formula_outcomes, start=1 + len(streamed.errors)):
             value = {"pointer": outcome.item_ref, "outcome": outcome.outcome}
             if outcome.error:
                 value["error"] = outcome.error
@@ -316,3 +343,49 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
     certificate = _atomic_bytes(request.record_root / "producer-certification.json", certification.to_bytes(), "producer_certification")
     on_replay(certificate)
     return sets, certificate, access
+
+
+def write_retained_pdf_replays(root: Path, build, retained, *, check_active, on_replay):
+    """Own exact retained export bytes before they participate in certification."""
+    import gzip
+    import os
+    from corpus_structure.ingest.pdf_streaming import _ref
+    from .pdf_record_identity import IdentityFold, emit_parts
+    from .pdf_staging import stage_schema
+
+    root.mkdir(parents=True, exist_ok=False)
+    common = {"product_id": build.build_id, "revision_id": build.build_id, "stream_id": "retained/envelope"}
+    replays = []
+    def write(family, rows):
+        batch = pa.RecordBatch.from_pylist(rows, schema=stage_schema(family))
+        path = root / f"{len(replays):08}-{family}.arrow"
+        with pa.OSFile(str(path), "wb") as sink, pa.ipc.new_file(sink, batch.schema) as writer:
+            writer.write_batch(batch)
+        with path.open("rb") as source:
+            os.fsync(source.fileno())
+        replay = _ref(path, family, batch.num_rows)
+        on_replay(replay)
+        replays.append(replay)
+    digest, fold = sha256(), IdentityFold("bytes")
+    opener = gzip.open if retained.compression == "gzip" else open
+    with opener(retained.path, "rb") as source:
+        def chunks():
+            while block := source.read(65536):
+                check_active()
+                yield block
+        pending = []
+        for part in emit_parts(common["stream_id"], chunks()):
+            digest.update(part.body)
+            fold.add(part.body)
+            pending.append({**common, "ordinal": part.ordinal, "byte_offset": part.offset,
+                "byte_length": part.byte_length, "body": part.body, "sha256_digest": part.sha256_digest})
+            if len(pending) == 64:
+                write("artifact_part", pending)
+                pending.clear()
+        if pending:
+            write("artifact_part", pending)
+    if digest.hexdigest() != retained.serialization_sha256:
+        raise ValueError("retained bytes changed during producer preparation")
+    write("artifact_stream", [{**common, "byte_length": fold.byte_length, "byte_root": fold.digest().hex(),
+        "serialization_sha256": digest.hexdigest(), "encoding_profile": "retained-pdf-envelope-json-v1"}])
+    return tuple(replays)

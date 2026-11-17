@@ -299,6 +299,7 @@ def _current_pdf_custody():
 
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.pdf_publication import (
+        PdfPublicationCertification,
         PdfExecutionReceipt,
         PublishedPdfDocumentRef,
     )
@@ -370,7 +371,7 @@ def _current_pdf_custody():
                 payload={
                     "execution_evidence": {
                         "pdf_receipts": [
-                            asdict(PdfExecutionReceipt(publication, 2, "holder:actual", ()))
+                            asdict(PdfExecutionReceipt(publication, 2, "holder:actual", (), PdfPublicationCertification("producer-certified", "lowering", publication.logical_digest, "native", "oracle")))
                         ]
                     }
                 },

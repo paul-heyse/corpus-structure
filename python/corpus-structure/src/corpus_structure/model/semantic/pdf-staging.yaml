@@ -60,6 +60,10 @@ enums:
     permissible_values:
       y: {}
       s: {}
+  PdfCertificationBasis:
+    permissible_values:
+      producer-certified: {}
+      round-trip-verified: {}
   PdfPublicationKind:
     permissible_values:
       native: {}
@@ -295,6 +299,11 @@ classes:
         required: true
       native_contract_digest:
         required: true
+      certification_basis: {range: PdfCertificationBasis, required: true}
+      lowering_identity: {required: true}
+      attested_logical_digest: {required: true}
+      native_document_digest: {required: true}
+      oracle_receipt_id: {required: true}
   PdfRecordAccess:
     annotations:
       pds:record_boundary_role: derived_core
@@ -382,22 +391,43 @@ classes:
       release_id:
         range: PdfRecordString
         required: true
-  PdfNativeValidationOutcome:
-    description: Pinned native callback outcome over an exact immutable captured candidate, distinct from
-      independent server closure.
+  PdfProducerCertificationRecord:
+    description: Producer callbacks, payload interiors and exact encoded logical fold, captured before freeze.
     attributes:
-      build_id:
-        range: PdfRecordString
-        required: true
-      frozen_digest:
-        range: PdfRecordString
-        required: true
-      contract_digest:
-        range: PdfRecordString
-        required: true
-      passed:
-        range: boolean
-        required: true
+      build_id: {required: true}
+      attempt: {range: PdfRecordInteger, required: true}
+      holder: {required: true}
+      lowering_identity: {required: true}
+      kind: {range: PdfPublicationKind, required: true}
+      logical_digest: {required: true}
+      native_document_digest: {required: true}
+      stream_inventory_digest: {required: true}
+      source_digest: {required: true}
+      recipe_digest: {required: true}
+      schema_digest: {required: true}
+  PdfRoundtripOracleReceipt:
+    description: Actual reconstruction result; failed, interrupted and unfinished runs never qualify a lowering.
+    attributes:
+      oracle_receipt_id: {required: true}
+      build_id: {required: true}
+      attempt: {range: PdfRecordInteger, required: true}
+      holder: {required: true}
+      frozen_digest: {required: true}
+      lowering_identity: {required: true}
+      kind: {range: PdfPublicationKind, required: true}
+      logical_digest: {required: true}
+      native_document_digest: {required: true}
+      state: {required: true}
+      actual_native_digest: {}
+      error_message: {}
+  PdfCertificationRequirement:
+    attributes:
+      lowering_identity: {required: true}
+      kind: {range: PdfPublicationKind, required: true}
+      logical_digest: {required: true}
+      native_document_digest: {required: true}
+      oracle_receipt_id: {}
+      certification_basis: {range: PdfCertificationBasis, required: true}
   PdfValidationCheck:
     description: Protected check result over one sealed projection and live build attempt.
     attributes:

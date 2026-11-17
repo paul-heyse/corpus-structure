@@ -22,7 +22,7 @@ from typing import Any
 
 from corpus_structure.core.work import PhysicalRetirementUncertain
 
-from .pdf_stream_types import PdfPageRecovery, PdfReplayRef, PdfStreamReply
+from .pdf_stream_types import PdfPageRecovery, PdfPreparedCompanionSet, PdfReplayRef, PdfStreamReply
 
 
 @dataclass(frozen=True, slots=True)
@@ -364,14 +364,12 @@ class VerifiedSpoolRecovery:
             raise ValueError("completed spool native completion differs from producer premises")
         if completion["conversion_status"] != "success" or self.preparation is None:
             raise ValueError("completed spool has no successful native preparation")
-        return PdfStreamReply(
-            "success",
-            tuple(completion["errors"]),
-            recipe,
-            pages,
-            records,
-            bytes.fromhex(completion["effective_options"]),
-        )
+        sets = tuple(PdfPreparedCompanionSet(value["family"], value["replay_key"],
+            tuple(paths[name] for name in value["paths"])) for value in completion["companion_sets"])
+        certificate = paths[completion["certification"]] if completion["certification"] is not None else None
+        access = paths[completion["access_replay"]] if completion["access_replay"] is not None else None
+        return PdfStreamReply("success", tuple(completion["errors"]), recipe, pages, records,
+                              bytes.fromhex(completion["effective_options"]), sets, certificate, access)
 
 
 def _stored_premises(value: dict[str, Any]) -> PdfSpoolPremises:
@@ -726,19 +724,15 @@ class PdfBuildSpool:
                     raise ValueError("PDF completion names an unacknowledged replay")
                 values.append(key)
             return values
-
-        self._write(
-            {
-                "completion": {
-                    "conversion_status": reply.conversion_status,
-                    "errors": list(reply.errors),
-                    "recipe": reply.recipe.hex(),
-                    "effective_options": reply.effective_options.hex(),
-                    "record_paths": paths(reply.record_replays),
-                    "page_paths": paths(reply.page_replays),
-                }
-            }
-        )
+        self._write({"completion": {
+            "conversion_status": reply.conversion_status, "errors": list(reply.errors),
+            "recipe": reply.recipe.hex(), "effective_options": reply.effective_options.hex(),
+            "record_paths": paths(reply.record_replays), "page_paths": paths(reply.page_replays),
+            "companion_sets": [{"family": value.family, "replay_key": value.replay_key,
+                                "paths": paths(value.replays)} for value in reply.companion_sets],
+            "certification": paths((reply.certification,))[0] if reply.certification is not None else None,
+            "access_replay": paths((reply.access_replay,))[0] if reply.access_replay is not None else None,
+        }})
         self._completed = True
 
     @property

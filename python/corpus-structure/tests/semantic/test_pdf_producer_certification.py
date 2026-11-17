@@ -60,7 +60,7 @@ def test_producer_certifies_existing_document_and_prepared_bytes_without_reconst
 def test_correctly_hashed_payload_with_invalid_geometry_refuses_before_staging(tmp_path):
     candidate = {"page_no": 1, "has_words": True, "has_chars": False, "candidates": [{
         "page_no": 1, "text": "outside", "left": 0, "top": 1, "right": 101, "bottom": 3,
-        "origin": "top_left", "basis": "native-font",
+        "origin": "TOPLEFT", "basis": "native-math-token-v1",
     }]}
     payloads, document, basis = prepared(tmp_path, candidate=candidate)
     try:
@@ -84,3 +84,48 @@ def test_lowering_identity_is_the_retained_contract_over_sources_schemas_and_cod
 
 def test_companion_frame_json_uses_postgresql_numeric_spelling():
     assert jsonb_canonical_text({"b": -0.0, "a": [1.0, 1e-7, 1e20]}) == '{"a":[1.0,0.0000001,100000000000000000000],"b":0.0}'
+
+
+def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
+    from corpus_structure.semantic.pdf_publication import write_pdf_oracle_capture, verify_pdf_oracle_capture
+
+    payloads, document, basis = prepared(tmp_path)
+    try:
+        for key, raw in payloads.db.execute("SELECT key,body FROM native_entry WHERE family='native'"):
+            row = json.loads(raw)
+            scalars = json.loads(row["scalars_json"])
+            if scalars.get("name") == "producer source":
+                scalars["name"] = "lossy source"
+                row["scalars_json"] = json.dumps(scalars)
+                payloads.db.execute("UPDATE native_entry SET body=? WHERE family='native' AND key=?", (json.dumps(row), key))
+                break
+        else:
+            raise AssertionError("independent native name witness is absent")
+        certification = payloads.certify(document, tmp_path / "producer-access.jsonl", **basis)
+        def rows(family, filters):
+            if family in {"header", "native", "membership"}:
+                for (raw,) in payloads.db.execute("SELECT body FROM native_entry WHERE family=?", (family,)):
+                    yield json.loads(raw)
+            elif family == "companion":
+                for row in payloads.companions(filters["family"]):
+                    row["_fields"] = [json.loads(raw) for (raw,) in payloads.db.execute(
+                        "SELECT body FROM entry WHERE family='companion_field'")
+                        if (json.loads(raw)["family"], json.loads(raw)["local_id"]) == (row["family"], row["local_id"])]
+                    yield row
+            elif family == "artifact_stream":
+                for (raw,) in payloads.db.execute("SELECT body FROM entry WHERE family='artifact_stream'"):
+                    row = json.loads(raw)
+                    if row["stream_id"] in filters["stream_ids"]:
+                        yield row
+            elif family == "artifact_part":
+                for stream in filters["stream_ids"]:
+                    for ordinal, body in payloads.db.execute("SELECT ordinal,body FROM part WHERE stream=? ORDER BY ordinal", (stream,)):
+                        yield {"stream_id": stream, "ordinal": ordinal, "body": body}
+        capture = tmp_path / "oracle.arrow"
+        write_pdf_oracle_capture(capture, context=trusted_pdf_context(), kind="native", rows=rows, check_active=lambda: None)
+        with pytest.raises(ValueError, match="differs from the certified producer document"):
+            verify_pdf_oracle_capture(capture, tmp_path / "oracle-access.jsonl", release_id="release",
+                lowering_identity=certification.lowering_identity, kind="native", logical_digest=certification.logical_digest,
+                native_document_digest=certification.native_document_digest, check_active=lambda: None)
+    finally:
+        payloads.close()

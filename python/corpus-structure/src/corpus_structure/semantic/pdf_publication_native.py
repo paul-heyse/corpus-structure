@@ -20,6 +20,7 @@ _FINAL = {
     "companion": "kb.pdf_record_companion",
     "endpoint": "kb.pdf_record_endpoint",
     "companion_field": "kb.pdf_record_companion_field",
+    "access": "kb.pdf_record_access", "region": "kb.pdf_record_region",
 }
 
 
@@ -716,15 +717,13 @@ b.state='abandoned' THEN
         "companion": "ops.pdf_stage_companion",
         "endpoint": "ops.pdf_stage_endpoint",
         "companion_field": "ops.pdf_stage_companion_field",
+        "access": "ops.pdf_stage_access", "region": "ops.pdf_stage_region",
     }
-    inventory_stage = {
-        **stage,
-        "spool_producer": "ops.pdf_spool_producer",
-        "spool_contributor": "ops.pdf_spool_contributor",
-    }
+    inventory_stage = {**stage, "spool_producer": "ops.pdf_spool_producer", "spool_contributor": "ops.pdf_spool_contributor",
+        "producer_certification": "ops.pdf_producer_certification"}
     for family, relation in sorted(inventory_stage.items()):
         keys = ",".join(metadata.tables[relation].primary_key.columns.keys())
-        owner_column = "build_id" if family.startswith("spool_") else "product_id"
+        owner_column = "build_id" if family.startswith("spool_") or family == "producer_certification" else "product_id"
         sql += f"""
  family_count_:=0;
  FOR row_ IN SELECT to_jsonb(t) body FROM {relation} t WHERE {owner_column}=p_build ORDER BY {keys} LOOP
@@ -736,6 +735,10 @@ b.state='abandoned' THEN
  inventory_:=inventory_||jsonb_build_object('{family}',family_count_);
 """
     sql += """
+ IF NOT EXISTS(SELECT FROM ops.pdf_producer_certification c WHERE c.build_id=p_build
+ AND c.kind=p_kind AND c.lowering_identity=ops.pdf_lowering_identity(b.release_id)
+ AND (c.source_digest,c.recipe_digest,c.schema_digest)=(b.source_digest,b.recipe_digest,b.schema_digest)) THEN
+ RAISE EXCEPTION 'PDF freeze requires exact producer certification' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM ops.pdf_stage_document WHERE product_id=p_build) THEN
  RAISE EXCEPTION 'PDF freeze has no native document header' USING ERRCODE='23514'; END IF;
  f:=encode(ops.pdf_identity_fold_finish(state_,count_,total_),'hex');
@@ -757,7 +760,7 @@ b.state='abandoned' THEN
  RAISE EXCEPTION 'PDF freeze build is not open' USING ERRCODE='23514'; END IF;
 """
     for family, relation in sorted(inventory_stage.items()):
-        owner_column = "build_id" if family.startswith("spool_") else "product_id"
+        owner_column = "build_id" if family.startswith("spool_") or family == "producer_certification" else "product_id"
         sql += f"""
  SELECT count(*) INTO family_count_ FROM {relation} WHERE {owner_column}=p_build;
  IF family_count_ IS DISTINCT FROM (inventory_->>'{family}')::bigint THEN
@@ -803,7 +806,7 @@ BEGIN b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
         "artifact_part",
         "companion",
         "endpoint",
-        "companion_field",
+        "companion_field", "access", "region",
     ):
         target = _FINAL[family]
         source = stage[family]
@@ -949,70 +952,32 @@ BEGIN
  END LOOP;
  RETURN encode(ops.pdf_identity_fold_finish(state_,count_,length_),'hex');
 END $$;
-CREATE OR REPLACE FUNCTION ops.adopt_pdf_access(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text,p_frozen text,p_family text,p_body jsonb)
+CREATE OR REPLACE FUNCTION ops.stage_pdf_access_batch(p_build text,p_task bigint,p_attempt bigint,
+ p_holder text,p_rows jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build;
+DECLARE b ops.pdf_stage_build; row_ jsonb; body_ jsonb; family_ text;
 BEGIN
- IF NOT (current_setting('transaction_isolation')=ANY({pdf_projection_isolation_array})) THEN
- RAISE EXCEPTION '{pdf_projection_isolation_message}' USING ERRCODE='25000'; END IF;
- PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
- b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- IF b.state<>'frozen' THEN RAISE EXCEPTION 'published PDF projection immutable'; END IF;
- IF EXISTS(SELECT FROM ops.pdf_build_validation WHERE build_id=p_build)
- OR EXISTS(SELECT FROM ops.pdf_validation_check WHERE build_id=p_build AND check_name='seal') THEN
- IF (p_family='access' AND EXISTS(SELECT FROM kb.pdf_record_access r WHERE
- r.product_id=p_build AND r.revision_id=p_build AND r.pointer=p_body->>'pointer' AND
- to_jsonb(r)-'product_id'-'revision_id'=p_body)) OR
- (p_family='region' AND EXISTS(SELECT FROM kb.pdf_record_region r WHERE
- r.product_id=p_build AND r.revision_id=p_build AND r.pointer=p_body->>'pointer'
- AND r.region_index=(jsonb_populate_record(NULL::kb.pdf_record_region,p_body)).region_index
- AND to_jsonb(r)-'product_id'-'revision_id'=p_body)) THEN RETURN; END IF;
- RAISE EXCEPTION 'validated PDF projection membership is immutable' USING ERRCODE='23514';
- END IF;
- IF p_family='access' THEN
- INSERT INTO kb.pdf_record_access SELECT (jsonb_populate_record(NULL::kb.pdf_record_access,p_body\
-||jsonb_build_object('product_id',p_build,'revision_id',p_build))).* ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM kb.pdf_record_access r WHERE product_id=p_build AND \
-r.revision_id=p_build AND r.pointer=p_body->>'pointer'
- AND to_jsonb(r)-'product_id'-'revision_id'=p_body) THEN RAISE EXCEPTION 'changed access \
-projection'; END IF;
- ELSIF p_family='region' THEN
- INSERT INTO kb.pdf_record_region SELECT (jsonb_populate_record(NULL::kb.pdf_record_region,p_body\
-||jsonb_build_object('product_id',p_build,'revision_id',p_build))).* ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM kb.pdf_record_region r WHERE product_id=p_build AND
- revision_id=p_build AND r.pointer=p_body->>'pointer'
- AND r.region_index=(jsonb_populate_record(NULL::kb.pdf_record_region,p_body)).region_index
- AND to_jsonb(r)-'product_id'-'revision_id'=p_body) THEN
- RAISE EXCEPTION 'changed region projection'; END IF;
- ELSE RAISE EXCEPTION 'invalid projection family'; END IF;
-END $$;
-CREATE OR REPLACE FUNCTION ops.adopt_pdf_access_batch(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text,p_frozen text,p_rows jsonb)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE row_ jsonb;
-BEGIN
- IF jsonb_typeof(p_rows)<>'array' OR jsonb_array_length(p_rows)>128 OR \
-octet_length(p_rows::text)>16777216 THEN
- RAISE EXCEPTION 'access projection batch exceeds profile'; END IF;
+ b:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
+ PERFORM ops.require_pdf_operation(b.release_id,'stage_pdf_producer');
+ IF jsonb_typeof(p_rows) IS DISTINCT FROM 'array' OR jsonb_array_length(p_rows)>128
+ OR octet_length(p_rows::text)>16777216 THEN RAISE EXCEPTION 'access projection batch exceeds profile'; END IF;
  FOR row_ IN SELECT value FROM jsonb_array_elements(p_rows) LOOP
- PERFORM ops.adopt_pdf_access(p_build,p_task,p_attempt,p_holder,p_frozen,row_->>'family',row_->'b\
-ody');
+ family_:=row_->>'family'; body_:=row_->'body';
+ IF family_='access' THEN
+ INSERT INTO ops.pdf_stage_access SELECT (jsonb_populate_record(NULL::ops.pdf_stage_access,
+ body_||jsonb_build_object('product_id',p_build,'revision_id',p_build))).* ON CONFLICT DO NOTHING;
+ IF NOT EXISTS(SELECT FROM ops.pdf_stage_access r WHERE r.product_id=p_build AND r.revision_id=p_build
+ AND r.pointer=body_->>'pointer' AND to_jsonb(r)-'product_id'-'revision_id'=body_) THEN
+ RAISE EXCEPTION 'changed access projection' USING ERRCODE='23514'; END IF;
+ ELSIF family_='region' THEN
+ INSERT INTO ops.pdf_stage_region SELECT (jsonb_populate_record(NULL::ops.pdf_stage_region,
+ body_||jsonb_build_object('product_id',p_build,'revision_id',p_build))).* ON CONFLICT DO NOTHING;
+ IF NOT EXISTS(SELECT FROM ops.pdf_stage_region r WHERE r.product_id=p_build AND r.revision_id=p_build
+ AND r.pointer=body_->>'pointer' AND r.region_index=(body_->>'region_index')::bigint
+ AND to_jsonb(r)-'product_id'-'revision_id'=body_) THEN
+ RAISE EXCEPTION 'changed region projection' USING ERRCODE='23514'; END IF;
+ ELSE RAISE EXCEPTION 'invalid projection family'; END IF;
  END LOOP;
-END $$;
-CREATE OR REPLACE FUNCTION ops.record_pdf_native_validation(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text,p_frozen text,p_passed boolean)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; contract_ text;
-BEGIN
- b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- PERFORM ops.require_pdf_operation(b.release_id,'validate_pdf_build');
- contract_:=ops.pdf_validation_contract(b.release_id);
- INSERT INTO ops.pdf_native_validation VALUES(p_build,p_frozen,contract_,p_passed) ON CONFLICT \
-DO NOTHING;
- IF NOT EXISTS(SELECT FROM ops.pdf_native_validation WHERE build_id=p_build AND \
-frozen_digest=p_frozen AND contract_digest=contract_ AND passed=p_passed) THEN
- RAISE EXCEPTION 'native callback outcome conflicts for immutable premises'; END IF;
 END $$;
 CREATE OR REPLACE FUNCTION ops.pdf_check_build_inventory(p_build text,p_source text,p_project text)
 RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
@@ -1223,10 +1188,9 @@ BEGIN
  IF b.state<>'frozen' THEN RAISE EXCEPTION 'PDF check requires a frozen private build'; END IF;
  contract_:=ops.pdf_validation_contract(b.release_id);
  IF p_check='seal' THEN
-  IF NOT EXISTS(SELECT FROM ops.pdf_native_validation v WHERE v.build_id=p_build
-   AND v.frozen_digest=p_frozen AND v.contract_digest=contract_ AND v.passed) THEN
-   RAISE EXCEPTION 'native callback conformance outcome missing or stale' USING ERRCODE='23514';
-  END IF;
+  IF NOT EXISTS(SELECT FROM ops.read_pdf_certification_requirement(p_build,p_task,p_attempt,p_holder,p_frozen)
+   WHERE oracle_receipt_id IS NOT NULL) THEN
+   RAISE EXCEPTION 'PDF lowering has no passed round-trip oracle' USING ERRCODE='23514'; END IF;
   IF EXISTS(SELECT FROM ops.pdf_validation_check v WHERE v.build_id=p_build
    AND v.attempt=p_attempt AND v.holder=p_holder AND v.frozen_digest=p_frozen
    AND v.contract_digest=contract_ AND v.check_name='seal') THEN RETURN; END IF;
@@ -1294,7 +1258,7 @@ CREATE OR REPLACE FUNCTION ops.validate_pdf_build(p_build text,p_task bigint,p_a
  bigint,p_holder text,p_frozen text)
 RETURNS SETOF ops.pdf_build_validation LANGUAGE plpgsql SECURITY DEFINER SET
  search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; logical_ text; contract_ text;
+DECLARE b ops.pdf_stage_build; logical_ text; contract_ text; certification_ record;
  prior_validation ops.pdf_build_validation;
 BEGIN
  IF NOT (current_setting('transaction_isolation')=ANY({pdf_projection_isolation_array})) THEN
@@ -1308,10 +1272,10 @@ BEGIN
  SELECT * INTO prior_validation FROM ops.lookup_pdf_validation(
  p_build,p_task,p_attempt,p_holder,p_frozen);
  IF FOUND THEN RETURN NEXT prior_validation; RETURN; END IF;
- IF NOT EXISTS(SELECT FROM ops.pdf_native_validation v WHERE v.build_id=p_build AND
- v.frozen_digest=p_frozen AND v.contract_digest=ops.pdf_validation_contract(b.release_id)
- AND v.passed) THEN RAISE EXCEPTION 'native callback conformance outcome missing or stale'
- USING ERRCODE='23514'; END IF;
+ SELECT * INTO STRICT certification_ FROM ops.read_pdf_certification_requirement(
+ p_build,p_task,p_attempt,p_holder,p_frozen);
+ IF certification_.oracle_receipt_id IS NULL THEN
+ RAISE EXCEPTION 'PDF lowering has no passed round-trip oracle' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM ops.pdf_validation_check WHERE build_id=p_build AND check_name='seal') THEN
   SELECT max(result_digest) FILTER (WHERE check_name='identity'),
          max(result_digest) FILTER (WHERE check_name='projection')
@@ -1332,10 +1296,17 @@ BEGIN
   contract_:=ops.pdf_projection_contract(p_build,b.release_id);
  END IF;
  PERFORM ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- INSERT INTO ops.pdf_build_validation SELECT p_build,p_frozen,logical_,contract_,v.passed,
- v.contract_digest FROM ops.pdf_native_validation v WHERE v.build_id=p_build AND
- v.frozen_digest=p_frozen AND v.passed AND
- v.contract_digest=ops.pdf_validation_contract(b.release_id) ON CONFLICT DO NOTHING;
+ IF ops.pdf_producer_stream_identity(p_build,b.schema_digest) IS DISTINCT FROM (
+ SELECT c.stream_inventory_digest FROM ops.pdf_producer_certification c WHERE c.build_id=p_build) THEN
+ RAISE EXCEPTION 'stored PDF stream roots differ from producer attestation' USING ERRCODE='23514'; END IF;
+ IF logical_ IS DISTINCT FROM certification_.logical_digest THEN
+ RAISE EXCEPTION 'stored PDF identity differs from producer attestation' USING ERRCODE='23514'; END IF;
+ INSERT INTO ops.pdf_build_validation(build_id,frozen_digest,logical_digest,contract_digest,
+ native_callbacks,native_contract_digest,certification_basis,lowering_identity,attested_logical_digest,
+ native_document_digest,oracle_receipt_id)
+ VALUES(p_build,p_frozen,logical_,contract_,true,ops.pdf_validation_contract(b.release_id),
+ certification_.certification_basis,certification_.lowering_identity,certification_.logical_digest,
+ certification_.native_document_digest,certification_.oracle_receipt_id) ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM ops.pdf_build_validation WHERE build_id=p_build AND
  frozen_digest=p_frozen AND logical_digest=logical_ AND contract_digest=contract_ AND
  native_contract_digest=ops.pdf_validation_contract(b.release_id) AND native_callbacks) THEN
@@ -1583,6 +1554,10 @@ BEGIN
  OR build.holder IS DISTINCT FROM p_receipt->>'publisher_holder'
  OR build.attempt>p_attempt OR (build.attempt=p_attempt AND build.holder IS DISTINCT FROM p_holder)
  OR p_receipt->'contributors' IS DISTINCT FROM ops.pdf_spool_contributors(publication.build_id)
+ OR NOT EXISTS(SELECT FROM ops.pdf_build_validation certification WHERE certification.build_id=publication.build_id
+ AND p_receipt->'certification'=jsonb_build_object('basis',certification.certification_basis,
+ 'lowering_identity',certification.lowering_identity,'attested_logical_digest',certification.attested_logical_digest,
+ 'native_document_digest',certification.native_document_digest,'oracle_receipt_id',certification.oracle_receipt_id))
  OR build.state<>'published' OR (build.release_id,build.source_digest,build.schema_digest,
  build.recipe_digest) IS DISTINCT FROM (publication.release_id,publication.source_digest,
  publication.schema_digest,publication.recipe_digest)
@@ -1608,6 +1583,9 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) FROM PUBLIC;
 """
+    from .pdf_certification_native import pdf_certification_native_sql
+
+    sql += pdf_certification_native_sql()
     sql += _published_validation_sql(target_metadata=metadata)
     sql += "REVOKE ALL ON FUNCTION ops.pdf_check_build_inventory(text,text,text) FROM PUBLIC;\n"
     signatures = [
@@ -1625,9 +1603,7 @@ REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) 
         "adopt_pdf_companions(text,bigint,bigint,text,text)",
         "prepare_pdf_build(text,bigint,bigint,text,text)",
         "read_pdf_frozen_rows(text,bigint,bigint,text,text,text,jsonb,integer,jsonb)",
-        "adopt_pdf_access(text,bigint,bigint,text,text,text,jsonb)",
-        "adopt_pdf_access_batch(text,bigint,bigint,text,text,jsonb)",
-        "record_pdf_native_validation(text,bigint,bigint,text,text,boolean)",
+        "stage_pdf_access_batch(text,bigint,bigint,text,jsonb)",
         "validate_pdf_build(text,bigint,bigint,text,text)",
         "seal_pdf_build(text,bigint,bigint,text,text,text)",
         "read_pdf_published_revision(bigint,text,text)",

@@ -92,11 +92,7 @@ def _native_child(
                         if connection.recv() is not True:
                             raise PdfWorkerError("PDF replay custody was not acknowledged")
 
-                    payload_family = (
-                        prepare_payload_schema(schema_load(request.payload_schema))
-                        if request.payload_schema is not None
-                        else None
-                    )
+                    payload_family = prepare_payload_schema(schema_load(request.payload_schema))
                     spool = PdfStreamSpool(
                         request.spool_root,
                         on_page=acknowledged,
@@ -106,15 +102,6 @@ def _native_child(
                     streamed = StreamingPdfProducer(recipe, assets=assets).run(
                         request.source, spool, page_range=request.page_range
                     )
-                    companions = ()
-                    if request.validation_contract is None:
-                        companions = streamed.write_native_occurrence_batches(
-                            request.record_root.with_name(
-                                request.record_root.name + "-occurrences"
-                            ),
-                            build_id=request.build_id,
-                            on_batch=acknowledged,
-                        )
                     records = (
                         streamed.write_record_batches(
                             request.record_root,
@@ -123,16 +110,13 @@ def _native_child(
                             source_digest=request.source.digest,
                             on_batch=acknowledged,
                         )
-                        + companions
                     )
                     from .pdf_streaming import _ref
 
                     acknowledged(_ref(request.record_root / "completion.jsonl", "native_completion"))
-                    certified_sets, certification, access_replay = (), None, None
-                    if request.validation_contract is not None:
-                        from corpus_structure.semantic.pdf_certification import certify_native_stream
-                        certified_sets, certification, access_replay = certify_native_stream(
-                            streamed, request, records, on_replay=acknowledged)
+                    from corpus_structure.semantic.pdf_certification import certify_native_stream
+                    certified_sets, certification, access_replay = certify_native_stream(
+                        streamed, request, records, on_replay=acknowledged)
                     result = PdfStreamReply(
                         streamed.conversion_status,
                         streamed.errors,
@@ -299,20 +283,15 @@ class PdfWorker:
         on_replay: Callable[[PdfReplayRef], None],
         page_range: tuple[int, int] | None = None,
         check_active: Callable[[], None] | None = None,
-        payload_schema: bytes | None = None,
+        payload_schema: bytes,
         recovery_pages: tuple[PdfPageRecovery, ...] = (),
-        validation_contract: bytes | None = None, lowering_identity: str | None = None,
+        validation_contract: bytes, lowering_identity: str,
     ) -> PdfStreamReply:
         value = self._exchange(
-            PdfStreamRequest(
-                source,
-                spool_root,
-                record_root,
-                build_id,
-                release_id,
-                page_range,
-                payload_schema,
-                recovery_pages, validation_contract, lowering_identity,
+            PdfStreamRequest(source=source, spool_root=spool_root, record_root=record_root,
+                build_id=build_id, release_id=release_id, page_range=page_range,
+                payload_schema=payload_schema, recovery_pages=recovery_pages,
+                validation_contract=validation_contract, lowering_identity=lowering_identity,
             ),
             check_active,
             on_replay,

@@ -27,6 +27,13 @@ from corpus_structure.ingest.pdf_streaming import (
 )
 
 
+def explicit_producer_contract():
+    from dataclasses import asdict
+    from corpus_structure.semantic.pdf_certification import prepare_pdf_producer_contract
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    return asdict(prepare_pdf_producer_contract(trusted_pdf_context(), kind="native"))
+
+
 def test_owned_source_is_independent_of_operator_path_and_releases(tmp_path):
     path = tmp_path / "input.pdf"
     original = b"%PDF-1.7\n" + b"x" * 200000
@@ -318,6 +325,7 @@ def test_worker_adopts_replay_before_terminal_result(tmp_path):
                 record_root=tmp_path / "records",
                 build_id="build",
                 release_id="release",
+                **explicit_producer_contract(),
                 on_replay=adopted.append,
             )
             assert len(adopted) == 1 and result.page_replays == (adopted[0],)
@@ -367,6 +375,7 @@ def test_partial_stream_disposes_containing_worker(tmp_path):
                 record_root=tmp_path / "records",
                 build_id="build",
                 release_id="release",
+                **explicit_producer_contract(),
                 on_replay=lambda _: None,
             )
             assert result.conversion_status == "partial_success"

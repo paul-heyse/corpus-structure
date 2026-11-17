@@ -69,6 +69,9 @@ def pdf_capture_custody(
     root = Path(__file__).parents[1]
     files = (
         "semantic/pdf_capture.py",
+        "semantic/pdf_certification.py",
+        "semantic/pdf_lowering.py",
+        "semantic/pdf_publication.py",
         "orchestrate/pdf_streaming.py",
         "ingest/pdf_worker.py",
         "ingest/pdf_streaming.py",

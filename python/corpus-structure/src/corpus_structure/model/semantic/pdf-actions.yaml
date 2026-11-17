@@ -1083,6 +1083,225 @@ actions:
   - replay
   - conflict
 - calls:
+  - cardinality: none
+    id: record_pdf_producer_certification
+    order_by: []
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: lowering_identity
+      native_parameter: p_lowering
+      nullable: false
+      source: model:PdfProducerCertificationRecord.lowering_identity
+    - name: kind
+      native_parameter: p_kind
+      nullable: false
+      source: model:PdfProducerCertificationRecord.kind
+    - name: logical_digest
+      native_parameter: p_logical
+      nullable: false
+      source: model:PdfProducerCertificationRecord.logical_digest
+    - name: native_document_digest
+      native_parameter: p_native
+      nullable: false
+      source: model:PdfProducerCertificationRecord.native_document_digest
+    - name: stream_inventory_digest
+      native_parameter: p_streams
+      nullable: false
+      source: model:PdfProducerCertificationRecord.stream_inventory_digest
+    result_fields: []
+    result_mode: void
+    symbol: ops.record_pdf_producer_certification
+  - cardinality: none
+    id: stage_pdf_access_batch
+    order_by: []
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: rows
+      native_parameter: p_rows
+      nullable: false
+      source: primitive:json_payload
+    result_fields: []
+    result_mode: void
+    symbol: ops.stage_pdf_access_batch
+  - cardinality: one
+    id: read_pdf_certification_requirement
+    order_by: []
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
+      native_parameter: p_frozen
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfCertificationRequirement
+    symbol: ops.read_pdf_certification_requirement
+  - cardinality: one
+    id: begin_pdf_roundtrip_oracle
+    order_by: []
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
+      native_parameter: p_frozen
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    result_fields:
+    - name: value
+      nullable: false
+      source: model:PdfRoundtripOracleReceipt.oracle_receipt_id
+    result_mode: scalar
+    symbol: ops.begin_pdf_roundtrip_oracle
+  - cardinality: none
+    id: finish_pdf_roundtrip_oracle
+    order_by: []
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
+      native_parameter: p_frozen
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    - name: oracle_receipt_id
+      native_parameter: p_oracle
+      nullable: false
+      source: model:PdfRoundtripOracleReceipt.oracle_receipt_id
+    - name: state
+      native_parameter: p_state
+      nullable: false
+      source: model:PdfRoundtripOracleReceipt.state
+    - name: actual_native_digest
+      native_parameter: p_actual
+      nullable: true
+      source: model:PdfRoundtripOracleReceipt.actual_native_digest
+    - name: error_message
+      native_parameter: p_error
+      nullable: true
+      source: model:PdfRoundtripOracleReceipt.error_message
+    result_fields: []
+    result_mode: void
+    symbol: ops.finish_pdf_roundtrip_oracle
+  - cardinality: one
+    id: read_pdf_certification_targets
+    order_by: []
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: targets
+      native_parameter: p_targets
+      nullable: false
+      source: primitive:json_payload
+    result_fields:
+    - name: value
+      nullable: false
+      source: primitive:bytes
+    result_mode: scalar
+    symbol: ops.read_pdf_certification_targets
   - cardinality: optional
     id: lookup_pdf_validation
     ordered: false
@@ -1113,39 +1332,6 @@ actions:
     result_mode: table
     result_source: model:PdfBuildValidation
     symbol: ops.lookup_pdf_validation
-  - cardinality: none
-    id: record_pdf_native_validation
-    ordered: false
-    parameters:
-    - name: build_id
-      native_parameter: p_build
-      nullable: false
-      source: model:PdfStageBuild.build_id
-    - name: task_id
-      native_parameter: p_task
-      nullable: false
-      semantic_type: TaskId
-      source: model:PdfStageBuild.task_id
-    - name: attempt
-      native_parameter: p_attempt
-      nullable: false
-      semantic_type: TaskAttempt
-      source: model:PdfStageBuild.attempt
-    - name: holder
-      native_parameter: p_holder
-      nullable: false
-      source: model:PdfStageBuild.holder
-    - name: frozen_digest
-      native_parameter: p_frozen
-      nullable: false
-      source: model:PdfFrozenBuild.frozen_digest
-    - name: passed
-      native_parameter: p_passed
-      nullable: false
-      source: primitive:boolean
-    result_fields: []
-    result_mode: void
-    symbol: ops.record_pdf_native_validation
   - cardinality: none
     id: check_pdf_build
     ordered: false
@@ -1179,39 +1365,6 @@ actions:
     result_fields: []
     result_mode: void
     symbol: ops.check_pdf_build
-  - cardinality: none
-    id: adopt_pdf_access_batch
-    ordered: false
-    parameters:
-    - name: build_id
-      native_parameter: p_build
-      nullable: false
-      source: model:PdfStageBuild.build_id
-    - name: task_id
-      native_parameter: p_task
-      nullable: false
-      semantic_type: TaskId
-      source: model:PdfStageBuild.task_id
-    - name: attempt
-      native_parameter: p_attempt
-      nullable: false
-      semantic_type: TaskAttempt
-      source: model:PdfStageBuild.attempt
-    - name: holder
-      native_parameter: p_holder
-      nullable: false
-      source: model:PdfStageBuild.holder
-    - name: frozen_digest
-      native_parameter: p_frozen
-      nullable: false
-      source: model:PdfFrozenBuild.frozen_digest
-    - name: rows
-      native_parameter: p_rows
-      nullable: false
-      source: primitive:json_payload
-    result_fields: []
-    result_mode: void
-    symbol: ops.adopt_pdf_access_batch
   - cardinality: one
     id: validate_pdf_build
     ordered: false

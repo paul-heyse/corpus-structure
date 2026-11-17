@@ -218,11 +218,15 @@ def run_private_native_pdf_build(
                     schema_dump,
                 )
 
-                payload_family = prepare_payload_family(
-                    pdf_context_for_task(connection, claim.task_id)
-                )
+                context = pdf_context_for_task(connection, claim.task_id)
+                payload_family = prepare_payload_family(context)
                 payload_schema = schema_dump(payload_family.json_schema)
                 from corpus_structure.ingest.pdf_build_spool import PdfSpoolProducerBasis
+                from corpus_structure.semantic.pdf_certification import prepare_pdf_producer_contract
+                producer_contract = prepare_pdf_producer_contract(context, kind="native")
+                lowering_identity = producer_contract.lowering_identity
+                validation_contract = producer_contract.validation_contract
+                payload_schema = producer_contract.payload_schema
                 from corpus_structure.semantic import _pdf_native_calls as calls
                 from corpus_structure.semantic.identifiers import RuntimeId, TaskAttempt, TaskId
 
@@ -323,16 +327,12 @@ def run_private_native_pdf_build(
                     )
                     copied_paths.update(clone.path for clone in copied.values())
                     from dataclasses import replace
-
-                    reply = replace(
-                        prior_reply,
-                        page_replays=tuple(
-                            copied[entry.path] for entry in prior_reply.page_replays
-                        ),
-                        record_replays=tuple(
-                            copied[entry.path] for entry in prior_reply.record_replays
-                        ),
-                    )
+                    reply = replace(prior_reply,
+                        page_replays=tuple(copied[entry.path] for entry in prior_reply.page_replays),
+                        record_replays=tuple(copied[entry.path] for entry in prior_reply.record_replays),
+                        companion_sets=tuple(replace(value, replays=tuple(copied[entry.path] for entry in value.replays)) for value in prior_reply.companion_sets),
+                        certification=copied[prior_reply.certification.path] if prior_reply.certification is not None else None,
+                        access_replay=copied[prior_reply.access_replay.path] if prior_reply.access_replay is not None else None)
                     break
             if reply is None:
                 selected_pages = set()
@@ -389,14 +389,7 @@ def run_private_native_pdf_build(
                 worker = PdfWorker(recipe, assets=assets, writer_lease=spool.writer_lease)
 
             def retain_replay(replay: PdfReplayRef) -> None:
-                if replay.family not in {
-                    *STAGE_FAMILIES,
-                    "page",
-                    "candidate_payload",
-                    "companion:occurrence",
-                    "native_preparation",
-                    "native_completion",
-                }:
+                if replay.family not in {*STAGE_FAMILIES, "page", "candidate_payload", "native_preparation", "native_completion", "producer_certification", "producer_access", *("prepared_companion:" + name for name in ("companion", "field", "stream", "part"))}:
                     raise ValueError("unknown private PDF replay family")
                 if replay.family == "page":
                     import json
@@ -421,41 +414,6 @@ def run_private_native_pdf_build(
             def adopt_replay(replay: PdfReplayRef) -> None:
                 check_active()
                 replay.verify()
-                if replay.family == "companion:occurrence":
-                    import json
-
-                    from corpus_structure.semantic.pdf_record_model import record_arrow_schema
-
-                    with pa.memory_map(str(replay.path), "r") as source:
-                        reader = pa.ipc.open_file(source)
-                        if not reader.schema.equals(
-                            record_arrow_schema("ops.pdf_stage_companion"), check_metadata=True
-                        ):
-                            raise ValueError("native occurrence replay schema differs")
-                        for ordinal in range(reader.num_record_batches):
-                            check_active()
-                            batch = reader.get_batch(ordinal)
-
-                            def occurrences(batch=batch):
-                                from corpus_structure.semantic.pdf_publication import (
-                                    PdfCompanionRecord,
-                                )
-
-                                for body in batch.column("body"):
-                                    encoded = body.as_py().encode("utf8")
-                                    yield PdfCompanionRecord(json.loads(encoded), len(encoded))
-
-                            adopt_pdf_companions(
-                                engine,
-                                build,
-                                "occurrence",
-                                occurrences(),
-                                replay_key=f"ipc-companion:{replay.digest}:{ordinal}",
-                                start_ordinal=batch.column("ordinal")[0].as_py(),
-                                check_active=check_active,
-                                cancellation=cancellation,
-                            )
-                    return
                 if replay.family not in STAGE_FAMILIES:
                     raise ValueError("unknown private PDF replay family")
                 batches = ipc_replay_batches([replay], check_active)
@@ -499,6 +457,7 @@ def run_private_native_pdf_build(
                         build_id=build.build_id,
                         release_id=build.release_id,
                         payload_schema=payload_schema,
+                        validation_contract=validation_contract, lowering_identity=lowering_identity,
                         on_replay=retain_replay,
                         check_active=check_active,
                         recovery_pages=tuple(sorted(recovery_pages, key=lambda page: page.page_no)),
@@ -524,102 +483,34 @@ def run_private_native_pdf_build(
                         manifest_bytes=spool.path.read_bytes(),
                         selected_replays=selected_replay_bytes(spool.root, fresh_entries),
                     )
-            # The child and its native borrowers have settled. No page callback
-            # above adopts anything; consume the verified journal once now.
-            from corpus_structure.ingest.pdf_candidate_source import encoded_replay
-
-            def candidates():
-                for replay in spool.entries:
-                    if replay.family == "candidate_payload":
-                        encoded = encoded_replay(replay, payload_family)
-                        yield {
-                            "kind": "inline_candidate_pages",
-                            "ordinal": encoded.page_no,
-                            "value": encoded,
-                        }
-
-            adopt_pdf_companions(
-                engine,
-                build,
-                "native_metadata",
-                candidates(),
-                "native:candidate-metadata",
-                check_active=check_active,
-                cancellation=cancellation,
-            )
-            for replay in spool.entries:
-                if replay.family not in {
-                    "page",
-                    "native-raster",
-                    "candidate_payload",
-                    "native_preparation",
-                    "native_completion",
-                }:
-                    adopt_replay(replay)
+            # Certification was computed over the actual complete output and
+            # these exact prepared files before any database staging begins.
+            if reply.certification is None or reply.access_replay is None:
+                raise ValueError("native PDF publication has no producer certification")
+            from corpus_structure.semantic.pdf_certification import PdfProducerCertification
             from corpus_structure.semantic.pdf_publication import (
-                adopt_pdf_companions as adopt_companion_set,
+                adopt_prepared_pdf_companion_batches, prepared_pdf_companion_batches,
+                record_pdf_producer_certification, stage_pdf_access_projection,
             )
-
+            reply.certification.verify()
+            reply.access_replay.verify()
+            certification = PdfProducerCertification(**json.loads(reply.certification.path.read_bytes()))
+            if certification.kind != "native" or certification.lowering_identity != lowering_identity:
+                raise ValueError("native PDF producer used another captured lowering basis")
+            for replay in reply.record_replays:
+                adopt_replay(replay)
+            for prepared in reply.companion_sets:
+                batches = prepared_pdf_companion_batches(prepared)
+                try:
+                    with _pdf_transaction(engine, cancellation) as connection:
+                        adopt_prepared_pdf_companion_batches(connection, build, batches,
+                            prepared.replay_key, cancellation=cancellation)
+                finally:
+                    batches.close()
+            stage_pdf_access_projection(engine, build, reply.access_replay.path,
+                cancellation=cancellation, check_active=check_active)
             with _pdf_transaction(engine, cancellation) as connection:
-                adopt_companion_set(
-                    connection,
-                    build,
-                    "native_metadata",
-                    (
-                        {
-                            "kind": "runtime_report",
-                            "ordinal": 0,
-                            "value": {"effective_options": reply.effective_options.decode()},
-                        },
-                    ),
-                    replay_key="native:runtime-report",
-                    cancellation=cancellation,
-                )
-                adopt_companion_set(
-                    connection,
-                    build,
-                    "health",
-                    (
-                        {
-                            "conversion": reply.conversion_status,
-                            "display_coverage": "unknown",
-                            "inline_coverage": "unknown",
-                            "cell_coverage": "unknown",
-                            "issues": list(reply.errors),
-                            "source_scope": "whole_document",
-                        },
-                    ),
-                    replay_key="native:health",
-                    cancellation=cancellation,
-                )
-            import json
-
-            completions = [entry for entry in spool.entries if entry.family == "native_completion"]
-            if len(completions) != 1:
-                raise ValueError("PDF completed spool has no exact native completion report")
-            completion = completions[0].path
-            if completion.exists():
-
-                def formula_outcomes():
-                    with completion.open() as completion_file:
-                        for ordinal, line in enumerate(completion_file):
-                            value = json.loads(line)
-                            if value.get("kind") != "formula":
-                                continue
-                            body = {"pointer": value["item_ref"], "outcome": value["outcome"]}
-                            if value.get("error"):
-                                body["error"] = value["error"]
-                            yield {"kind": "formula_outcomes", "ordinal": ordinal, "value": body}
-
-                with _pdf_transaction(engine, cancellation) as connection:
-                    adopt_companion_set(
-                        connection,
-                        build,
-                        "native_metadata",
-                        formula_outcomes(),
-                        "native:formulas",
-                        cancellation=cancellation,
-                    )
+                record_pdf_producer_certification(connection, build, certification)
             check_active()
         finally:
             # Stop native borrowers before ending claim maintenance or source custody.
@@ -769,6 +660,17 @@ def publish_pdf_record_draft(
             schema_digest=schema_digest,
             replay_key="product:" + draft.product_key,
         )
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task, integrated_metadata_policy
+    from corpus_structure.semantic.pdf_payload_validation import metadata_classes
+    from corpus_structure.semantic.pdf_payloads import prepare_payload_family
+    from corpus_structure.semantic.pdf_lowering import require_lowering_identity
+    with _pdf_transaction(engine, cancellation) as connection:
+        context = pdf_context_for_task(connection, claim.task_id)
+        payload_family = prepare_payload_family(context)
+        lowering_identity = require_lowering_identity(context)
+    validation_contract = {"schemas": {kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes().items()},
+        "publication_kind": draft.kind,
+        "integrated_metadata_policy": integrated_metadata_policy(context) if draft.kind == "integrated" else None}
     from corpus_structure.ingest.pdf_build_spool import PdfBuildSpool
 
     with PdfBuildSpool(
@@ -806,15 +708,17 @@ def publish_pdf_record_draft(
             finally:
                 batches.close()
 
-        streamed.write_record_batches(
+        native_replays = streamed.write_record_batches(
             owner / "records",
             build_id=build.build_id,
             release_id=build.release_id,
             source_digest=source_digest,
             on_batch=draft_spool.append,
         )
-        for replay in draft_spool.entries:
-            adopt(replay)
+        from corpus_structure.semantic.pdf_certification import write_retained_pdf_replays
+        if draft.retained_serialization is not None:
+            native_replays += write_retained_pdf_replays(owner / "retained", build, draft.retained_serialization,
+                check_active=check_active, on_replay=draft_spool.append)
         if draft.kind == "native" and "occurrence" not in draft.companions:
             from corpus_structure.ingest.pdf_record_product import native_occurrence_rows
 
@@ -863,20 +767,58 @@ def publish_pdf_record_draft(
                 },
             ),
         )
-        for family, records in companions.items():
-            adopt_pdf_companions(
-                engine,
-                build,
-                family,
-                records,
-                replay_key=f"companion:{family}",
-                check_active=check_active,
-                cancellation=cancellation,
-            )
-        if draft.retained_serialization is not None:
-            _adopt_retained_serialization(
-                engine, build, draft.retained_serialization, check_active, cancellation=cancellation
-            )
+        from corpus_structure.semantic.pdf_certification import PdfProducerPayloads, write_pdf_companion_sets
+        from corpus_structure.semantic.pdf_publication import (
+            adopt_prepared_pdf_companion_batches, prepared_pdf_companion_batches,
+            record_pdf_producer_certification, stage_pdf_access_projection,
+        )
+        from corpus_structure.semantic import _pdf_native_calls as calls
+        from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
+        import json
+        prepared_sets = write_pdf_companion_sets(owner / "prepared-companions", build, companions,
+            payload_family=payload_family, check_active=check_active, on_replay=draft_spool.append)
+        projection = owner / "producer-access.jsonl"
+        payloads = PdfProducerPayloads(owner / "producer-payloads.sqlite", validation_contract)
+        try:
+            payloads.add_replays(native_replays, check_active=check_active)
+            payloads.add_companion_replays(prepared_sets, check_active=check_active)
+            pins = payloads.target_pins()
+            target_meanings = {}
+            for start in range(0, len(pins), 64):
+                selected = pins[start:start + 64]
+                with _pdf_transaction(engine, cancellation) as connection:
+                    encoded = calls.read_pdf_certification_targets(connection, build_id=build.build_id,
+                        task_id=TaskId(build.task_id), attempt=TaskAttempt(build.attempt), holder=build.holder,
+                        targets=[list(pin) for pin in selected])
+                values = json.loads(encoded)
+                if {tuple(value["pin"]) for value in values} != set(selected) or len(values) != len(selected):
+                    raise ValueError("PDF producer targets differ from the authenticated input inventory")
+                target_meanings.update((tuple(value["pin"]), value["meaning"]) for value in values)
+            certification = payloads.certify(draft.document, projection,
+                release_id=build.release_id, source_digest=source_digest, recipe_digest=recipe_digest,
+                schema_digest=schema_digest, kind=draft.kind, lowering_identity=lowering_identity,
+                target_meanings=target_meanings)
+        finally:
+            payloads.close()
+        from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
+        import os
+        with projection.open("rb") as source:
+            os.fsync(source.fileno())
+        draft_spool.append(_ref(projection, "producer_access"))
+        draft_spool.append(_atomic_bytes(owner / "producer-certification.json", certification.to_bytes(), "producer_certification"))
+        for replay in native_replays:
+            adopt(replay)
+        for prepared in prepared_sets:
+            batches = prepared_pdf_companion_batches(prepared)
+            try:
+                with _pdf_transaction(engine, cancellation) as connection:
+                    adopt_prepared_pdf_companion_batches(connection, build, batches,
+                        prepared.replay_key, cancellation=cancellation)
+            finally:
+                batches.close()
+        stage_pdf_access_projection(engine, build, projection, cancellation=cancellation, check_active=check_active)
+        with _pdf_transaction(engine, cancellation) as connection:
+            record_pdf_producer_certification(connection, build, certification)
         check_active()
         with _pdf_transaction(engine, cancellation) as connection:
             frozen = freeze_pdf_build(connection, build, kind=draft.kind)
@@ -960,105 +902,6 @@ def produce_published_pdf_records(
     check_active()
     with _pdf_transaction(engine, cancellation) as connection:
         return seal_pdf_build(connection, frozen, product_key="native")
-
-
-def _adopt_retained_serialization(
-    engine, build, retained, check_active, *, cancellation: BorrowerCancellation | None = None
-):
-    import gzip
-    from hashlib import sha256
-
-    from corpus_structure.semantic.pdf_record_identity import IdentityFold, emit_parts
-    from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
-
-    cancellation = cancellation or BorrowerCancellation()
-    authority_check = check_active
-
-    def check_active():
-        cancellation.check_active()
-        authority_check()
-
-    stream_id = "retained/envelope"
-    common = {"product_id": build.build_id, "revision_id": build.build_id, "stream_id": stream_id}
-    digest = sha256()
-    fold = IdentityFold("bytes")
-    opener = gzip.open if retained.compression == "gzip" else open
-    with opener(retained.path, "rb") as source:
-
-        def chunks():
-            while block := source.read(65536):
-                yield block
-
-        pending = []
-        index = 0
-        for part in emit_parts(stream_id, chunks()):
-            digest.update(part.body)
-            fold.add(part.body)
-            pending.append(
-                {
-                    **common,
-                    "ordinal": part.ordinal,
-                    "byte_offset": part.offset,
-                    "byte_length": part.byte_length,
-                    "body": part.body,
-                    "sha256_digest": part.sha256_digest,
-                }
-            )
-            if len(pending) == 64:
-                check_active()
-                with _pdf_transaction(engine, cancellation) as connection:
-                    adopt_pdf_batch(
-                        connection,
-                        build,
-                        f"retained:parts:{index}",
-                        {
-                            "artifact_part": (
-                                pa.RecordBatch.from_pylist(
-                                    pending, schema=stage_schema("artifact_part")
-                                ),
-                            ),
-                        },
-                        cancellation=cancellation,
-                    )
-                index += 1
-                pending.clear()
-        if pending:
-            with _pdf_transaction(engine, cancellation) as connection:
-                adopt_pdf_batch(
-                    connection,
-                    build,
-                    f"retained:parts:{index}",
-                    {
-                        "artifact_part": (
-                            pa.RecordBatch.from_pylist(
-                                pending, schema=stage_schema("artifact_part")
-                            ),
-                        ),
-                    },
-                    cancellation=cancellation,
-                )
-    if digest.hexdigest() != retained.serialization_sha256:
-        raise ValueError("retained bytes changed during storage adoption")
-    check_active()
-    row = {
-        **common,
-        "byte_length": fold.byte_length,
-        "byte_root": fold.digest().hex(),
-        "serialization_sha256": digest.hexdigest(),
-        "encoding_profile": "retained-pdf-envelope-json-v1",
-    }
-    with _pdf_transaction(engine, cancellation) as connection:
-        adopt_pdf_batch(
-            connection,
-            build,
-            "retained:stream",
-            {
-                "artifact_stream": (
-                    pa.RecordBatch.from_pylist([row], schema=stage_schema("artifact_stream")),
-                ),
-            },
-            cancellation=cancellation,
-        )
 
 
 def _check_pdf_build_premises(

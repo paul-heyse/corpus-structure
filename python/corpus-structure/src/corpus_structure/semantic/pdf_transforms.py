@@ -85,6 +85,8 @@ def _implementation_files(mode):
     common = (
         "semantic/pdf_transforms.py",
         "semantic/pdf_capture.py",
+        "semantic/pdf_certification.py",
+        "semantic/pdf_lowering.py",
         "semantic/pdf_contracts.py",
         "semantic/data_operation_pdf_effect.py",
         "semantic/pdf_effect_contract.py",
