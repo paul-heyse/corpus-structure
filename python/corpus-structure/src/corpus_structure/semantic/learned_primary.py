@@ -49,6 +49,7 @@ _FILES = (
     "methods/pm2_gliner_classification.py",
     "methods/model_observation.py",
     "methods/gliner.py",
+    "methods/gliner_batching.py",
     "methods/definition_applicability.py",
     "semantic/definition_model_products.py",
 )
@@ -217,6 +218,18 @@ class LearnedPrimaryProducts:
 
 
 @dataclass(frozen=True)
+class _LearnedBlockProducts:
+    records: tuple[dict[str, Any], ...]
+    coordinates: tuple[dict[str, Any], ...]
+    operations: tuple[dict[str, Any], ...]
+    observations: tuple[dict[str, Any], ...]
+    receipts: tuple[bytes, ...]
+    coverage: tuple[dict[str, Any], ...]
+    examined: tuple[dict[str, Any], ...]
+    unexamined: tuple[dict[str, Any], ...]
+
+
+@dataclass(frozen=True)
 class PreparedLearnedPrimary:
     prepared: Any
     model: Any
@@ -337,178 +350,291 @@ class PreparedLearnedPrimary:
                     dict(projection=frame.projection_digest, start=row["start"], end=row["end"])
                 )
         families = declared_families(self.prepared.registry_rows)
-        serial = 0
+        gliner_questions, gliner_results = {}, {}
+        from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, map_literal
+        from corpus_structure.methods.gliner_batching import gliner_input_batches
+        from corpus_structure.methods.pm2_gliner_classification import (
+            ClassificationProfile, authenticated_gliner_report, classification_product,
+            classification_request,
+        )
+        from corpus_structure.methods.pm2_products import ParserProducts
+        from corpus_structure.methods.pm2_source import ProviderSpan
 
-        def logical(request_values, member):
-            return (
-                LogicalProviderMember(
-                    str(claim.request_id),
-                    claim.generation,
-                    claim.task_id,
-                    claim.attempt,
-                    member,
-                    0,
-                    len(request_values),
-                    payload_digest(request_values),
-                ),
+        if self.provider == "gliner":
+            profile_values = dict(self.selection.native.parameters["gliner_profile"])
+            profile_values["artifact_hashes"] = tuple(
+                tuple(row) for row in profile_values["artifact_hashes"]
             )
+            gliner_profile = GlinerProfile(self.selection.assets, **profile_values)
+            classification_profile = ClassificationProfile(
+                provider="gliner", device="cuda", profile=gliner_profile,
+                threshold=self.threshold, runtime_identity=self.selection.native.runtime_identity,
+            )
+            inference = declared_policy(self.prepared)["inference"]
+            packs = {}
+            for block in blocks:
+                check_active()
+                if block.end - block.start > self.max_context_chars:
+                    continue
+                scope = prepare_model_scope(
+                    frame,
+                    block.focal if isinstance(block, LearnedFocalScope) else (block.start, block.end),
+                    (block.start, block.end), max_chars=self.max_context_chars,
+                )
+                if self.family == "gliner_cues":
+                    family = families[GLINER_CUES]
+                    pack, item = gliner_cue_request(self.prepared.release_id, family, scope)
+                    threshold, overlap = self.threshold, "nested"
+                    request = dict(pack=asdict(pack), item=asdict(item), threshold=threshold,
+                                   inference=inference)
+                else:
+                    family = families[GLINER_FUNCTIONS]
+                    request = classification_request(
+                        self.prepared.release_id, family, family.questions[0].key,
+                        scope.mapping, classification_profile, inference,
+                        characterization_family=family.family,
+                    )
+                    pack, item = GlinerPack(**request["pack"]), GlinerInput(**request["item"])
+                    threshold, overlap = request["threshold"], "flat"
+                gliner_questions[block.block_id] = scope, family, request, overlap, classification_profile
+                packs.setdefault((pack, threshold, overlap), []).append((block.block_id, item))
+            for (pack, threshold, overlap), members in packs.items():
+                inputs = tuple(item for _, item in members)
+                for ordinals, refusal in gliner_input_batches(
+                    gliner_profile, pack, inputs, threshold=threshold, overlap_policy=overlap,
+                    native_profile=self.selection.native.wire,
+                ):
+                    if refusal is not None:
+                        for ordinal in ordinals:
+                            gliner_results[members[ordinal][0]] = None, refusal
+                        continue
+                    check_active()
+                    requested = tuple(inputs[ordinal] for ordinal in ordinals)
+                    logical_members = tuple(
+                        LogicalProviderMember(
+                            str(claim.request_id), claim.generation, claim.task_id, claim.attempt,
+                            members[ordinal][0], position, 1, payload_digest([asdict(inputs[ordinal])]),
+                        )
+                        for position, ordinal in enumerate(ordinals)
+                    )
+                    correlation = payload_digest([
+                        str(claim.request_id), claim.generation, claim.task_id, claim.attempt,
+                        pack.fingerprint, [asdict(value) for value in requested],
+                    ])
+                    (reply,) = yield (providers.work(
+                        GLiNERWork(
+                            gliner_profile, pack, requested, threshold, overlap, correlation,
+                            (check_active,), logical_members=logical_members,
+                        ), reservation=execution_owner.reservation,
+                    ),)
+                    check_active()
+                    if reply.correlation != correlation:
+                        raise ValueError("GLiNER response belongs to another block question")
+                    _ = reply.payload
+                    if reply.execution_receipt is None:
+                        raise ValueError("actual provider work lacks its physical scatter receipt")
+                    receipts.append(canonical_bytes(asdict(reply.execution_receipt)))
+                    if len(reply.admissions) != len(requested) or any(
+                        (value.context_id, value.context_digest) != (item.context_id, item.context_digest)
+                        for value, item in zip(reply.admissions, requested, strict=True)
+                    ):
+                        raise ValueError("GLiNER changed its original block admission population")
+                    admitted = tuple(value for value in reply.admissions if value.admitted)
+                    if len(reply.reports) != len(admitted) or any(
+                        (report.context_id, report.context_digest) != (value.context_id, value.context_digest)
+                        for report, value in zip(reply.reports, admitted, strict=True)
+                    ):
+                        raise ValueError("GLiNER changed its admitted block report population")
+                    reports = iter(reply.reports)
+                    for ordinal, admission in zip(ordinals, reply.admissions, strict=True):
+                        gliner_results[members[ordinal][0]] = (
+                            (next(reports), None) if admission.admitted
+                            else (None, admission.reason or "native input refused")
+                        )
 
-        def request_work(payload, member):
-            nonlocal serial
-            serial += 1
-            key = sha256(
-                canonical_bytes(
-                    [
+        def plan_block(block):
+            records, coordinates, operations, observations, receipts = [], [], [], [], []
+            coverage, examined, unexamined = [], [], []
+            serial = 0
+
+            def logical(request_values, member):
+                return (
+                    LogicalProviderMember(
                         str(claim.request_id),
                         claim.generation,
                         claim.task_id,
                         claim.attempt,
-                        serial,
-                        payload,
-                    ]
+                        member,
+                        0,
+                        len(request_values),
+                        payload_digest(request_values),
+                    ),
                 )
-            ).hexdigest()
-            members = payload["batch"] if self.provider == "d1" else [payload]
-            return providers.work(
-                PM2Work(
-                    self.selection,
-                    ordered_native_bytes(payload),
-                    key,
-                    (check_active,),
-                    logical(members, member),
-                ),
-                reservation=execution_owner.reservation,
-            )
 
-        def retain_reply(reply):
-            _ = reply.payload
-            if reply.execution_receipt is None:
-                raise ValueError("actual provider work lacks its physical scatter receipt")
-            receipts.append(canonical_bytes(asdict(reply.execution_receipt)))
+            def request_work(payload, member):
+                nonlocal serial
+                serial += 1
+                key = sha256(
+                    canonical_bytes(
+                        [
+                            str(claim.request_id),
+                            claim.generation,
+                            claim.task_id,
+                            claim.attempt,
+                            block.block_id,
+                            serial,
+                            payload,
+                        ]
+                    )
+                ).hexdigest()
+                members = payload["batch"] if self.provider == "d1" else [payload]
+                return providers.work(
+                    PM2Work(
+                        self.selection,
+                        ordered_native_bytes(payload),
+                        key,
+                        (check_active,),
+                        logical(members, member),
+                    ),
+                    reservation=execution_owner.reservation,
+                )
 
-        def retain_candidates(
-            mapping, request, reply, question, version, *, parsed=None, field=None, source_path=None
-        ):
-            if parsed is None:
-                parsed = _parser_products(self.provider, mapping, request, reply, self.prepared)
-            digest = pm2_input_digest(
-                mapping,
-                self.selection.native.wire,
-                request,
-                question=question,
-                operation_version=version,
-                source_path=source_path,
-            )
-            operation = operation_identity(question, version, frame.source_key, digest)
-            rows, texts, locations = pm2_contribution_values(
-                mapping,
-                parsed.locations,
-                parsed.products,
-                prepared=self.prepared,
-                provider=self.provider,
-                input_digest=digest,
-                operation_key=operation,
-                question=question,
-                source_path=source_path,
-                parser_operation=question in PARSER_QUESTIONS.values(),
-            )
-            records.extend(rows)
-            coordinates.extend(texts)
-            report = {
-                "provider": self.provider,
-                "question": question,
-                "version": version,
-                "request": request,
-                "native": reply,
-                "locations": locations,
-                "input_digest": digest,
-                "source_map_digest": mapping.input_digest,
-                "source_map": {
-                    "context_pieces": [
-                        asdict(piece)
-                        for piece in (
-                            mapping.mapping if isinstance(mapping, PM2TokenMap) else mapping
-                        ).context.pieces
-                    ],
-                    "segments": [
-                        asdict(segment)
-                        for segment in (
-                            mapping.mapping if isinstance(mapping, PM2TokenMap) else mapping
-                        ).segments
-                    ],
-                    "protected_atoms": (
-                        mapping.mapping if isinstance(mapping, PM2TokenMap) else mapping
-                    ).protected_atoms,
-                    "tokens": [asdict(token) for token in mapping.tokens]
-                    if isinstance(mapping, PM2TokenMap)
-                    else [],
-                },
-            }
-            observations.append(source_value(report))
-            operations.append(
-                {
-                    "operation_key": operation,
+            def retain_reply(reply):
+                _ = reply.payload
+                if reply.execution_receipt is None:
+                    raise ValueError("actual provider work lacks its physical scatter receipt")
+                receipts.append(canonical_bytes(asdict(reply.execution_receipt)))
+
+            def retain_candidates(
+                mapping, request, reply, question, version, *, parsed=None, field=None, source_path=None
+            ):
+                if parsed is None:
+                    parsed = _parser_products(self.provider, mapping, request, reply, self.prepared)
+                digest = pm2_input_digest(
+                    mapping,
+                    self.selection.native.wire,
+                    request,
+                    question=question,
+                    operation_version=version,
+                    source_path=source_path,
+                )
+                operation = operation_identity(question, version, frame.source_key, digest)
+                rows, texts, locations = pm2_contribution_values(
+                    mapping,
+                    parsed.locations,
+                    parsed.products,
+                    prepared=self.prepared,
+                    provider=self.provider,
+                    input_digest=digest,
+                    operation_key=operation,
+                    question=question,
+                    source_path=source_path,
+                    parser_operation=question in PARSER_QUESTIONS.values(),
+                )
+                records.extend(rows)
+                coordinates.extend(texts)
+                report = {
+                    "provider": self.provider,
                     "question": question,
-                    "operation_version": version,
-                    "outcome": "succeeded",
-                    "inspected_count": 1,
-                    "emitted_count": len(rows),
-                    "report_digest": sha256(canonical_bytes(report)).hexdigest(),
-                    "computation_dependencies": [digest],
+                    "version": version,
+                    "request": request,
+                    "native": reply,
+                    "locations": locations,
+                    "input_digest": digest,
+                    "source_map_digest": mapping.input_digest,
+                    "source_map": {
+                        "context_pieces": [
+                            asdict(piece)
+                            for piece in (
+                                mapping.mapping if isinstance(mapping, PM2TokenMap) else mapping
+                            ).context.pieces
+                        ],
+                        "segments": [
+                            asdict(segment)
+                            for segment in (
+                                mapping.mapping if isinstance(mapping, PM2TokenMap) else mapping
+                            ).segments
+                        ],
+                        "protected_atoms": (
+                            mapping.mapping if isinstance(mapping, PM2TokenMap) else mapping
+                        ).protected_atoms,
+                        "tokens": [asdict(token) for token in mapping.tokens]
+                        if isinstance(mapping, PM2TokenMap)
+                        else [],
+                    },
                 }
-            )
-            return parsed.products
+                observations.append(source_value(report))
+                operations.append(
+                    {
+                        "operation_key": operation,
+                        "question": question,
+                        "operation_version": version,
+                        "outcome": "succeeded",
+                        "inspected_count": 1,
+                        "emitted_count": len(rows),
+                        "report_digest": sha256(canonical_bytes(report)).hexdigest(),
+                        "computation_dependencies": [digest],
+                    }
+                )
+                return parsed.products
 
-        def parsed_d1(scope, request, native, reply, member_index):
-            from corpus_structure.methods.pm2_interpretation_products import interpretation_products
-            from corpus_structure.methods.pm2_products import ParserProducts
+            def parsed_d1(scope, request, native, reply, member_index):
+                from corpus_structure.methods.pm2_interpretation_products import interpretation_products
+                from corpus_structure.methods.pm2_products import ParserProducts
 
-            from .d1_limitation import classify_d1_limitation
+                from .d1_limitation import classify_d1_limitation
 
-            limitation = classify_d1_limitation(
-                request,
-                native,
-                reply,
-                pin=frame.pin.values(),
-                selection=self.selection,
-                member_index=member_index,
-            )
-            if limitation is not None:
-                raise limitation
-            if native.get("outcome") not in {"succeeded", "empty"}:
-                raise ValueError("native D1 did not complete its declared question inspection")
-            from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
-            from corpus_structure.methods.pm2_source import D1SourceField
+                limitation = classify_d1_limitation(
+                    request,
+                    native,
+                    reply,
+                    pin=frame.pin.values(),
+                    selection=self.selection,
+                    member_index=member_index,
+                )
+                if limitation is not None:
+                    raise limitation
+                if native.get("outcome") not in {"succeeded", "empty"}:
+                    raise ValueError("native D1 did not complete its declared question inspection")
+                from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
+                from corpus_structure.methods.pm2_source import D1SourceField
 
-            validate_pm2_batch_receipt(native.get("batch_receipt"), request.payload, "d1")
-            rendered = native.get("rendered_state")
-            if not isinstance(rendered, str) or canonical_bytes(
-                json.loads(rendered)
-            ) != canonical_bytes(request.payload["state"]):
-                raise ValueError("D1 rendered state differs from the actual frozen request")
-            fields = [
-                row
-                for row in native.get("state_fields", ())
-                if row[2] == request.family.source_field
-            ]
-            if len(fields) != 1 or any(type(value) is not int for value in fields[0][:2]):
-                raise ValueError("D1 lacks one exact original-source rendered field")
-            field = D1SourceField(rendered, request.family.source_field, *fields[0][:2])
-            located = learned_d1_evidence(scope, request, native, field)
-            values = interpretation_products(request.family, request.payload, native, located)
-            retain_candidates(
-                scope.mapping,
-                request.payload,
-                native,
-                request.family.family,
-                "3",
-                parsed=ParserProducts(located, values),
-                field=field,
-                source_path=request.family.source_field,
-            )
-            return {value.value["question_key"]: value.value for value in values}
+                validate_pm2_batch_receipt(native.get("batch_receipt"), request.payload, "d1")
+                rendered = native.get("rendered_state")
+                if not isinstance(rendered, str) or canonical_bytes(
+                    json.loads(rendered)
+                ) != canonical_bytes(request.payload["state"]):
+                    raise ValueError("D1 rendered state differs from the actual frozen request")
+                fields = [
+                    row
+                    for row in native.get("state_fields", ())
+                    if row[2] == request.family.source_field
+                ]
+                if len(fields) != 1 or any(type(value) is not int for value in fields[0][:2]):
+                    raise ValueError("D1 lacks one exact original-source rendered field")
+                field = D1SourceField(rendered, request.family.source_field, *fields[0][:2])
+                located = learned_d1_evidence(scope, request, native, field)
+                values = interpretation_products(request.family, request.payload, native, located)
+                retain_candidates(
+                    scope.mapping,
+                    request.payload,
+                    native,
+                    request.family.family,
+                    "3",
+                    parsed=ParserProducts(located, values),
+                    field=field,
+                    source_path=request.family.source_field,
+                )
+                return {value.value["question_key"]: value.value for value in values}
 
-        for block in blocks:
+            def block_result():
+                return _LearnedBlockProducts(
+                    records=tuple(records), coordinates=tuple(coordinates),
+                    operations=tuple(operations), observations=tuple(observations),
+                    receipts=tuple(receipts), coverage=tuple(coverage),
+                    examined=tuple(examined), unexamined=tuple(unexamined),
+                )
+
             check_active()
             selector = dict(projection=frame.projection_digest, start=block.start, end=block.end)
             if block.end - block.start > self.max_context_chars:
@@ -521,12 +647,14 @@ class PreparedLearnedPrimary:
                         "reason": "complete original block exceeds frozen model context",
                     }
                 )
-                continue
-            scope = prepare_model_scope(
-                frame,
-                block.focal if isinstance(block, LearnedFocalScope) else (block.start, block.end),
-                (block.start, block.end),
-                max_chars=self.max_context_chars,
+                return block_result()
+            scope = (
+                gliner_questions[block.block_id][0]
+                if self.provider == "gliner" else prepare_model_scope(
+                    frame,
+                    block.focal if isinstance(block, LearnedFocalScope) else (block.start, block.end),
+                    (block.start, block.end), max_chars=self.max_context_chars,
+                )
             )
             if self.family in {"maverick", "dipo"}:
                 mapping = scope.mapping
@@ -631,80 +759,18 @@ class PreparedLearnedPrimary:
                                 parsed_d1(scope, request, answer, reply, member_index)
                             )
             else:
-                from corpus_structure.methods.gliner import (
-                    GlinerInput,
-                    GlinerPack,
-                    GlinerProfile,
-                    map_literal,
-                )
-                from corpus_structure.methods.pm2_gliner_classification import (
-                    ClassificationProfile,
-                    authenticated_gliner_report,
-                    classification_product,
-                    classification_request,
-                )
-                from corpus_structure.methods.pm2_products import ParserProducts
-                from corpus_structure.methods.pm2_source import ProviderSpan
-
-                profile_values = dict(self.selection.native.parameters["gliner_profile"])
-                profile_values["artifact_hashes"] = tuple(
-                    tuple(row) for row in profile_values["artifact_hashes"]
-                )
-                gliner_profile = GlinerProfile(self.selection.assets, **profile_values)
-                classification_profile = ClassificationProfile(
-                    provider="gliner",
-                    device="cuda",
-                    profile=gliner_profile,
-                    threshold=self.threshold,
-                    runtime_identity=self.selection.native.runtime_identity,
-                )
-                inference = declared_policy(self.prepared)["inference"]
-                if self.family == "gliner_cues":
-                    family = families[GLINER_CUES]
-                    pack, item = gliner_cue_request(self.prepared.release_id, family, scope)
-                    threshold, overlap = self.threshold, "nested"
-                    request = dict(
-                        pack=asdict(pack),
-                        item=asdict(item),
-                        threshold=threshold,
-                        inference=inference,
-                    )
-                else:
-                    family = families[GLINER_FUNCTIONS]
-                    request = classification_request(
-                        self.prepared.release_id,
-                        family,
-                        family.questions[0].key,
-                        scope.mapping,
-                        classification_profile,
-                        inference,
-                        characterization_family=family.family,
-                    )
-                    pack, item = GlinerPack(**request["pack"]), GlinerInput(**request["item"])
-                    threshold, overlap = request["threshold"], "flat"
-                serial += 1
-                correlation = sha256(
-                    canonical_bytes([str(claim.request_id), claim.attempt, serial, request])
-                ).hexdigest()
-                (reply,) = yield (
-                    providers.work(
-                        GLiNERWork(
-                            gliner_profile,
-                            pack,
-                            (item,),
-                            threshold,
-                            overlap,
-                            correlation,
-                            (check_active,),
-                            logical_members=logical([asdict(item)], block.block_id),
-                        ),
-                        reservation=execution_owner.reservation,
-                    ),
-                )
-                retain_reply(reply)
-                if len(reply.reports) != 1:
-                    raise ValueError("GLiNER did not return its one admitted original input")
-                native = reply.reports[0]
+                scope, family, request, overlap, classification_profile = gliner_questions[block.block_id]
+                native, refusal = gliner_results[block.block_id]
+                if refusal is not None:
+                    unexamined.append(selector)
+                    observations.append(source_value({
+                        "family": family.family, "outcome": "unsupported", "reason": refusal,
+                    }))
+                    coverage.append({
+                        "family": self.family, "scope": canonical_bytes(selector).decode(),
+                        "outcome": "unsupported", "reason": refusal,
+                    })
+                    return block_result()
                 if self.family == "gliner_function":
                     parsed = ParserProducts(
                         {},
@@ -780,6 +846,23 @@ class PreparedLearnedPrimary:
                     "outcome": "complete",
                 }
             )
+            return block_result()
+
+        from corpus_structure.core.work import ReadyGroup
+
+        block_results = yield ReadyGroup(
+            tuple(plan_block(block) for block in blocks),
+            max_active=providers.policy.max_provider_jobs,
+        )
+        for result in block_results:
+            records.extend(result.records)
+            coordinates.extend(result.coordinates)
+            operations.extend(result.operations)
+            observations.extend(result.observations)
+            receipts.extend(result.receipts)
+            coverage.extend(result.coverage)
+            examined.extend(result.examined)
+            unexamined.extend(result.unexamined)
         check_active()
         # Unknown/incomplete source scope remains partial, including a completed empty candidate set.
         status = "partial" if unexamined else "complete"
