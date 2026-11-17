@@ -148,6 +148,28 @@ is a candidate explanation, also for the grade fixture after its intentional cop
 neither cause is yet confirmed. Stop ad hoc fixture rewiring, implement the shared contract and then
 qualify all3 actual configured E5 recipes and exact grade/event/artifact consumers.
 
+**Actual bounded PDF execution · 2026-11-17.** Stage-only project activation was independently
+confirmed at generation2/currentrelease4080c29de3c6…. Initial standard invocation
+`3dc6b7f687ca4ff68729a8f6caf49a88` failed because the configured managed Nemotron endpoint was
+absent. Existing managed launcher startup restored that prerequisite. Normal same-demand resume
+`e861dbab8d524bcd9d4048b12a639ae2` **passed** capture/organization/discovery,3receipts and3fulfilled
+obligations, actual Docling2.148CUDA plus declared RapidOCR3.10ONNX CPU OCR, no fallback. Exact
+three-page original hash/pin and native publication were retained; this does not qualify enrichment
+or actual Nemotron recognition. Managed receipts are held and ingest processes drained.
+
+Actual enrichment `31c7422b173047feac9706dfd59b2a58` **failed** because the shared frozen-payload
+validator rejects authentic `#/body`/direct coverage. Read-only inspection confirms6coverage rows:
+body/direct and native section/descendants each have display/cell complete and inline partial.
+The body is an already supported residual source view, with native label `unspecified`, not a
+missing or fabricated section. SI28 repairs the shared Python checker to accept only that exact
+direct body root alongside real section/chapter groups; arbitrary nonsection pointers and descendant
+body coverage still refuse. PDF payload/selected-view/body-scope68 **passed**
+`5684f1e1af8b437fa164065b455f2725`; whole typing **passed** `aa2d4428f7494c1cbd132ee79d461c32`
+and lint **passed** `a39afd0d527c4c058f1abb6d4917fd6d`. Initial mistyped test-path collection
+`34d9067b984d4075b236fc8d65852a09` selected0 and supplies no functional credit. The repair changes
+captured application code, not native SQL. Combine its application recapture with the v9 integration
+before actual enrichment/integration retries. Actual integrated recognition remains **not_run**.
+
 ## Current execution boundary · 2026-11-16
 
 **Implemented; bounded Tested.** The97-relation physical declaration and maintained PDF actions now
@@ -422,6 +444,7 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-25 | Empty-carrier verification captures four originals although its scope uses one. | **Implemented; bounded native Tested2026-11-17**, empty-carrier passed in `88b69d7384984e1eb5fba40c20c1d524`. Fitting/calibration retain4originals and their independent criteria. |
 | DDO-SI-26 | Explicit recovery cannot remove the owned selected-read SQLite scratch left by a watchdog interruption. | **Implemented; bounded Tested**, af7978555/628c34944, recovery38 passed `be12c03a33ee4539aa20540357b81cc1`, integrated pure43 passed. After proven process drain, recognize only exact owned scratch files; refuse unknown/symlink/foreign/hardlinked paths. Actual recovery of dd0147… established cleanup; original failure remains held. |
 | DDO-SI-27 | Frozen semantic source entries discard the selected producing proof, admitting unrelated genuine producers and their dependencies. | **Accepted repair in progress**, ADR-0121/effective modelv9/demand-intent-v2/CPU-input-basis-3. Group exact cuts; preserve anchor and actual producing-use/output/member facts, narrow role-local candidates and support seeds, migrate current selected consumers and retain attachment live checks. Current stage remains capturedv8; fresh capture and focused/native/actual-provider qualification required. No historical decoder or fallback. |
+| DDO-SI-28 | Frozen PDF coverage validation rejects the supported residual body/direct source scope because its native group label is unspecified. | **Implemented; bounded Tested2026-11-17**, actual enriched failure31c742… retained; shared checker admits exact body/direct, real sections/chapters, and still rejects descendant-body/arbitrary nonsection scopes. Pure PDF68 passed5684f1…; types/lint passed. Application recapture and actual enrichment/integration qualification remain open. |
 
 
 

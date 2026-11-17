@@ -59,6 +59,20 @@ after its output was unavailable at compaction. Bounded actual PDF modes are exe
 No development adoption or activation has occurred; all29 original descriptors remain prepared
 inputs, not a completed current import.
 
+**Actual bounded PDF outcomes:** standard attempt `3dc6b7f687ca4ff68729a8f6caf49a88` failed with the
+configured managed Nemotron8035 service absent. After existing managed launcher startup, normal
+same-demand resume `e861dbab8d524bcd9d4048b12a639ae2` passed3receipts/3fulfilled capture,
+organization and discovery obligations. Actual Docling2.148 used CUDA; RapidOCR3.10 ONNX CPU is
+the declared OCR recipe, not a fallback. Native publication digest is
+`1ea4195979f3ba1084f60e87639e283e605b678e6d2e99e9d9caef1ed834f731`.
+Enrichment `31c7422b173047feac9706dfd59b2a58` failed at recognition-coverage scope validation:
+its authentic residual `#/body`/direct view has native label `unspecified`. All pointers resolve;
+the other native section/descendants rows retain their correct meaning. SI28 in the coordinator
+owns the shared checker repair/application recapture and actual retry; integrated is not_run.
+All three originals are held, ingest children drained and custody settled. Managed Nemotron
+generation `2e3bbd058970498cb9b417251e6acac3` remains under root custody for later actual recognition;
+service availability alone establishes no inference result.
+
 ## Empty authoring stage · 2026-11-16
 
 **passed:** `ci db init --creation-only --creation-token … --json`, with the explicit database URL
