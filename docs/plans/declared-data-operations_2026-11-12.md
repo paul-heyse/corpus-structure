@@ -68,20 +68,57 @@ Independent review repairs are covered. No speedup or full DDO qualification is 
 
 ### Cross-cutting implementation in progress · 2026-11-17
 
-**Remaining-scope execution resumed · 2026-11-17.** The operator authorized the detailed
-completion approach after `5683842c3`. The first dependency is the missing named frozen DATA-step
-authoring route: current ChangeRequest/preview/candidate code does not yet implement the route
-previously described as delivered. Extend that existing owner with closed first-party Core builders,
-captured source/dependency staleness and frozen SQL, then stage nullable DDL, native helper
-installation, authenticated backfill, final constraints and exact guard restoration before N1
-capture. This is a discovered implementation prerequisite, not a new design-review gate.
+**Remaining-scope execution resumed · 2026-11-17.** The missing named frozen DATA-step route
+is now implemented in ChangeRequest/preview/candidate authoring. The closed `ddo_n1_relower`
+request captures first-party Core builder source and SQLAlchemy/Alembic versions, freezes SQL,
+and orders nullable DDL, native helpers, authenticated backfill, final constraints and exact
+guards. Focused controls **passed11**, `60ad8735b22947a0bf535f3434739443`. Bounded independent
+implementation review found no material defects; actual retained-artifact compatibility and
+catalog/ACL restoration still require rollback-only capture. Initial candidate `8e9c651…`
+refused the five missing explicit scalar-function retirements, now named in the request.
+Candidate `a9e6894…` refused stale contextual source after integration. Both refusals leave the
+stage unchanged; current-source preview/candidate reacquisition is in progress. This is an
+implementation prerequisite, not a new design-review gate.
 
-Parallel execution owns grammar/HanLP S15 and PDF spool/adoption S34/35 in isolated trees;
-the root owns native capture, shared contracts, current consumer investigation and receipts.
-S08's missing durable validator-success carrier follows through N2's completion/publication
-contract, preserving strict typed decoding and full semantic fallback whenever its exact producer,
-validator and original premises do not match. Host/N2, qualified model batching, PDF certification/
-recovery, serving/N4, adoption and final DDO-12 remain authorized work, not separate approvals.
+S15 grammar custody and frame-byte HanLP admission are integrated; inference bounds are unchanged.
+The failed87 selection `0493c0705bef41c199ba46d097dd998f` retained85passes. The test-only PM2
+unit-result wrapper and its dead compatibility helpers were removed with all three callers moved
+to current contribution projection. Canonical fixture manifests/provider custody were corrected.
+Exact retry **passed2**, `41d21e2742c540a3925b91711e95a6bd`; current HanLP/PDF custody selection
+**passed32**, `18f7577fd56742a3bce1f66bc9bbfdf4`, including actual CUDA HanLP. These are bounded
+controls, not complete model/provider qualification. Earlier failed `79d73…`/`463a3…` stay retained.
+
+S35 now journals verified fsynced artifacts under a build/attempt/holder-fenced spool and defers
+all conversion-time database uptake until producer retirement. Records, occurrences and candidate
+companions adopt once; rasters/assemblies remain in the spool report. Formula companions batch.
+The existing same-attempt spool refuses reopening; authenticated prior-attempt recovery is S39.
+True native set/COPY adoption and unused profile retirement remain S34/N3. The first focused59
+selection `c626fb0e62b1408eb7f6fb4439a91865` retained55passes and4failures: one uninstalled-N1
+kernel refusal and three fixture-scope/binding defects subsequently corrected. Installed-native
+PDF retry remains due. No full S34/35 closure follows from the source implementation.
+
+SI32 source declares exact query-source/query-occurrence selected sets, freezes one scalar query
+per actual carrier, and orders scoring after vector assembly. Current lexical/workflow/actual-E5
+callers are migrated without cardinality weakening. Focused45 `f4d790b98bca46ec86a9d8816ac303e0`
+retains23passes,21setup refusals against the uninstalled N1 kernel and one stale file-custody
+message/stat-object fixture, now migrated to actual FileCustody. Its exact control **passed1**,
+`323a2f3be61f4218a78989bf761ed2ed`; failed follow-up `4cc4220…` stays retained. Native and
+actual-E5 acceptance remain open.
+
+The managed exact-retry route exposed an xdist alias-map defect (`1ffa7d8…`). The classifier now
+preserves raw collection manifests before normalizing event IDs; full required inventory remains
+authoritative and only unresolved IDs execute. Focused regression **passed1**,
+`bc10f6398f8941ed8d74576109822a6c`, and the original S15 retry above passed through the installed
+command. Pyrefly `64ac24cff6d646f8842ab86627bd4c36` and Ruff
+`cc0fed2423c344f1bf9b35abd2a7d21b` **passed** at this source boundary; failed originals remain.
+
+PE-S23/24 admission/claim work and Python-side S37 reads continue in isolated trees. The root
+owns native capture, shared contracts, current consumer acceptance and receipts. ADR-0125
+accepts the process-host target and restates surviving execution/validation contracts; S25 is
+not yet implemented. S08 durable validator-success proof follows N2 completion/publication,
+with strict decoding and full semantic fallback when exact original premises do not match.
+Host/N2, model batching, PDF certification/recovery, serving/N4, adoption and final DDO-12 remain
+authorized work, not separate approvals.
 
 S14 investigation resolved: HostedPipeline.pipe has a production sentence-processing caller and
 is retained. The unconsumed historical SourceOperationLink DTO and test-only run-runtime lookup
@@ -97,7 +134,7 @@ import-bound serving identity (S06), evaluation-owned reference alignment/scorin
 receipt classification (S12), and prepared preview/candidate reuse with a closed generated-output
 population (S13). S14 removes the unused liveness/execution-context/task-semantics modules and
 unused GLiNER helpers, caches immutable PDF profiles and avoids duplicate export verification.
-The conditional `HostedPipeline.pipe` retirement remains to be investigated. These are
+`HostedPipeline.pipe` is retained for its live sentence-processing consumer. These are
 integrated implementation, with targeted acceptance still in progress; no enclosing slice is
 declared complete by its commit title. Persisted S08 established-validity proof remains open:
 canonical bytes or a native validating-kernel digest alone do not establish the exact Python

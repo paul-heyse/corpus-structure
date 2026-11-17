@@ -222,7 +222,7 @@ dependency, not synchronization barriers: any slice whose prerequisites are met 
 | **Wave 3 — admission and lifecycle** | | | | |
 | PE-S23 | Two-stage byte admission; page size independent of admission; ready queue | PE-F11, PE-RC03 | demand-planning / DDO-06 | PE-S22, ADR-B |
 | PE-S24 | Claim and hydrate in one transaction | PE-F19 (part) | demand-planning / DDO-06 | — |
-| PE-S25 | Process-scoped execution host; carried verified basis | PE-F19, F03 (execution), PE-RC05 | demand-planning / DDO-06 | PE-S04, S05, S23, ADR-D |
+| PE-S25 | Process-scoped execution host; carried verified basis | PE-F19, F03 (execution), PE-RC05 | demand-planning / DDO-06 | PE-S04, S05, S23, ADR-0125 |
 | **Wave 4 — native successor N2 (wire change)** | | | | |
 | PE-S26 | Set-form native operations; readiness watermark and single-obligation read; member set inserts | PE-F10, F06 (waiting obligations), F12 (members) | products, contracts, demand-planning / DDO-03–05 | N1 |
 | PE-S27 | Wire validation placement and contract digest | PE-F04 (checks), PE-RC01 | contracts, products / DDO-03, 04 | PE-S00, PE-S01, ADR-C |

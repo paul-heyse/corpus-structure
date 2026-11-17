@@ -68,13 +68,15 @@ def test_owned_encoder_refuses_changed_model_before_import_or_allocation(tmp_pat
     profile = embeddings.EncoderProfile(
         "controlled-kernel", "a" * 40, 2, "query: ", "passage: ", "mean"
     )
-    with pytest.raises(ValueError, match="model bytes differ"):
+    with pytest.raises(ValueError, match="acquired file changed: .*restart required"):
         embeddings._owned_cpu_encoder(
             canonical_bytes(profile.semantic_configuration), str(tmp_path), (("weights", "0" * 64),)
         )
-    prior = (("weights", model.stat()),)
+    from corpus_structure.semantic.file_custody import observed_file
+
+    prior = (("weights", observed_file(model)),)
     model.write_bytes(b"changed acquired bytes")
-    with pytest.raises(ValueError, match="changed after verified loading"):
+    with pytest.raises(ValueError, match="acquired file changed: .*restart required"):
         embeddings._verify_cpu_artifacts(str(tmp_path), prior)
 
 
