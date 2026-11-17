@@ -257,9 +257,10 @@ scope and no native publication/whole-book credit. S40 shared storage/backfill i
 removed from the target. The separately selected S36 reset stages required columns nullable,
 removes incomplete historical receipts under the exact immutable guard, then applies constraints.
 Read-only stage observation found7old validation receipts,15products and831parts in each old store;
-only actual byte folds are eligible for S40 transfer, never fabricated S36 evidence. Preview
- d23821de199e4d18b7c3045a3dca5ec9 is running on the acquired N2 stage; native transition/acceptance
-remain open. Combined Pyrefly9a271db05654447c88cb7d0fb86daac4 and Ruffba8a32c84f8f461b84c55651501a34ef
+only actual byte folds are eligible for S40 transfer, never fabricated S36 evidence. Preview d23821de199e4d18b7c3045a3dca5ec9 **passed** on the acquired N2 stage. Its HEAD binding
+was superseded by the documentation checkpoint; root is reacquiring after the final retirement
+sweep. That sweep removes the unused retained-bytea verifier, leaving the exact shared-fold
+receipt verifier and independent useful Python byte controls. Native transition/acceptance remain open. Combined Pyrefly9a271db05654447c88cb7d0fb86daac4 and Ruffba8a32c84f8f461b84c55651501a34ef
 **passed**; shared upload-shape/omission and closed maintenance controls **passed5**,
 e752a326d56d4c7f83e5931202ece8d5. Independent static review found a stale generated typed part-table
 reference; regeneration removed it. No further material defect was found in its bounded static
@@ -276,7 +277,9 @@ locked spaCy environment refusal; root refreshed only editable corpus-structure 
 The preceding d345379… selected no tests because root supplied a nonexistent second path; it is
 not functional evidence. The actual book has no current stage requests for its original key,
 so the complete actual-region gate needs the current source/formal/sentence prerequisites.
-Candidate adoption and removal of its private experiment compiler remain open; docs/pins.md
+Candidate adoption remains open; the independent experiment compiler now lives solely in test support,
+with one production parser path (a79cb9f8d). Grammar/closed-DATA controls **passed29**,
+04799997d7434a449bdfbf0b27c60c6a; docs/pins.md
 holds Lark1.3.1's private scanner/local-state contract. Do not substitute blanket raw-text
 reclassification for retained primary lexical observations and sentence-clipped regions.
 All integrated obsolete worktrees were removed after preserving their actual LFS bytes.
