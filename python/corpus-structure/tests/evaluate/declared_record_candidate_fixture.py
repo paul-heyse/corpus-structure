@@ -16,6 +16,50 @@ ASSET = "record-policy-native-fixture/candidate-assets"
 MODULE = "evaluate.declared_record_candidate_fixture"
 
 
+def native_cell_coordinate(source, pin, *, item_pointer, cell_index):
+    """Retain the selected projection origin of one complete unchanged native cell."""
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.proposals import native_address
+    from corpus_structure.semantic.source_contexts import NativeSpanEvidence, PreparedNativeSource
+
+    frame = DeclaredNativeFrameSource(
+        canonical_bytes(source).decode(), canonical_bytes(pin).decode()
+    )
+    prepared = PreparedNativeSource(frame)
+    matches = [
+        piece
+        for piece in prepared.pieces
+        if piece.get("kind") == "native_text"
+        and piece.get("item_ref") == item_pointer
+        and piece.get("source_field") == "cell_text"
+        and piece.get("cell_index") == cell_index
+    ]
+    if len(matches) != 1:
+        raise ValueError("controlled native cell requires one exact selected projection bridge")
+    (projection,) = matches
+    start, end = projection["start"], projection["end"]
+    piece = NativeSpanEvidence(
+        frame.pin,
+        start,
+        end,
+        native_address(frame, start=start, end=end),
+        native_address(frame, pointer=item_pointer),
+        cell_index,
+        "cell_text",
+        frame.text[start:end],
+        0,
+        end - start,
+    )
+    text, projection_start = prepared.native_field(item_pointer, piece)
+    return dict(
+        pin=pin,
+        space="native",
+        pointer=f"{item_pointer}/data/table_cells/{cell_index}",
+        text=text,
+        projection_start=projection_start,
+    )
+
+
 def candidate_values(
     prepared, source, pin, *, model, check_active, family="table", variant="standard"
 ):
@@ -84,7 +128,11 @@ def candidate_values(
             )
             if role == value_role:
                 field.update(original=lexical, reason="source-read")
-                coordinates.append(dict(pin=pin, space="native", pointer=pointer, text=lexical))
+                coordinates.append(
+                    native_cell_coordinate(
+                        source, pin, item_pointer=table["self_ref"], cell_index=position
+                    )
+                )
             evidence.append(support)
             fields.append(field)
         if family == "measurement":

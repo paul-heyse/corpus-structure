@@ -274,7 +274,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                 assert isinstance(refused.value.orig, NativePgError)
                 assert refused.value.orig.sqlstate == (
                     "P0004" if variant in {"attempt", "holder"} else "23514"
-                ), variant
+                ), (variant, str(refused.value.orig), refused.value.orig.diag.context)
                 rejected_observations.append((task_id, forged["product_key"]))
             arguments = dict(
                 task_id=task_id,

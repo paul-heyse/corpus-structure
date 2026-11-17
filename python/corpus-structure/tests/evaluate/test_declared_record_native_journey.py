@@ -93,8 +93,29 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
             == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
         ),
     )
-    pin = selected.model_dump(mode="json", exclude_none=True)
+    from corpus_structure.semantic.source_products import native_projection_identity
+
     body = {
+        "text": "12\n12",
+        "pieces": [
+            dict(
+                kind="native_text",
+                item_ref="#/tables/0",
+                source_field="cell_text",
+                cell_index=0,
+                start=0,
+                end=2,
+            ),
+            dict(kind="synthetic_separator", start=2, end=3),
+            dict(
+                kind="native_text",
+                item_ref="#/tables/0",
+                source_field="cell_text",
+                cell_index=1,
+                start=3,
+                end=5,
+            ),
+        ],
         "items": [
             {
                 "label": "table",
@@ -103,6 +124,15 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
             }
         ]
     }
+    projection = native_projection_identity(body["text"], body["pieces"], body["items"])
+    selected = selected.model_copy(update={"projection_digest": projection})
+    pin = selected.model_dump(mode="json", exclude_none=True)
+    body["source"] = dict(
+        document=selected.document,
+        projection=projection,
+        section_pointer=selected.section_pointer,
+        membership=selected.membership,
+    )
     context = SubjectContext(
         PROJECT,
         selected.subject,
@@ -125,6 +155,8 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
         check_active=lambda: None,
         family="measurement",
     )
+    assert [row["projection_start"] for row in coordinates] == [0, 3]
+    assert coordinates == actual_coordinates == measurement_coordinates
     bound_measurements = bind_record_candidates(
         preparation.prepared,
         model=model,

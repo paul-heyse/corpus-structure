@@ -479,6 +479,8 @@ def current_record_policy(scenario_seeds, tmp_path, monkeypatch):
 
 def reference_records(journey, selected):
     """Independently author the two complete source cells; never read predictions."""
+    from evaluate.declared_record_candidate_fixture import native_cell_coordinate
+
     from corpus_structure.semantic.record_contracts import (
         anchor_identity,
         evidence_set_identity,
@@ -553,7 +555,11 @@ def reference_records(journey, selected):
         row["interpretation_id"] = interpretation_identity(row)
         journey.kernel.prepared.validate_json("SourceRecord", canonical_bytes(row))
         rows.append(row)
-        coordinates.append(dict(pin=pin, space="native", pointer=pointer, text=text))
+        coordinates.append(
+            native_cell_coordinate(
+                selected.body, pin, item_pointer=table["self_ref"], cell_index=column
+            )
+        )
     assert len(rows) == 2
     return tuple(rows), tuple(coordinates)
 
