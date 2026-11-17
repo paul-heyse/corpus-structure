@@ -423,6 +423,80 @@ class WireAttachDataRequestResult(TypedDict):
     use_id: Required[WireIdentifier]
 
 
+class WireAttachDataRequestsAttachedResult(TypedDict):
+    action: Required[Literal["compute", "reconcile", "reuse"]]
+    binding: Required[WireBinding]
+    binding_demand_id: Required[WireIdentifier]
+    binding_obligation_id: Required[WireIdentifier]
+    derivation_id: Required[WireDerivationId | None]
+    fate: Required[Literal["attached"]]
+    generation: Required[WireGeneration]
+    release_id: Required[WireIdentifier]
+    request_id: Required[WireRequestId]
+    retained_intent_id: Required[WireCompletionIntentId | None]
+    runtime_id: Required[WireIdentifier]
+    task_id: Required[TaskId | None]
+    trust_snapshot: Required[WireTrustSnapshot]
+    use_id: Required[WireIdentifier]
+
+
+class WireAttachDataRequestsFulfilledResult(TypedDict):
+    action: Required[Literal["compute", "reconcile", "reuse"]]
+    binding: Required[WireBinding]
+    binding_demand_id: Required[WireIdentifier]
+    binding_obligation_id: Required[WireIdentifier]
+    derivation_id: Required[WireDerivationId | None]
+    fate: Required[Literal["fulfilled"]]
+    generation: Required[WireGeneration]
+    release_id: Required[WireIdentifier]
+    request_id: Required[WireRequestId]
+    retained_intent_id: Required[WireCompletionIntentId | None]
+    runtime_id: Required[WireIdentifier]
+    task_id: Required[TaskId | None]
+    trust_snapshot: Required[WireTrustSnapshot]
+    use_id: Required[WireIdentifier]
+
+
+class WireAttachDataRequestsItem(TypedDict):
+    binding: Required[WireBinding]
+    obligation_id: Required[WireObligationId]
+    rebind_derivation: NotRequired[WireIdentifier]
+    replicate: Required[WireIdentifier | None]
+    request_key: NotRequired[WireIdentifier]
+    request_meaning: Required[WireRequestMeaning]
+
+
+class WireAttachDataRequestsRequest(TypedDict):
+    items: Required[list[WireAttachDataRequestsItem]]
+    read_id: Required[WireReadIdentity]
+
+
+class WireAttachDataRequestsResultItemsItemVariant1(TypedDict):
+    result: Required[WireAttachDataRequestsAttachedResult]
+    state: Required[Literal["attached"]]
+
+
+class WireAttachDataRequestsResultItemsItemVariant2(TypedDict):
+    result: Required[WireAttachDataRequestsFulfilledResult]
+    state: Required[Literal["fulfilled"]]
+
+
+class WireAttachDataRequestsResultItemsItemVariant3(TypedDict):
+    reason: Required[str]
+    sqlstate: Required[str]
+    state: Required[Literal["refused"]]
+
+
+class WireAttachDataRequestsResult(TypedDict):
+    items: Required[
+        list[
+            WireAttachDataRequestsResultItemsItemVariant1
+            | WireAttachDataRequestsResultItemsItemVariant2
+            | WireAttachDataRequestsResultItemsItemVariant3
+        ]
+    ]
+
+
 class WireD1LimitationBatchReceiptHeader(TypedDict):
     profile: Required[str]
     provider: Required[Literal["d1"]]
@@ -567,6 +641,61 @@ class WireClaimDataRequestResultVariant2(TypedDict):
     trust_snapshot: Required[WireTrustSnapshot]
 
 
+class WireClaimDataRequestsClaimedResult(TypedDict):
+    action: Required[Literal["compute", "reconcile"]]
+    attempt: Required[TaskAttempt]
+    binding: Required[WireBinding]
+    binding_demand_id: Required[WireIdentifier]
+    binding_obligation_id: Required[WireIdentifier]
+    generation: Required[WireGeneration]
+    holder: Required[WireIdentifier]
+    lease_until: Required[str]
+    release_id: Required[WireIdentifier]
+    request_id: Required[WireRequestId]
+    retained_intent_id: Required[WireCompletionIntentId | None]
+    runtime_id: Required[WireIdentifier]
+    state: Required[Literal["claimed"]]
+    task_id: Required[TaskId]
+    trust_snapshot: Required[WireTrustSnapshot]
+
+
+class WireClaimDataRequestsItem(TypedDict):
+    external_packet_id: NotRequired[WireExternalPacketId]
+    generation: Required[WirePositiveInteger]
+    request_id: Required[WireRequestId]
+
+
+class WireClaimDataRequestsRequest(TypedDict):
+    holder: Required[WireIdentifier]
+    items: Required[list[WireClaimDataRequestsItem]]
+    lease_seconds: Required[int]
+
+
+class WireClaimDataRequestsResultItemsItemVariant1(TypedDict):
+    state: Required[Literal["no-work"]]
+
+
+class WireClaimDataRequestsResultItemsItemVariant2(TypedDict):
+    result: Required[WireClaimDataRequestsClaimedResult]
+    state: Required[Literal["claimed"]]
+
+
+class WireClaimDataRequestsResultItemsItemVariant3(TypedDict):
+    reason: Required[str]
+    sqlstate: Required[str]
+    state: Required[Literal["refused"]]
+
+
+class WireClaimDataRequestsResult(TypedDict):
+    items: Required[
+        list[
+            WireClaimDataRequestsResultItemsItemVariant1
+            | WireClaimDataRequestsResultItemsItemVariant2
+            | WireClaimDataRequestsResultItemsItemVariant3
+        ]
+    ]
+
+
 class WireClaimExternalDataPacketRequest(TypedDict):
     demand_id: NotRequired[WireDemandId]
     holder: Required[WireIdentifier]
@@ -630,6 +759,7 @@ class WirePopulationMember(TypedDict):
 class WireCloseDataPopulationResult(TypedDict):
     complete: Required[bool]
     evidence: Required[WirePopulationEvidence]
+    inserted_obligations: Required[int]
     members: Required[list[WirePopulationMember]]
     name: Required[WireIdentifier]
     population_id: Required[WirePopulationId]
@@ -784,20 +914,6 @@ class WireDataAttemptLostResult(TypedDict):
     request_id: Required[WireRequestId]
     state: Required[Literal["lost"]]
     task_id: Required[TaskId]
-
-
-class WireExpandDataObligationRequest(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
-    demand_id: Required[WireDemandId]
-    operation_id: Required[WireOperationId]
-    original_source: Required[WireOriginalSourceId | None]
-    parameters: Required[WireParameterMap]
-    population_id: NotRequired[WirePopulationId]
-    subject: Required[WireSubjectId]
-
-
-class WireExpandDataObligationResult(TypedDict):
-    obligation_id: Required[WireObligationId]
 
 
 class WireExternalPacketHead(TypedDict):
@@ -1055,6 +1171,7 @@ class WireReadDemandResultRequest(TypedDict):
     frontier_at: NotRequired[WireFrontierAt]
     limit: NotRequired[int]
     max_bytes: NotRequired[int]
+    obligation_id: NotRequired[WireObligationId]
     read_id: NotRequired[WireReadIdentity]
     read_snapshot: NotRequired[WireReadSnapshot]
     scope: NotRequired[WireDemandReadScope]
@@ -1071,6 +1188,7 @@ class WireResultObligation(TypedDict):
     generation: Required[WireGeneration | None]
     historical_fate: Required[WireHistoricalFate | None]
     id: Required[WireIdentifier]
+    inputs_watermark: Required[str]
     intent_id: Required[WireCompletionIntentId | None]
     obligation_id: Required[WireObligationId]
     operation_id: Required[WireOperationId]
@@ -1120,6 +1238,7 @@ class WireResultBinding(TypedDict):
 
 
 class WireReasonSelection(TypedDict):
+    inputs_watermark: NotRequired[str]
     reasons: NotRequired[list[WireBindingReason]]
 
 
@@ -1556,6 +1675,7 @@ class WireRegisterDataDemandRequest(TypedDict):
 
 class WireRegisterDataDemandResult(TypedDict):
     demand_id: Required[WireDemandId]
+    inserted_obligations: Required[int]
     selection: Required[WireDemandIntent]
     state: NotRequired[Literal["active", "cancelled"]]
 
@@ -1885,11 +2005,6 @@ class DataOperationCalls:
     ) -> WireCancelDataDemandResult:
         return cast(WireCancelDataDemandResult, self._invoke("cancel_data_demand", payload))
 
-    def expand_data_obligation(
-        self, payload: WireExpandDataObligationRequest
-    ) -> WireExpandDataObligationResult:
-        return cast(WireExpandDataObligationResult, self._invoke("expand_data_obligation", payload))
-
     def record_data_fate(self, payload: WireRecordDataFateRequest) -> WireRecordDataFateResult:
         return cast(WireRecordDataFateResult, self._invoke("record_data_fate", payload))
 
@@ -1903,15 +2018,15 @@ class DataOperationCalls:
     ) -> WireCloseDataPopulationResult:
         return cast(WireCloseDataPopulationResult, self._invoke("close_data_population", payload))
 
-    def attach_data_request(
-        self, payload: WireAttachDataRequestRequest
-    ) -> WireAttachDataRequestResult:
-        return cast(WireAttachDataRequestResult, self._invoke("attach_data_request", payload))
+    def attach_data_requests(
+        self, payload: WireAttachDataRequestsRequest
+    ) -> WireAttachDataRequestsResult:
+        return cast(WireAttachDataRequestsResult, self._invoke("attach_data_requests", payload))
 
-    def claim_data_request(
-        self, payload: WireClaimDataRequestRequest
-    ) -> WireClaimDataRequestResult:
-        return cast(WireClaimDataRequestResult, self._invoke("claim_data_request", payload))
+    def claim_data_requests(
+        self, payload: WireClaimDataRequestsRequest
+    ) -> WireClaimDataRequestsResult:
+        return cast(WireClaimDataRequestsResult, self._invoke("claim_data_requests", payload))
 
     def renew_data_request(
         self, payload: WireRenewDataRequestRequest
