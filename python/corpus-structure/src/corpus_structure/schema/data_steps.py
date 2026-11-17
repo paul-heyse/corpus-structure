@@ -104,9 +104,7 @@ def _n1() -> FrozenDataStep:
         .subquery("admitted_releases")
     )
     relower = select(func.sem.relower_admitted_data_operation_release(releases.c.release_id))
-    population = table(
-        "data_population", column("evidence"), column("context_key"), schema="ops"
-    )
+    population = table("data_population", column("evidence"), column("context_key"), schema="ops")
     context_key = func.ops.ddo_digest(func.ops.ddo_population_evidence_scope(population.c.evidence))
     populations = (
         update(population)
@@ -114,16 +112,22 @@ def _n1() -> FrozenDataStep:
         .where(population.c.context_key.is_distinct_from(context_key))
     )
     headers = table(
-        "data_operation_release", column("release_id", Text), column("lowering_digest", Text),
+        "data_operation_release",
+        column("release_id", Text),
+        column("lowering_digest", Text),
         schema="sem",
     )
     runtimes = table(
-        "runtime_binding", column("release_id", Text), column("execution_profile", Text),
+        "runtime_binding",
+        column("release_id", Text),
+        column("execution_profile", Text),
         schema="sem",
     )
     missing_header = select(releases.c.release_id).where(
         ~exists(
-            select(1).select_from(headers).where(
+            select(1)
+            .select_from(headers)
+            .where(
                 headers.c.release_id == releases.c.release_id,
                 headers.c.lowering_digest.is_not(None),
             )
@@ -160,8 +164,10 @@ def _n1() -> FrozenDataStep:
         ),
         deferred_columns=_N1_COLUMNS,
         guarded_relations=(
-            "sem.data_operation_definition", "sem.data_operation_release",
-            "sem.runtime_binding", "ops.data_population",
+            "sem.data_operation_definition",
+            "sem.data_operation_release",
+            "sem.runtime_binding",
+            "ops.data_population",
         ),
     )
 
@@ -201,26 +207,57 @@ def order_data_steps(
             relation = f"{operation.schema}.{operation.table_name}"
             source = operation.column
             if (relation, source.name) in deferred and not source.nullable:
-                if source.primary_key or source.constraints or source.foreign_keys or source.identity or source.computed:
-                    raise NativeAuthoringError("data-step nullable staging requires a plain added column")
+                if (
+                    source.primary_key
+                    or source.constraints
+                    or source.foreign_keys
+                    or source.identity
+                    or source.computed
+                ):
+                    raise NativeAuthoringError(
+                        "data-step nullable staging requires a plain added column"
+                    )
                 # A shallow copy changes only nullable and preserves all authored
                 # column facets without mutating the target metadata's column.
                 staged = copy(source)
                 staged.nullable = True
                 operation = copy(operation)
                 operation.column = staged
-                final.append(OwnedOperationsOp("corpus_sem_publisher", [ops.AlterColumnOp(
-                    operation.table_name, source.name, schema=operation.schema,
-                    existing_type=source.type, existing_nullable=True, modify_nullable=False,
-                )]))
+                final.append(
+                    OwnedOperationsOp(
+                        "corpus_sem_publisher",
+                        [
+                            ops.AlterColumnOp(
+                                operation.table_name,
+                                source.name,
+                                schema=operation.schema,
+                                existing_type=source.type,
+                                existing_nullable=True,
+                                modify_nullable=False,
+                            )
+                        ],
+                    )
+                )
         elif isinstance(operation, ops.AlterColumnOp):
             relation = f"{operation.schema}.{operation.table_name}"
             if (relation, operation.column_name) in deferred and operation.modify_nullable is False:
-                final.append(OwnedOperationsOp("corpus_sem_publisher", [ops.AlterColumnOp(
-                    operation.table_name, operation.column_name, schema=operation.schema,
-                    existing_type=operation.modify_type if operation.modify_type is not None else operation.existing_type,
-                    existing_nullable=True, modify_nullable=False,
-                )]))
+                final.append(
+                    OwnedOperationsOp(
+                        "corpus_sem_publisher",
+                        [
+                            ops.AlterColumnOp(
+                                operation.table_name,
+                                operation.column_name,
+                                schema=operation.schema,
+                                existing_type=operation.modify_type
+                                if operation.modify_type is not None
+                                else operation.existing_type,
+                                existing_nullable=True,
+                                modify_nullable=False,
+                            )
+                        ],
+                    )
+                )
                 # Type/default/comment changes must precede row-type-dependent
                 # helper installation. Defer only the NOT NULL effect.
                 staged = copy(operation)
@@ -232,7 +269,8 @@ def order_data_steps(
     guards = {
         f"{item.identity.schema}.{item.identity.relation}": item
         for item in authoring.desired
-        if item.identity.kind == "trigger" and item.identity.name == "semantic_immutable"
+        if item.identity.kind == "trigger"
+        and item.identity.name == "semantic_immutable"
         and f"{item.identity.schema}.{item.identity.relation}" in guarded
     }
     if set(guards) != guarded:
@@ -242,7 +280,9 @@ def order_data_steps(
     ]
     upgrade_ops.ops.extend(NativeTransitionOp(guards[name], None) for name in sorted(guards))
     upgrade_ops.ops.extend(
-        OwnedOperationsOp(step.owner, [ops.ExecuteSQLOp(statement) for statement in step.statements])
+        OwnedOperationsOp(
+            step.owner, [ops.ExecuteSQLOp(statement) for statement in step.statements]
+        )
         for step in steps
     )
     upgrade_ops.ops.extend(final)

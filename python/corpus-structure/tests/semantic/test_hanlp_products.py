@@ -1,7 +1,7 @@
 """Native HanLP heads preserve exact canonical addresses and independent standings."""
 
 import json
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
 
@@ -152,6 +152,14 @@ def inputs(profile, *, text="The mean is 2.", words=None, pieces=None, items=Non
             packet("DdoCanonicalSentence", sentence),
         ],
     )
+    from corpus_structure.semantic.characterization_manifests import (
+        append_manifest,
+        manifest_contract,
+    )
+
+    value = append_manifest(
+        value, manifest_contract(profile.prepared, profile.model, "DdoCanonicalManifest")
+    )
     canonical = CanonicalProduct(
         canonical_bytes(value),
         profile.prepared,
@@ -271,20 +279,6 @@ def test_native_sentence_admission_refuses_changed_population_order_or_lengths(m
 
 def test_current_hanlp_preserves_borrowed_host_cancellation_and_provider_failure(profile):
     source, canonical, _, _ = inputs(profile)
-    from corpus_structure.semantic.characterization_manifests import (
-        append_manifest,
-        manifest_contract,
-    )
-
-    canonical = replace(
-        canonical,
-        content=canonical_bytes(
-            append_manifest(
-                json.loads(canonical.content),
-                manifest_contract(profile.prepared, profile.model, "DdoCanonicalManifest"),
-            )
-        ),
-    )
 
     class Cancelled(Exception):
         pass
@@ -411,6 +405,7 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
     assert all(
         packet["body"]["sentence"]["product_id"] == canonical.reference.product_id
         for packet in value["members"]
+        if packet["body"]["record_type"] != "manifest"
     )
     assert completion.execution_evidence
     assert all(
@@ -424,7 +419,10 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
 
     projection = json.loads(
         data_operation_definition_projection(
-            profile.prepared, profile.model, native_digest="native:meaning-control"
+            profile.prepared,
+            profile.model,
+            native_digest="native:meaning-control",
+            captured_contracts=sources.boundary_contracts,
         )
     )
     contracts = {kind["kind_contract"]: kind for kind in projection["kinds"]}
