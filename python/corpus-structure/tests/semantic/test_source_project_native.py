@@ -10,12 +10,14 @@ from sqlalchemy import select
 from typer.testing import CliRunner
 
 from corpus_structure.cli import orchestrate as cli
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
 from corpus_structure.core.evidence import document_key
 from corpus_structure.schema import pack
 from corpus_structure.semantic.metadata import table
 from semantic.current_pdf_source_support import current_pdf_recipe
 from semantic.data_operation_kernel_support import Kernel
+
+app = build_full_app()
 
 
 def test_current_project_init_registers_exact_original_without_activating_or_executing(

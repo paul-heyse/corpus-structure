@@ -77,7 +77,8 @@ classes:
 def test_managed_candidate_contract_is_frozen(tmp_path, monkeypatch):
     from typer.testing import CliRunner
 
-    from corpus_structure.cli.app import app
+    from corpus_structure.cli.app import build_full_app
+    app = build_full_app()
     from corpus_structure.cli.managed import ResultStore
     from corpus_structure.schema.model_deployment import Candidate
 

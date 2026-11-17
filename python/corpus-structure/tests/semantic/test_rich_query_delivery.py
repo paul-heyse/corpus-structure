@@ -12,7 +12,7 @@ from mcp.types import TextResourceContents
 from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.semantic.demand_results import CutSelection
@@ -22,6 +22,8 @@ from corpus_structure.serve import rich_queries as service
 from corpus_structure.serve.rich_knowledge import SelectedRichKnowledge
 from semantic.test_rich_queries import query_source as query_source
 from semantic.test_rich_queries import statistics as statistics
+
+app = build_full_app()
 
 CUT = dict(
     project_id="query-project",

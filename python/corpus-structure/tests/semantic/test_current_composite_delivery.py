@@ -10,7 +10,7 @@ from fastmcp import Client
 from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
 from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_identity import semantic_value
@@ -33,6 +33,8 @@ from semantic.record_contracts_support import release_inputs
 from semantic.test_rich_identity_exclusions import constraint
 from semantic.test_rich_queries import PREFIX, Graph
 from semantic.test_selected_contribution_inputs import append
+
+app = build_full_app()
 
 
 @pytest.fixture(scope="module")

@@ -7,11 +7,13 @@ import pytest
 from sqlalchemy import select
 from typer.testing import CliRunner
 
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
 from corpus_structure.cli.output import CliState
 from corpus_structure.semantic.authored_sql import SQLAdmissionError, analyze_archived_sql
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import ActivationToken, activate_release
+
+app = build_full_app()
 
 
 def _project(connection):

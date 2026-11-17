@@ -17,10 +17,13 @@ class NavigationInput(BaseModel):
     request: NavigationRequest
 
 
-def register(root):
+def register_model(root):
     from corpus_structure.cli.model import app as model_app
 
     model_app.add_typer(app, name="source")
+
+
+def register_demands(root):
     from corpus_structure.cli.demands import app as demands_app
 
     demands_app.command("graph")(graph)

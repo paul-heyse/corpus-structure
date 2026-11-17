@@ -12,11 +12,13 @@ from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
 from corpus_structure.cli import structure as cli_adapter
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
 from corpus_structure.intervene import structural_read_tools
 from corpus_structure.intervene.semantic_server import build_retained_reader_server
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.serve import structural_products
+
+app = build_full_app()
 
 
 def test_installed_cli_and_actual_mcp_use_exact_selected_structural_request(monkeypatch, tmp_path):

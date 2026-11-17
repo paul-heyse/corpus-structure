@@ -535,7 +535,8 @@ def test_real_cli_authored_preview_sources_apply_and_retry(model_checkout, monke
     from typer.testing import CliRunner
 
     from corpus_structure.cli import recipes
-    from corpus_structure.cli.app import app
+    from corpus_structure.cli.app import build_full_app
+    app = build_full_app()
 
     root, _ = model_checkout
     move = migration(root)
@@ -807,7 +808,8 @@ def test_native_cli_compares_archived_ddo_without_source_migrations(
     from typer.testing import CliRunner
 
     from corpus_structure.cli import recipes
-    from corpus_structure.cli.app import app
+    from corpus_structure.cli.app import build_full_app
+    app = build_full_app()
     from corpus_structure.cli.output import CliState
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs

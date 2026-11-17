@@ -10,11 +10,13 @@ from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
 from corpus_structure.cli import selected_results as cli_adapter
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
 from corpus_structure.intervene import contribution_facet_tools
 from corpus_structure.intervene.semantic_server import build_retained_reader_server
 from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.serve import contribution_facets
+
+app = build_full_app()
 
 
 def test_cli_and_registered_mcp_preserve_current_composite_scope(monkeypatch):

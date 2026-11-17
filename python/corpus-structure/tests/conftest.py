@@ -272,7 +272,8 @@ class Cli:
     def __call__(
         self, *args: str, settings: Callable[[], Settings] | None = None, env: dict | None = None
     ) -> Result:
-        from corpus_structure.cli.app import app
+        from corpus_structure.cli.app import build_full_app
+        app = build_full_app()
         from corpus_structure.cli.output import CliState
 
         obj = CliState(settings) if settings is not None else None

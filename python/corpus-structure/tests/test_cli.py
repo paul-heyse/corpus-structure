@@ -370,7 +370,8 @@ def test_fresh_command_registration_does_not_import_unrelated_kernels(arguments)
 import json
 import sys
 from typer.testing import CliRunner
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
+app = build_full_app()
 from corpus_structure.cli.output import CliState
 
 def forbidden_settings():

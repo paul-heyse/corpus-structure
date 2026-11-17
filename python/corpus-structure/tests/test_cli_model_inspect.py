@@ -11,7 +11,7 @@ import pytest
 from typer.testing import CliRunner
 
 from corpus_structure.cli import model
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
 from corpus_structure.cli.managed import ResultError, ResultStore
 from corpus_structure.schema.model_change import (
     ChangeEffects,
@@ -21,6 +21,8 @@ from corpus_structure.schema.model_change import (
     NativeEffect,
 )
 from corpus_structure.schema.model_deployment import Candidate, migration_wrapper
+
+app = build_full_app()
 
 PATCH = """--- a/one.txt
 +++ b/one.txt

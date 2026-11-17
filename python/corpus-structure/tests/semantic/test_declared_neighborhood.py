@@ -227,7 +227,8 @@ def test_cli_neighborhood_carries_explicit_selected_product_pins(tmp_path, monke
     from typer.testing import CliRunner
 
     from corpus_structure.cli import selected_results
-    from corpus_structure.cli.app import app
+    from corpus_structure.cli.app import build_full_app
+    app = build_full_app()
 
     request = dict(
         demand_id="actual-demand",

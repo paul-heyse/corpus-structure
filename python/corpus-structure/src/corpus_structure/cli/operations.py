@@ -354,10 +354,10 @@ def command_reference(
 
     if stdout and json:
         raise typer.BadParameter("choose --stdout or --json", param_hint="--stdout")
-    from corpus_structure.cli.app import app
+    from corpus_structure.cli.app import build_full_app
     from corpus_structure.cli.reference import command_markdown
 
-    markdown = command_markdown(app, tuple(command or ()))
+    markdown = command_markdown(build_full_app(), tuple(command or ()))
     if stdout:
         with result_boundary(False):
             write_report_text(markdown)

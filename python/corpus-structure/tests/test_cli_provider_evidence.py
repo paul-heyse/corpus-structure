@@ -12,7 +12,8 @@ from corpus_structure.cli.managed import OperationAccount, ResultStore
 
 
 def invoke(cli, store, *args, selectors=()):
-    from corpus_structure.cli.app import app
+    from corpus_structure.cli.app import build_full_app
+    app = build_full_app()
     from corpus_structure.cli.output import CliState
 
     return cli.runner.invoke(

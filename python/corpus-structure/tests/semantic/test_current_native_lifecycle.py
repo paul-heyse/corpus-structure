@@ -22,7 +22,8 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
     from typer.testing import CliRunner
 
     from corpus_structure.cli import recipes
-    from corpus_structure.cli.app import app
+    from corpus_structure.cli.app import build_full_app
+    app = build_full_app()
     from corpus_structure.cli.managed import ResultStore
     from corpus_structure.cli.output import CliState
     from corpus_structure.schema import preparation

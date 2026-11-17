@@ -12,7 +12,7 @@ from sqlalchemy import insert, select, text, update
 from sqlalchemy.exc import DBAPIError
 from typer.testing import CliRunner
 
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
 from corpus_structure.cli.managed import Invocation, ResultStore
 from corpus_structure.cli.output import CliState
 from corpus_structure.schema.model import ModelError
@@ -22,6 +22,8 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import activation_token
 from semantic.archive_faults import administrative_archive_edit
 from semantic.data_operation_kernel_support import STORAGE
+
+app = build_full_app()
 
 
 @pytest.mark.prerequisite("pm2_native_assets")

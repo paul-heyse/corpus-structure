@@ -252,7 +252,8 @@ def test_cli_workers_reach_owned_recipe_and_scope(
     if workers is not None:
         arguments += ["--workers", str(workers)]
     arguments += ["--json"]
-    from corpus_structure.cli.app import app
+    from corpus_structure.cli.app import build_full_app
+    app = build_full_app()
     from corpus_structure.cli.output import CliState
 
     result = cli.runner.invoke(

@@ -3,12 +3,14 @@
 import pytest
 from typer.testing import CliRunner
 
-from corpus_structure.cli.app import app
+from corpus_structure.cli.app import build_full_app
 from corpus_structure.orchestrate.source_request import (
     SourceRunRequest,
     WholeDocument,
     source_selection,
 )
+
+app = build_full_app()
 
 
 @pytest.mark.parametrize("command", ["run", "ingest", "regenerate"])
