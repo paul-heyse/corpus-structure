@@ -11,7 +11,7 @@ from typing import Any, Literal, assert_never
 
 from pglast import ast, enums
 from pglast.stream import RawStream, maybe_double_quote_name
-from sqlalchemy import Table, literal_column
+from sqlalchemy import Column, Table, cast, literal_column, null, select
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.sql import visitors
 from sqlalchemy.sql.elements import BindParameter, ClauseElement, ColumnClause, TextClause
@@ -87,6 +87,19 @@ def _render(expression: Expression) -> str:
     )
 
 
+def column_type(column: Column[Any]) -> ast.TypeName:
+    """Retain a model-selected PostgreSQL cast as a native declaration type."""
+    projection = prepare_sql(
+        _render(select(cast(null(), column.type))), source="native column type"
+    ).statements[0].stmt
+    if not isinstance(projection, ast.SelectStmt) or not projection.targetList:
+        raise ValueError("native output type requires one typed projection")
+    value = projection.targetList[0].val
+    if not isinstance(value, ast.TypeCast) or value.typeName is None:
+        raise ValueError("native output type requires a model-selected cast")
+    return value.typeName
+
+
 def _statement(expression: Expression) -> str:
     sql = _render(expression)
     if len(prepare_sql(sql, source="native program statement").statements) != 1:
@@ -157,11 +170,16 @@ class ForQuery:
 
 
 @dataclass(frozen=True)
+class ReturnQuery:
+    query: Expression
+
+
+@dataclass(frozen=True)
 class Return:
     value: Expression | None = None
 
 
-type Statement = Sql | Assign | Perform | SelectInto | Raise | If | While | ForQuery | Return
+type Statement = Sql | Assign | Perform | SelectInto | Raise | If | While | ForQuery | ReturnQuery | Return
 
 
 @dataclass(frozen=True)
@@ -218,6 +236,8 @@ def _step(statement: Statement, nested: str) -> str:
                 f"FOR {_targets(targets)} IN {_statement(query)} LOOP\n"
                 f"{_statements(body, nested)}\n{nested[:-1]}END LOOP"
             )
+        case ReturnQuery(query):
+            return "RETURN QUERY " + _statement(query)
         case Return(value):
             return "RETURN" if value is None else "RETURN " + _render(value)
     assert_never(statement)

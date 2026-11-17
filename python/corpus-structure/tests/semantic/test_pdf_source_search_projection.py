@@ -58,3 +58,43 @@ def test_native_search_installs_the_exact_captured_renderer_contract():
     sql = search_projection_sql(sources)
     assert "__SEARCH_" not in sql
     assert contract["renderer"] in sql and contract["default_policy_digest"] in sql
+
+
+def test_generated_search_tracks_quoted_physical_fields_and_result_types():
+    from pglast import ast, parse_plpgsql, parse_sql
+    from sqlalchemy import MetaData, String
+
+    from corpus_structure.semantic.metadata import metadata
+
+    target = MetaData()
+    for name in (
+        "sem.input", "ops.pdf_published_revision",
+        "ops.pdf_source_search_population", "ops.pdf_source_search_section",
+    ):
+        metadata.tables[name].to_metadata(target)
+    target.tables["ops.pdf_published_revision"].c.logical_digest.name = 'publication "digest"'
+    section = target.tables["ops.pdf_source_search_section"]
+    section.c.text.name = 'section "text"'
+    section.c.population_id.type = String(80)
+    generated = search_projection_sql(search_projection_sources(target_metadata=target))
+    declarations = []
+    for item in parse_sql(generated):
+        assert isinstance(item.stmt, ast.CreateFunctionStmt)
+        declarations.append(item.stmt)
+    assert len(parse_plpgsql(generated)) == 4
+    keys = next(
+        item for item in declarations
+        if item.funcname and item.funcname[-1].sval == "ddo_pdf_search_keys"
+    )
+    assert keys.parameters is not None
+    population = next(parameter for parameter in keys.parameters if parameter.name == "population_id")
+    assert population.argType is not None
+    assert population.argType.names is not None
+    assert population.argType.names[-1].sval == "varchar"
+    assert population.argType.typmods is not None
+    length = population.argType.typmods[0]
+    assert isinstance(length, ast.A_Const)
+    assert isinstance(length.val, ast.Integer)
+    assert length.val.ival == 80
+    assert '"publication ""digest"""' in generated
+    assert '"section ""text"""' in generated

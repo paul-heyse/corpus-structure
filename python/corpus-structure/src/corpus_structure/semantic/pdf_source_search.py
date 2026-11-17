@@ -26,7 +26,6 @@ PUBLICATION_FILL_BYTES = 128 * 1024 * 1024
 PUBLICATION_FILL_ROWS = 1_000_000
 CONTRACT = "native/pdf-source-search-contract.json"
 _PIN_SQL = "native/pdf-search-pin.sql"
-_SQL = Path(__file__).with_name("sql") / "pdf_source_search.sql"
 _RENDERER_FILES = (
     "ingest/pdf_section_views.py",
     "ingest/pdf_hierarchy.py",
@@ -38,7 +37,11 @@ _RENDERER_FILES = (
 )
 
 
-def search_projection_sources(*, target_metadata=None) -> tuple[SourceArtifact, ...]:
+def search_projection_sources(*, target_metadata=None, pdf_domain=None) -> tuple[SourceArtifact, ...]:
+    from .pdf_domain import CONTRACT as PDF_DOMAIN_CONTRACT
+    from .pdf_domain import PdfDomainContract, pdf_call_bindings, pdf_domain_sources
+    from .pdf_search_native import search_program_sql
+
     root = Path(__file__).resolve().parents[1]
     captured = tuple(
         SourceArtifact("native/search-renderer/" + name, root.joinpath(name).read_bytes())
@@ -57,6 +60,16 @@ def search_projection_sources(*, target_metadata=None) -> tuple[SourceArtifact, 
         from .metadata import metadata
 
         target_metadata = metadata
+    if pdf_domain is None and target_metadata.info.get("physical_sources"):
+        pdf_sources = pdf_domain_sources(
+            physical_sources=target_metadata.info["physical_sources"],
+            linkml_types=target_metadata.info["physical_linkml_types"],
+        )
+        pdf_contract = next(source for source in pdf_sources if source.name == PDF_DOMAIN_CONTRACT)
+        pdf_domain = PdfDomainContract(
+            pdf_contract.content,
+            tuple(source for source in pdf_sources if source.name != PDF_DOMAIN_CONTRACT),
+        )
     return (
         *captured,
         SourceArtifact(
@@ -78,7 +91,17 @@ def search_projection_sources(*, target_metadata=None) -> tuple[SourceArtifact, 
                 default_policy_digest=policy_digest,
             ).encode(),
         ),
-        SourceArtifact("native/pdf-source-search.sql", _SQL.read_bytes()),
+        SourceArtifact(
+            "native/pdf-source-search.sql",
+            search_program_sql(
+                target_metadata,
+                pdf_call_bindings(pdf_domain),
+                max_fill_bytes=PUBLICATION_FILL_BYTES,
+            ).encode(),
+        ),
+        SourceArtifact(
+            "native/pdf-search-native.py", Path(__file__).with_name("pdf_search_native.py").read_bytes()
+        ),
     )
 
 
@@ -121,7 +144,7 @@ def _search_pin_sql(metadata, *, renderer: str, default_policy_digest: str) -> s
     release = selected["cut"]["release_id"].astext
 
     def field(name: str):
-        return core_variable("publication", publication.c[name].type, name)
+        return core_variable("publication", publication.c[name].type, publication.c[name].name)
 
     return (
         function(
@@ -270,13 +293,7 @@ def _running_contract() -> dict:
 
 def search_projection_sql(sources) -> str:
     captured = {source.name: source.content for source in sources}
-    contract = json.loads(captured[CONTRACT])
-    sql = (
-        captured["native/pdf-source-search.sql"]
-        .decode()
-        .replace("__SEARCH_FILL_BYTES__", str(contract["max_fill_bytes"]))
-    )
-    return captured[_PIN_SQL].decode() + "\n" + sql
+    return captured[_PIN_SQL].decode() + "\n" + captured["native/pdf-source-search.sql"].decode()
 
 
 def projection_recipe(connection, source: SelectedPdfSource) -> tuple[dict, bytes | None]:

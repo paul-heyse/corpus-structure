@@ -68,7 +68,7 @@ def capture_native_authoring_inputs(
         native_protocol_sources,
     )
     from .identity import canonical_bytes
-    from .pdf_domain import pdf_domain_sources
+    from .pdf_domain import CONTRACT, PdfDomainContract, pdf_domain_sources
     from .types import SourceArtifact
 
     if target_metadata is None:
@@ -80,11 +80,6 @@ def capture_native_authoring_inputs(
     types = selected.info.get("physical_linkml_types")
     if not physical or not isinstance(types, bytes):
         raise ValueError("native authoring requires captured physical sources and LinkML types")
-    native = native_protocol_sources(
-        physical_sources=physical, linkml_types=types, target_metadata=selected
-    )
-    declarations = native_operation_declarations(native)
-    calls = native_operation_calls(sources=native)
     if pdf_actions is not None and pdf_sources is not None:
         raise ValueError("select PDF action input or an already captured PDF source cohort")
     pdf = (
@@ -94,6 +89,18 @@ def capture_native_authoring_inputs(
         if pdf_sources is None
         else tuple(pdf_sources)
     )
+    contract = next(source for source in pdf if source.name == CONTRACT)
+    domain = PdfDomainContract(
+        contract.content, tuple(source for source in pdf if source.name != CONTRACT)
+    )
+    native = native_protocol_sources(
+        physical_sources=physical,
+        linkml_types=types,
+        target_metadata=selected,
+        pdf_domain=domain,
+    )
+    declarations = native_operation_declarations(native)
+    calls = native_operation_calls(sources=native)
     sources = (
         *native,
         declarations,

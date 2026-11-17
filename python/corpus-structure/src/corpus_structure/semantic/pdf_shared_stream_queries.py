@@ -12,33 +12,16 @@ from sqlalchemy import (
     Text,
     and_,
     any_,
-    cast,
     exists,
     func,
     not_,
-    null,
     or_,
     select,
     union_all,
 )
-from sqlalchemy.dialects.postgresql import dialect
 
-from .native_program import Parameter, core_variable, literal, pg_type, sql_function
+from .native_program import Parameter, column_type, core_variable, literal, pg_type, sql_function
 from .pdf_record_model import artifact_part_upload_table
-
-
-def _column_type(column) -> ast.TypeName:
-    # Let Core compile any model-selected PostgreSQL type, then retain the
-    # parser's TypeName rather than guessing aliases, case, arrays or typmods.
-    projection = parse_sql(str(select(cast(null(), column.type)).compile(dialect=dialect())))[
-        0
-    ].stmt
-    if not isinstance(projection, ast.SelectStmt) or not projection.targetList:
-        raise ValueError("wire output type requires one typed projection")
-    value = projection.targetList[0].val
-    if not isinstance(value, ast.TypeCast) or value.typeName is None:
-        raise ValueError("wire output type requires a model-selected cast")
-    return value.typeName
 
 
 def _query_function(
@@ -75,7 +58,7 @@ def _query_function(
         outputs = tuple(
             ast.FunctionParameter(
                 name=column.name,
-                argType=_column_type(column),
+                argType=column_type(column),
                 mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE,
             )
             for column in returns.columns

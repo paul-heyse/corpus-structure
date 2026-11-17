@@ -40,7 +40,7 @@ _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 
 
 def native_protocol_sources(
-    *, physical_sources=None, linkml_types=None, target_metadata=None
+    *, physical_sources=None, linkml_types=None, target_metadata=None, pdf_domain=None
 ) -> tuple[SourceArtifact, ...]:
     from importlib.metadata import version
 
@@ -387,7 +387,7 @@ def native_protocol_sources(
         ),
         *binding_native_sources(),
         *wire_native_sources(),
-        *search_projection_sources(target_metadata=target_metadata),
+        *search_projection_sources(target_metadata=target_metadata, pdf_domain=pdf_domain),
         *source_native_sources(physical_sources=physical_sources, linkml_types=linkml_types),
     )
 
