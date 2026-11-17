@@ -78,3 +78,88 @@ def test_obsolete_model_encodings_require_target_native_regeneration(version):
         read_effective_data_operations(canonical_bytes(record))
     with pytest.raises(ValueError, match=r"unsupported.*regenerate"):
         _ = replace(model, version=version).content
+
+
+@pytest.fixture
+def typed_archive_record():
+    """Independently specified wire values; no compiler supplies the expected types."""
+    return {
+        "version": MODEL_VERSION,
+        "kinds": [
+            {
+                "semantic_id": "primitive:integer",
+                "name": "integer",
+                "category": "primitive",
+                "facts": {"json": {"type": "integer"}},
+                "origins": [],
+                "complete": True,
+                "unknowns": [],
+            }
+        ],
+        "operations": [],
+        "bindings": [],
+        "nodes": [
+            {"id": "primitive:integer", "category": "kind", "payload": {"json": {"n": 2}}}
+        ],
+        "edges": [
+            {
+                "source": "primitive:integer",
+                "target": "primitive:integer",
+                "relation": "fixture",
+                "role": "",
+                "position": 3,
+                "multiplicity": 1,
+            }
+        ],
+        "implementation_slices": [],
+        "identities": [],
+        "graph_projections": [],
+        "subject_definitions": [],
+    }
+
+
+def test_current_archive_preserves_exact_typed_values_and_canonical_payloads(typed_archive_record):
+    content = canonical_bytes(typed_archive_record)
+    reopened = read_effective_data_operations(content)
+    assert reopened.kinds[0].name == "integer"
+    assert reopened.kinds[0].complete is True
+    assert reopened.kinds[0].facts == b'{"type":"integer"}'
+    assert reopened.nodes[0].payload == b'{"n":2}'
+    assert type(reopened.edges[0].position) is int
+    assert reopened.edges[0].position == 3
+    assert reopened.content == content
+
+
+@pytest.mark.parametrize(
+    ("collection", "field", "value"),
+    [
+        ("kinds", "name", 7),
+        ("kinds", "complete", 1),
+        ("kinds", "complete", "false"),
+        ("kinds", "category", "legacy"),
+        ("kinds", "origins", "origin"),
+        ("kinds", "facts", {"json": {}, "bytes": "00"}),
+        ("edges", "position", "3"),
+        ("edges", "position", True),
+        ("edges", "position", 3.0),
+        ("edges", "multiplicity", "1"),
+        ("edges", "multiplicity", False),
+    ],
+)
+def test_current_archive_refuses_primitive_coercion_and_malformed_nested_values(
+    typed_archive_record, collection, field, value
+):
+    typed_archive_record[collection][0][field] = value
+    with pytest.raises((TypeError, ValueError)):
+        read_effective_data_operations(canonical_bytes(typed_archive_record))
+
+
+@pytest.mark.parametrize("mutation", ["extra", "missing"])
+def test_current_archive_refuses_incomplete_or_expanded_kind_records(typed_archive_record, mutation):
+    kind = typed_archive_record["kinds"][0]
+    if mutation == "extra":
+        kind["legacy_name"] = "integer"
+    else:
+        del kind["name"]
+    with pytest.raises(ValueError, match="archived EffectiveKind"):
+        read_effective_data_operations(canonical_bytes(typed_archive_record))

@@ -1210,15 +1210,50 @@ def _read_effective_data_operations_cached(content: bytes) -> EffectiveDataOpera
 
 def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationModel:
     """Read the supported target-native model; old encodings require regeneration."""
-    from dataclasses import fields, is_dataclass
-
-    from cattrs import Converter
-    from cattrs.gen import make_dict_structure_fn
-
     record = json.loads(content)
     if not isinstance(record, dict) or record.get("version") != MODEL_VERSION:
         raise ValueError("unsupported data-operation model version; regenerate target-native data")
+    return _effective_model_structure()(record, EffectiveDataOperationModel)
+
+
+@lru_cache(maxsize=1)
+def _effective_model_structure():
+    """Prepare one private strict conversion protocol for the current archive format."""
+    from dataclasses import fields, is_dataclass
+    from typing import get_origin
+
+    from cattrs import Converter
+    from cattrs.cols import homogenous_tuple_structure_factory
+    from cattrs.gen import make_dict_structure_fn
+
     converter = Converter(forbid_extra_keys=True, detailed_validation=False)
+
+    def exact_primitive(value, expected):
+        if type(value) is not expected:
+            raise TypeError("expected " + expected.__name__)
+        return value
+
+    # Generated record hooks capture their subordinate hooks. Configure the
+    # complete primitive and collection policy before generating any record.
+    for primitive in (str, int, bool, float):
+        converter.register_structure_hook(primitive, exact_primitive)
+
+    def tuple_hook(target):
+        args = get_args(target)
+        nested = (
+            homogenous_tuple_structure_factory(target, converter)
+            if args and args[-1] is Ellipsis
+            else converter.gen_structure_hetero_tuple(target)
+        )
+
+        def structure(value, expected=target):
+            if type(value) is not list:
+                raise TypeError("expected archived array")
+            return nested(value, expected)
+
+        return structure
+
+    converter.register_structure_hook_factory(lambda t: get_origin(t) is tuple, tuple_hook)
 
     def structure_bytes(value, _):
         if not isinstance(value, dict) or set(value) != {"json"}:
@@ -1252,4 +1287,4 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
 
     converter.register_structure_hook(bytes, structure_bytes)
     converter.register_structure_hook_factory(is_dataclass, structure_record)
-    return converter.structure(record, EffectiveDataOperationModel)
+    return converter.get_structure_hook(EffectiveDataOperationModel)
