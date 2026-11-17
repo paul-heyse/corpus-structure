@@ -275,8 +275,10 @@ def query_request(kernel, retained_request, original, primary, *, recipe, member
     )
 
 
-def assert_query_fulfilled(result, operation):
+def assert_operation_fulfilled(kernel, result, operation, *, allow_reuse=False):
     # DemandAdvance.snapshot is the native WireReadDemandResultResult frontier.
+    # Receipt count describes this invocation; an authenticated fulfilled use may
+    # select an older producing episode, whose products/CPU receipt we check next.
     frontier = json_loads(result.snapshot)
     obligations = {
         row["obligation_id"]: row
@@ -284,22 +286,42 @@ def assert_query_fulfilled(result, operation):
         if row["operation_id"] == operation
     }
     uses = [row for row in frontier["uses"] if row["obligation_id"] in obligations]
+    roles = tuple(
+        role.name for role in kernel.model.operation(operation).roles if role.direction == "input"
+    )
     diagnostic = {
+        "operation": operation,
         "receipts": result.receipt_count,
+        "allow_reuse": allow_reuse,
         "obligations": [(row["operation_id"], row["fate"]) for row in obligations.values()],
         "uses": [
             {
                 "fate": row["fate"],
                 "completion_state": row["completion_state"],
+                "derivation_id": row["derivation_id"],
+                "role_input_counts": {
+                    role: sum(value["role"] == role for value in row["selection"].get("inputs", []))
+                    for role in roles
+                },
+                "reason_count": len(row["selection"].get("reasons", [])),
                 "reasons": [
                     {key: str(reason[key])[:512] for key in ("code", "location", "detail")}
                     for reason in row["selection"].get("reasons", [])[:8]
+                ],
+                "products": [
+                    {key: value[key] for key in ("role", "product_id", "member_id", "kind_contract")}
+                    for value in row["products"][:8]
                 ],
             }
             for row in uses[:8]
         ],
     }
-    if result.receipt_count < 1 or len(uses) != 1 or uses[0]["fate"] != "fulfilled":
+    receipts_valid = result.receipt_count in (0, 1) if allow_reuse else result.receipt_count >= 1
+    if (
+        not receipts_valid or len(uses) != 1 or uses[0]["fate"] != "fulfilled"
+        or uses[0]["completion_state"] != "success"
+        or not uses[0]["products"]
+    ):
         raise AssertionError(json.dumps(diagnostic, sort_keys=True))
 
 
@@ -324,7 +346,7 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
             inference=inference,
         ),
     )
-    assert result.receipt_count == 1
+    assert_operation_fulfilled(kernel, result, OPERATION, allow_reuse=True)
     (primary,) = selected(
         kernel, finite["demand_id"], kind="urn:corpus:test:selected-context/SelectedContextPrimary"
     )
@@ -343,7 +365,7 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
         kernel,
         query_request(kernel, retained_request, original, primary, recipe=recipe, member=member),
     )
-    assert_query_fulfilled(result, query_operation)
+    assert_operation_fulfilled(kernel, result, query_operation)
     query_demand = retained["demand_id"]
     (query,) = retained_products(kernel, query_demand, "DdoContextualQuery")
     (query_vector,) = retained_products(kernel, query_demand, "DdoContextualQueryVector")
