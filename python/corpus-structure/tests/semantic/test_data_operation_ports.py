@@ -1405,9 +1405,7 @@ def test_selected_population_uses_acquired_outer_container_without_changing_pyth
     tmp_path, monkeypatch, annotation, expected_type, collection, presence, population
 ):
     metadata = controlled_port_declaration()
-    metadata["roles"][0].update(
-        collection=collection, minimum=0, maximum=None, presence=presence
-    )
+    metadata["roles"][0].update(collection=collection, minimum=0, maximum=None, presence=presence)
     model, sources = fixture_source(
         tmp_path,
         monkeypatch,
@@ -1418,9 +1416,7 @@ def test_selected_population_uses_acquired_outer_container_without_changing_pyth
         model, sources, model.operations[0].semantic_id, authorize=lambda _: None
     )
     hydrated = HydratedRoleValue("index", kind(model, "index"), population)
-    arguments = port._arguments(
-        (hydrated,), route="python", binding=None, signature=port.signature
-    )
+    arguments = port._arguments((hydrated,), route="python", binding=None, signature=port.signature)
     assert type(arguments.arguments["index"]).__name__ == expected_type
     assert port.invoke_python((hydrated,)).outcome == "addressed"
     assert hydrated.value == population
@@ -1434,9 +1430,7 @@ def test_selected_population_uses_acquired_outer_container_without_changing_pyth
 def test_selected_population_rejects_lossy_set_assembly(tmp_path, monkeypatch):
     metadata = controlled_port_declaration()
     metadata["roles"][0].update(collection="bag", minimum=1, maximum=None)
-    model, sources = fixture_source(
-        tmp_path, monkeypatch, "index: set[int]", metadata=metadata
-    )
+    model, sources = fixture_source(tmp_path, monkeypatch, "index: set[int]", metadata=metadata)
     port = resolve_python_port(
         model, sources, model.operations[0].semantic_id, authorize=lambda _: None
     )
@@ -1469,7 +1463,6 @@ def test_selected_container_preparation_preserves_abstract_tuple_and_decimal_mem
     assert checked[0].as_tuple() == original.as_tuple()
 
 
-
 def test_native_sequence_cannot_use_unordered_annotation_or_postvalidation_collapse():
     from typing import Annotated
 
@@ -1478,9 +1471,7 @@ def test_native_sequence_cannot_use_unordered_annotation_or_postvalidation_colla
     from corpus_structure.semantic.data_operation_ports import _validated_hydrated_collection
 
     with pytest.raises(PortRefusal, match="requires an ordered callable container"):
-        _validated_hydrated_collection(
-            set[int], (2, 1), set, collection="sequence", role="ordered"
-        )
+        _validated_hydrated_collection(set[int], (2, 1), set, collection="sequence", role="ordered")
     annotation = set[Annotated[str, AfterValidator(str.lower)]]
     with pytest.raises(PortRefusal, match="loses admitted multiplicity"):
         _validated_hydrated_collection(
@@ -1496,13 +1487,10 @@ def test_native_sequence_cannot_use_unordered_annotation_or_postvalidation_colla
         )
 
 
-
 def test_sequence_with_unordered_callable_container_refuses_at_acquisition(tmp_path, monkeypatch):
     metadata = controlled_port_declaration()
     metadata["roles"][0].update(collection="sequence", minimum=1, maximum=None)
-    model, sources = fixture_source(
-        tmp_path, monkeypatch, "index: set[int]", metadata=metadata
-    )
+    model, sources = fixture_source(tmp_path, monkeypatch, "index: set[int]", metadata=metadata)
     with pytest.raises(PortRefusal, match="requires an ordered callable container"):
         resolve_python_port(
             model, sources, model.operations[0].semantic_id, authorize=lambda _: None

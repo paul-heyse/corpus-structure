@@ -285,7 +285,8 @@ BEGIN
  -- make forward references, self references and cycles impossible without a path table.
  FOR input,idx IN SELECT value::jsonb,n-1 FROM json_array_elements(input_rows) WITH ORDINALITY i(value,n) LOOP
   -- {inputs_shape_guard}
-  SELECT * INTO STRICT pin FROM ops.pdf_product WHERE task_id=(input->>'task_id')::bigint AND product_key=input->>'product_key' AND content_digest=input->>'content_digest';
+  SELECT * INTO pin FROM ops.pdf_product WHERE task_id=(input->>'task_id')::bigint AND product_key=input->>'product_key' AND content_digest=input->>'content_digest';
+  IF NOT FOUND THEN RAISE EXCEPTION 'PDF input pin has no exact admitted product' USING ERRCODE='23514'; END IF;
   IF pin.task_id=p_task AND pin.product_key=product->>'product_key' THEN RAISE EXCEPTION 'self PDF input' USING ERRCODE='23514'; END IF;
   IF pin.artifact_digest<>original OR NOT EXISTS(SELECT FROM ops.pdf_task_context(pin.task_id) input_context WHERE input_context.project_id=context.project_id AND input_context.source_digest=original) THEN RAISE EXCEPTION 'PDF input outside original/project custody' USING ERRCODE='23514'; END IF;
   IF (input->>'role'='recognition' AND pin.kind<>'recognition_observation') OR (input->>'role'='structural' AND pin.kind NOT IN ('native','integrated')) THEN RAISE EXCEPTION 'PDF input role/kind differs' USING ERRCODE='23514'; END IF;

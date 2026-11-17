@@ -469,6 +469,62 @@ are archived/admitted/verified on the stage. Separate `ci db check --release …
 repaired PDF producer is not qualified by that older application capture. Development remains
 unchanged; current application acquisition at adoption remains required.
 
+## Consumer repair packet awaiting native capture · 2026-11-16
+
+The [selected-source/refusal request](selected-source-refusals-successor.yaml) is prepared for the
+normal successor of `semantic_ddo_support_reference`; it has not been previewed, registered or
+deployed yet. Selected-source composition now supplies its acquired physical product key to the
+shared native event CTE instead of reusing the semantic product argument. The ordinary complete
+export constructor remains unchanged. Missing user input pins explicitly raise23514; uniqueness
+preserves at-most-one selection and trusted STRICT/attempt/holder checks remain unchanged.
+These native changes require capture; no frozen bytes were edited.
+
+Application/source repairs also validate all record premise endpoints before NetworkX construction
+and add bounded count/equality diagnostics to the still-unresolved event-frame guard. Independent
+source review found no remaining concrete defect in those bounded repairs. Correctly reidentified
+premise counterexamples failed2 `43cfe9ec45dd434ca8602108939e392c`; the earlier new fixture attempt
+`4c04b266a3ee45299ff808c73bab88b1` hit stale interpretation identity and is not endpoint evidence.
+Record/rich-reading/PDF profile47 **passed** `2ab4971774ee4312b39aeedf5492ac11`; initial
+`2134648b7e8a4c5e99a318723a16bb3f` failed collection on an obsolete filename. PDF fixed-call
+generation through its existing module emitted unchanged bytes. Current kernel/application capture
+and actual native qualification remain required, with **DDO-SI-07–12** owned by the coordinator.
+
+The independent current container repair `4d23c515f` uses authenticated acquired callable annotations
+for native hydrated populations, preserving strict direct Python values, absent/empty distinction,
+finite/order/member validation and multiplicity. Pure100 **passed**
+`7184a200d85e4796a7e6cf2254bff370`; review corrected unordered sequence assembly and post-validation
+collapse before acceptance. Existing hydration already expands/charges bag multiplicity; no duplicate
+expansion was added. Detached verification `7b176aeb9` / `baddf82e3` uses actual immutable episodes,
+checks each selected page's target eligibility and keeps pending execution custody unknown; pure28
+**passed** `af2f260525c94609861c46fce4cb4c6a`. Native endpoints remain open.
+
+Actual consumer4 `ea79102385c141d5a0dd05887b82bcd1` **failed**,1passed/3failed, complete
+reporting/native/custody. PDF numeric observation1 passed; restricted actual principal negative
+reached a valid earlier EXECUTE ACL refusal42501; event-frame setup refused exact population;
+artifact cross-work later refused loaded query-helper source custody after concurrent edits.
+Test-only exact42501 checks are committed `21fb22144`, collection1
+`740e53eac7c84a178fee77b15570e142` (execution not_run), preserving all calls/positive assertions.
+
+Native/public48 `1bce5dabff9547b3ac0b4b554bf993c8` was deliberately **interrupted** after source
+changes:48selected,16passed/17failed/13not_run/2incomplete. The exact owned supervisor identity was
+checked before SIGINT; normal exit130, custody settled, cleanup established, all acquired groups
+absent and private host temporary removed. No force or watchdog change. Actual failures identified
+export6, source-root1, strict container8, semantic-tamper1 and private large-diagnostic page-cap1.
+Test-only `bef63c730` gives that controlled2MiB payload one obligation per private page and an
+explicit finite16MiB envelope; production guards/defaults and public64KiB assertions stay intact.
+Collection1 **passed** `409a557980d2433bbe5432fa36d93551` (execution not_run). Original failed,
+interrupted and partial records remain held; a fresh process/source/capture is required.
+
+Actual providers-only host1 `85e074e2fa604709b98bc445aaaa441a` and17-question refusal1
+`f8111ead97be49c2b4e0144b24727165` **passed**, with actual assets and serial GPU custody. They
+establish bounded six-provider integration/profile and actual refusal behavior, not model accuracy,
+remaining8 native provider identities, current database adoption or whole-document execution.
+
+Current coherent packet whole typing **passed** `d3190f8a675945ac948ccc54dbb23b94`, lint
+**passed** `fa05b47ed63c430ca6e06ad3f56a2828`, docs publication **passed**1300pages
+`d628ced1ad8e498d8af6bc916122879f`. Root maintenance made only formatting/import-order changes
+in the accepted collection source/tests. These diagnostics do not establish native/provider passage.
+
 ## Acceptance still required
 
 - Preserve exact registered root custody and qualify any required native successor discovered by

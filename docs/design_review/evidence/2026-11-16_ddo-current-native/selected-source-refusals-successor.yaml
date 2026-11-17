@@ -1,0 +1,4 @@
+# Selected semantic pins acquire the actual physical publication; malformed input pins refuse explicitly.
+baseline: HEAD
+native_revision: semantic_ddo_selected_source
+native_predecessor: semantic_ddo_support_reference

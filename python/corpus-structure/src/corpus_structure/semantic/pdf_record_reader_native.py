@@ -338,7 +338,11 @@ def pdf_companion_export_sql() -> str:
 
 
 def pdf_native_event_ctes(
-    *, roots_sql: str, additional_ctes: str = "", node_filter_sql: str | None = None
+    *,
+    roots_sql: str,
+    published_sql: str,
+    additional_ctes: str = "",
+    node_filter_sql: str | None = None,
 ) -> str:
     """Reuse the native event algebra with trusted operation-owned record roots.
 
@@ -347,6 +351,10 @@ def pdf_native_event_ctes(
     ordered event query rather than invoking a native serializer for each selected item.
     """
     source = pdf_native_export_sql().split("AS $events$\n", 1)[1].split("$events$;", 1)[0]
+    published = "SELECT * FROM ops.read_pdf_published_revision(p_task,p_product,p_digest)"
+    if source.count(published) != 1:
+        raise ValueError("native event publication authoring seam changed")
+    source = source.replace(published, published_sql)
     roots = (
         "SELECT h.root_id,ARRAY[]::bigint[] FROM ops.pdf_record_document h JOIN published p\n"
         " ON h.product_id=p.build_id AND h.revision_id=p.build_id"

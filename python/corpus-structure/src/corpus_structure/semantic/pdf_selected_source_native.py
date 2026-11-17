@@ -10,6 +10,7 @@ from .pdf_record_reader_native import pdf_companion_event_ctes, pdf_native_event
 
 def selected_source_reader_sql() -> str:
     ctes = pdf_native_event_ctes(
+        published_sql="SELECT * FROM ops.read_pdf_published_revision(p_task,p_native_product,p_digest)",
         roots_sql="""SELECT n.record_id,ARRAY[a.ordinal]::bigint[]
  FROM selected a JOIN nodes n ON n.native_address=a.pointer""",
         additional_ctes="""access AS MATERIALIZED (

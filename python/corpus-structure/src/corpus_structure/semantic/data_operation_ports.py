@@ -193,7 +193,9 @@ def _validated_hydrated_collection(annotation, population, container, *, collect
     try:
         count = len(checked)
     except TypeError as error:
-        raise PortRefusal("native collection validation is not an eager finite population: " + role) from error
+        raise PortRefusal(
+            "native collection validation is not an eager finite population: " + role
+        ) from error
     if collection == "sequence" and not isinstance(checked, Sequence):
         raise PortRefusal("native sequence validation lost its ordered container: " + role)
     if count != len(population):
@@ -462,9 +464,7 @@ class ResolvedPythonPort:
         for role in self.operation.roles:
             if role.direction != "input" or role.collection == "scalar" or role.parameter is None:
                 continue
-            container = _hydrated_container(
-                _input_annotation(signature.parameters[role.parameter])
-            )
+            container = _hydrated_container(_input_annotation(signature.parameters[role.parameter]))
             if role.collection == "sequence" and container in (set, frozenset):
                 raise PortRefusal(
                     "native sequence requires an ordered callable container: " + role.name

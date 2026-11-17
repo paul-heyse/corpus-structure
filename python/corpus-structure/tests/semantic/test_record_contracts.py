@@ -534,3 +534,12 @@ def test_unsupported_family_contract_refuses_preparation(change, match):
         sources.append(source)
     with pytest.raises(PreparationError, match=match):
         prepare_release(SourceBundle(bundle.root, tuple(sources)), profile=profile)
+
+
+@pytest.mark.parametrize("premise", ["missing-role", "family"])
+def test_literal_field_premises_cannot_create_undeclared_record_roles(premise):
+    record, contexts = table_record()
+    record["fields"][4]["premises"] = (premise,)
+    finish(record)
+    with pytest.raises(ValueError, match="released record roles"):
+        bind(record, contexts)

@@ -302,14 +302,20 @@ class EventFramePlan:
             (row.selection.source.source_product, row.selection.source.source_member)
             for row in question.judgments
         }
+        actual_reports = {row.product for row in reports}
+        actual_sources = {(row.product, row.member) for row in sources}
         if (
-            {row.product for row in reports} != expected_reports
+            actual_reports != expected_reports
             or len(reports) != len(expected_reports)
-            or {(row.product, row.member) for row in sources} != expected_sources
+            or actual_sources != expected_sources
             or len(sources) != len(expected_sources)
         ):
             raise SemanticRefusal(
-                "event frame bound population differs from its exact output-first question"
+                "event frame bound population differs from its exact output-first question "
+                f"(reports: selected={len(reports)}, distinct={len(actual_reports)}, "
+                f"expected={len(expected_reports)}, values_match={actual_reports == expected_reports}; "
+                f"sources: selected={len(sources)}, distinct={len(actual_sources)}, "
+                f"expected={len(expected_sources)}, values_match={actual_sources == expected_sources})"
             )
         with execution_owner.engine.begin() as connection:
             original_prepared = open_release(connection, question.original_selection.release_id)

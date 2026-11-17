@@ -263,6 +263,12 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-04 | Interpreted occurrences can remain inside native pieces while escaping narrowed selected scope. Reuse source selector containment already required by formal products, including pointer/page meaning. | **Closed at Python validator boundary**, `decbeeb89`, shared pointer/page/range containment with formal/construction positives and escaped-scope negatives; independent source recheck. Native qualification remains required. |
 | DDO-SI-05 | Authentic original/authored support is rejected because correlated admission queries resolve unqualified `reference` to the admission table column. Qualify the selected support value in its helper and attachment guard. | **Bounded original/support qualification passed** in45/46 controls at `40b104a88`; current authored grade/event and full native qualification remain open. Source `c697eae0f`, normal successor registered/deployed, no relaxed support checks. |
 | DDO-SI-06 | Recognition retention compares raw immutable request JSON with an iterator row enriched with receipt metadata, rejecting genuine requests. Check immutable bytes before enrichment, preserving derived provenance and final inventory checks. | **Source repaired; native retry open.** Raw-byte/inventory2 and full scripted-recognition14 controls passed; independent source review supports repair. Native kernel digest unchanged; current PDF application capture must be reacquired. |
+| DDO-SI-07 | Selected-source event composition reuses a physical publication lookup with the semantic product argument, yielding an empty native selection after the semantic pin was authenticated. Bind the event constructor explicitly to the acquired physical publication. | **Source repaired, native capture/retry open**, independently reviewed after actual selected-source export/offline failure. Preserve exact selected pin, section, ancestry, membership and access guards; normal successor required. |
+| DDO-SI-08 | Detached export verification reads mutable request release metadata intentionally omitted from native closure. Authenticate producing episodes and target eligibility using their actual separate owners. | **Closed at Python boundary**, `7b176aeb9` / `baddf82e3`, pure28 passed `af2f260525c94609861c46fce4cb4c6a`, independent review. Settled original episodes and genuinely pending uses remain distinct; affected native6 remains open. |
+| DDO-SI-09 | Native hydration supplies tuple populations to strict callables declaring list containers, blocking current rich admission. Assemble the admitted outer collection type at selected-value ingress while preserving strict direct Python ingress and member validation. | **Closed at Python boundary**, `4d23c515f`, pure100 passed `7184a200d85e4796a7e6cf2254bff370`, independent review. Acquired finite container assembly preserves order/multiplicity/strict members and refuses lazy/lossy outputs. Actual rich native retry remains open. |
+| DDO-SI-10 | Record premise graph construction silently creates undeclared role nodes for literal fields. Validate every premise endpoint against the record's actual released field population before graph construction. | **Source repaired, pure qualification passed.** Correctly reidentified counterexamples `43cfe9ec45dd434ca8602108939e392c` failed2 with DID NOT RAISE; shared endpoint validation now passes in47 `2ab4971774ee4312b39aeedf5492ac11`, independently reviewed. Actual rich semantic-tamper retry remains open. Initial new fixtures `4c04b266a3ee45299ff808c73bab88b1` hit stale identity, not the intended guard; retained with that limit. |
+| DDO-SI-11 | A malformed physical PDF input pin leaks internal no-data SQLSTATE instead of the declared constraint refusal. Keep the native pin check, with an explicit missing-pin constraint error. | **Source repaired, native capture/retry open** after PDF exact retry `41fc3c9fba8f4072b5c3c9db04040946`. The raw-request guard now clears; expected holder/attempt fences remain unchanged. |
+| DDO-SI-12 | Actual event-fit frame preparation rejects its bound population against the exact output-first question. Determine missing/extra/duplicate report/source membership without weakening exact input authority. | **Open investigation**, actual event journey setup in `ea79102385c141d5a0dd05887b82bcd1`. Bounded counts/equality diagnostics preserve the exact guard without protected labels/IDs; actual mismatch remains undetermined. Fitter/issuer/scorer execution is not established by the refusal. |
 
 Cross-release request execution (`c0e1b6f4d`, `f5ac9e2a3`, `726a411bc`) uses authenticated attach
 metadata and the exact original generation release/runtime/binding before capacity reservation.
@@ -326,7 +332,48 @@ and source-native runtime `runtime:aea6ed7668ea70c3df2084cff8d8abb78fa9917a055fb
 were archived/admitted/verified; separate `ci db check` and `ci release check` passed. This proves
 that normal application admission boundary at that source, not repaired PDF producer execution;
 no activation or development adoption occurred. Current provider collection10
-`bb568d6e18e14e66b4c16223f95e44f6` passed collection only; actual required providers remain open. Next settle actual native/security/failed consumer journeys,
+`bb568d6e18e14e66b4c16223f95e44f6` passed collection. Actual six-provider host/profile1
+`85e074e2fa604709b98bc445aaaa441a` and provider17-question refusal1
+`f8111ead97be49c2b4e0144b24727165` **passed** in providers-only mode with actual assets;
+remaining8 native provider identities stay open. These establish bounded integration/profile
+and actual refusal behavior, not model accuracy or whole-document coverage.
+
+Consumer4 `ea79102385c141d5a0dd05887b82bcd1` settled **failed**,1passed/3failed, complete
+reporting/native/custody. PDF numeric observation meaning passed. Grade fit reaches its negative
+actual evaluator/privileged-SET-ROLE checks, where EXECUTE ACL denial42501 precedes the expected
+custom error message; test-only `21fb22144` now requires exact42501, preserves the calls and all
+positive fitting/publication checks, and collected1 `740e53eac7c84a178fee77b15570e142` (execution
+not_run). Event setup remains **DDO-SI-12**. Artifact cross-work reaches source-custody refusal after
+concurrent helper changes; preserve the original clean40b104a88 invocation and retry in a new
+process at frozen source. No numerical/identity passage follows from a source-custody refusal.
+Native/public48 `1bce5dabff9547b3ac0b4b554bf993c8` deliberately **interrupted** after source changes
+invalidate loaded helper custody:48selected,16passed/17failed/13not_run/2incomplete. Its exact owned
+supervisor identity was verified before normal SIGINT; exit130, custody settled, cleanup established,
+all acquired child groups absent and private host temporary removed. No force or watchdog increase.
+Failures comprise export6, selected-root1, strict collection8, semantic-tamper1 and large-diagnostic
+page-cap1. These remain a required qualification account, not a passing union.
+
+Large diagnostics failed in the test helper's bulk private acquisition before its intended public
+64KiB assertion. Test-only `bef63c730` keeps the complete controlled2MiB diagnostic, production byte
+guards/defaults and all public assertions unchanged; that case explicitly selects one obligation per
+private page with a finite16MiB envelope bound. Collection1 `409a557980d2433bbe5432fa36d93551`
+passed (execution not_run). Other helper callers retain100/8MiB defaults.
+
+The coherent source packet now integrates **DDO-SI-07–11**: qualified physical publication CTE input,
+explicit missing-input-pin23514, declared premise endpoint validation, current immutable export
+verification and strict native container assembly. Two independent source assessments found no
+remaining bounded defect. Existing whole export generation, physical shapes, trusted STRICT
+lookups, owner/holder fences and direct Python type strictness remain intact. Provider/export/type
+library mechanisms are reused; no compatibility adapter or alternate executor is introduced.
+Pure47 `2ab4971774ee4312b39aeedf5492ac11` passed across record contracts, rich reading admission
+and PDF profile operation controls. Earlier `2134648b7e8a4c5e99a318723a16bb3f` failed collection
+because an obsolete test filename was selected, not a product failure. PDF fixed-call generation
+was run through its existing generator and emitted unchanged bytes. After root maintenance, whole typing **passed** `d3190f8a675945ac948ccc54dbb23b94`, lint
+**passed** `fa05b47ed63c430ca6e06ad3f56a2828`, and docs publication **passed**1300pages
+`d628ced1ad8e498d8af6bc916122879f`. Final maintenance made only formatting/import-order changes
+in the already reviewed collection package. This packet requires a normal
+native successor before fresh native/provider execution; **DDO-SI-12** remains an investigation.
+Current missing source/semantic/collection repairs retain **DDO-SI-07–12** ownership above. Next settle actual native/security/failed consumer journeys,
 qualify actual providers and selected CLI/MCP/export reads, recover/fence and adopt the current
 development target, execute the retained whole-document demand with interruption/resume, then
 establish the final-source functional/provider/fault/nonfunctional union. Already implemented coverage, graph, neighborhood, source-migration and rich consumer

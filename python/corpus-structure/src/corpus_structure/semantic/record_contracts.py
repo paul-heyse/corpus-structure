@@ -328,6 +328,12 @@ def bind_record_candidates(
                 raise ValueError("invalid evidence set anchor membership")
             if evidence["role"] not in fields or evidence_set_identity(evidence) != identity:
                 raise ValueError("evidence set differs from released role or content")
+        if any(
+            premise not in fields
+            for field in fields.values()
+            for premise in field.get("premises", ())
+        ):
+            raise ValueError("record field premise is outside released record roles")
         graph = nx.DiGraph(backend="networkx")
         graph.add_nodes_from(fields)
         graph.add_edges_from(

@@ -56,9 +56,9 @@ from corpus_structure.semantic.data_operation_demands import DemandPlanner, Read
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.data_operation_ports import (
+    HydratedRoleValue,
     PortRefusal,
     PythonBatchMember,
-    HydratedRoleValue,
     resolve_python_port,
 )
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
