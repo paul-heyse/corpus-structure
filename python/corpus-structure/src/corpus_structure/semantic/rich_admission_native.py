@@ -126,6 +126,18 @@ REVOKE ALL ON FUNCTION ops.ddo_rich_role_population(jsonb,text),ops.ddo_rich_sel
 
 def _rich_completion_sql() -> str:
     return r"""
+CREATE OR REPLACE FUNCTION ops.ddo_rich_command_eligible(definition sem.data_operation_definition)
+RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $rich$
+ SELECT definition.operation_id='rich.admit' AND definition.profile='command'
+ AND definition.support_contract->'capabilities'->>'preparation'='native-publication'
+ AND definition.support_contract->'capabilities'->'forms'='["scalar"]'::jsonb
+ AND definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint'='corpus_structure.methods.rich_knowledge.RichKnowledgeAdmission.acquire_port'
+ AND definition.support_contract->'effects'='[{"name":"native-rich-knowledge-admission","authorization":["exact-rich-consolidation-and-record-policy"],"idempotency":"request-generation/exact-input-population","fulfillment":"native-publication-receipt"}]'::jsonb
+ AND definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$'
+ AND definition.implementation_revision LIKE 'implementation-slice:%'
+$rich$;
+REVOKE ALL ON FUNCTION ops.ddo_rich_command_eligible(sem.data_operation_definition) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.ddo_rich_require_preparation_producer(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
 DECLARE definition sem.data_operation_definition; output jsonb; factory text; output_role text; output_kind text;
@@ -213,12 +225,7 @@ RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog
 DECLARE definition sem.data_operation_definition; output jsonb;
 BEGIN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF definition.profile IS DISTINCT FROM 'command'
- OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM 'corpus_structure.methods.rich_knowledge.RichKnowledgeAdmission.acquire_port'
- OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
- OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
- OR jsonb_array_length(coalesce(definition.support_contract->'effects','[]'))<>1
- OR definition.support_contract->'effects'->0->>'name' IS DISTINCT FROM 'native-rich-knowledge-admission'
+ IF NOT coalesce(ops.ddo_rich_command_eligible(definition),false)
  OR completion->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
  OR r.recipe IS DISTINCT FROM definition.recipe OR r.original_source IS NOT NULL
  OR completion->'inputs' IS DISTINCT FROM r.binding->'inputs'
