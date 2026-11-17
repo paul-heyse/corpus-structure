@@ -13,13 +13,13 @@ from corpus_structure.semantic.identity_exclusion_comparison import (
     constraint_snapshot,
 )
 from corpus_structure.semantic.refusals import InvalidContinuation
-from corpus_structure.semantic.rich_queries import RichQueryRefused, rows_after
+from corpus_structure.semantic.rich_queries import RichQueryRefused
 
 from .contribution_facets import ContributionFacetsRequest
 from .rich_queries import decode_rich_cursor, installed_read_implementation
 from .selected_contributions import RICH_NAMESPACE, selected_contribution_scope
 
-VERSION = "selected-identity-exclusion-comparison-1"
+VERSION = "selected-identity-exclusion-comparison-2"
 
 
 class ConstraintRootPin(BaseModel):
@@ -121,7 +121,7 @@ def _compare(connection, request, implementation):
     digest = sha256(json_bytes(semantic_value(request.selection()))).hexdigest()
     cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
     if cursor is not None and (
-        set(cursor) != {"version", "implementation", "selection", "position"}
+        set(cursor) != {"version", "implementation", "selection", "ordinal"}
         or cursor["version"] != VERSION
         or cursor["implementation"] != implementation
         or cursor["selection"] != digest
@@ -130,65 +130,55 @@ def _compare(connection, request, implementation):
             "constraint comparison cursor differs from its actual roots or meaning",
             reason="invalid_continuation",
         )
+    from corpus_structure.semantic.demand_results import recheck_selected_frontier
+    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE, bounded_rows, byte_bounded_page, uncached_rows_from
+
+    cuts, stamps = [], []
+    for pin in (request.before, request.after):
+        cut, _, stamp = recheck_selected_frontier(connection, pin.demand_id, project_id=pin.project_id,
+            scope={"product_ids": [pin.product_id]}, read_id=pin.read_id, expected_cut=pin.cut_id,
+            max_bytes=request.max_graph_bytes, max_records=request.max_graph_records)
+        cuts.append(cut)
+        stamps.append(stamp)
+    key = json_bytes(["exclusions", implementation, digest, stamps])
+    entry, remaining = SELECTED_QUERY_CACHE.get(key), None
     with ExitStack() as stack:
-        before, left = _selected_snapshot(connection, request.before, request, stack)
-        after, right = _selected_snapshot(connection, request.after, request, stack)
-        values = []
-        last = None
-        more = False
-        size = 0
+        if entry is None:
+            before, left = _selected_snapshot(connection, request.before, request, stack)
+            after, right = _selected_snapshot(connection, request.after, request, stack)
+            metadata = dict(before={key: value for key, value in before.items() if key not in {"pin", "cut"}},
+                            after={key: value for key, value in after.items() if key not in {"pin", "cut"}})
+            source = (row.value for row in compare_constraint_snapshots(left, right,
+                include_unchanged=request.include_unchanged, max_entries=request.max_declarations))
+            entry, remaining = bounded_rows(source, metadata)
+            if entry is not None:
+                SELECTED_QUERY_CACHE.put(key, entry)
+        metadata = entry.record() if entry is not None else metadata
+        before = dict(metadata["before"], pin=request.before.model_dump(mode="python"), cut=cuts[0].record)
+        after = dict(metadata["after"], pin=request.after.model_dump(mode="python"), cut=cuts[1].record)
+        offset = 0 if cursor is None else cursor["ordinal"]
+        if type(offset) is not int or offset < 0:
+            raise InvalidContinuation("invalid constraint comparison ordinal", reason="invalid_continuation")
+        rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
-        def report(position=None, *, items=None):
-            token = (
-                None
-                if position is None
-                else _cursor(
-                    dict(
-                        version=VERSION,
-                        implementation=implementation,
-                        selection=digest,
-                        position=position,
-                    )
-                )
-            )
+        def report(end, values, more):
+            token = None if not more else _cursor(dict(version=VERSION, implementation=implementation,
+                                                       selection=digest, ordinal=end))
             pinned = request.model_copy(update={"implementation": implementation})
-            return dict(
-                version=VERSION,
-                implementation=implementation,
-                before=before,
-                after=after,
-                changes=values if items is None else items,
-                cursor=token,
-                resource_handle=_cursor(pinned.model_dump(mode="python")),
-                scope=dict(
-                    matching="exact-original-declaration-product/member-address",
-                    population="explicit-typed-constraints-in-two-selected-whole-roots",
-                    original_source_completeness="unknown",
-                    protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
-                    source_change_authority="not-established",
-                ),
-            )
-
-        rows = compare_constraint_snapshots(
-            left,
-            right,
-            include_unchanged=request.include_unchanged,
-            max_entries=request.max_declarations,
-        )
-        for row in rows_after(rows, None if cursor is None else cursor["position"]):
-            if len(values) == request.limit:
-                more = True
-                break
-            width = len(json_bytes(row.value)) + 1
-            if size + width + len(json_bytes(report(row.position, items=[]))) > request.max_bytes:
-                if not values:
-                    raise RichQueryRefused("one complete constraint comparison exceeds max_bytes")
-                more = True
-                break
-            values.append(row.value)
-            size += width
-            last = row.position
-        result = report(last if more else None)
-        if len(json_bytes(result)) > request.max_bytes:
-            raise RichQueryRefused("complete constraint comparison envelope exceeds max_bytes")
-        return result
+            return dict(version=VERSION, implementation=implementation, before=before, after=after,
+                        changes=values, cursor=token, resource_handle=_cursor(pinned.model_dump(mode="python")),
+                        scope=dict(matching="exact-original-declaration-product/member-address",
+                            population="explicit-typed-constraints-in-two-selected-whole-roots",
+                            original_source_completeness="unknown",
+                            protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
+                            source_change_authority="not-established"))
+        try:
+            return byte_bounded_page(rows, offset=offset, limit=request.limit, max_bytes=request.max_bytes,
+                                     report=report, row_fields={"changes": lambda value: (value,)})
+        except InvalidContinuation:
+            raise
+        except ValueError as error:
+            raise RichQueryRefused(str(error)) from error
+        finally:
+            if remaining is not None:
+                remaining.close()

@@ -188,36 +188,36 @@ def export_demand_result(
             name = f"pages/{ordinal:08}.json"
             write(name, page.content)
             pages.append(name)
-            for record in stream_selected_support(connection, page):
-                payload = json_bytes(record)
-                previous = spool.execute(
-                    "SELECT payload FROM records WHERE key=?", (record["key"],)
-                ).fetchone()
-                if previous is not None and previous[0] != payload:
-                    raise ValueError("same selected witness key acquired different exact bytes")
-                spool.execute(
-                    "INSERT OR IGNORE INTO records VALUES (?,?,?)",
-                    (record["key"], record["relation"], payload),
-                )
-                if record["relation"] == "ops.original_source_admission":
-                    reference = record["record"]["reference"]
-                    if reference.get("kind") == "original-document":
-                        source_digests.add(reference["content_hash"])
-                if (
-                    record["relation"] == "kb.data_product"
-                    and record["record"]["artifact_digest"] is not None
-                ):
-                    source_digests.add(record["record"]["artifact_digest"])
-                if record["relation"] in {
-                    "ops.data_derivation",
-                    "ops.data_authority_leaf",
-                    "ops.data_execution_evidence_leaf",
-                }:
-                    producing = record["record"]
-                    releases.add(producing["release_id"])
-                    runtimes.add((producing["release_id"], producing["runtime_id"]))
         if cut is None:
             raise ValueError("native result did not produce its empty frontier page")
+        for record in stream_selected_support(connection, page, whole_read=True):
+            payload = json_bytes(record)
+            previous = spool.execute(
+                "SELECT payload FROM records WHERE key=?", (record["key"],)
+            ).fetchone()
+            if previous is not None and previous[0] != payload:
+                raise ValueError("same selected witness key acquired different exact bytes")
+            spool.execute(
+                "INSERT OR IGNORE INTO records VALUES (?,?,?)",
+                (record["key"], record["relation"], payload),
+            )
+            if record["relation"] == "ops.original_source_admission":
+                reference = record["record"]["reference"]
+                if reference.get("kind") == "original-document":
+                    source_digests.add(reference["content_hash"])
+            if (
+                record["relation"] == "kb.data_product"
+                and record["record"]["artifact_digest"] is not None
+            ):
+                source_digests.add(record["record"]["artifact_digest"])
+            if record["relation"] in {
+                "ops.data_derivation",
+                "ops.data_authority_leaf",
+                "ops.data_execution_evidence_leaf",
+            }:
+                producing = record["record"]
+                releases.add(producing["release_id"])
+                runtimes.add((producing["release_id"], producing["runtime_id"]))
         source_files = {}
         from sqlalchemy import func, select
 

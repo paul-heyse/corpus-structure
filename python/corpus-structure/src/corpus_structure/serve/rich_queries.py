@@ -22,12 +22,14 @@ from corpus_structure.semantic.rich_queries import (
     RichQueryIndex,
     RichQueryRefused,
     query_rows,
-    rows_after,
 )
 
-from .rich_knowledge import read_selected_rich_knowledge
+from .rich_knowledge import read_selected_rich_knowledge, read_selected_rich_reference
+from corpus_structure.semantic.selected_query_cache import (
+    SELECTED_QUERY_CACHE, bounded_rows, byte_bounded_page, uncached_rows_from,
+)
 
-VERSION = "selected-rich-query-1"
+VERSION = "selected-rich-query-2"
 
 
 @contextmanager
@@ -73,6 +75,7 @@ def _installed_read_basis(contract, sources, profile, extra_libraries):
         name: _library_version(name)
         for name in (
             "pydantic",
+            "cachetools",
             "pydantic-core",
             "python-rapidjson",
             "regex",
@@ -171,7 +174,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
     cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
     if cursor is not None and (
         set(cursor)
-        != {"version", "implementation", "selection", "read", "cut", "reference", "position"}
+        != {"version", "implementation", "selection", "read", "cut", "reference", "ordinal"}
         or cursor["version"] != VERSION
         or cursor["implementation"] != implementation
         or cursor["selection"] != selection
@@ -192,37 +195,62 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
             continuation = dict(
                 demand_id=request.demand_id,
                 read_id=request.read_id,
-                view="products",
+                view="frontier",
                 scope={"operation_id": "rich.admit", "product_ids": [request.product_id]},
             )
-    selected = read_selected_rich_knowledge(
-        connection,
-        request.demand_id,
-        project_id=request.project_id,
-        product_id=request.product_id,
-        continuation=continuation,
-        cut=cut,
+    selected = read_selected_rich_reference(
+        connection, request.demand_id, project_id=request.project_id,
+        product_id=request.product_id, continuation=continuation, cut=cut,
         max_bytes=request.max_graph_bytes,
     )
     if request.expected_cut is not None and selected.cut.identity != request.expected_cut:
-        raise InvalidContinuation(
-            "rich query differs from its pinned cut", reason="invalid_continuation"
-        )
+        raise InvalidContinuation("rich query differs from its pinned cut", reason="invalid_continuation")
     reference = selected.reference.model_dump(mode="python")
     if cursor is not None and json_bytes(cursor["reference"]) != json_bytes(reference):
-        raise InvalidContinuation(
-            "rich query changed its actual root support", reason="invalid_continuation"
+        raise InvalidContinuation("rich query changed its actual root support", reason="invalid_continuation")
+    offset = 0 if cursor is None else cursor["ordinal"]
+    if type(offset) is not int or offset < 0:
+        raise InvalidContinuation("invalid rich row ordinal", reason="invalid_continuation")
+    key = json_bytes(["rich", selected.cut.identity, implementation, reference, selection])
+    entry = SELECTED_QUERY_CACHE.get(key)
+    remaining = None
+    if entry is None:
+        native_request = dict(json_loads(selected.read_request), view="products")
+        whole = read_selected_rich_knowledge(
+            connection, request.demand_id, project_id=request.project_id,
+            product_id=request.product_id, continuation=native_request, cut=selected.cut,
+            max_bytes=request.max_graph_bytes,
         )
-    index = RichQueryIndex(selected.state, max_members=request.max_graph_members)
-    rows = rows_after(
-        query_rows(index, request.query), None if cursor is None else cursor["position"]
-    )
-    values, last, more = [], None, False
+        if whole.reference != selected.reference or whole.context != selected.context:
+            raise InvalidContinuation("rich body differs from its freshly acquired root", reason="invalid_continuation")
+        index = RichQueryIndex(whole.state, max_members=request.max_graph_members)
+        def source():
+            for row in query_rows(index, request.query):
+                yield dict(value=row.value, unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
 
-    def report(*, next_position=None):
+        metadata_provider = lambda: dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
+        entry, remaining = bounded_rows(source(), metadata_provider)
+        if entry is not None:
+            SELECTED_QUERY_CACHE.put(key, entry)
+    metadata = entry.record() if entry is not None else metadata_provider()
+    if entry is not None:
+        rows = entry.rows(offset)
+    else:
+        rows = uncached_rows_from(remaining, offset)
+
+    observed_unknowns = metadata["unknowns"]
+
+    def public_rows():
+        nonlocal observed_unknowns
+        for packet in rows:
+            observed_unknowns = packet["unknowns"]
+            yield packet["value"]
+        observed_unknowns = entry.record()["unknowns"] if entry is not None else metadata_provider()["unknowns"]
+
+    def report(end, values, more):
         next_cursor = (
             None
-            if next_position is None
+            if not more
             else _cursor(
                 dict(
                     version=VERSION,
@@ -231,7 +259,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
                     read=json_loads(selected.read_request),
                     cut=selected.cut.record,
                     reference=reference,
-                    position=next_position,
+                    ordinal=end,
                 )
             )
         )
@@ -258,24 +286,18 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
                 examined="one-selected-whole-admission",
                 global_completeness="unknown",
             ),
-            unknowns=[index.unknowns[key] for key in sorted(index.unknowns)],
+            unknowns=observed_unknowns,
             resource_handle=_cursor(pinned.model_dump(mode="python")),
         )
 
-    for row in rows:
-        if len(values) == request.limit:
-            more = True
-            break
-        values.append(row.value)
-        candidate = report(next_position=row.position)
-        if len(json_bytes(candidate)) > request.max_bytes:
-            values.pop()
-            if not values:
-                raise RichQueryRefused("one complete rich answer exceeds max_bytes")
-            more = True
-            break
-        last = row.position
-    result = report(next_position=last if more else None)
-    if len(json_bytes(result)) > request.max_bytes:
-        raise RichQueryRefused("complete rich query response exceeds max_bytes")
-    return result
+    try:
+        return byte_bounded_page(public_rows(), offset=offset, limit=request.limit,
+                                 max_bytes=request.max_bytes, report=report,
+                                 row_fields={"rows": lambda value: (value,)})
+    except InvalidContinuation:
+        raise
+    except ValueError as error:
+        raise RichQueryRefused(str(error)) from error
+    finally:
+        if remaining is not None:
+            remaining.close()

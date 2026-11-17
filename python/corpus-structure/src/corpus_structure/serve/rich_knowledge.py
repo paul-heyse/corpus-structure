@@ -24,15 +24,19 @@ from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMe
 
 
 @dataclass(frozen=True)
-class SelectedRichKnowledge:
+class SelectedRichReference:
     cut: CutSelection
     read_request: bytes
     reference: DdoRichSelectedMember
     context: SubjectContext
+
+
+@dataclass(frozen=True)
+class SelectedRichKnowledge(SelectedRichReference):
     state: RichGraphState
 
 
-def read_selected_rich_knowledge(
+def read_selected_rich_reference(
     connection,
     demand_id: str,
     *,
@@ -41,7 +45,8 @@ def read_selected_rich_knowledge(
     continuation: dict | None = None,
     cut: CutSelection | None = None,
     max_bytes: int = 8 * 1024 * 1024,
-) -> SelectedRichKnowledge:
+    _bodies: bool = False,
+) -> SelectedRichReference:
     """Read a whole admitted graph under its genuine producing support and cut.
 
     One native obligation is enough to establish this explicitly addressed value.
@@ -59,7 +64,8 @@ def read_selected_rich_knowledge(
         cut=cut,
         limit=1,
         max_bytes=max_bytes,
-        view="products",
+        view="products" if _bodies else "frontier",
+        recheck_bodies=not _bodies,
         scope=scope,
     )
     native = page.record
@@ -97,6 +103,18 @@ def read_selected_rich_knowledge(
             ),
         ),
     )
+    # Reacquiring this same read preserves visibility and rechecks current trust;
+    # it never follows a latest result or substitutes a different admission use.
+    request = json_bytes(
+        {
+            "demand_id": demand_id,
+            "read_id": native["read_id"],
+            "view": "products" if _bodies else "frontier",
+            "scope": scope,
+        }
+    )
+    if not _bodies:
+        return SelectedRichReference(page.cut, request, reference, context)
     prepared = open_release(connection, native["release_id"])
     model = bound_data_operation_model(prepared)
     proof = RichWholeInput(reference, decode_semantic_value(product["body"]))
@@ -108,14 +126,15 @@ def read_selected_rich_knowledge(
         inputs=(reference,),
         whole_inputs=(proof,),
     )
-    # Reacquiring this same read preserves visibility and rechecks current trust;
-    # it never follows a latest result or substitutes a different admission use.
-    request = json_bytes(
-        {
-            "demand_id": demand_id,
-            "read_id": native["read_id"],
-            "view": "products",
-            "scope": scope,
-        }
-    )
     return SelectedRichKnowledge(page.cut, request, reference, context, state)
+
+
+def read_selected_rich_knowledge(connection, demand_id, *, project_id, product_id,
+                                 continuation=None, cut=None, max_bytes=8 * 1024 * 1024) -> SelectedRichKnowledge:
+    selected = read_selected_rich_reference(
+        connection, demand_id, project_id=project_id, product_id=product_id,
+        continuation=continuation, cut=cut, max_bytes=max_bytes, _bodies=True,
+    )
+    if not isinstance(selected, SelectedRichKnowledge):
+        raise RuntimeError("whole rich read lacks its validated graph")
+    return selected

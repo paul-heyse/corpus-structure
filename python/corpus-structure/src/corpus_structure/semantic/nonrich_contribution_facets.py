@@ -9,7 +9,6 @@ from dataclasses import dataclass
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_wire import validate_wire_schema
-from .identity import canonical_bytes
 from .rich_queries import RichQueryRefused, RichQueryRow
 from .structural_products import (
     DeclaredArtifactReport,
@@ -79,20 +78,8 @@ def read_nonrich_root(model, selected) -> CurrentNonRichRoot:
     )
 
 
-def _row(selected, population, local, **meaning):
-    return RichQueryRow(
-        dict(population=population, row=meaning),
-        canonical_bytes(
-            [
-                selected.use_id,
-                selected.output["role"],
-                selected.output["position"],
-                selected.reference.product_id,
-                population,
-                local,
-            ]
-        ).decode(),
-    )
+def _row(population, **meaning):
+    return RichQueryRow(dict(population=population, row=meaning))
 
 
 def _base(selected, root):
@@ -135,25 +122,8 @@ def nonrich_facets(
                 raise RichQueryRefused("structural facet exceeds its complete nested-member bound")
             pending.extend(item)
     base = _base(selected, root)
-    yield _row(selected, "contribution", "whole", **base)
+    yield _row('contribution', **base)
     if interpretation:
-        yield _row(
-            selected,
-            "interpretation",
-            "whole",
-            **base,
-            availability="observed",
-            meaning=root.body,
-            scope="typed-private-structural-reading",
-        )
+        yield _row('interpretation', **base, availability='observed', meaning=root.body, scope='typed-private-structural-reading')
     if assessment:
-        yield _row(
-            selected,
-            "assessment",
-            "whole",
-            **base,
-            availability="observed",
-            scope="captured-private-producer-judgments",
-            judgments=root.body,
-            public_admission="not-established",
-        )
+        yield _row('assessment', **base, availability='observed', scope='captured-private-producer-judgments', judgments=root.body, public_admission='not-established')

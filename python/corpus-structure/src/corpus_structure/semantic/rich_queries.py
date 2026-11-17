@@ -22,7 +22,7 @@ from .data_operation_identity import semantic_value
 from .data_operation_json import DdoJsonValue, json_bytes
 from .data_operation_ports import _untrusted_value
 from .identity import canonical_bytes
-from .refusals import InvalidContinuation, SemanticRefusal
+from .refusals import SemanticRefusal
 from .rich_graph_validation import RichGraphState
 from .rich_knowledge_contracts import (
     DdoRichAdmission,
@@ -154,7 +154,6 @@ QUERY_NAMES = frozenset(TypeAdapter(RichQuery).json_schema()["discriminator"]["m
 @dataclass(frozen=True)
 class RichQueryRow:
     value: dict[str, Any]
-    position: str | dict
 
 
 def ownership_applicability(
@@ -481,7 +480,7 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
             if query.class_name is None or index.is_a(
                 index.entities[key], index.iri(query.class_name)
             ):
-                yield RichQueryRow(index.entity_record(key), key)
+                yield RichQueryRow(index.entity_record(key))
     elif isinstance(query, ClaimsQuery):
         subjects = None if query.subject is None else index.resolve(query.subject)
         objects = None if query.object_entity is None else index.resolve(query.object_entity)
@@ -494,7 +493,7 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                 or (objects is not None and index.object_entity(key) not in objects)
             ):
                 continue
-            yield RichQueryRow(index.claim_record(key), key)
+            yield RichQueryRow(index.claim_record(key))
     elif isinstance(query, OwnershipAtQuery):
         assets = set(index.resolve(query.asset, class_name="Asset"))
         for key in index.included(query):
@@ -506,16 +505,13 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                 if not query.include_suppositions and qualification.get("modality") == "supposed":
                     continue
                 interval = qualification.get("valid_time")
-                yield RichQueryRow(
-                    dict(
+                yield RichQueryRow(dict(
                         claim=index.claim_record(key),
                         occurrence=occurrence.model_dump(mode="python"),
                         qualification=semantic_value(qualification),
                         interval=semantic_value(interval),
                         applicability=ownership_applicability(interval, query.date),
-                    ),
-                    occurrence.occurrence_id,
-                )
+                    ))
     elif isinstance(query, StatementQuery):
         key = canonical_bytes([query.product_id, query.member_id]).decode()
         claims = [
@@ -537,14 +533,11 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                 for item in index.visible_occurrences(identifier, query)
                 if statement_key(item.statement) == key
             }
-            yield RichQueryRow(
-                dict(
+            yield RichQueryRow(dict(
                     statement_key=key,
                     sources=[refs[item] for item in sorted(refs)],
                     claims=index.claim_records(claims),
-                ),
-                key,
-            )
+                ))
     elif isinstance(query, EvidenceQuery):
         for key in index.included(query):
             if query.fact_id is not None and query.fact_id != key:
@@ -560,23 +553,19 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                     and occurrence.occurrence_id not in index.selected_occurrences
                 ):
                     continue
-                yield RichQueryRow(
-                    dict(
+                yield RichQueryRow(dict(
                         fact_id=key,
                         occurrence=occurrence.model_dump(mode="python"),
                         availability="retained-source-references",
                         source_body_retrieval="not_run",
-                    ),
-                    occurrence.occurrence_id,
-                )
+                    ))
     elif isinstance(query, SourceReadingsQuery):
         pool = index.readings if query.population == "retained" else index.selected_readings
         for key in sorted(pool):
             reading = index.readings[key]
             if query.record_id is not None and reading.record_id != query.record_id:
                 continue
-            yield RichQueryRow(
-                dict(
+            yield RichQueryRow(dict(
                     assertion=reading.model_dump(mode="python"),
                     selected=key in index.selected_readings,
                     reading=semantic_value(
@@ -584,22 +573,6 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                     ),
                     values=index.values((reading.reading_value,)),
                     scientific_truth="not-established",
-                ),
-                key,
-            )
+                ))
     else:
         raise RichQueryRefused("unsupported current rich query")
-
-
-def rows_after(rows, after):
-    replayed = after is None
-    for row in rows:
-        if not replayed:
-            if row.position == after:
-                replayed = True
-            continue
-        yield row
-    if not replayed:
-        raise InvalidContinuation(
-            "rich query position is not an actual matching result", reason="invalid_continuation"
-        )

@@ -12,6 +12,7 @@ from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_results import CutSelection, DemandResult
 from corpus_structure.serve.demand_journey import DemandQueryRequest, _decode, serve_demand_query
+from semantic.selected_query_cache_support import clear_selected_query_cache as clear_selected_query_cache
 
 
 def _page(*, trust=None, member_id=None, empty=False) -> dict[str, Any]:
@@ -117,8 +118,11 @@ def test_cut_distinguishes_native_boundary_context_and_current_trust():
 
 
 def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(monkeypatch):
+    reads = []
+
     def read(connection, demand_id, *, project_id, continuation, **kwargs):
         assert demand_id == "demand:A" and project_id == "project:A"
+        reads.append((kwargs["view"], kwargs.get("recheck_bodies", False)))
         request = dict(
             continuation or {"demand_id": demand_id}, limit=1, max_bytes=1048576, view="products"
         )
@@ -143,6 +147,16 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
         )
     resource = DemandQueryRequest.model_validate(_decode(second["resource_handle"]))
     assert serve_demand_query(None, resource)["items"] == second["items"]
+    assert reads.count(("products", False)) == 1
+    assert reads.count(("frontier", True)) == 4
+    # Cache content cannot grant disclosure after current native authorization
+    # changes, even for the identical pinned cursor and immutable cached rows.
+    def refused(*args, **kwargs):
+        assert kwargs["view"] == "frontier" and kwargs["recheck_bodies"] is True
+        raise ValueError("current body disclosure refused")
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", refused)
+    with pytest.raises(ValueError, match="disclosure refused"):
+        serve_demand_query(None, resource)
 
 
 def test_waiting_and_completed_empty_operations_do_not_claim_absence(monkeypatch):
@@ -453,7 +467,7 @@ def test_product_selector_enters_protected_scope_before_unrelated_body_admission
         None,
         DemandQueryRequest(demand_id="demand:A", project_id="project:A", product_id="product:A"),
     )
-    assert requested == [{"product_ids": ["product:A"]}]
+    assert requested == [{"product_ids": ["product:A"]}] * 2
     assert {row["product_id"] for row in result["items"]} == {"product:A"}
 
 
@@ -641,7 +655,7 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
 
     selected = pages()
     monkeypatch.setattr(owner, "read_demand_result", lambda *args, **kwargs: next(selected))
-    monkeypatch.setattr(owner, "stream_selected_support", lambda *args: iter((payload, payload)))
+    monkeypatch.setattr(owner, "stream_selected_support", lambda *args, **kwargs: iter((payload, payload)))
     with owner.selected_record_index(
         None,
         "demand:A",
@@ -739,7 +753,7 @@ def test_public_query_distinguishes_explicit_null_source_and_omitted_filter(monk
     assert absent.selection()["original_source"] is None
     first = serve_demand_query(None, unqualified)
     serve_demand_query(None, absent)
-    assert scopes == [{}, {"original_source": None}]
+    assert scopes == [{}, {}, {"original_source": None}, {"original_source": None}]
     with pytest.raises(ValueError, match="exact public selection"):
         serve_demand_query(None, absent.model_copy(update={"cursor": first["continuation"]}))
 

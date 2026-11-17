@@ -4,6 +4,9 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
+from semantic.selected_query_cache_support import (
+    clear_selected_query_cache as clear_selected_query_cache, control_frontier,
+)
 
 from corpus_structure.methods.structural_products import produce_structural_dossier
 from corpus_structure.serve import structural_products as reader
@@ -101,6 +104,7 @@ def test_selected_dossier_cursor_rejects_foreign_read_population_and_membership(
         yield scope
 
     monkeypatch.setattr(reader, "structural_scope", acquire)
+    control_frontier(monkeypatch, lambda _: (scope.cut, {"obligations": [], "uses": [], "populations": [], "original_source_admissions": []}))
     monkeypatch.setattr(reader, "selected_root", lambda *args: selected)
     monkeypatch.setattr(reader, "structural_report", lambda *args: dossier)
     monkeypatch.setattr(reader, "producer", lambda *args: {"use_id": "use:actual"})

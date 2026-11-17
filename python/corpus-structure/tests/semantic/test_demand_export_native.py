@@ -20,10 +20,19 @@ from semantic.declared_scenarios import declared_serving_seed as declared_servin
 
 @pytest.mark.parametrize("encoding", ["jsonl", "parquet"])
 def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
-    declared_serving_case, tmp_path, encoding
+    declared_serving_case, tmp_path, encoding, monkeypatch
 ):
     clone, stage = declared_serving_case, declared_serving_case.stage.agent
     destination = tmp_path / encoding
+    from corpus_structure.serve import demand_export
+    support_calls = []
+    original_support = demand_export.stream_selected_support
+
+    def support_once(*args, **kwargs):
+        support_calls.append(kwargs)
+        return original_support(*args, **kwargs)
+
+    monkeypatch.setattr(demand_export, "stream_selected_support", support_once)
     with clone.reader.begin() as connection:
         manifest = export_demand_result(
             connection,
@@ -33,6 +42,7 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
             format=encoding,
             page_rows=1,
         )
+    assert len(support_calls) == 1 and support_calls[0]["whole_read"] is True
     expected = sha256((destination / "manifest.json").read_bytes()).hexdigest()
     assert expected == manifest["manifest_digest"]
     # This authored external recipe has no Python declarations to document.
@@ -220,3 +230,20 @@ def test_python_producer_export_keeps_prepared_interfaces_readable_offline(
     assert checked["outcome"] == "passed"
     assert checked["cut_id"] == manifest["cut_id"]
     assert checked["inference"] == "not_run"
+
+
+def test_whole_read_support_is_distinct_and_covers_later_frontier_pages(declared_serving_case):
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    with clone.reader.begin() as connection:
+        complete = read_demand_result(connection, stage.demand_id, project_id=stage.project_id)
+        expected = {row["product_id"] for row in complete.members()}
+        first = read_demand_result(connection, stage.demand_id, project_id=stage.project_id,
+                                   limit=1, view="frontier", recheck_bodies=True)
+        assert first.continuation is not None
+        first_products = {product["product_id"] for use in first.record["uses"] for product in use["products"]}
+        assert first_products < expected
+        support = list(stream_selected_support(connection, first, whole_read=True))
+    keys = [row["key"] for row in support]
+    assert len(keys) == len(set(keys))
+    products = {row["record"]["id"] for row in support if row["relation"] == "kb.data_product"}
+    assert expected <= products

@@ -215,6 +215,7 @@ def read_demand_result(
     max_bytes: int = 8 * 1024 * 1024,
     view: Literal["frontier", "products", "support"] = "products",
     scope: Mapping[str, Any] | None = None,
+    recheck_bodies: bool = False,
 ) -> DemandResult:
     """Acquire or continue one explicit target, with no default project or run lookup."""
     from .data_operation_storage import DataOperationStorage
@@ -229,6 +230,10 @@ def read_demand_result(
     if continuation is not None and scope is not None and request.get("scope", {}) != dict(scope):
         raise ValueError("continuation belongs to another examined scope")
     request.update(limit=limit, max_bytes=max_bytes, view=view)
+    if recheck_bodies:
+        if view != "frontier":
+            raise ValueError("body recheck requires its narrow frontier view")
+        request["recheck_bodies"] = True
     if continuation is None:
         request["scope"] = dict(scope or {})
     # Generated named transport validates the current Draft7 ingress and exact JSON.
@@ -281,8 +286,46 @@ def stream_demand_result(
             break
 
 
-def stream_selected_support(connection, page: DemandResult) -> Iterator[dict[str, Any]]:
-    """Read a page's full required closure in bounded native pages on its session."""
+def recheck_selected_frontier(connection, demand_id, *, project_id, scope, read_id=None,
+                              expected_cut=None, max_bytes=8388608, max_records=100000):
+    """Fresh narrow custody and body disclosure, with no reusable authority result."""
+    request = None if read_id is None else dict(demand_id=demand_id, read_id=read_id,
+                                               scope=dict(scope), view="frontier")
+    cut, retained = None, 0
+    identities = {"obligations": "obligation_id", "uses": "use_id", "populations": "population_id",
+                  "original_source_admissions": "admission_id"}
+    selected = {name: {} for name in identities}
+    while True:
+        page = read_demand_result(connection, demand_id, project_id=project_id,
+                                 continuation=request, cut=cut, scope=scope, view="frontier",
+                                 limit=100, max_bytes=max_bytes, recheck_bodies=True)
+        cut = page.cut
+        if expected_cut is not None and cut.identity != expected_cut:
+            raise ValueError("selected resource belongs to another cut/trust assessment")
+        native = page.record
+        for name, identity in identities.items():
+            for row in native.get(name, ()):
+                encoded = json_bytes(row)
+                previous = selected[name].get(row[identity])
+                if previous is not None and previous != encoded:
+                    raise ValueError("selected frontier identity changed within its pinned read")
+                if previous is None:
+                    selected[name][row[identity]] = encoded
+                    retained += len(encoded)
+        if sum(map(len, selected.values())) > max_records or retained > max_bytes:
+            raise SelectedGraphBudgetExceeded("selected frontier exceeds examined capacity", cut=cut)
+        request = page.continuation
+        if request is None:
+            break
+    frontier = {name: [wire_json_loads(value) for _, value in sorted(rows.items())] for name, rows in selected.items()}
+    content = json_bytes(frontier)
+    if len(content) > max_bytes:
+        raise SelectedGraphBudgetExceeded("selected frontier exceeds examined capacity", cut=cut)
+    return cut, frontier, sha256(content).hexdigest()
+
+
+def stream_selected_support(connection, page: DemandResult, *, whole_read: bool = False) -> Iterator[dict[str, Any]]:
+    """Read the page or whole scoped cut closure in bounded native keyset pages."""
     from .data_operation_storage import DataOperationStorage
 
     cut = page.cut
@@ -296,6 +339,9 @@ def stream_selected_support(connection, page: DemandResult) -> Iterator[dict[str
         if key in original_request:
             request[key] = original_request[key]
     request["view"] = "support"
+    if whole_read:
+        request["support_scope"] = "read"
+        request.pop("after", None)
     while True:
         native = DataOperationStorage(connection).read_demand_result(_read_request(request))
         if CutSelection.from_native(native).content != cut.content:
@@ -347,7 +393,7 @@ def selected_record_index(
     continuation = (
         None
         if read_id is None
-        else dict(demand_id=demand_id, read_id=read_id, scope=dict(scope), view="products")
+        else dict(demand_id=demand_id, read_id=read_id, scope=dict(scope), view="frontier")
     )
     cut = None
     with TemporaryDirectory(prefix="selected-read-") as scratch:
@@ -363,6 +409,7 @@ def selected_record_index(
                     scope=scope,
                     limit=page_rows,
                     max_bytes=max_bytes,
+                    view="frontier",
                 )
                 cut = page.cut
                 if expected_cut is not None and cut.identity != expected_cut:
@@ -377,19 +424,19 @@ def selected_record_index(
                     raise SelectedGraphBudgetExceeded(
                         "selected graph examined frontier exceeds record bound", cut=cut
                     )
-                for record in stream_selected_support(connection, page):
-                    index.append(json_bytes(record), allow_equal=True)
-                    if max_total_records is not None and index.retained_records > max_total_records:
-                        raise SelectedGraphBudgetExceeded(
-                            "selected graph examined closure exceeds record bound", cut=cut
-                        )
-                    if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
-                        raise SelectedGraphBudgetExceeded(
-                            "selected graph examined closure exceeds byte bound", cut=cut
-                        )
                 continuation = page.continuation
                 if continuation is None:
                     break
+            for record in stream_selected_support(connection, page, whole_read=True):
+                index.append(json_bytes(record), allow_equal=True)
+                if max_total_records is not None and index.retained_records > max_total_records:
+                    raise SelectedGraphBudgetExceeded(
+                        "selected graph examined closure exceeds record bound", cut=cut
+                    )
+                if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
+                    raise SelectedGraphBudgetExceeded(
+                        "selected graph examined closure exceeds byte bound", cut=cut
+                    )
             yield cut, index
         finally:
             index.close()

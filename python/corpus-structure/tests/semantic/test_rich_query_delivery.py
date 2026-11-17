@@ -18,7 +18,8 @@ from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.serve import rich_queries as service
-from corpus_structure.serve.rich_knowledge import SelectedRichKnowledge
+from corpus_structure.serve.rich_knowledge import SelectedRichKnowledge, SelectedRichReference
+from semantic.selected_query_cache_support import clear_selected_query_cache as clear_selected_query_cache
 from semantic.test_rich_queries import query_source as query_source
 from semantic.test_rich_queries import statistics as statistics
 
@@ -68,13 +69,21 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
         seen.append(kwargs)
         return selected
 
+    header_seen = []
+    def header(connection, demand_id, **kwargs):
+        header_seen.append(kwargs)
+        return SelectedRichReference(cut, json_bytes(dict(read, view="frontier")), ref, graph.context)
+
+    monkeypatch.setattr(service, "read_selected_rich_reference", header)
     monkeypatch.setattr(service, "read_selected_rich_knowledge", load)
     first = service.serve_rich_query(None, request(limit=1))
     assert len(first["rows"]) == 1 and first["cursor"]
     assert first["scope"]["global_completeness"] == "unknown"
     second = service.serve_rich_query(None, request(limit=1, cursor=first["cursor"]))
     assert second["rows"] != first["rows"]
-    assert seen[1]["cut"] == cut and seen[1]["continuation"] == read
+    assert len(seen) == 1  # Cached rows avoid a second body read and graph validation.
+    assert header_seen[1]["cut"] == cut
+    assert header_seen[1]["continuation"] == dict(read, view="frontier")
     pinned = service.RichQueryRequest.model_validate(
         service.decode_rich_cursor(first["resource_handle"])
     )
@@ -97,13 +106,10 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
         service.serve_rich_query(None, request(implementation="0" * 64))
     monkeypatch.setattr(
         service,
-        "read_selected_rich_knowledge",
-        lambda *a, **k: SelectedRichKnowledge(
-            cut,
-            json_bytes(read),
-            ref.model_copy(update={"support_references": ()}),
-            graph.context,
-            index.state,
+        "read_selected_rich_reference",
+        lambda *a, **k: SelectedRichReference(
+            cut, json_bytes(dict(read, view="frontier")),
+            ref.model_copy(update={"support_references": ()}), graph.context,
         ),
     )
     with pytest.raises(InvalidContinuation, match="root support"):
@@ -132,6 +138,8 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
         "read_selected_rich_knowledge",
         lambda *a, **k: SelectedRichKnowledge(cut, b"{}", ref, graph.context, index.state),
     )
+    monkeypatch.setattr(service, "read_selected_rich_reference", lambda *a, **k:
+                        SelectedRichReference(cut, b"{}", ref, graph.context))
     fraction = Decimal("0.123456789123456789123456789123456789")
     selected = request(
         query={"name": "families_where", "predicate": "stat:parameter_role", "value": fraction}

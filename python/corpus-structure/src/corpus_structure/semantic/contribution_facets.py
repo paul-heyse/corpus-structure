@@ -3,7 +3,6 @@
 from collections import defaultdict
 
 from .data_operation_identity import semantic_value
-from .identity import canonical_bytes
 from .rich_decisions import DdoRichOccurrenceDecision
 from .rich_knowledge_contracts import (
     DdoRichAdmission,
@@ -20,19 +19,6 @@ from .rich_queries import RichGraphIndex, RichQueryRefused, RichQueryRow
 
 PROPOSAL_NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-proposals/"
 LOCATED_KIND = "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoLocatedExternalExtraction"
-
-
-def _position(selected, population, member):
-    return canonical_bytes(
-        [
-            selected.use_id,
-            selected.output["role"],
-            selected.output["position"],
-            selected.reference.product_id,
-            population,
-            member,
-        ]
-    ).decode()
 
 
 def _reference(selected, member_id, kind_contract):
@@ -108,10 +94,7 @@ def graph_facets(
         contribution = dict(
             base, conclusion_selection=None if selected_ids is None else identifier in selected_ids
         )
-        yield RichQueryRow(
-            dict(population="contribution", row=contribution),
-            _position(selected, "contribution", identifier),
-        )
+        yield RichQueryRow(dict(population="contribution", row=contribution))
         if interpretation:
             if isinstance(body, DdoRichFact):
                 meaning = index.claim_record(identifier)
@@ -135,13 +118,10 @@ def graph_facets(
                 )
             else:
                 meaning = body.model_dump(mode="python")
-            yield RichQueryRow(
-                dict(
+            yield RichQueryRow(dict(
                     population="interpretation",
                     row=dict(base, meaning=meaning, availability="observed"),
-                ),
-                _position(selected, "interpretation", identifier),
-            )
+                ))
         if assessment:
             occurrences = (
                 (identifier,)
@@ -182,8 +162,7 @@ def graph_facets(
                 else None,
             )
             observed = any(actual.values())
-            yield RichQueryRow(
-                dict(
+            yield RichQueryRow(dict(
                     population="assessment",
                     row=dict(
                         base,
@@ -192,15 +171,12 @@ def graph_facets(
                         reason=None if observed else "no-associated-judgment-in-this-selected-root",
                         **actual,
                     ),
-                ),
-                _position(selected, "assessment", identifier),
-            )
+                ))
     if assessment and member_id is None and isinstance(root, DdoRichAdmission):
         # Rejected/uncheckable readings have no assertion member. Their genuine
         # adjudication must not disappear merely because they produced no value.
-        for position, decision in enumerate(readings[None]):
-            yield RichQueryRow(
-                dict(
+        for decision in readings[None]:
+            yield RichQueryRow(dict(
                     population="assessment",
                     row=dict(
                         reference=selected.reference.model_dump(mode="python"),
@@ -209,9 +185,7 @@ def graph_facets(
                         scope="captured-native-producer-judgments",
                         reading_decision=decision.model_dump(mode="python"),
                     ),
-                ),
-                _position(selected, "reading-decision", str(position)),
-            )
+                ))
 
 
 def proposal_facets(
@@ -246,10 +220,7 @@ def proposal_facets(
             standing="private_proposed",
             nominal=types[body["proposal_type"]],
         )
-        yield RichQueryRow(
-            dict(population="contribution", row=base),
-            _position(selected, "contribution", identifier),
-        )
+        yield RichQueryRow(dict(population="contribution", row=base))
         if interpretation:
             related = []
             if body["proposal_type"] == "alternative":
@@ -263,8 +234,7 @@ def proposal_facets(
                     )
                     for ref in body["claims"]
                 ]
-            yield RichQueryRow(
-                dict(
+            yield RichQueryRow(dict(
                     population="interpretation",
                     row=dict(
                         base,
@@ -276,12 +246,9 @@ def proposal_facets(
                         known_reference_standing=report["known_reference_standing"],
                         scientific_truth="not-established",
                     ),
-                ),
-                _position(selected, "interpretation", identifier),
-            )
+                ))
         if assessment:
-            yield RichQueryRow(
-                dict(
+            yield RichQueryRow(dict(
                     population="assessment",
                     row=dict(
                         base,
@@ -289,12 +256,9 @@ def proposal_facets(
                         scope="captured-native-producer-judgments",
                         reason="source-proposal-has-no-computed-acceptance-judgment",
                     ),
-                ),
-                _position(selected, "assessment", identifier),
-            )
+                ))
     for coverage in report["coverage"]:
-        yield RichQueryRow(
-            dict(
+        yield RichQueryRow(dict(
                 population="coverage",
                 row=dict(
                     reference=selected.reference.model_dump(mode="python"),
@@ -302,6 +266,4 @@ def proposal_facets(
                     source_scope="supplied-authored-response",
                     original_source_completeness="unknown",
                 ),
-            ),
-            _position(selected, "coverage", coverage["family"]),
-        )
+            ))

@@ -327,8 +327,7 @@ def actual_graph_inputs(
     )
 
 
-@contextmanager
-def selected_contribution_scope(connection, request, *, product_ids=None):
+def selected_contribution_selection(request, *, product_ids=None):
     if product_ids is None:
         product_ids = None if request.product_id is None else [request.product_id]
     else:
@@ -348,6 +347,12 @@ def selected_contribution_scope(connection, request, *, product_ids=None):
     }
     if "original_source" in request.model_fields_set:
         scope["original_source"] = request.original_source
+    return scope
+
+
+@contextmanager
+def selected_contribution_scope(connection, request, *, product_ids=None):
+    scope = selected_contribution_selection(request, product_ids=product_ids)
     with selected_record_index(
         connection,
         request.demand_id,

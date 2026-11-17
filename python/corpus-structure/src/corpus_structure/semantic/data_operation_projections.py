@@ -1037,8 +1037,21 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     derived projection over exact retained use/episode/population/original IDs.
     Body access checks apply to every product and member, including intermediates.
     """
+    whole = _var("p", JSONB)["support_scope"].astext == "read"
+    scoped = _scoped_read_obligations(metadata).cte("export_scoped_obligations")
+    latest = _latest_read_use(metadata, scoped)
+    seeds = union(
+        select(selected_uses.c.id).where(~func.coalesce(whole, literal(False))),
+        select(latest.c.id).select_from(scoped.join(latest, literal(True))).where(whole),
+    ).cte("export_selected_use_ids")
+    in_scope = exists(select(1).select_from(scoped).where(
+        scoped.c.subject == admissions.c.subject,
+        scoped.c.original_source.is_not_distinct_from(admissions.c.original_source),
+        scoped.c.analyzed_scope == admissions.c.analyzed_scope,
+    ))
+    in_page = case((whole, or_(in_scope, ~exists(select(1).select_from(scoped)))), else_=in_page)
     seed = union(
-        _node("use", selected_uses.c.id),
+        _node("use", seeds.c.id),
         _node("original", admissions.c.id).where(
             admissions.c.demand_id == _var("d.id", Text),
             in_page,
@@ -1398,7 +1411,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             relation.c.product_id.in_(select(product_ids.c.product_id)),
             *relation.primary_key.columns,
         )
-    rows = union_all(*fields.values()).cte("support_export_rows")
+    rows = union(*fields.values()).cte("support_export_rows")
     bounded_rows = (
         select(rows)
         .where(rows.c.key > func.coalesce(_var("p", JSONB)["support_after"].astext, literal("")))
@@ -1441,7 +1454,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         .where(products.c.id.in_(select(product_ids.c.product_id)))
         .scalar_subquery()
     )
-    return case(
+    value = case(
         (
             body_access,
             case(
@@ -1451,6 +1464,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         ),
         else_=func.ops.ddo_result_bytes_refusal(),
     )
+    return value, body_access
 
 
 def _cut_fields():
@@ -2051,7 +2065,10 @@ def read_page(metadata):
             outputs.c.derivation_id == selected_uses.c.derivation_id,
             case(
                 (
-                    _var("selected_view", Text) == "products",
+                    or_(
+                        _var("selected_view", Text) == "products",
+                        func.coalesce(_var("p", JSONB)["recheck_bodies"].as_boolean(), literal(False)),
+                    ),
                     case(
                         (
                             product_body_selected,
@@ -2371,6 +2388,10 @@ def read_page(metadata):
         .where(product_body_selected)
         .scalar_subquery()
     )
+    support_page, support_body_access = selected_support_export(
+        metadata, selected_uses, admissions,
+        or_(in_page, ~exists(select(1).select_from(bounded))),
+    )
     payload = _obj(
         payload=_obj(
             **cut_fields,
@@ -2384,12 +2405,7 @@ def read_page(metadata):
             support_page=case(
                 (
                     _var("selected_view", Text) == "support",
-                    selected_support_export(
-                        metadata,
-                        selected_uses,
-                        admissions,
-                        or_(in_page, ~exists(select(1).select_from(bounded))),
-                    ),
+                    support_page,
                 ),
                 else_=null(),
             ),
@@ -2398,8 +2414,9 @@ def read_page(metadata):
             continuation=continuation,
         )
     )
-    # Frontier reads never inspect output bodies. Product pages count every
-    # actual returned row before building the body-bearing JSON aggregate.
+    # Ordinary frontier reads omit bodies. An explicit cache recheck repeats
+    # disclosure for the selected page and its hidden support without transfer.
+    # Product pages count returned rows before building the body JSON aggregate.
     within_budget = case(
         (
             _var("selected_view", Text) == "products",
@@ -2407,6 +2424,10 @@ def read_page(metadata):
         ),
         else_=literal(True),
     )
+    within_budget = and_(within_budget, case(
+        (func.coalesce(_var("p", JSONB)["recheck_bodies"].as_boolean(), literal(False)), support_body_access),
+        else_=literal(True),
+    ))
     return select(
         case((within_budget, payload), else_=func.ops.ddo_result_bytes_refusal()).label("result")
     )

@@ -151,8 +151,7 @@ def compare_constraint_snapshots(
                 outcome = "changed" if facets else "unchanged"
         if outcome == "unchanged" and not include_unchanged:
             continue
-        yield RichQueryRow(
-            dict(
+        yield RichQueryRow(dict(
                 declaration_address=key,
                 outcome=outcome,
                 facets=facets,
@@ -161,6 +160,4 @@ def compare_constraint_snapshots(
                 unknowns=unknowns,
                 interpretation="materialized-source-declaration-and-resolution-observations",
                 original_source_change="not-established",
-            ),
-            key,
-        )
+            ))

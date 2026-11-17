@@ -126,7 +126,7 @@ def install(monkeypatch, rows, *, trust=None):
     monkeypatch.setattr("corpus_structure.semantic.demand_results.read_demand_result", read)
     monkeypatch.setattr(
         "corpus_structure.semantic.demand_results.stream_selected_support",
-        lambda conn, page: iter(rows),
+        lambda conn, page, **kwargs: iter(rows),
     )
     return calls
 

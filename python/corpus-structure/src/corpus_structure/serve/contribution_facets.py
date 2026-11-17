@@ -18,12 +18,12 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.nonrich_contribution_facets import nonrich_facets, nonrich_family
 from corpus_structure.semantic.refusals import InvalidContinuation
-from corpus_structure.semantic.rich_queries import RichQueryRefused, RichQueryRow, rows_after
+from corpus_structure.semantic.rich_queries import RichQueryRefused, RichQueryRow
 
 from .rich_queries import decode_rich_cursor, installed_read_implementation
 from .selected_contributions import RICH_NAMESPACE, selected_contribution_scope
 
-VERSION = "selected-contribution-facets-1"
+VERSION = "selected-contribution-facets-2"
 
 
 class ContributionFacetsRequest(BaseModel):
@@ -80,10 +80,7 @@ def contribution_rows(scope, request):
                 standing="native-selected-operation",
                 output_absence="not-inferred",
             )
-            yield RichQueryRow(
-                dict(population="operation", row=row),
-                canonical_bytes(["operation", obligation["obligation_id"]]).decode(),
-            )
+            yield RichQueryRow(dict(population="operation", row=row))
     for selected in scope.products(product_id=request.product_id):
         if (
             selected.nominal
@@ -176,17 +173,7 @@ def unsupported_rows(scope, selected, request):
         reference = selected.reference.model_copy(
             update={"member_id": member, "kind_contract": contract}
         ).model_dump(mode="python")
-        key = canonical_bytes(
-            [
-                selected.use_id,
-                selected.output["role"],
-                selected.output["position"],
-                selected.reference.product_id,
-                member,
-            ]
-        ).decode()
-        yield RichQueryRow(
-            dict(
+        yield RichQueryRow(dict(
                 population="contribution",
                 row=dict(
                     reference=reference,
@@ -196,9 +183,7 @@ def unsupported_rows(scope, selected, request):
                     assessment="unknown",
                     reason="no-current-facet-decoder-for-this-declared-nominal-kind",
                 ),
-            ),
-            key,
-        )
+            ))
 
 
 def serve_contribution_facets(connection, request: ContributionFacetsRequest):
@@ -226,7 +211,7 @@ def _serve(connection, request, implementation):
     if cursor is not None:
         if (
             set(cursor)
-            != {"version", "implementation", "selection", "read_id", "cut_id", "position"}
+            != {"version", "implementation", "selection", "read_id", "cut_id", "ordinal"}
             or cursor["version"] != VERSION
             or cursor["implementation"] != implementation
             or cursor["selection"] != digest
@@ -246,71 +231,64 @@ def _serve(connection, request, implementation):
         request = request.model_copy(
             update={"read_id": cursor["read_id"], "expected_cut": cursor["cut_id"]}
         )
-    with selected_contribution_scope(connection, request) as scope:
-        pinned = request.model_copy(
-            update={
-                "read_id": scope.cut.record["read_id"],
-                "expected_cut": scope.cut.identity,
-                "implementation": implementation,
-            }
-        )
-        values = []
-        size = 0
-        last = None
-        more = False
+    from contextlib import ExitStack
+    from itertools import chain
 
-        def report(position=None, *, items=None):
-            token = (
-                None
-                if position is None
-                else _cursor(
-                    dict(
-                        version=VERSION,
-                        implementation=implementation,
-                        selection=digest,
-                        read_id=scope.cut.record["read_id"],
-                        cut_id=scope.cut.identity,
-                        position=position,
-                    )
-                )
-            )
-            return dict(
-                version=VERSION,
-                implementation=implementation,
-                cut=scope.cut.record,
-                cut_id=scope.cut.identity,
-                selection=request.selection(),
-                items=values if items is None else items,
-                cursor=token,
+    from corpus_structure.semantic.demand_results import recheck_selected_frontier
+    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE, bounded_rows, byte_bounded_page, uncached_rows_from
+    from .selected_contributions import selected_contribution_selection
+
+    cut, frontier, stamp = recheck_selected_frontier(
+        connection, request.demand_id, project_id=request.project_id,
+        scope=selected_contribution_selection(request), read_id=request.read_id, expected_cut=request.expected_cut,
+        max_bytes=request.max_graph_bytes, max_records=request.max_graph_records,
+    )
+    pinned = request.model_copy(update=dict(read_id=cut.record["read_id"], expected_cut=cut.identity, implementation=implementation))
+    key = json_bytes(["facets", cut.identity, implementation, digest, stamp])
+    entry, remaining = SELECTED_QUERY_CACHE.get(key), None
+    with ExitStack() as stack:
+        if entry is None:
+            scope = stack.enter_context(selected_contribution_scope(connection, pinned))
+            metadata = dict(records=scope.index.retained_records)
+            source = (row.value for row in contribution_rows(scope, request.model_copy(update={"include_operations": False})))
+            entry, remaining = bounded_rows(source, metadata)
+            if entry is not None:
+                SELECTED_QUERY_CACHE.put(key, entry)
+        metadata = entry.record() if entry is not None else metadata
+        operations = []
+        if request.include_operations:
+            uses = {}
+            for use in frontier["uses"]:
+                # The existing selected record index deliberately omits product
+                # bodies from native operation rows. Rebuild those authority
+                # observations fresh, preserving that exact projection.
+                value = {key: value for key, value in use.items() if key != "products"}
+                uses.setdefault(use["obligation_id"], []).append(value)
+            operations = [dict(population="operation", row=dict(obligation=obligation,
+                uses=uses.get(obligation["obligation_id"], []), standing="native-selected-operation", output_absence="not-inferred"))
+                for obligation in frontier["obligations"]]
+        offset = 0 if cursor is None else cursor["ordinal"]
+        if type(offset) is not int or offset < 0:
+            raise InvalidContinuation("invalid contribution row ordinal", reason="invalid_continuation")
+        derived_offset = max(0, offset - len(operations))
+        rows = chain(operations[offset:], entry.rows(derived_offset) if entry is not None else uncached_rows_from(remaining, derived_offset))
+
+        def report(end, values, more):
+            token = None if not more else _cursor(dict(version=VERSION, implementation=implementation,
+                selection=digest, read_id=cut.record["read_id"], cut_id=cut.identity, ordinal=end))
+            return dict(version=VERSION, implementation=implementation, cut=cut.record, cut_id=cut.identity,
+                selection=request.selection(), items=values, cursor=token,
                 resource_handle=_cursor(pinned.model_dump(mode="python", exclude_unset=True)),
-                examination=dict(
-                    records=scope.index.retained_records,
-                    scope="exact-native-selected-product-and-disclosed-support-population",
-                    global_completeness="unknown",
-                    protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
-                ),
+                examination=dict(records=metadata["records"], scope="exact-native-selected-product-and-disclosed-support-population",
+                    global_completeness="unknown", protected_dependencies="undisclosed-where-bounded-authority-leaves-occur"),
                 interpretation_scope="declared-rich-graph-private-candidate-finite-and-structural-meaning",
-                assessment_scope="captured-native-producer-judgments",
-                source_completeness="unknown",
-            )
-
-        for row in rows_after(
-            contribution_rows(scope, request), None if cursor is None else cursor["position"]
-        ):
-            if len(values) == request.limit:
-                more = True
-                break
-            width = len(json_bytes(row.value)) + 1
-            candidate = report(row.position, items=[])
-            if size + width + len(json_bytes(candidate)) > request.max_bytes:
-                if not values:
-                    raise RichQueryRefused("one complete contribution facet exceeds max_bytes")
-                more = True
-                break
-            values.append(row.value)
-            size += width
-            last = row.position
-        result = report(last if more else None)
-        if len(json_bytes(result)) > request.max_bytes:
-            raise RichQueryRefused("complete contribution facet response exceeds max_bytes")
-        return result
+                assessment_scope="captured-native-producer-judgments", source_completeness="unknown")
+        try:
+            return byte_bounded_page(rows, offset=offset, limit=request.limit, max_bytes=request.max_bytes, report=report)
+        except InvalidContinuation:
+            raise
+        except ValueError as error:
+            raise RichQueryRefused(str(error)) from error
+        finally:
+            if remaining is not None:
+                remaining.close()

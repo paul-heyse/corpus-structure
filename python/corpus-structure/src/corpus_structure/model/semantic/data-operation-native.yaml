@@ -2109,6 +2109,8 @@ definitions:
   read_demand_result_request:
     type: object
     properties:
+      support_scope: {type: string, enum: [page, read]}
+      recheck_bodies: {type: boolean}
       obligation_id: {$ref: '#/definitions/identifier'}
       support_after: {$ref: '#/definitions/identifier'}
       scope: {$ref: '#/definitions/demand_read_scope'}

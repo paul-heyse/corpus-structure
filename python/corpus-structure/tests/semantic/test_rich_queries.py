@@ -7,7 +7,6 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
-from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_fact_graph import RichFactGraph
 from corpus_structure.semantic.rich_graph_validation import RichWholeInput, read_retained_rich_graph
 from corpus_structure.semantic.rich_knowledge_contracts import (
@@ -33,7 +32,6 @@ from corpus_structure.semantic.rich_queries import (
     SourceReadingsQuery,
     StatementQuery,
     query_rows,
-    rows_after,
 )
 from corpus_structure.semantic.rich_statistics_queries import relation_projection
 from semantic.data_operation_declaration_support import contract, declarations
@@ -438,15 +436,6 @@ def test_walks_keep_parallel_edges_cycles_intermediate_vertices_and_exact_budget
             intermediate.index(), RelationsQuery(name="relations_between", a="A", b="B")
         )
     ] == [[first, second]]
-
-
-def test_query_continuation_requires_actual_matching_witness_and_replay_spends_work(statistics):
-    _, index = statistics
-    query = ClaimsQuery(name="claims")
-    ordered = list(query_rows(index, query))
-    assert list(rows_after(query_rows(index, query), ordered[0].position)) == ordered[1:]
-    with pytest.raises(InvalidContinuation):
-        list(rows_after(query_rows(index, query), "fabricated-position"))
 
 
 def test_structural_selected_fact_needs_no_invented_source_occurrence(query_source):
