@@ -9,6 +9,7 @@ from corpus_structure.semantic.constructions.lexical import (
     classify,
 )
 from corpus_structure.semantic.file_custody import FileCustodyError
+from semantic.prose_regex_oracle import _regex_parser_oracle
 
 
 def test_parser_cache_rechecks_grammar_content_and_accepts_equal_touch(tmp_path, monkeypatch):
@@ -76,7 +77,7 @@ def test_supplied_terminal_candidate_preserves_independent_regex_forest(text, at
     # coordinator's actual book-region equality/adoption experiment.
     observations = classify(text, atoms)
     actual = forest.prepared_parser(text, atoms, terminals=observations).parse(text)
-    expected = forest._regex_parser_oracle(text, atoms, terminals=observations).parse(text)
+    expected = _regex_parser_oracle(text, atoms, terminals=observations).parse(text)
     assert _forest_shape(actual) == _forest_shape(expected)
     actual_reducer = forest.PackedReducer(text, atoms)
     expected_reducer = forest.PackedReducer(text, atoms)
@@ -180,7 +181,7 @@ def test_authored_native_terminal_keeps_its_native_matcher():
     grammar = f'%import .prose ({imports})\nstart: WORD BANG\nBANG: "!"'
     text = "alpha!"
     actual = forest.prepared_parser(text, (), grammar).parse(text)
-    expected = forest._regex_parser_oracle(text, (), grammar).parse(text)
+    expected = _regex_parser_oracle(text, (), grammar).parse(text)
     assert _forest_shape(actual) == _forest_shape(expected)
 
 
