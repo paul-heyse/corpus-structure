@@ -1,5 +1,7 @@
 """Source proposal lowerer consumes actual located packets and source-scoped contexts."""
 
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
+
 from copy import deepcopy
 from dataclasses import replace
 from decimal import Decimal
@@ -169,7 +171,7 @@ classes:
         )
         return CPUInputRole(
             name, None, 1, "product:" + name, None, ids[ns + kind], header, body, support
-        )
+        , producer_output=None if name == "policy" else ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1))
 
     roles = (
         role(

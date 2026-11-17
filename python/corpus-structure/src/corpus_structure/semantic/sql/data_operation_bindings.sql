@@ -9,42 +9,91 @@ LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  AND (NOT reference ? 'member_id' OR (jsonb_typeof(reference->'member_id')='string' AND nullif(reference->>'member_id','') IS NOT NULL))
 $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_source_sets_meaning(source_sets jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ RETURN coalesce((SELECT jsonb_object_agg(key,value->'entries') FROM jsonb_each(source_sets)),'{}');
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_source_set_proof_matches(source_set jsonb,product text,member text,episode text,producing_use text,emitting jsonb) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF source_set->'acquisition'->>'kind'='all-admissible-support-v1' THEN RETURN true; END IF;
+ IF source_set->'acquisition'->>'kind' IS DISTINCT FROM 'selected-support-v1' THEN RETURN false; END IF;
+ RETURN EXISTS(SELECT FROM jsonb_array_elements(source_set->'acquisition'->'reads') acquired
+ CROSS JOIN LATERAL jsonb_array_elements(acquired->'proofs') proof WHERE
+ proof->>'product_id'=product AND proof->>'member_id' IS NOT DISTINCT FROM member
+ AND proof->'support'->>'derivation_id'=episode
+ AND proof->'support'->>'admission_use_id'=producing_use AND proof->'output'=emitting);
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_validate_source_sets(source_sets jsonb,project text,subject_scopes jsonb) RETURNS void
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE named record; entry jsonb;
+DECLARE named record; entry jsonb; acquired jsonb; proof jsonb; mode_ text; entries_by_address jsonb; proof_addresses jsonb;
 BEGIN
  IF jsonb_typeof(source_sets)<>'object' THEN RAISE EXCEPTION 'frozen source sets must be a named object'; END IF;
  FOR named IN SELECT * FROM jsonb_each(source_sets) LOOP
- IF named.key='' OR jsonb_typeof(named.value)<>'array' THEN RAISE EXCEPTION 'source set requires an explicit name and exact pin array'; END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements(named.value) value GROUP BY value->>'product',value->>'member' HAVING count(*)<>1) THEN RAISE EXCEPTION 'duplicate qualified source-set product/member'; END IF;
- FOR entry IN SELECT value FROM jsonb_array_elements(named.value) LOOP
+ PERFORM ops.ddo_fields(named.value,ARRAY['entries','acquisition']);
+ IF named.key='' OR jsonb_typeof(named.value->'entries') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'source set requires an explicit name and current acquisition envelope'; END IF;
+ SELECT coalesce(jsonb_object_agg(jsonb_build_array(e->>'product',e->>'member')::text,e),'{}') INTO entries_by_address FROM jsonb_array_elements(named.value->'entries') e;
+ mode_:=named.value->'acquisition'->>'kind';
+ IF mode_ NOT IN ('selected-support-v1','all-admissible-support-v1') OR mode_ IS NULL THEN RAISE EXCEPTION 'unsupported source acquisition kind'; END IF;
+ IF mode_='all-admissible-support-v1' THEN PERFORM ops.ddo_fields(named.value->'acquisition',ARRAY['kind']);
+ ELSE
+ PERFORM ops.ddo_fields(named.value->'acquisition',ARRAY['kind','reads']);
+ IF jsonb_typeof(named.value->'acquisition'->'reads') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'source acquisition requires exact grouped reads'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(named.value->'acquisition'->'reads') r GROUP BY r->'selection'->>'cut_id' HAVING count(*)<>1) THEN RAISE EXCEPTION 'duplicate source acquisition cut'; END IF;
+ FOR acquired IN SELECT value FROM jsonb_array_elements(named.value->'acquisition'->'reads') LOOP
+ PERFORM ops.ddo_fields(acquired,ARRAY['selection','proofs']);
+ IF acquired->'selection'->>'project_id' IS DISTINCT FROM project OR jsonb_array_length(acquired->'proofs')=0 THEN RAISE EXCEPTION 'source acquisition changes project or has empty proof group'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(acquired->'proofs') p GROUP BY p HAVING count(*)<>1) THEN RAISE EXCEPTION 'duplicate source acquisition proof'; END IF;
+ FOR proof IN SELECT value FROM jsonb_array_elements(acquired->'proofs') LOOP
+ IF NOT entries_by_address ? (jsonb_build_array(proof->>'product_id',proof->>'member_id')::text)
+ OR proof->'support'->>'kind' IS DISTINCT FROM 'computation' OR nullif(proof->'support'->>'admission_use_id','') IS NULL
+ OR (proof->'output'->>'member_id' IS NOT NULL AND proof->'output'->>'member_id' IS DISTINCT FROM proof->>'member_id') THEN RAISE EXCEPTION 'source proof differs from its semantic address/emitting member'; END IF;
+ END LOOP; END LOOP;
+ END IF;
+ SELECT coalesce(jsonb_object_agg(jsonb_build_array(p->>'product_id',p->>'member_id')::text,true),'{}') INTO proof_addresses FROM jsonb_array_elements(coalesce(named.value->'acquisition'->'reads','[]')) r CROSS JOIN LATERAL jsonb_array_elements(r->'proofs') p;
+ IF EXISTS(SELECT FROM jsonb_array_elements(named.value->'entries') value GROUP BY value->>'product',value->>'member' HAVING count(*)<>1) THEN RAISE EXCEPTION 'duplicate qualified source-set product/member'; END IF;
+ FOR entry IN SELECT value FROM jsonb_array_elements(named.value->'entries') LOOP
  PERFORM ops.ddo_fields(entry,ARRAY['project_id','original_source','subject','subject_definition','analyzed_scope','product','member','source_reference','reference']);
  IF EXISTS(SELECT FROM unnest(ARRAY['project_id','subject','subject_definition','product','source_reference']) field WHERE jsonb_typeof(entry->field) IS DISTINCT FROM 'string') OR jsonb_typeof(entry->'member') NOT IN ('string','null')
  OR entry->>'project_id' IS DISTINCT FROM project
  OR jsonb_typeof(entry->'original_source') NOT IN ('string','null') OR nullif(entry->>'subject','') IS NULL OR nullif(entry->>'subject_definition','') IS NULL OR nullif(entry->>'product','') IS NULL
-
  OR (entry->'member'<>'null'::jsonb AND nullif(entry->>'member','') IS NULL) THEN RAISE EXCEPTION 'source-set entry differs from original qualified reference'; END IF;
  PERFORM ops.ddo_require_subject_source(subject_scopes,entry->>'subject_definition',entry->>'original_source');
- IF NOT ops.ddo_semantic_source_reference(entry->'reference') THEN
- RAISE EXCEPTION 'source sets require exact semantic product/member references'; END IF;
+ IF NOT ops.ddo_semantic_source_reference(entry->'reference') THEN RAISE EXCEPTION 'source sets require exact semantic product/member references'; END IF;
  IF entry->'reference'->>'product_id' IS DISTINCT FROM entry->>'product'
  OR entry->'reference'->>'member_id' IS DISTINCT FROM entry->>'member'
  OR entry->>'source_reference' IS DISTINCT FROM (CASE WHEN entry->'reference' ? 'member_id' THEN 'member:'||ops.ddo_digest(entry->'reference') ELSE entry->>'product' END) THEN RAISE EXCEPTION 'source-set semantic reference differs from exact native product/member'; END IF;
- END LOOP;
- END LOOP;
+ IF mode_='selected-support-v1' AND NOT proof_addresses ? (jsonb_build_array(entry->>'product',entry->>'member')::text) THEN RAISE EXCEPTION 'source entry lacks explicit producing proof'; END IF;
+ END LOOP; END LOOP;
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_binding_source(roledef jsonb,row_value jsonb,consumer_source text,source_sets jsonb) RETURNS boolean
+CREATE OR REPLACE FUNCTION ops.ddo_binding_source_address(roledef jsonb,row_value jsonb,consumer_source text,source_sets jsonb) RETURNS boolean
 LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE name text:=roledef->'support'->>'source_set';
+DECLARE name text:=roledef->'support'->>'source_set'; scope jsonb;
 BEGIN
  IF name IS NULL THEN RETURN row_value->>'original_source' IS NOT DISTINCT FROM consumer_source; END IF;
- IF jsonb_typeof(source_sets->name) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
- RETURN EXISTS(SELECT FROM jsonb_array_elements(source_sets->name) entry WHERE
+ scope:=source_sets->name;
+ IF jsonb_typeof(scope->'entries') IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+ RETURN EXISTS(SELECT FROM jsonb_array_elements(scope->'entries') entry WHERE
  (entry->>'product',entry->>'member',entry->>'subject',entry->>'subject_definition',entry->>'original_source') IS NOT DISTINCT FROM
  (row_value->>'product',row_value->>'member',row_value->>'subject',row_value->>'subject_definition',row_value->>'original_source')
  AND entry->'analyzed_scope'=row_value->'analyzed_scope'
  AND ops.ddo_semantic_source_reference(entry->'reference'));
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_binding_source(roledef jsonb,row_value jsonb,consumer_source text,source_sets jsonb) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE name text:=roledef->'support'->>'source_set'; scope jsonb;
+BEGIN
+ IF NOT coalesce(ops.ddo_binding_source_address(roledef,row_value,consumer_source,source_sets),false) THEN RETURN false; END IF;
+ IF name IS NULL THEN RETURN true; END IF;
+ scope:=source_sets->name;
+ RETURN scope->'acquisition'->>'kind'='all-admissible-support-v1' OR EXISTS(
+ SELECT FROM jsonb_array_elements(coalesce(row_value->'support_references','[]')) ref WHERE ref->>'kind'='computation'
+ AND ops.ddo_source_set_proof_matches(scope,row_value->>'product',row_value->>'member',ref->>'derivation_id',ref->>'admission_use_id',row_value->'support_evidence'->'producer_output'));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_binding_population_product(population jsonb,row_value jsonb) RETURNS boolean
@@ -704,6 +753,7 @@ BEGIN
  SELECT value INTO chosen FROM jsonb_array_elements(universe) v WHERE v->>'product'=item->>'product_id' AND v->>'member' IS NOT DISTINCT FROM item->>'member_id'
  AND roledef->'accepted_kind_contracts' ? (v->>'kind_contract') AND ops.ddo_binding_subject(roledef,v,p_subject,request.original_source) AND ops.ddo_binding_source(roledef,v,request.original_source,coalesce(demand.selection->'source_sets','{}'))
  AND v->>'position' IS NOT DISTINCT FROM item->>'position' AND v->>'multiplicity'=item->>'multiplicity'
+ AND v->'support_evidence'->'producer_output' IS NOT DISTINCT FROM nullif(item->'producer_output','null'::jsonb)
  AND coalesce(v->'support_episodes','[]'::jsonb)=item->'support_derivation_ids'
  AND EXISTS(SELECT FROM ops.ddo_input_support_refs(p_binding,item) support WHERE ops.ddo_support_reference_matches(support,v)) LIMIT 1;
  IF chosen IS NULL THEN RAISE EXCEPTION 'selected input support set has no exact native binding row' USING ERRCODE='23514'; END IF;

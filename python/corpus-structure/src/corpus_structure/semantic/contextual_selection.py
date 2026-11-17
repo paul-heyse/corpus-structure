@@ -7,10 +7,10 @@ No vector cache, scheduling service or inferred original producing episode exist
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from .data_operation_source_sets import FrozenSourceSet, SourceSetEntry
+from .data_operation_source_sets import FrozenSourceSet, selected_source_entries
 
 if TYPE_CHECKING:
     from .data_operation_model import SubjectContext
@@ -88,10 +88,9 @@ def freeze_contextual_target_demand(
 
 def _selected_product(connection, selection, *, project_id, kind_name):
     from .data_operation_identity import decode_semantic_value
-    from .data_operation_json import json_bytes
-    from .data_operation_model import SubjectContext
-    from .data_product_reference import DataProductReference
+    from .data_operation_support import ComputationalSupportReference
     from .demand_results import selected_record_index
+    from .selected_support import SelectedReadReference
 
     with selected_record_index(
         connection,
@@ -103,18 +102,22 @@ def _selected_product(connection, selection, *, project_id, kind_name):
         capture_frontier=True,
         max_total_bytes=64 * 1024 * 1024,
     ) as (cut, index):
-        uses = {
-            row["derivation_id"]
-            for row in index.frontier_rows("uses")
-            if row["fate"] == "fulfilled"
-        }
-        outputs = [
-            row
-            for row in index.rows("ops.data_derivation_output")
-            if row["product_id"] == selection.product_id and row["derivation_id"] in uses
-        ]
-        if not outputs:
-            raise ValueError("contextual selection is not an actual selected fulfilled output")
+        read = SelectedReadReference.from_cut(cut)
+        candidates = tuple(
+            entry
+            for use in index.frontier_rows("uses")
+            if use["fate"] == "fulfilled"
+            for entry in selected_source_entries(
+                index, read, product_id=selection.product_id, member_id=None,
+                anchor_use_id=use["use_id"],
+                support=ComputationalSupportReference(
+                    derivation_id=use["derivation_id"], admission_use_id=use["use_id"]
+                ),
+            )
+        )
+        if len(candidates) != 1:
+            raise ValueError("contextual selection requires one exact selected fulfilled output proof")
+        (selected_entry,) = candidates
         product = index.mapping("kb.data_product", ("id",))[selection.product_id]
         contracts = index.mapping("sem.data_kind_contract", ("kind_contract",))
         contract = contracts[product["kind_contract"]]
@@ -123,17 +126,7 @@ def _selected_product(connection, selection, *, project_id, kind_name):
             != "https://corpus-structure.dev/semantic/data-operation-contextual/" + kind_name
         ):
             raise ValueError("contextual selection has a different native nominal contract")
-        context = SubjectContext(
-            project_id,
-            product["subject"],
-            product["original_source"],
-            json_bytes(product["analyzed_scope"]),
-            subject_definition=product["subject_definition"],
-        )
-        entry = SourceSetEntry.from_semantic_source(
-            DataProductReference(selection.product_id), context=context
-        )
-        return decode_semantic_value(product["canonical_body"]), entry, cut
+        return decode_semantic_value(product["canonical_body"]), selected_entry, cut
 
 
 @dataclass(frozen=True)
@@ -187,12 +180,13 @@ def acquire_contextual_vector_selection(
 
     context = SubjectContext(
         project_id,
-        query_entry.subject,
-        query_entry.original_source,
-        query_entry.analyzed_scope,
-        subject_definition=query_entry.subject_definition,
+        query_entry.entry.subject,
+        query_entry.entry.original_source,
+        query_entry.entry.analyzed_scope,
+        subject_definition=query_entry.entry.subject_definition,
     )
-    for entry in (vector_entry, inventory_entry):
+    for selected_entry in (vector_entry, inventory_entry):
+        entry = selected_entry.entry
         if (
             entry.subject,
             entry.subject_definition,
@@ -209,10 +203,10 @@ def acquire_contextual_vector_selection(
             )
     return ContextualVectorSelection(
         (
-            FrozenSourceSet("contextual-inventory", (inventory_entry,)),
-            FrozenSourceSet("contextual-query", (query_entry,)),
-            FrozenSourceSet("contextual-query-vector", (vector_entry,)),
-            FrozenSourceSet("contextual-target-vectors", tuple(entry for _, entry, _ in selected)),
+            FrozenSourceSet.from_selected("contextual-inventory", (inventory_entry,)),
+            FrozenSourceSet.from_selected("contextual-query", (query_entry,)),
+            FrozenSourceSet.from_selected("contextual-query-vector", (vector_entry,)),
+            FrozenSourceSet.from_selected("contextual-target-vectors", tuple(entry for _, entry, _ in selected)),
         ),
         (inventory_cut, query_cut, vector_cut, *(cut for _, _, cut in selected)),
         context,
@@ -245,17 +239,28 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
     from .data_operation_identity import decode_semantic_value
     from .data_operation_json import json_bytes
     from .data_operation_model import SubjectContext, json_context_meaning
-    from .data_product_reference import DataProductMemberReference, DataProductReference
     from .declared_structural_references import DeclaredContributionRef, DeclaredProductRef
     from .demand_results import selected_record_index
 
-    body, query_entry, cut = _selected_product(
-        connection, query, project_id=project_id, kind_name="DdoContextualQuery"
-    )
     selected_query = next(
         value for value in selection.source_sets if value.name == "contextual-query"
     )
-    if selected_query.entries != (query_entry,):
+    from .selected_support import SelectedSupportAcquisition
+
+    if not isinstance(selected_query.acquisition, SelectedSupportAcquisition):
+        raise ValueError("witness acquisition requires the exact previously selected query")
+    (query_read,) = selected_query.acquisition.reads
+    pin = query_read.selection
+    if query.demand_id != pin.demand_id or (
+        query.read_id is not None
+        and (query.read_id != pin.read_id or query.expected_cut != pin.cut_id)
+    ):
+        raise ValueError("witness acquisition differs from the previously selected query read")
+    body, query_entry, cut = _selected_product(
+        connection, replace(query, read_id=pin.read_id, expected_cut=pin.cut_id),
+        project_id=project_id, kind_name="DdoContextualQuery"
+    )
+    if selected_query != FrozenSourceSet.from_selected("contextual-query", (query_entry,)):
         raise ValueError("witness acquisition requires the exact previously selected query")
     refs = tuple(DeclaredContributionRef.model_validate(value) for value in cues)
     carrier = DeclaredContributionRef.model_validate(body["carrier"])
@@ -324,17 +329,21 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
                 value.get("contribution_id") != ref.contribution_id or value.get("pin") != pin
             ):
                 raise ValueError("witness cue differs from its selected body/source")
-            reference = DataProductReference(ref.product_id)
-            if ref.member_id is not None:
-                reference = DataProductMemberReference(reference, ref.member_id)
-            return SourceSetEntry.from_semantic_source(reference, context=context)
+            candidates = selected_source_entries(
+                index, query_entry.read, product_id=ref.product_id, member_id=ref.member_id,
+                anchor_use_id=query_entry.proof.anchor_use_id,
+            )
+            if len(candidates) != 1:
+                raise ValueError("witness reference requires one exact selected producing proof")
+            (selected_entry,) = candidates
+            return selected_entry
 
         source_entry, cue_entries = entry(source), tuple(entry(value) for value in refs)
     return ContextualVectorSelection(
         (
             *selection.source_sets,
-            FrozenSourceSet("contextual-witness-source", (source_entry,)),
-            FrozenSourceSet("contextual-witness-cues", cue_entries),
+            FrozenSourceSet.from_selected("contextual-witness-source", (source_entry,)),
+            FrozenSourceSet.from_selected("contextual-witness-cues", cue_entries),
         ),
         (*selection.cuts, cut),
         selection.query_context,

@@ -69,7 +69,7 @@ def test_current_identity_archive_shape_refuses_expanded_or_incomplete_headers(m
         read_effective_data_operations(canonical_bytes(record))
 
 
-@pytest.mark.parametrize("version", [f"data-operation-model-v{number}" for number in range(2, 8)])
+@pytest.mark.parametrize("version", [f"data-operation-model-v{number}" for number in range(2, 9)])
 def test_obsolete_model_encodings_require_target_native_regeneration(version):
     model = compile_data_operations()
     record = json.loads(model.content)

@@ -351,7 +351,7 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
             subject_definition="original-occurrence",
         ),
     )
-    scopes = source_sets_record((FrozenSourceSet("inputs", (pin,)),))
+    scopes = source_sets_record((FrozenSourceSet.unqualified("inputs", (pin,)),))
     binding_native_connection.execute(
         text(
             "SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"
@@ -387,7 +387,7 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
     ):
         assert admitted({**actual, key: value}) is False
     forged = json.loads(json.dumps(scopes))
-    forged["inputs"][0]["source_reference"] = "0" * 64
+    forged["inputs"]["entries"][0]["source_reference"] = "0" * 64
     with pytest.raises(DBAPIError, match="semantic reference"):
         binding_native_connection.execute(
             text(
@@ -587,7 +587,7 @@ def test_native_semantic_source_set_matches_exact_product_member_context(binding
             subject_definition="original-occurrence",
         ),
     ).record()
-    sets = {"selected": [entry]}
+    sets = {"selected": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}}
     connection.execute(
         text(
             "SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"
@@ -761,10 +761,10 @@ def test_explicit_no_source_is_not_a_source_role_wildcard(binding_native_connect
         for key, value in entry.items()
         if key not in {"project_id", "source_reference", "reference"}
     }
-    assert matches(row, {"support": {"source_set": "chosen"}}, {"chosen": [entry]}) is True
+    assert matches(row, {"support": {"source_set": "chosen"}}, {"chosen": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}}) is True
     assert (
         matches(
-            dict(row, product="other"), {"support": {"source_set": "chosen"}}, {"chosen": [entry]}
+            dict(row, product="other"), {"support": {"source_set": "chosen"}}, {"chosen": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}}
         )
         is False
     )
@@ -776,13 +776,13 @@ def test_native_explicit_empty_source_set_is_valid_and_never_matches_a_row(
     connection = binding_native_connection
     connection.execute(
         text(
-            "SELECT ops.ddo_validate_source_sets('{\"selected\":[]}'::jsonb,'project','{}'::jsonb)"
+            "SELECT ops.ddo_validate_source_sets('{\"selected\":{\"entries\":[],\"acquisition\":{\"kind\":\"selected-support-v1\",\"reads\":[]}}}'::jsonb,'project','{}'::jsonb)"
         )
     )
     assert (
         connection.scalar(
             text(
-                "SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),NULL,'{\"selected\":[]}'::jsonb)"
+                "SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),NULL,'{\"selected\":{\"entries\":[],\"acquisition\":{\"kind\":\"selected-support-v1\",\"reads\":[]}}}'::jsonb)"
             ),
             {
                 "role": json.dumps({"support": {"source_set": "selected"}}),
@@ -802,5 +802,5 @@ def test_native_explicit_empty_source_set_is_valid_and_never_matches_a_row(
     )
     with pytest.raises(DBAPIError, match="explicit name"):
         connection.execute(
-            text("SELECT ops.ddo_validate_source_sets('{\"\":[]}'::jsonb,'project','{}'::jsonb)")
+            text("SELECT ops.ddo_validate_source_sets('{\"\":{\"entries\":[],\"acquisition\":{\"kind\":\"selected-support-v1\",\"reads\":[]}}}'::jsonb,'project','{}'::jsonb)")
         )

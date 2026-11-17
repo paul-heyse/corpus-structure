@@ -16,7 +16,7 @@ def test_service_read_preserves_full_native_continuation(monkeypatch):
 
     connection = cast(Connection, object())
     selection = {
-        "version": "data-demand-intent-v1",
+        "version": "data-demand-intent-v2",
         "model": "a" * 64,
         "roots": [
             {"subject": "subject:one", "original_source": "source:one", "analyzed_scope": {}}

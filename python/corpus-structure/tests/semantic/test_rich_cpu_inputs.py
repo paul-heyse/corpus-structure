@@ -1,5 +1,7 @@
 """Exact actual CPU role reconstruction, without parallel body/header copies."""
 
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
+
 from decimal import Decimal
 
 import pytest
@@ -43,7 +45,7 @@ def test_actual_child_inputs_reconstruct_exact_scope_typed_body_and_support_afte
         source,
         {"signed": -0.0, "fraction": Decimal("1e-300")},
         supports,
-    )
+     producer_output=ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1))
     meaning = cpu_input_basis(
         "recipe:actual", context, (role,), parameters=b'["mapping",[]]', replicate=None
     )
@@ -100,7 +102,7 @@ def test_shared_cpu_basis_distinguishes_exact_parameters_with_same_roles_and_con
     assert len({sha256(canonical_bytes(basis)).hexdigest() for basis in bases}) == len(variants)
     for expected, basis in zip(variants, bases, strict=True):
         actual = decode_semantic_value(basis)
-        assert actual["version"] == "cpu-input-basis-2"
+        assert actual["version"] == "cpu-input-basis-3"
         assert actual["parameters"] == expected
         assert canonical_bytes(semantic_value(actual["parameters"])) == canonical_bytes(
             semantic_value(expected)

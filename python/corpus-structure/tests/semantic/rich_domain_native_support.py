@@ -199,7 +199,7 @@ def publish_domain(journey, graph, *, inference):
             ),
         ),
         source_sets=(
-            FrozenSourceSet(
+            FrozenSourceSet.unqualified(
                 "rich-authored-propositions",
                 (
                     SourceSetEntry.from_semantic_source(
@@ -208,7 +208,7 @@ def publish_domain(journey, graph, *, inference):
                 ),
             ),
             *tuple(
-                FrozenSourceSet(name, ())
+                FrozenSourceSet.from_selected(name, ())
                 for name in (
                     "rich-proposals",
                     "rich-proposal-contexts",

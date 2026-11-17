@@ -316,7 +316,7 @@ def test_acquisition_read_declares_its_effect_profile_and_purposes_explicitly():
 
 def frozen_selection():
     return {
-        "version": "data-demand-intent-v1",
+        "version": "data-demand-intent-v2",
         "model": "a" * 64,
         "roots": [],
         "targets": ["operation:x"],

@@ -451,13 +451,13 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         ),
     )
     sources = (
-        FrozenSourceSet("dossier-sources", tuple(value.entry() for value in case["originals"])),
-        FrozenSourceSet("dossier-components", (component.entry(),)),
-        FrozenSourceSet("dossier-definitions", ()),
-        FrozenSourceSet("dossier-comparisons", (comparison.entry(),)),
-        FrozenSourceSet("dossier-candidates", ()),
-        FrozenSourceSet("dossier-relationships", ()),
-        FrozenSourceSet("dossier-admissions", (admission.entry(),)),
+        FrozenSourceSet.from_selected("dossier-sources", tuple(value.entry() for value in case["originals"])),
+        FrozenSourceSet.from_selected("dossier-components", (component.entry(),)),
+        FrozenSourceSet.from_selected("dossier-definitions", ()),
+        FrozenSourceSet.from_selected("dossier-comparisons", (comparison.entry(),)),
+        FrozenSourceSet.from_selected("dossier-candidates", ()),
+        FrozenSourceSet.from_selected("dossier-relationships", ()),
+        FrozenSourceSet.from_selected("dossier-admissions", (admission.entry(),)),
     )
     # Ordinary execution consumes the bounded conclusion. The writer does not
     # receive evaluator inputs or a capability to issue another conclusion.

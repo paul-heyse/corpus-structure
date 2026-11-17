@@ -177,7 +177,7 @@ def case(recipe, *, frame=None):
     )
     sources = source_sets_record(
         (
-            FrozenSourceSet(
+            FrozenSourceSet.unqualified(
                 "query-context-primary",
                 (SourceSetEntry.from_semantic_source(ref.product, context=context),),
             ),

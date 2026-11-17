@@ -249,6 +249,82 @@ definitions:
       member_id: {$ref: '#/definitions/identifier'}
     required: [product_id]
     additionalProperties: false
+  producer_output_occurrence:
+    type: object
+    properties:
+      member_id: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
+      role: {$ref: '#/definitions/identifier'}
+      position: {type: integer, minimum: 0}
+      multiplicity: {type: integer, minimum: 1}
+    required: [member_id, role, position, multiplicity]
+    additionalProperties: false
+  selected_source_support:
+    type: object
+    properties:
+      kind: {const: computation}
+      derivation_id: {$ref: '#/definitions/identifier'}
+      admission_use_id: {$ref: '#/definitions/identifier'}
+    required: [kind, derivation_id, admission_use_id]
+    additionalProperties: false
+  selected_source_proof:
+    type: object
+    properties:
+      anchor_use_id: {$ref: '#/definitions/identifier'}
+      product_id: {$ref: '#/definitions/identifier'}
+      member_id: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
+      support: {$ref: '#/definitions/selected_source_support'}
+      output: {$ref: '#/definitions/producer_output_occurrence'}
+    required: [anchor_use_id, product_id, member_id, support, output]
+    additionalProperties: false
+  selected_source_read:
+    type: object
+    properties:
+      project_id: {$ref: '#/definitions/identifier'}
+      demand_id: {$ref: '#/definitions/identifier'}
+      read_id: {$ref: '#/definitions/identifier'}
+      release_id: {$ref: '#/definitions/identifier'}
+      runtime_id: {$ref: '#/definitions/identifier'}
+      cut_id: {$ref: '#/definitions/identifier'}
+      cut_canonical_json: {$ref: '#/definitions/identifier'}
+    required: [project_id, demand_id, read_id, release_id, runtime_id, cut_id, cut_canonical_json]
+    additionalProperties: false
+  source_read_basis:
+    type: object
+    properties:
+      selection: {$ref: '#/definitions/selected_source_read'}
+      proofs:
+        type: array
+        items: {$ref: '#/definitions/selected_source_proof'}
+        minItems: 1
+        uniqueItems: true
+    required: [selection, proofs]
+    additionalProperties: false
+  source_set_acquisition:
+    oneOf:
+    - type: object
+      properties:
+        kind: {const: selected-support-v1}
+        reads:
+          type: array
+          items: {$ref: '#/definitions/source_read_basis'}
+          uniqueItems: true
+      required: [kind, reads]
+      additionalProperties: false
+    - type: object
+      properties:
+        kind: {const: all-admissible-support-v1}
+      required: [kind]
+      additionalProperties: false
+  frozen_source_set:
+    type: object
+    properties:
+      entries:
+        type: array
+        items: {$ref: '#/definitions/source_set_entry'}
+        uniqueItems: true
+      acquisition: {$ref: '#/definitions/source_set_acquisition'}
+    required: [entries, acquisition]
+    additionalProperties: false
   source_set_entry:
     type: object
     properties:
@@ -339,7 +415,7 @@ definitions:
     type: object
     properties:
       version:
-        const: data-demand-intent-v1
+        const: data-demand-intent-v2
       model:
         type: string
         pattern: ^[0-9a-f]{64}$
@@ -378,10 +454,7 @@ definitions:
           $ref: '#/definitions/original_source_selection'
       source_sets:
         type: object
-        additionalProperties:
-          type: array
-          minItems: 0
-          items: {$ref: '#/definitions/source_set_entry'}
+        additionalProperties: {$ref: '#/definitions/frozen_source_set'}
     required:
     - version
     - model
@@ -432,6 +505,10 @@ definitions:
         anyOf:
         - $ref: '#/definitions/identifier'
         - type: 'null'
+      producer_output:
+        anyOf:
+        - $ref: '#/definitions/producer_output_occurrence'
+        - type: 'null'
       support_derivation_ids:
         type: array
         items:
@@ -444,6 +521,7 @@ definitions:
     - multiplicity
     - product_id
     - support_derivation_ids
+    - producer_output
     additionalProperties: false
   support_member:
     oneOf:

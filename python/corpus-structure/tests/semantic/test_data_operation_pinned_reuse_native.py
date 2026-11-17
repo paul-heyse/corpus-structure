@@ -116,7 +116,7 @@ def _register(kernel, entry, inference="focus-comparison", *, expected_roots=(CO
         kernel["model"],
         roots=(RootSubject("focus:A", "source:A", b'{"focus":true}'),),
         targets=(CONSUMER,),
-        source_sets=(FrozenSourceSet("selected", (entry,)),),
+        source_sets=(FrozenSourceSet.unqualified("selected", (entry,)),),
         inference=inference,
         execution_profile="execution:test",
     )

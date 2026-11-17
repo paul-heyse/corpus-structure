@@ -1,5 +1,7 @@
 """Typed role decoding preserves facts; it supplies no native authentication."""
 
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
+
 from copy import deepcopy
 from decimal import Decimal
 
@@ -55,10 +57,10 @@ def basis():
                 admission_id="unadmitted:assertion", source_reference="unadmitted:author"
             ),
         ),
-    )
+     producer_output=ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1))
     member = CPUInputRole(
         "members", None, 1, "member-product", None, "member-kind", context, {"value": 7}, ()
-    )
+    , producer_output=None)
     return cpu_input_basis(
         "actual-logical-recipe",
         context,
@@ -161,7 +163,9 @@ def test_decoder_refuses_noncurrent_or_ambiguous_typed_populations(mutation):
 
 def test_decoded_missing_support_never_becomes_invented_authority():
     value = decode_semantic_value(basis())
-    next(row for row in value["roles"] if row["role"] == "source")["support"] = []
+    source = next(row for row in value["roles"] if row["role"] == "source")
+    source["support"] = []
+    source["producer_output"] = None
     grouped, _ = cpu_basis_values(
         semantic_value(value), scalar_roles=("source",), set_roles=("members",)
     )

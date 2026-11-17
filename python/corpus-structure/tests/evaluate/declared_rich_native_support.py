@@ -96,19 +96,9 @@ def current_rich_policy(scenario_seeds, tmp_path, monkeypatch):
 
 
 def selected_entry(row):
-    from corpus_structure.semantic.data_operation_source_sets import SourceSetEntry
-    from corpus_structure.semantic.data_product_reference import DataProductReference
-
-    return SourceSetEntry.from_semantic_source(
-        DataProductReference(row["id"]),
-        context=SubjectContext(
-            PROJECT,
-            row["subject"],
-            row["original_source"],
-            json_bytes(row["analyzed_scope"]),
-            subject_definition=row["subject_definition"],
-        ),
-    )
+    """Use the retained selected packet, never recover support from product identity."""
+    (entry,) = row["_selected_entries"]
+    return entry
 
 
 @dataclass(frozen=True)
@@ -164,7 +154,7 @@ def run_rich_admission(
     )
     source_sets = (
         *tuple(
-            FrozenSourceSet(name, ())
+            FrozenSourceSet.from_selected(name, ())
             for name in (
                 "rich-proposals",
                 "rich-proposal-contexts",
@@ -172,9 +162,9 @@ def run_rich_admission(
                 "rich-known-universe",
             )
         ),
-        FrozenSourceSet("rich-records", tuple(selected_entry(row) for row, _ in raw)),
-        FrozenSourceSet("rich-readings", tuple(selected_entry(row) for row, _ in resolved)),
-        FrozenSourceSet("rich-policy-authorizations", (selected_entry(authorization),)),
+        FrozenSourceSet.from_selected("rich-records", tuple(selected_entry(row) for row, _ in raw)),
+        FrozenSourceSet.from_selected("rich-readings", tuple(selected_entry(row) for row, _ in resolved)),
+        FrozenSourceSet.from_selected("rich-policy-authorizations", (selected_entry(authorization),)),
     )
     pending = request(
         journey,

@@ -10,16 +10,21 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
 from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_model import SubjectContext
-from .data_operation_support import SupportReference, support_reference_records
+from .data_operation_support import (
+    ComputationalSupportReference,
+    SupportReference,
+    support_reference_records,
+)
 from .identity import canonical_bytes
+from .selected_support import ProducerOutputOccurrence
 
-CPU_INPUT_BASIS_VERSION = "cpu-input-basis-2"
+CPU_INPUT_BASIS_VERSION = "cpu-input-basis-3"
 CPU_AUTHORITY_REPLY_VERSION = "cpu-authority-reply-2"
 CPU_AUTHORITY_BATCH_REPLY_VERSION = "cpu-authority-batch-reply-1"
 
@@ -39,6 +44,20 @@ class CPUInputRole:
     context: SubjectContext
     body: Any
     support: tuple[SupportReference, ...]
+    producer_output: ProducerOutputOccurrence | None = field(kw_only=True)
+
+    def __post_init__(self) -> None:
+        computed = any(isinstance(item, ComputationalSupportReference) for item in self.support)
+        if computed != (self.producer_output is not None):
+            raise ValueError("CPU computational input requires its exact emitting occurrence")
+        if self.producer_output is not None and (
+            not isinstance(self.producer_output, ProducerOutputOccurrence)
+            or (
+                self.producer_output.member_id is not None
+                and self.producer_output.member_id != self.member_id
+            )
+        ):
+            raise ValueError("CPU selected member differs from its emitting occurrence")
 
 
 def cpu_input_basis(
@@ -72,6 +91,10 @@ def cpu_input_basis(
                 "context": role.context.identity_record,
                 "body": role.body,
                 "support": [support[key] for key in sorted(support)],
+                "producer_output": (
+                    None if role.producer_output is None
+                    else role.producer_output.model_dump(mode="python")
+                ),
             }
         )
     entries.sort(
@@ -82,6 +105,7 @@ def cpu_input_basis(
             (item["member_id"] is not None, item["member_id"]),
             item["kind_contract"],
             canonical_bytes(semantic_value(item["support"])),
+            canonical_bytes(semantic_value(item["producer_output"])),
         )
     )
     return semantic_value(
@@ -152,6 +176,7 @@ def cpu_input_basis_from_roles(
                     ),
                     body,
                     member.support_references,
+                    producer_output=member.producer_output,
                 )
             )
     return cpu_input_basis(
@@ -223,6 +248,7 @@ def cpu_basis_values(
                 "context",
                 "body",
                 "support",
+                "producer_output",
             }
             or type(row["role"]) is not str
             or row["role"] not in grouped
@@ -262,6 +288,10 @@ def cpu_basis_values(
                 context(row["context"]),
                 row["body"],
                 read_support_references(row["support"]),
+                producer_output=(
+                    None if row["producer_output"] is None
+                    else ProducerOutputOccurrence.model_validate(row["producer_output"])
+                ),
             )
         )
     if any(len(grouped[name]) != 1 for name in scalar_roles):
@@ -432,7 +462,7 @@ def cpu_input_basis_native_sql() -> str:
 CREATE OR REPLACE FUNCTION ops.ddo_cpu_input_basis(r ops.data_request)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
 DECLARE selected jsonb; product kb.data_product; member kb.data_product_member;
- roles jsonb:='[]'; support_refs jsonb; meaning jsonb; context_meaning jsonb;
+ roles jsonb:='[]'; support_refs jsonb; meaning jsonb; context_meaning jsonb; output_meaning jsonb;
 BEGIN
  IF data.ddo_field(r.binding->'parameters','replicate') IS DISTINCT FROM
  data.ddo_json_meaning(jsonb_build_object('replicate',r.replicate)->'replicate') THEN
@@ -452,6 +482,21 @@ BEGIN
  ) AS reference
  FROM ops.ddo_input_support_refs(r.binding,selected) entry(item)
  ) admitted;
+ IF NOT selected ? 'producer_output'
+ OR (EXISTS(SELECT FROM jsonb_array_elements(support_refs) ref WHERE ref->>'kind'='computation')
+ AND jsonb_typeof(selected->'producer_output') IS DISTINCT FROM 'object')
+ OR (NOT EXISTS(SELECT FROM jsonb_array_elements(support_refs) ref WHERE ref->>'kind'='computation')
+ AND selected->'producer_output' IS DISTINCT FROM 'null'::jsonb)
+ OR (selected->'producer_output'->>'member_id' IS NOT NULL
+ AND selected->'producer_output'->>'member_id' IS DISTINCT FROM member.member_id) THEN
+ RAISE EXCEPTION 'CPU input basis requires its exact emitting occurrence and selected member' USING ERRCODE='23514'; END IF;
+ output_meaning:=CASE WHEN selected->'producer_output'='null'::jsonb THEN '["null"]'::jsonb
+ ELSE jsonb_build_array('mapping',jsonb_build_array(
+ jsonb_build_array('member_id',CASE WHEN selected->'producer_output'->>'member_id' IS NULL THEN '["null"]'::jsonb
+ ELSE jsonb_build_array('string',selected->'producer_output'->>'member_id') END),
+ jsonb_build_array('role',jsonb_build_array('string',selected->'producer_output'->>'role')),
+ jsonb_build_array('position',jsonb_build_array('integer',selected->'producer_output'->>'position')),
+ jsonb_build_array('multiplicity',jsonb_build_array('integer',selected->'producer_output'->>'multiplicity')))) END;
  context_meaning:=data.ddo_json_meaning(jsonb_build_object(
  'project_id',r.project_id,'subject',coalesce(member.subject,product.subject),
  'subject_definition',coalesce(member.subject_definition,product.subject_definition),
@@ -466,7 +511,8 @@ BEGIN
  jsonb_build_array('kind_contract',jsonb_build_array('string',coalesce(member.kind_contract,product.kind_contract))),
  jsonb_build_array('context',context_meaning),
  jsonb_build_array('body',coalesce(member.body,product.canonical_body)),
- jsonb_build_array('support',data.ddo_json_meaning(support_refs))));
+ jsonb_build_array('support',data.ddo_json_meaning(support_refs)),
+ jsonb_build_array('producer_output',output_meaning)));
  roles:=roles||jsonb_build_array(meaning);
  END LOOP;
  -- Match the one Python basis owner even when equal value/member positions
@@ -477,10 +523,11 @@ BEGIN
  (data.ddo_field(value,'product_id')->>1) COLLATE "C",
  (data.ddo_field(value,'member_id')->>1) COLLATE "C" NULLS FIRST,
  (data.ddo_field(value,'kind_contract')->>1) COLLATE "C",
- convert_to(data.canonical_json(data.ddo_normalize(data.ddo_field(value,'support'))),'UTF8')),'[]')
+ convert_to(data.canonical_json(data.ddo_normalize(data.ddo_field(value,'support'))),'UTF8'),
+ convert_to(data.canonical_json(data.ddo_normalize(data.ddo_field(value,'producer_output'))),'UTF8')),'[]')
  INTO roles FROM jsonb_array_elements(roles);
  RETURN data.ddo_normalize(jsonb_build_array('mapping',jsonb_build_array(
- jsonb_build_array('version',jsonb_build_array('string','cpu-input-basis-2')),
+ jsonb_build_array('version',jsonb_build_array('string','cpu-input-basis-3')),
  jsonb_build_array('recipe',jsonb_build_array('string',r.recipe)),
  jsonb_build_array('context',data.ddo_json_meaning(jsonb_build_object(
  'project_id',r.project_id,'subject',r.subject,'subject_definition',ops.ddo_operation_subject(r.release_id,r.operation_id),

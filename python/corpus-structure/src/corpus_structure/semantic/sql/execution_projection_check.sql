@@ -13,7 +13,7 @@ BEGIN
  IF EXISTS(SELECT FROM sem.registry_row WHERE release_id=r AND kind='execution_model') THEN
   RAISE EXCEPTION 'target archive contains legacy execution projection' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='data_operations.json'
-     AND convert_from(content,'UTF8')::jsonb->>'version' = 'data-operation-model-v8') THEN
+     AND convert_from(content,'UTF8')::jsonb->>'version' = 'data-operation-model-v9') THEN
   RAISE EXCEPTION 'unsupported target operation archive' USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,rule->>'policy_id' policy_id,rule->>'evidence_tier' evidence_tier,rule->>'agreement' agreement,rule->>'decision' decision,rule->>'decision_tier' decision_tier FROM sem.artifact a CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'decision_rules') rule WHERE a.release_id=r AND a.artifact_name='operation/scientific-policy.json') x;
  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.scientific_decision_rule x WHERE release_id=r;

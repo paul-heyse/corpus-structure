@@ -133,7 +133,7 @@ def test_finite_matcher_retains_distinct_same_span_carriers_and_actual_component
                 context,
                 frame.value,
                 (),
-            ),
+             producer_output=None),
         ),
         parameters=canonical_bytes(semantic_value({})),
         replicate=None,

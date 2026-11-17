@@ -94,7 +94,7 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
                     )
                 },
             )
-        selection = cut_selection(page)
+        selection = cut_selection(page.cut)
         definition = next(
             item
             for item in read_native_definition_projection(kernel.prepared)["operations"]
@@ -162,10 +162,10 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
             project_context(kernel),
             originals=(fact,),
             source_sets=(
-                FrozenSourceSet(
+                FrozenSourceSet.from_selected(
                     "operation-event-reports", tuple(report.entry() for report in reports)
                 ),
-                FrozenSourceSet(
+                FrozenSourceSet.from_selected(
                     "operation-event-sources", tuple(original.entry() for original in originals)
                 ),
             ),
@@ -173,13 +173,13 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
         )
         framed, execution = execute(kernel, pending, authored=True)
         assert execution.receipt_count == 1
-        frame_page, (frame_product,) = selected(
+        _frame_page, (frame_product,) = selected(
             kernel, framed["demand_id"], NAMESPACE + "DdoOperationEventFrame"
         )
         frame = DdoOperationEventFrame.model_validate_json(json_bytes(frame_product.body))
         spec = DdoOperationEventFitSpecification(
             frame=SelectedOperationEventFrameSelection(
-                selection=cut_selection(frame_page),
+                selection=cut_selection(frame_product.read),
                 use_id=frame_product.row["use_id"],
                 reference=frame_product.reference,
                 derivation_id=frame_product.row["derivation_id"],
@@ -200,7 +200,7 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
             ("operation_event.fit", "operation_event.authorize"),
             project_context(kernel),
             originals=(specification,),
-            source_sets=(FrozenSourceSet("operation-event-frames", (frame_product.entry(),)),),
+            source_sets=(FrozenSourceSet.from_selected("operation-event-frames", (frame_product.entry(),)),),
             inference="actual-current-event-fit-and-issuer",
         )
         fitted, execution = execute(kernel, pending, authored=True)
@@ -276,9 +276,9 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
         (OPERATION, score_operation),
         project_context(kernel),
         source_sets=(
-            FrozenSourceSet("event-score-report", (report.entry(),)),
-            FrozenSourceSet("event-score-source", (source.entry(),)),
-            FrozenSourceSet("operation-event-parameters", (public.entry(),)),
+            FrozenSourceSet.from_selected("event-score-report", (report.entry(),)),
+            FrozenSourceSet.from_selected("event-score-source", (source.entry(),)),
+            FrozenSourceSet.from_selected("operation-event-parameters", (public.entry(),)),
         ),
         selections=(
             DemandOperationSelection(
@@ -413,9 +413,9 @@ def test_authored_same_kind_parameters_cannot_supply_declared_native_scorer(
         project_context(kernel),
         originals=(fake,),
         source_sets=(
-            FrozenSourceSet("event-score-report", (report.entry(),)),
-            FrozenSourceSet("event-score-source", (source.entry(),)),
-            FrozenSourceSet("operation-event-parameters", (parameter_entry,)),
+            FrozenSourceSet.from_selected("event-score-report", (report.entry(),)),
+            FrozenSourceSet.from_selected("event-score-source", (source.entry(),)),
+            FrozenSourceSet.unqualified("operation-event-parameters", (parameter_entry,)),
         ),
         selections=(
             DemandOperationSelection(

@@ -299,7 +299,7 @@ def freeze_demand(
     return DemandIntent(
         json_bytes(
             {
-                "version": "data-demand-intent-v1",
+                "version": "data-demand-intent-v2",
                 "model": sha256(model.content).hexdigest(),
                 "roots": sorted(
                     (
@@ -430,7 +430,7 @@ def _population_context_matches(
     producer = evidence.get("producer_context")
     if producer is None:
         return False
-    if same_context(producer, obligation):
+    if source_set is None and same_context(producer, obligation):
         return True
     if (
         original_source_role
@@ -457,6 +457,17 @@ def _population_context_matches(
         return True
     if source_set is None:
         return False
+    scope = source_sets.get(source_set)
+    if scope is None:
+        return False
+    if scope["acquisition"]["kind"] == "selected-support-v1" and not any(
+        proof["product_id"] == evidence.get("product_id")
+        and proof["support"]["derivation_id"] == evidence.get("derivation_id")
+        and proof["support"]["admission_use_id"] == evidence.get("admission_use_id")
+        and proof["output"]["role"] == evidence.get("member_role")
+        for read in scope["acquisition"]["reads"] for proof in read["proofs"]
+    ):
+        return False
     members = {member["member_id"]: member for member in row["members"]}
     return any(
         entry["project_id"] == project
@@ -464,7 +475,7 @@ def _population_context_matches(
         and entry["original_source"] == producer.get("original_source")
         and entry["member"] in members
         and same_context(entry, members[entry["member"]])
-        for entry in source_sets.get(source_set, ())
+        for entry in source_sets.get(source_set, {}).get("entries", ())
     )
 
 
@@ -1028,6 +1039,8 @@ class DemandPlanner:
                             "product_id": member.product,
                             "member_id": member.member,
                             "support_derivation_ids": sorted(member.support_episodes),
+                            "producer_output": (member.producer_output.model_dump(mode="python")
+                                                if member.producer_output is not None else None),
                         }
                     )
             wire_binding = {

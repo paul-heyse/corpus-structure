@@ -31,7 +31,7 @@ def test_native_authoring_does_not_acquire_legacy_or_application_catalog(monkeyp
     assert provenance.model_id == sha256(inputs.model.content).hexdigest()
     assert {name for name, _ in provenance.inputs} == names
     fields = current_admission_fields(inputs)
-    assert fields["data_operation_abi"] == "data-operation-model-v8"
+    assert fields["data_operation_abi"] == "data-operation-model-v9"
     assert (
         not {"execution_abi", "supported_effects", "supported_effect_versions", "parsing_adapters"}
         & fields.keys()

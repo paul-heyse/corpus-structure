@@ -30,7 +30,7 @@ def basis(context, role, body):
     return cpu_input_basis(
         "controlled-contextual-inputs",
         context,
-        (CPUInputRole(role, 0, 1, "controlled-input", None, "controlled-kind", context, body, ()),),
+        (CPUInputRole(role, 0, 1, "controlled-input", None, "controlled-kind", context, body, (), producer_output=None),),
         parameters=canonical_bytes(semantic_value({})),
         replicate=None,
     )
@@ -79,7 +79,7 @@ def test_curated_projection_runs_on_actual_owned_cpu_and_keeps_project_origin():
         assert result["members"][0]["context"]["original_source"] is None
         changed = semantic_value(
             dict(
-                version="cpu-input-basis-2",
+                version="cpu-input-basis-3",
                 recipe="controlled-contextual-inputs",
                 context=context.identity_record,
                 roles=[],
@@ -165,7 +165,7 @@ def test_query_authority_rebuilds_actual_selected_primary_context(recipe, monkey
         context,
         frame.value,
         (),
-    )
+     producer_output=None)
     occurrence_role = CPUInputRole(
         "occurrence",
         0,
@@ -176,7 +176,7 @@ def test_query_authority_rebuilds_actual_selected_primary_context(recipe, monkey
         context,
         occurrence,
         (),
-    )
+     producer_output=None)
     processed = cpu_input_basis(
         "controlled-query12",
         context,
@@ -231,7 +231,7 @@ def test_retrieval_reduction_uses_owned_cpu_with_exact_controlled_score_input():
         tuple(
             CPUInputRole(
                 name, 0, 1, "controlled:" + name, None, "controlled-kind:" + name, context, body, ()
-            )
+            , producer_output=None)
             for name, body in values.items()
         ),
         parameters=canonical_bytes(semantic_value({})),

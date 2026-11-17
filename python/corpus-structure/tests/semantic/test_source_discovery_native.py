@@ -22,6 +22,7 @@ from semantic.current_pdf_source_support import (
     PROJECT,
     ROOT,
     source_entry,
+    selected_current_sources,
 )
 from semantic.current_pdf_source_support import (
     current_pdf_source as current_pdf_source,
@@ -37,24 +38,7 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
     current_pdf_source, complete, views
 ):
     case, kernel = current_pdf_source, current_pdf_source.kernel
-    with (
-        kernel.purpose("read").begin() as connection,
-        selected_record_index(
-            connection, case.demand_id, project_id=PROJECT, scope={}, capture_frontier=True
-        ) as (_, index),
-    ):
-        kinds = {
-            item.key
-            for item in kernel.model.identities
-            if item.domain == "kind"
-            and item.owner
-            == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
-        }
-        members = [
-            dict(row)
-            for row in index.rows("kb.data_product_member")
-            if row["kind_contract"] in kinds
-        ]
+    members = [row for row, _ in selected_current_sources(case)]
     assert members, "actual native PDF discovery must publish genuine selected source members"
     selected = members if views else []
     with kernel.purpose("write").begin() as connection:
@@ -103,7 +87,7 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
             ),
             original_sources=(original.selection(),),
             source_sets=(
-                FrozenSourceSet(
+                FrozenSourceSet.from_selected(
                     "selected-source-views", tuple(source_entry(row) for row in selected)
                 ),
             ),

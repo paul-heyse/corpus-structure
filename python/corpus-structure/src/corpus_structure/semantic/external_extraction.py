@@ -484,7 +484,7 @@ def _rich_kernel_inputs(action, input_basis, *, prepared, asset_content):
         item.key for item in model.identities if item.owner == action and item.domain == "recipe"
     )
     basis = decode_semantic_value(input_basis)
-    if basis["version"] != "cpu-input-basis-2" or basis["recipe"] != recipe:
+    if basis["version"] != "cpu-input-basis-3" or basis["recipe"] != recipe:
         raise ValueError("rich extraction CPU basis differs from its actual admitted recipe")
     assets = [
         asset

@@ -59,7 +59,7 @@ def component_request(kernel, original, purpose):
         kernel,
         (COMPONENTS,),
         original.context,
-        source_sets=(FrozenSourceSet("fixture-contextual-source", (original.entry(),)),),
+        source_sets=(FrozenSourceSet.from_selected("fixture-contextual-source", (original.entry(),)),),
         selections=(
             DemandOperationSelection(operation=COMPONENTS, parameters={"purpose": purpose}),
         ),
@@ -114,6 +114,7 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
     from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
     from corpus_structure.semantic.data_operation_demands import RootSubject
     from corpus_structure.semantic.demand_results import read_demand_result
+    from corpus_structure.semantic.selected_support import SelectedReadReference
 
     directory = tmp_path_factory.mktemp("current-contextual-workflow")
 
@@ -142,8 +143,9 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
             "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
             "kind",
         ]
+        read = SelectedReadReference.from_cut(page.cut)
         (original,) = [
-            Product(row, row["body"])
+            Product(row, row["body"], read)
             for row in page.members()
             if row["kind_contract"] == source_kind
             and row["body"]["text"] == TEXT
@@ -154,7 +156,7 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
             kernel,
             (CUES,),
             original.context,
-            source_sets=(FrozenSourceSet("fixture-contextual-source", (original.entry(),)),),
+            source_sets=(FrozenSourceSet.from_selected("fixture-contextual-source", (original.entry(),)),),
             inference="actual-finite-count-source-role-inspection",
         )
         cue_retained, _ = execute(kernel, cues_pending)
@@ -213,7 +215,7 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
             inference="exact-finite-definition-target",
             execution_profile=kernel.recipe.execution_profile,
             source_sets=(
-                FrozenSourceSet("contextual-definition-components", (components.entry(),)),
+                FrozenSourceSet.from_selected("contextual-definition-components", (components.entry(),)),
             ),
         )
         target_demand, _ = run_intent(kernel, target_intent)
@@ -299,11 +301,11 @@ def applicability_request(case, *, introduction, components=None):
         (APPLICABILITY,),
         case.original.context,
         source_sets=(
-            FrozenSourceSet(
+            FrozenSourceSet.from_selected(
                 "definition-components",
                 ((case.components if components is None else components).entry(),),
             ),
-            FrozenSourceSet("definition-relationships", (case.relationship.entry(),)),
+            FrozenSourceSet.from_selected("definition-relationships", (case.relationship.entry(),)),
         ),
         selections=(
             DemandOperationSelection(

@@ -243,7 +243,7 @@ def test_empty_selected_source_population_closes_without_invented_language_produ
                 "original_sources": {
                     acquired.name: DemandOriginalSelection(**acquired.selection().record())
                 },
-                "source_sets": {"selected-source-views": []},
+                "source_sets": {"selected-source-views": {"entries": [], "acquisition": {"kind": "selected-support-v1", "reads": []}}},
             }
         )
         snapshot = create_native_demand(connection, empty)

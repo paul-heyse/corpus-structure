@@ -60,6 +60,7 @@ from .data_operation_source_sets import (
     source_sets_record,
 )
 from .identity import canonical_bytes
+from .selected_support import ProducerOutputOccurrence
 
 
 class _UnqualifiedSource(Enum):
@@ -626,21 +627,10 @@ def compile_binding(
         )
         support = roles[name].support
         if support is not None and support.source_set is not None:
-            permitted = [
-                and_(
-                    alias.c.product == entry["product"],
-                    alias.c.member.is_not_distinct_from(entry["member"]),
-                    alias.c.subject == entry["subject"],
-                    alias.c.subject_definition == entry["subject_definition"],
-                    alias.c.original_source == entry["original_source"],
-                    json_context_equal(
-                        alias.c.analyzed_scope,
-                        literal(entry["analyzed_scope"], type_=ContextJSONB()),
-                    ),
-                )
-                for entry in selected_source_sets[support.source_set]
-            ]
-            return and_(association, or_(false(), *permitted))
+            from .data_operation_source_sets import source_entry_predicate, source_proof_predicate
+
+            scope = selected_source_sets[support.source_set]
+            return and_(association, source_entry_predicate(scope, alias), source_proof_predicate(scope, alias))
         return (
             and_(association, alias.c.original_source.is_not_distinct_from(original_source))
             if original_source is not _UNQUALIFIED_SOURCE
@@ -1340,6 +1330,21 @@ def decode_binding_rows(
                     )
                 )
 
+            references = read_support_references(row["support_references"])
+            computational = any(reference.kind == "computation" for reference in references)
+            output = None
+            try:
+                supplied_output = (row["support_evidence"].get("producer_output")
+                                   if isinstance(row["support_evidence"], Mapping) else None)
+                if supplied_output is not None:
+                    output = ProducerOutputOccurrence.model_validate(supplied_output)
+                if computational != (output is not None) or (
+                    output is not None and output.member_id is not None
+                    and output.member_id != row["member"]
+                ):
+                    raw_invalid = True
+            except ValueError:
+                raw_invalid = True
             members.append(
                 BoundRoleMember(
                     row["product"],
@@ -1355,8 +1360,9 @@ def decode_binding_rows(
                     row["member"],
                     row["provider_identity"],
                     row["alternative_identity"],
-                    support_references=read_support_references(row["support_references"]),
+                    support_references=references,
                     subject_definition=row["subject_definition"],
+                    producer_output=output,
                 )
             )
         accepted = input_kind_contracts(compiled.model, (role.kind,))[role.kind] if members else ()

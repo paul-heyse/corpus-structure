@@ -17,7 +17,7 @@ from corpus_structure.semantic.declared_structural_references import (
     DeclaredProductRef,
     DeclaredStructuralSource,
 )
-from corpus_structure.semantic.demand_results import CutSelection
+from corpus_structure.semantic.selected_support import SelectedReadReference
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operation_policy import (
     ATTACHMENT_EVENT_VERSION,
@@ -47,27 +47,7 @@ DefinitionProducer = Literal[
 ]
 
 
-class SelectedEventRead(FrozenContract):
-    """Exact retained native read bytes; possession alone establishes no authenticity."""
-
-    project_id: Nonempty
-    demand_id: Nonempty
-    read_id: Nonempty
-    release_id: Nonempty
-    runtime_id: Nonempty
-    cut_id: Nonempty
-    cut_canonical_json: Nonempty
-
-    @model_validator(mode="after")
-    def exact_cut(self) -> Self:
-        cut = CutSelection(self.cut_canonical_json.encode())
-        if cut.identity != self.cut_id or any(
-            cut.record[name] != getattr(self, name)
-            for name in ("project_id", "demand_id", "read_id", "release_id", "runtime_id")
-        ):
-            raise ValueError("event selection differs from its exact native cut bytes")
-        return self
-
+SelectedEventRead = SelectedReadReference
 
 class SelectedDefinitionEvent(FrozenContract):
     """One real component selector inside a whole native report, never a fictitious member."""
