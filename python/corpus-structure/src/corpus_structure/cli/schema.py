@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from sqlalchemy import MetaData
 
     from corpus_structure.cli.managed import Invocation
+    from corpus_structure.schema.data_steps import FrozenDataStep
     from corpus_structure.semantic.native_objects import NativeIdentity
 
 
@@ -436,6 +437,7 @@ def author_native_candidate(
     target_metadata: MetaData | None = None,
     retire: frozenset[NativeIdentity] = frozenset(),
     recreate: frozenset[NativeIdentity] = frozenset(),
+    data_steps: tuple[FrozenDataStep, ...] = (),
 ) -> tuple[NativeCandidateResult, dict[str, bytes]]:
     """Use the owned rollback-only authoring connection to prepare immutable product bytes."""
     from hashlib import sha256
@@ -539,7 +541,7 @@ def author_native_candidate(
                         "fresh root has no predecessor effects to retire or recreate"
                     )
                 script, authoring = prepare_target_candidate(
-                    conn, installation, owned_authoring=True
+                    conn, installation, owned_authoring=True, data_steps=data_steps
                 )
             else:
                 frozen = current_native_state(conn)
@@ -550,6 +552,7 @@ def author_native_candidate(
                     retire=retire,
                     recreate=recreate,
                     owned_authoring=True,
+                    data_steps=data_steps,
                 )
             upgrade_ops = script.upgrade_ops
             if upgrade_ops is None:

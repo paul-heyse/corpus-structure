@@ -671,7 +671,7 @@ def physical_row_type_context(connection, target_metadata, *, existing=None):
 
 
 def compare_declared_candidate(
-    connection, *, target_metadata, authoring, old_descriptor, physical_contract
+    connection, *, target_metadata, authoring, old_descriptor, physical_contract, data_steps=()
 ):
     """One Alembic comparison for explicit prior/desired declarations, including fresh roots."""
     from .alembic_privileges import plugin as privileges_plugin
@@ -768,6 +768,9 @@ def compare_declared_candidate(
         candidate.upgrade_ops.ops[:] = ordered
         _order_physical_retirement(candidate.upgrade_ops)
         _order_row_type_evolution(connection, candidate.upgrade_ops, authoring)
+        from corpus_structure.schema.data_steps import order_data_steps
+
+        order_data_steps(candidate.upgrade_ops, data_steps, authoring)
         candidate.upgrade_ops.ops.extend(compared_privileges)
         if physical_contract is not None:
             candidate.upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", physical_contract))

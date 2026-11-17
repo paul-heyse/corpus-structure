@@ -246,6 +246,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         target_metadata,
         retire,
         recreate,
+        data_steps,
     ):
         assert source.database.url == settings.database.url
         assert expected_predecessor == "before"
@@ -253,6 +254,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         assert target_metadata.tables["data.project"].c.reviewed_fixture.nullable
         assert {item.name for item in retire} == {"retired_fixture"}
         assert {item.name for item in recreate} == {"recreated_fixture"}
+        assert [step.name for step in data_steps] == ["ddo_n1_relower"]
         return schema.NativeCandidateResult(
             database="development",
             predecessor="before",
@@ -290,6 +292,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
                 "deployment": True,
                 "native_predecessor": "before",
                 "native_revision": "after",
+                "data_steps": [{"name": "ddo_n1_relower", "parameters": {}}],
                 "physical": yaml.safe_dump(proposed),
                 "retire": [{"kind": "function", "schema": "data", "name": "retired_fixture"}],
                 "recreate": [{"kind": "function", "schema": "data", "name": "recreated_fixture"}],

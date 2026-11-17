@@ -1982,6 +1982,7 @@ def candidate(
                             target_metadata=target_metadata,
                             retire=retired,
                             recreate=recreated,
+                            data_steps=staged.data_steps,
                         )
                         report = publish_native_candidate(result, native, products)
                         report = report.model_copy(

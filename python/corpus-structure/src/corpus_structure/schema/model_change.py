@@ -20,6 +20,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.schema import change, model, preparation
 from corpus_structure.schema.change import ChangeRecord
+from corpus_structure.schema.data_steps import (
+    DataStepRequest,
+    FrozenDataStep,
+    prepare_data_steps,
+)
 from corpus_structure.schema.physical import (
     PHYSICAL_ROOT,
     compile_physical,
@@ -130,9 +135,14 @@ class ChangeRequest(NativeIntent):
     deployment: bool = False
     deployment_profile: DeploymentProfile | None = None
     source_migrations: tuple[SourceMigration, ...] = ()
+    data_steps: tuple[DataStepRequest, ...] = ()
 
     @model_validator(mode="after")
     def explicit_application_runtime(self):
+        if self.data_steps and not self.native_requested:
+            raise ValueError("revision data steps require explicit native authoring")
+        if len({step.name for step in self.data_steps}) != len(self.data_steps):
+            raise ValueError("duplicate revision data step")
         executable = bool(self.data_operations and (self.deployment or self.native_requested))
         if executable and (self.execution_profile is None or not self.execution_profile.strip()):
             raise ValueError("DDO application deployment requires an explicit execution_profile")
@@ -202,6 +212,7 @@ class ChangePreview(BaseModel):
     runtime: RuntimeCustody | None = None
     discovery: dict | None = None
     source_migrations: tuple[SourceMigrationPreview, ...] = ()
+    data_steps: tuple[FrozenDataStep, ...] = ()
     source_comparison: EffectiveChangeComparison | None = None
     query_analysis: ProjectionAnalysisComparison | None = None
     preparation_fingerprint: str | None = None
@@ -912,6 +923,7 @@ def prepare_preview(
             (physical is not None and physical[0] != physical[1], "trusted_physical_change"),
             (bool(request.retire), "explicit_native_retirement"),
             (bool(request.recreate), "explicit_native_recreation"),
+            (bool(request.data_steps), "revision_data_steps"),
         )
         if applies
     )
@@ -972,6 +984,7 @@ def prepare_preview(
         release_manifest_sha256=release_manifest_sha256,
         release_artifacts_sha256=release_artifacts_sha256,
         source_migrations=migrations,
+        data_steps=prepare_data_steps(request.data_steps),
         source_comparison=source_comparison,
         query_analysis=query_analysis,
         discovery=locate_consumers(
@@ -999,6 +1012,8 @@ def check_preview(root: Path, preview: ChangePreview, *, applied: bool = False) 
         or generator_fingerprint(root) != preview.generator
     ):
         raise model.ModelError(["model toolchain changed after preview"])
+    if preview.data_steps != prepare_data_steps(preview.request.data_steps):
+        raise model.ModelError(["revision data-step custody changed after preview"])
     for migration in preview.source_migrations:
         try:
             check_source_migration(root, migration)
