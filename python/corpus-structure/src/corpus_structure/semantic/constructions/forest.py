@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Mapping
+from copy import copy
 from dataclasses import dataclass
 from functools import cache, lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from lark import Lark, UnexpectedInput
+from lark.parser_frontends import ParsingFrontend
+from lark.parsers.xearley import Parser as DynamicEarleyParser
 
 from corpus_structure.semantic.file_custody import observed_file
 
@@ -16,6 +21,8 @@ from .declarations import DECLARATIONS, MODAL_FORCES, REVISION
 from .lexical import LEXICAL, PositionedTerminal, ProtectedAtom, classify
 from .nodes import Reference, identity
 from .reuse import ReusingForestTransformer
+
+_POSITIONED_NAMES = frozenset((*LEXICAL, "ATOM", "WS"))
 
 
 def terminal_guard(start: int, end: int, atoms: tuple[ProtectedAtom, ...], *, atom: bool) -> None:
@@ -74,14 +81,105 @@ def prepared_parser(
     return _prepared_parser(text, atoms, grammar, resource.digest, terminals)
 
 
+@dataclass(frozen=True, slots=True)
+class _PositionedMatch:
+    text: str
+    endpoint: int
+
+    def group(self, index: int = 0) -> str:
+        if index != 0:
+            raise IndexError("positioned terminal has only the whole match")
+        return self.text
+
+    def end(self) -> int:
+        return self.endpoint
+
+
+@dataclass(frozen=True, slots=True)
+class _RegionMatcher:
+    source: str
+    values: Mapping[tuple[str, int], _PositionedMatch]
+    native_match: Callable
+
+    def match(self, term, text, index=0):
+        if text is not self.source and text != self.source:
+            raise ValueError("positioned parser belongs to a different source region")
+        if term.name in _POSITIONED_NAMES:
+            return self.values.get((term.name, index))
+        # An authored grammar may contain ordinary native terminals in addition
+        # to the positioned names. Their original matcher remains authoritative.
+        return self.native_match(term, text, index)
+
+
 @lru_cache(maxsize=64)
-def _prepared_parser(
+def _grammar_prototype(grammar: str | None, resource_digest: str) -> Lark:
+    """Prepare grammar analysis once; no source text or region matcher is cached."""
+    if grammar is None:
+        imports = ", ".join(["clause", *LEXICAL, "ATOM"])
+        grammar = f"%import .prose ({imports})\nstart: clause PUNCT?"
+    # Dynamic Earley requires positive regexp width even though supplied matches
+    # replace these terminals. The existing absent-terminal spelling has width 1.
+    declarations = "\n".join(f"%override {name}: /(?!)x/" for name in (*LEXICAL, "ATOM"))
+    parser = Lark(
+        grammar + "\n" + declarations + "\nWS: /(?!)x/\n%ignore WS",
+        import_paths=[str(Path(__file__).with_name("grammars"))],
+        parser="earley", lexer="dynamic", ambiguity="forest", priority=None,
+        ordered_sets=True, start=["start"], keep_all_tokens=True,
+    )
+    _grammar_resource(Path(__file__).with_name("grammars").joinpath("prose.lark")).check()
+    return parser
+
+
+def _prepared_parser(text: str, atoms: tuple[ProtectedAtom, ...], grammar: str | None,
+                     resource_digest: str, terminals: tuple[PositionedTerminal, ...] | None = None) -> Lark:
+    previous = 0
+    for atom in sorted(atoms, key=lambda a: a.start):
+        if not previous <= atom.start < atom.end <= len(text):
+            raise ValueError("protected atoms overlap or lie outside their source region")
+        previous = atom.end
+    values = classify(text, atoms) if terminals is None else terminals
+    starts = {}
+    for row in values:
+        key = row.terminal, row.start
+        if key in starts and starts[key] != row:
+            raise ValueError("same-terminal same-start alternatives exceed dynamic Earley lexical support")
+        starts[key] = row
+        terminal_guard(row.start, row.end, atoms, atom=False)
+        if (row.terminal not in {*LEXICAL, "WS"} or not 0 <= row.start < row.end <= len(text)
+                or text[row.start:row.end] != row.text):
+            raise ValueError("retained lexical observation differs from exact original source")
+    matches = {key: _PositionedMatch(row.text, row.end) for key, row in starts.items()}
+    for atom in atoms:
+        matches["ATOM", atom.start] = _PositionedMatch(text[atom.start:atom.end], atom.end)
+    prototype = _grammar_prototype(grammar, resource_digest)
+    frontend = prototype.parser
+    if not isinstance(frontend, ParsingFrontend) or not isinstance(frontend.parser, DynamicEarleyParser):
+        raise RuntimeError("prepared prose grammar requires its captured dynamic Earley implementation")
+    parser = copy(prototype)
+    region_frontend = copy(frontend)
+    scanner = copy(frontend.parser)
+    # Lark 1.3.1 keeps its grammar analysis on the parser and parse state in local
+    # columns/scanner buffers. Copy only the three owners along this binding path;
+    # shared rules/configuration stay immutable and no parser holds another run's
+    # text. Never mutate the cached scanner or serialize access through a lock.
+    scanner.term_matcher = _RegionMatcher(text, MappingProxyType(matches), frontend.parser.term_matcher).match
+    region_frontend.parser = scanner
+    parser.parser = region_frontend
+    return parser
+
+
+def _regex_parser_oracle(
     text: str,
     atoms: tuple[ProtectedAtom, ...],
-    grammar: str | None,
-    resource_digest: str,
+    grammar: str | None = None,
+    *,
     terminals: tuple[PositionedTerminal, ...] | None = None,
 ) -> Lark:
+    """Private independent per-region compiler for the S33 equality experiment.
+
+    Production never calls this compiler or falls back to it. Retire it when the
+    book-region forest equality experiment accepts or rejects the candidate.
+    """
     previous = 0
     for atom in sorted(atoms, key=lambda a: a.start):
         if not previous <= atom.start < atom.end <= len(text):
