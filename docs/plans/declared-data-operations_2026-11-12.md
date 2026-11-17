@@ -10,6 +10,53 @@ at `4f32589d0`. All actionable I01–I09 scope is scheduled below, with explicit
 conditional choices retained. Existing F01–F14/C1–C7/CA identities and scoped closures survive.
 Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No broad audit is initiated.
 
+## Current repair and successor integration · 2026-11-17
+
+**Implemented; bounded Tested; full qualification/adoption open.** SI31 projection522ee1f94 and
+SI30 interpreter/diagnostic repair431656078 are merged, with SQL retirementd6ee43480 and root
+maintenanceb0ef6be92. Removed three unselected SQL files/about2800lines, retained nine selected
+closure declarations byte-identically, and migrated source-snippet tests to the current task guard.
+A missing controlled subject-definition field and stale generated fate provenance checksum were
+corrected; protocol definitions and physical task/lease/PDF custody are unchanged. Independent
+source review found no material gap.
+
+Recognition focused19 passed7ce3290faade486daa35ff70369686d8; policy pure1 passed30a7edf… and
+native regression collectione3b708… is not execution. SQL cohort242b53fe0eff417fbab9e15b63c71868
+had31passed/2failed; exact retry35bf836b7c29412b905bc127bf4500dd passed2, coverage33/33 with
+original failure and differing private incarnations retained. All worktree originals were renamed
+with directory/manifest inode verification and root CLI holds before clean merged worktree removal.
+Integrated types1fb285a261f1463aad6a89f31cfe3433 and Ruffb172d34f68204b149ff032411c223e4e passed.
+
+Normal native previewceb010d59dd04f64ab8ee69d6e3c1de4, correct bound apply1061d1204fe048c6bcd9fcbae06e30b0,
+rollback candidate4712a87a38124570b976fd5ef7664f18, registration8306c3f1d8204417b9e09c83e21f99b6
+and deploymentd0e2466f8fbf48b29e410c25eecaa184 passed. Wrong-target applydb67442bd1a84873918c405719e95520
+was refused before effects and retained. Registered1ee9cea2a installs root+15/headsemantic_ddo_policy_json
+on unchanged stageOID130661481/system7701811359771751232. Review confirmed10body-only operations,
+0ordinary operations, identical ACL/owner/lifecycle/schema, exact Python/JSON payloads and all161
+captured input digests. Native digest4ac1952931060e5271ecbb8773f2235edec7954371cf011e66ad50df2e315fbe;
+physical identity23eb2beb… and97relations unchanged. Separate maintenance confirms revision=head.
+
+Matching application previewab68e37e15ef454899c93bfcf3f6f31c, applyada08f7ade8b4a6982dc3f93e7889616,
+candidate701815577bbe4307a86dbc141dfc7f56 and deploymentc7bf757bb5c743af813204e3c95351fc passed.
+Release2f794245a4f3ce1c31a25a646e08dcf5e106c111fcef81d793c76c88c0f935d7/runtime
+e2cfb482465cff70e1decc30a5926c90066e2cdd31bbbae419d0833e9c3af26f archives the lexical virtualenv
+entrypoint, verified directly in its recognized execution-custody input. Runtime archive SHA256
+3e08e20305a15e879a6ac7a1db59cc00ae18abcb17a72e65ae780ab1fd30a9a0. Ordinary reader db check passed;
+release check/activation and actual native PDF publication remain pending.
+
+Root managed Nemo generation25d449a38fbc4533994baeb9b99119b2 is healthy, session3299/API1948728/
+engine1949820. One existing-worker API attempt with exact source/recipe/pages1–3 and reuse_failures=False
+succeeded for every page in attempt-00002. Original attempt-00001 failures remain. This is actual
+adapter inference, not native demand/publication or linguistic-accuracy qualification.
+
+New policy regression00ab2eefe883461ca80963ab88f545fd failed setup before scoring: the contextual
+fixture omitted the retained occurrence/source acquisition and found no expected Ada query. Held,
+reporting complete/native no_claim/custody settled. Test-only explicit-input repair and retry57a8c7e3…
+are active; no production guard is relaxed. E5 all3 remains not_run after that gate. Event/artifact,
+eight PM2 providers, remaining consumers, development adoption, whole-book resume and final union
+remain open. All29 original files were rehashed successfully against the finalized descriptor
+snapshot; no development fencing/rename/import/adoption has occurred.
+
 ## Authorized completion execution · 2026-11-17
 
 **Execution active; incomplete.** Implement the approved remaining DDO-00–12 approach in this
