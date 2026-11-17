@@ -59,8 +59,9 @@ def test_captured_sql_scope_projection_follows_its_domain_function_providers():
     from corpus_structure.semantic.prepared_sql import prepare_sql
 
     captured = native_protocol_sources()
-    scope_source = next(source for source in captured
-                        if source.name == "native/data-operation-support-scopes.sql")
+    scope_source = next(
+        source for source in captured if source.name == "native/data-operation-support-scopes.sql"
+    )
     assert "CREATE OR REPLACE FUNCTION ops.ddo_support_scopes" in scope_source.content.decode()
     prepared = prepare_sql(native_sql(captured), source="scope-provider-installation-order")
     declarations = {
@@ -69,7 +70,10 @@ def test_captured_sql_scope_projection_follows_its_domain_function_providers():
         if isinstance(statement.stmt, ast.CreateFunctionStmt)
     }
     index, scope = declarations[("ops", "ddo_support_scopes")]
-    assert next(option.arg.sval for option in scope.options or () if option.defname == "language") == "sql"
+    assert (
+        next(option.arg.sval for option in scope.options or () if option.defname == "language")
+        == "sql"
+    )
     calls = set()
 
     class Calls(Visitor):
@@ -86,7 +90,6 @@ def test_captured_sql_scope_projection_follows_its_domain_function_providers():
     assert providers <= calls
     assert all(declarations[provider][0] < index for provider in providers)
     assert declarations[("ops", "ddo_scope")][0] < index
-
 
 
 def test_core_projection_capture_consumes_explicit_counterfactual_metadata_without_ambient_fallback(

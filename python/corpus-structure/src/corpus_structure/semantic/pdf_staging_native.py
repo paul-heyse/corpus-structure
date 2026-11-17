@@ -413,9 +413,8 @@ END $stage$;
             f"REVOKE ALL ON FUNCTION ops.{signature} FROM PUBLIC; "
             f"GRANT EXECUTE ON FUNCTION ops.{signature} TO corpus_sem_writer;\n"
         )
-    from .pdf_staging import stage_upload_profile
-
     from .pdf_spool_native import pdf_spool_native_sql
+    from .pdf_staging import stage_upload_profile
 
     sql += pdf_spool_native_sql()
     profile = stage_upload_profile()

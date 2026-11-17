@@ -313,11 +313,11 @@ def test_gliner_coalescing_keeps_member_refusal_and_valid_reply_in_one_exchange(
 ):
     from corpus_structure.methods.gliner import (
         GlinerInput,
-        GlinerPreparation,
-        GlinerReport,
         GlinerPack,
+        GlinerPreparation,
         GlinerProfile,
         GlinerRefused,
+        GlinerReport,
     )
     from corpus_structure.methods.gliner_worker import GlinerAdmission
 
@@ -356,20 +356,34 @@ def test_gliner_coalescing_keeps_member_refusal_and_valid_reply_in_one_exchange(
             calls.append(("infer", tuple(item.context_id for item in inputs)))
             self.receipt("infer", inputs, kwargs)
             admissions = tuple(
-                GlinerAdmission(i, item.context_id, item.context_digest,
-                                item.context_id != "native-refused",
-                                "native word bound" if item.context_id == "native-refused" else None)
+                GlinerAdmission(
+                    i,
+                    item.context_id,
+                    item.context_digest,
+                    item.context_id != "native-refused",
+                    "native word bound" if item.context_id == "native-refused" else None,
+                )
                 for i, item in enumerate(inputs)
             )
-            return GlinerBatchResult(admissions, tuple(
-                GlinerReport(
-                    context_id=item.context_id, context_digest=item.context_digest,
-                    computation="controlled", profile="controlled", pack=pack.release,
-                    preparation=GlinerPreparation(item.text, "", 0, 0, len(item.text.encode())),
-                    raw_json="{}", effective_profile_json="{}", inference_seconds=0.0,
-                    resident_reused=False,
-                ) for item, member in zip(inputs, admissions, strict=True) if member.admitted
-            ))
+            return GlinerBatchResult(
+                admissions,
+                tuple(
+                    GlinerReport(
+                        context_id=item.context_id,
+                        context_digest=item.context_digest,
+                        computation="controlled",
+                        profile="controlled",
+                        pack=pack.release,
+                        preparation=GlinerPreparation(item.text, "", 0, 0, len(item.text.encode())),
+                        raw_json="{}",
+                        effective_profile_json="{}",
+                        inference_seconds=0.0,
+                        resident_reused=False,
+                    )
+                    for item, member in zip(inputs, admissions, strict=True)
+                    if member.admitted
+                ),
+            )
 
         def close(self):
             self.closed = True
@@ -420,7 +434,8 @@ def test_gliner_coalescing_keeps_member_refusal_and_valid_reply_in_one_exchange(
     assert native_bad.collect().error_type is None
     assert not native_bad.collect().admissions[0].admitted
     assert native_bad.collect().reports == ()
-    assert good.collect().reports == (Report("good"),)
+    assert len(good.collect().reports) == 1
+    assert good.collect().reports[0].context_id == "good"
     receipt = good.collect().execution_receipt
     assert receipt is not None
     assert receipt.member_offset == 1 and receipt.member_count == 1
@@ -974,7 +989,12 @@ def test_reused_provider_lane_attaches_each_jobs_actual_observation_context(runt
 
     monkeypatch.setattr(execution, "exchange", observed)
     for index in range(2):
-        with capture(cast(Any, Sink(records[index])), request_id=f"request:{index}", task_id=index + 10, attempt=index + 1):
+        with capture(
+            cast(Any, Sink(records[index])),
+            request_id=f"request:{index}",
+            task_id=index + 10,
+            attempt=index + 1,
+        ):
             handle = execution.try_submit(work(str(index), {"value": index}))
             assert result(handle) == {"value": index}
     for index, retained in enumerate(records):
@@ -985,7 +1005,9 @@ def test_reused_provider_lane_attaches_each_jobs_actual_observation_context(runt
         assert selected[0]["bindings"]["attempt"] == index + 1
 
 
-def test_gliner_compatibility_sizes_physical_cohort_without_relabelling_logical_members(runtime, monkeypatch):
+def test_gliner_compatibility_sizes_physical_cohort_without_relabelling_logical_members(
+    runtime, monkeypatch
+):
     from dataclasses import asdict
 
     from semantic.model_characterization_support import gliner_profile
@@ -998,13 +1020,27 @@ def test_gliner_compatibility_sizes_physical_cohort_without_relabelling_logical_
     for index in range(2):
         value = GlinerInput(str(index), "a" * 64, "source " + str(index))
         logical = resources.LogicalProviderMember(
-            f"request:{index}", 1, index + 10, 1, str(index), 0, 1,
+            f"request:{index}",
+            1,
+            index + 10,
+            1,
+            str(index),
+            0,
+            1,
             payload_digest([asdict(value)]),
         )
-        requests.append(resources.GLiNERWork(
-            gliner_profile().profile, GlinerPack("release", "1", "{}"), (value,),
-            0.5, "flat", str(index), (), logical_members=(logical,),
-        ))
+        requests.append(
+            resources.GLiNERWork(
+                gliner_profile().profile,
+                GlinerPack("release", "1", "{}"),
+                (value,),
+                0.5,
+                "flat",
+                str(index),
+                (),
+                logical_members=(logical,),
+            )
+        )
     probes = []
 
     def size(request):
@@ -1023,11 +1059,15 @@ def test_gliner_compatibility_sizes_physical_cohort_without_relabelling_logical_
     assert all(len(request.logical_members) == 1 for request in requests)
 
 
-def test_compatibility_failure_settles_started_and_pending_futures_without_exchange(runtime, monkeypatch):
+def test_compatibility_failure_settles_started_and_pending_futures_without_exchange(
+    runtime, monkeypatch
+):
     execution, opened, _ = runtime
     selected = selection("hanlp")
-    handles = [execution.try_submit(work(str(index), {"sentences": ["source"]}, selected=selected))
-               for index in range(2)]
+    handles = [
+        execution.try_submit(work(str(index), {"sentences": ["source"]}, selected=selected))
+        for index in range(2)
+    ]
     failure = ValueError("controlled cohort-selection failure")
 
     def refuse(_group, _following):

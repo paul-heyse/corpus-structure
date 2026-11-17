@@ -108,9 +108,17 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
         SimpleNamespace(
             operation=operation,
             obligation=str(index),
-            native=json.dumps({"request_id": str(index), "generation": 1,
-                               "release_id": prepared.release_id, "runtime_id": "runtime:controlled",
-                               "binding": {}, "binding_demand_id": "demand", "binding_obligation_id": str(index) }).encode(),
+            native=json.dumps(
+                {
+                    "request_id": str(index),
+                    "generation": 1,
+                    "release_id": prepared.release_id,
+                    "runtime_id": "runtime:controlled",
+                    "binding": {},
+                    "binding_demand_id": "demand",
+                    "binding_obligation_id": str(index),
+                }
+            ).encode(),
             binding_result=None,
         )
         for index, operation in enumerate(requests)
@@ -119,9 +127,13 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
     monkeypatch.setattr(
         data_operations,
         "DemandPlanner",
-        lambda *_: SimpleNamespace(ready=lambda *_args, **_kw: ready, logical_progress=0, refusals=()),
+        lambda *_: SimpleNamespace(
+            ready=lambda *_args, **_kw: ready, logical_progress=0, refusals=()
+        ),
     )
-    observed = SimpleNamespace(claims=[], claim_sets=[], receipts=[], failures=[], live=set(), windows=[])
+    observed = SimpleNamespace(
+        claims=[], claim_sets=[], receipts=[], failures=[], live=set(), windows=[]
+    )
 
     def claim_set(payload):
         observed.claim_sets.append(tuple(item["request_id"] for item in payload["items"]))
@@ -131,16 +143,32 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
             observed.claims.append((index, executor.budget.used_bytes))
             observed.live.add(index)
             observed.windows.append(len(observed.live))
-            metadata = json.loads(next(value.native for value in executor._ready_items if value.obligation == index))
-            results.append({"state": "claimed", "result": {
-                **metadata, "state": "claimed", "action": "compute", "task_id": int(index) + 1,
-                "attempt": 1, "holder": payload["holder"], "lease_until": "2026-11-17T00:00:00Z",
-            }})
+            metadata = json.loads(
+                next(value.native for value in executor._ready_items if value.obligation == index)
+            )
+            results.append(
+                {
+                    "state": "claimed",
+                    "result": {
+                        **metadata,
+                        "state": "claimed",
+                        "action": "compute",
+                        "task_id": int(index) + 1,
+                        "attempt": 1,
+                        "holder": payload["holder"],
+                        "lease_until": "2026-11-17T00:00:00Z",
+                    },
+                }
+            )
         return {"items": results}
 
-    monkeypatch.setattr(data_operations, "DataOperationStorage", lambda _: SimpleNamespace(
-        claim_data_requests=claim_set,
-    ))
+    monkeypatch.setattr(
+        data_operations,
+        "DataOperationStorage",
+        lambda _: SimpleNamespace(
+            claim_data_requests=claim_set,
+        ),
+    )
 
     def publish(claim, answer, owner):
         observed.receipts.append((claim.request_id, answer))
@@ -260,9 +288,7 @@ def derive(value: int, fail_first: bool, prepared: PreparedRelease) -> int:
         for _, used in observed.claims
     )
     assert max(observed.windows) <= policy.max_claims
-    assert dict(observed.receipts) == (
-        {"1": 8, "2": 9} if fail_first else {"0": 7, "1": 8, "2": 9}
-    )
+    assert dict(observed.receipts) == ({"1": 8, "2": 9} if fail_first else {"0": 7, "1": 8, "2": 9})
     assert not observed.live and executor.budget.used_bytes == 0
 
 
@@ -321,9 +347,7 @@ def test_preparation_that_cannot_hold_one_request_refuses_before_claim(monkeypat
     assert not observed.claims and executor.budget.used_bytes == 0
 
 
-def test_reduced_credit_allows_progress_while_an_old_physical_share_retires(
-    monkeypatch, prepared
-):
+def test_reduced_credit_allows_progress_while_an_old_physical_share_retires(monkeypatch, prepared):
     third_started = Event()
     retired = Future()
 
@@ -464,11 +488,16 @@ def test_measured_batch_boundary_rehydrates_without_reclaiming(monkeypatch, prep
             assert "1" not in execution_owner.consumer_inputs
         if False:
             yield
-        return SimpleNamespace(members=tuple((member.member, member.values.identifier) for member in members))
+        return SimpleNamespace(
+            members=tuple((member.member, member.values.identifier) for member in members)
+        )
 
     executor, observed = controlled_executor(
-        monkeypatch, prepared, policy_for(prepared, max_claims=3, credits=2),
-        ("batch",) * 3, {"batch": SimpleNamespace(native_selections=(), plan_batch_python=batch)},
+        monkeypatch,
+        prepared,
+        policy_for(prepared, max_claims=3, credits=2),
+        ("batch",) * 3,
+        {"batch": SimpleNamespace(native_selections=(), plan_batch_python=batch)},
     )
 
     def hydrate(item, physical, **_):
@@ -503,21 +532,39 @@ def test_one_frontier_replenishes_multiple_logical_pages(monkeypatch, prepared):
         return value
 
     executor, observed = controlled_executor(
-        monkeypatch, prepared, policy_for(prepared), ("scalar",) * 6,
+        monkeypatch,
+        prepared,
+        policy_for(prepared),
+        ("scalar",) * 6,
         {"scalar": SimpleNamespace(native_selections=(), plan_python=scalar)},
     )
 
     def page(index, _authorization):
         prepared_pages.append(index)
-        return [
-            SimpleNamespace(
-                operation="scalar", obligation=str(identifier), binding_result=None,
-                native=json.dumps({"request_id": str(identifier), "generation": 1,
-                                   "release_id": prepared.release_id, "runtime_id": "runtime:controlled",
-                                   "binding": {}, "binding_demand_id": "demand", "binding_obligation_id": str(identifier)}).encode(),
-            )
-            for identifier in range(2 * index, 2 * index + 2)
-        ], (), 0, ()
+        return (
+            [
+                SimpleNamespace(
+                    operation="scalar",
+                    obligation=str(identifier),
+                    binding_result=None,
+                    native=json.dumps(
+                        {
+                            "request_id": str(identifier),
+                            "generation": 1,
+                            "release_id": prepared.release_id,
+                            "runtime_id": "runtime:controlled",
+                            "binding": {},
+                            "binding_demand_id": "demand",
+                            "binding_obligation_id": str(identifier),
+                        }
+                    ).encode(),
+                )
+                for identifier in range(2 * index, 2 * index + 2)
+            ],
+            (),
+            0,
+            (),
+        )
 
     executor._prepare_page = page
     driver = data_operations.drive_prepared_work
@@ -536,7 +583,9 @@ def test_one_frontier_replenishes_multiple_logical_pages(monkeypatch, prepared):
     assert max(observed.windows) <= 2 and executor.budget.used_bytes == 0
 
 
-def test_cold_preparation_defers_to_driver_ticks_without_failing_or_claiming_early(monkeypatch, prepared):
+def test_cold_preparation_defers_to_driver_ticks_without_failing_or_claiming_early(
+    monkeypatch, prepared
+):
     from corpus_structure.orchestrate.execution_host import ExecutionPreparationDeferred
 
     deferred = Event()
@@ -548,11 +597,16 @@ def test_cold_preparation_defers_to_driver_ticks_without_failing_or_claiming_ear
                 assert deferred.wait(5), "cold preparation blocked the physical driver"
             return value
 
-        (answer,) = yield (data_operations.PreparedWork(lambda: execution_owner.submit_python(compute)),)
+        (answer,) = yield (
+            data_operations.PreparedWork(lambda: execution_owner.submit_python(compute)),
+        )
         return answer
 
     executor, observed = controlled_executor(
-        monkeypatch, prepared, policy_for(prepared), ("scalar",) * 2,
+        monkeypatch,
+        prepared,
+        policy_for(prepared),
+        ("scalar",) * 2,
         {"scalar": SimpleNamespace(native_selections=(), plan_python=scalar)},
     )
 
@@ -598,12 +652,18 @@ def test_batch_profile_caps_use_actual_semantic_input_bytes_and_order_before_sca
         return SimpleNamespace(members=tuple((member.member, member.values) for member in members))
 
     port = SimpleNamespace(
-        native_selections=(), plan_batch_python=batch, batch_max_items=item_limit,
-        batch_max_input_bytes=byte_limit, batch_input_bytes=measure,
+        native_selections=(),
+        plan_batch_python=batch,
+        batch_max_items=item_limit,
+        batch_max_input_bytes=byte_limit,
+        batch_input_bytes=measure,
         batch_order_key=lambda member: -member.values,
     )
     executor, observed = controlled_executor(
-        monkeypatch, prepared, policy_for(prepared, max_claims=4, credits=4), ("batch",) * 5,
+        monkeypatch,
+        prepared,
+        policy_for(prepared, max_claims=4, credits=4),
+        ("batch",) * 5,
         {"batch": port},
     )
     with execution_resources(executor) as physical:
@@ -617,7 +677,9 @@ def test_batch_profile_caps_use_actual_semantic_input_bytes_and_order_before_sca
     assert len(observed.claims) == 5 and not observed.live and executor.budget.used_bytes == 0
 
 
-def test_indivisible_semantic_input_capacity_failure_preserves_claimed_siblings(monkeypatch, prepared):
+def test_indivisible_semantic_input_capacity_failure_preserves_claimed_siblings(
+    monkeypatch, prepared
+):
     from corpus_structure.semantic.identity import canonical_bytes
 
     def content(members):
@@ -629,10 +691,17 @@ def test_indivisible_semantic_input_capacity_failure_preserves_claimed_siblings(
             yield
         return SimpleNamespace(members=tuple((member.member, member.values) for member in members))
 
-    port = SimpleNamespace(native_selections=(), plan_batch_python=batch,
-                           batch_max_input_bytes=5, batch_input_bytes=lambda members: len(content(members)))
+    port = SimpleNamespace(
+        native_selections=(),
+        plan_batch_python=batch,
+        batch_max_input_bytes=5,
+        batch_input_bytes=lambda members: len(content(members)),
+    )
     executor, observed = controlled_executor(
-        monkeypatch, prepared, policy_for(prepared, max_claims=3, credits=3), ("batch",) * 3,
+        monkeypatch,
+        prepared,
+        policy_for(prepared, max_claims=3, credits=3),
+        ("batch",) * 3,
         {"batch": port},
     )
     with execution_resources(executor) as physical:
@@ -650,10 +719,14 @@ def test_batch_order_failure_settles_every_owned_claim(monkeypatch, prepared):
     def bad_key(_):
         raise ValueError("controlled order failure")
 
-    port = SimpleNamespace(native_selections=(), plan_batch_python=lambda *a, **k: None,
-                           batch_order_key=bad_key)
+    port = SimpleNamespace(
+        native_selections=(), plan_batch_python=lambda *a, **k: None, batch_order_key=bad_key
+    )
     executor, observed = controlled_executor(
-        monkeypatch, prepared, policy_for(prepared, max_claims=3, credits=3), ("batch",) * 3,
+        monkeypatch,
+        prepared,
+        policy_for(prepared, max_claims=3, credits=3),
+        ("batch",) * 3,
         {"batch": port},
     )
     with execution_resources(executor) as physical:

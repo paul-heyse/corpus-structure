@@ -8,7 +8,7 @@ import pytest
 
 from corpus_structure.core.work import PhysicalRetirementUncertain
 from corpus_structure.methods.native_host import NativeHostResidency, NativeRetirementUncertain
-from corpus_structure.orchestrate.data_operations import _RunExecution, _PythonWork
+from corpus_structure.orchestrate.data_operations import _PythonWork, _RunExecution
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope, OwnedByteBudget
 
 

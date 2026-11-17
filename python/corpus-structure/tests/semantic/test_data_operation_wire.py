@@ -61,7 +61,11 @@ def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeyp
 def test_ambient_validation_and_role_lookup_survive_captured_cache_eviction(monkeypatch):
     from corpus_structure.semantic import data_operation_wire as wire
 
-    payload = {"items": [{"request_id": "request:x", "generation": 1}], "holder": "worker", "lease_seconds": 3}
+    payload = {
+        "items": [{"request_id": "request:x", "generation": 1}],
+        "holder": "worker",
+        "lease_seconds": 3,
+    }
     assert wire.validate_native_wire("claim_data_requests", "input", payload) == payload
     wire._prepared_protocol.cache_clear()
     wire._validator.cache_clear()
@@ -76,7 +80,11 @@ def test_ambient_validation_and_role_lookup_survive_captured_cache_eviction(monk
         KIND_PREFIX + "claim_data_requests_request"
     )
     with pytest.raises(ValueError, match="schema"):
-        wire.validate_native_wire("claim_data_requests", "input", {**payload, "items": [{"request_id": "request:x", "generation": "1"}]})
+        wire.validate_native_wire(
+            "claim_data_requests",
+            "input",
+            {**payload, "items": [{"request_id": "request:x", "generation": "1"}]},
+        )
 
 
 def test_prepared_wire_validator_owns_its_schema_after_caller_mutation_and_eviction(monkeypatch):
@@ -166,17 +174,23 @@ def test_native_wire_integer_type_and_declared_limits_do_not_coerce(lease):
 
 
 def test_exact_wire_fields_and_result_variants_are_explicit():
-    payload = {"items": [{"request_id": "request:x", "generation": 1}], "holder": "worker", "lease_seconds": 3}
+    payload = {
+        "items": [{"request_id": "request:x", "generation": 1}],
+        "holder": "worker",
+        "lease_seconds": 3,
+    }
     assert validate_native_wire("claim_data_requests", "input", payload) == payload
     with pytest.raises(ValueError):
         validate_native_wire("claim_data_requests", "input", {**payload, "extra": 2})
-    assert validate_native_wire("claim_data_requests", "output", {"items": [{"state": "no-work"}]}) == {
-        "items": [{"state": "no-work"}]
-    }
+    assert validate_native_wire(
+        "claim_data_requests", "output", {"items": [{"state": "no-work"}]}
+    ) == {"items": [{"state": "no-work"}]}
     with pytest.raises(ValueError):
         validate_native_wire("claim_data_requests", "output", {"items": [{"state": "claimed"}]})
     with pytest.raises(ValueError):
-        validate_native_wire("claim_data_requests", "output", {"items": [{"state": "no-work", "task_id": 4}]})
+        validate_native_wire(
+            "claim_data_requests", "output", {"items": [{"state": "no-work", "task_id": 4}]}
+        )
 
 
 @pytest.mark.parametrize("direction", ["input", "output"])
@@ -495,10 +509,14 @@ def test_native_attachment_binding_requires_the_authenticated_read_receipt_refer
         "replicate": None,
     }
     with pytest.raises(ValueError):
-        validate_native_wire("attach_data_requests", "input", {"read_id": "read:x", "items": [request]})
+        validate_native_wire(
+            "attach_data_requests", "input", {"read_id": "read:x", "items": [request]}
+        )
     binding["read_id"] = "read:x"
     assert (
-        validate_native_wire("attach_data_requests", "input", {"read_id": "read:x", "items": [request]})["items"][0]["binding"]["read_id"]
+        validate_native_wire(
+            "attach_data_requests", "input", {"read_id": "read:x", "items": [request]}
+        )["items"][0]["binding"]["read_id"]
         == "read:x"
     )
 

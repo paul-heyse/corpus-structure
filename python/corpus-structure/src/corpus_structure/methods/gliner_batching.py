@@ -23,9 +23,7 @@ def gliner_input_batches(profile, pack, inputs, *, threshold, overlap_policy, na
 
     def admit(ordinals):
         members = tuple(inputs[index] for index in ordinals)
-        validate_request(
-            profile, pack, members, threshold=threshold, overlap_policy=overlap_policy
-        )
+        validate_request(profile, pack, members, threshold=threshold, overlap_policy=overlap_policy)
         host_request_frame_size(
             selection,
             gliner_host_payload(pack, members, threshold, overlap_policy),
@@ -37,7 +35,7 @@ def gliner_input_batches(profile, pack, inputs, *, threshold, overlap_policy, na
         candidate = (*pending, index)
         try:
             admit(candidate)
-        except (GlinerRefused, Pm2WorkerRefused):
+        except GlinerRefused, Pm2WorkerRefused:
             if pending:
                 yield pending, None
                 pending = ()

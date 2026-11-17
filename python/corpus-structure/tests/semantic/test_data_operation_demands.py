@@ -665,11 +665,18 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
     assert sum(name == "close_data_population" for name, _ in storage.calls) == 1
     # Native closure owns the frozen target/dependency expansion. Python sends
     # one closure, never reconstructs that authority with scalar inserts.
-    assert storage.calls == [("close_data_population", {
-        "demand_id": "demand", "name": "children",
-        "product_id": "source-population-product", "derivation_id": "source-episode",
-        "member_role": "result",
-    })]
+    assert storage.calls == [
+        (
+            "close_data_population",
+            {
+                "demand_id": "demand",
+                "name": "children",
+                "product_id": "source-population-product",
+                "derivation_id": "source-episode",
+                "member_role": "result",
+            },
+        )
+    ]
     with pytest.raises(ValueError, match="source projection"):
         freeze(
             compiled,

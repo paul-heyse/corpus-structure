@@ -12,13 +12,13 @@ import fcntl
 import json
 import os
 import re
+import shutil
 import stat
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, fields, replace
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
-import shutil
 
 from corpus_structure.core.work import PhysicalRetirementUncertain
 
@@ -40,8 +40,16 @@ class PdfSpoolProducerBasis:
     pdf_domain_digest: str
 
     def __post_init__(self):
-        for name in ("request_id", "release_id", "operation", "definition", "recipe",
-                     "implementation", "execution_profile", "runtime_id"):
+        for name in (
+            "request_id",
+            "release_id",
+            "operation",
+            "definition",
+            "recipe",
+            "implementation",
+            "execution_profile",
+            "runtime_id",
+        ):
             if not isinstance(getattr(self, name), str) or not getattr(self, name):
                 raise ValueError("PDF producer basis has no exact " + name)
         if type(self.generation) is not int or self.generation < 1:
@@ -53,9 +61,17 @@ class PdfSpoolProducerBasis:
     def determining_basis(self):
         # Runtime IDs/manifests remain each contributor's actual provenance.
         # The admitted execution profile and implementation establish reuse fit.
-        return (self.request_id, self.generation, self.release_id, self.operation,
-                self.definition, self.recipe, self.implementation, self.execution_profile,
-                self.pdf_domain_digest)
+        return (
+            self.request_id,
+            self.generation,
+            self.release_id,
+            self.operation,
+            self.definition,
+            self.recipe,
+            self.implementation,
+            self.execution_profile,
+            self.pdf_domain_digest,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,20 +87,38 @@ class PdfSpoolPremises:
     integration_digest: str | None = None
 
     def __post_init__(self):
-        for digest in (self.source_digest, self.native_recipe_digest, self.native_schema_digest,
-                       self.payload_schema_digest):
+        for digest in (
+            self.source_digest,
+            self.native_recipe_digest,
+            self.native_schema_digest,
+            self.payload_schema_digest,
+        ):
             if not isinstance(digest, str) or re.fullmatch("[0-9a-f]{64}", digest) is None:
                 raise ValueError("PDF spool premises require exact source/recipe/schema digests")
-        if self.asset_manifest_digest is not None and re.fullmatch("[0-9a-f]{64}", self.asset_manifest_digest) is None:
+        if (
+            self.asset_manifest_digest is not None
+            and re.fullmatch("[0-9a-f]{64}", self.asset_manifest_digest) is None
+        ):
             raise ValueError("PDF spool premises require an exact asset manifest digest")
-        if self.integration_digest is not None and re.fullmatch("[0-9a-f]{64}", self.integration_digest) is None:
+        if (
+            self.integration_digest is not None
+            and re.fullmatch("[0-9a-f]{64}", self.integration_digest) is None
+        ):
             raise ValueError("PDF spool premises require an exact integration input digest")
-        if not self.packages or any(len(pair) != 2 or not all(isinstance(value, str) and value for value in pair)
-                                    for pair in self.packages) or len({pair[0] for pair in self.packages}) != len(self.packages):
+        if (
+            not self.packages
+            or any(
+                len(pair) != 2 or not all(isinstance(value, str) and value for value in pair)
+                for pair in self.packages
+            )
+            or len({pair[0] for pair in self.packages}) != len(self.packages)
+        ):
             raise ValueError("PDF spool premises require unique exact package versions")
-        if self.page_range is not None and (len(self.page_range) != 2 or
-                any(type(number) is not int or number < 1 for number in self.page_range) or
-                self.page_range[1] < self.page_range[0]):
+        if self.page_range is not None and (
+            len(self.page_range) != 2
+            or any(type(number) is not int or number < 1 for number in self.page_range)
+            or self.page_range[1] < self.page_range[0]
+        ):
             raise ValueError("PDF spool premises require an exact physical page selection")
 
     def to_bytes(self) -> bytes:
@@ -92,11 +126,23 @@ class PdfSpoolPremises:
 
     def reusable_with(self, other: PdfSpoolPremises) -> bool:
         return self.producer.determining_basis() == other.producer.determining_basis() and (
-            self.source_digest, self.native_recipe_digest, self.native_schema_digest,
-            self.payload_schema_digest, self.asset_manifest_digest, self.packages, self.page_range, self.integration_digest,
+            self.source_digest,
+            self.native_recipe_digest,
+            self.native_schema_digest,
+            self.payload_schema_digest,
+            self.asset_manifest_digest,
+            self.packages,
+            self.page_range,
+            self.integration_digest,
         ) == (
-            other.source_digest, other.native_recipe_digest, other.native_schema_digest,
-            other.payload_schema_digest, other.asset_manifest_digest, other.packages, other.page_range, other.integration_digest,
+            other.source_digest,
+            other.native_recipe_digest,
+            other.native_schema_digest,
+            other.payload_schema_digest,
+            other.asset_manifest_digest,
+            other.packages,
+            other.page_range,
+            other.integration_digest,
         )
 
 
@@ -109,7 +155,9 @@ class PdfSpoolWriterLease:
     """
 
     def __init__(self, path: Path):
-        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW, 0o600)
+        descriptor = os.open(
+            path, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW, 0o600
+        )
         self.fd: int | None = descriptor
         self.child_owned = False
         try:
@@ -157,18 +205,29 @@ def native_preparation_identity(content: bytes) -> str:
     if preparation.get("profile") != "pdf-prepared-native-runtime-v1":
         raise ValueError("PDF spool has an unsupported native preparation profile")
     determining = {
-        name: preparation[name] for name in (
-            "profile", "requested_options", "effective_options", "backend_options",
-            "stage_scope", "native_variants", "packages", "image_ownership",
+        name: preparation[name]
+        for name in (
+            "profile",
+            "requested_options",
+            "effective_options",
+            "backend_options",
+            "stage_scope",
+            "native_variants",
+            "packages",
+            "image_ownership",
         )
     }
     for name in ("requested_options", "effective_options"):
-        determining[name] = {key: value for key, value in determining[name].items()
-                             if key != "artifacts_path"}
+        determining[name] = {
+            key: value for key, value in determining[name].items() if key != "artifacts_path"
+        }
     # Asset bytes have their own exact manifest identity. Arrow pool capacity,
     # PIDs and temporary locations do not determine a page's native meaning.
-    return sha256(json.dumps(determining, sort_keys=True, separators=(",", ":"),
-                             ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+    return sha256(
+        json.dumps(
+            determining, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+        ).encode()
+    ).hexdigest()
 
 
 _RECOVERY_PROOF = object()
@@ -259,12 +318,16 @@ class VerifiedSpoolRecovery:
             raster = by_family["native-raster"][number]
             value = json.loads(page.path.read_bytes())
             if value.get("serialization_profile") != "pydantic-native-page-envelope-v2" or (
-                value["page"]["page_no"] != number or "confidence" not in value or "errors" not in value
+                value["page"]["page_no"] != number
+                or "confidence" not in value
+                or "errors" not in value
             ):
                 raise ValueError("PDF recovery page has no complete native state")
-            if (Path(value["raster"]["path"]).resolve(), value["raster"]["digest"], value["raster"]["byte_length"]) != (
-                raster.path.resolve(), raster.digest, raster.byte_length
-            ):
+            if (
+                Path(value["raster"]["path"]).resolve(),
+                value["raster"]["digest"],
+                value["raster"]["byte_length"],
+            ) != (raster.path.resolve(), raster.digest, raster.byte_length):
                 raise ValueError("PDF recovery raster differs from its page envelope")
             if encoded_replay(candidate, payload_family).page_no != number:
                 raise ValueError("PDF recovery candidate differs from its physical page")
@@ -282,7 +345,9 @@ class VerifiedSpoolRecovery:
             raise ValueError("completed spool recipe differs from its premises")
         records = tuple(paths[name] for name in completion["record_paths"])
         pages = tuple(paths[name] for name in completion["page_paths"])
-        if len(set(completion["record_paths"])) != len(records) or len(set(completion["page_paths"])) != len(pages):
+        if len(set(completion["record_paths"])) != len(records) or len(
+            set(completion["page_paths"])
+        ) != len(pages):
             raise ValueError("completed spool repeats a replay identity")
         if not records or not pages or len({page.page_no for page in pages}) != len(pages):
             raise ValueError("completed spool has no unambiguous native records/pages")
@@ -291,14 +356,28 @@ class VerifiedSpoolRecovery:
             raise ValueError("completed spool has no exact native completion report")
         with completions[0].path.open() as source:
             native_completion = json.loads(next(source))
-        if (native_completion.get("kind"), native_completion.get("status"),
-            native_completion.get("source_digest"), native_completion.get("recipe_sha256")) != (
-                "conversion", "success", self.premises.source_digest, self.premises.native_recipe_digest):
+        if (
+            native_completion.get("kind"),
+            native_completion.get("status"),
+            native_completion.get("source_digest"),
+            native_completion.get("recipe_sha256"),
+        ) != (
+            "conversion",
+            "success",
+            self.premises.source_digest,
+            self.premises.native_recipe_digest,
+        ):
             raise ValueError("completed spool native completion differs from producer premises")
         if completion["conversion_status"] != "success" or self.preparation is None:
             raise ValueError("completed spool has no successful native preparation")
-        return PdfStreamReply("success", tuple(completion["errors"]), recipe, pages, records,
-                              bytes.fromhex(completion["effective_options"]))
+        return PdfStreamReply(
+            "success",
+            tuple(completion["errors"]),
+            recipe,
+            pages,
+            records,
+            bytes.fromhex(completion["effective_options"]),
+        )
 
 
 def _stored_premises(value: dict[str, Any]) -> PdfSpoolPremises:
@@ -306,8 +385,10 @@ def _stored_premises(value: dict[str, Any]) -> PdfSpoolPremises:
         raise ValueError("PDF spool premise fields differ from the current protocol")
     return PdfSpoolPremises(
         producer=PdfSpoolProducerBasis(**value["producer"]),
-        source_digest=value["source_digest"], native_recipe_digest=value["native_recipe_digest"],
-        native_schema_digest=value["native_schema_digest"], payload_schema_digest=value["payload_schema_digest"],
+        source_digest=value["source_digest"],
+        native_recipe_digest=value["native_recipe_digest"],
+        native_schema_digest=value["native_schema_digest"],
+        payload_schema_digest=value["payload_schema_digest"],
         asset_manifest_digest=value["asset_manifest_digest"],
         packages=tuple(tuple(pair) for pair in value["packages"]),
         page_range=tuple(value["page_range"]) if value["page_range"] is not None else None,
@@ -316,8 +397,13 @@ def _stored_premises(value: dict[str, Any]) -> PdfSpoolPremises:
 
 
 def verify_spool_recovery(
-    root: Path, *, build_id: str, task_id: int, before_attempt: int,
-    premises: PdfSpoolPremises, check_active: Callable[[], None],
+    root: Path,
+    *,
+    build_id: str,
+    task_id: int,
+    before_attempt: int,
+    premises: PdfSpoolPremises,
+    check_active: Callable[[], None],
 ) -> tuple[VerifiedSpoolRecovery, ...]:
     """Acquire every registered prior writer before inspecting immutable entries.
 
@@ -335,12 +421,16 @@ def verify_spool_recovery(
             try:
                 descriptor = os.open(writer, os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW)
             except FileNotFoundError as error:
-                raise PhysicalRetirementUncertain(f"unregistered PDF writer custody: {directory}") from error
+                raise PhysicalRetirementUncertain(
+                    f"unregistered PDF writer custody: {directory}"
+                ) from error
             try:
                 try:
                     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except BlockingIOError as error:
-                    raise PhysicalRetirementUncertain(f"PDF writer still owns spool: {directory}") from error
+                    raise PhysicalRetirementUncertain(
+                        f"PDF writer still owns spool: {directory}"
+                    ) from error
                 info = os.fstat(descriptor)
                 if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
                     raise ValueError("PDF writer lease has foreign file custody")
@@ -359,13 +449,24 @@ def verify_spool_recovery(
                 header = values[0]
                 if header.get("writer") != {"device": info.st_dev, "inode": info.st_ino}:
                     raise ValueError("PDF spool writer lease was replaced")
-                if (header.get("version"), header.get("build_id"), header.get("task_id")) != (
-                    "pdf-build-spool-1", build_id, task_id,
-                ) or type(header.get("attempt")) is not int or header["attempt"] >= before_attempt:
+                if (
+                    (header.get("version"), header.get("build_id"), header.get("task_id"))
+                    != (
+                        "pdf-build-spool-1",
+                        build_id,
+                        task_id,
+                    )
+                    or type(header.get("attempt")) is not int
+                    or header["attempt"] >= before_attempt
+                ):
                     raise ValueError("PDF spool belongs to another build or current/future attempt")
                 holder = header.get("holder")
-                if not isinstance(holder, str) or not holder or header["attempt"] < 1 or directory.name != (
-                    f"attempt-{header['attempt']}-{sha256(holder.encode()).hexdigest()[:16]}"
+                if (
+                    not isinstance(holder, str)
+                    or not holder
+                    or header["attempt"] < 1
+                    or directory.name
+                    != (f"attempt-{header['attempt']}-{sha256(holder.encode()).hexdigest()[:16]}")
                 ):
                     raise ValueError("PDF spool directory differs from its exact producer fence")
                 declarations = [value["premises"] for value in values[1:] if "premises" in value]
@@ -373,10 +474,17 @@ def verify_spool_recovery(
                     # Positively retired, but never qualified for recovery.
                     os.close(descriptor)
                     continue
-                if len(declarations) != 1 or "premises" not in values[1] or set(values[1]) != {"premises", "producer_id"}:
+                if (
+                    len(declarations) != 1
+                    or "premises" not in values[1]
+                    or set(values[1]) != {"premises", "producer_id"}
+                ):
                     raise ValueError("PDF spool has ambiguous producer premises")
                 producer_id = values[1]["producer_id"]
-                if not isinstance(producer_id, str) or re.fullmatch("[0-9a-f]{64}", producer_id) is None:
+                if (
+                    not isinstance(producer_id, str)
+                    or re.fullmatch("[0-9a-f]{64}", producer_id) is None
+                ):
                     raise ValueError("PDF spool has no registered native producer identity")
                 prior = _stored_premises(declarations[0])
                 if not prior.reusable_with(premises):
@@ -394,7 +502,11 @@ def verify_spool_recovery(
                         fields = dict(value["replay"])
                         relative = Path(fields.pop("path"))
                         path = (directory / relative).resolve()
-                        if relative.is_absolute() or not path.is_relative_to(directory.resolve()) or path in paths:
+                        if (
+                            relative.is_absolute()
+                            or not path.is_relative_to(directory.resolve())
+                            or path in paths
+                        ):
                             raise ValueError("PDF spool has escaped or duplicate file custody")
                         replay = PdfReplayRef(path=path, **fields)
                         replay.verify()
@@ -407,12 +519,28 @@ def verify_spool_recovery(
                     else:
                         raise ValueError("PDF spool has an unknown manifest entry")
                 check_active()
-                recovered.append(VerifiedSpoolRecovery(
-                    _proof=_RECOVERY_PROOF, root=directory.resolve(), _descriptor=descriptor,
-                    owner=PdfSpoolOwner(build_id, task_id, header["attempt"], holder, producer_id, info.st_dev, info.st_ino),
-                    premises=prior, entries=tuple(entries), manifest=manifest,
-                    _completion=None if completion is None else json.dumps(completion, separators=(",", ":")).encode(),
-                ))
+                recovered.append(
+                    VerifiedSpoolRecovery(
+                        _proof=_RECOVERY_PROOF,
+                        root=directory.resolve(),
+                        _descriptor=descriptor,
+                        owner=PdfSpoolOwner(
+                            build_id,
+                            task_id,
+                            header["attempt"],
+                            holder,
+                            producer_id,
+                            info.st_dev,
+                            info.st_ino,
+                        ),
+                        premises=prior,
+                        entries=tuple(entries),
+                        manifest=manifest,
+                        _completion=None
+                        if completion is None
+                        else json.dumps(completion, separators=(",", ":")).encode(),
+                    )
+                )
             except BaseException:
                 os.close(descriptor)
                 raise
@@ -432,16 +560,21 @@ def selected_replay_bytes(root: Path, replays: tuple[PdfReplayRef, ...]) -> byte
 
 
 def clone_recovery_entries(
-    recovery: VerifiedSpoolRecovery, destination: PdfBuildSpool,
-    entries: tuple[PdfReplayRef, ...], *, prefix: str,
+    recovery: VerifiedSpoolRecovery,
+    destination: PdfBuildSpool,
+    entries: tuple[PdfReplayRef, ...],
+    *,
+    prefix: str,
 ) -> dict[Path, PdfReplayRef]:
     """Copy verified immutable inputs; retain original producer association separately."""
     recovery.check_owned()
     selected = set(entries)
     if not selected <= set(recovery.entries):
         raise ValueError("PDF clone names files outside verified recovery custody")
-    mapped = {entry.path: destination.root / prefix / entry.path.relative_to(recovery.root)
-              for entry in entries}
+    mapped = {
+        entry.path: destination.root / prefix / entry.path.relative_to(recovery.root)
+        for entry in entries
+    }
     copied = {}
     # Raster locations in private page envelopes follow the newly owned file.
     # Native records and candidate bytes remain byte-for-byte exact.
@@ -461,7 +594,9 @@ def clone_recovery_entries(
                 sink.flush()
                 os.fsync(sink.fileno())
             content = path.read_bytes()
-            clone = replace(entry, path=path, digest=sha256(content).hexdigest(), byte_length=len(content))
+            clone = replace(
+                entry, path=path, digest=sha256(content).hexdigest(), byte_length=len(content)
+            )
         else:
             with entry.path.open("rb") as source, path.open("xb") as sink:
                 shutil.copyfileobj(source, sink, 1024 * 1024)
@@ -498,9 +633,17 @@ class PdfBuildSpool:
         self.producer_id: str | None = None
         self._completed = False
         try:
-            self._write({"version": "pdf-build-spool-1", "build_id": build_id,
-                         "task_id": task_id, "attempt": attempt, "holder": holder,
-                         "writer": self.writer_lease.identity}, mode="x")
+            self._write(
+                {
+                    "version": "pdf-build-spool-1",
+                    "build_id": build_id,
+                    "task_id": task_id,
+                    "attempt": attempt,
+                    "holder": holder,
+                    "writer": self.writer_lease.identity,
+                },
+                mode="x",
+            )
         except BaseException:
             self.writer_lease.close()
             raise
@@ -576,9 +719,12 @@ class PdfBuildSpool:
             raise ValueError("PDF completion requires exact successful producer premises")
         for family in ("native_preparation", "native_completion"):
             if sum(entry.family == family for entry in self.entries) != 1:
-                raise ValueError("PDF completion requires exact native preparation/completion custody")
+                raise ValueError(
+                    "PDF completion requires exact native preparation/completion custody"
+                )
         if sha256(reply.recipe).hexdigest() != self.premises.native_recipe_digest:
             raise ValueError("PDF completion recipe differs from producer premises")
+
         def paths(replays):
             values = []
             for replay in replays:
@@ -587,11 +733,19 @@ class PdfBuildSpool:
                     raise ValueError("PDF completion names an unacknowledged replay")
                 values.append(key)
             return values
-        self._write({"completion": {
-            "conversion_status": reply.conversion_status, "errors": list(reply.errors),
-            "recipe": reply.recipe.hex(), "effective_options": reply.effective_options.hex(),
-            "record_paths": paths(reply.record_replays), "page_paths": paths(reply.page_replays),
-        }})
+
+        self._write(
+            {
+                "completion": {
+                    "conversion_status": reply.conversion_status,
+                    "errors": list(reply.errors),
+                    "recipe": reply.recipe.hex(),
+                    "effective_options": reply.effective_options.hex(),
+                    "record_paths": paths(reply.record_replays),
+                    "page_paths": paths(reply.page_replays),
+                }
+            }
+        )
         self._completed = True
 
     @property

@@ -827,6 +827,7 @@ class PublishedPdfReader:
                 raise ValueError("duplicate published artifact stream")
             budget.reserve(stream["byte_length"])
             descriptors[stream_id] = stream
+
         def verified(stream_id, members):
             stream = descriptors[stream_id]
             pin = ArtifactPin(
@@ -839,20 +840,30 @@ class PublishedPdfReader:
             )
             parts = (
                 ArtifactPart(
-                    stream_id, row["ordinal"], row["byte_offset"],
-                    row["byte_length"], row["body"], row["sha256_digest"],
+                    stream_id,
+                    row["ordinal"],
+                    row["byte_offset"],
+                    row["byte_length"],
+                    row["body"],
+                    row["sha256_digest"],
                 )
                 for row in members
             )
-            chunks = tuple(replay_artifact(
-                parts, pin, release_id=self.revision["release_id"],
-                source_digest=self.revision["source_digest"],
-            ))
+            chunks = tuple(
+                replay_artifact(
+                    parts,
+                    pin,
+                    release_id=self.revision["release_id"],
+                    source_digest=self.revision["source_digest"],
+                )
+            )
             self._check_active()
             return stream, chunks
 
         materialized = {}
-        with closing(self.iter_rows("artifact_part", batch_size=1000, _payload_reserved=True)) as rows:
+        with closing(
+            self.iter_rows("artifact_part", batch_size=1000, _payload_reserved=True)
+        ) as rows:
             for stream_id, members in groupby(rows, key=lambda row: row["stream_id"]):
                 if stream_id not in descriptors or stream_id in materialized:
                     raise ValueError("published artifact parts differ from stream inventory")
@@ -865,9 +876,10 @@ class PublishedPdfReader:
 
     @contextmanager
     def _materialization_scope(self):
-        if getattr(self, "read_budget", None) is None or getattr(
-            self, "_materialized_streams", None
-        ) is not None:
+        if (
+            getattr(self, "read_budget", None) is None
+            or getattr(self, "_materialized_streams", None) is not None
+        ):
             yield
             return
         self.require_materialization_capacity()
@@ -1098,7 +1110,11 @@ class PublishedPdfReader:
         with closing(self.members(header["root_id"], "pages")) as members:
             for ordinal, member in enumerate(members):
                 key = member.get("member_key")
-                if member["ordinal"] != ordinal or member["value_kind"] != "record" or not isinstance(key, str):
+                if (
+                    member["ordinal"] != ordinal
+                    or member["value_kind"] != "record"
+                    or not isinstance(key, str)
+                ):
                     raise ValueError("native physical page inventory differs from its page map")
                 try:
                     number = int(key)

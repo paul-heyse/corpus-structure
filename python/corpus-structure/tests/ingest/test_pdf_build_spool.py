@@ -37,9 +37,14 @@ def test_manifest_records_exact_relative_descriptor_and_attempt(tmp_path):
     owner.append(item)
     owner.append(item)
     lines = [json.loads(line) for line in owner.path.read_text().splitlines()]
-    assert lines[0] == {"version": "pdf-build-spool-1", "build_id": "build:one",
-                        "task_id": 3, "attempt": 1, "holder": "holder:one",
-                        "writer": owner.writer_lease.identity}
+    assert lines[0] == {
+        "version": "pdf-build-spool-1",
+        "build_id": "build:one",
+        "task_id": 3,
+        "attempt": 1,
+        "holder": "holder:one",
+        "writer": owner.writer_lease.identity,
+    }
     assert len(lines) == 2
     assert lines[1]["replay"]["path"] == "page"
     assert lines[1]["replay"]["digest"] == sha256(b"actual retained bytes").hexdigest()
@@ -80,7 +85,6 @@ def test_manifest_refuses_changed_bytes_and_outside_paths(tmp_path):
         owner.append(PdfReplayRef(outside, sha256(b"outside").hexdigest(), 7, "page"))
     assert owner.entries == ()
     owner.close()
-
 
 
 def _writer_with_late_thread(lease, started, release):
@@ -132,11 +136,27 @@ def test_writer_lease_survives_parent_close_and_target_return_until_process_deat
 def exact_premises():
     from corpus_structure.ingest.pdf_build_spool import PdfSpoolPremises, PdfSpoolProducerBasis
 
-    return PdfSpoolPremises(PdfSpoolProducerBasis(
-        "request:one", 1, "release:one", "pdf.native", "definition:one", "recipe:one",
-        "implementation:one", "profile:one", "runtime:original", "a" * 64, "b" * 64,
-    ), "c" * 64, sha256(b"recipe").hexdigest(), "d" * 64, "e" * 64,
-        None, (("docling", "2.148.0"),))
+    return PdfSpoolPremises(
+        PdfSpoolProducerBasis(
+            "request:one",
+            1,
+            "release:one",
+            "pdf.native",
+            "definition:one",
+            "recipe:one",
+            "implementation:one",
+            "profile:one",
+            "runtime:original",
+            "a" * 64,
+            "b" * 64,
+        ),
+        "c" * 64,
+        sha256(b"recipe").hexdigest(),
+        "d" * 64,
+        "e" * 64,
+        None,
+        (("docling", "2.148.0"),),
+    )
 
 
 def test_recovery_requires_positive_retirement_and_exact_registered_premises(tmp_path):
@@ -147,8 +167,13 @@ def test_recovery_requires_positive_retirement_and_exact_registered_premises(tmp
     owner.declare_premises(exact_premises(), "f" * 64)
     item = replay(owner)
     owner.append(item)
-    arguments = dict(build_id="build:one", task_id=3, before_attempt=2,
-                     premises=exact_premises(), check_active=lambda: None)
+    arguments = dict(
+        build_id="build:one",
+        task_id=3,
+        before_attempt=2,
+        premises=exact_premises(),
+        check_active=lambda: None,
+    )
     with pytest.raises(PhysicalRetirementUncertain, match="still owns spool"):
         verify_spool_recovery(tmp_path, **arguments)
     owner.close()
@@ -177,9 +202,14 @@ def test_recovery_ignores_only_unacknowledged_tail_and_refuses_changed_bytes(tmp
     owner.close()
     with owner.path.open("ab") as sink:
         sink.write(b'{"replay":')
-    arguments = dict(build_id="build:one", task_id=3, before_attempt=2,
-                     premises=exact_premises(), check_active=lambda: None)
-    recovered, = verify_spool_recovery(tmp_path, **arguments)
+    arguments = dict(
+        build_id="build:one",
+        task_id=3,
+        before_attempt=2,
+        premises=exact_premises(),
+        check_active=lambda: None,
+    )
+    (recovered,) = verify_spool_recovery(tmp_path, **arguments)
     assert recovered.manifest == acknowledged
     recovered.close()
     item.path.write_bytes(b"changed")
@@ -189,15 +219,22 @@ def test_recovery_ignores_only_unacknowledged_tail_and_refuses_changed_bytes(tmp
 
 def test_preparation_identity_binds_models_options_and_not_incidental_resources():
     from copy import deepcopy
+
     from corpus_structure.ingest.pdf_build_spool import native_preparation_identity
 
-    report = {"_preparation": dict(
-        profile="pdf-prepared-native-runtime-v1", requested_options={"artifacts_path": "/old", "do_ocr": True},
-        effective_options={"artifacts_path": "/old", "scale": 2.0}, backend_options={"threads": 8},
-        stage_scope="native", native_variants={"layout": "LayoutModel"},
-        packages={"docling": "2.148.0"}, image_ownership={"profile": "native-raster"},
-        arrow_resources={"capacity": 4},
-    )}
+    report = {
+        "_preparation": dict(
+            profile="pdf-prepared-native-runtime-v1",
+            requested_options={"artifacts_path": "/old", "do_ocr": True},
+            effective_options={"artifacts_path": "/old", "scale": 2.0},
+            backend_options={"threads": 8},
+            stage_scope="native",
+            native_variants={"layout": "LayoutModel"},
+            packages={"docling": "2.148.0"},
+            image_ownership={"profile": "native-raster"},
+            arrow_resources={"capacity": 4},
+        )
+    }
     identity = native_preparation_identity(json.dumps(report).encode())
     changed = deepcopy(report)
     changed["_preparation"]["effective_options"]["artifacts_path"] = "/new"
@@ -208,7 +245,10 @@ def test_preparation_identity_binds_models_options_and_not_incidental_resources(
 
 
 def test_complete_spool_clones_exact_records_and_rebinds_only_private_raster_path(tmp_path):
-    from corpus_structure.ingest.pdf_build_spool import clone_recovery_entries, verify_spool_recovery
+    from corpus_structure.ingest.pdf_build_spool import (
+        clone_recovery_entries,
+        verify_spool_recovery,
+    )
     from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
 
     original = spool(tmp_path)
@@ -222,19 +262,49 @@ def test_complete_spool_clones_exact_records_and_rebinds_only_private_raster_pat
         return ref
 
     raster = entry("raster.png", b"raster", "native-raster", 1)
-    page = entry("page.json", json.dumps({"raster": {"path": str(raster.path),
-        "digest": raster.digest, "byte_length": raster.byte_length}, "page": {"page_no": 1}}).encode(), "page", 1)
+    page = entry(
+        "page.json",
+        json.dumps(
+            {
+                "raster": {
+                    "path": str(raster.path),
+                    "digest": raster.digest,
+                    "byte_length": raster.byte_length,
+                },
+                "page": {"page_no": 1},
+            }
+        ).encode(),
+        "page",
+        1,
+    )
     record = entry("native.arrow", b"exact logical native records", "native")
     entry("preparation.json", b"original preparation", "native_preparation")
-    entry("completion.jsonl", json.dumps(dict(kind="conversion", status="success",
-        source_digest=exact_premises().source_digest, recipe_sha256=sha256(b"recipe").hexdigest())).encode()+b"\n", "native_completion")
+    entry(
+        "completion.jsonl",
+        json.dumps(
+            dict(
+                kind="conversion",
+                status="success",
+                source_digest=exact_premises().source_digest,
+                recipe_sha256=sha256(b"recipe").hexdigest(),
+            )
+        ).encode()
+        + b"\n",
+        "native_completion",
+    )
     reply = PdfStreamReply("success", (), b"recipe", (page,), (record,), b"exact original options")
     original.complete(reply)
     with pytest.raises(ValueError, match="immutable"):
         original.append(record)
     original.close()
-    recovery, = verify_spool_recovery(tmp_path, build_id="build:one", task_id=3,
-        before_attempt=2, premises=exact_premises(), check_active=lambda: None)
+    (recovery,) = verify_spool_recovery(
+        tmp_path,
+        build_id="build:one",
+        task_id=3,
+        before_attempt=2,
+        premises=exact_premises(),
+        check_active=lambda: None,
+    )
     with recovery, spool(tmp_path, attempt=2) as current:
         current.declare_premises(exact_premises(), "a" * 64)
         verified_reply = recovery.complete_reply()
@@ -253,8 +323,14 @@ def test_recovery_precedence_uses_authenticated_numeric_attempt(tmp_path):
     for attempt in (2, 9, 10):
         with spool(tmp_path, attempt=attempt) as owner:
             owner.declare_premises(exact_premises(), "f" * 64)
-    capabilities = verify_spool_recovery(tmp_path, build_id="build:one", task_id=3,
-        before_attempt=11, premises=exact_premises(), check_active=lambda: None)
+    capabilities = verify_spool_recovery(
+        tmp_path,
+        build_id="build:one",
+        task_id=3,
+        before_attempt=11,
+        premises=exact_premises(),
+        check_active=lambda: None,
+    )
     try:
         assert [capability.owner.attempt for capability in capabilities] == [2, 9, 10]
     finally:

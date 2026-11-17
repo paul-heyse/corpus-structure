@@ -12,7 +12,13 @@ from pydantic import TypeAdapter
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 
 from .gliner import MAX_DIAGNOSTIC_SPANS, GlinerInput, GlinerPack, GlinerRefused, GlinerReport
-from .gliner_worker import GlinerAdmission, GlinerBatchResult, GlinerWorkerError, _Diagnostic, validate_request
+from .gliner_worker import (
+    GlinerAdmission,
+    GlinerBatchResult,
+    GlinerWorkerError,
+    _Diagnostic,
+    validate_request,
+)
 from .native_host import NativeHostGroup, host_request_frame_size, payload_digest
 from .native_profiles import (
     NativeProfile,
@@ -146,14 +152,19 @@ class HostedGliner:
             raise GlinerWorkerError("native GLiNER receipt differs from admitted exchange")
         reports = TypeAdapter(tuple[GlinerReport, ...]).validate_python(reply["reports"])
         if diagnostic is None:
-            admissions = TypeAdapter(tuple[GlinerAdmission, ...]).validate_python(reply["admissions"])
+            admissions = TypeAdapter(tuple[GlinerAdmission, ...]).validate_python(
+                reply["admissions"]
+            )
             if len(admissions) != len(inputs) or any(
                 member.ordinal != ordinal
-                or (member.context_id, member.context_digest) != (item.context_id, item.context_digest)
+                or (member.context_id, member.context_digest)
+                != (item.context_id, item.context_digest)
                 for ordinal, (member, item) in enumerate(zip(admissions, inputs, strict=True))
             ):
                 raise GlinerWorkerError("native admission changed the requested member population")
-            admitted = tuple(item for item, member in zip(inputs, admissions, strict=True) if member.admitted)
+            admitted = tuple(
+                item for item, member in zip(inputs, admissions, strict=True) if member.admitted
+            )
             if len(reports) != len(admitted) or any(
                 (report.context_id, report.context_digest) != (item.context_id, item.context_digest)
                 for report, item in zip(reports, admitted, strict=True)

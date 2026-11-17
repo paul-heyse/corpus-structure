@@ -56,18 +56,26 @@ class ProcessExecutionHost:
         if self._quarantine is not None:
             from corpus_structure.core.work import PhysicalRetirementUncertain
 
-            raise PhysicalRetirementUncertain("process execution host is quarantined; confirm managed process cleanup before restart") from self._quarantine
+            raise PhysicalRetirementUncertain(
+                "process execution host is quarantined; confirm managed process cleanup before restart"
+            ) from self._quarantine
         if self._closed:
             raise RuntimeError("process execution host is closed")
 
     def _configure(self, policy):
         from corpus_structure.semantic.cpu_execution import OwnedByteBudget
-
-        from corpus_structure.semantic.determinants import BYTE_LIBRARIES, DEPLOYMENT_LIBRARIES, determinant_version
+        from corpus_structure.semantic.determinants import (
+            BYTE_LIBRARIES,
+            DEPLOYMENT_LIBRARIES,
+            determinant_version,
+        )
         from corpus_structure.semantic.types import SEMANTIC_COMPILER_VERSION
 
         self._run_determinants = (
-            *((name, determinant_version(name)) for name in sorted(set(BYTE_LIBRARIES) | set(DEPLOYMENT_LIBRARIES))),
+            *(
+                (name, determinant_version(name))
+                for name in sorted(set(BYTE_LIBRARIES) | set(DEPLOYMENT_LIBRARIES))
+            ),
             ("semantic-compiler", SEMANTIC_COMPILER_VERSION),
         )
         if self.policy is not None and self.policy != policy:
@@ -106,7 +114,9 @@ class ProcessExecutionHost:
     def _evict(self, key):
         entry = self._bases[key]
         if self._execution is not None and self._execution.has_live_requests():
-            raise ExecutionPreparationDeferred("execution preparation awaits physical request retirement")
+            raise ExecutionPreparationDeferred(
+                "execution preparation awaits physical request retirement"
+            )
         if entry.references:
             raise RuntimeError("active execution capsule cannot be evicted")
         self.retire_cpu()
@@ -142,18 +152,34 @@ class ProcessExecutionHost:
             return
         if self.resources is not None:
             cpu = self.resources.cpu
-            if cpu is not None and (len(cpu._release_capsules) > self.policy.max_idle_capsules
-                or cpu.preparation_bytes > self.policy.max_idle_capsule_bytes):
+            if cpu is not None and (
+                len(cpu._release_capsules) > self.policy.max_idle_capsules
+                or cpu.preparation_bytes > self.policy.max_idle_capsule_bytes
+            ):
                 self.retire_resources()
         while True:
             idle = [(key, entry) for key, entry in self._bases.items() if not entry.references]
-            active_bodies = {id(body) for entry in self._bases.values() if entry.references for body in entry.bodies}
+            active_bodies = {
+                id(body)
+                for entry in self._bases.values()
+                if entry.references
+                for body in entry.bodies
+            }
             idle_bodies = {id(body): body for _, entry in idle for body in entry.bodies}
-            idle_bytes = sum(len(body.content) for identity, body in idle_bodies.items() if identity not in active_bodies)
-            cpu_bytes = (self.resources.cpu.preparation_bytes
-                         if self.resources is not None and self.resources.cpu is not None else 0)
-            if (len(idle) <= self.policy.max_idle_capsules
-                and idle_bytes + cpu_bytes <= self.policy.max_idle_capsule_bytes):
+            idle_bytes = sum(
+                len(body.content)
+                for identity, body in idle_bodies.items()
+                if identity not in active_bodies
+            )
+            cpu_bytes = (
+                self.resources.cpu.preparation_bytes
+                if self.resources is not None and self.resources.cpu is not None
+                else 0
+            )
+            if (
+                len(idle) <= self.policy.max_idle_capsules
+                and idle_bytes + cpu_bytes <= self.policy.max_idle_capsule_bytes
+            ):
                 return
             self._evict(idle[0][0])
 
@@ -162,32 +188,45 @@ class ProcessExecutionHost:
         from sqlalchemy import String, func, literal_column, select
 
         from corpus_structure.semantic.archive_reader import _archive_header
+        from corpus_structure.semantic.cpu_execution import CapacityExceeded, release_capsule
         from corpus_structure.semantic.data_operation_service import acquire_data_execution_basis
         from corpus_structure.semantic.metadata import table
         from corpus_structure.semantic.refusals import SemanticRefusal
-        from corpus_structure.semantic.cpu_execution import CapacityExceeded, release_capsule
 
         self._require_run(token)
         root = source_root.resolve() if source_root is not None else None
         key = engine, release_id, runtime_id, root, self._run_determinants
         entry = self._bases.get(key)
         if entry is None and self._live_requests():
-            raise ExecutionPreparationDeferred("cold execution basis awaits current physical owners")
+            raise ExecutionPreparationDeferred(
+                "cold execution basis awaits current physical owners"
+            )
         header = _archive_header(connection, release_id)
         if header is None or header.finalized_digest != header.content_digest:
             raise SemanticRefusal("execution basis requires its protected finalized archive")
         stored = table("sem.runtime_binding")
-        runtime = connection.execute(select(
-            stored.c.release_id, stored.c.runtime_id, stored.c.execution_profile,
-            func.octet_length(stored.c.manifest_bytes), func.octet_length(stored.c.archive_bytes),
-            *(literal_column(f"sem.runtime_binding.{name}", type_=String()).cast(String())
-              for name in ("tableoid", "xmin", "ctid")),
-        ).where(stored.c.release_id == release_id, stored.c.runtime_id == runtime_id)).one()
+        runtime = connection.execute(
+            select(
+                stored.c.release_id,
+                stored.c.runtime_id,
+                stored.c.execution_profile,
+                func.octet_length(stored.c.manifest_bytes),
+                func.octet_length(stored.c.archive_bytes),
+                *(
+                    literal_column(f"sem.runtime_binding.{name}", type_=String()).cast(String())
+                    for name in ("tableoid", "xmin", "ctid")
+                ),
+            ).where(stored.c.release_id == release_id, stored.c.runtime_id == runtime_id)
+        ).one()
         if entry is not None:
             if entry.header != tuple(header) or entry.runtime != tuple(runtime):
-                raise SemanticRefusal("verified execution archive/runtime changed; restart required")
+                raise SemanticRefusal(
+                    "verified execution archive/runtime changed; restart required"
+                )
         else:
-            basis = acquire_data_execution_basis(connection, release_id, runtime_id, source_root=root)
+            basis = acquire_data_execution_basis(
+                connection, release_id, runtime_id, source_root=root
+            )
             observed = _archive_header(connection, release_id)
             if observed is None or tuple(observed) != tuple(header):
                 raise SemanticRefusal("execution archive changed while verifying its basis")
@@ -195,14 +234,32 @@ class ProcessExecutionHost:
             buffers = (capsule, basis.runtime.manifest, basis.runtime.archive)
             unique = {id(content): content for content in buffers}
             request_bytes = 2 * self.policy.max_packet_bytes + 3 * self.policy.max_reply_bytes
-            required = sum(len(content) for identity, content in unique.items() if identity not in self._bodies) + request_bytes
+            required = (
+                sum(
+                    len(content)
+                    for identity, content in unique.items()
+                    if identity not in self._bodies
+                )
+                + request_bytes
+            )
             while required > self.budget.limit - self.budget.used_bytes:
                 idle = next((key for key, item in self._bases.items() if not item.references), None)
                 if idle is None:
-                    raise CapacityExceeded("execution capsules and one complete request exceed owned capacity")
+                    raise CapacityExceeded(
+                        "execution capsules and one complete request exceed owned capacity"
+                    )
                 self._evict(idle)
-                required = sum(len(content) for identity, content in unique.items() if identity not in self._bodies) + request_bytes
-            entry = _VerifiedBasis(basis, tuple(header), tuple(runtime), capsule, self._retain_bodies(buffers))
+                required = (
+                    sum(
+                        len(content)
+                        for identity, content in unique.items()
+                        if identity not in self._bodies
+                    )
+                    + request_bytes
+                )
+            entry = _VerifiedBasis(
+                basis, tuple(header), tuple(runtime), capsule, self._retain_bodies(buffers)
+            )
             self._bases[key] = entry
         self._bases.move_to_end(key)
         if not any(held is entry for held in self._borrowed):
@@ -227,7 +284,10 @@ class ProcessExecutionHost:
         if self._execution is not None:
             raise RuntimeError("host resources already belong to an active physical run")
         executor.budget = self.budget
-        if self.resources is not None and self.resources.resource_key != (executor.port_workers, executor.nemotron_endpoint):
+        if self.resources is not None and self.resources.resource_key != (
+            executor.port_workers,
+            executor.nemotron_endpoint,
+        ):
             self.retire_resources()
         if self.resources is None:
             from types import SimpleNamespace
@@ -241,14 +301,18 @@ class ProcessExecutionHost:
             self.resources = SimpleNamespace(
                 resource_key=(executor.port_workers, executor.nemotron_endpoint),
                 pool=_OwnedPythonPool(executor.port_workers),
-                cpu=CPUExecutionScope(executor.prepared, self.policy, budget=self.budget, retain_schema=False),
+                cpu=CPUExecutionScope(
+                    executor.prepared, self.policy, budget=self.budget, retain_schema=False
+                ),
                 native_hosts=native,
                 providers=ProviderExecution(self.budget, self.policy, native_group=native),
             )
         if self.resources.cpu is None:
             from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 
-            self.resources.cpu = CPUExecutionScope(executor.prepared, self.policy, budget=self.budget, retain_schema=False)
+            self.resources.cpu = CPUExecutionScope(
+                executor.prepared, self.policy, budget=self.budget, retain_schema=False
+            )
         try:
             self.resources.native_hosts.begin_run()
         except BaseException as failure:
@@ -271,7 +335,9 @@ class ProcessExecutionHost:
             elif self.resources is not None and self.resources.cpu.preparation_bytes:
                 self.retire_cpu()
             else:
-                raise CapacityExceeded("execution preparation and one complete request exceed owned capacity")
+                raise CapacityExceeded(
+                    "execution preparation and one complete request exceed owned capacity"
+                )
 
     def cpu_for_release(self, prepared, request_bytes):
         from corpus_structure.semantic.cpu_execution import CapacityExceeded, release_capsule
@@ -280,25 +346,38 @@ class ProcessExecutionHost:
         content = entry.capsule if entry is not None else release_capsule(prepared)
         while True:
             retained = prepared.release_id in self.resources.cpu._release_capsules
-            required = request_bytes if retained else max(2 * len(content), len(content) + request_bytes)
+            required = (
+                request_bytes if retained else max(2 * len(content), len(content) + request_bytes)
+            )
             if required <= self.budget.limit - self.budget.used_bytes:
-                return self.resources.cpu.for_release(prepared, request_bytes=request_bytes, capsule_bytes=content)
+                return self.resources.cpu.for_release(
+                    prepared, request_bytes=request_bytes, capsule_bytes=content
+                )
             if self._live_requests():
-                raise ExecutionPreparationDeferred("CPU capsule preparation awaits current physical borrowers")
+                raise ExecutionPreparationDeferred(
+                    "CPU capsule preparation awaits current physical borrowers"
+                )
             idle = next((key for key, entry in self._bases.items() if not entry.references), None)
             if idle is not None:
                 self._evict(idle)
             elif self.resources.cpu.preparation_bytes:
                 self.retire_cpu()
             else:
-                raise CapacityExceeded("native preparation and one complete request exceed owned capacity")
+                raise CapacityExceeded(
+                    "native preparation and one complete request exceed owned capacity"
+                )
 
     def retire_cpu(self):
         resources = self.resources
         if resources is None or resources.cpu is None:
             return
-        if (self._execution is not None and self._execution.has_live_requests()
-            or resources.cpu._admissions or resources.cpu._submissions or resources.cpu._stream_transports):
+        if (
+            (self._execution is not None
+            and self._execution.has_live_requests())
+            or resources.cpu._admissions
+            or resources.cpu._submissions
+            or resources.cpu._stream_transports
+        ):
             raise ExecutionPreparationDeferred("CPU generation still has physical borrowers")
         try:
             resources.cpu.close()
@@ -308,7 +387,9 @@ class ProcessExecutionHost:
         if not resources.cpu._physical_retired:
             from corpus_structure.core.work import PhysicalRetirementUncertain
 
-            self._quarantine = PhysicalRetirementUncertain("CPU capsule eviction lacks confirmed group retirement")
+            self._quarantine = PhysicalRetirementUncertain(
+                "CPU capsule eviction lacks confirmed group retirement"
+            )
             raise self._quarantine
         from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 
@@ -318,7 +399,9 @@ class ProcessExecutionHost:
                 entry.context.cpu, entry.context.prepared_schema = None, False
         if self._execution is not None:
             prepared = self._execution.executor.prepared
-            resources.cpu = CPUExecutionScope(prepared, self.policy, budget=self.budget, retain_schema=False)
+            resources.cpu = CPUExecutionScope(
+                prepared, self.policy, budget=self.budget, retain_schema=False
+            )
             self._execution.cpu = resources.cpu
             for context in self._execution.executor._contexts.values():
                 context.cpu, context.prepared_schema = None, False
@@ -336,11 +419,18 @@ class ProcessExecutionHost:
                 owner.close()
             except BaseException as error:
                 failures.append(error)
-        confirmed = resources.pool.drained and (resources.cpu is None or resources.cpu._physical_retired) and resources.native_hosts.physical_drained and resources.providers.retire()
+        confirmed = (
+            resources.pool.drained
+            and (resources.cpu is None or resources.cpu._physical_retired)
+            and resources.native_hosts.physical_drained
+            and resources.providers.retire()
+        )
         if not confirmed:
             from corpus_structure.core.work import PhysicalRetirementUncertain
 
-            error = PhysicalRetirementUncertain("execution generation join remains unconfirmed; charges retained")
+            error = PhysicalRetirementUncertain(
+                "execution generation join remains unconfirmed; charges retained"
+            )
             self._quarantine = error
             failures.append(error)
         else:

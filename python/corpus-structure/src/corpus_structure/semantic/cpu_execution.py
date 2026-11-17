@@ -720,7 +720,11 @@ class CPUExecutionScope:
         self._executor()
 
     def for_release(
-        self, prepared: PreparedRelease, *, request_bytes: int | None = None, capsule_bytes: bytes | None = None
+        self,
+        prepared: PreparedRelease,
+        *,
+        request_bytes: int | None = None,
+        capsule_bytes: bytes | None = None,
     ):
         """Retain one shared archive; submit only its bounded authenticated descriptor."""
         from multiprocessing.shared_memory import SharedMemory
@@ -770,7 +774,10 @@ class CPUExecutionScope:
                 finally:
                     del content
                     self.budget.release(size)
-            if owned.prepared is not prepared and sha256(release_capsule(prepared)).hexdigest() != owned.reference.digest:
+            if (
+                owned.prepared is not prepared
+                and sha256(release_capsule(prepared)).hexdigest() != owned.reference.digest
+            ):
                 raise ValueError("CPU release capsule differs under its retained identity")
             if not owned.ready:
                 raise RuntimeError("CPU shared capsule preparation did not complete")
@@ -896,8 +903,10 @@ class CPUExecutionScope:
         check_active()
         if admission.owner is not self or not admission.active or admission.submitted:
             raise ValueError("CPU input admission is not active for this invocation")
-        if (len(content) > self.policy.max_packet_bytes
-            or len(content) + self.policy.max_reply_bytes > admission.reserved):
+        if (
+            len(content) > self.policy.max_packet_bytes
+            or len(content) + self.policy.max_reply_bytes > admission.reserved
+        ):
             self.release_admission(admission)
             raise CapacityExceeded("CPU input exceeds admitted packet byte capacity")
         packet = _SealedPacket.seal(content)

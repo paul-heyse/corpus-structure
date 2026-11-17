@@ -87,12 +87,21 @@ class PreparedOriginalCallPort:
         if self.operation.capabilities.preparation == "none":
             raise PortRefusal("prepared original-call adapter requires declared preparation")
         batch = self.operation.capabilities.forms == ("batch",)
-        if not batch and any(value is not None for value in (
-            self.batch_result_adapter, self.batch_max_items, self.batch_max_input_bytes,
-            self.batch_input_bytes, self.batch_order_key,
-        )):
+        if not batch and any(
+            value is not None
+            for value in (
+                self.batch_result_adapter,
+                self.batch_max_items,
+                self.batch_max_input_bytes,
+                self.batch_input_bytes,
+                self.batch_order_key,
+            )
+        ):
             raise PortRefusal("prepared batch hooks require an explicit batch operation")
-        if any(value is not None and (type(value) is not int or value < 1) for value in (self.batch_max_items, self.batch_max_input_bytes)):
+        if any(
+            value is not None and (type(value) is not int or value < 1)
+            for value in (self.batch_max_items, self.batch_max_input_bytes)
+        ):
             raise PortRefusal("prepared batch limits require positive physical bounds")
         if (self.batch_max_input_bytes is None) != (self.batch_input_bytes is None):
             raise PortRefusal("prepared batch byte bound requires its exact input-size owner")
@@ -311,6 +320,7 @@ class PreparedOriginalCallPort:
     def batch_expected_members(self, members):
         self._verify()
         import json
+
         from .data_operation_cpu_basis import cpu_input_basis_from_binding
 
         expected = []
@@ -363,18 +373,35 @@ class PreparedOriginalCallPort:
         self._verify()
         completions = []
         for member, value in zip(members, values, strict=True):
-            adapted = PreparedCallResult(value) if self.batch_result_adapter is None else self.batch_result_adapter(value)
+            adapted = (
+                PreparedCallResult(value)
+                if self.batch_result_adapter is None
+                else self.batch_result_adapter(value)
+            )
             if not isinstance(adapted, PreparedCallResult):
                 raise PortRefusal("prepared batch adapter lacks its explicit member outcome")
             if adapted.outcome in {"failed", "empty"}:
                 if adapted.outcome not in self.operation.outcomes or adapted.value is not None:
-                    raise PortRefusal("terminal batch member differs from its declared output policy")
+                    raise PortRefusal(
+                        "terminal batch member differs from its declared output policy"
+                    )
                 completion = PortCompletion(self.operation.semantic_id, (), outcome=adapted.outcome)
             else:
-                completion = self._port._complete(adapted.value, self.completion_type or self.logical_signature.return_annotation)
+                completion = self._port._complete(
+                    adapted.value, self.completion_type or self.logical_signature.return_annotation
+                )
                 if adapted.outcome is not None and adapted.outcome != completion.outcome:
-                    raise PortRefusal("successful batch member differs from its declared output policy")
-            completions.append((member.member, replace(
-                completion, cpu_execution_evidence=result.cpu_execution_evidence, cpu_execution_reply=result.content,
-            )))
+                    raise PortRefusal(
+                        "successful batch member differs from its declared output policy"
+                    )
+            completions.append(
+                (
+                    member.member,
+                    replace(
+                        completion,
+                        cpu_execution_evidence=result.cpu_execution_evidence,
+                        cpu_execution_reply=result.content,
+                    ),
+                )
+            )
         return BatchPortCompletion(tuple(completions))

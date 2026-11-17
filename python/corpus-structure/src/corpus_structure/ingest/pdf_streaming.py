@@ -136,8 +136,9 @@ class PdfStreamSpool:
             self.on_page(replay)
         self.candidates[value.page_no] = replay
 
-    def capture_page(self, page: Any, hierarchy: Any, scale: float, *,
-                     confidence: Any, errors: Sequence[Any]) -> None:
+    def capture_page(
+        self, page: Any, hierarchy: Any, scale: float, *, confidence: Any, errors: Sequence[Any]
+    ) -> None:
         self.active()
         if page.assembled is None:
             return
@@ -260,7 +261,9 @@ class PdfStreamSpool:
             page._raster.verify()
             page._scale = data["scale"]
             if data["confidence"] is not None:
-                conv_res.confidence.pages[number] = PageConfidenceScores.model_validate(data["confidence"])
+                conv_res.confidence.pages[number] = PageConfidenceScores.model_validate(
+                    data["confidence"]
+                )
             if number in self.restored_pages:
                 conv_res.errors.extend(ErrorItem.model_validate(error) for error in data["errors"])
             if page.size is not None:
@@ -638,8 +641,11 @@ class StreamingPdfProducer:
         identity = native_preparation_identity(converter.prepared_options_report)
         if spool.preparation_identities and spool.preparation_identities != {identity}:
             raise ValueError("resumed PDF native preparation differs from its verified page spool")
-        prepared = _atomic_bytes(spool.root / "native-preparation.json", converter.prepared_options_report,
-                                 "native_preparation")
+        prepared = _atomic_bytes(
+            spool.root / "native-preparation.json",
+            converter.prepared_options_report,
+            "native_preparation",
+        )
         if spool.on_page is not None:
             spool.on_page(prepared)
         options = {} if page_range is None else {"page_range": page_range}

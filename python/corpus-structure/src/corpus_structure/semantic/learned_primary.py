@@ -351,10 +351,17 @@ class PreparedLearnedPrimary:
                 )
         families = declared_families(self.prepared.registry_rows)
         gliner_questions, gliner_results = {}, {}
-        from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, map_literal
+        from corpus_structure.methods.gliner import (
+            GlinerInput,
+            GlinerPack,
+            GlinerProfile,
+            map_literal,
+        )
         from corpus_structure.methods.gliner_batching import gliner_input_batches
         from corpus_structure.methods.pm2_gliner_classification import (
-            ClassificationProfile, authenticated_gliner_report, classification_product,
+            ClassificationProfile,
+            authenticated_gliner_report,
+            classification_product,
             classification_request,
         )
         from corpus_structure.methods.pm2_products import ParserProducts
@@ -367,8 +374,11 @@ class PreparedLearnedPrimary:
             )
             gliner_profile = GlinerProfile(self.selection.assets, **profile_values)
             classification_profile = ClassificationProfile(
-                provider="gliner", device="cuda", profile=gliner_profile,
-                threshold=self.threshold, runtime_identity=self.selection.native.runtime_identity,
+                provider="gliner",
+                device="cuda",
+                profile=gliner_profile,
+                threshold=self.threshold,
+                runtime_identity=self.selection.native.runtime_identity,
             )
             inference = declared_policy(self.prepared)["inference"]
             packs = {}
@@ -378,30 +388,51 @@ class PreparedLearnedPrimary:
                     continue
                 scope = prepare_model_scope(
                     frame,
-                    block.focal if isinstance(block, LearnedFocalScope) else (block.start, block.end),
-                    (block.start, block.end), max_chars=self.max_context_chars,
+                    block.focal
+                    if isinstance(block, LearnedFocalScope)
+                    else (block.start, block.end),
+                    (block.start, block.end),
+                    max_chars=self.max_context_chars,
                 )
                 if self.family == "gliner_cues":
                     family = families[GLINER_CUES]
                     pack, item = gliner_cue_request(self.prepared.release_id, family, scope)
                     threshold, overlap = self.threshold, "nested"
-                    request = dict(pack=asdict(pack), item=asdict(item), threshold=threshold,
-                                   inference=inference)
+                    request = dict(
+                        pack=asdict(pack),
+                        item=asdict(item),
+                        threshold=threshold,
+                        inference=inference,
+                    )
                 else:
                     family = families[GLINER_FUNCTIONS]
                     request = classification_request(
-                        self.prepared.release_id, family, family.questions[0].key,
-                        scope.mapping, classification_profile, inference,
+                        self.prepared.release_id,
+                        family,
+                        family.questions[0].key,
+                        scope.mapping,
+                        classification_profile,
+                        inference,
                         characterization_family=family.family,
                     )
                     pack, item = GlinerPack(**request["pack"]), GlinerInput(**request["item"])
                     threshold, overlap = request["threshold"], "flat"
-                gliner_questions[block.block_id] = scope, family, request, overlap, classification_profile
+                gliner_questions[block.block_id] = (
+                    scope,
+                    family,
+                    request,
+                    overlap,
+                    classification_profile,
+                )
                 packs.setdefault((pack, threshold, overlap), []).append((block.block_id, item))
             for (pack, threshold, overlap), members in packs.items():
                 inputs = tuple(item for _, item in members)
                 for ordinals, refusal in gliner_input_batches(
-                    gliner_profile, pack, inputs, threshold=threshold, overlap_policy=overlap,
+                    gliner_profile,
+                    pack,
+                    inputs,
+                    threshold=threshold,
+                    overlap_policy=overlap,
                     native_profile=self.selection.native.wire,
                 ):
                     if refusal is not None:
@@ -412,21 +443,42 @@ class PreparedLearnedPrimary:
                     requested = tuple(inputs[ordinal] for ordinal in ordinals)
                     logical_members = tuple(
                         LogicalProviderMember(
-                            str(claim.request_id), claim.generation, claim.task_id, claim.attempt,
-                            members[ordinal][0], position, 1, payload_digest([asdict(inputs[ordinal])]),
+                            str(claim.request_id),
+                            claim.generation,
+                            claim.task_id,
+                            claim.attempt,
+                            members[ordinal][0],
+                            position,
+                            1,
+                            payload_digest([asdict(inputs[ordinal])]),
                         )
                         for position, ordinal in enumerate(ordinals)
                     )
-                    correlation = payload_digest([
-                        str(claim.request_id), claim.generation, claim.task_id, claim.attempt,
-                        pack.fingerprint, [asdict(value) for value in requested],
-                    ])
-                    (reply,) = yield (providers.work(
-                        GLiNERWork(
-                            gliner_profile, pack, requested, threshold, overlap, correlation,
-                            (check_active,), logical_members=logical_members,
-                        ), reservation=execution_owner.reservation,
-                    ),)
+                    correlation = payload_digest(
+                        [
+                            str(claim.request_id),
+                            claim.generation,
+                            claim.task_id,
+                            claim.attempt,
+                            pack.fingerprint,
+                            [asdict(value) for value in requested],
+                        ]
+                    )
+                    (reply,) = yield (
+                        providers.work(
+                            GLiNERWork(
+                                gliner_profile,
+                                pack,
+                                requested,
+                                threshold,
+                                overlap,
+                                correlation,
+                                (check_active,),
+                                logical_members=logical_members,
+                            ),
+                            reservation=execution_owner.reservation,
+                        ),
+                    )
                     check_active()
                     if reply.correlation != correlation:
                         raise ValueError("GLiNER response belongs to another block question")
@@ -435,20 +487,23 @@ class PreparedLearnedPrimary:
                         raise ValueError("actual provider work lacks its physical scatter receipt")
                     receipts.append(canonical_bytes(asdict(reply.execution_receipt)))
                     if len(reply.admissions) != len(requested) or any(
-                        (value.context_id, value.context_digest) != (item.context_id, item.context_digest)
+                        (value.context_id, value.context_digest)
+                        != (item.context_id, item.context_digest)
                         for value, item in zip(reply.admissions, requested, strict=True)
                     ):
                         raise ValueError("GLiNER changed its original block admission population")
                     admitted = tuple(value for value in reply.admissions if value.admitted)
                     if len(reply.reports) != len(admitted) or any(
-                        (report.context_id, report.context_digest) != (value.context_id, value.context_digest)
+                        (report.context_id, report.context_digest)
+                        != (value.context_id, value.context_digest)
                         for report, value in zip(reply.reports, admitted, strict=True)
                     ):
                         raise ValueError("GLiNER changed its admitted block report population")
                     reports = iter(reply.reports)
                     for ordinal, admission in zip(ordinals, reply.admissions, strict=True):
                         gliner_results[members[ordinal][0]] = (
-                            (next(reports), None) if admission.admitted
+                            (next(reports), None)
+                            if admission.admitted
                             else (None, admission.reason or "native input refused")
                         )
 
@@ -506,7 +561,15 @@ class PreparedLearnedPrimary:
                 receipts.append(canonical_bytes(asdict(reply.execution_receipt)))
 
             def retain_candidates(
-                mapping, request, reply, question, version, *, parsed=None, field=None, source_path=None
+                mapping,
+                request,
+                reply,
+                question,
+                version,
+                *,
+                parsed=None,
+                field=None,
+                source_path=None,
             ):
                 if parsed is None:
                     parsed = _parser_products(self.provider, mapping, request, reply, self.prepared)
@@ -579,7 +642,9 @@ class PreparedLearnedPrimary:
                 return parsed.products
 
             def parsed_d1(scope, request, native, reply, member_index):
-                from corpus_structure.methods.pm2_interpretation_products import interpretation_products
+                from corpus_structure.methods.pm2_interpretation_products import (
+                    interpretation_products,
+                )
                 from corpus_structure.methods.pm2_products import ParserProducts
 
                 from .d1_limitation import classify_d1_limitation
@@ -629,10 +694,14 @@ class PreparedLearnedPrimary:
 
             def block_result():
                 return _LearnedBlockProducts(
-                    records=tuple(records), coordinates=tuple(coordinates),
-                    operations=tuple(operations), observations=tuple(observations),
-                    receipts=tuple(receipts), coverage=tuple(coverage),
-                    examined=tuple(examined), unexamined=tuple(unexamined),
+                    records=tuple(records),
+                    coordinates=tuple(coordinates),
+                    operations=tuple(operations),
+                    observations=tuple(observations),
+                    receipts=tuple(receipts),
+                    coverage=tuple(coverage),
+                    examined=tuple(examined),
+                    unexamined=tuple(unexamined),
                 )
 
             check_active()
@@ -650,10 +719,14 @@ class PreparedLearnedPrimary:
                 return block_result()
             scope = (
                 gliner_questions[block.block_id][0]
-                if self.provider == "gliner" else prepare_model_scope(
+                if self.provider == "gliner"
+                else prepare_model_scope(
                     frame,
-                    block.focal if isinstance(block, LearnedFocalScope) else (block.start, block.end),
-                    (block.start, block.end), max_chars=self.max_context_chars,
+                    block.focal
+                    if isinstance(block, LearnedFocalScope)
+                    else (block.start, block.end),
+                    (block.start, block.end),
+                    max_chars=self.max_context_chars,
                 )
             )
             if self.family in {"maverick", "dipo"}:
@@ -759,17 +832,29 @@ class PreparedLearnedPrimary:
                                 parsed_d1(scope, request, answer, reply, member_index)
                             )
             else:
-                scope, family, request, overlap, classification_profile = gliner_questions[block.block_id]
+                scope, family, request, overlap, classification_profile = gliner_questions[
+                    block.block_id
+                ]
                 native, refusal = gliner_results[block.block_id]
                 if refusal is not None:
                     unexamined.append(selector)
-                    observations.append(source_value({
-                        "family": family.family, "outcome": "unsupported", "reason": refusal,
-                    }))
-                    coverage.append({
-                        "family": self.family, "scope": canonical_bytes(selector).decode(),
-                        "outcome": "unsupported", "reason": refusal,
-                    })
+                    observations.append(
+                        source_value(
+                            {
+                                "family": family.family,
+                                "outcome": "unsupported",
+                                "reason": refusal,
+                            }
+                        )
+                    )
+                    coverage.append(
+                        {
+                            "family": self.family,
+                            "scope": canonical_bytes(selector).decode(),
+                            "outcome": "unsupported",
+                            "reason": refusal,
+                        }
+                    )
                     return block_result()
                 if self.family == "gliner_function":
                     parsed = ParserProducts(

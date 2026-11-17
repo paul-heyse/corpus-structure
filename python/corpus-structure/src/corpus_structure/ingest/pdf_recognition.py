@@ -13,6 +13,7 @@ import subprocess
 import time
 from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from contextlib import suppress
 from dataclasses import dataclass, field
 from hashlib import file_digest, sha256
 from io import BytesIO
@@ -23,8 +24,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from corpus_structure.core.work import PhysicalRetirementUncertain
 from corpus_structure.core.process_lifetime import _live_group
+from corpus_structure.core.work import PhysicalRetirementUncertain
 
 from ..semantic.identity import canonical_bytes
 from .pdf_capacity import pdf_gpu_slot
@@ -330,7 +331,10 @@ class RecognitionPage:
 
     @property
     def succeeded(self) -> bool:
-        return self.result.get("outcome") == "succeeded" and self.result.get("outcome_class") != "execution"
+        return (
+            self.result.get("outcome") == "succeeded"
+            and self.result.get("outcome_class") != "execution"
+        )
 
     @property
     def terminal_outcome(self) -> bool:
@@ -464,16 +468,16 @@ class _RecognitionSlot:
         for sig, seconds in ((signal.SIGTERM, 2), (signal.SIGKILL, 5)):
             if not _live_group(process.pid):
                 break
-            try:
+            with suppress(ProcessLookupError):
                 os.killpg(process.pid, sig)
-            except ProcessLookupError:
-                pass
             deadline = time.monotonic() + seconds
             while _live_group(process.pid) and time.monotonic() < deadline:
                 process.poll()
                 time.sleep(0.025)
         if _live_group(process.pid):
-            raise PhysicalRetirementUncertain(f"recognition process group {process.pid} death remains unproven")
+            raise PhysicalRetirementUncertain(
+                f"recognition process group {process.pid} death remains unproven"
+            )
         process.wait(timeout=1)
         for stream in (process.stdin, process.stdout):
             if stream is not None:
@@ -492,12 +496,17 @@ class _RecognitionSlot:
                     with (input_path.parent / "worker.log").open("ab") as log:
                         self.process = subprocess.Popen(
                             [str(self.owner.python), str(self.owner.script), "--serve"],
-                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log,
-                            start_new_session=True, bufsize=0,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=log,
+                            start_new_session=True,
+                            bufsize=0,
                         )
                 process = self.process
                 assert process.stdin is not None and process.stdout is not None
-                process.stdin.write(canonical_bytes({"request": str(input_path.absolute())}) + b"\n")
+                process.stdin.write(
+                    canonical_bytes({"request": str(input_path.absolute())}) + b"\n"
+                )
                 process.stdin.flush()
                 while True:
                     check_active()
@@ -523,13 +532,18 @@ class _RecognitionSlot:
                 try:
                     self._close()
                 except BaseException as cleanup:
-                    raise PhysicalRetirementUncertain("recognition slot retirement failed") from BaseExceptionGroup(
+                    raise PhysicalRetirementUncertain(
+                        "recognition slot retirement failed"
+                    ) from BaseExceptionGroup(
                         "recognition page and retirement failed", [error, cleanup]
                     )
                 if not isinstance(error, Exception) or isinstance(error, InterruptedError):
                     raise
-                result = {"outcome": "failed", "outcome_class": "execution",
-                          "diagnostic": f"{type(error).__name__}: {error}"}
+                result = {
+                    "outcome": "failed",
+                    "outcome_class": "execution",
+                    "diagnostic": f"{type(error).__name__}: {error}",
+                }
                 (input_path.parent / "result.json").write_bytes(canonical_bytes(result))
                 return result
 
@@ -556,41 +570,76 @@ class _RecognitionOperation:
 class RecognitionWorker:
     """An operation opens one PDF and owns bounded reusable page-process slots."""
 
-    def __init__(self, *, python: Path, script: Path, endpoint: str, receipts: Path,
-                 timeout_seconds: float = 1800.0) -> None:
+    def __init__(
+        self,
+        *,
+        python: Path,
+        script: Path,
+        endpoint: str,
+        receipts: Path,
+        timeout_seconds: float = 1800.0,
+    ) -> None:
         self.python, self.script = python, script
         self.endpoint, self.receipts, self.timeout_seconds = endpoint, receipts, timeout_seconds
         self.last_page: RecognitionPage | None = None
         self._operation: _RecognitionOperation | None = None
 
     def recognize_pages(
-        self, source: PreparedRecognitionSource | PreparedRecognitionFile,
-        recipe: NemotronRecipe, page_numbers: Sequence[int], *,
+        self,
+        source: PreparedRecognitionSource | PreparedRecognitionFile,
+        recipe: NemotronRecipe,
+        page_numbers: Sequence[int],
+        *,
         check_active: Callable[[], None] | None = None,
-        reuse: bool = True, concurrency: int = 1,
+        reuse: bool = True,
+        concurrency: int = 1,
     ) -> Generator[RecognitionPage]:
         operation = self._operation
         if operation is not None:
             # Bounded repetition recovery borrows the completed slot while the
             # outer iterator is paused. It opens no second PDF or GPU lease.
-            if get_ident() != operation.owner_thread or source is not operation.source or concurrency != 1 or len(page_numbers) != 1 or operation.available_slot is None:
-                raise ValueError("nested recognition requires the operation's one completed page slot")
+            if (
+                get_ident() != operation.owner_thread
+                or source is not operation.source
+                or concurrency != 1
+                or len(page_numbers) != 1
+                or operation.available_slot is None
+            ):
+                raise ValueError(
+                    "nested recognition requires the operation's one completed page slot"
+                )
             if check_active is not None:
                 check_active()
-            page = self._execute_page(operation, operation.available_slot, recipe,
-                                      page_numbers[0], reuse, check_active or operation.active)
+            page = self._execute_page(
+                operation,
+                operation.available_slot,
+                recipe,
+                page_numbers[0],
+                reuse,
+                check_active or operation.active,
+            )
             self._readmit_generation(operation, page)
             self.last_page = page
             yield page
             return
         with pdf_gpu_slot(check_active):
-            yield from self._recognize_pages(source, recipe, page_numbers,
-                                            check_active=check_active, reuse=reuse,
-                                            concurrency=concurrency)
+            yield from self._recognize_pages(
+                source,
+                recipe,
+                page_numbers,
+                check_active=check_active,
+                reuse=reuse,
+                concurrency=concurrency,
+            )
 
     def _execute_page(
-        self, operation: _RecognitionOperation, slot: _RecognitionSlot,
-        recipe: NemotronRecipe, page_no: int, reuse: bool, check_active: Callable[[], None],
+        self,
+        operation: _RecognitionOperation,
+        slot: _RecognitionSlot,
+        recipe: NemotronRecipe,
+        page_no: int,
+        reuse: bool,
+        check_active: Callable[[], None],
     ) -> RecognitionPage:
         check_active()
         if type(page_no) is not int or not 1 <= page_no <= operation.page_count:
@@ -602,19 +651,29 @@ class RecognitionWorker:
                 result = json.loads(path.read_bytes())
                 if terminal_recognition_result(result):
                     submitted = json.loads((path.parent / "input.json").read_bytes())
-                    if submitted.get("source_digest") != operation.source.digest or submitted.get("recipe_digest") != recipe.digest:
-                        raise ValueError("retained recognition page has different source/recipe premises")
-                    return RecognitionPage(page_no, path.parent, result, submitted["transform"], True)
+                    if (
+                        submitted.get("source_digest") != operation.source.digest
+                        or submitted.get("recipe_digest") != recipe.digest
+                    ):
+                        raise ValueError(
+                            "retained recognition page has different source/recipe premises"
+                        )
+                    return RecognitionPage(
+                        page_no, path.parent, result, submitted["transform"], True
+                    )
         directory = parent / f"attempt-{len(list(parent.glob('attempt-*'))) + 1:05d}"
         directory.mkdir()
         try:
             with _PDFIUM_LOCK:
-                image, transform = render_recognition_page(operation.document, page_no, recipe.render_scale)
+                image, transform = render_recognition_page(
+                    operation.document, page_no, recipe.render_scale
+                )
             image_path = directory / "page.png"
             image_path.write_bytes(image)
             with operation.binding_lock:
                 if (recipe.weights_digest, recipe.tokenizer_digest, recipe.identity_assurance) != (
-                    operation.recipe.weights_digest, operation.recipe.tokenizer_digest,
+                    operation.recipe.weights_digest,
+                    operation.recipe.tokenizer_digest,
                     operation.recipe.identity_assurance,
                 ):
                     raise ValueError("recognition slot recipe changes admitted provider artifacts")
@@ -623,11 +682,18 @@ class RecognitionWorker:
                     operation.admitted = True
                 service_binding = operation.service_binding
             request = dict(
-                image_path=str(image_path.absolute()), endpoint=self.endpoint,
-                service_binding=service_binding, identity_assurance=recipe.identity_assurance,
-                model=recipe.model, timeout_seconds=self.timeout_seconds, packages=NEMOTRON_PACKAGES,
-                settings=recipe.settings(), max_regions=recipe.max_regions, transform=transform,
-                recipe_digest=recipe.digest, source_digest=operation.source.digest,
+                image_path=str(image_path.absolute()),
+                endpoint=self.endpoint,
+                service_binding=service_binding,
+                identity_assurance=recipe.identity_assurance,
+                model=recipe.model,
+                timeout_seconds=self.timeout_seconds,
+                packages=NEMOTRON_PACKAGES,
+                settings=recipe.settings(),
+                max_regions=recipe.max_regions,
+                transform=transform,
+                recipe_digest=recipe.digest,
+                source_digest=operation.source.digest,
                 physical_page_concurrency=operation.concurrency,
             )
             input_path = directory / "input.json"
@@ -635,11 +701,20 @@ class RecognitionWorker:
             result = slot.execute(input_path, check_active)
             return RecognitionPage(page_no, directory, result, transform)
         except BaseException as error:
-            result = {"outcome": "failed", "outcome_class": "execution",
-                      "diagnostic": f"{type(error).__name__}: {error}"}
-            interrupted = not isinstance(error, Exception) or isinstance(error, (InterruptedError, PhysicalRetirementUncertain))
-            (directory / ("interrupted.json" if interrupted else "result.json")).write_bytes(canonical_bytes(result))
-            self.last_page = RecognitionPage(page_no, directory, result, locals().get("transform", {}))
+            result = {
+                "outcome": "failed",
+                "outcome_class": "execution",
+                "diagnostic": f"{type(error).__name__}: {error}",
+            }
+            interrupted = not isinstance(error, Exception) or isinstance(
+                error, (InterruptedError, PhysicalRetirementUncertain)
+            )
+            (directory / ("interrupted.json" if interrupted else "result.json")).write_bytes(
+                canonical_bytes(result)
+            )
+            self.last_page = RecognitionPage(
+                page_no, directory, result, locals().get("transform", {})
+            )
             if interrupted:
                 raise
             return self.last_page
@@ -652,32 +727,52 @@ class RecognitionWorker:
             if binding is None:
                 return
             reported = {
-                row.get("response_generation") for row in page.result.get("requests", ())
+                row.get("response_generation")
+                for row in page.result.get("requests", ())
                 if row.get("outcome_class") == "execution"
                 and row.get("response_generation") != row.get("service_generation")
             }
-            if any(generation is not None and generation != binding["generation"] for generation in reported):
+            if any(
+                generation is not None and generation != binding["generation"]
+                for generation in reported
+            ):
                 try:
-                    operation.service_binding = admit_service_generation(self.endpoint, operation.recipe)
+                    operation.service_binding = admit_service_generation(
+                        self.endpoint, operation.recipe
+                    )
                 except Exception as error:
                     # No response under the new generation becomes terminal
                     # without admission. Keep its physical failure and complete
                     # other pages under the last admitted request fence.
-                    (page.directory / "readmission.json").write_bytes(canonical_bytes({
-                        "outcome_class": "execution", "diagnostic": f"{type(error).__name__}: {error}",
-                    }))
+                    (page.directory / "readmission.json").write_bytes(
+                        canonical_bytes(
+                            {
+                                "outcome_class": "execution",
+                                "diagnostic": f"{type(error).__name__}: {error}",
+                            }
+                        )
+                    )
 
     def _recognize_pages(
-        self, source: PreparedRecognitionSource | PreparedRecognitionFile,
-        recipe: NemotronRecipe, page_numbers: Sequence[int], *,
-        check_active: Callable[[], None] | None, reuse: bool, concurrency: int,
+        self,
+        source: PreparedRecognitionSource | PreparedRecognitionFile,
+        recipe: NemotronRecipe,
+        page_numbers: Sequence[int],
+        *,
+        check_active: Callable[[], None] | None,
+        reuse: bool,
+        concurrency: int,
     ) -> Generator[RecognitionPage]:
         import pypdfium2
 
         if not 1 <= concurrency <= 4 or len(set(page_numbers)) != len(page_numbers):
-            raise ValueError("recognition requires distinct pages and concurrency between one and four")
+            raise ValueError(
+                "recognition requires distinct pages and concurrency between one and four"
+            )
         with _PDFIUM_LOCK:
-            document = pypdfium2.PdfDocument(str(source.original) if isinstance(source.original, Path) else source.original)
+            document = pypdfium2.PdfDocument(
+                str(source.original) if isinstance(source.original, Path) else source.original
+            )
             try:
                 page_count = len(document)
             except BaseException:
@@ -690,12 +785,25 @@ class RecognitionWorker:
         pending: dict[Future[RecognitionPage], _RecognitionSlot] = {}
         primary = None
         try:
-            with ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="pdf-recognition") as pool:
+            with ThreadPoolExecutor(
+                max_workers=concurrency, thread_name_prefix="pdf-recognition"
+            ) as pool:
+
                 def schedule(slot):
                     page_no = next(pages, None)
                     if page_no is not None:
-                        pending[pool.submit(self._execute_page, operation, slot, recipe, page_no,
-                                            reuse, operation.active)] = slot
+                        pending[
+                            pool.submit(
+                                self._execute_page,
+                                operation,
+                                slot,
+                                recipe,
+                                page_no,
+                                reuse,
+                                operation.active,
+                            )
+                        ] = slot
+
                 try:
                     for slot in slots:
                         schedule(slot)
@@ -732,8 +840,11 @@ class RecognitionWorker:
                     errors.append(error)
             if errors:
                 groups = [slot.process.pid for slot in slots if slot.process is not None]
-                raise PhysicalRetirementUncertain(f"recognition operation retains unretired process groups {groups}") from BaseExceptionGroup(
-                    "recognition retirement failed", ([primary] if primary is not None else []) + errors
+                raise PhysicalRetirementUncertain(
+                    f"recognition operation retains unretired process groups {groups}"
+                ) from BaseExceptionGroup(
+                    "recognition retirement failed",
+                    ([primary] if primary is not None else []) + errors,
                 )
             with _PDFIUM_LOCK:
                 document.close()
@@ -865,7 +976,9 @@ def recognition_observation_values(
                     "response_model": row.get("response_model"),
                     "identity_assurance": row.get("identity_assurance", "provider_reported"),
                     "service_generation": row.get("service_generation"),
-                    "outcome_class": row.get("outcome_class", "terminal" if outcome == "succeeded" else "execution"),
+                    "outcome_class": row.get(
+                        "outcome_class", "terminal" if outcome == "succeeded" else "execution"
+                    ),
                     "configured_weights_digest": recipe.weights_digest,
                     "configured_tokenizer_digest": recipe.tokenizer_digest,
                     "mtp": recipe.mtp,

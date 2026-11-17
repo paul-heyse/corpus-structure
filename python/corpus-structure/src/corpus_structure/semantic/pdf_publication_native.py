@@ -486,7 +486,11 @@ b.state='abandoned' THEN
         "endpoint": "ops.pdf_stage_endpoint",
         "companion_field": "ops.pdf_stage_companion_field",
     }
-    inventory_stage = {**stage, "spool_producer": "ops.pdf_spool_producer", "spool_contributor": "ops.pdf_spool_contributor"}
+    inventory_stage = {
+        **stage,
+        "spool_producer": "ops.pdf_spool_producer",
+        "spool_contributor": "ops.pdf_spool_contributor",
+    }
     for family, relation in sorted(inventory_stage.items()):
         keys = ",".join(metadata.tables[relation].primary_key.columns.keys())
         owner_column = "build_id" if family.startswith("spool_") else "product_id"

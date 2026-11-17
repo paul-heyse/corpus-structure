@@ -22,8 +22,8 @@ from corpus_structure.semantic._data_operation_wire import (
     DataOperationCalls,
     WireAttachDataRequestsRequest,
     WireCloseDataPopulationRequest,
-    WireReadDemandResultRequest,
     WireOperationId,
+    WireReadDemandResultRequest,
     WireRegisterDataDemandRequest,
     WireRetainDataCompletionIntentRequest,
 )
@@ -513,7 +513,12 @@ def discover(
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.identity import canonical_bytes
-    from semantic.data_operation_demand_support import NativeObligation, RegisteredDemand, claim, publish
+    from semantic.data_operation_demand_support import (
+        NativeObligation,
+        RegisteredDemand,
+        claim,
+        publish,
+    )
 
     scope = {"page": 1}
     root = {"subject": "doc", "original_source": "source:test", "analyzed_scope": scope}
@@ -549,14 +554,22 @@ def discover(
                 },
             )
         )
-        demand: RegisteredDemand = {"demand_id": registered["demand_id"], "selection": registered["selection"]}
+        demand: RegisteredDemand = {
+            "demand_id": registered["demand_id"],
+            "selection": registered["selection"],
+        }
         acquired = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
-        obligations: dict[WireOperationId, NativeObligation] = {row["operation_id"]: {"obligation_id": row["obligation_id"]}
-                       for row in acquired["obligations"]
-                       if row["subject"] == root["subject"]
-                       and row["original_source"] == root["original_source"]
-                       and row["analyzed_scope"] == root["analyzed_scope"]}
-        producer, consumer = obligations[WireOperationId("urn:discover")], obligations[WireOperationId("urn:consumer")]
+        obligations: dict[WireOperationId, NativeObligation] = {
+            row["operation_id"]: {"obligation_id": row["obligation_id"]}
+            for row in acquired["obligations"]
+            if row["subject"] == root["subject"]
+            and row["original_source"] == root["original_source"]
+            and row["analyzed_scope"] == root["analyzed_scope"]
+        }
+        producer, consumer = (
+            obligations[WireOperationId("urn:discover")],
+            obligations[WireOperationId("urn:consumer")],
+        )
         request = SemanticRequestKey(
             ddo_kernel["identities"]["urn:discover", "recipe"],
             "doc",
@@ -577,21 +590,26 @@ def discover(
         attached_item = storage.attach_data_requests(
             typing_cast(
                 WireAttachDataRequestsRequest,
-                {"read_id": acquired["read_id"], "items": [{
-                    **producer,
-                    "request_meaning": json.loads(request.identity.canonical_input),
-                    "request_key": request.identity.key,
-                    "replicate": None,
-                    "binding": {
-                        "inputs": [],
-                        "support": [],
-                        "parameters": semantic_value(request.parameters),
-                        "request_inputs": semantic_value({}),
-                        "inference": inference,
-                        "populations": [],
-                        "read_id": acquired["read_id"],
-                    },
-                }]},
+                {
+                    "read_id": acquired["read_id"],
+                    "items": [
+                        {
+                            **producer,
+                            "request_meaning": json.loads(request.identity.canonical_input),
+                            "request_key": request.identity.key,
+                            "replicate": None,
+                            "binding": {
+                                "inputs": [],
+                                "support": [],
+                                "parameters": semantic_value(request.parameters),
+                                "request_inputs": semantic_value({}),
+                                "inference": inference,
+                                "populations": [],
+                                "read_id": acquired["read_id"],
+                            },
+                        }
+                    ],
+                },
             )
         )["items"][0]
         assert attached_item["state"] == "attached", attached_item

@@ -2,7 +2,12 @@
 
 from dataclasses import replace
 
-from corpus_structure.methods.gliner import CUDA_WHITESPACE_PROFILE, GlinerInput, GlinerPack, GlinerProfile
+from corpus_structure.methods.gliner import (
+    CUDA_WHITESPACE_PROFILE,
+    GlinerInput,
+    GlinerPack,
+    GlinerProfile,
+)
 from corpus_structure.methods.gliner_batching import gliner_input_batches
 from corpus_structure.methods.native_host import host_request_frame_size
 from corpus_structure.methods.native_host_clients import gliner_host_payload
@@ -11,12 +16,21 @@ from corpus_structure.methods.native_profiles import gliner_selection
 
 def profile(tmp_path, **options):
     return GlinerProfile(
-        tmp_path, "fixture", "immutable",
-        tuple((name, "a" * 64) for name in (
-            "config.json", "encoder_config/config.json", "model.safetensors",
-            "tokenizer.json", "tokenizer_config.json",
-        )),
-        version=CUDA_WHITESPACE_PROFILE, **options,
+        tmp_path,
+        "fixture",
+        "immutable",
+        tuple(
+            (name, "a" * 64)
+            for name in (
+                "config.json",
+                "encoder_config/config.json",
+                "model.safetensors",
+                "tokenizer.json",
+                "tokenizer_config.json",
+            )
+        ),
+        version=CUDA_WHITESPACE_PROFILE,
+        **options,
     )
 
 
@@ -27,10 +41,13 @@ def batches(selected, pack, inputs):
 def test_batch_chunks_preserve_population_and_exact_utf8_host_frame_boundary(tmp_path):
     selected = profile(tmp_path)
     pack = GlinerPack("controlled", '{"entities":["term"]}')
-    inputs = tuple(GlinerInput(f"context:{index}", str(index) * 64, "é" * 200) for index in range(6))
+    inputs = tuple(
+        GlinerInput(f"context:{index}", str(index) * 64, "é" * 200) for index in range(6)
+    )
     assert batches(selected, pack, inputs) == (((0, 1, 2, 3), None), ((4, 5), None))
     pair_bytes = host_request_frame_size(
-        gliner_selection(selected, {}), gliner_host_payload(pack, inputs[:2], 0.5, "flat"),
+        gliner_selection(selected, {}),
+        gliner_host_payload(pack, inputs[:2], 0.5, "flat"),
         selected.max_request_frame_bytes,
     )
     exact = replace(selected, max_request_frame_bytes=pair_bytes)

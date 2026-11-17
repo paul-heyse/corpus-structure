@@ -13,7 +13,12 @@ from corpus_structure.ingest.pdf_hierarchy import NativeSnapshot
 from corpus_structure.ingest.pdf_worker import ConvertRequest, NativeReply, PdfWorker
 
 
-def _blocked_child(connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None, writer_lease: PdfSpoolWriterLease | None = None):
+def _blocked_child(
+    connection: Connection,
+    recipe: PdfRecipe,
+    assets: PreparedPdfAssets | None,
+    writer_lease: PdfSpoolWriterLease | None = None,
+):
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     request = connection.recv()
     assert isinstance(request, ConvertRequest)
@@ -26,7 +31,12 @@ class BlockingOwner(PdfWorker):
     _child_target = staticmethod(_blocked_child)
 
 
-def _partial_child(connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None, writer_lease: PdfSpoolWriterLease | None = None):
+def _partial_child(
+    connection: Connection,
+    recipe: PdfRecipe,
+    assets: PreparedPdfAssets | None,
+    writer_lease: PdfSpoolWriterLease | None = None,
+):
     connection.recv()
     connection.send(
         NativeReply(
@@ -50,7 +60,12 @@ class PartialOwner(PdfWorker):
     _child_target = staticmethod(_partial_child)
 
 
-def fake_stream_child(connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None, writer_lease: PdfSpoolWriterLease | None = None):
+def fake_stream_child(
+    connection: Connection,
+    recipe: PdfRecipe,
+    assets: PreparedPdfAssets | None,
+    writer_lease: PdfSpoolWriterLease | None = None,
+):
     from corpus_structure.ingest.pdf_stream_types import (
         PdfReplayReady,
         PdfReplayRef,
@@ -71,7 +86,9 @@ def fake_stream_child(connection: Connection, recipe: PdfRecipe, assets: Prepare
 
 
 def partial_stream_child(
-    connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None,
+    connection: Connection,
+    recipe: PdfRecipe,
+    assets: PreparedPdfAssets | None,
     writer_lease: PdfSpoolWriterLease | None = None,
 ):
     from corpus_structure.ingest.pdf_stream_types import PdfStreamReply

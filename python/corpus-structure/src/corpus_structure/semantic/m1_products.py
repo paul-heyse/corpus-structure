@@ -443,19 +443,25 @@ def plan_m1_gliner(question, configuration, *, execution_owner, check_active, or
     if reply.error_type in {"GlinerRefused", "Pm2WorkerRefused"}:
         from corpus_structure.methods.gliner_worker import GlinerAdmission
 
-        return M1GlinerReply(admissions=tuple(
-            GlinerAdmission(index, item.context_id, item.context_digest, False,
-                            reply.error_message or reply.error_type)
-            for index, item in enumerate(question.inputs)
-        ))
+        return M1GlinerReply(
+            admissions=tuple(
+                GlinerAdmission(
+                    index,
+                    item.context_id,
+                    item.context_digest,
+                    False,
+                    reply.error_message or reply.error_type,
+                )
+                for index, item in enumerate(question.inputs)
+            )
+        )
     if reply.error_type in {"GlinerWorkerError", "Pm2WorkerError"}:
         return M1GlinerReply(failure="worker", message=reply.error_message or reply.error_type)
     if reply.error_type is not None:
         _ = reply.payload
         raise ValueError("unknown M1 provider failure disposition")
     if len(reply.admissions) != len(question.inputs) or any(
-        (admission.context_id, admission.context_digest)
-        != (value.context_id, value.context_digest)
+        (admission.context_id, admission.context_digest) != (value.context_id, value.context_digest)
         for admission, value in zip(reply.admissions, question.inputs, strict=True)
     ):
         raise ValueError("M1 provider changed the original admission population")

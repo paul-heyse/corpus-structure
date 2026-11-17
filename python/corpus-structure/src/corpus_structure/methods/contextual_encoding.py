@@ -256,7 +256,9 @@ class ContextualEncodingOperation:
     def __init__(self, execute):
         self.execute = execute
 
-    def run(self, source: tuple[dict, ...], occurrence: tuple[dict, ...]) -> tuple[dict[str, dict], ...]:
+    def run(
+        self, source: tuple[dict, ...], occurrence: tuple[dict, ...]
+    ) -> tuple[dict[str, dict], ...]:
         return execute_contextual_encoder_profile(self, source, occurrence)
 
     @staticmethod

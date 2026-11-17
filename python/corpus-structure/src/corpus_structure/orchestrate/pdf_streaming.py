@@ -220,51 +220,90 @@ def run_private_native_pdf_build(
                     pdf_context_for_task(connection, claim.task_id)
                 )
                 payload_schema = schema_dump(payload_family.json_schema)
+                from corpus_structure.ingest.pdf_build_spool import PdfSpoolProducerBasis
                 from corpus_structure.semantic import _pdf_native_calls as calls
                 from corpus_structure.semantic.identifiers import RuntimeId, TaskAttempt, TaskId
-                from corpus_structure.ingest.pdf_build_spool import PdfSpoolProducerBasis
 
-                basis = PdfSpoolProducerBasis(**calls.read_pdf_producer_basis(
-                    connection, task_id=TaskId(claim.task_id), attempt=TaskAttempt(claim.attempt),
-                    holder=holder, runtime_id=RuntimeId(claim.runtime_id),
-                ).model_dump(mode="python"))
+                basis = PdfSpoolProducerBasis(
+                    **calls.read_pdf_producer_basis(
+                        connection,
+                        task_id=TaskId(claim.task_id),
+                        attempt=TaskAttempt(claim.attempt),
+                        holder=holder,
+                        runtime_id=RuntimeId(claim.runtime_id),
+                    ).model_dump(mode="python")
+                )
+            import json
+            from hashlib import sha256
+
             from corpus_structure.ingest.pdf import pdf_package_versions
             from corpus_structure.ingest.pdf_build_spool import (
-                PdfBuildSpool, PdfSpoolPremises, clone_recovery_entries,
-                selected_replay_bytes, verify_spool_recovery,
+                PdfBuildSpool,
+                PdfSpoolPremises,
+                clone_recovery_entries,
+                selected_replay_bytes,
+                verify_spool_recovery,
             )
             from corpus_structure.ingest.pdf_stream_types import PdfPageRecovery
 
-            from hashlib import sha256
-            import json
-
             integration_digest = None
-            if observation_replay is not None or structural_pin is not None or integration_policy is not None:
-                integration_digest = sha256(json.dumps({
-                    "observation_digest": observation_replay.digest if observation_replay else None,
-                    "structural_pin": structural_pin, "integration_policy": integration_policy,
-                }, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+            if (
+                observation_replay is not None
+                or structural_pin is not None
+                or integration_policy is not None
+            ):
+                integration_digest = sha256(
+                    json.dumps(
+                        {
+                            "observation_digest": observation_replay.digest
+                            if observation_replay
+                            else None,
+                            "structural_pin": structural_pin,
+                            "integration_policy": integration_policy,
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        allow_nan=False,
+                    ).encode()
+                ).hexdigest()
             premises = PdfSpoolPremises(
-                basis, source_digest, recipe.digest, schema_digest, payload_family.schema_digest,
-                assets.digest if assets is not None else None, pdf_package_versions(),
+                basis,
+                source_digest,
+                recipe.digest,
+                schema_digest,
+                payload_family.schema_digest,
+                assets.digest if assets is not None else None,
+                pdf_package_versions(),
                 integration_digest=integration_digest,
             )
             recovered = verify_spool_recovery(
-                directory, build_id=build.build_id, task_id=claim.task_id,
-                before_attempt=claim.attempt, premises=premises, check_active=check_active,
+                directory,
+                build_id=build.build_id,
+                task_id=claim.task_id,
+                before_attempt=claim.attempt,
+                premises=premises,
+                check_active=check_active,
             )
 
             spool = PdfBuildSpool(
-                directory, build_id=build.build_id, task_id=claim.task_id,
-                attempt=claim.attempt, holder=holder, check_active=check_active,
+                directory,
+                build_id=build.build_id,
+                task_id=claim.task_id,
+                attempt=claim.attempt,
+                holder=holder,
+                check_active=check_active,
             )
             with _pdf_transaction(engine, cancellation) as connection:
                 producer_id = calls.register_pdf_spool_producer(
-                    connection, build_id=build.build_id, task_id=TaskId(claim.task_id),
-                    attempt=TaskAttempt(claim.attempt), holder=holder,
+                    connection,
+                    build_id=build.build_id,
+                    task_id=TaskId(claim.task_id),
+                    attempt=TaskAttempt(claim.attempt),
+                    holder=holder,
                     runtime_id=RuntimeId(claim.runtime_id),
                     writer_device=spool.writer_lease.identity["device"],
-                    writer_inode=spool.writer_lease.identity["inode"], premises_bytes=premises.to_bytes(),
+                    writer_inode=spool.writer_lease.identity["inode"],
+                    premises_bytes=premises.to_bytes(),
                 )
             spool.declare_premises(premises, producer_id)
             replay_root = spool.root
@@ -274,9 +313,13 @@ def run_private_native_pdf_build(
                 recovery.check_owned()
                 with _pdf_transaction(engine, cancellation) as connection:
                     calls.register_pdf_spool_contributor(
-                        connection, build_id=build.build_id, task_id=TaskId(claim.task_id),
-                        attempt=TaskAttempt(claim.attempt), holder=holder,
-                        runtime_id=RuntimeId(claim.runtime_id), producer_id=recovery.owner.producer_id,
+                        connection,
+                        build_id=build.build_id,
+                        task_id=TaskId(claim.task_id),
+                        attempt=TaskAttempt(claim.attempt),
+                        holder=holder,
+                        runtime_id=RuntimeId(claim.runtime_id),
+                        producer_id=recovery.owner.producer_id,
                         manifest_bytes=recovery.manifest,
                         selected_replays=selected_replay_bytes(recovery.root, selected),
                     )
@@ -288,16 +331,29 @@ def run_private_native_pdf_build(
                 prior_reply = recovery.complete_reply()
                 if prior_reply is not None:
                     ready = recovery.ready_pages(payload_family)
-                    if {page.page_no for page in ready} != {page.page_no for page in prior_reply.page_replays}:
-                        raise ValueError("completed PDF spool differs from complete native page custody")
+                    if {page.page_no for page in ready} != {
+                        page.page_no for page in prior_reply.page_replays
+                    }:
+                        raise ValueError(
+                            "completed PDF spool differs from complete native page custody"
+                        )
                     selected = recovery.entries
                     register_contributor(recovery, selected)
-                    copied = clone_recovery_entries(recovery, spool, selected, prefix="recovered-complete")
+                    copied = clone_recovery_entries(
+                        recovery, spool, selected, prefix="recovered-complete"
+                    )
                     copied_paths.update(clone.path for clone in copied.values())
                     from dataclasses import replace
-                    reply = replace(prior_reply,
-                        page_replays=tuple(copied[entry.path] for entry in prior_reply.page_replays),
-                        record_replays=tuple(copied[entry.path] for entry in prior_reply.record_replays))
+
+                    reply = replace(
+                        prior_reply,
+                        page_replays=tuple(
+                            copied[entry.path] for entry in prior_reply.page_replays
+                        ),
+                        record_replays=tuple(
+                            copied[entry.path] for entry in prior_reply.record_replays
+                        ),
+                    )
                     break
             if reply is None:
                 selected_pages = set()
@@ -307,45 +363,78 @@ def run_private_native_pdf_build(
                     for page in recovery.ready_pages(payload_family):
                         if page.page_no in selected_pages:
                             continue
-                        if preparation_identity is not None and page.preparation_identity != preparation_identity:
-                            raise ValueError("PDF prior attempts have different determining native preparations")
+                        if (
+                            preparation_identity is not None
+                            and page.preparation_identity != preparation_identity
+                        ):
+                            raise ValueError(
+                                "PDF prior attempts have different determining native preparations"
+                            )
                         preparation_identity = page.preparation_identity
                         pages.append(page)
                         selected_pages.add(page.page_no)
                     if not pages:
                         continue
                     numbers = {page.page_no for page in pages}
-                    selected = tuple(entry for entry in recovery.entries if (
-                        entry.family == "native_preparation" or entry.page_no in numbers
-                        and entry.family in {"page", "candidate_payload", "native-raster"}
-                    ))
+                    selected = tuple(
+                        entry
+                        for entry in recovery.entries
+                        if (
+                            entry.family == "native_preparation"
+                            or (entry.page_no in numbers
+                            and entry.family in {"page", "candidate_payload", "native-raster"})
+                        )
+                    )
                     register_contributor(recovery, selected)
                     # Current preparation is independently observed by the child;
                     # retained preparation remains the contributor's provenance.
-                    copied = clone_recovery_entries(recovery, spool,
+                    copied = clone_recovery_entries(
+                        recovery,
+                        spool,
                         tuple(entry for entry in selected if entry.family != "native_preparation"),
-                        prefix=f"recovered-{index}")
+                        prefix=f"recovered-{index}",
+                    )
                     copied_paths.update(clone.path for clone in copied.values())
-                    recovery_pages.extend(PdfPageRecovery(page.page_no, copied[page.page.path],
-                        copied[page.candidate.path], page.preparation_identity) for page in pages)
+                    recovery_pages.extend(
+                        PdfPageRecovery(
+                            page.page_no,
+                            copied[page.page.path],
+                            copied[page.candidate.path],
+                            page.preparation_identity,
+                        )
+                        for page in pages
+                    )
             if reply is None:
                 worker = PdfWorker(recipe, assets=assets, writer_lease=spool.writer_lease)
 
             def retain_replay(replay: PdfReplayRef) -> None:
-                if replay.family not in {*STAGE_FAMILIES, "page", "candidate_payload", "companion:occurrence", "native_preparation", "native_completion"}:
+                if replay.family not in {
+                    *STAGE_FAMILIES,
+                    "page",
+                    "candidate_payload",
+                    "companion:occurrence",
+                    "native_preparation",
+                    "native_completion",
+                }:
                     raise ValueError("unknown private PDF replay family")
                 if replay.family == "page":
                     import json
+
                     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 
                     replay.verify()
                     with replay.path.open() as source:
                         page = json.load(source)
                     raster = page["raster"]
-                    spool.append(PdfReplayRef(
-                        Path(raster["path"]), raster["digest"], raster["byte_length"],
-                        "native-raster", page_no=page["page"]["page_no"],
-                    ))
+                    spool.append(
+                        PdfReplayRef(
+                            Path(raster["path"]),
+                            raster["digest"],
+                            raster["byte_length"],
+                            "native-raster",
+                            page_no=page["page"]["page_no"],
+                        )
+                    )
                 spool.append(replay)
 
             def adopt_replay(replay: PdfReplayRef) -> None:
@@ -412,7 +501,9 @@ def run_private_native_pdf_build(
                             )
                         else:
                             native_lifetime.enter_context(
-                                suspend_resident_nemotron(nemotron_endpoint, check_active=check_active)
+                                suspend_resident_nemotron(
+                                    nemotron_endpoint, check_active=check_active
+                                )
                             )
                     native_lifetime.enter_context(closing(worker))
                     reply = worker.stream(
@@ -437,13 +528,19 @@ def run_private_native_pdf_build(
                     "native streaming conversion did not complete: " + "; ".join(reply.errors)
                 )
             spool.complete(reply)
-            fresh_entries = tuple(entry for entry in spool.entries if entry.path not in copied_paths)
+            fresh_entries = tuple(
+                entry for entry in spool.entries if entry.path not in copied_paths
+            )
             if fresh_entries:
                 with _pdf_transaction(engine, cancellation) as connection:
                     calls.register_pdf_spool_contributor(
-                        connection, build_id=build.build_id, task_id=TaskId(claim.task_id),
-                        attempt=TaskAttempt(claim.attempt), holder=holder,
-                        runtime_id=RuntimeId(claim.runtime_id), producer_id=producer_id,
+                        connection,
+                        build_id=build.build_id,
+                        task_id=TaskId(claim.task_id),
+                        attempt=TaskAttempt(claim.attempt),
+                        holder=holder,
+                        runtime_id=RuntimeId(claim.runtime_id),
+                        producer_id=producer_id,
                         manifest_bytes=spool.path.read_bytes(),
                         selected_replays=selected_replay_bytes(spool.root, fresh_entries),
                     )
@@ -455,15 +552,29 @@ def run_private_native_pdf_build(
                 for replay in spool.entries:
                     if replay.family == "candidate_payload":
                         encoded = encoded_replay(replay, payload_family)
-                        yield {"kind": "inline_candidate_pages", "ordinal": encoded.page_no,
-                               "value": encoded}
+                        yield {
+                            "kind": "inline_candidate_pages",
+                            "ordinal": encoded.page_no,
+                            "value": encoded,
+                        }
 
             adopt_pdf_companions(
-                engine, build, "native_metadata", candidates(), "native:candidate-metadata",
-                check_active=check_active, cancellation=cancellation,
+                engine,
+                build,
+                "native_metadata",
+                candidates(),
+                "native:candidate-metadata",
+                check_active=check_active,
+                cancellation=cancellation,
             )
             for replay in spool.entries:
-                if replay.family not in {"page", "native-raster", "candidate_payload", "native_preparation", "native_completion"}:
+                if replay.family not in {
+                    "page",
+                    "native-raster",
+                    "candidate_payload",
+                    "native_preparation",
+                    "native_completion",
+                }:
                     adopt_replay(replay)
             from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
 
@@ -506,6 +617,7 @@ def run_private_native_pdf_build(
                 raise ValueError("PDF completed spool has no exact native completion report")
             completion = completions[0].path
             if completion.exists():
+
                 def formula_outcomes():
                     with completion.open() as completion_file:
                         for ordinal, line in enumerate(completion_file):
@@ -518,8 +630,13 @@ def run_private_native_pdf_build(
                             yield {"kind": "formula_outcomes", "ordinal": ordinal, "value": body}
 
                 adopt_pdf_companions(
-                    engine, build, "native_metadata", formula_outcomes(), "native:formulas",
-                    check_active=check_active, cancellation=cancellation,
+                    engine,
+                    build,
+                    "native_metadata",
+                    formula_outcomes(),
+                    "native:formulas",
+                    check_active=check_active,
+                    cancellation=cancellation,
                 )
             check_active()
         finally:
@@ -537,7 +654,6 @@ def run_private_native_pdf_build(
                 worker.close()
             owner.close()
     return build
-
 
 
 def finish_existing_pdf_product(
@@ -565,12 +681,20 @@ def finish_existing_pdf_product(
     frozen = None
     with _pdf_transaction(engine, cancellation) as connection:
         existing = inspect_pdf_build(
-            connection, task_id=claim.task_id, attempt=claim.attempt,
-            holder=holder, replay_key="product:" + product_key,
+            connection,
+            task_id=claim.task_id,
+            attempt=claim.attempt,
+            holder=holder,
+            replay_key="product:" + product_key,
         )
         if existing is not None:
             _check_pdf_build_premises(
-                existing, claim, source_digest, sha256(recipe_bytes).hexdigest(), schema_digest, kind
+                existing,
+                claim,
+                source_digest,
+                sha256(recipe_bytes).hexdigest(),
+                schema_digest,
+                kind,
             )
             if existing.published is not None:
                 return existing.published
@@ -578,12 +702,17 @@ def finish_existing_pdf_product(
                 raise ValueError("abandoned PDF production requires a successor task")
             resumed = existing.build
             if resumed.attempt != claim.attempt or resumed.holder != holder:
-                resumed = resume_pdf_build(connection, resumed, attempt=claim.attempt, holder=holder)
+                resumed = resume_pdf_build(
+                    connection, resumed, attempt=claim.attempt, holder=holder
+                )
             if existing.frozen is not None:
                 frozen = replace(existing.frozen, build=resumed)
         retain_pdf_stage_recipe(
-            connection, task_id=claim.task_id, attempt=claim.attempt,
-            holder=holder, recipe_bytes=recipe_bytes,
+            connection,
+            task_id=claim.task_id,
+            attempt=claim.attempt,
+            holder=holder,
+            recipe_bytes=recipe_bytes,
         )
     if frozen is not None:
         return _finish_frozen_pdf(
@@ -609,6 +738,7 @@ def publish_pdf_record_draft(
     failure leaves authenticated private progress and original custody available.
     """
     from hashlib import sha256
+
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
     from corpus_structure.semantic.pdf_publication import (
         freeze_pdf_build,
@@ -633,22 +763,40 @@ def publish_pdf_record_draft(
     recipe_digest = sha256(draft.recipe_bytes).hexdigest()
     schema_digest = sha256(draft.schema_bytes).hexdigest()
     completed = finish_existing_pdf_product(
-        engine, claim, holder, product_key=draft.product_key, kind=draft.kind,
-        source_digest=source_digest, recipe_bytes=draft.recipe_bytes, schema_digest=schema_digest,
-        check_active=check_active, cancellation=cancellation,
+        engine,
+        claim,
+        holder,
+        product_key=draft.product_key,
+        kind=draft.kind,
+        source_digest=source_digest,
+        recipe_bytes=draft.recipe_bytes,
+        schema_digest=schema_digest,
+        check_active=check_active,
+        cancellation=cancellation,
     )
     if completed is not None:
         return completed
     with _pdf_transaction(engine, cancellation) as connection:
         build = begin_pdf_build(
-            connection, task_id=claim.task_id, attempt=claim.attempt, holder=holder,
-            source_digest=source_digest, recipe_digest=recipe_digest, schema_digest=schema_digest,
+            connection,
+            task_id=claim.task_id,
+            attempt=claim.attempt,
+            holder=holder,
+            source_digest=source_digest,
+            recipe_digest=recipe_digest,
+            schema_digest=schema_digest,
             replay_key="product:" + draft.product_key,
         )
     from corpus_structure.ingest.pdf_build_spool import PdfBuildSpool
 
-    with PdfBuildSpool(directory, build_id=build.build_id, task_id=claim.task_id,
-                               attempt=claim.attempt, holder=holder, check_active=check_active) as draft_spool:
+    with PdfBuildSpool(
+        directory,
+        build_id=build.build_id,
+        task_id=claim.task_id,
+        attempt=claim.attempt,
+        holder=holder,
+        check_active=check_active,
+    ) as draft_spool:
         owner = draft_spool.root
         spool = PdfStreamSpool(owner / "pages", check_active=check_active)
         streamed = StreamingPdfResult(
@@ -788,9 +936,16 @@ def produce_published_pdf_records(
     source_digest = sha256(request.original).hexdigest()
     schema_digest = sha256(request.schema_bytes).hexdigest()
     completed = finish_existing_pdf_product(
-        engine, claim, holder, product_key="native", kind="native", source_digest=source_digest,
-        recipe_bytes=request.recipe.to_bytes(), schema_digest=schema_digest,
-        check_active=check_active, cancellation=cancellation,
+        engine,
+        claim,
+        holder,
+        product_key="native",
+        kind="native",
+        source_digest=source_digest,
+        recipe_bytes=request.recipe.to_bytes(),
+        schema_digest=schema_digest,
+        check_active=check_active,
+        cancellation=cancellation,
     )
     if completed is not None:
         return completed

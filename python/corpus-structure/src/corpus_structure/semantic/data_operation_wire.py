@@ -186,9 +186,13 @@ def _lower_set_operations(protocol: dict[str, Any]) -> None:
         item_name = operation["name"] + "_item"
         definitions[item_name] = item_request
         definitions[operation["request"]] = {
-            "type": "object", "properties": {
-                **shared, "items": {"type": "array", "items": {"$ref": "#/definitions/" + item_name}}
-            }, "required": [*shared, "items"], "additionalProperties": False,
+            "type": "object",
+            "properties": {
+                **shared,
+                "items": {"type": "array", "items": {"$ref": "#/definitions/" + item_name}},
+            },
+            "required": [*shared, "items"],
+            "additionalProperties": False,
         }
         result = definitions[item["result"]]
         outcomes: list[dict[str, Any]] = []
@@ -205,15 +209,32 @@ def _lower_set_operations(protocol: dict[str, Any]) -> None:
                     result_variant["properties"][operation["outcome_field"]] = {"const": state}
                     definitions[result_name] = result_variant
                     properties["result"] = {"$ref": "#/definitions/" + result_name}
-                outcomes.append({"type": "object", "properties": properties,
-                                 "required": list(properties), "additionalProperties": False})
-        outcomes.append({"type": "object", "properties": {
-            "state": {"const": "refused"}, "sqlstate": {"type": "string", "pattern": "^[0-9A-Z]{5}$"},
-            "reason": {"type": "string", "minLength": 1}},
-            "required": ["state", "sqlstate", "reason"], "additionalProperties": False})
-        definitions[operation["result"]] = {"type": "object", "properties": {
-            "items": {"type": "array", "items": {"oneOf": outcomes}}},
-            "required": ["items"], "additionalProperties": False}
+                outcomes.append(
+                    {
+                        "type": "object",
+                        "properties": properties,
+                        "required": list(properties),
+                        "additionalProperties": False,
+                    }
+                )
+        outcomes.append(
+            {
+                "type": "object",
+                "properties": {
+                    "state": {"const": "refused"},
+                    "sqlstate": {"type": "string", "pattern": "^[0-9A-Z]{5}$"},
+                    "reason": {"type": "string", "minLength": 1},
+                },
+                "required": ["state", "sqlstate", "reason"],
+                "additionalProperties": False,
+            }
+        )
+        definitions[operation["result"]] = {
+            "type": "object",
+            "properties": {"items": {"type": "array", "items": {"oneOf": outcomes}}},
+            "required": ["items"],
+            "additionalProperties": False,
+        }
 
 
 @lru_cache(maxsize=16)
@@ -232,7 +253,8 @@ def _checked_protocol(content: bytes) -> bytes:
     for operation in result["operations"]:
         if (
             not isinstance(operation, dict)
-            or set(operation) - {"item_operation", "shared", "outcome_field"} != {"name", "profile", "request", "result", "purposes"}
+            or set(operation) - {"item_operation", "shared", "outcome_field"}
+            != {"name", "profile", "request", "result", "purposes"}
             or operation["profile"] not in {"command", "read", "item"}
         ):
             raise ValueError("invalid native wire operation")
@@ -654,21 +676,33 @@ def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
             if not pointer.startswith(prefix):
                 continue
             suffix = pointer.removeprefix(prefix)
-            target = operation["request"] if suffix in operation["shared"] else operation["name"] + "_item"
+            target = (
+                operation["request"]
+                if suffix in operation["shared"]
+                else operation["name"] + "_item"
+            )
             fields["#/definitions/" + target + "/properties/" + suffix] = nominal
         result = definitions[item["result"]]
         for index, variant in enumerate(result.get("oneOf", [result])):
             field = variant["properties"][operation["outcome_field"]]
-            prefix = "#/definitions/" + item["result"] + (
-                "/oneOf/" + str(index) if "oneOf" in result else ""
-            ) + "/properties/"
+            prefix = (
+                "#/definitions/"
+                + item["result"]
+                + ("/oneOf/" + str(index) if "oneOf" in result else "")
+                + "/properties/"
+            )
             for state in field.get("enum", [field.get("const")]):
                 target = operation["name"] + "_" + state.replace("-", "_") + "_result"
                 if target not in definitions:
                     continue
                 for pointer, nominal in tuple(fields.items()):
                     if pointer.startswith(prefix):
-                        fields["#/definitions/" + target + "/properties/" + pointer.removeprefix(prefix)] = nominal
+                        fields[
+                            "#/definitions/"
+                            + target
+                            + "/properties/"
+                            + pointer.removeprefix(prefix)
+                        ] = nominal
     for pointer, nominal in fields.items():
         if not isinstance(nominal, str) or any(
             not part.isidentifier() for part in nominal.split(".")

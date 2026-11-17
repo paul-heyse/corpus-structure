@@ -150,7 +150,15 @@ def test_concurrent_attach_uses_one_visible_request_and_existing_task(ddo_kernel
     def once():
         with ddo_kernel["engine"].begin() as connection:
             barrier.wait(timeout=10)
-            item_result = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {'read_id': wire['binding']['read_id'], 'items': [typing_cast(WireAttachDataRequestRequest, wire)]}))['items'][0]
+            item_result = DataOperationStorage(connection).attach_data_requests(
+                typing_cast(
+                    WireAttachDataRequestsRequest,
+                    {
+                        "read_id": wire["binding"]["read_id"],
+                        "items": [typing_cast(WireAttachDataRequestRequest, wire)],
+                    },
+                )
+            )["items"][0]
             assert item_result["state"] != "refused", item_result
             return item_result["result"]
 
@@ -185,7 +193,15 @@ def test_expired_owner_cannot_publish_but_exact_intent_can_be_adopted(ddo_kernel
     first = claim(ddo_kernel, attached, seconds=1)
     intent = retain(ddo_kernel, first)
     with ddo_kernel["engine"].begin() as connection:
-        item_result = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {'read_id': wire['binding']['read_id'], 'items': [typing_cast(WireAttachDataRequestRequest, wire)]}))['items'][0]
+        item_result = DataOperationStorage(connection).attach_data_requests(
+            typing_cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": wire["binding"]["read_id"],
+                    "items": [typing_cast(WireAttachDataRequestRequest, wire)],
+                },
+            )
+        )["items"][0]
         assert item_result["state"] != "refused", item_result
         reconciliation = item_result["result"]
         assert reconciliation["action"] == "reconcile"
@@ -268,31 +284,67 @@ def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(ddo
     updated = {**ddo_kernel, "runtime": replacement.runtime_id}
     selected = demand["selection"]
     with ddo_kernel["engine"].begin() as connection:
-        replacement_demand = DataOperationStorage(connection).register_data_demand(typing_cast(WireRegisterDataDemandRequest, {
-            "project_id": "ddo-test", "release_id": ddo_kernel["prepared"].release_id,
-            "runtime_id": replacement.runtime_id, "root": selected["roots"], "selection": selected,
-            "strength": "value",
-        }))
-        replacement_read = DataOperationStorage(connection).read_demand_result({"demand_id": replacement_demand["demand_id"]})
-    replacement_wire = {**wire, "obligation_id": replacement_read["obligations"][0]["obligation_id"],
-                        "binding": {**wire["binding"], "read_id": replacement_read["read_id"]}}
+        replacement_demand = DataOperationStorage(connection).register_data_demand(
+            typing_cast(
+                WireRegisterDataDemandRequest,
+                {
+                    "project_id": "ddo-test",
+                    "release_id": ddo_kernel["prepared"].release_id,
+                    "runtime_id": replacement.runtime_id,
+                    "root": selected["roots"],
+                    "selection": selected,
+                    "strength": "value",
+                },
+            )
+        )
+        replacement_read = DataOperationStorage(connection).read_demand_result(
+            {"demand_id": replacement_demand["demand_id"]}
+        )
+    replacement_wire = {
+        **wire,
+        "obligation_id": replacement_read["obligations"][0]["obligation_id"],
+        "binding": {**wire["binding"], "read_id": replacement_read["read_id"]},
+    }
     if active:
         with ddo_kernel["engine"].begin() as connection:
-            refused = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {
-                "read_id": replacement_read["read_id"], "items": [replacement_wire],
-            }))["items"][0]
+            refused = DataOperationStorage(connection).attach_data_requests(
+                typing_cast(
+                    WireAttachDataRequestsRequest,
+                    {
+                        "read_id": replacement_read["read_id"],
+                        "items": [replacement_wire],
+                    },
+                )
+            )["items"][0]
             assert refused["state"] == "refused" and "active producer lease" in refused["reason"]
-            assert connection.scalar(text("SELECT generation FROM ops.data_request WHERE id=:r"),
-                                     {"r": first["request_id"]}) == first["generation"]
+            assert (
+                connection.scalar(
+                    text("SELECT generation FROM ops.data_request WHERE id=:r"),
+                    {"r": first["request_id"]},
+                )
+                == first["generation"]
+            )
         return
     expire_lease(ddo_kernel, first)
     with ddo_kernel["engine"].begin() as connection:
-        revoked_read = DataOperationStorage(connection).read_demand_result({"demand_id": demand["demand_id"]})
+        revoked_read = DataOperationStorage(connection).read_demand_result(
+            {"demand_id": demand["demand_id"]}
+        )
     with ddo_kernel["engine"].begin() as connection:
-        refused = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {
-            "read_id": revoked_read["read_id"], "items": [{**wire, "binding": {**wire["binding"], "read_id": revoked_read["read_id"]}}],
-        }))["items"][0]
-        assert refused["state"] == "refused" and "replacement runtime or recipe" in refused["reason"]
+        refused = DataOperationStorage(connection).attach_data_requests(
+            typing_cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": revoked_read["read_id"],
+                    "items": [
+                        {**wire, "binding": {**wire["binding"], "read_id": revoked_read["read_id"]}}
+                    ],
+                },
+            )
+        )["items"][0]
+        assert (
+            refused["state"] == "refused" and "replacement runtime or recipe" in refused["reason"]
+        )
     _, _, _, current = attach(updated)
     assert current["request_id"] == first["request_id"]
     assert current["generation"] == first["generation"] + 1
@@ -335,12 +387,20 @@ def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(ddo
     receipt = publish(updated, successor, next_intent)
     assert receipt["replayed"] is False
     with ddo_kernel["engine"].begin() as connection:
-        observed = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
+        observed = DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, demand)
+        )
     wire = {**wire, "binding": {**wire["binding"], "read_id": observed["read_id"]}}
     with ddo_kernel["engine"].begin() as connection:
-        response = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {
-            "read_id": observed["read_id"], "items": [wire],
-        }))["items"][0]
+        response = DataOperationStorage(connection).attach_data_requests(
+            typing_cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": observed["read_id"],
+                    "items": [wire],
+                },
+            )
+        )["items"][0]
         assert response["state"] == "fulfilled"
         again = response["result"]
         assert again["generation"] == current["generation"]
@@ -413,7 +473,20 @@ def test_revoked_receipt_stays_inspectable_while_current_admission_changes_gener
         assert result["uses"][0]["fate"] == "unavailable"
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        item_result = storage.attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {'read_id': result['read_id'], 'items': [typing_cast(WireAttachDataRequestRequest, {**wire, 'binding': {**wire['binding'], 'read_id': result['read_id']}})]}))['items'][0]
+        item_result = storage.attach_data_requests(
+            typing_cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": result["read_id"],
+                    "items": [
+                        typing_cast(
+                            WireAttachDataRequestRequest,
+                            {**wire, "binding": {**wire["binding"], "read_id": result["read_id"]}},
+                        )
+                    ],
+                },
+            )
+        )["items"][0]
         assert item_result["state"] != "refused", item_result
         current = item_result["result"]
         assert current["generation"] == first["generation"] + 1
@@ -445,14 +518,17 @@ def test_native_discovery_refuses_arbitrary_member_and_completeness_injection(dd
 def test_atomic_registration_materializes_only_its_frozen_root_context(ddo_kernel):
     demand, _, _, _ = attach(ddo_kernel)
     with ddo_kernel["engine"].begin() as connection:
-        result = DataOperationStorage(connection).read_demand_result({"demand_id": demand["demand_id"]})
-        assert {(row["subject"], row["original_source"], json_bytes(row["analyzed_scope"]))
-                for row in result["obligations"]} == {
+        result = DataOperationStorage(connection).read_demand_result(
+            {"demand_id": demand["demand_id"]}
+        )
+        assert {
+            (row["subject"], row["original_source"], json_bytes(row["analyzed_scope"]))
+            for row in result["obligations"]
+        } == {
             (root["subject"], root["original_source"], json_bytes(root["analyzed_scope"]))
             for root in demand["selection"]["roots"]
         }
         assert all(row["subject"] != "invented" for row in result["obligations"])
-
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
@@ -560,11 +636,16 @@ def test_directly_revoked_producer_cannot_be_rehabilitated_by_rebinding(ddo_kern
         )
     wire = {**wire, "binding": {**wire["binding"], "read_id": fresh["read_id"]}}
     with ddo_kernel["engine"].begin() as connection:
-        response = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {
-            "read_id": fresh["read_id"], "items": [{**wire, "rebind_derivation": receipt["derivation_id"]}],
-        }))["items"][0]
+        response = DataOperationStorage(connection).attach_data_requests(
+            typing_cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": fresh["read_id"],
+                    "items": [{**wire, "rebind_derivation": receipt["derivation_id"]}],
+                },
+            )
+        )["items"][0]
         assert response["state"] == "refused" and "rehabilitate" in response["reason"]
-
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
@@ -581,7 +662,15 @@ def test_failed_completion_is_historical_but_never_reusable_fulfillment(ddo_kern
         assert observed["uses"][0]["products"] == []
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        item_result = storage.attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {'read_id': wire['binding']['read_id'], 'items': [typing_cast(WireAttachDataRequestRequest, wire)]}))['items'][0]
+        item_result = storage.attach_data_requests(
+            typing_cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": wire["binding"]["read_id"],
+                    "items": [typing_cast(WireAttachDataRequestRequest, wire)],
+                },
+            )
+        )["items"][0]
         assert item_result["state"] != "refused", item_result
         current = item_result["result"]
         assert current["fate"] == "attached"
@@ -667,8 +756,9 @@ def _protected_binding_case(
             },
         ).scalar_one()
         assert native_row == {"value": sample_value}
-        obligation = next(row for row in result["obligations"]
-                          if row["operation_id"] == "urn:ddo-test:consumer")
+        obligation = next(
+            row for row in result["obligations"] if row["operation_id"] == "urn:ddo-test:consumer"
+        )
         # Authored scalar-input meaning, independent of the compiled binder and
         # project_operation_binding. Only opaque identities come from real custody.
         member = {
@@ -835,7 +925,14 @@ def test_actual_writer_rejects_independently_authored_binding_substitutions(ddo_
             # The same admitted product and acquired read succeed under the writer
             # before each one-field semantic/manifest substitution; rollback it.
             with writer.begin_nested() as reach:
-                accepted = writer.scalar(statement, {"p": json.dumps({"read_id": baseline["binding"]["read_id"], "items": [baseline]})})["payload"]["items"][0]
+                accepted = writer.scalar(
+                    statement,
+                    {
+                        "p": json.dumps(
+                            {"read_id": baseline["binding"]["read_id"], "items": [baseline]}
+                        )
+                    },
+                )["payload"]["items"][0]
                 assert accepted["state"] == "attached"
                 accepted = accepted["result"]
                 assert accepted["request_id"] == authored.identity.key
@@ -897,9 +994,17 @@ def test_actual_writer_rejects_independently_authored_binding_substitutions(ddo_
                 request_meaning=json.loads(request.identity.canonical_input),
             )
             payload["binding"]["request_inputs"] = semantic_value(meaning)
-            refused = writer.scalar(statement, {"p": json.dumps({
-                "read_id": payload["binding"]["read_id"], "items": [payload],
-            })})["payload"]["items"][0]
+            refused = writer.scalar(
+                statement,
+                {
+                    "p": json.dumps(
+                        {
+                            "read_id": payload["binding"]["read_id"],
+                            "items": [payload],
+                        }
+                    )
+                },
+            )["payload"]["items"][0]
             assert refused["state"] == "refused", name
             assert refused["sqlstate"] == sqlstate and message in refused["reason"], name
             assert effects() == before, name
@@ -1102,7 +1207,14 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
         assert before[0] == 0 and before[1] > 0 and before[2] > 0
         for name, sqlstate, message in reasons:
             with writer.begin_nested() as reach:
-                accepted = writer.scalar(statement, {"p": json.dumps({"read_id": baseline["binding"]["read_id"], "items": [baseline]})})["payload"]["items"][0]
+                accepted = writer.scalar(
+                    statement,
+                    {
+                        "p": json.dumps(
+                            {"read_id": baseline["binding"]["read_id"], "items": [baseline]}
+                        )
+                    },
+                )["payload"]["items"][0]
                 assert accepted["state"] == "attached"
                 accepted = accepted["result"]
                 assert accepted["request_id"] == baseline["request_key"]
@@ -1127,9 +1239,17 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
             else:
                 selected_binding["populations"] = []
             payload = envelope(selected_meaning, selected_binding)
-            refused = writer.scalar(statement, {"p": json.dumps({
-                "read_id": payload["binding"]["read_id"], "items": [payload],
-            })})["payload"]["items"][0]
+            refused = writer.scalar(
+                statement,
+                {
+                    "p": json.dumps(
+                        {
+                            "read_id": payload["binding"]["read_id"],
+                            "items": [payload],
+                        }
+                    )
+                },
+            )["payload"]["items"][0]
             assert refused["state"] == "refused", name
             assert refused["sqlstate"] == sqlstate and message in refused["reason"], name
             after = tuple(
@@ -1140,7 +1260,10 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
                 ).one()
             )
             assert after == before, name
-        writer.scalar(statement, {"p": json.dumps({"read_id": baseline["binding"]["read_id"], "items": [baseline]})})
+        writer.scalar(
+            statement,
+            {"p": json.dumps({"read_id": baseline["binding"]["read_id"], "items": [baseline]})},
+        )
     with ddo_kernel["engine"].connect() as connection:
         retained = connection.scalar(
             text("SELECT binding FROM ops.data_request WHERE operation_id='urn:consumer'")
@@ -1156,22 +1279,37 @@ def test_registration_exposes_all_frozen_obligations_atomically(ddo_kernel):
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
 
     roots = tuple(RootSubject("subject:" + name, "source:test", b"{}") for name in ("a", "b", "c"))
-    selected = freeze_demand(ddo_kernel["model"], roots=roots, targets=("urn:ddo-test:source",),
-                            inference="inference:test", execution_profile="execution:test").record
+    selected = freeze_demand(
+        ddo_kernel["model"],
+        roots=roots,
+        targets=("urn:ddo-test:source",),
+        inference="inference:test",
+        execution_profile="execution:test",
+    ).record
     with ddo_kernel["engine"].connect() as writer:
         transaction = writer.begin()
-        registered = DataOperationStorage(writer).register_data_demand(typing_cast(WireRegisterDataDemandRequest, {
-            "project_id": "ddo-test", "release_id": ddo_kernel["prepared"].release_id,
-            "runtime_id": ddo_kernel["runtime"], "root": selected["roots"], "selection": selected,
-            "strength": "value",
-        }))
+        registered = DataOperationStorage(writer).register_data_demand(
+            typing_cast(
+                WireRegisterDataDemandRequest,
+                {
+                    "project_id": "ddo-test",
+                    "release_id": ddo_kernel["prepared"].release_id,
+                    "runtime_id": ddo_kernel["runtime"],
+                    "root": selected["roots"],
+                    "selection": selected,
+                    "strength": "value",
+                },
+            )
+        )
         assert registered["inserted_obligations"] == 3
         with ddo_kernel["engine"].connect() as observer:
             assert observer.scalar(text("SELECT count(*) FROM ops.data_demand")) == 0
             assert observer.scalar(text("SELECT count(*) FROM ops.data_obligation")) == 0
         transaction.commit()
     with ddo_kernel["engine"].begin() as reader:
-        page = DataOperationStorage(reader).read_demand_result({"demand_id": registered["demand_id"], "limit": 1})
+        page = DataOperationStorage(reader).read_demand_result(
+            {"demand_id": registered["demand_id"], "limit": 1}
+        )
     collected = list(page["obligations"])
     while page["continuation"]:
         with ddo_kernel["engine"].begin() as reader:
@@ -1190,16 +1328,32 @@ def test_read_receipt_refuses_frontier_writes_in_acquiring_transaction(ddo_kerne
         storage = DataOperationStorage(connection)
         first = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
         with pytest.raises(DBAPIError, match="fresh transaction"), connection.begin_nested():
-            storage.record_data_fate(typing_cast(WireRecordDataFateRequest, {
-                "obligation_id": obligation["obligation_id"], "fate": "awaiting-inputs", "selection": {},
-            }))
+            storage.record_data_fate(
+                typing_cast(
+                    WireRecordDataFateRequest,
+                    {
+                        "obligation_id": obligation["obligation_id"],
+                        "fate": "awaiting-inputs",
+                        "selection": {},
+                    },
+                )
+            )
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).record_data_fate(typing_cast(WireRecordDataFateRequest, {
-            "obligation_id": obligation["obligation_id"], "fate": "awaiting-inputs", "selection": {},
-        }))
+        DataOperationStorage(connection).record_data_fate(
+            typing_cast(
+                WireRecordDataFateRequest,
+                {
+                    "obligation_id": obligation["obligation_id"],
+                    "fate": "awaiting-inputs",
+                    "selection": {},
+                },
+            )
+        )
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        pinned = storage.read_demand_result({"demand_id": demand["demand_id"], "read_id": first["read_id"]})
+        pinned = storage.read_demand_result(
+            {"demand_id": demand["demand_id"], "read_id": first["read_id"]}
+        )
         assert pinned["obligations"] == first["obligations"]
         current = storage.read_demand_result({"demand_id": demand["demand_id"]})
         assert current["obligations"][0]["fate"] == "awaiting-inputs"
@@ -1282,7 +1436,21 @@ def test_real_purpose_principals_cannot_cross_evaluator_kind_boundary(ddo_kernel
         )
         with evaluator.begin() as connection:
             storage = DataOperationStorage(connection)
-            item_result = storage.claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {'holder': 'evaluator', 'lease_seconds': 30, 'items': [{'request_id': attached['request_id'], 'generation': attached['generation']}]}))['items'][0]
+            item_result = storage.claim_data_requests(
+                typing_cast(
+                    WireClaimDataRequestsRequest,
+                    {
+                        "holder": "evaluator",
+                        "lease_seconds": 30,
+                        "items": [
+                            {
+                                "request_id": attached["request_id"],
+                                "generation": attached["generation"],
+                            }
+                        ],
+                    },
+                )
+            )["items"][0]
             assert item_result["state"] == "claimed", item_result
             owned = item_result["result"]
             assert owned["state"] == "claimed"
@@ -1353,7 +1521,21 @@ def test_evaluator_retires_own_failed_attempt_without_granting_writer_private_ac
     try:
         _, _, _, attached = attach(ddo_kernel, operation="urn:ddo-test:evaluator", engine=evaluator)
         with evaluator.begin() as connection:
-            item_result = DataOperationStorage(connection).claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {'holder': 'evaluator-failure', 'lease_seconds': 30, 'items': [{'request_id': attached['request_id'], 'generation': attached['generation']}]}))['items'][0]
+            item_result = DataOperationStorage(connection).claim_data_requests(
+                typing_cast(
+                    WireClaimDataRequestsRequest,
+                    {
+                        "holder": "evaluator-failure",
+                        "lease_seconds": 30,
+                        "items": [
+                            {
+                                "request_id": attached["request_id"],
+                                "generation": attached["generation"],
+                            }
+                        ],
+                    },
+                )
+            )["items"][0]
             assert item_result["state"] == "claimed", item_result
             owned = item_result["result"]
         assert owned["state"] == "claimed"
@@ -1529,11 +1711,28 @@ def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(
             )
             == "running"
         )
-        assert storage.claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {"holder": 'late', "lease_seconds": 30, "items": [{'request_id': fence['request_id'], 'generation': fence['generation']}]}))["items"][0] == {"state": "no-work"}
+        assert storage.claim_data_requests(
+            typing_cast(
+                WireClaimDataRequestsRequest,
+                {
+                    "holder": "late",
+                    "lease_seconds": 30,
+                    "items": [
+                        {"request_id": fence["request_id"], "generation": fence["generation"]}
+                    ],
+                },
+            )
+        )["items"][0] == {"state": "no-work"}
     with ddo_kernel["engine"].begin() as connection:
-        response = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {
-            "read_id": wire["binding"]["read_id"], "items": [wire],
-        }))["items"][0]
+        response = DataOperationStorage(connection).attach_data_requests(
+            typing_cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": wire["binding"]["read_id"],
+                    "items": [wire],
+                },
+            )
+        )["items"][0]
         assert response["state"] == "refused" and "cancelled" in response["reason"]
     for name, payload in [
         ("publish_data_derivation", {**fence, "intent_id": intent["intent_id"]}),
@@ -1625,10 +1824,18 @@ def test_native_concurrent_cancel_and_attach_never_resurrects_demand(ddo_kernel)
     def attaching():
         barrier.wait()
         with ddo_kernel["engine"].begin() as connection:
-            result = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {
-                "read_id": wire["binding"]["read_id"], "items": [wire],
-            }))["items"][0]
-            assert result["state"] == "attached" or (result["state"] == "refused" and "cancelled" in result["reason"])
+            result = DataOperationStorage(connection).attach_data_requests(
+                typing_cast(
+                    WireAttachDataRequestsRequest,
+                    {
+                        "read_id": wire["binding"]["read_id"],
+                        "items": [wire],
+                    },
+                )
+            )["items"][0]
+            assert result["state"] == "attached" or (
+                result["state"] == "refused" and "cancelled" in result["reason"]
+            )
             return result
 
     def cancelling():
@@ -1647,7 +1854,21 @@ def test_native_concurrent_cancel_and_attach_never_resurrects_demand(ddo_kernel)
             == "cancelled"
         )
         assert (
-            storage.claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {"holder": 'late', "lease_seconds": 30, "items": [{'request_id': attached['request_id'], 'generation': attached['generation']}]}))["items"][0]["state"]
+            storage.claim_data_requests(
+                typing_cast(
+                    WireClaimDataRequestsRequest,
+                    {
+                        "holder": "late",
+                        "lease_seconds": 30,
+                        "items": [
+                            {
+                                "request_id": attached["request_id"],
+                                "generation": attached["generation"],
+                            }
+                        ],
+                    },
+                )
+            )["items"][0]["state"]
             == "no-work"
         )
 
@@ -1761,7 +1982,18 @@ def test_native_release_retired_failed_attempt_preserves_intent_and_physical_his
         assert pinned["attempt_failures"] == []
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        item_result = storage.claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {'holder': 'replacement', 'lease_seconds': 30, 'items': [{'request_id': fence['request_id'], 'generation': fence['generation']}]}))['items'][0]
+        item_result = storage.claim_data_requests(
+            typing_cast(
+                WireClaimDataRequestsRequest,
+                {
+                    "holder": "replacement",
+                    "lease_seconds": 30,
+                    "items": [
+                        {"request_id": fence["request_id"], "generation": fence["generation"]}
+                    ],
+                },
+            )
+        )["items"][0]
         assert item_result["state"] == "claimed", item_result
         replacement = item_result["result"]
         assert replacement["state"] == "claimed"
@@ -1795,7 +2027,21 @@ def test_native_claim_owner_isolates_cancelled_request_renewal_and_preserves_sib
     claims = []
     with ddo_kernel["engine"].begin() as connection:
         for request in (first_request, second_request):
-            item_result = DataOperationStorage(connection).claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {'holder': 'owner', 'lease_seconds': 30, 'items': [{'request_id': request['request_id'], 'generation': request['generation']}]}))['items'][0]
+            item_result = DataOperationStorage(connection).claim_data_requests(
+                typing_cast(
+                    WireClaimDataRequestsRequest,
+                    {
+                        "holder": "owner",
+                        "lease_seconds": 30,
+                        "items": [
+                            {
+                                "request_id": request["request_id"],
+                                "generation": request["generation"],
+                            }
+                        ],
+                    },
+                )
+            )["items"][0]
             assert item_result["state"] == "claimed", item_result
             response = item_result["result"]
             assert response["state"] == "claimed"
@@ -1902,30 +2148,61 @@ def test_revoked_runtime_without_retained_intent_refreshes_only_unleased_generat
     updated = {**ddo_kernel, "runtime": replacement.runtime_id}
     selected = demand["selection"]
     with ddo_kernel["engine"].begin() as connection:
-        replacement_demand = DataOperationStorage(connection).register_data_demand(typing_cast(WireRegisterDataDemandRequest, {
-            "project_id": "ddo-test", "release_id": ddo_kernel["prepared"].release_id,
-            "runtime_id": replacement.runtime_id, "root": selected["roots"], "selection": selected,
-            "strength": "value",
-        }))
-        replacement_read = DataOperationStorage(connection).read_demand_result({"demand_id": replacement_demand["demand_id"]})
-    replacement_wire = {**wire, "obligation_id": replacement_read["obligations"][0]["obligation_id"],
-                        "binding": {**wire["binding"], "read_id": replacement_read["read_id"]}}
+        replacement_demand = DataOperationStorage(connection).register_data_demand(
+            typing_cast(
+                WireRegisterDataDemandRequest,
+                {
+                    "project_id": "ddo-test",
+                    "release_id": ddo_kernel["prepared"].release_id,
+                    "runtime_id": replacement.runtime_id,
+                    "root": selected["roots"],
+                    "selection": selected,
+                    "strength": "value",
+                },
+            )
+        )
+        replacement_read = DataOperationStorage(connection).read_demand_result(
+            {"demand_id": replacement_demand["demand_id"]}
+        )
+    replacement_wire = {
+        **wire,
+        "obligation_id": replacement_read["obligations"][0]["obligation_id"],
+        "binding": {**wire["binding"], "read_id": replacement_read["read_id"]},
+    }
     if state == "active":
         with ddo_kernel["engine"].begin() as connection:
-            refused = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {
-                "read_id": replacement_read["read_id"], "items": [replacement_wire],
-            }))["items"][0]
+            refused = DataOperationStorage(connection).attach_data_requests(
+                typing_cast(
+                    WireAttachDataRequestsRequest,
+                    {
+                        "read_id": replacement_read["read_id"],
+                        "items": [replacement_wire],
+                    },
+                )
+            )["items"][0]
             assert refused["state"] == "refused" and "active producer lease" in refused["reason"]
         return
     if state == "expired":
         expire_lease(ddo_kernel, fence)
     with ddo_kernel["engine"].begin() as connection:
-        revoked_read = DataOperationStorage(connection).read_demand_result({"demand_id": demand["demand_id"]})
+        revoked_read = DataOperationStorage(connection).read_demand_result(
+            {"demand_id": demand["demand_id"]}
+        )
     with ddo_kernel["engine"].begin() as connection:
-        refused = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {
-            "read_id": revoked_read["read_id"], "items": [{**wire, "binding": {**wire["binding"], "read_id": revoked_read["read_id"]}}],
-        }))["items"][0]
-        assert refused["state"] == "refused" and "replacement runtime or recipe" in refused["reason"]
+        refused = DataOperationStorage(connection).attach_data_requests(
+            typing_cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": revoked_read["read_id"],
+                    "items": [
+                        {**wire, "binding": {**wire["binding"], "read_id": revoked_read["read_id"]}}
+                    ],
+                },
+            )
+        )["items"][0]
+        assert (
+            refused["state"] == "refused" and "replacement runtime or recipe" in refused["reason"]
+        )
     _, _, binding, current = attach(updated)
     assert current["request_id"] == old["request_id"]
     assert current["generation"] == old["generation"] + 1

@@ -1687,59 +1687,117 @@ def _pinned_watermark_uses(metadata, bounded):
     projected_subject = func.coalesce(members.c.subject, products.c.subject)
     projected_scope = func.coalesce(members.c.analyzed_scope, products.c.analyzed_scope)
     projected_body = func.coalesce(members.c.body, products.c.canonical_body)
-    emitting = _obj(member_id=outputs.c.member_id, role=outputs.c.role,
-                    position=outputs.c.position, multiplicity=outputs.c.multiplicity)
+    emitting = _obj(
+        member_id=outputs.c.member_id,
+        role=outputs.c.role,
+        position=outputs.c.position,
+        multiplicity=outputs.c.multiplicity,
+    )
     header = _obj(
-        product=products.c.id, member=selected_member, subject=projected_subject,
-        subject_definition=func.coalesce(members.c.subject_definition, products.c.subject_definition),
-        original_source=products.c.original_source, analyzed_scope=projected_scope,
+        product=products.c.id,
+        member=selected_member,
+        subject=projected_subject,
+        subject_definition=func.coalesce(
+            members.c.subject_definition, products.c.subject_definition
+        ),
+        original_source=products.c.original_source,
+        analyzed_scope=projected_scope,
         meaning_body=projected_body,
-        support_references=func.jsonb_build_array(_obj(
-            kind=literal("computation"), derivation_id=episodes.c.id, admission_use_id=uses.c.id,
-        )), support_evidence=_obj(producer_output=emitting),
+        support_references=func.jsonb_build_array(
+            _obj(
+                kind=literal("computation"),
+                derivation_id=episodes.c.id,
+                admission_use_id=uses.c.id,
+            )
+        ),
+        support_evidence=_obj(producer_output=emitting),
     )
     # The same immutable subject/source/proof predicates own binding eligibility.
     # This records raw visible identities; live validity/authority remain with the
     # read acquisition and binding boundary rather than becoming a validity cache.
-    role_matches = case((and_(
-        roles.c.value["accepted_kind_contracts"].op("?")(projected_kind),
-        func.coalesce(roles.c.value["support"]["origins"], _json(["computation"]))
-        .op("?")(literal("computation")),
-        or_(roles.c.value["subject_field"].astext.is_not(None),
-            roles.c.value["subject_target"].astext == "source-set",
-            projected_scope.is_not_distinct_from(bounded.c.analyzed_scope)),
-    ), and_(
-        func.ops.ddo_binding_subject(roles.c.value, header, bounded.c.subject,
-                                    bounded.c.original_source),
-        func.ops.ddo_binding_source(roles.c.value, header, bounded.c.original_source,
-                                   func.coalesce(selection["source_sets"], _json({}))),
-    )), else_=literal(False))
+    role_matches = case(
+        (
+            and_(
+                roles.c.value["accepted_kind_contracts"].op("?")(projected_kind),
+                func.coalesce(roles.c.value["support"]["origins"], _json(["computation"])).op("?")(
+                    literal("computation")
+                ),
+                or_(
+                    roles.c.value["subject_field"].astext.is_not(None),
+                    roles.c.value["subject_target"].astext == "source-set",
+                    projected_scope.is_not_distinct_from(bounded.c.analyzed_scope),
+                ),
+            ),
+            and_(
+                func.ops.ddo_binding_subject(
+                    roles.c.value, header, bounded.c.subject, bounded.c.original_source
+                ),
+                func.ops.ddo_binding_source(
+                    roles.c.value,
+                    header,
+                    bounded.c.original_source,
+                    func.coalesce(selection["source_sets"], _json({})),
+                ),
+            ),
+        ),
+        else_=literal(False),
+    )
     return (
-        select(bounded.c.id.label("obligation_id"), literal("use").label("kind"),
-               uses.c.id.label("identity"), uses.c.created_at)
+        select(
+            bounded.c.id.label("obligation_id"),
+            literal("use").label("kind"),
+            uses.c.id.label("identity"),
+            uses.c.created_at,
+        )
         .select_from(
-            bounded.join(definitions, and_(
-                definitions.c.release_id == _var("d.release_id", Text),
-                definitions.c.operation_id == bounded.c.operation_id,
-            )).join(roles, literal(True)).join(entries, literal(True))
+            bounded.join(
+                definitions,
+                and_(
+                    definitions.c.release_id == _var("d.release_id", Text),
+                    definitions.c.operation_id == bounded.c.operation_id,
+                ),
+            )
+            .join(roles, literal(True))
+            .join(entries, literal(True))
             .join(products, products.c.id == entries.c.value["product"].astext)
-            .outerjoin(members, and_(members.c.product_id == products.c.id,
-                                    members.c.member_id == selected_member))
-            .join(outputs, and_(outputs.c.product_id == products.c.id, or_(
-                and_(selected_member.is_(None), outputs.c.member_id.is_(None)),
-                and_(selected_member.is_not(None), or_(
-                    outputs.c.member_id.is_(None), outputs.c.member_id == selected_member,
-                )),
-            )))
+            .outerjoin(
+                members,
+                and_(members.c.product_id == products.c.id, members.c.member_id == selected_member),
+            )
+            .join(
+                outputs,
+                and_(
+                    outputs.c.product_id == products.c.id,
+                    or_(
+                        and_(selected_member.is_(None), outputs.c.member_id.is_(None)),
+                        and_(
+                            selected_member.is_not(None),
+                            or_(
+                                outputs.c.member_id.is_(None),
+                                outputs.c.member_id == selected_member,
+                            ),
+                        ),
+                    ),
+                ),
+            )
             .join(episodes, episodes.c.id == outputs.c.derivation_id)
             .join(uses, uses.c.derivation_id == episodes.c.id)
         )
-        .where(products.c.project_id == _var("d.project_id", Text),
-               or_(selected_member.is_(None), members.c.member_id.is_not(None)),
-               uses.c.fate == "fulfilled", _visible(uses), role_matches,
-               func.ops.ddo_source_set_proof_matches(
-                   source_set, products.c.id, selected_member, episodes.c.id, uses.c.id, emitting,
-               ))
+        .where(
+            products.c.project_id == _var("d.project_id", Text),
+            or_(selected_member.is_(None), members.c.member_id.is_not(None)),
+            uses.c.fate == "fulfilled",
+            _visible(uses),
+            role_matches,
+            func.ops.ddo_source_set_proof_matches(
+                source_set,
+                products.c.id,
+                selected_member,
+                episodes.c.id,
+                uses.c.id,
+                emitting,
+            ),
+        )
     )
 
 
@@ -1758,26 +1816,36 @@ def _inputs_watermarks(metadata, bounded):
     prerequisites = (
         select(bounded.c.id.label("obligation_id"), dependencies.c.value.label("operation_id"))
         .select_from(
-            bounded.join(selected, selected.c.value["operation"].astext == bounded.c.operation_id)
-            .join(dependencies, literal(True))
+            bounded.join(
+                selected, selected.c.value["operation"].astext == bounded.c.operation_id
+            ).join(dependencies, literal(True))
         )
         .cte("watermark_prerequisites", recursive=True)
     )
     prerequisites = prerequisites.union(
-        select(prerequisites.c.obligation_id, dependencies.c.value)
-        .select_from(
-            prerequisites.join(selected, selected.c.value["operation"].astext == prerequisites.c.operation_id)
-            .join(dependencies, literal(True))
+        select(prerequisites.c.obligation_id, dependencies.c.value).select_from(
+            prerequisites.join(
+                selected, selected.c.value["operation"].astext == prerequisites.c.operation_id
+            ).join(dependencies, literal(True))
         )
     )
     fulfilled = (
-        select(bounded.c.id.label("obligation_id"), literal("use").label("kind"),
-               uses.c.id.label("identity"), uses.c.created_at)
+        select(
+            bounded.c.id.label("obligation_id"),
+            literal("use").label("kind"),
+            uses.c.id.label("identity"),
+            uses.c.created_at,
+        )
         .select_from(
             bounded.join(prerequisites, prerequisites.c.obligation_id == bounded.c.id)
-            .join(obligations, and_(obligations.c.demand_id == _var("d.id", Text),
-                                   obligations.c.operation_id == prerequisites.c.operation_id,
-                                   obligations.c.original_source.is_not_distinct_from(bounded.c.original_source)))
+            .join(
+                obligations,
+                and_(
+                    obligations.c.demand_id == _var("d.id", Text),
+                    obligations.c.operation_id == prerequisites.c.operation_id,
+                    obligations.c.original_source.is_not_distinct_from(bounded.c.original_source),
+                ),
+            )
             .join(uses, uses.c.obligation_id == obligations.c.id)
         )
         .where(uses.c.fate == "fulfilled", _visible(uses))
@@ -1785,53 +1853,81 @@ def _inputs_watermarks(metadata, bounded):
     discovery = _items(_var("d.selection", JSONB)["discovery"], "watermark_discovery")
     relevant_population = or_(
         populations.c.selected_obligation_id == bounded.c.id,
-        exists(select(1).select_from(discovery).where(
-            discovery.c.value["population"].astext == populations.c.name,
-            or_(
-                discovery.c.value["target"].astext == bounded.c.operation_id,
-                exists(select(1).select_from(prerequisites).where(
-                    prerequisites.c.obligation_id == bounded.c.id,
-                    prerequisites.c.operation_id == discovery.c.value["target"].astext,
-                )),
-            ),
-        )),
+        exists(
+            select(1)
+            .select_from(discovery)
+            .where(
+                discovery.c.value["population"].astext == populations.c.name,
+                or_(
+                    discovery.c.value["target"].astext == bounded.c.operation_id,
+                    exists(
+                        select(1)
+                        .select_from(prerequisites)
+                        .where(
+                            prerequisites.c.obligation_id == bounded.c.id,
+                            prerequisites.c.operation_id == discovery.c.value["target"].astext,
+                        )
+                    ),
+                ),
+            )
+        ),
     )
     population_rows = (
-        select(bounded.c.id.label("obligation_id"), literal("population").label("kind"),
-               populations.c.id.label("identity"), populations.c.created_at)
+        select(
+            bounded.c.id.label("obligation_id"),
+            literal("population").label("kind"),
+            populations.c.id.label("identity"),
+            populations.c.created_at,
+        )
         .select_from(bounded.join(populations, populations.c.demand_id == _var("d.id", Text)))
         .where(relevant_population, _visible(populations))
     )
     # Original selections are exact frozen pins. Admission can occur after the
     # waiting fate, including an explicitly selected source from another context.
     original_rows = (
-        select(bounded.c.id.label("obligation_id"), literal("original").label("kind"),
-               originals.c.id.label("identity"), originals.c.created_at)
+        select(
+            bounded.c.id.label("obligation_id"),
+            literal("original").label("kind"),
+            originals.c.id.label("identity"),
+            originals.c.created_at,
+        )
         .select_from(bounded.join(originals, originals.c.demand_id == _var("d.id", Text)))
         .where(_visible(originals))
     )
     # A use can be both a local prerequisite and an explicit pin, or can emit
     # several selected outputs. Hash its actual identity once, independent of
     # output multiplicity and timestamp ties.
-    visible = union(fulfilled, _pinned_watermark_uses(metadata, bounded),
-                    population_rows, original_rows).cte("watermark_visible")
+    visible = union(
+        fulfilled, _pinned_watermark_uses(metadata, bounded), population_rows, original_rows
+    ).cte("watermark_visible")
     identities = (
-        select(visible.c.obligation_id,
-               _aggregate(_obj(kind=visible.c.kind, identity=visible.c.identity),
-                          visible.c.kind, visible.c.identity).label("identities"))
+        select(
+            visible.c.obligation_id,
+            _aggregate(
+                _obj(kind=visible.c.kind, identity=visible.c.identity),
+                visible.c.kind,
+                visible.c.identity,
+            ).label("identities"),
+        )
         .group_by(visible.c.obligation_id)
-        .cte("watermark_identities").prefix_with("MATERIALIZED")
+        .cte("watermark_identities")
+        .prefix_with("MATERIALIZED")
     )
     facts = (
         select(identities.c.identities)
         .where(identities.c.obligation_id == bounded.c.id)
-        .correlate(bounded).scalar_subquery()
+        .correlate(bounded)
+        .scalar_subquery()
     )
-    return func.ops.ddo_digest(_obj(
-        visible=func.coalesce(facts, _json([])), source_sets=_var("d.selection", JSONB)["source_sets"],
-        original_sources=_var("d.selection", JSONB)["original_sources"],
-        kernel=_var("boundary.kernel_digest", Text), trust=_var("boundary.trust_snapshot", JSONB),
-    ))
+    return func.ops.ddo_digest(
+        _obj(
+            visible=func.coalesce(facts, _json([])),
+            source_sets=_var("d.selection", JSONB)["source_sets"],
+            original_sources=_var("d.selection", JSONB)["original_sources"],
+            kernel=_var("boundary.kernel_digest", Text),
+            trust=_var("boundary.trust_snapshot", JSONB),
+        )
+    )
 
 
 def read_page(metadata):
@@ -2090,13 +2186,15 @@ def read_page(metadata):
     next_key = select(func.max(bounded.c.id)).scalar_subquery()
     more = and_(
         next_key.is_not(None),
-        exists(_scoped_read_obligations(metadata).where(
-            obligations.c.id > next_key,
-            or_(
-                ~_var("p", JSONB).op("?")(literal("obligation_id")),
-                obligations.c.id == _var("p", JSONB)["obligation_id"].astext,
-            ),
-        )),
+        exists(
+            _scoped_read_obligations(metadata).where(
+                obligations.c.id > next_key,
+                or_(
+                    ~_var("p", JSONB).op("?")(literal("obligation_id")),
+                    obligations.c.id == _var("p", JSONB)["obligation_id"].astext,
+                ),
+            )
+        ),
     )
     admissions = metadata.tables["ops.original_source_admission"]
     admission_value = _obj(

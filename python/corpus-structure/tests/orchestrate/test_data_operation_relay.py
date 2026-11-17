@@ -12,13 +12,20 @@ from corpus_structure.orchestrate.data_operations import _RequestExecution
 def request_owner():
     owner = object.__new__(_RequestExecution)
     owner.handles, owner.claims, owner.claim = [], (), None
-    owner.invocation = SimpleNamespace(executor=SimpleNamespace(demand="demand"), physical_retired=False)
+    owner.invocation = SimpleNamespace(
+        executor=SimpleNamespace(demand="demand"), physical_retired=False
+    )
     owner.uncertain_submission = False
     owner.cpu = SimpleNamespace(reservation_retired=lambda _: True)
     owner.reservation = object()
     owner.running = False
     owner.hydrated_inputs, owner.hydration_error = None, None
-    owner.consumer_inputs, owner.consumer_results, owner.binding_rows, owner.hydrated_sizes = {}, {}, {}, {}
+    owner.consumer_inputs, owner.consumer_results, owner.binding_rows, owner.hydrated_sizes = (
+        {},
+        {},
+        {},
+        {},
+    )
     return owner
 
 
@@ -126,9 +133,13 @@ def test_retained_failure_publishes_original_frames_then_releases_body_reference
         try:
             raise NativeFailure("native diagnostic: request=opaque-request")
         except NativeFailure as native:
-            raise ExceptionGroup("native and retirement failures", [
-                native, PhysicalRetirementUncertain("physical borrower is not joined"),
-            ]) from native
+            raise ExceptionGroup(
+                "native and retirement failures",
+                [
+                    native,
+                    PhysicalRetirementUncertain("physical borrower is not joined"),
+                ],
+            ) from native
 
     def capture():
         try:
@@ -202,7 +213,9 @@ def test_retained_statement_error_drops_parameter_body_after_structured_publicat
 
     body, original = Body(), NativeFailure("native constraint diagnostic")
     reference = weakref.ref(body)
-    error = StatementError("statement refused", "SELECT protected_writer(:p)", {"p": body}, original)
+    error = StatementError(
+        "statement refused", "SELECT protected_writer(:p)", {"p": body}, original
+    )
     del body
     events = []
 
@@ -214,4 +227,6 @@ def test_retained_statement_error_drops_parameter_body_after_structured_publicat
     retained = NativeDemandExecutor._retained_failure(error, phase="settlement")
     assert retained is error and error.params is None and reference() is None
     assert error.orig is original and original.sqlstate == "23514"
-    assert "native constraint diagnostic" in str(events[0])
+    trace = events[0].model_dump(mode="json")
+    assert trace["stacks"][0]["exc_type"] == "StatementError"
+    assert "protected_writer" not in str(trace)

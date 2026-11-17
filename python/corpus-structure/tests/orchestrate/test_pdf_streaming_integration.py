@@ -63,10 +63,15 @@ class _ScriptedDocumentConverter:
                 assembled=AssembledUnit(elements=[], headers=[], body=[]),
             )
             page._image_cache = {self.native_images_scale: image}
-            self.pipeline._release_page_resources(SimpleNamespace(
-                payload=page, page_no=1, is_failed=False, error=None,
-                conv_res=SimpleNamespace(confidence=SimpleNamespace(pages={}), errors=[]),
-            ))
+            self.pipeline._release_page_resources(
+                SimpleNamespace(
+                    payload=page,
+                    page_no=1,
+                    is_failed=False,
+                    error=None,
+                    conv_res=SimpleNamespace(confidence=SimpleNamespace(pages={}), errors=[]),
+                )
+            )
             assert not page._image_cache and page.assembled is None
         document = DoclingDocument(name="scripted provider control")
         document.pages[1] = PageItem(page_no=1, size=Size(width=10, height=10))
@@ -171,7 +176,10 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
 
         entries = [json.loads(line) for line in manifests[0].read_text().splitlines()]
         assert entries[0]["attempt"] == build.attempt
-        assert {item["replay"]["family"] for item in entries[1:] if "replay" in item} >= {"page", "native-raster"}
+        assert {item["replay"]["family"] for item in entries[1:] if "replay" in item} >= {
+            "page",
+            "native-raster",
+        }
         assert any(receipt.replay_key.startswith("ipc:native:") for receipt in receipts)
         assert any(receipt.replay_key.startswith("ipc:artifact_stream:") for receipt in receipts)
         with source.kernel.purpose("read").connect() as connection:
@@ -201,11 +209,21 @@ def test_resumed_pipeline_limits_page_work_and_restores_full_assembly(monkeypatc
 
     spool = SimpleNamespace(restored_pages=restored, restore_pages=restored_pages)
     monkeypatch.setattr(document_converter, "DocumentConverter", _ScriptedDocumentConverter)
-    converter = PdfConverter(PdfRecipe("a" * 40, "b" * 40, device="cpu", ocr_device="cpu",
-                            recipe_id="docling-standard-pdf-stream-v1"), stream_spool=spool)
+    converter = PdfConverter(
+        PdfRecipe(
+            "a" * 40,
+            "b" * 40,
+            device="cpu",
+            ocr_device="cpu",
+            recipe_id="docling-standard-pdf-stream-v1",
+        ),
+        stream_spool=spool,
+    )
     converter._prepare()
     pipeline = next(iter(converter._converter.initialized_pipelines.values()))
-    monkeypatch.setattr(StandardPdfPipeline, "_get_expected_page_nos", lambda self, result: [1, 2, 3])
+    monkeypatch.setattr(
+        StandardPdfPipeline, "_get_expected_page_nos", lambda self, result: [1, 2, 3]
+    )
 
     def build(self, result):
         missing = self._get_expected_page_nos(result)
@@ -222,8 +240,11 @@ def test_resumed_pipeline_limits_page_work_and_restores_full_assembly(monkeypatc
 
     monkeypatch.setattr(StandardPdfPipeline, "_build_document", build)
     monkeypatch.setattr(StandardPdfPipeline, "_assemble_document", assemble)
-    result = SimpleNamespace(pages=[], status=ConversionStatus.SUCCESS,
-                             input=SimpleNamespace(_backend=SimpleNamespace(get_document_outline=lambda: [])))
+    result = SimpleNamespace(
+        pages=[],
+        status=ConversionStatus.SUCCESS,
+        input=SimpleNamespace(_backend=SimpleNamespace(get_document_outline=lambda: [])),
+    )
     pipeline._build_document(result)
     pipeline._assemble_document(result)
     expected = [] if len(restored) == 3 else [("build", (2,))]

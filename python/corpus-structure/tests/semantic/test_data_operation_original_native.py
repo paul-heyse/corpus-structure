@@ -133,11 +133,19 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
         assert ready.resolved.roles[0].members[0].support_episodes == ()
         bad_reference = deepcopy(binding)
         bad_reference["support"][0]["source_reference"] = "original:never-admitted"
-        bad = dict(obligation_id=ready.obligation, request_key=json.loads(ready.native)["request_id"],
-                   request_meaning=json.loads(ready.request), binding=bad_reference, replicate=None)
-        refused = connection.scalar(text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"), {
-            "payload": json.dumps({"read_id": binding["read_id"], "items": [bad]}),
-        })["payload"]["items"][0]
+        bad = dict(
+            obligation_id=ready.obligation,
+            request_key=json.loads(ready.native)["request_id"],
+            request_meaning=json.loads(ready.request),
+            binding=bad_reference,
+            replicate=None,
+        )
+        refused = connection.scalar(
+            text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"),
+            {
+                "payload": json.dumps({"read_id": binding["read_id"], "items": [bad]}),
+            },
+        )["payload"]["items"][0]
         assert refused["state"] == "refused" and "original support" in refused["reason"]
         source_role = next(
             role for role in model.operation(ready.operation).roles if role.direction == "input"
@@ -152,12 +160,23 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
             altered = deepcopy(binding)
             altered["request_inputs"] = semantic_value(meaning["inputs"])
             before = connection.scalar(text("SELECT count(*) FROM ops.data_request"))
-            bad = dict(obligation_id=ready.obligation, request_key=forged.key,
-                       request_meaning=json.loads(forged.canonical_input), binding=altered, replicate=None)
-            refused = connection.scalar(text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"), {
-                "payload": json.dumps({"read_id": binding["read_id"], "items": [bad]}),
-            })["payload"]["items"][0]
-            assert refused["state"] == "refused" and "original source identity differs" in refused["reason"]
+            bad = dict(
+                obligation_id=ready.obligation,
+                request_key=forged.key,
+                request_meaning=json.loads(forged.canonical_input),
+                binding=altered,
+                replicate=None,
+            )
+            refused = connection.scalar(
+                text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"),
+                {
+                    "payload": json.dumps({"read_id": binding["read_id"], "items": [bad]}),
+                },
+            )["payload"]["items"][0]
+            assert (
+                refused["state"] == "refused"
+                and "original source identity differs" in refused["reason"]
+            )
             assert connection.scalar(text("SELECT count(*) FROM ops.data_request")) == before
         # An identical subject/source with a different selector scope cannot see this fact.
         wrong_scope = connection.execute(
@@ -179,7 +198,18 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
         ).scalar_one()
         assert wrong_scope == 0
         native = json.loads(ready.native)
-        item_result = storage.claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {'holder': 'original-test', 'lease_seconds': 30, 'items': [{'request_id': native['request_id'], 'generation': native['generation']}]}))['items'][0]
+        item_result = storage.claim_data_requests(
+            typing_cast(
+                WireClaimDataRequestsRequest,
+                {
+                    "holder": "original-test",
+                    "lease_seconds": 30,
+                    "items": [
+                        {"request_id": native["request_id"], "generation": native["generation"]}
+                    ],
+                },
+            )
+        )["items"][0]
         assert item_result["state"] == "claimed", item_result
         claimed = item_result["result"]
         assert claimed["state"] == "claimed"
@@ -346,7 +376,21 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
         storage = DataOperationStorage(connection)
         planner = DemandPlanner(model, storage)
         (ready,) = planner.ready(snapshot, authorization=b"{}")
-        item_result = storage.claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {'holder': 'raw-pdf-owner', 'lease_seconds': 30, 'items': [{'request_id': json.loads(ready.native)['request_id'], 'generation': json.loads(ready.native)['generation']}]}))['items'][0]
+        item_result = storage.claim_data_requests(
+            typing_cast(
+                WireClaimDataRequestsRequest,
+                {
+                    "holder": "raw-pdf-owner",
+                    "lease_seconds": 30,
+                    "items": [
+                        {
+                            "request_id": json.loads(ready.native)["request_id"],
+                            "generation": json.loads(ready.native)["generation"],
+                        }
+                    ],
+                },
+            )
+        )["items"][0]
         assert item_result["state"] == "claimed", item_result
         claim = item_result["result"]
         assert claim["state"] == "claimed"

@@ -30,7 +30,11 @@ def pdf_gpu_slot(
         return
     from corpus_structure.orchestrate.execution_host import external_execution_gpu
 
-    borrower = nullcontext() if native_residency else external_execution_gpu(check_active or (lambda: None))
+    borrower = (
+        nullcontext()
+        if native_residency
+        else external_execution_gpu(check_active or (lambda: None))
+    )
     with borrower:
         yield from _locked_gpu_slot(check_active)
 
@@ -41,7 +45,9 @@ def _locked_gpu_slot(check_active):
     from corpus_structure.core.work import PhysicalRetirementUncertain
 
     if _gpu_quarantine is not None:
-        raise PhysicalRetirementUncertain("PDF GPU slot is quarantined; confirm managed group cleanup before process restart") from _gpu_quarantine
+        raise PhysicalRetirementUncertain(
+            "PDF GPU slot is quarantined; confirm managed group cleanup before process restart"
+        ) from _gpu_quarantine
     path = Path("/tmp") / f"corpus-structure-pdf-gpu-{os.getuid()}.lock"
     fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     quarantined = False

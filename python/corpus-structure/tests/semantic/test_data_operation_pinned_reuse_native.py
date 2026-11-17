@@ -103,12 +103,14 @@ def _waiting_episode_set_recipe():
     declarations = json.loads(PINNED_EPISODES.declaration_content)
     consumer = next(item for item in declarations["operations"] if item["id"] == CONSUMER)
     next(role for role in consumer["roles"] if role["name"] == "items")["minimum"] = 2
-    return replace(PINNED_EPISODES, name="waiting-exact-pinned-episodes",
-                   declaration_content=canonical_bytes(declarations))
+    return replace(
+        PINNED_EPISODES,
+        name="waiting-exact-pinned-episodes",
+        declaration_content=canonical_bytes(declarations),
+    )
 
 
 PINNED_WAITING_EPISODES = _waiting_episode_set_recipe()
-
 
 
 def _produce(kernel, *, subject, value, inference="inference:test"):
@@ -417,13 +419,18 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
                         position=target["position"],
                     )
                 )
-            payload = {"read_id": changed["read_id"], "items": [dict(
-                obligation_id=ready.obligation,
-                request_meaning=json.loads(ready.request),
-                request_key=json.loads(ready.native)["request_id"],
-                binding=changed,
-                replicate=None,
-            )]}
+            payload = {
+                "read_id": changed["read_id"],
+                "items": [
+                    dict(
+                        obligation_id=ready.obligation,
+                        request_meaning=json.loads(ready.request),
+                        request_key=json.loads(ready.native)["request_id"],
+                        binding=changed,
+                        replicate=None,
+                    )
+                ],
+            }
             if mutation == "missing":
                 # A malformed set request fails its one outer SQL schema check.
                 with (
@@ -466,13 +473,22 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
         before = counts(connection)
         result = connection.scalar(
             text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"),
-            {"payload": json.dumps({"read_id": grouped["read_id"], "items": [dict(
-                obligation_id=ready.obligation,
-                request_meaning=json.loads(grouped_key.canonical_input),
-                request_key=grouped_key.key,
-                binding=grouped,
-                replicate=None,
-            )]})},
+            {
+                "payload": json.dumps(
+                    {
+                        "read_id": grouped["read_id"],
+                        "items": [
+                            dict(
+                                obligation_id=ready.obligation,
+                                request_meaning=json.loads(grouped_key.canonical_input),
+                                request_key=grouped_key.key,
+                                binding=grouped,
+                                replicate=None,
+                            )
+                        ],
+                    }
+                )
+            },
         )["payload"]["items"][0]
         assert result["state"] == "refused"
         assert result["sqlstate"] == "23514"
@@ -500,14 +516,18 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
     assert inputs == [(product, 0), (product, 1)]
 
 
-@pytest.mark.parametrize("ddo_kernel", [PINNED_WAITING_EPISODES], indirect=True,
-                         ids=["waiting-cross-demand-pin"])
+@pytest.mark.parametrize(
+    "ddo_kernel", [PINNED_WAITING_EPISODES], indirect=True, ids=["waiting-cross-demand-pin"]
+)
 def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_kernel):
     first_demand, first, product = _produce(
         ddo_kernel, subject="source-subject:B", value=42, inference="first-pinned-observation"
     )
     context = SubjectContext(
-        "ddo-test", "source-subject:B", "source:B", b'{"page":1}',
+        "ddo-test",
+        "source-subject:B",
+        "source:B",
+        b'{"page":1}',
         subject_definition="original-occurrence",
     )
     entry = SourceSetEntry.from_semantic_source(DataProductReference(product), context=context)
@@ -518,13 +538,17 @@ def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_k
     obligation = next(row for row in before["obligations"] if row["operation_id"] == CONSUMER)
     watermark = obligation["inputs_watermark"]
     with ddo_kernel["engine"].connect() as connection:
-        saved_kernel = connection.scalar(text(
-            "SELECT kernel_digest FROM ops.data_demand_read WHERE id=:read"
-        ), {"read": before["read_id"]})
-        saved_use = connection.scalar(text(
-            "SELECT selection FROM ops.demand_use WHERE obligation_id=:obligation "
-            "ORDER BY created_at DESC,id DESC LIMIT 1"
-        ), {"obligation": obligation["obligation_id"]})
+        saved_kernel = connection.scalar(
+            text("SELECT kernel_digest FROM ops.data_demand_read WHERE id=:read"),
+            {"read": before["read_id"]},
+        )
+        saved_use = connection.scalar(
+            text(
+                "SELECT selection FROM ops.demand_use WHERE obligation_id=:obligation "
+                "ORDER BY created_at DESC,id DESC LIMIT 1"
+            ),
+            {"obligation": obligation["obligation_id"]},
+        )
     assert saved_use["inputs_watermark"] == watermark
 
     # Neither a new unrelated product in the same source/context nor a new
@@ -532,8 +556,12 @@ def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_k
     _produce(ddo_kernel, subject="source-subject:B", value=99, inference="unselected-observation")
     unchanged, ready = _ready(ddo_kernel, demand)
     assert ready == ()
-    assert next(row for row in unchanged["obligations"]
-                if row["operation_id"] == CONSUMER)["inputs_watermark"] == watermark
+    assert (
+        next(row for row in unchanged["obligations"] if row["operation_id"] == CONSUMER)[
+            "inputs_watermark"
+        ]
+        == watermark
+    )
 
     second_demand, second, same_product = _produce(
         ddo_kernel, subject="source-subject:B", value=42, inference="second-pinned-observation"
@@ -547,11 +575,16 @@ def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_k
     assert after["selection"]["source_sets"] == before["selection"]["source_sets"]
     assert after["trust_snapshot"] == before["trust_snapshot"]
     with ddo_kernel["engine"].connect() as connection:
-        assert connection.scalar(text(
-            "SELECT kernel_digest FROM ops.data_demand_read WHERE id=:read"
-        ), {"read": after["read_id"]}) == saved_kernel
+        assert (
+            connection.scalar(
+                text("SELECT kernel_digest FROM ops.data_demand_read WHERE id=:read"),
+                {"read": after["read_id"]},
+            )
+            == saved_kernel
+        )
     (answer,) = ready
     assert answer.operation == CONSUMER
     assert {member.support_episodes for member in answer.binding_result.roles[0].members} == {
-        (first["derivation_id"],), (second["derivation_id"],),
+        (first["derivation_id"],),
+        (second["derivation_id"],),
     }

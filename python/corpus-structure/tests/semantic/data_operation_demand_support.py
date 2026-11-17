@@ -8,11 +8,11 @@ from typing import cast as typing_cast
 
 from corpus_structure.semantic._data_operation_wire import (
     WireAttachDataRequestsRequest,
+    WireCancelDataDemandRequest,
+    WireClaimDataRequestsRequest,
     WireDemandId,
     WireDemandIntent,
     WireObligationId,
-    WireCancelDataDemandRequest,
-    WireClaimDataRequestsRequest,
     WirePublishDataDerivationRequest,
     WireReadDemandResultRequest,
     WireRegisterDataDemandRequest,
@@ -30,7 +30,6 @@ class RegisteredDemand(TypedDict):
 
 class NativeObligation(TypedDict):
     obligation_id: WireObligationId
-
 
 
 def attach(
@@ -78,16 +77,23 @@ def attach(
         )
         # Registration installs roots atomically. Select the authenticated
         # obligation from the native frontier rather than recreating its identity.
-        demand: RegisteredDemand = {"demand_id": registered["demand_id"], "selection": registered["selection"]}
+        demand: RegisteredDemand = {
+            "demand_id": registered["demand_id"],
+            "selection": registered["selection"],
+        }
         acquired = storage.read_demand_result(
             typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]})
         )
-        obligation: NativeObligation = {"obligation_id": next(
-            row["obligation_id"] for row in acquired["obligations"]
-            if row["operation_id"] == operation and row["subject"] == subject
-            and row["original_source"] == original_source
-            and row["analyzed_scope"] == root["analyzed_scope"]
-        )}
+        obligation: NativeObligation = {
+            "obligation_id": next(
+                row["obligation_id"]
+                for row in acquired["obligations"]
+                if row["operation_id"] == operation
+                and row["subject"] == subject
+                and row["original_source"] == original_source
+                and row["analyzed_scope"] == root["analyzed_scope"]
+            )
+        }
         request = SemanticRequestKey(
             kernel["identities"][operation, "recipe"],
             subject,
@@ -120,7 +126,9 @@ def attach(
     # under its recorded evidence from a fresh transaction, as the executor does.
     with (engine or kernel["engine"]).begin() as connection:
         result = DataOperationStorage(connection).attach_data_requests(
-            typing_cast(WireAttachDataRequestsRequest, {"read_id": acquired["read_id"], "items": [wire]})
+            typing_cast(
+                WireAttachDataRequestsRequest, {"read_id": acquired["read_id"], "items": [wire]}
+            )
         )["items"][0]
         assert result["state"] in {"attached", "fulfilled"}, result
         attached = result["result"]
@@ -132,9 +140,16 @@ def claim(kernel, attached, holder="producer", seconds=30):
         item = DataOperationStorage(connection).claim_data_requests(
             typing_cast(
                 WireClaimDataRequestsRequest,
-                {"holder": holder, "lease_seconds": seconds, "items": [{
-                    "request_id": attached["request_id"], "generation": attached["generation"],
-                }]},
+                {
+                    "holder": holder,
+                    "lease_seconds": seconds,
+                    "items": [
+                        {
+                            "request_id": attached["request_id"],
+                            "generation": attached["generation"],
+                        }
+                    ],
+                },
             )
         )["items"][0]
         assert item["state"] == "claimed", item

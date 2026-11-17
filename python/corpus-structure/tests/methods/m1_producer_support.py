@@ -7,7 +7,11 @@ from pathlib import Path
 from pydantic import JsonValue
 
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
-from corpus_structure.methods.gliner_worker import GlinerAdmission, GlinerBatchResult, GlinerWorkerError
+from corpus_structure.methods.gliner_worker import (
+    GlinerAdmission,
+    GlinerBatchResult,
+    GlinerWorkerError,
+)
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import observation_inputs
@@ -119,7 +123,9 @@ class ControlledDecoder:
         self.mode = mode
         self.calls = []
 
-    def extract(self, pack, inputs, *, threshold, check_active) -> tuple[GlinerReport, ...] | GlinerBatchResult:
+    def extract(
+        self, pack, inputs, *, threshold, check_active
+    ) -> tuple[GlinerReport, ...] | GlinerBatchResult:
         check_active()
         self.calls.append((pack, inputs))
         if self.mode == "failed":
@@ -271,16 +277,26 @@ def candidate_fixture_product(
                     threshold=request.threshold,
                     check_active=inputs["check_active"],
                 )
-                reply = M1GlinerReply(admissions=reports.admissions, reports=reports.reports) if isinstance(reports, GlinerBatchResult) else M1GlinerReply(
-                    admissions=tuple(GlinerAdmission(index, item.context_id, item.context_digest, True)
-                                     for index, item in enumerate(request.inputs)),
-                    reports=tuple(reports),
+                reply = (
+                    M1GlinerReply(admissions=reports.admissions, reports=reports.reports)
+                    if isinstance(reports, GlinerBatchResult)
+                    else M1GlinerReply(
+                        admissions=tuple(
+                            GlinerAdmission(index, item.context_id, item.context_digest, True)
+                            for index, item in enumerate(request.inputs)
+                        ),
+                        reports=tuple(reports),
+                    )
                 )
             except GlinerRefused as error:
-                reply = M1GlinerReply(admissions=tuple(
-                    GlinerAdmission(index, item.context_id, item.context_digest, False, str(error))
-                    for index, item in enumerate(request.inputs)
-                ))
+                reply = M1GlinerReply(
+                    admissions=tuple(
+                        GlinerAdmission(
+                            index, item.context_id, item.context_digest, False, str(error)
+                        )
+                        for index, item in enumerate(request.inputs)
+                    )
+                )
             except GlinerWorkerError as error:
                 reply = M1GlinerReply(failure="worker", message=str(error))
             try:

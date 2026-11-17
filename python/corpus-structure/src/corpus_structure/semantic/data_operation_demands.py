@@ -26,7 +26,6 @@ from corpus_structure.semantic._data_operation_wire import (
     WireInspectDataCompletionRequest,
     WireInspectDataCompletionResult,
     WireObligationId,
-    WireOperationId,
     WireProductId,
     WireReadDemandResultRequest,
     WireReadDemandResultResult,
@@ -628,46 +627,67 @@ class DemandPlanner:
                 rebindings.setdefault(
                     (use.get("obligation_id"), use.get("request_id")), use["rebind_derivation"]
                 )
-        bounds = tuple(self.bound_requests(
-            snapshot, authorization=authorization, excluded_requests=excluded_requests
-        ))
+        bounds = tuple(
+            self.bound_requests(
+                snapshot, authorization=authorization, excluded_requests=excluded_requests
+            )
+        )
         items = []
         for bound in bounds:
             obligation = obligations[bound.obligation]
             operation = selected[bound.operation]
             rebind = rebindings.get((obligation["obligation_id"], bound.request_id))
-            items.append(cast(WireAttachDataRequestsItem, {
-                **({"rebind_derivation": rebind} if rebind is not None else {}),
-                "obligation_id": obligation["obligation_id"],
-                "request_meaning": json.loads(bound.request), "request_key": bound.request_id,
-                "binding": wire_json_loads(bound.binding), "replicate": operation["replicate"],
-            }))
+            items.append(
+                cast(
+                    WireAttachDataRequestsItem,
+                    {
+                        **({"rebind_derivation": rebind} if rebind is not None else {}),
+                        "obligation_id": obligation["obligation_id"],
+                        "request_meaning": json.loads(bound.request),
+                        "request_key": bound.request_id,
+                        "binding": wire_json_loads(bound.binding),
+                        "replicate": operation["replicate"],
+                    },
+                )
+            )
         if not items:
             return ()
-        attached = self.storage.attach_data_requests(cast(WireAttachDataRequestsRequest, {
-            "read_id": snapshot["read_id"], "items": items,
-        }))["items"]
+        attached = self.storage.attach_data_requests(
+            cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": snapshot["read_id"],
+                    "items": items,
+                },
+            )
+        )["items"]
         if len(attached) != len(bounds):
             raise SemanticRefusal("native attach set changed its item correspondence")
         for bound, item in zip(bounds, attached, strict=True):
             if item["state"] == "refused":
                 error = SemanticRefusal("native attachment refused: " + item["reason"])
-                error.add_note("native obligation: " + bound.obligation + "; SQLSTATE " + item["sqlstate"])
+                error.add_note(
+                    "native obligation: " + bound.obligation + "; SQLSTATE " + item["sqlstate"]
+                )
                 self.refusals += (error,)
                 continue
             native = item["result"]
             obligation = obligations[bound.obligation]
             if (obligation.get("request_id"), obligation.get("generation"), obligation["fate"]) != (
-                native["request_id"], native["generation"], native["fate"],
+                native["request_id"],
+                native["generation"],
+                native["fate"],
             ):
                 self.logical_progress += 1
             if item["state"] == "fulfilled":
                 self.fulfilled_request_ids += (native["request_id"],)
                 continue
-            ready.append(ReadyDataRequest(
-                **{name: value for name, value in vars(bound).items() if name != "request_id"},
-                native=canonical_bytes(native),
-            ))
+            ready.append(
+                ReadyDataRequest(
+                    **{name: value for name, value in vars(bound).items() if name != "request_id"},
+                    native=canonical_bytes(native),
+                )
+            )
         return tuple(ready)
 
     def bound_requests(
@@ -708,9 +728,13 @@ class DemandPlanner:
             if obligation["fate"] in {"fulfilled", "closed", "cancelled", "failed"}:
                 continue
             previous = latest_uses.get(obligation["obligation_id"])
-            if (not retained and previous is not None
-                and previous["fate"] in {"awaiting-inputs", "awaiting-population", "awaiting-discovery"}
-                and previous["selection"].get("inputs_watermark") == obligation["inputs_watermark"]):
+            if (
+                not retained
+                and previous is not None
+                and previous["fate"]
+                in {"awaiting-inputs", "awaiting-population", "awaiting-discovery"}
+                and previous["selection"].get("inputs_watermark") == obligation["inputs_watermark"]
+            ):
                 continue
             operation = selected[obligation["operation_id"]]
             discovery_roles = {
@@ -916,7 +940,7 @@ class DemandPlanner:
                                         )
                                     )
                                     for role_name in ambiguities
-                                ]
+                                ],
                             },
                         },
                     )
@@ -978,7 +1002,7 @@ class DemandPlanner:
                             "fate": recordable_binding_fate(binding.status),
                             "selection": {
                                 "inputs_watermark": obligation["inputs_watermark"],
-                                "reasons": [asdict(reason) for reason in binding.reasons]
+                                "reasons": [asdict(reason) for reason in binding.reasons],
                             },
                         },
                     )

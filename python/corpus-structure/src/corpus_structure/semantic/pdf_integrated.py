@@ -595,15 +595,25 @@ class PreparedPdfObservationPublisher:
         # The native operation still authenticates the live fence and publication
         # premises for every row; archive preparation is shared, not authority.
         return publish_pdf_observation(
-            conn, task_id=TaskId(self.task_id), attempt=TaskAttempt(self.attempt),
-            holder=self.holder, runtime_id=RuntimeId(self.runtime_id),
-            contract_digest=product.contract_digest, payload=product.payload,
-            artifacts=product.artifacts, projection_context=self.projection_context,
+            conn,
+            task_id=TaskId(self.task_id),
+            attempt=TaskAttempt(self.attempt),
+            holder=self.holder,
+            runtime_id=RuntimeId(self.runtime_id),
+            contract_digest=product.contract_digest,
+            payload=product.payload,
+            artifacts=product.artifacts,
+            projection_context=self.projection_context,
         )
 
 
 def prepare_pdf_observation_publisher(
-    conn: Connection, *, task_id: int, attempt: int, holder: str, runtime_id: str,
+    conn: Connection,
+    *,
+    task_id: int,
+    attempt: int,
+    holder: str,
+    runtime_id: str,
     context: PreparedPdfContext,
 ) -> PreparedPdfObservationPublisher:
     from .pdf_domain import require_pdf_database_action

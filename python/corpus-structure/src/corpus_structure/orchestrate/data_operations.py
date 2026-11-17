@@ -325,7 +325,9 @@ class _RequestExecution:
                 completed.set()
 
         try:
-            work = _PythonWork(self.invocation.pool.submit(lambda: context.run(owned)), share.release)
+            work = _PythonWork(
+                self.invocation.pool.submit(lambda: context.run(owned)), share.release
+            )
         except BaseException:
             # Submit may have accepted work before losing its acknowledgement.
             # No future is not proof that this reservation is free.
@@ -345,7 +347,8 @@ class _RequestExecution:
                 except StopIteration as result:
                     return result.value
                 if not isinstance(work, ReadyGroup) and (
-                    not isinstance(work, tuple) or not all(isinstance(item, PreparedWork) for item in work)
+                    not isinstance(work, tuple)
+                    or not all(isinstance(item, PreparedWork) for item in work)
                 ):
                     raise TypeError("prepared capability must yield declared physical work")
 
@@ -354,14 +357,25 @@ class _RequestExecution:
                         from corpus_structure.cli.observation_logging import bound
 
                         claims = self.claims or ((self.claim,) if self.claim is not None else ())
-                        bindings: dict[str, Any] = {"demand_id": getattr(self.invocation.executor, "demand", None)}
+                        bindings: dict[str, Any] = {
+                            "demand_id": getattr(self.invocation.executor, "demand", None)
+                        }
                         if len(claims) == 1:
                             claim = claims[0]
-                            bindings.update(dict(claim.fence, runtime_id=claim.runtime_id,
-                                                 release_id=claim.release_id))
+                            bindings.update(
+                                dict(
+                                    claim.fence,
+                                    runtime_id=claim.runtime_id,
+                                    release_id=claim.release_id,
+                                )
+                            )
                         elif claims:
-                            bindings.update(request_id=None, task_id=None, attempt=None,
-                                            logical_requests=[dict(claim.fence) for claim in claims])
+                            bindings.update(
+                                request_id=None,
+                                task_id=None,
+                                attempt=None,
+                                logical_requests=[dict(claim.fence) for claim in claims],
+                            )
                         with bound(**bindings):
                             handle = item.try_submit()
                         if handle is not None:
@@ -372,7 +386,10 @@ class _RequestExecution:
 
                 try:
                     value = yield (
-                        ReadyGroup(tuple(self.relay(child) for child in work.plans), max_active=work.max_active)
+                        ReadyGroup(
+                            tuple(self.relay(child) for child in work.plans),
+                            max_active=work.max_active,
+                        )
                         if isinstance(work, ReadyGroup)
                         else tuple(capture(item) for item in work)
                     )
@@ -470,13 +487,18 @@ class _RunExecution:
             context.cpu = self.cpu
         self.cpu.prepare()
         self.executor._preparation_bytes = self.cpu.preparation_bytes
-        if self.executor.policy.max_owned_bytes - self.executor._preparation_bytes < self.executor.reservation:
+        if (
+            self.executor.policy.max_owned_bytes - self.executor._preparation_bytes
+            < self.executor.reservation
+        ):
             raise CapacityExceeded(
                 "native preparation and one complete request exceed owned capacity"
             )
 
     def has_live_requests(self):
-        self.requests[:] = [request for request in self.requests if not request.release_retired_inputs()]
+        self.requests[:] = [
+            request for request in self.requests if not request.release_retired_inputs()
+        ]
         return bool(self.requests)
 
     def _release_retired_claims(self):
@@ -485,7 +507,8 @@ class _RunExecution:
             return
         with owner.lock:
             claims = tuple(
-                claim for key, claim in owner.active.items()
+                claim
+                for key, claim in owner.active.items()
                 if key not in owner.uncertain and key not in owner.lost
             )
         for claim in claims:
@@ -510,11 +533,16 @@ class _RunExecution:
 
     def _finish_run(self, *error):
         healthy = (
-            not self.uncertain_python and not self.pending_failures
-            and not self.pool.failed and not self.cpu._submission_uncertain
-            and not self.cpu._admissions and not self.cpu._stream_transports
+            not self.uncertain_python
+            and not self.pending_failures
+            and not self.pool.failed
+            and not self.cpu._submission_uncertain
+            and not self.cpu._admissions
+            and not self.cpu._stream_transports
             and self.providers.retire()
-            and not any(lane.closed or lane.broken is not None for lane in self.providers._lanes.values())
+            and not any(
+                lane.closed or lane.broken is not None for lane in self.providers._lanes.values()
+            )
             and all(work.retire() for work in self.python_work)
         )
         if healthy:
@@ -631,7 +659,9 @@ class NativeDemandExecutor:
             prepared, runtime, sources, schema, declarations, captured_contracts, runtime_locations
         )
         self._host, self._host_run = execution_host, host_run
-        self._target_context = execution_host.context(basis) if execution_host is not None else _BasisExecution(basis)
+        self._target_context = (
+            execution_host.context(basis) if execution_host is not None else _BasisExecution(basis)
+        )
         self._contexts = {basis.key: self._target_context}
         self.source_root = source_root
         self.model = self._target_context.model
@@ -773,7 +803,9 @@ class NativeDemandExecutor:
             from corpus_structure.semantic.data_operation_admission import recheck_cached_execution
 
             with self.admission_engine.begin() as connection:
-                recheck_cached_execution(connection, basis.prepared, basis.runtime, context.ports[operation].identity)
+                recheck_cached_execution(
+                    connection, basis.prepared, basis.runtime, context.ports[operation].identity
+                )
             context.admitted_operations.add(operation)
         return context.ports[operation]
 
@@ -787,7 +819,11 @@ class NativeDemandExecutor:
                 raise RuntimeError("execution basis acquisition requires its active process host")
             with self.engine.begin() as connection:
                 basis = host.acquire_basis(
-                    self.engine, connection, *key, source_root=self.source_root, token=self._host_run
+                    self.engine,
+                    connection,
+                    *key,
+                    source_root=self.source_root,
+                    token=self._host_run,
                 )
             self._contexts[key] = host.context(basis)
             context = self._contexts[key]
@@ -810,12 +846,17 @@ class NativeDemandExecutor:
         with self.engine.begin() as connection:
             storage = DataOperationStorage(connection)
             request = {
-                "demand_id": claimed["binding_demand_id"], "read_id": binding["read_id"],
-                "limit": 1, "obligation_id": claimed["binding_obligation_id"],
+                "demand_id": claimed["binding_demand_id"],
+                "read_id": binding["read_id"],
+                "limit": 1,
+                "obligation_id": claimed["binding_obligation_id"],
             }
             snapshot = storage.read_demand_result(cast(WireReadDemandResultRequest, request))
             obligations = snapshot["obligations"]
-            if len(obligations) != 1 or obligations[0]["obligation_id"] != claimed["binding_obligation_id"]:
+            if (
+                len(obligations) != 1
+                or obligations[0]["obligation_id"] != claimed["binding_obligation_id"]
+            ):
                 raise PortRefusal("claimed generation lacks its original pinned obligation")
             binding_snapshot = {**snapshot, "obligations": obligations}
             candidates = tuple(
@@ -1046,15 +1087,21 @@ class NativeDemandExecutor:
     @staticmethod
     def _drop_hydration(physical, ready):
         physical.hydrated_inputs = None
-        for retained in (physical.consumer_inputs, physical.consumer_results,
-                         physical.binding_rows, physical.hydrated_sizes):
+        for retained in (
+            physical.consumer_inputs,
+            physical.consumer_results,
+            physical.binding_rows,
+            physical.hydrated_sizes,
+        ):
             retained.pop(ready.obligation, None)
 
     @staticmethod
     def _batch_member(ready, claim, inputs):
         return PythonBatchMember(
-            f"{claim.request_id}:{claim.generation}:{claim.attempt}", inputs,
-            ready.binding_result, producer=json_bytes(claim.fence),
+            f"{claim.request_id}:{claim.generation}:{claim.attempt}",
+            inputs,
+            ready.binding_result,
+            producer=json_bytes(claim.fence),
         )
 
     @staticmethod
@@ -1078,11 +1125,17 @@ class NativeDemandExecutor:
         with self.engine.begin() as connection:
             requested = [wire_json_loads(item.native) for item in ready]
             result = DataOperationStorage(connection).claim_data_requests(
-                cast(WireClaimDataRequestsRequest, {
-                    "holder": self.holder, "lease_seconds": 300,
-                    "items": [{"request_id": item["request_id"], "generation": item["generation"]}
-                              for item in requested],
-                })
+                cast(
+                    WireClaimDataRequestsRequest,
+                    {
+                        "holder": self.holder,
+                        "lease_seconds": 300,
+                        "items": [
+                            {"request_id": item["request_id"], "generation": item["generation"]}
+                            for item in requested
+                        ],
+                    },
+                )
             )["items"]
             if len(result) != len(preparations):
                 raise PortRefusal("native claim set changed its item correspondence")
@@ -1101,16 +1154,30 @@ class NativeDemandExecutor:
                 seen.add(key)
                 prepared.native = claimed
                 prepared.claim = NativeRequestClaim(
-                    claimed["request_id"], claimed["generation"], claimed["task_id"],
-                    claimed["attempt"], claimed["holder"], claimed["release_id"],
+                    claimed["request_id"],
+                    claimed["generation"],
+                    claimed["task_id"],
+                    claimed["attempt"],
+                    claimed["holder"],
+                    claimed["release_id"],
                     datetime.fromisoformat(claimed["lease_until"].replace("Z", "+00:00")),
                     runtime_id=claimed["runtime_id"],
                 )
-                if any(claimed[field] != expected[field] for field in (
-                    "request_id", "generation", "release_id", "runtime_id", "binding",
-                    "binding_demand_id", "binding_obligation_id",
-                )):
-                    prepared.error = PortRefusal("native claim differs from its prepared immutable generation basis")
+                if any(
+                    claimed[field] != expected[field]
+                    for field in (
+                        "request_id",
+                        "generation",
+                        "release_id",
+                        "runtime_id",
+                        "binding",
+                        "binding_demand_id",
+                        "binding_obligation_id",
+                    )
+                ):
+                    prepared.error = PortRefusal(
+                        "native claim differs from its prepared immutable generation basis"
+                    )
                     continue
                 if physical is None or claimed["action"] == "reconcile":
                     continue
@@ -1123,7 +1190,11 @@ class NativeDemandExecutor:
                             prepared.ready, physical, context=context, connection=connection
                         )
                     size = physical.hydrated_sizes[prepared.ready.obligation]
-                    member = self._batch_member(prepared.ready, prepared.claim, prepared.inputs) if split else None
+                    member = (
+                        self._batch_member(prepared.ready, prepared.claim, prepared.inputs)
+                        if split
+                        else None
+                    )
                     exceeds = overflow or packet_bytes + size > self.policy.max_packet_bytes
                     if split and not exceeds:
                         port = self._port(prepared.ready.operation, context)
@@ -1133,7 +1204,9 @@ class NativeDemandExecutor:
                             # A capacity refusal is execution failure, not a
                             # semantic member completion. Keep no traceback
                             # owning this transaction's hydrated packet bodies.
-                            prepared.error = CapacityExceeded("one indivisible batch member exceeds physical input capacity")
+                            prepared.error = CapacityExceeded(
+                                "one indivisible batch member exceeds physical input capacity"
+                            )
                         else:
                             overflow = True
                             prepared.deferred = True
@@ -1146,7 +1219,9 @@ class NativeDemandExecutor:
                             packet_members.append(member)
                 except Exception as error:
                     prepared.inputs = None
-                    prepared.error = self._retained_failure(error, prepared.claim, phase="hydration")
+                    prepared.error = self._retained_failure(
+                        error, prepared.claim, phase="hydration"
+                    )
                     self._drop_hydration(physical, prepared.ready)
         # No renewal or settlement can observe an uncommitted attempt. Every
         # fresh member's initial hydration used a savepoint in this transaction;
@@ -1157,7 +1232,7 @@ class NativeDemandExecutor:
         return tuple(preparations)
 
     def _claim(self, ready, owner, *, physical=None):
-        prepared, = self._claim_many((ready,), owner, physical=physical)
+        (prepared,) = self._claim_many((ready,), owner, physical=physical)
         if prepared.claim is None:
             if prepared.error is not None:
                 raise prepared.error
@@ -1166,7 +1241,9 @@ class NativeDemandExecutor:
             physical.hydrated_inputs = prepared.inputs
             physical.hydration_error = prepared.error
         elif prepared.error is not None:
-            self._known_failure(prepared.claim, owner, prepared.error, phase="native claim correspondence")
+            self._known_failure(
+                prepared.claim, owner, prepared.error, phase="native claim correspondence"
+            )
             raise prepared.error
         if prepared.native is None:
             raise RuntimeError("native claim lacks its result custody")
@@ -1214,15 +1291,25 @@ class NativeDemandExecutor:
 
         from corpus_structure.cli.observation_logging import bound, logger
 
-        bindings = dict(claim.fence, runtime_id=claim.runtime_id, release_id=claim.release_id) if claim is not None else {}
+        bindings = (
+            dict(claim.fence, runtime_id=claim.runtime_id, release_id=claim.release_id)
+            if claim is not None
+            else {}
+        )
         if claim is None and claims:
-            bindings.update(request_id=None, task_id=None, attempt=None,
-                            logical_requests=[dict(value.fence) for value in claims])
+            bindings.update(
+                request_id=None,
+                task_id=None,
+                attempt=None,
+                logical_requests=[dict(value.fence) for value in claims],
+            )
         with bound(**bindings):
             logger(__name__).error(
-                "native_demand.execution_failed", phase=phase,
+                "native_demand.execution_failed",
+                phase=phase,
                 exc_info=(type(error), error, error.__traceback__),
-                sqlstate=getattr(error, "sqlstate", None) or getattr(getattr(error, "orig", None), "sqlstate", None),
+                sqlstate=getattr(error, "sqlstate", None)
+                or getattr(getattr(error, "orig", None), "sqlstate", None),
             )
         pending, seen = [error], set()
         while pending:
@@ -1232,7 +1319,9 @@ class NativeDemandExecutor:
             seen.add(id(current))
             if isinstance(current, BaseExceptionGroup):
                 pending.extend(current.exceptions)
-            pending.extend(link for link in (current.__cause__, current.__context__) if link is not None)
+            pending.extend(
+                link for link in (current.__cause__, current.__context__) if link is not None
+            )
             original = getattr(current, "orig", None)
             if isinstance(original, BaseException):
                 pending.append(original)
@@ -1359,7 +1448,9 @@ class NativeDemandExecutor:
         hydrated_bytes = 0
         try:
             fresh = not isinstance(ready[0], _ClaimedReady)
-            preparations = self._claim_many(ready, owner, physical=physical, split=True) if fresh else ()
+            preparations = (
+                self._claim_many(ready, owner, physical=physical, split=True) if fresh else ()
+            )
             for index, queued in enumerate(ready):
                 item = queued.ready if isinstance(queued, _ClaimedReady) else queued
                 claim, phase = None, "claim"
@@ -1378,7 +1469,9 @@ class NativeDemandExecutor:
                         physical.hydration_error = prepared.error
                         if prepared.deferred:
                             if claim is None or claimed is None:
-                                raise RuntimeError("deferred hydration lacks its exact native claim")
+                                raise RuntimeError(
+                                    "deferred hydration lacks its exact native claim"
+                                )
                             boundary = _ClaimedReady(item, claim, claimed)
                             retain_claim(boundary)
                             deferred.append(boundary)
@@ -1409,23 +1502,36 @@ class NativeDemandExecutor:
                         candidate = self._batch_member(item, claim, inputs)
                         exceeds = hydrated_bytes + size > self.policy.max_packet_bytes
                         if not fresh and not exceeds:
-                            exceeds = not self._batch_inputs_fit(port, (
-                                *(self._batch_member(row[1], row[2], row[3]) for row in pending), candidate,
-                            ))
+                            exceeds = not self._batch_inputs_fit(
+                                port,
+                                (
+                                    *(
+                                        self._batch_member(row[1], row[2], row[3])
+                                        for row in pending
+                                    ),
+                                    candidate,
+                                ),
+                            )
                         if not fresh and exceeds:
                             if not pending:
-                                raise CapacityExceeded("one indivisible batch member exceeds physical input capacity")
+                                raise CapacityExceeded(
+                                    "one indivisible batch member exceeds physical input capacity"
+                                )
                             # One boundary lookahead fits stage A's second input
                             # allowance. Drop every hydrated reference before
                             # reducing this call; keep only its renewed claim and
                             # same pinned binding for the next physical call.
                             physical.hydrated_inputs = inputs = candidate = None
-                            for retained in (physical.consumer_inputs, physical.consumer_results,
-                                             physical.binding_rows, physical.hydrated_sizes):
+                            for retained in (
+                                physical.consumer_inputs,
+                                physical.consumer_results,
+                                physical.binding_rows,
+                                physical.hydrated_sizes,
+                            ):
                                 retained.pop(item.obligation, None)
                             boundary = _ClaimedReady(item, claim, claimed)
                             retain_claim(boundary)
-                            deferred.extend((boundary, *ready[index + 1:]))
+                            deferred.extend((boundary, *ready[index + 1 :]))
                             break
                         hydrated_bytes += size
                         member = f"{claim.request_id}:{claim.generation}:{claim.attempt}"
@@ -1472,9 +1578,14 @@ class NativeDemandExecutor:
                     answer = None
                     order_key = getattr(pending[0][4], "batch_order_key", None) if pending else None
                     if order_key is not None:
-                        pending = tuple(sorted(pending, key=lambda row: order_key(
-                            self._batch_member(row[1], row[2], row[3])
-                        )))
+                        pending = tuple(
+                            sorted(
+                                pending,
+                                key=lambda row: order_key(
+                                    self._batch_member(row[1], row[2], row[3])
+                                ),
+                            )
+                        )
                     if pending:
                         # One original batch remains useful while any member has
                         # authority. Each logical result settles under its own fence.
@@ -1500,13 +1611,23 @@ class NativeDemandExecutor:
                             try:
                                 self._known_failure(claim, owner, error, phase="computation")
                             except Exception as release_error:
-                                failures.append(self._retained_failure(release_error, claim, phase="attempt release"))
+                                failures.append(
+                                    self._retained_failure(
+                                        release_error, claim, phase="attempt release"
+                                    )
+                                )
                         else:
                             self._physical.pending_failures.append(
                                 (physical, claim, owner, error, "computation")
                             )
                         self._failed_requests.add((claim.request_id, claim.generation))
-                    failures.append(self._retained_failure(error, phase="batch computation", claims=tuple(row[2] for row in pending)))
+                    failures.append(
+                        self._retained_failure(
+                            error,
+                            phase="batch computation",
+                            claims=tuple(row[2] for row in pending),
+                        )
+                    )
                 else:
                     for (_, item, claim, _, port), (_, result) in zip(
                         pending,
@@ -1525,7 +1646,9 @@ class NativeDemandExecutor:
                                 error = release_error
                             self._failed_requests.add((claim.request_id, claim.generation))
                             error.add_note("native obligation: " + item.obligation)
-                            failures.append(self._retained_failure(error, claim, phase="settlement"))
+                            failures.append(
+                                self._retained_failure(error, claim, phase="settlement")
+                            )
             return _ExecutionResult(tuple(receipts), tuple(failures), tuple(deferred))
         finally:
             physical.running = False
@@ -1536,15 +1659,20 @@ class NativeDemandExecutor:
         with self.engine.begin() as connection:
             planner = DemandPlanner(self.model, DataOperationStorage(connection))
             ready = planner.ready(
-                snapshot, authorization=authorization,
+                snapshot,
+                authorization=authorization,
                 excluded_requests=frozenset(self._failed_requests),
             )
             selected = tuple(getattr(planner, "selected_population_ids", ()))
             logical_progress = planner.logical_progress
             refusals = planner.refusals
         ready = tuple(
-            item for item in ready
-            if (wire_json_loads(item.native)["request_id"], wire_json_loads(item.native).get("generation"))
+            item
+            for item in ready
+            if (
+                wire_json_loads(item.native)["request_id"],
+                wire_json_loads(item.native).get("generation"),
+            )
             not in self._failed_requests
         )
         return ready, selected, logical_progress, refusals
@@ -1569,11 +1697,22 @@ class NativeDemandExecutor:
                 try:
                     result = yield from (
                         self._execute_batch(
-                            tuple(item.ready if isinstance(item, _PreparedReady) else item for item in items), owner, reservation,
-                            retain_claim=lambda item: held_claims.__setitem__(item.claim.request_id, item),
+                            tuple(
+                                item.ready if isinstance(item, _PreparedReady) else item
+                                for item in items
+                            ),
+                            owner,
+                            reservation,
+                            retain_claim=lambda item: held_claims.__setitem__(
+                                item.claim.request_id, item
+                            ),
                         )
                         if batch
-                        else self._execute(items[0].ready if isinstance(items[0], _PreparedReady) else items[0], owner, reservation)
+                        else self._execute(
+                            items[0].ready if isinstance(items[0], _PreparedReady) else items[0],
+                            owner,
+                            reservation,
+                        )
                     )
                     receipts.extend(result.receipts)
                     failures.extend(result.failures)
@@ -1584,10 +1723,14 @@ class NativeDemandExecutor:
                     for item in deferred:
                         if isinstance(item, _ClaimedReady):
                             held_claims[item.claim.request_id] = item
-                    pending.extendleft(reversed(tuple(
-                        item if isinstance(item, _ClaimedReady) else _PreparedReady(item)
-                        for item in deferred
-                    )))
+                    pending.extendleft(
+                        reversed(
+                            tuple(
+                                item if isinstance(item, _ClaimedReady) else _PreparedReady(item)
+                                for item in deferred
+                            )
+                        )
+                    )
                 finally:
                     active_requests -= len(items) - sum(
                         isinstance(item, _ClaimedReady) for item in deferred
@@ -1626,7 +1769,9 @@ class NativeDemandExecutor:
                         pending[index] = queued
                     else:
                         ready = queued.ready
-                        self._physical.select_operations((ready.operation,), self._ready_context(ready))
+                        self._physical.select_operations(
+                            (ready.operation,), self._ready_context(ready)
+                        )
                     return queued
 
                 while True:
@@ -1638,18 +1783,35 @@ class NativeDemandExecutor:
                         first = prepare(0)
                         ready = first.ready
                         context = self._ready_context(ready)
-                        batch = context.model.operation(ready.operation).capabilities.forms == ("batch",)
+                        batch = context.model.operation(ready.operation).capabilities.forms == (
+                            "batch",
+                        )
                         port = self._port(ready.operation, context)
                         item_limit = getattr(port, "batch_max_items", None) if batch else None
-                        if item_limit is not None and (type(item_limit) is not int or item_limit < 1):
+                        if item_limit is not None and (
+                            type(item_limit) is not int or item_limit < 1
+                        ):
                             raise PortRefusal("batch item bound must be a positive integer")
                         items, fresh = [], 0
-                        for index in range(min(len(pending), self.policy.max_claims, item_limit or self.policy.max_claims)):
+                        for index in range(
+                            min(
+                                len(pending),
+                                self.policy.max_claims,
+                                item_limit or self.policy.max_claims,
+                            )
+                        ):
                             queued = pending[index]
-                            item = queued.ready if isinstance(queued, (_PreparedReady, _ClaimedReady)) else queued
+                            item = (
+                                queued.ready
+                                if isinstance(queued, (_PreparedReady, _ClaimedReady))
+                                else queued
+                            )
                             native = wire_json_loads(item.native)
-                            if items and (not batch or item.operation != ready.operation
-                                or (native["release_id"], native["runtime_id"]) != context.basis.key):
+                            if items and (
+                                not batch
+                                or item.operation != ready.operation
+                                or (native["release_id"], native["runtime_id"]) != context.basis.key
+                            ):
                                 break
                             is_fresh = not isinstance(queued, _ClaimedReady)
                             if items and is_fresh != (not isinstance(first, _ClaimedReady)):
@@ -1662,11 +1824,17 @@ class NativeDemandExecutor:
                         return None
                     except Exception as error:
                         queued = pending[index]
-                        item = queued.ready if isinstance(queued, (_PreparedReady, _ClaimedReady)) else queued
+                        item = (
+                            queued.ready
+                            if isinstance(queued, (_PreparedReady, _ClaimedReady))
+                            else queued
+                        )
                         native = wire_json_loads(item.native)
                         self._failed_requests.add((native["request_id"], native.get("generation")))
                         error.add_note("native obligation: " + item.obligation)
-                        failures.append(self._retained_failure(error, phase="execution preparation"))
+                        failures.append(
+                            self._retained_failure(error, phase="execution preparation")
+                        )
                         del pending[index]
                         continue
                     if not items:
@@ -1692,7 +1860,9 @@ class NativeDemandExecutor:
                 # release them through the normal confirmed-failure owner.
                 for item in held_claims.values():
                     self._known_failure(
-                        item.claim, owner, RuntimeError("ready frontier ended before execution"),
+                        item.claim,
+                        owner,
+                        RuntimeError("ready frontier ended before execution"),
                         phase="batch boundary rehydration",
                     )
                 close = getattr(pages, "close", None)
@@ -1724,15 +1894,21 @@ class NativeDemandExecutor:
             result = self._result(demand, self._last_snapshot or b"{}", standing="last-pinned")
             raise NativeDemandExecutionError(result, failures) from error
 
-    def run(self, demand: str, *, authorization: bytes = b"{}", limit: int = 100, max_rounds: int = 100):
+    def run(
+        self, demand: str, *, authorization: bytes = b"{}", limit: int = 100, max_rounds: int = 100
+    ):
         if self._host_run is not None:
-            return self._run(demand, authorization=authorization, limit=limit, max_rounds=max_rounds)
+            return self._run(
+                demand, authorization=authorization, limit=limit, max_rounds=max_rounds
+            )
         from corpus_structure.orchestrate.execution_host import execution_host_scope
 
         with execution_host_scope() as host, host.run(self.policy) as token:
             self._host, self._host_run = host, token
             try:
-                return self._run(demand, authorization=authorization, limit=limit, max_rounds=max_rounds)
+                return self._run(
+                    demand, authorization=authorization, limit=limit, max_rounds=max_rounds
+                )
             finally:
                 self._host, self._host_run = None, None
 
@@ -1774,16 +1950,21 @@ class NativeDemandExecutor:
                 self._claim_owner = owner
                 for _ in range(max_rounds):
                     progress = False
+
                     def pages():
                         nonlocal progress
                         continuation = None
                         while True:
                             with self.engine.begin() as connection:
-                                planner = DemandPlanner(self.model, DataOperationStorage(connection))
+                                planner = DemandPlanner(
+                                    self.model, DataOperationStorage(connection)
+                                )
                                 page = planner.resume(
                                     demand,
                                     limit=limit,
-                                    selection=dict(continuation["selection"]) if continuation else None,
+                                    selection=dict(continuation["selection"])
+                                    if continuation
+                                    else None,
                                     after=continuation["after"] if continuation else None,
                                     trust_snapshot=continuation["trust_snapshot"]
                                     if continuation
@@ -1801,12 +1982,19 @@ class NativeDemandExecutor:
                                 if page.get("state") == "cancelled":
                                     return
                             with self.engine.begin() as connection:
-                                planner = DemandPlanner(self.model, DataOperationStorage(connection))
-                                obligations = {item["obligation_id"]: item for item in page["obligations"]}
+                                planner = DemandPlanner(
+                                    self.model, DataOperationStorage(connection)
+                                )
+                                obligations = {
+                                    item["obligation_id"]: item for item in page["obligations"]
+                                }
                                 populations = {
-                                    (value["name"], value["evidence"].get("product_id"),
-                                     value["evidence"].get("derivation_id"),
-                                     value["evidence"].get("member_role"))
+                                    (
+                                        value["name"],
+                                        value["evidence"].get("product_id"),
+                                        value["evidence"].get("derivation_id"),
+                                        value["evidence"].get("member_role"),
+                                    )
                                     for value in page["populations"]
                                 }
                                 for use in page["uses"]:
@@ -1832,7 +2020,10 @@ class NativeDemandExecutor:
                                             witness = (*identity, relation["output_role"])
                                             if witness not in populations:
                                                 planner.expand_discovery(
-                                                    page, population=identity[0], product=identity[1], derivation=identity[2]
+                                                    page,
+                                                    population=identity[0],
+                                                    product=identity[1],
+                                                    derivation=identity[2],
                                                 )
                                                 # A new empty closure can enable an existing
                                                 # universal/absence binding without new obligations.
@@ -1850,7 +2041,10 @@ class NativeDemandExecutor:
                         pages(), authorization, owner
                     )
                     self._member_failures.extend(errors)
-                    if self._last_snapshot and wire_json_loads(self._last_snapshot).get("state") == "cancelled":
+                    if (
+                        self._last_snapshot
+                        and wire_json_loads(self._last_snapshot).get("state") == "cancelled"
+                    ):
                         return self._result(demand, self._last_snapshot)
                     progress = progress or bool(settled) or bool(selected) or bool(logical_progress)
                     if not progress:

@@ -32,8 +32,10 @@ class CharacterizationExecutionPolicy:
 
     def __post_init__(self):
         nonnegative = {"max_idle_capsule_bytes", "native_keep_warm_seconds"}
-        if any(type(value) is not int or value < (0 if name in nonnegative else 1)
-               for name, value in asdict(self).items()):
+        if any(
+            type(value) is not int or value < (0 if name in nonnegative else 1)
+            for name, value in asdict(self).items()
+        ):
             raise ValueError("execution policy requires positive finite integer bounds")
         if self.max_packet_bytes + self.max_reply_bytes > self.max_owned_bytes:
             raise ValueError("CPU transfer bounds exceed combined owned-state capacity")

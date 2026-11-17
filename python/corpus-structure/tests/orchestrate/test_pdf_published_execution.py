@@ -179,13 +179,16 @@ def test_draft_finishes_matching_immutable_content_without_lowering(
     from hashlib import sha256
 
     from corpus_structure.orchestrate import pdf_streaming
+    from corpus_structure.semantic.identifiers import ReleaseId, TaskAttempt, TaskId
     from corpus_structure.semantic.pdf_publication import FrozenPdfBuildRef
     from corpus_structure.semantic.pdf_staging import PdfBuildRef
-    from corpus_structure.semantic.identifiers import TaskId, TaskAttempt, ReleaseId
 
     original, schema, recipe = b"%PDF-1.7", b"{}", b"{}"
     build = PdfBuildRef(
-        build_id="owned", task_id=TaskId(12), attempt=TaskAttempt(2), holder="holder",
+        build_id="owned",
+        task_id=TaskId(12),
+        attempt=TaskAttempt(2),
+        holder="holder",
         release_id=ReleaseId("release"),
         source_digest=sha256(original).hexdigest(),
         recipe_digest=sha256(recipe).hexdigest(),
@@ -233,9 +236,17 @@ def test_draft_finishes_matching_immutable_content_without_lowering(
     draft = PdfRecordPublicationDraft(
         {"changed": "native value"}, "native", original, schema, recipe, {"conversion": "success"}
     )
-    assert publish_pdf_record_draft(
-        engine, claim, "holder", draft, directory=tmp_path / "not-created", check_active=lambda: None
-    ) is published
+    assert (
+        publish_pdf_record_draft(
+            engine,
+            claim,
+            "holder",
+            draft,
+            directory=tmp_path / "not-created",
+            check_active=lambda: None,
+        )
+        is published
+    )
     assert bool(finished) is (state_name == "frozen")
     assert not (tmp_path / "not-created").exists()
     draft = PdfRecordPublicationDraft(
@@ -243,5 +254,10 @@ def test_draft_finishes_matching_immutable_content_without_lowering(
     )
     with pytest.raises(ValueError, match="source/release/recipe/schema differs"):
         publish_pdf_record_draft(
-            engine, claim, "holder", draft, directory=tmp_path / "not-created", check_active=lambda: None
+            engine,
+            claim,
+            "holder",
+            draft,
+            directory=tmp_path / "not-created",
+            check_active=lambda: None,
         )

@@ -27,21 +27,33 @@ def worker_module():
 def test_http_failure_class_requires_input_status_and_admitted_generation(
     tmp_path, worker_module, status, generation
 ):
-    backend = worker_module.RecordingBackend(dict(
-        model="test", identity_assurance="trusted_managed_service",
-        service_binding={"generation": "admitted"}, timeout_seconds=1, endpoint="http://controlled/v1",
-    ), tmp_path)
+    backend = worker_module.RecordingBackend(
+        dict(
+            model="test",
+            identity_assurance="trusted_managed_service",
+            service_binding={"generation": "admitted"},
+            timeout_seconds=1,
+            endpoint="http://controlled/v1",
+        ),
+        tmp_path,
+    )
     backend.client.close()
-    backend.client = httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(
-        status, json={"error": "controlled response"}, headers={"x-corpus-generation": generation},
-    )))
+    backend.client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                status,
+                json={"error": "controlled response"},
+                headers={"x-corpus-generation": generation},
+            )
+        )
+    )
 
     @dataclass
     class Settings:
         max_tokens: int = 1
 
     try:
-        with Image.new("RGB", (2, 2)) as image, pytest.raises(Exception):
+        with Image.new("RGB", (2, 2)) as image, pytest.raises((httpx.HTTPStatusError, RuntimeError)):
             backend(image, prompt="input", stage="fullpage", settings=Settings())
     finally:
         backend.client.close()
@@ -51,12 +63,15 @@ def test_http_failure_class_requires_input_status_and_admitted_generation(
     assert row["http_status"] == status and row["response_generation"] == generation
 
 
-@pytest.mark.parametrize("result,terminal", [
-    ({"outcome": "failed"}, False),
-    ({"outcome": "failed", "outcome_class": "execution"}, False),
-    ({"outcome": "failed", "outcome_class": "terminal"}, True),
-    ({"outcome": "succeeded"}, True),
-])
+@pytest.mark.parametrize(
+    "result,terminal",
+    [
+        ({"outcome": "failed"}, False),
+        ({"outcome": "failed", "outcome_class": "execution"}, False),
+        ({"outcome": "failed", "outcome_class": "terminal"}, True),
+        ({"outcome": "succeeded"}, True),
+    ],
+)
 def test_unclassified_failure_has_no_reuse_or_publication_standing(tmp_path, result, terminal):
     page = RecognitionPage(1, tmp_path, result, {})
     assert terminal_recognition_result(result) is terminal

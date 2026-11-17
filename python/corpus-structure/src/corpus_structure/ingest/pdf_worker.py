@@ -55,7 +55,9 @@ class PdfRetirementUncertain(PdfWorkerError, PhysicalRetirementUncertain):
 
 
 def _native_child(
-    connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None,
+    connection: Connection,
+    recipe: PdfRecipe,
+    assets: PreparedPdfAssets | None,
     writer_lease: PdfSpoolWriterLease | None = None,
 ) -> None:
     # Replies have their own Pipe; inherited stdout belongs to the parent CLI's
@@ -160,7 +162,9 @@ def _native_child(
                     )
                     from .pdf_streaming import _ref
 
-                    acknowledged(_ref(request.record_root / "completion.jsonl", "native_completion"))
+                    acknowledged(
+                        _ref(request.record_root / "completion.jsonl", "native_completion")
+                    )
                     result = PdfStreamReply(
                         streamed.conversion_status,
                         streamed.errors,
@@ -193,8 +197,13 @@ class PdfWorker:
 
     _child_target = staticmethod(_native_child)
 
-    def __init__(self, recipe: PdfRecipe, *, assets: PreparedPdfAssets | None = None,
-                 writer_lease: PdfSpoolWriterLease | None = None) -> None:
+    def __init__(
+        self,
+        recipe: PdfRecipe,
+        *,
+        assets: PreparedPdfAssets | None = None,
+        writer_lease: PdfSpoolWriterLease | None = None,
+    ) -> None:
         self.recipe = recipe
         self.assets = assets
         self.writer_lease = writer_lease

@@ -554,7 +554,9 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     ):
         from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 
-        snapshot = DataOperationStorage(connection).read_demand_result({"demand_id": created["demand_id"]})
+        snapshot = DataOperationStorage(connection).read_demand_result(
+            {"demand_id": created["demand_id"]}
+        )
     assert snapshot["runtime_id"] == runtime.runtime_id
     assert snapshot["release_id"] == binding.release
     assert snapshot["obligations"][0]["subject"] == "deployment:subject"

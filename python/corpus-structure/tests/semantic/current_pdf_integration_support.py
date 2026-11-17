@@ -377,9 +377,14 @@ def current_integration_journey(
         observation_publishers = []
 
         def retain_observation(publisher, connection, product):
-            arguments = dict(task_id=publisher.task_id, attempt=publisher.attempt,
-                             holder=publisher.holder, runtime_id=publisher.runtime_id,
-                             product=product, context=publisher.context)
+            arguments = dict(
+                task_id=publisher.task_id,
+                attempt=publisher.attempt,
+                holder=publisher.holder,
+                runtime_id=publisher.runtime_id,
+                product=product,
+                context=publisher.context,
+            )
             if before_observation is not None:
                 before_observation(case, connection, arguments)
             digest = publish_observation(publisher, connection, product)
@@ -425,7 +430,9 @@ def current_integration_journey(
         patches.setattr(
             pdf_recognition.RecognitionWorker, "_recognize_pages", controlled_recognition
         )
-        patches.setattr(pdf_integrated.PreparedPdfObservationPublisher, "publish", retain_observation)
+        patches.setattr(
+            pdf_integrated.PreparedPdfObservationPublisher, "publish", retain_observation
+        )
         patches.setattr(pdf_streaming, "publish_pdf_record_draft", retained_draft)
         if reclaim_after_recognition:
             from typing import cast
@@ -464,7 +471,21 @@ def current_integration_journey(
                             == 1
                         )
                         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
-                        changed = DataOperationStorage(connection).claim_data_requests(cast(WireClaimDataRequestsRequest, {'holder': 'recognition-successor', 'lease_seconds': 300, 'items': [{'request_id': claim.request_id, 'generation': claim.generation}]}))["items"][0]
+                        changed = DataOperationStorage(connection).claim_data_requests(
+                            cast(
+                                WireClaimDataRequestsRequest,
+                                {
+                                    "holder": "recognition-successor",
+                                    "lease_seconds": 300,
+                                    "items": [
+                                        {
+                                            "request_id": claim.request_id,
+                                            "generation": claim.generation,
+                                        }
+                                    ],
+                                },
+                            )
+                        )["items"][0]
                         assert changed["state"] == "claimed"
                         changed = changed["result"]
                         case.reclaimed_fence = {

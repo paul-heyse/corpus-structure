@@ -733,7 +733,11 @@ def native_operation_calls(
     """Resolve the fixed protocol's signatures without accepting candidate SQL names."""
     sources = native_protocol_sources() if sources is None else tuple(sources)
     digest = native_source_digest(sources)
-    from .data_operation_wire import wire_contract_digest, wire_contracts, wire_nominal_correspondence
+    from .data_operation_wire import (
+        wire_contract_digest,
+        wire_contracts,
+        wire_nominal_correspondence,
+    )
 
     schemas = wire_contracts(sources)
     nominals = wire_nominal_correspondence(sources)
@@ -801,7 +805,10 @@ class DataOperationStorage(DataOperationCalls):
 
     def _invoke(self, name: str, payload: Any) -> Any:
         from .data_operation_wire import (
-            encode_native_wire_request, validate_native_wire, wire_contract_digest, wire_role_kind,
+            encode_native_wire_request,
+            validate_native_wire,
+            wire_contract_digest,
+            wire_role_kind,
         )
 
         # SQL owns request shape under its installed contract. The client keeps

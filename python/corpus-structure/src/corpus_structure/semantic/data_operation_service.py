@@ -229,9 +229,8 @@ def execute_data_demand(
     semantic selections remain authenticated by the retained release and runtime.
     No connection survives preparation into provider execution or capacity waits.
     """
-    from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
-
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
     from corpus_structure.orchestrate.execution_host import execution_host_scope
 
     selected_policy = policy or CharacterizationExecutionPolicy()
@@ -247,13 +246,19 @@ def execute_data_demand(
                     if acquired_target(admitted, purpose="admit") != target.model_copy(
                         update={"purpose": "admit"}
                     ):
-                        raise SemanticRefusal("demand admission belongs to another PostgreSQL target")
+                        raise SemanticRefusal(
+                            "demand admission belongs to another PostgreSQL target"
+                        )
             snapshot = read_data_demand(connection, demand_id, limit=1)
             if project_id is not None and snapshot["project_id"] != project_id:
                 raise SemanticRefusal("retained demand belongs to another project")
             basis = host.acquire_basis(
-                engine, connection, snapshot["release_id"], snapshot["runtime_id"],
-                source_root=source_root, token=token,
+                engine,
+                connection,
+                snapshot["release_id"],
+                snapshot["runtime_id"],
+                source_root=source_root,
+                token=token,
             )
         executor = NativeDemandExecutor(
             engine,
@@ -277,7 +282,6 @@ def execute_data_demand(
         return executor.run(demand_id, limit=limit, max_rounds=max_rounds)
 
 
-
 class CreateDataDemand(BaseModel):
     """The caller supplies already frozen meaning, with explicit release/runtime custody."""
 
@@ -290,7 +294,9 @@ class CreateDataDemand(BaseModel):
     strength: str = "value"
 
 
-def create_data_demand(connection: Connection, request: CreateDataDemand) -> WireRegisterDataDemandResult:
+def create_data_demand(
+    connection: Connection, request: CreateDataDemand
+) -> WireRegisterDataDemandResult:
     prepared = load_release(connection, request.release_id)
     planner = DemandPlanner(bound_data_operation_model(prepared), DataOperationStorage(connection))
     demand = planner.register(

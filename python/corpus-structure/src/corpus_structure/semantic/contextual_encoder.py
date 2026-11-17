@@ -169,15 +169,18 @@ def execute_target_encoder_profile(receiver, target):
 
 
 def prepare_target_encoder_member(input_basis):
-    from .contextual_target_products import materialize_target, target_encoding_input
+    from pydantic import TypeAdapter
+
     from .contextual_retrieval import TargetRepresentation
+    from .contextual_target_products import materialize_target, target_encoding_input
     from .data_operation_cpu_basis import cpu_basis_values
     from .observations import source_python
-    from pydantic import TypeAdapter
 
     roles, context = cpu_basis_values(input_basis, scalar_roles=("target",), set_roles=())
     target = materialize_target(roles["target"][0].body, context=context)
-    descriptor = TypeAdapter(TargetRepresentation).validate_python(source_python(target["descriptor"]))
+    descriptor = TypeAdapter(TargetRepresentation).validate_python(
+        source_python(target["descriptor"])
+    )
     return target_encoding_input(descriptor), dict(target=target)
 
 
@@ -186,25 +189,39 @@ def finish_target_encoder_member(metadata, profile, vector, rendered):
 
     target = metadata["target"]
     return {
-        "original_source": target.get("original_source"), "target": target,
-        "profile": source_value(asdict(profile)), "vector": asdict(vector), "rendered": asdict(rendered),
+        "original_source": target.get("original_source"),
+        "target": target,
+        "profile": source_value(asdict(profile)),
+        "vector": asdict(vector),
+        "rendered": asdict(rendered),
     }
 
 
 def execute_target_encoder_kernel(target, profile_record, model_path, artifacts, *, check_active):
     from pydantic import TypeAdapter
+
     from corpus_structure.methods.contextual_embeddings import encode_contexts
+
     from .contextual_retrieval import TargetRepresentation
     from .contextual_target_products import target_encoding_input
     from .observations import source_python
 
-    descriptor = TypeAdapter(TargetRepresentation).validate_python(source_python(target["descriptor"]))
+    descriptor = TypeAdapter(TargetRepresentation).validate_python(
+        source_python(target["descriptor"])
+    )
     profile = TypeAdapter(EncoderProfile).validate_python(profile_record).bind_artifacts(artifacts)
-    result = encode_contexts((target_encoding_input(descriptor),), profile, model_path=model_path,
-                            artifact_hashes=artifacts, check_active=check_active)
+    result = encode_contexts(
+        (target_encoding_input(descriptor),),
+        profile,
+        model_path=model_path,
+        artifact_hashes=artifacts,
+        check_active=check_active,
+    )
     if result.limited_query_ids or len(result.vectors) != 1 or len(result.inputs) != 1:
         raise ValueError("target encoder did not produce its one exact target")
-    return finish_target_encoder_member(dict(target=target), profile, result.vectors[0], result.inputs[0])
+    return finish_target_encoder_member(
+        dict(target=target), profile, result.vectors[0], result.inputs[0]
+    )
 
 
 def execute_target_encoder_authority_kernel(
@@ -482,6 +499,7 @@ def checked_encoded_query_context(context) -> EncodedQueryContext:
 def prepare_query_encoder_input(frame, occurrence, query_context_record=None, context_inputs=()):
     from corpus_structure.methods.contextual_candidates import retained_occurrences
     from corpus_structure.methods.contextual_embeddings import ContextInput
+
     from .contributions import operation_identity
 
     pin = frame.pin.values()
@@ -506,18 +524,24 @@ def prepare_query_encoder_input(frame, occurrence, query_context_record=None, co
     if (query_context_record is None) != (not context_inputs):
         raise ValueError("encoded query context differs from its retained primary inputs")
     item = ContextInput(
-            occurrence["occurrence_id"],
-            pin["source"],
-            "query",
-            mention,
-            text,
-            start,
-            end,
-            representation_digest=query_context["representation_digest"],
-            query_context=query_context["rendered"] if query_context_record is not None else None,
-        )
-    return item, dict(pin=pin, occurrence=occurrence, mention=mention, anchors=products[0]["anchors"],
-                      query_context=query_context, context_inputs=list(context_inputs))
+        occurrence["occurrence_id"],
+        pin["source"],
+        "query",
+        mention,
+        text,
+        start,
+        end,
+        representation_digest=query_context["representation_digest"],
+        query_context=query_context["rendered"] if query_context_record is not None else None,
+    )
+    return item, dict(
+        pin=pin,
+        occurrence=occurrence,
+        mention=mention,
+        anchors=products[0]["anchors"],
+        query_context=query_context,
+        context_inputs=list(context_inputs),
+    )
 
 
 class SelectedQueryContextUnavailable(ValueError):
@@ -530,17 +554,28 @@ def prepare_query_encoder_member(input_basis, frame):
     from .data_operation_model import json_context_meaning
     from .declared_structural_references import DeclaredContributionRef
 
-    roles, _ = cpu_basis_values(input_basis, scalar_roles=("source", "occurrence"), set_roles=(), sequence_roles=("primary",))
+    roles, _ = cpu_basis_values(
+        input_basis,
+        scalar_roles=("source", "occurrence"),
+        set_roles=(),
+        sequence_roles=("primary",),
+    )
     occurrence = roles["occurrence"][0]
     parameters = decode_semantic_value(input_basis)["parameters"]
     selection = parameters.get("context_selection")
     context, inputs = None, ()
     if selection is not None:
         if not roles["primary"]:
-            raise SelectedQueryContextUnavailable("selected query requires its complete primary population")
+            raise SelectedQueryContextUnavailable(
+                "selected query requires its complete primary population"
+            )
         try:
             context, inputs = prepare_primary_query_context(
-                frame, occurrence.body, roles["primary"], recipe=selection["recipe"], evidence=selection["evidence"],
+                frame,
+                occurrence.body,
+                roles["primary"],
+                recipe=selection["recipe"],
+                evidence=selection["evidence"],
             )
         except ValueError as error:
             raise SelectedQueryContextUnavailable(str(error)) from error
@@ -548,9 +583,13 @@ def prepare_query_encoder_member(input_basis, frame):
         raise SelectedQueryContextUnavailable("lexical query has an unrequested primary population")
     item, metadata = prepare_query_encoder_input(frame, occurrence.body, context, inputs)
     metadata["carrier"] = DeclaredContributionRef(
-        product_id=occurrence.product_id, member_id=occurrence.member_id, kind_contract=occurrence.kind_contract,
-        project_id=occurrence.context.project_id, subject=occurrence.context.subject,
-        subject_definition=occurrence.context.subject_definition, original_source=occurrence.context.original_source,
+        product_id=occurrence.product_id,
+        member_id=occurrence.member_id,
+        kind_contract=occurrence.kind_contract,
+        project_id=occurrence.context.project_id,
+        subject=occurrence.context.subject,
+        subject_definition=occurrence.context.subject_definition,
+        original_source=occurrence.context.original_source,
         analyzed_scope_meaning=json_context_meaning(occurrence.context.analyzed_scope).decode(),
         contribution_id=occurrence.body["contribution_id"],
     ).model_dump(mode="python", exclude_none=True)
@@ -562,13 +601,19 @@ def finish_query_encoder_member(metadata, profile, vector, rendered):
 
     result = {
         "query": {
-            "source_pin": metadata["pin"], "occurrence_id": metadata["occurrence"]["occurrence_id"],
-            "lexical_query": metadata["mention"], "query_vector_id": vector.vector_id,
-            "anchors": metadata["anchors"], "context": metadata["query_context"], "context_inputs": metadata["context_inputs"],
+            "source_pin": metadata["pin"],
+            "occurrence_id": metadata["occurrence"]["occurrence_id"],
+            "lexical_query": metadata["mention"],
+            "query_vector_id": vector.vector_id,
+            "anchors": metadata["anchors"],
+            "context": metadata["query_context"],
+            "context_inputs": metadata["context_inputs"],
         },
         "vector": {
-            "original_source": metadata["pin"]["original_source"], "profile": source_value(asdict(profile)),
-            "vector": asdict(vector), "rendered": asdict(rendered),
+            "original_source": metadata["pin"]["original_source"],
+            "profile": source_value(asdict(profile)),
+            "vector": asdict(vector),
+            "rendered": asdict(rendered),
         },
     }
     if "carrier" in metadata:
@@ -588,14 +633,23 @@ def execute_contextual_encoder_kernel(
     context_inputs: tuple[dict, ...] = (),
 ) -> dict[str, dict]:
     from pydantic import TypeAdapter
+
     from corpus_structure.methods.contextual_embeddings import encode_contexts
+
     from .declared_record_sources import DeclaredNativeFrameSource
 
     frame = DeclaredNativeFrameSource(**frame_record)
-    item, metadata = prepare_query_encoder_input(frame, occurrence, query_context_record, context_inputs)
+    item, metadata = prepare_query_encoder_input(
+        frame, occurrence, query_context_record, context_inputs
+    )
     profile = TypeAdapter(EncoderProfile).validate_python(profile_record).bind_artifacts(artifacts)
-    encoded = encode_contexts((item,), profile, model_path=model_path, artifact_hashes=artifacts,
-                             check_active=check_active)
+    encoded = encode_contexts(
+        (item,),
+        profile,
+        model_path=model_path,
+        artifact_hashes=artifacts,
+        check_active=check_active,
+    )
     if encoded.limited_query_ids or len(encoded.vectors) != 1:
         raise ValueError("contextual encoder did not complete its selected vector population")
     return finish_query_encoder_member(metadata, profile, encoded.vectors[0], encoded.inputs[0])
@@ -609,7 +663,9 @@ class ContextualEncoderBatchPlan:
     port: Any = None
 
     def order_key(self, member):
-        role = "target" if self.operation == "retrieve.contextual_target_vector/declared" else "source"
+        role = (
+            "target" if self.operation == "retrieve.contextual_target_vector/declared" else "source"
+        )
         selected = next(value for value in member.binding.roles if value.role == role)
         if len(selected.members) != 1:
             raise ValueError("encoder cohort ordering requires one exact selected source/target")
@@ -618,7 +674,12 @@ class ContextualEncoderBatchPlan:
 
     def input_bytes(self, members):
         from corpus_structure.methods.contextual_embeddings import encoder_input_bytes
-        from .contextual_encoder_batch import encoder_packet, prepare_encoder_members, unpack_encoder_packet
+
+        from .contextual_encoder_batch import (
+            encoder_packet,
+            prepare_encoder_members,
+            unpack_encoder_packet,
+        )
 
         expected = self.port.batch_expected_members(members)
         packet = encoder_packet(expected, self.operation)
@@ -631,17 +692,23 @@ class ContextualEncoderBatchPlan:
 
         packet = encoder_packet(members, self.operation)
         bound = inspect.signature(execute_encoder_batch).bind(
-            packet=packet, profile_record=asdict(self.selection.profile),
-            model_path=str(self.selection.model_path), artifacts=self.selection.artifacts,
+            packet=packet,
+            profile_record=asdict(self.selection.profile),
+            model_path=str(self.selection.model_path),
+            artifacts=self.selection.artifacts,
             check_active=check_active,
         )
         reply = yield from self.port.plan_cpu_reply(
-            execute_encoder_batch, bound,
+            execute_encoder_batch,
+            bound,
             contextual_encoder_operation_sources(self.selection, include_dependencies=False),
-            execution_owner=execution_owner, check_active=check_active,
+            execution_owner=execution_owner,
+            check_active=check_active,
             asset_custody=self.selection.asset_custody(),
         )
-        return PreparedBatchCallResult(reply.content, canonical_bytes(reply.execution_receipt.record()))
+        return PreparedBatchCallResult(
+            reply.content, canonical_bytes(reply.execution_receipt.record())
+        )
 
 
 def resolve_contextual_encoder_port(
@@ -698,10 +765,22 @@ def resolve_contextual_encoder_port(
         (contextual_encoder_assets(selection), contextual_encoder_custody(selection)),
         contextual_encoder_operation_sources(selection, include_dependencies=False),
         functions=(
-            ("corpus_structure.semantic.contextual_encoder_batch.execute_encoder_batch", execute_encoder_batch),
-            ("corpus_structure.semantic.contextual_encoder_batch.encoder_member_result", encoder_member_result),
-            ("corpus_structure.semantic.contextual_encoder.ContextualEncoderBatchPlan.input_bytes", plan.input_bytes),
-            ("corpus_structure.semantic.contextual_encoder.ContextualEncoderBatchPlan.order_key", plan.order_key),
+            (
+                "corpus_structure.semantic.contextual_encoder_batch.execute_encoder_batch",
+                execute_encoder_batch,
+            ),
+            (
+                "corpus_structure.semantic.contextual_encoder_batch.encoder_member_result",
+                encoder_member_result,
+            ),
+            (
+                "corpus_structure.semantic.contextual_encoder.ContextualEncoderBatchPlan.input_bytes",
+                plan.input_bytes,
+            ),
+            (
+                "corpus_structure.semantic.contextual_encoder.ContextualEncoderBatchPlan.order_key",
+                plan.order_key,
+            ),
         ),
         requires_prepared_schema=True,
         retain_cpu_reply=True,

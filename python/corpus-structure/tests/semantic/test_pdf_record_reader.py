@@ -5,7 +5,6 @@ import json
 import math
 from collections.abc import Iterator, Mapping
 from hashlib import sha256
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 

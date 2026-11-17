@@ -247,7 +247,6 @@ def test_zero_crop_is_real_triple_and_repeated_raw_occurrences_are_distinct(tmp_
     assert values["occurrences"][0]["text"] == values["occurrences"][1]["text"] == "equal"
 
 
-
 @pytest.mark.prerequisite("nemotron_runtime")
 def test_one_slot_reuses_parser_process_across_pages_without_retrying_execution_failure(
     tmp_path, endpoint
@@ -372,6 +371,7 @@ def test_completion_driven_refill_does_not_wait_for_slow_first_page(tmp_path, mo
 
     first_release = threading.Event()
     third_started = threading.Event()
+
     def recognize(self, operation, slot, recipe, number, reuse, check_active):
         if number == 1:
             assert first_release.wait(5)

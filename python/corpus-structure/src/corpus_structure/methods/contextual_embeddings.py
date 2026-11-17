@@ -56,7 +56,9 @@ class EncoderNumericalPolicy(BaseModel):
     relative_tolerance: FiniteFloat = Field(default=1e-9, ge=0)
     nonfinite: Literal["reject"] = "reject"
     result_equality: Literal["exact-canonical-value"] = "exact-canonical-value"
-    nondeterminism: Literal["cohort-and-order-dependent-native-float32"] = "cohort-and-order-dependent-native-float32"
+    nondeterminism: Literal["cohort-and-order-dependent-native-float32"] = (
+        "cohort-and-order-dependent-native-float32"
+    )
     cohort_semantics: Literal["authentic-native-observations"] = "authentic-native-observations"
     vector_identity: Literal["cohort-independent"] = "cohort-independent"
 
@@ -102,8 +104,11 @@ class EncoderProfile:
             raise ValueError("encoder requires a model and declared pooling")
         artifacts = tuple(sorted(tuple(value) for value in self.artifact_hashes))
         if len({name for name, _ in artifacts}) != len(artifacts) or any(
-            not name or Path(name).is_absolute() or ".." in Path(name).parts
-            or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest)
+            not name
+            or Path(name).is_absolute()
+            or ".." in Path(name).parts
+            or len(digest) != 64
+            or any(c not in "0123456789abcdef" for c in digest)
             for name, digest in artifacts
         ):
             raise ValueError("encoder requires an exact immutable artifact manifest")
@@ -407,7 +412,9 @@ def _verify_cpu_artifacts(model_path, observations):
         record.check()
 
 
-def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_active, isolate_members=False):
+def _encode_owned_cpu(
+    profile, items, *, model_path, artifact_hashes, check_active, isolate_members=False
+):
     model, implementation, observations = _owned_cpu_encoder(
         canonical_bytes(profile.semantic_configuration), model_path, artifact_hashes
     )
@@ -427,7 +434,9 @@ def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_acti
             rendered_positions.append(position)
         except ContextCoreLimited as error:
             if isolate_members:
-                failures.append(EncoderMemberFailure(position, item.object_id, "token-core-limit", str(error)))
+                failures.append(
+                    EncoderMemberFailure(position, item.object_id, "token-core-limit", str(error))
+                )
             elif item.query_context is None:
                 raise
             limited_queries.append(item.object_id)
@@ -454,7 +463,11 @@ def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_acti
             except ValueError as error:
                 if not isolate_members:
                     raise
-                failures.append(EncoderMemberFailure(rendered_positions[i], item.object_id, "invalid-vector", str(error)))
+                failures.append(
+                    EncoderMemberFailure(
+                        rendered_positions[i], item.object_id, "invalid-vector", str(error)
+                    )
+                )
                 continue
             vector_id = identity(
                 "context-vector",
@@ -495,10 +508,18 @@ def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_acti
 
 
 def encoder_input_bytes(items) -> int:
-    return len(canonical_bytes([
-        {key: value for key, value in asdict(item).items() if key != "query_context" or value is not None}
-        for item in items
-    ]))
+    return len(
+        canonical_bytes(
+            [
+                {
+                    key: value
+                    for key, value in asdict(item).items()
+                    if key != "query_context" or value is not None
+                }
+                for item in items
+            ]
+        )
+    )
 
 
 def encode_contexts(

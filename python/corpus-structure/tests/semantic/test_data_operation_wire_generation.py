@@ -30,7 +30,12 @@ from corpus_structure.semantic.data_operation_storage import (
     native_source_digest,
 )
 from corpus_structure.semantic.data_operation_wire import (
-    generated_wire_source, render_wire_types, validate_native_wire, wire_contract_digest, wire_contracts, wire_operations,
+    generated_wire_source,
+    render_wire_types,
+    validate_native_wire,
+    wire_contract_digest,
+    wire_contracts,
+    wire_operations,
 )
 from corpus_structure.semantic.native_sql_body import body_source
 from corpus_structure.semantic.operation_value_types import NativeResultViolation
@@ -48,7 +53,12 @@ def test_checkout_wire_facade_is_generated_from_current_protocol_and_corresponde
 
 def test_fixed_call_preserves_omission_and_rejects_wrong_union_result():
     class Connection:
-        result = json_bytes({"contract_digest": wire_contract_digest(), "payload": {"items": [{"state": "no-work"}]}}).decode()
+        result = json_bytes(
+            {
+                "contract_digest": wire_contract_digest(),
+                "payload": {"items": [{"state": "no-work"}]},
+            }
+        ).decode()
 
         def __init__(self):
             self.calls = []
@@ -59,13 +69,19 @@ def test_fixed_call_preserves_omission_and_rejects_wrong_union_result():
 
     connection = Connection()
     storage = DataOperationStorage(cast(Any, connection))
-    original = {"items": [{"request_id": "request:x", "generation": 1}], "holder": "worker", "lease_seconds": 3}
+    original = {
+        "items": [{"request_id": "request:x", "generation": 1}],
+        "holder": "worker",
+        "lease_seconds": 3,
+    }
     assert storage.claim_data_requests(cast(WireClaimDataRequestsRequest, original)) == {
         "items": [{"state": "no-work"}]
     }
     assert wire_json_loads(connection.calls[0][1]["payload"]) == original
     assert "external_packet_id" not in original["items"][0]
-    connection.result = json_bytes({"contract_digest": wire_contract_digest(), "payload": {"items": [{"state": "claimed"}]}}).decode()
+    connection.result = json_bytes(
+        {"contract_digest": wire_contract_digest(), "payload": {"items": [{"state": "claimed"}]}}
+    ).decode()
     with pytest.raises(NativeResultViolation) as refusal:
         storage.claim_data_requests(cast(WireClaimDataRequestsRequest, original))
     assert refusal.value.operation == "data.claim_data_requests"
@@ -75,7 +91,9 @@ def test_fixed_call_preserves_omission_and_rejects_wrong_union_result():
     # Request shape is enforced by SQL; exact Python JSON encodability stays local.
     before = len(connection.calls)
     with pytest.raises(ValueError):
-        storage.claim_data_requests(cast(WireClaimDataRequestsRequest, {**original, "holder": object()}))
+        storage.claim_data_requests(
+            cast(WireClaimDataRequestsRequest, {**original, "holder": object()})
+        )
     assert len(connection.calls) == before
 
 
@@ -91,7 +109,6 @@ def test_native_client_requires_the_exact_installed_contract_before_result_use(d
     storage = DataOperationStorage(cast(Any, Connection()))
     with pytest.raises(NativeResultViolation):
         storage.claim_data_requests({"holder": "worker", "lease_seconds": 3, "items": []})
-
 
 
 def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monkeypatch):
@@ -149,9 +166,9 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
     assert context_checks[0][1] == "data.record_data_fate"
     omitted = {key: value for key, value in payload.items() if key != "source_revision"}
     # Preparation preserves bytes; the captured SQL request validator rejects omission.
-    assert "source_revision" not in wire_json_loads(prepare(
-        payload=omitted, projection_context=object()
-    ).compile().params["payload"])
+    assert "source_revision" not in wire_json_loads(
+        prepare(payload=omitted, projection_context=object()).compile().params["payload"]
+    )
     with pytest.raises(ValueError, match="source_revision"):
         validate_native_wire("record_data_fate", "input", omitted, sources=sources)
 
@@ -165,7 +182,7 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
                         "use_id": "use:x",
                         "fate": "awaiting-inputs",
                         "analyzed_scope": payload["analyzed_scope"],
-                    }
+                    },
                 }
             ).decode()
 
@@ -186,7 +203,10 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
 def test_set_protocol_uses_one_item_catalogue_and_preserves_nominal_identities():
     operations = {item["name"]: item for item in wire_operations()}
     assert {"attach_data_requests", "claim_data_requests"} <= operations.keys()
-    assert not {"attach_data_request", "claim_data_request", "expand_data_obligation"} & operations.keys()
+    assert (
+        not {"attach_data_request", "claim_data_request", "expand_data_obligation"}
+        & operations.keys()
+    )
     assert not hasattr(DataOperationStorage, "attach_data_request")
     assert not hasattr(DataOperationStorage, "claim_data_request")
     assert not hasattr(DataOperationStorage, "expand_data_obligation")
@@ -208,34 +228,47 @@ def test_captured_set_schema_follows_item_request_and_result_changes():
     item_result = document["definitions"]["claim_data_request_result"]["oneOf"][1]
     item_result["properties"]["receipt"] = {"type": "string"}
     item_result["required"].append("receipt")
-    changed = tuple(replace(item, content=yaml.safe_dump(document).encode())
-                    if item.name in {protocol.name, "native/projection-physical/data-operation-native.yaml"}
-                    else item for item in sources)
+    changed = tuple(
+        replace(item, content=yaml.safe_dump(document).encode())
+        if item.name in {protocol.name, "native/projection-physical/data-operation-native.yaml"}
+        else item
+        for item in sources
+    )
     schema = wire_contracts(changed)["claim_data_requests"]
     assert "native_pin" in schema["input"]["definitions"]["claim_data_requests_item"]["required"]
     assert "holder" not in schema["input"]["definitions"]["claim_data_requests_item"]["properties"]
-    assert "receipt" in schema["output"]["definitions"]["claim_data_requests_claimed_result"]["required"]
+    assert (
+        "receipt"
+        in schema["output"]["definitions"]["claim_data_requests_claimed_result"]["required"]
+    )
     assert wire_contract_digest(changed) != wire_contract_digest(sources)
     with pytest.raises(ValueError):
-        validate_native_wire("claim_data_requests", "input", {
-            "holder": "worker", "lease_seconds": 3,
-            "items": [{"request_id": "request:x", "generation": 1}],
-        }, sources=changed)
-
+        validate_native_wire(
+            "claim_data_requests",
+            "input",
+            {
+                "holder": "worker",
+                "lease_seconds": 3,
+                "items": [{"request_id": "request:x", "generation": 1}],
+            },
+            sources=changed,
+        )
 
 
 def test_ddo_binding_cannot_fall_back_when_installed_contract_authority_is_missing():
     from corpus_structure.semantic.native_call_generation import render_call_bindings
 
     sources = native_protocol_sources()
-    owner, call = next(item for item in native_operation_calls(sources=sources)
-                       if item[0] == "data.claim_data_requests")
+    owner, call = next(
+        item
+        for item in native_operation_calls(sources=sources)
+        if item[0] == "data.claim_data_requests"
+    )
     with pytest.raises(ValueError, match="captured installed wire contract"):
         render_call_bindings(
             ((owner, replace(call, wire_contract_digest=None)),),
             identifiers_module=".identifiers",
         )
-
 
 
 def test_structural_generation_refuses_unsupported_construct_at_its_source():

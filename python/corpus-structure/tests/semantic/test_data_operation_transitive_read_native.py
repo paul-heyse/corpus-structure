@@ -177,11 +177,19 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
         )
     with ddo_kernel["engine"].begin() as connection:
         denied = DataOperationStorage(connection).claim_data_requests(
-            typing_cast(WireClaimDataRequestsRequest, {
-                "holder": "after-revocation", "lease_seconds": 30,
-                "items": [{"request_id": json.loads(ready_a.native)["request_id"],
-                           "generation": json.loads(ready_a.native)["generation"]}],
-            })
+            typing_cast(
+                WireClaimDataRequestsRequest,
+                {
+                    "holder": "after-revocation",
+                    "lease_seconds": 30,
+                    "items": [
+                        {
+                            "request_id": json.loads(ready_a.native)["request_id"],
+                            "generation": json.loads(ready_a.native)["generation"],
+                        }
+                    ],
+                },
+            )
         )["items"][0]
         assert denied == {"state": "no-work"}
     # A new C event after revocation has the same support scope at nonzero epoch;
@@ -344,10 +352,18 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
         assert planner.ready(current, authorization=b"{}") == ()
     with ddo_kernel["engine"].begin() as connection:
         denied = DataOperationStorage(connection).claim_data_requests(
-            typing_cast(WireClaimDataRequestsRequest, {
-                "holder": "after-rebound-revocation", "lease_seconds": 30,
-                "items": [{"request_id": json.loads(ready_d.native)["request_id"],
-                           "generation": json.loads(ready_d.native)["generation"]}],
-            })
+            typing_cast(
+                WireClaimDataRequestsRequest,
+                {
+                    "holder": "after-rebound-revocation",
+                    "lease_seconds": 30,
+                    "items": [
+                        {
+                            "request_id": json.loads(ready_d.native)["request_id"],
+                            "generation": json.loads(ready_d.native)["generation"],
+                        }
+                    ],
+                },
+            )
         )["items"][0]
         assert denied == {"state": "no-work"}

@@ -875,9 +875,7 @@ class PreparedFormalEvidencePort:
             dict(
                 profile="formal-source-native",
                 release_id=self.profile.prepared.release_id,
-                member_contracts=formal_member_contracts(
-                    self.profile.prepared, self.profile.model
-                ),
+                member_contracts=formal_member_contracts(self.profile.prepared, self.profile.model),
                 source=source.content.decode(),
                 options=FormalEvidenceOptions().model_dump_json(),
                 grammar=self.profile.grammar,

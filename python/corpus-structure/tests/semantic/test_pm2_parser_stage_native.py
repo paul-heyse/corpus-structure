@@ -135,7 +135,21 @@ def test_actual_dipo_reclaim_refuses_stale_holder_before_current_publication(
                 ready = planner.ready(snapshot, authorization=b"{}")
                 selected = next((item for item in ready if item.operation == DIPO), None)
                 if selected is not None:
-                    claimed = DataOperationStorage(connection).claim_data_requests(cast(WireClaimDataRequestsRequest, {'holder': 'old-dipo-holder', 'lease_seconds': 30, 'items': [{'request_id': json.loads(selected.native)['request_id'], 'generation': json.loads(selected.native)['generation']}]}))["items"][0]
+                    claimed = DataOperationStorage(connection).claim_data_requests(
+                        cast(
+                            WireClaimDataRequestsRequest,
+                            {
+                                "holder": "old-dipo-holder",
+                                "lease_seconds": 30,
+                                "items": [
+                                    {
+                                        "request_id": json.loads(selected.native)["request_id"],
+                                        "generation": json.loads(selected.native)["generation"],
+                                    }
+                                ],
+                            },
+                        )
+                    )["items"][0]
                     assert claimed["state"] == "claimed"
                     claimed = claimed["result"]
                     old = {

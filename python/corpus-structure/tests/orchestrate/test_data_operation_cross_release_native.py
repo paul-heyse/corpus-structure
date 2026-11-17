@@ -163,7 +163,18 @@ def test_stale_attach_generation_cannot_claim_a_replacement_basis(ddo_kernel):
     assert successor["request_id"] == attached["request_id"]
     assert successor["generation"] == attached["generation"] + 1
     with ddo_kernel.engine.begin() as connection:
-        denied = DataOperationStorage(connection).claim_data_requests(cast(WireClaimDataRequestsRequest, {'holder': 'stale-basis', 'lease_seconds': 30, 'items': [{'request_id': attached['request_id'], 'generation': attached['generation']}]}))["items"][0]
+        denied = DataOperationStorage(connection).claim_data_requests(
+            cast(
+                WireClaimDataRequestsRequest,
+                {
+                    "holder": "stale-basis",
+                    "lease_seconds": 30,
+                    "items": [
+                        {"request_id": attached["request_id"], "generation": attached["generation"]}
+                    ],
+                },
+            )
+        )["items"][0]
         assert denied == {"state": "no-work"}
         assert (
             connection.scalar(

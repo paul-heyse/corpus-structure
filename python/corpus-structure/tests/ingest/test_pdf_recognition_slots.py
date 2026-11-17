@@ -12,7 +12,11 @@ import pytest
 from pdf_region_support import landmark_pdf
 
 from corpus_structure.ingest.pdf_recognition import (
-    NemotronRecipe, PreparedRecognitionSource, RecognitionPage, RecognitionWorker, _RecognitionSlot,
+    NemotronRecipe,
+    PreparedRecognitionSource,
+    RecognitionPage,
+    RecognitionWorker,
+    _RecognitionSlot,
 )
 
 
@@ -88,8 +92,12 @@ def test_operation_opens_pdf_and_gpu_lease_once_and_recovery_borrows_completed_s
     monkeypatch.setattr(pypdfium2, "PdfDocument", document)
     monkeypatch.setattr("corpus_structure.ingest.pdf_recognition.pdf_gpu_slot", lease)
     monkeypatch.setattr(RecognitionWorker, "_execute_page", execute)
-    worker = RecognitionWorker(python=Path(sys.executable), script=tmp_path / "unused",
-                               endpoint="http://unused", receipts=tmp_path)
+    worker = RecognitionWorker(
+        python=Path(sys.executable),
+        script=tmp_path / "unused",
+        endpoint="http://unused",
+        receipts=tmp_path,
+    )
     source = PreparedRecognitionSource.prepare(landmark_pdf())
     recipe = NemotronRecipe("1" * 64, "2" * 64)
     stream = worker.recognize_pages(source, recipe, [1, 2], concurrency=1)

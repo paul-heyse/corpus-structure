@@ -9,7 +9,11 @@ import pytest
 from corpus_structure.methods import contextual_embeddings as embeddings
 from corpus_structure.semantic import contextual_encoder_batch as batch
 from corpus_structure.semantic.contextual_encoder import checked_primary_query_rows
-from corpus_structure.semantic.data_operation_cpu_basis import CPUInputRole, cpu_authority_batch_values, cpu_input_basis
+from corpus_structure.semantic.data_operation_cpu_basis import (
+    CPUInputRole,
+    cpu_authority_batch_values,
+    cpu_input_basis,
+)
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import SubjectContext
@@ -19,14 +23,22 @@ from semantic.test_contextual_target_vectors import population
 
 
 def _producer(index):
-    return dict(request_id="controlled-request:" + str(index), generation=1, task_id=index + 1, attempt=1, holder="controlled-holder")
+    return dict(
+        request_id="controlled-request:" + str(index),
+        generation=1,
+        task_id=index + 1,
+        attempt=1,
+        holder="controlled-holder",
+    )
 
 
 def _query_members(*, selected=False, bad=None):
     frame, occurrence, primary, binding, evidence, _ = case("located-frame-2")
     pin = frame.pin.values()
     context = SubjectContext(
-        pin["project_id"], pin["subject"], pin["original_source"],
+        pin["project_id"],
+        pin["subject"],
+        pin["original_source"],
         json_bytes(decode_semantic_value(json_loads(pin["analyzed_scope_meaning"]))),
         subject_definition=pin["subject_definition"],
     )
@@ -42,15 +54,50 @@ def _query_members(*, selected=False, bad=None):
                 reference = dict(reference, member_id="not-in-selected-parent")
             parameters = dict(context_selection=dict(recipe="located-frame-2", evidence=reference))
         roles = (
-            CPUInputRole("source", 0, 1, pin["source_product"], pin.get("source_member"), pin["kind_contract"], context, frame.value, (), producer_output=None),
-            CPUInputRole("occurrence", 0, 1, "controlled-occurrence", None, "controlled-occurrence-kind", context, value, (), producer_output=None),
+            CPUInputRole(
+                "source",
+                0,
+                1,
+                pin["source_product"],
+                pin.get("source_member"),
+                pin["kind_contract"],
+                context,
+                frame.value,
+                (),
+                producer_output=None,
+            ),
+            CPUInputRole(
+                "occurrence",
+                0,
+                1,
+                "controlled-occurrence",
+                None,
+                "controlled-occurrence-kind",
+                context,
+                value,
+                (),
+                producer_output=None,
+            ),
             *(checked_primary_query_rows(primary, binding=binding) if selected else ()),
         )
-        result.append(dict(member="controlled-member:" + str(index), producer=_producer(index), input_basis=cpu_input_basis(
-            "controlled-query-batch", context, roles,
-            parameters=canonical_bytes(semantic_value(parameters)), replicate="controlled-sample:" + str(index),
-        )))
-    operation = "retrieve.contextual_query/selected-context" if selected else "retrieve.contextual_query/declared"
+        result.append(
+            dict(
+                member="controlled-member:" + str(index),
+                producer=_producer(index),
+                input_basis=cpu_input_basis(
+                    "controlled-query-batch",
+                    context,
+                    roles,
+                    parameters=canonical_bytes(semantic_value(parameters)),
+                    replicate="controlled-sample:" + str(index),
+                ),
+            )
+        )
+    operation = (
+        "retrieve.contextual_query/selected-context"
+        if selected
+        else "retrieve.contextual_query/declared"
+    )
     return tuple(result), batch.encoder_packet(result, operation)
 
 
@@ -61,16 +108,29 @@ def _model(monkeypatch, *, invalid_vector=False, physical_error=False):
         calls.append(tuple(texts))
         if physical_error:
             raise RuntimeError("controlled native model failure")
-        return [(2.0, 0.0) if invalid_vector and index == 1 else (1.0, 0.0) for index, _ in enumerate(texts)]
+        return [
+            (2.0, 0.0) if invalid_vector and index == 1 else (1.0, 0.0)
+            for index, _ in enumerate(texts)
+        ]
 
-    model = SimpleNamespace(tokenizer=SimpleNamespace(encode=lambda text, **kwargs: tuple(text)), encode_query=encode, encode_document=encode)
-    monkeypatch.setattr(embeddings, "_owned_cpu_encoder", lambda *args: (model, (("controlled", "1"),), ()))
-    profile = embeddings.EncoderProfile("controlled-batch", "a" * 40, 2, "query: ", "passage: ", "mean", max_tokens=4096)
+    model = SimpleNamespace(
+        tokenizer=SimpleNamespace(encode=lambda text, **kwargs: tuple(text)),
+        encode_query=encode,
+        encode_document=encode,
+    )
+    monkeypatch.setattr(
+        embeddings, "_owned_cpu_encoder", lambda *args: (model, (("controlled", "1"),), ())
+    )
+    profile = embeddings.EncoderProfile(
+        "controlled-batch", "a" * 40, 2, "query: ", "passage: ", "mean", max_tokens=4096
+    )
     return profile, calls
 
 
 @pytest.mark.parametrize("selected", [False, True])
-def test_query_packet_interns_body_and_frame_and_preserves_duplicate_occurrence_observations(monkeypatch, selected):
+def test_query_packet_interns_body_and_frame_and_preserves_duplicate_occurrence_observations(
+    monkeypatch, selected
+):
     members, packet = _query_members(selected=selected)
     profile, calls = _model(monkeypatch)
     assert len(packet["frames"]) == 1
@@ -97,11 +157,16 @@ def test_query_packet_interns_body_and_frame_and_preserves_duplicate_occurrence_
     assert all(value["vector"]["vector"]["values"] == [1.0, 0.0] for value in values)
 
 
-@pytest.mark.parametrize("selected,bad,code", [
-    (False, "pin", "source-coordinate-mismatch"),
-    (True, "context", "selected-context-unavailable"),
-])
-def test_known_member_refusal_keeps_its_successful_sibling_and_exact_failure_slot(monkeypatch, selected, bad, code):
+@pytest.mark.parametrize(
+    "selected,bad,code",
+    [
+        (False, "pin", "source-coordinate-mismatch"),
+        (True, "context", "selected-context-unavailable"),
+    ],
+)
+def test_known_member_refusal_keeps_its_successful_sibling_and_exact_failure_slot(
+    monkeypatch, selected, bad, code
+):
     members, packet = _query_members(selected=selected, bad=bad)
     profile, calls = _model(monkeypatch)
     reply = batch.execute_encoder_batch(packet, asdict(profile), "", (), check_active=lambda: None)
@@ -138,11 +203,33 @@ def test_target_cohort_keeps_one_vector_per_target_without_query_source_custody(
     profile, calls = _model(monkeypatch)
     members = []
     for index, value in enumerate(population(("one", "two"))["members"]):
-        context = SubjectContext("controlled-project", value["context"]["subject"], None,
-                                 json_bytes(value["context"]["analyzed_scope"]), subject_definition="contextual-target")
-        basis = cpu_input_basis("controlled-target-batch", context, (
-            CPUInputRole("target", 0, 1, "controlled-target:" + str(index), None, value["kind_contract"], context, value["body"], (), producer_output=None),
-        ), parameters=canonical_bytes(semantic_value({})), replicate="controlled-target-observation")
+        context = SubjectContext(
+            "controlled-project",
+            value["context"]["subject"],
+            None,
+            json_bytes(value["context"]["analyzed_scope"]),
+            subject_definition="contextual-target",
+        )
+        basis = cpu_input_basis(
+            "controlled-target-batch",
+            context,
+            (
+                CPUInputRole(
+                    "target",
+                    0,
+                    1,
+                    "controlled-target:" + str(index),
+                    None,
+                    value["kind_contract"],
+                    context,
+                    value["body"],
+                    (),
+                    producer_output=None,
+                ),
+            ),
+            parameters=canonical_bytes(semantic_value({})),
+            replicate="controlled-target-observation",
+        )
         members.append(dict(member=str(index), producer=_producer(index), input_basis=basis))
     packet = batch.encoder_packet(members, "retrieve.contextual_target_vector/declared")
     assert packet["frames"] == {}
@@ -170,10 +257,17 @@ def test_token_core_refusal_does_not_cut_or_poison_other_members(monkeypatch):
     profile, calls = _model(monkeypatch)
     profile = replace(profile, max_tokens=100)
     good = embeddings.ContextInput("good", "controlled", "query", "alpha", "alpha", 0, 5)
-    bad = replace(good, object_id="bad", query_context="context " * 100, representation_digest="actual-context")
+    bad = replace(
+        good,
+        object_id="bad",
+        query_context="context " * 100,
+        representation_digest="actual-context",
+    )
     result = embeddings.encode_contexts((good, bad), profile, isolate_members=True)
     assert result.member_positions == (0,)
-    assert [(value.position, value.code) for value in result.member_failures] == [(1, "token-core-limit")]
+    assert [(value.position, value.code) for value in result.member_failures] == [
+        (1, "token-core-limit")
+    ]
     assert len(calls) == 1 and len(calls[0]) == 1
 
 
@@ -201,7 +295,9 @@ def test_scalar_authority_reply_cannot_satisfy_encoder_batch_members():
 
 @pytest.mark.parametrize("change", ["version", "code", "detail", "extra"])
 def test_failed_member_cannot_expand_its_finite_outcome_contract(change):
-    failure: dict[str, object] = dict(batch.member_failure("invalid-vector", "controlled invalid norm")["encoder_member_failure"])
+    failure: dict[str, object] = dict(
+        batch.member_failure("invalid-vector", "controlled invalid norm")["encoder_member_failure"]
+    )
     value: dict[str, object] = {"encoder_member_failure": failure}
     if change == "version":
         failure["version"] = "historical"

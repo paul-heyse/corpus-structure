@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+from corpus_structure.core.process_lifetime import _live_group
 from corpus_structure.ingest.hosted_spacy import HostedPipeline
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.gliner import GlinerInput, GlinerPack
@@ -28,7 +29,6 @@ from corpus_structure.methods.native_profiles import (
     pm2_selection,
     preflight_native_runtime,
 )
-from corpus_structure.core.process_lifetime import _live_group
 from corpus_structure.settings import Settings
 
 

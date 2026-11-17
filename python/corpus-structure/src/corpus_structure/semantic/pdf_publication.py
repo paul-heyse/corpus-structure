@@ -1030,9 +1030,14 @@ def inspect_pdf_execution_receipt(
     )
     if state is None or state.published != publication:
         raise ValueError("PDF execution receipt differs from authenticated sealed build")
-    contributors = tuple(PdfSpoolContributorReceipt(**row.model_dump(mode="python"))
-                         for row in calls.read_pdf_spool_contributors(
-                             conn, build_id=publication.build_id, task_id=TaskId(publication.task_id),
-                             attempt=TaskAttempt(attempt), holder=holder,
-                         ))
+    contributors = tuple(
+        PdfSpoolContributorReceipt(**row.model_dump(mode="python"))
+        for row in calls.read_pdf_spool_contributors(
+            conn,
+            build_id=publication.build_id,
+            task_id=TaskId(publication.task_id),
+            attempt=TaskAttempt(attempt),
+            holder=holder,
+        )
+    )
     return PdfExecutionReceipt(publication, state.build.attempt, state.build.holder, contributors)

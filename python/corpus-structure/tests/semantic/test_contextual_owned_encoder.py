@@ -68,7 +68,7 @@ def test_owned_encoder_refuses_changed_model_before_import_or_allocation(tmp_pat
     profile = embeddings.EncoderProfile(
         "controlled-kernel", "a" * 40, 2, "query: ", "passage: ", "mean"
     )
-    with pytest.raises(ValueError, match="acquired file changed: .*restart required"):
+    with pytest.raises(ValueError, match=r"acquired file changed: .*restart required"):
         embeddings._owned_cpu_encoder(
             canonical_bytes(profile.semantic_configuration), str(tmp_path), (("weights", "0" * 64),)
         )
@@ -76,7 +76,7 @@ def test_owned_encoder_refuses_changed_model_before_import_or_allocation(tmp_pat
 
     prior = (("weights", observed_file(model)),)
     model.write_bytes(b"changed acquired bytes")
-    with pytest.raises(ValueError, match="acquired file changed: .*restart required"):
+    with pytest.raises(ValueError, match=r"acquired file changed: .*restart required"):
         embeddings._verify_cpu_artifacts(str(tmp_path), prior)
 
 
@@ -113,7 +113,11 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
     model = bound_data_operation_model(prepared)
     operation = model.operation("retrieve.contextual_query/declared")
     assert operation.capabilities.prepared_factory is not None
-    for name in ("retrieve.contextual_query/declared", "retrieve.contextual_query/selected-context", "retrieve.contextual_target_vector/declared"):
+    for name in (
+        "retrieve.contextual_query/declared",
+        "retrieve.contextual_query/selected-context",
+        "retrieve.contextual_target_vector/declared",
+    ):
         actual = model.operation(name)
         assert actual.capabilities.forms == ("batch",)
         assert set(actual.outcomes) == {"success", "failed"}

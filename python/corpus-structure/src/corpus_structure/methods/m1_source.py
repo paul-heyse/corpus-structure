@@ -576,7 +576,11 @@ def plan_candidates(
     for (family, variant, pack), members in questions.items():
         inputs = tuple(item for _, item in members)
         for ordinals, refusal in gliner_input_batches(
-            cfg.profile(), pack, inputs, threshold=cfg.threshold, overlap_policy="flat",
+            cfg.profile(),
+            pack,
+            inputs,
+            threshold=cfg.threshold,
+            overlap_policy="flat",
             native_profile=cfg.native_execution_profile,
         ):
             check_active()
@@ -602,7 +606,9 @@ def plan_candidates(
                 worker_failure = reply.message
                 details["producer_failure"] = worker_failure
                 for ordinal in ordinals:
-                    results[members[ordinal][0], family, variant] = _M1InputRefusal("not_run", worker_failure)
+                    results[members[ordinal][0], family, variant] = _M1InputRefusal(
+                        "not_run", worker_failure
+                    )
                 continue
             if len(reply.admissions) != len(requested) or any(
                 (admission.context_id, admission.context_digest)
@@ -613,7 +619,8 @@ def plan_candidates(
             reports = iter(reply.reports)
             for ordinal, admission in zip(ordinals, reply.admissions, strict=True):
                 results[members[ordinal][0], family, variant] = (
-                    next(reports) if admission.admitted
+                    next(reports)
+                    if admission.admitted
                     else _M1InputRefusal("limited", admission.reason or "native input refused")
                 )
 
@@ -1029,7 +1036,9 @@ def plan_candidates(
     return M1CandidateProduct(
         outcome=ObservationOutcome.PRODUCED
         if records or contribution_batch.contributions
-        else ObservationOutcome.FAILED if worker_failure else ObservationOutcome.EMPTY,
+        else ObservationOutcome.FAILED
+        if worker_failure
+        else ObservationOutcome.EMPTY,
         error=worker_failure if not (records or contribution_batch.contributions) else None,
         records=records,
         contributions=contribution_batch.contributions,

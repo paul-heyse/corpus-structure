@@ -129,11 +129,10 @@ def test_owned_stream_has_only_terminal_completion_and_spawned_receipt(
 @pytest.fixture
 def request_invocation():
     """Real invocation resource owners; tests inject only the failing transport."""
+    from contextlib import ExitStack
     from types import SimpleNamespace
 
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
-    from contextlib import ExitStack
-
     from corpus_structure.orchestrate.execution_host import ProcessExecutionHost
 
     resources = []
@@ -142,7 +141,10 @@ def request_invocation():
         executor = SimpleNamespace(
             prepared=SimpleNamespace(release_id="test:request-transport"),
             policy=CharacterizationExecutionPolicy(workers=1, max_submissions=1),
-            budget=budget, nemotron_endpoint=None, engine=None, fitter_engine=None,
+            budget=budget,
+            nemotron_endpoint=None,
+            engine=None,
+            fitter_engine=None,
             port_workers=1,
         )
         host = ProcessExecutionHost()

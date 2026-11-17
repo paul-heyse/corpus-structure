@@ -810,7 +810,9 @@ def test_process_residency_reuses_warm_population_and_retires_before_profile_cha
             events.append(("close", self))
             self.closed = True
 
-    residency = native_host.NativeHostResidency(CharacterizationExecutionPolicy(), group_factory=Group)
+    residency = native_host.NativeHostResidency(
+        CharacterizationExecutionPolicy(), group_factory=Group
+    )
     first, changed = selection(), selection("maverick")
     try:
         residency.begin_run()

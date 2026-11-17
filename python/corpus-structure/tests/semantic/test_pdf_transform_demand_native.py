@@ -198,7 +198,10 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
 
         def checked_observation(publisher, connection, product):
             task_id, attempt, holder, runtime_id = (
-                publisher.task_id, publisher.attempt, publisher.holder, publisher.runtime_id
+                publisher.task_id,
+                publisher.attempt,
+                publisher.holder,
+                publisher.runtime_id,
             )
             value = product.values()
             variants = (
@@ -282,7 +285,9 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             valid_observations.append((task_id, value["product_key"], digest))
             return digest
 
-        monkeypatch.setattr(pdf_integrated.PreparedPdfObservationPublisher, "publish", checked_observation)
+        monkeypatch.setattr(
+            pdf_integrated.PreparedPdfObservationPublisher, "publish", checked_observation
+        )
         targets = (
             "source.pdf_organized_views/discovery",
             "source.pdf_enriched_views/discovery",

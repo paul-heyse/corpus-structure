@@ -107,7 +107,10 @@ def test_requested_context_refuses_wrong_member_source_dependency_and_missing_po
 @pytest.mark.parametrize("failure", ["missing", "empty"])
 def test_named_context_failure_is_typed_before_model_allocation(failure, monkeypatch):
     from corpus_structure.semantic import contextual_encoder_batch as batch
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
+    from corpus_structure.semantic.data_operation_identity import (
+        decode_semantic_value,
+        semantic_value,
+    )
     from semantic.test_contextual_encoder_batch import _query_members
 
     members, _ = _query_members(selected=True)
@@ -117,7 +120,9 @@ def test_named_context_failure_is_typed_before_model_allocation(failure, monkeyp
             basis["roles"] = [role for role in basis["roles"] if role["role"] != "primary"]
         else:
             primary = next(role["body"] for role in basis["roles"] if role["role"] == "primary")
-            next(row["body"] for row in primary["members"] if row["member_id"] == "predicate")["occurrences"] = []
+            next(row["body"] for row in primary["members"] if row["member_id"] == "predicate")[
+                "occurrences"
+            ] = []
         member["input_basis"] = semantic_value(basis)
 
     def refuse(*args, **kwargs):
@@ -127,7 +132,10 @@ def test_named_context_failure_is_typed_before_model_allocation(failure, monkeyp
     packet = batch.encoder_packet(members, "retrieve.contextual_query/selected-context")
     prepared, failures = batch.prepare_encoder_members(packet, batch.unpack_encoder_packet(packet))
     assert prepared == () and set(failures) == {0, 1}
-    assert all(value["encoder_member_failure"]["code"] == "selected-context-unavailable" for value in failures.values())
+    assert all(
+        value["encoder_member_failure"]["code"] == "selected-context-unavailable"
+        for value in failures.values()
+    )
 
 
 def test_retrieval_refuses_query_vector_from_another_context_before_relation_allocation():

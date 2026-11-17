@@ -146,7 +146,10 @@ class NativeHost:
             bufsize=0,
         )
         self._reader = Thread(
-            target=self._read, name="nlp-host-reader-" + self.generation[:8], daemon=True, context=Context()
+            target=self._read,
+            name="nlp-host-reader-" + self.generation[:8],
+            daemon=True,
+            context=Context(),
         )
         self._reader.start()
         try:
@@ -317,12 +320,17 @@ class NativeHost:
         pending.permit.release()
         if message["kind"] == "result":
             if not isinstance(message.get("payload"), dict):
-                pending.context.run(pending.future.set_exception, Pm2WorkerError("native result is not an object"))
+                pending.context.run(
+                    pending.future.set_exception, Pm2WorkerError("native result is not an object")
+                )
                 raise Pm2WorkerError("native result is not an object")
             pending.context.run(pending.future.set_result, message["payload"])
         else:
             kind = CancelledError if message["kind"] == "cancelled" else Pm2WorkerRefused
-            pending.context.run(pending.future.set_exception, kind(str(message.get("message", message["kind"]))[:1800]))
+            pending.context.run(
+                pending.future.set_exception,
+                kind(str(message.get("message", message["kind"]))[:1800]),
+            )
 
     def infer(self, selection, payload, *, check_active, timeout=120.0):
         return self.infer_result(
@@ -548,7 +556,9 @@ class NativeHostGroup:
                     raise Pm2WorkerRefused("native host group has no declared residents")
                 self._serving = True
                 self._ready = Future()
-                self._thread = Thread(target=self._manage, name="native-gpu-custody", daemon=True, context=Context())
+                self._thread = Thread(
+                    target=self._manage, name="native-gpu-custody", daemon=True, context=Context()
+                )
                 self._thread.start()
             ready = self._ready
         while True:
@@ -740,7 +750,9 @@ class NativeHostResidency:
             while self._suspended and self._group is not None:
                 self._check()
                 if time.monotonic() >= deadline:
-                    raise NativeRetirementUncertain("external GPU handoff has not confirmed native retirement")
+                    raise NativeRetirementUncertain(
+                        "external GPU handoff has not confirmed native retirement"
+                    )
                 self._condition.wait(0.1)
             if self._suspended:
                 # The external owner already proved this generation dead and
@@ -897,7 +909,6 @@ class NativeHostResidency:
             check_active()
             yield
         except BaseException as error:
-
             # A failed close retains ownership even when its exception did not
             # originate in a provider (for example, transport owner timeout).
             with self._condition:

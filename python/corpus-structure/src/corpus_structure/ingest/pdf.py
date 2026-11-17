@@ -340,7 +340,9 @@ class PdfConverter:
                         if self.pipeline_options.document_timeout is not None:
                             from time import monotonic
 
-                            conv_res._conversion_deadline = monotonic() + self.pipeline_options.document_timeout
+                            conv_res._conversion_deadline = (
+                                monotonic() + self.pipeline_options.document_timeout
+                            )
                         conv_res.status = ConversionStatus.SUCCESS
                         return conv_res
                     self._spool_missing_pages = missing
@@ -361,7 +363,11 @@ class PdfConverter:
                             self.heading_hierarchy_model,
                             producer_owner.formula_stage().native.images_scale,
                             confidence=item.conv_res.confidence.pages.get(item.page_no),
-                            errors=[error for error in item.conv_res.errors if error.page_no == item.page_no],
+                            errors=[
+                                error
+                                for error in item.conv_res.errors
+                                if error.page_no == item.page_no
+                            ],
                         )
                     else:
                         super()._release_page_resources(item)

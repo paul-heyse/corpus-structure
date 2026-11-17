@@ -8,7 +8,11 @@ import pytest
 from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.methods import m1_source
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
-from corpus_structure.methods.gliner_worker import GlinerAdmission, GlinerBatchResult, GlinerWorkerError
+from corpus_structure.methods.gliner_worker import (
+    GlinerAdmission,
+    GlinerBatchResult,
+    GlinerWorkerError,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.m1_products import NativeCandidateData
 from methods.m1_producer_support import (
@@ -147,7 +151,6 @@ def test_generic_role_guidance_runs_only_through_explicit_detached_helper(monkey
 
 @pytest.mark.parametrize("fatal", [False, True])
 def test_request_limit_continues_independent_context_but_worker_fault_fences_it(monkeypatch, fatal):
-    from corpus_structure.methods.gliner import GlinerRefused
     from corpus_structure.semantic.contributions import bind_contributions
     from methods.domain_configuration import candidate_configuration
 
@@ -200,17 +203,31 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
             word = item.text.split()[0]
             return GlinerBatchResult(
                 (
-                    GlinerAdmission(0, inputs[0].context_id, inputs[0].context_digest, False,
-                                    "controlled input bound"),
+                    GlinerAdmission(
+                        0,
+                        inputs[0].context_id,
+                        inputs[0].context_digest,
+                        False,
+                        "controlled input bound",
+                    ),
                     GlinerAdmission(1, item.context_id, item.context_digest, True),
                 ),
-                (GlinerReport(
-                    item.context_id, item.context_digest, "controlled-local", "fixture",
-                    pack.fingerprint,
-                    GlinerPreparation(item.text, "", 4, 4, len(item.text.encode())),
-                    json.dumps({"entities": {"term": [dict(text=word, start=0, end=len(word))]}}),
-                    "{}", 0, True,
-                ),),
+                (
+                    GlinerReport(
+                        item.context_id,
+                        item.context_digest,
+                        "controlled-local",
+                        "fixture",
+                        pack.fingerprint,
+                        GlinerPreparation(item.text, "", 4, 4, len(item.text.encode())),
+                        json.dumps(
+                            {"entities": {"term": [dict(text=word, start=0, end=len(word))]}}
+                        ),
+                        "{}",
+                        0,
+                        True,
+                    ),
+                ),
             )
 
     decoder = LimitedDecoder("empty")
@@ -639,7 +656,11 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
         for _, _, pack in variants
     }
     with pytest.raises(StopIteration) as completed:
-        plan.send(m1_source.M1GlinerReply(failure="worker", message="deliberate provider-boundary failure"))
+        plan.send(
+            m1_source.M1GlinerReply(
+                failure="worker", message="deliberate provider-boundary failure"
+            )
+        )
     assert completed.value.value.outcome == ObservationOutcome.FAILED
     assert "deliberate provider-boundary failure" in completed.value.value.error
 
@@ -686,10 +707,19 @@ def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure,
         try:
             request = plan.send(
                 m1_source.M1GlinerReply(failure="worker", message="deliberate typed failure")
-                if failure == "worker" else m1_source.M1GlinerReply(admissions=tuple(
-                    GlinerAdmission(index, item.context_id, item.context_digest, False, "deliberate typed failure")
-                    for index, item in enumerate(request.inputs)
-                ))
+                if failure == "worker"
+                else m1_source.M1GlinerReply(
+                    admissions=tuple(
+                        GlinerAdmission(
+                            index,
+                            item.context_id,
+                            item.context_digest,
+                            False,
+                            "deliberate typed failure",
+                        )
+                        for index, item in enumerate(request.inputs)
+                    )
+                )
             )
         except StopIteration as completed:
             assert completed.value.outcome == expected

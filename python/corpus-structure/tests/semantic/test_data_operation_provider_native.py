@@ -134,15 +134,28 @@ def test_native_provider_selected_attachment_and_forgery_refusal(ddo_kernel):
         forged = canonical_identity("semantic-request", meaning)
         binding = json.loads(ready.binding)
         binding["request_inputs"] = semantic_value(meaning["inputs"])
-        result = DataOperationStorage(connection).attach_data_requests(typing_cast(WireAttachDataRequestsRequest, {
-            "read_id": binding["read_id"], "items": [typing_cast(WireAttachDataRequestRequest, {
-                "obligation_id": ready.obligation, "request_meaning": json.loads(forged.canonical_input),
-                "request_key": forged.key, "binding": binding, "replicate": None,
-            })],
-        }))["items"][0]
+        result = DataOperationStorage(connection).attach_data_requests(
+            typing_cast(
+                WireAttachDataRequestsRequest,
+                {
+                    "read_id": binding["read_id"],
+                    "items": [
+                        typing_cast(
+                            WireAttachDataRequestRequest,
+                            {
+                                "obligation_id": ready.obligation,
+                                "request_meaning": json.loads(forged.canonical_input),
+                                "request_key": forged.key,
+                                "binding": binding,
+                                "replicate": None,
+                            },
+                        )
+                    ],
+                },
+            )
+        )["items"][0]
         assert result["state"] == "refused"
         assert result["sqlstate"] == "P0001" and "provider identity differs" in result["reason"]
-
 
 
 @pytest.mark.parametrize("ddo_kernel", [PROFILED], indirect=True, ids=["provider-runtime"])

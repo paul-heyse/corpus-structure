@@ -20,8 +20,8 @@ from sqlalchemy import func, select
 
 from .data_operation_json import json_bytes
 from .identity import canonical_bytes
-from .product_reference import ProductReference
 from .pdf_record_reader import PdfRecognitionInventory
+from .product_reference import ProductReference
 from .types import SourceArtifact
 
 
@@ -109,7 +109,12 @@ def _implementation_files(mode):
     if mode == "organized":
         return common
     if mode == "recognized":
-        return (*common, "ingest/pdf_recognition.py", "ingest/pdf_incumbent_recovery.py", "core/process_lifetime.py")
+        return (
+            *common,
+            "ingest/pdf_recognition.py",
+            "ingest/pdf_incumbent_recovery.py",
+            "core/process_lifetime.py",
+        )
     extra = (
         (
             "ingest/pdf_selected_enrichment.py",
@@ -430,8 +435,11 @@ def _read_selected_pdf(
         inventory = reader.recognition_inventory() if recognition_only else None
         if not recognition_only:
             reader.require_materialization_capacity()
-        health = ([inventory.health] if inventory is not None else
-                  [row for row in reader.iter_companions("health") if "conversion" in row])
+        health = (
+            [inventory.health]
+            if inventory is not None
+            else [row for row in reader.iter_companions("health") if "conversion" in row]
+        )
         if (
             len(health) != 1
             or pdf_publication_value(
@@ -443,8 +451,11 @@ def _read_selected_pdf(
         check_active()
         context = pdf_context_for_release(connection, prepared)
         artifacts = table("kb.source_artifact")
-        digests = ((publication.source_digest,) if recognition_only else
-                   (publication.source_digest, publication.schema_digest, publication.recipe_digest))
+        digests = (
+            (publication.source_digest,)
+            if recognition_only
+            else (publication.source_digest, publication.schema_digest, publication.recipe_digest)
+        )
         size = connection.scalar(
             select(func.sum(func.octet_length(artifacts.c.content))).where(
                 artifacts.c.artifact_digest.in_(digests)
@@ -496,7 +507,9 @@ def _read_selected_pdf(
             specs = tuple((row.section_pointer, row.membership) for row in projections)
             directory.mkdir(parents=True, exist_ok=False)
             replays = {}
-            for payload in reader.iter_candidate_payloads(context=context) if read_candidates else ():
+            for payload in (
+                reader.iter_candidate_payloads(context=context) if read_candidates else ()
+            ):
                 check_active()
                 if payload.page_no in replays:
                     raise ValueError("duplicate selected PDF candidate page")
@@ -714,8 +727,11 @@ def _selected_pdf_execution(
                 task_id=claim.task_id,
                 attempt=claim.attempt,
                 holder=claim.holder,
-                original=(selected.original if isinstance(selected, SelectedPdfRecognitionInput)
-                          else selected.product.original),
+                original=(
+                    selected.original
+                    if isinstance(selected, SelectedPdfRecognitionInput)
+                    else selected.product.original
+                ),
                 recipe_bytes=recipe_bytes,
             )
         yield selected, recipe_bytes, owner, directory
@@ -784,7 +800,10 @@ class PreparedPdfTransform:
         sections=(),
         membership: Literal["direct", "descendants"] = "direct",
     ):
-        from corpus_structure.orchestrate.pdf_streaming import finish_existing_pdf_product, publish_pdf_record_draft
+        from corpus_structure.orchestrate.pdf_streaming import (
+            finish_existing_pdf_product,
+            publish_pdf_record_draft,
+        )
 
         from .pdf_capture import PdfCaptureProduct, pdf_publication_value
         from .pdf_publication import inspect_pdf_execution_receipt
@@ -804,12 +823,20 @@ class PreparedPdfTransform:
         ) as (selected, recipe_bytes, owner, directory):
             if not isinstance(selected, SelectedPdfInput):
                 raise ValueError("PDF transformation requires the complete selected product")
-            product_key = {"organized": "organized", "enriched": "math-enriched", "integrated": "integrated"}[self.mode]
+            product_key = {
+                "organized": "organized",
+                "enriched": "math-enriched",
+                "integrated": "integrated",
+            }[self.mode]
             publication = finish_existing_pdf_product(
-                execution_owner.engine, claim, claim.holder,
-                product_key=product_key, kind="integrated" if self.mode == "integrated" else "native",
+                execution_owner.engine,
+                claim,
+                claim.holder,
+                product_key=product_key,
+                kind="integrated" if self.mode == "integrated" else "native",
                 source_digest=sha256(selected.product.original).hexdigest(),
-                recipe_bytes=recipe_bytes, schema_digest=sha256(selected.product.schema_bytes).hexdigest(),
+                recipe_bytes=recipe_bytes,
+                schema_digest=sha256(selected.product.schema_bytes).hexdigest(),
                 check_active=check_active,
             )
             if publication is None:
@@ -818,7 +845,9 @@ class PreparedPdfTransform:
                         self._organize(selected, recipe_bytes, check_active)
                     )
                 elif self.mode == "enriched":
-                    publication_scope = nullcontext(self._enrich(selected, recipe_bytes, check_active))
+                    publication_scope = nullcontext(
+                        self._enrich(selected, recipe_bytes, check_active)
+                    )
                 elif self.mode == "integrated" and observations is not None:
                     publication_scope = contextmanager(self._integrate)(
                         selected,
@@ -830,7 +859,9 @@ class PreparedPdfTransform:
                         check_active,
                     )
                 else:
-                    raise ValueError("PDF integration requires its selected retained observation set")
+                    raise ValueError(
+                        "PDF integration requires its selected retained observation set"
+                    )
                 with publication_scope as draft:
                     publication = publish_pdf_record_draft(
                         execution_owner.engine,
@@ -923,7 +954,10 @@ class PreparedPdfTransform:
             )
             with execution_owner.engine.connect() as connection:
                 publisher = prepare_pdf_observation_publisher(
-                    connection, task_id=claim.task_id, attempt=claim.attempt, holder=claim.holder,
+                    connection,
+                    task_id=claim.task_id,
+                    attempt=claim.attempt,
+                    holder=claim.holder,
                     runtime_id=execution_owner.invocation.executor.runtime.runtime_id,
                     context=selected.context,
                 )
@@ -931,11 +965,19 @@ class PreparedPdfTransform:
 
             def retain(page, actual_recipe):
                 report = prepare_recognition_report(page, actual_recipe)
-                prepared_products = tuple(prepare_recognition_page_products(
-                    page, source, actual_recipe, original, selected.context,
-                    structural_pin=selected.parent, report=report,
-                    verify_retained=options.source_recovery is not None, check_active=check_active,
-                ))
+                prepared_products = tuple(
+                    prepare_recognition_page_products(
+                        page,
+                        source,
+                        actual_recipe,
+                        original,
+                        selected.context,
+                        structural_pin=selected.parent,
+                        report=report,
+                        verify_retained=options.source_recovery is not None,
+                        check_active=check_active,
+                    )
+                )
                 references, readings = [], []
                 with execution_owner.engine.begin() as connection:
                     pins = []
@@ -945,38 +987,64 @@ class PreparedPdfTransform:
                         body = product.values()
                         pin = ProductReference(claim.task_id, body["product_key"], digest)
                         pins.append(pin)
-                        readings.append({
-                            "ordinal": len(readings),
-                            "meaning_digest": observation_meaning_digest(body, specification=specification),
-                            "pass_role": body["observation"]["pass_role"],
-                            "outcome": body["observation"]["outcome"],
-                        })
+                        readings.append(
+                            {
+                                "ordinal": len(readings),
+                                "meaning_digest": observation_meaning_digest(
+                                    body, specification=specification
+                                ),
+                                "pass_role": body["observation"]["pass_role"],
+                                "outcome": body["observation"]["outcome"],
+                            }
+                        )
                     products = table("ops.pdf_product")
                     origins = {
-                        ProductReference(claim.task_id, key, digest): PdfObservationPublicationContext.model_validate(origin)
-                        for key, digest, origin in connection.execute(select(
-                            products.c.product_key, products.c.content_digest, products.c.publication_context,
-                        ).where(products.c.task_id == claim.task_id,
-                                products.c.product_key.in_([pin.product_key for pin in pins])))
+                        ProductReference(
+                            claim.task_id, key, digest
+                        ): PdfObservationPublicationContext.model_validate(origin)
+                        for key, digest, origin in connection.execute(
+                            select(
+                                products.c.product_key,
+                                products.c.content_digest,
+                                products.c.publication_context,
+                            ).where(
+                                products.c.task_id == claim.task_id,
+                                products.c.product_key.in_([pin.product_key for pin in pins]),
+                            )
+                        )
                     }
                     if set(origins) != set(pins):
-                        raise ValueError("page publication context differs from its exact request inventory")
+                        raise ValueError(
+                            "page publication context differs from its exact request inventory"
+                        )
                     for ordinal, reference in enumerate(pins):
-                        references.append(PdfObservedRequest(
-                            ordinal=ordinal, **reference.values(), publication_context=origins[reference],
-                        ))
+                        references.append(
+                            PdfObservedRequest(
+                                ordinal=ordinal,
+                                **reference.values(),
+                                publication_context=origins[reference],
+                            )
+                        )
                     check_active()
                 # No partial page escapes its transaction. Original publisher
                 # provenance remains per request, including exact earlier replay.
-                receipts.append(PdfObservedPage(
-                    page_no=page.page_no, recipe_digest=actual_recipe.digest,
-                    report_digest=sha256(report.content).hexdigest(), adapter_reused=page.reused,
-                    observations=tuple(references),
-                ))
-                page_values.append({
-                    "page_no": page.page_no, "recipe_digest": actual_recipe.digest,
-                    "outcome": json.loads(report.result)["outcome"], "observations": readings,
-                })
+                receipts.append(
+                    PdfObservedPage(
+                        page_no=page.page_no,
+                        recipe_digest=actual_recipe.digest,
+                        report_digest=sha256(report.content).hexdigest(),
+                        adapter_reused=page.reused,
+                        observations=tuple(references),
+                    )
+                )
+                page_values.append(
+                    {
+                        "page_no": page.page_no,
+                        "recipe_digest": actual_recipe.digest,
+                        "outcome": json.loads(report.result)["outcome"],
+                        "observations": readings,
+                    }
+                )
 
             worker = RecognitionWorker(
                 python=Path(resources.python),
@@ -1040,7 +1108,9 @@ class PreparedPdfTransform:
                 )
             # Completion order is physical scheduling, not semantic page order.
             page_rank = {number: index for index, number in enumerate(requested)}
-            order = sorted(range(len(receipts)), key=lambda index: page_rank[receipts[index].page_no])
+            order = sorted(
+                range(len(receipts)), key=lambda index: page_rank[receipts[index].page_no]
+            )
             receipts = [receipts[index] for index in order]
             page_values = [page_values[index] for index in order]
             value = {

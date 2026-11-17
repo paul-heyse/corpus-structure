@@ -39,7 +39,11 @@ def test_selected_defaults_and_frozen_roundtrip():
 @pytest.mark.parametrize("value", [True, False, 0, -1, 1.5, "2", None, float("inf")])
 def test_every_bound_is_a_strict_positive_integer(value):
     for field in asdict(CharacterizationExecutionPolicy()):
-        if value == 0 and type(value) is int and field in {"max_idle_capsule_bytes", "native_keep_warm_seconds"}:
+        if (
+            value == 0
+            and type(value) is int
+            and field in {"max_idle_capsule_bytes", "native_keep_warm_seconds"}
+        ):
             assert getattr(CharacterizationExecutionPolicy(**{field: value}), field) == 0
             assert getattr(_POLICY.validate_python({field: value}), field) == 0
             continue

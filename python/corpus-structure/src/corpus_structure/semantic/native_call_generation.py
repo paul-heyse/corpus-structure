@@ -308,7 +308,11 @@ def render_call_bindings(
             if call.batch
             else f"_{name}Request"
         )
-        if operation.startswith("data.") and any(field.source == "native-wire" for field in call.parameters) and not call.wire_contract_digest:
+        if (
+            operation.startswith("data.")
+            and any(field.source == "native-wire" for field in call.parameters)
+            and not call.wire_contract_digest
+        ):
             raise ValueError("DDO native wire call lacks its captured installed wire contract")
         if call in structural:
             if (
@@ -365,7 +369,11 @@ def render_call_bindings(
                 f"class {call.result_class}(TypedDict):",
                 f"    {result.name}: {result_type}",
                 "",
-                *([] if installed_contract else [f"_{name}_validate_input = prepare_wire_schema({boundary_input!r})"]),
+                *(
+                    []
+                    if installed_contract
+                    else [f"_{name}_validate_input = prepare_wire_schema({boundary_input!r})"]
+                ),
                 f"_{name}_validate_output = prepare_wire_schema({boundary_output!r})",
                 "",
                 f"_{name}_statement = select(func.{call.symbol}(",
@@ -388,8 +396,11 @@ def render_call_bindings(
                 ]
             out += [
                 *(
-                    [f"    return _{name}_statement.params({parameter.name}=encode_native_wire_request({parameter.name}))"]
-                    if installed_contract else [
+                    [
+                        f"    return _{name}_statement.params({parameter.name}=encode_native_wire_request({parameter.name}))"
+                    ]
+                    if installed_contract
+                    else [
                         f"    checked = _{name}_validate_input({{{parameter.name!r}: {parameter.name}}})",
                         f"    return _{name}_statement.params({parameter.name}=json_bytes(checked[{parameter.name!r}]).decode())",
                     ]
@@ -412,7 +423,9 @@ def render_call_bindings(
                         f"        if value['contract_digest'] != {installed_contract!r}:",
                         "            raise ValueError('native installed wire contract differs from the captured client')",
                         "        value = {'payload': value['payload']}",
-                    ] if installed_contract else []
+                    ]
+                    if installed_contract
+                    else []
                 ),
                 f"        return cast({call.result_class}, _{name}_validate_output(value))",
             ]
