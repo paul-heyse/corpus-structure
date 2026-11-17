@@ -8,6 +8,7 @@ from .data_operation_json import json_bytes
 from .data_operation_model import SubjectContext
 from .data_operation_support import read_support_references
 from .identity import canonical_bytes
+from .selected_support import ProducerOutputOccurrence
 from .rich_knowledge_contracts import DdoRichSelectedMember
 
 
@@ -43,7 +44,7 @@ class RichKernelInputs:
         if (
             not isinstance(value, dict)
             or set(value) != {"version", "recipe", "context", "roles", "parameters", "replicate"}
-            or value["version"] != "cpu-input-basis-2"
+            or value["version"] != "cpu-input-basis-3"
         ):
             raise ValueError("rich computation requires the actual shared CPU input basis")
         roles = []
@@ -58,6 +59,7 @@ class RichKernelInputs:
                 "context",
                 "body",
                 "support",
+                "producer_output",
             }:
                 raise ValueError("rich child input differs from the actual finite role shape")
             roles.append(
@@ -71,6 +73,8 @@ class RichKernelInputs:
                     context=_context(role["context"]),
                     body=role["body"],
                     support=read_support_references(role["support"]),
+                    producer_output=(ProducerOutputOccurrence.model_validate(role["producer_output"])
+                                     if role["producer_output"] is not None else None),
                 )
             )
         result = cls(

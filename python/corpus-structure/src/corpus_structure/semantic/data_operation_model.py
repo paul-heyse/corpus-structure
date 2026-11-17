@@ -20,8 +20,9 @@ from .data_operation_support import (
     SupportReference,
 )
 from .identity import canonical_bytes
+from .selected_support import ProducerOutputOccurrence
 
-MODEL_VERSION = "data-operation-model-v8"
+MODEL_VERSION = "data-operation-model-v9"
 
 
 SubjectScope = Literal[
@@ -1046,6 +1047,7 @@ class BoundRoleMember:
     provider_identity: str | None = None
     alternative_identity: str | None = None
     support_references: tuple[SupportReference, ...] = field(kw_only=True)
+    producer_output: ProducerOutputOccurrence | None = field(kw_only=True, default=None)
 
     def __post_init__(self) -> None:
         computed = tuple(

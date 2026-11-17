@@ -215,10 +215,18 @@ class WireNativeExecutionEvidence(TypedDict):
     version: Required[Literal["native-execution-evidence-v1"]]
 
 
+class WireProducerOutputOccurrence(TypedDict):
+    member_id: Required[WireIdentifier | None]
+    multiplicity: Required[int]
+    position: Required[int]
+    role: Required[WireIdentifier]
+
+
 class WireInputMember(TypedDict):
     member_id: NotRequired[WireMemberId | None]
     multiplicity: Required[WirePositiveInteger]
     position: Required[WireNonnegativeInteger]
+    producer_output: Required[WireProducerOutputOccurrence | None]
     product_id: Required[WireProductId]
     role: Required[WireIdentifier]
     support_derivation_ids: Required[list[WireIdentifier]]
@@ -666,6 +674,44 @@ class WireRootSubject(TypedDict):
     subject: Required[WireSubjectId]
 
 
+class WireSelectedSourceSupport(TypedDict):
+    admission_use_id: Required[WireIdentifier]
+    derivation_id: Required[WireIdentifier]
+    kind: Required[Literal["computation"]]
+
+
+class WireSelectedSourceProof(TypedDict):
+    anchor_use_id: Required[WireIdentifier]
+    member_id: Required[WireIdentifier | None]
+    output: Required[WireProducerOutputOccurrence]
+    product_id: Required[WireIdentifier]
+    support: Required[WireSelectedSourceSupport]
+
+
+class WireSelectedSourceRead(TypedDict):
+    cut_canonical_json: Required[WireIdentifier]
+    cut_id: Required[WireIdentifier]
+    demand_id: Required[WireIdentifier]
+    project_id: Required[WireIdentifier]
+    read_id: Required[WireIdentifier]
+    release_id: Required[WireIdentifier]
+    runtime_id: Required[WireIdentifier]
+
+
+class WireSourceReadBasis(TypedDict):
+    proofs: Required[list[WireSelectedSourceProof]]
+    selection: Required[WireSelectedSourceRead]
+
+
+class WireSourceSetAcquisitionVariant1(TypedDict):
+    kind: Required[Literal["selected-support-v1"]]
+    reads: Required[list[WireSourceReadBasis]]
+
+
+class WireSourceSetAcquisitionVariant2(TypedDict):
+    kind: Required[Literal["all-admissible-support-v1"]]
+
+
 class WireSemanticSourceReference(TypedDict):
     member_id: NotRequired[WireMemberId]
     product_id: Required[WireProductId]
@@ -683,6 +729,11 @@ class WireSourceSetEntry(TypedDict):
     subject_definition: Required[WireIdentifier]
 
 
+class WireFrozenSourceSet(TypedDict):
+    acquisition: Required[WireSourceSetAcquisition]
+    entries: Required[list[WireSourceSetEntry]]
+
+
 class WireDemandIntent(TypedDict):
     discovery: Required[list[WireDiscoverySelection]]
     execution_profile: Required[WireIdentifier]
@@ -692,9 +743,9 @@ class WireDemandIntent(TypedDict):
     original_sources: NotRequired[dict[str, WireOriginalSourceSelection]]
     root_operations: Required[list[WireOperationId]]
     roots: Required[list[WireRootSubject]]
-    source_sets: NotRequired[dict[str, list[WireSourceSetEntry]]]
+    source_sets: NotRequired[dict[str, WireFrozenSourceSet]]
     targets: Required[list[WireOperationId]]
-    version: Required[Literal["data-demand-intent-v1"]]
+    version: Required[Literal["data-demand-intent-v2"]]
 
 
 class WireContinuation(TypedDict):
@@ -903,7 +954,7 @@ class WireOperationEventFrameIndependentEventJudgment(TypedDict):
     selection: Required[WireOperationEventFrameSelectedDefinitionEvent]
 
 
-class WireOperationEventFrameSelectedEventRead(TypedDict):
+class WireOperationEventFrameSelectedReadReference(TypedDict):
     cut_canonical_json: Required[str]
     cut_id: Required[str]
     demand_id: Required[str]
@@ -919,10 +970,10 @@ class WireOperationEventFrameDdoOperationEventQuestion(TypedDict):
     event: Required[Literal["defined_by_correctness", "defining_text_attachment_correctness"]]
     exposure: NotRequired[Literal["output_first"]]
     judgments: Required[list[WireOperationEventFrameIndependentEventJudgment]]
-    original_selection: Required[WireOperationEventFrameSelectedEventRead]
+    original_selection: Required[WireOperationEventFrameSelectedReadReference]
     partition: Required[Literal["development", "feature_fit"]]
     pass_kind: NotRequired[Literal["C"]]
-    prediction_selection: Required[WireOperationEventFrameSelectedEventRead]
+    prediction_selection: Required[WireOperationEventFrameSelectedReadReference]
     reference_name: Required[str]
     rubric: Required[str]
     rubric_version: Required[str]
@@ -1694,6 +1745,8 @@ type WireFrontierAt = str
 type WireReadSnapshot = WireReadSnapshotIdentity
 
 type WireOriginalSourceSelection = WireOriginalDocumentSelection | WireAuthoredFactSelection
+
+type WireSourceSetAcquisition = WireSourceSetAcquisitionVariant1 | WireSourceSetAcquisitionVariant2
 
 type WireDataTaskState = Literal["pending", "running", "done", "empty", "failed", "cancelled"]
 

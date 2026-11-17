@@ -79,7 +79,7 @@ class NativeDemandRequest(BaseModel):
     targets: tuple[str, ...] = Field(min_length=1)
     selections: tuple[DemandOperationSelection, ...] = ()
     discovery: tuple[DemandDiscoverySelection, ...] = ()
-    source_sets: dict[str, list[dict[str, DdoJsonValue]]] = Field(default_factory=dict)
+    source_sets: dict[str, dict[str, DdoJsonValue]] = Field(default_factory=dict)
     original_sources: dict[str, DemandOriginalSelection] = Field(default_factory=dict)
     inference: str = "declared"
     execution_profile: str = Field(min_length=1)

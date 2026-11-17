@@ -2513,9 +2513,9 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         parameters["source_sets"] = {
             name: [
                 {**entry, "analyzed_scope": scope_identity(entry["analyzed_scope"])}
-                for entry in entries
+                for entry in scope["entries"]
             ]
-            for name, entries in wire_json_loads(binding.source_sets).items()
+            for name, scope in wire_json_loads(binding.source_sets).items()
         }
     request = SemanticRequestKey(
         recipe,

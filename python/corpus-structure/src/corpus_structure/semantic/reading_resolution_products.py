@@ -320,7 +320,7 @@ def execute_reading_kernel(input_basis: list, *, prepared, check_active) -> dict
     basis = decode_semantic_value(input_basis)
     roles = basis["roles"]
     if (
-        basis["version"] != "cpu-input-basis-2"
+        basis["version"] != "cpu-input-basis-3"
         or len(roles) != 2
         or {role["role"] for role in roles} != {"candidates", "policy"}
         or any(role["multiplicity"] != 1 for role in roles)

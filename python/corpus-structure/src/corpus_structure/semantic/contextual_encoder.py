@@ -323,6 +323,7 @@ def checked_primary_query_rows(primary, *, binding):
             ),
             body,
             member.support_references,
+            producer_output=member.producer_output,
         )
         for member, body in zip(roles[0].members, primary, strict=True)
     )
