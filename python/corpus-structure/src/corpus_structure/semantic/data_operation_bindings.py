@@ -670,15 +670,29 @@ def compile_binding(
                             "discovery input association requires its complete child context"
                         )
                     if (
-                        population.projection != "member"
+                        not isinstance(evidence, dict)
+                        or population.projection != "member"
                         or not isinstance(evidence.get("product_id"), str)
                         or not evidence["product_id"]
+                        or any(
+                            not isinstance(evidence.get(key), str) or not evidence[key]
+                            for key in ("derivation_id", "admission_use_id")
+                        )
                     ):
-                        raise ValueError("discovery input requires an exact parent product")
+                        raise ValueError("discovery input requires exact parent product and support")
                     condition = and_(
                         condition,
                         alias.c.product == evidence["product_id"],
                         alias.c.member.in_(population.members),
+                        alias.c.support_references.contains(
+                            [
+                                {
+                                    "kind": "computation",
+                                    "derivation_id": evidence["derivation_id"],
+                                    "admission_use_id": evidence["admission_use_id"],
+                                }
+                            ]
+                        ),
                         alias.c.subject == subject_context.subject,
                         alias.c.subject_definition == subject_context.subject_definition,
                         alias.c.original_source == subject_context.original_source,

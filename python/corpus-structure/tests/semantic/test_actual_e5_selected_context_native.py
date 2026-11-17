@@ -232,7 +232,8 @@ def query_request(kernel, retained_request, original, primary, *, recipe, member
     from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
 
     # Discovery owns the document root; both consumers run at its actual child
-    # source context. Each named set retains only its declared role's exact pins.
+    # source context. The fixture set limits addresses; current discovery owns
+    # its producing proof. The primary and PDF sets retain their selected proofs.
     query_relations = source_discovery_relations(kernel.model, DISCOVERY, "result", QUERY)
     assert len(query_relations) == 1 and query_relations[0].target_role == "source"
     discovery = (
@@ -249,8 +250,8 @@ def query_request(kernel, retained_request, original, primary, *, recipe, member
         **retained_request.source_sets,
         **source_sets_record(
             (
-                FrozenSourceSet.from_selected(
-                    "fixture-selected-context-source", (original.entry(),)
+                FrozenSourceSet.unqualified(
+                    "fixture-selected-context-source", (original.entry().entry,)
                 ),
                 FrozenSourceSet.from_selected("query-context-primary", (primary.entry(),)),
             )
