@@ -553,6 +553,33 @@ def effective_profile_fingerprint(effective_json: str) -> str:
     return _digest(identity)
 
 
+def _bind_boundary_attribute_decoder(model: Any) -> str:
+    """Correct the pinned upstream decoder's CPU-logit/CUDA-index mismatch.
+
+    GLiNER2 2.1.0 transfers attribute logits to CPU, then indexes them with
+    CUDA row indices. Preserve the native implementation with exactly that
+    device expression corrected, rather than maintaining another decoder.
+    An upstream source change must be reviewed before this binding can load.
+    """
+    import inspect
+    from textwrap import dedent
+    from types import MethodType
+
+    method = model._attach_entity_attributes.__func__
+    source = dedent(inspect.getsource(method))
+    expected = "c916e61246cd29b0580236acf1d7cd41051a4f793eaffa6fe1e37def46616f54"
+    if hashlib.sha256(source.encode()).hexdigest() != expected:
+        raise GlinerRefused("pinned boundary attribute decoder source differs")
+    before = "torch.tensor(rows, dtype=torch.long, device=device)"
+    if source.count(before) != 1:
+        raise GlinerRefused("pinned boundary attribute row indexing differs")
+    corrected = source.replace(before, "torch.tensor(rows, dtype=torch.long, device=logits.device)")
+    namespace = dict(method.__globals__)
+    exec(compile(corrected, "<gliner2-2.1.0-boundary-attribute-device>", "exec"), namespace)
+    model._attach_entity_attributes = MethodType(namespace[method.__name__], model)
+    return "gliner2-2.1.0-boundary-attribute-logit-device-v1"
+
+
 def load_model(profile: GlinerProfile, *, configure_process: bool = True) -> tuple[Any, str]:
     profile.verify_artifacts()
     if importlib.metadata.version("gliner2") != "2.1.0":
@@ -590,6 +617,7 @@ def load_model(profile: GlinerProfile, *, configure_process: bool = True) -> tup
         raise GlinerRefused("resident splitter differs from the selected recipe")
     if getattr(model, "architecture", None) != "boundary":
         raise GlinerRefused("resident checkpoint lacks the selected boundary architecture")
+    attribute_decoder = _bind_boundary_attribute_decoder(model)
     settings = asdict(model.boundary_settings)
     if settings.get("adaptive_threshold", False):
         raise GlinerRefused("adaptive threshold is outside the initial profile")
@@ -604,6 +632,7 @@ def load_model(profile: GlinerProfile, *, configure_process: bool = True) -> tup
             "dtype": "float32",
             "device": profile.device,
             "attention_backend": "standard",
+            "attribute_decoder": attribute_decoder,
             "threads": torch.get_num_threads(),
             "interop_threads": torch.get_num_interop_threads(),
             "supported_pools": threadpool_info(),

@@ -304,7 +304,25 @@ def test_actual_gliner_production_packs_keep_member_attribution_across_cohorts(
                 )
                 source = by_context[item.context_id]
                 for span in _literal_spans(checked.raw, structures):
-                    anchors = map_literal(checked, source.scope.mapping.context, span)
+                    if case.name == "definition":
+                        # Definition extraction owns an explicit passage identity,
+                        # not the whole source-context digest used by cues/M1.
+                        _, window = _passage(
+                            source.frame,
+                            passage_id=source.selector,
+                            start=0,
+                            end=len(source.frame.text),
+                            scope="explicit book excerpt",
+                        )
+                        assert checked.context_digest == item.context_digest == window.identity
+                        assert item.text == window.text == source.frame.text
+                        start, end, literal = span["start"], span["end"], span["text"]
+                        assert type(start) is int and type(end) is int
+                        assert 0 <= start < end <= len(item.text)
+                        assert item.text[start:end] == literal
+                        anchors = source.scope.mapping.context.map_span(start, end, literal=literal)
+                    else:
+                        anchors = map_literal(checked, source.scope.mapping.context, span)
                     assert anchors
                     for anchor in anchors:
                         assert source.frame.text[anchor.start : anchor.end] == anchor.quote
