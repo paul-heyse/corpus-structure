@@ -13,8 +13,10 @@ import duckdb
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
+from pglast import ast, enums
+from pglast.stream import RawStream
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import String, text
+from sqlalchemy import Text, func, select
 from sqlalchemy.dialects import postgresql
 
 from corpus_structure.core.db.adbc_lifetime import (
@@ -125,7 +127,7 @@ def export_companion_parquet(
             publication = selected.receipt.publication
             producer_release_id = publication.release_id
             # Native family functions independently check every pin component.
-            snapshot = conn.execute(text("SELECT pg_export_snapshot()")).scalar_one()
+            snapshot = conn.execute(select(func.pg_catalog.pg_export_snapshot(type_=Text()))).scalar_one()
             cancellation.check_active()
             with (
                 owned_adbc_read(
@@ -139,12 +141,19 @@ def export_companion_parquet(
                 owned_adbc_child(bulk.cursor()) as cursor,
             ):
                 cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
-                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ WRITE")
-                dialect = postgresql.dialect(paramstyle="named")
-                snapshot_sql = dialect.statement_compiler(dialect, None).render_literal_value(
-                    snapshot, String()
-                )
-                cursor.execute("SET TRANSACTION SNAPSHOT " + snapshot_sql)
+                cursor.execute(RawStream()(ast.VariableSetStmt(
+                    kind=enums.VariableSetKind.VAR_SET_MULTI,
+                    name="TRANSACTION",
+                    args=(
+                        ast.DefElem(defname="transaction_isolation", arg=ast.A_Const(val=ast.String(sval="repeatable read"))),
+                        ast.DefElem(defname="transaction_read_only", arg=ast.A_Const(val=ast.Integer(ival=0))),
+                    ),
+                )))
+                cursor.execute(RawStream()(ast.VariableSetStmt(
+                    kind=enums.VariableSetKind.VAR_SET_MULTI,
+                    name="TRANSACTION SNAPSHOT",
+                    args=(ast.A_Const(val=ast.String(sval=snapshot)),),
+                )))
                 cursor.adbc_statement.set_options(
                     **{
                         "adbc.postgresql.use_copy": "true",

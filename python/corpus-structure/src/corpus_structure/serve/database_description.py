@@ -9,8 +9,12 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Literal, cast
 
+from pglast import ast, enums
+from pglast.stream import RawStream
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import inspect, text
+from sqlalchemy import Text, func, inspect, select
+from sqlalchemy import cast as sql_cast
+from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.engine import make_url
 
 from corpus_structure.core.db.adbc_lifetime import (
@@ -233,14 +237,29 @@ def _describe_database(request: DatabaseDescriptionRequest, settings: Settings, 
             )
         ) as conn,
     ):
-        catalog_conn.exec_driver_sql("SET TRANSACTION READ ONLY")
-        catalog_conn.exec_driver_sql("SET LOCAL search_path=pg_catalog")
+        read_only = RawStream()(
+            ast.VariableSetStmt(
+                kind=enums.VariableSetKind.VAR_SET_MULTI,
+                name="TRANSACTION",
+                args=(ast.DefElem(defname="transaction_read_only", arg=ast.A_Const(val=ast.Integer(ival=1))),),
+            )
+        )
+        search_path = RawStream()(
+            ast.VariableSetStmt(
+                kind=enums.VariableSetKind.VAR_SET_VALUE,
+                name="search_path",
+                args=(ast.A_Const(val=ast.String(sval="pg_catalog")),),
+                is_local=True,
+            )
+        )
+        catalog_conn.exec_driver_sql(read_only)
+        catalog_conn.exec_driver_sql(search_path)
         catalog_inspector = inspect(catalog_conn)
         with owned_adbc_child(conn.cursor()) as cur:
             cur.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
-            cur.execute("SET TRANSACTION READ ONLY")
-            cur.execute("SET LOCAL search_path=pg_catalog")
-            cur.execute("SELECT current_database(), current_user")
+            cur.execute(read_only)
+            cur.execute(search_path)
+            cur.execute(str(select(func.current_database(), func.current_user()).compile(dialect=dialect())))
             identity = cur.fetchone()
             if identity is None:
                 raise RuntimeError("database identity unavailable")
@@ -337,12 +356,10 @@ def _describe_database(request: DatabaseDescriptionRequest, settings: Settings, 
                                 observe(item)
                                 if request.depth in {"columns", "constraints"}:
                                     permitted = catalog_conn.scalar(
-                                        text(
-                                            "SELECT pg_catalog.has_table_privilege("
-                                            "pg_catalog.format('%I.%I',CAST(:schema AS text),"
-                                            "CAST(:relation AS text)),'SELECT')"
-                                        ),
-                                        dict(schema=selected_schema, relation=name),
+                                        select(func.pg_catalog.has_table_privilege(
+                                            func.pg_catalog.format("%I.%I", sql_cast(selected_schema, Text()), sql_cast(name, Text())),
+                                            "SELECT",
+                                        ))
                                     )
                                     if permitted:
                                         try:

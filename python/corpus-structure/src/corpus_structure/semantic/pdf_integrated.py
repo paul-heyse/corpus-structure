@@ -13,7 +13,7 @@ from hashlib import sha256
 from io import BytesIO
 from typing import Any
 
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection
 
 from .identity import canonical_bytes
 from .pdf_contracts import (
@@ -627,43 +627,3 @@ def prepare_pdf_observation_publisher(
     return PreparedPdfObservationPublisher(
         task_id, attempt, holder, runtime_id, archived, open_release(conn, archived.release_id)
     )
-
-
-def store_integrated_pdf_product(
-    conn: Connection,
-    *,
-    task_id: int,
-    attempt: int,
-    holder: str,
-    product: PreparedIntegratedPdfProduct,
-    context: PreparedPdfContext | None = None,
-) -> str:
-    from .pdf_domain import require_pdf_database_action
-
-    archived = pdf_context_for_task(conn, task_id)
-    if context is not None and context != archived:
-        raise ValueError("PDF context differs from producing task release")
-    archived.require_operation("publish_integrated_pdf")
-    if (
-        archived.release_id is None
-        or not product._validated
-        or product.contract_digest != archived.contract_digest
-    ):
-        raise ValueError(
-            "publication requires an immutable prepared bundle under the producing archive"
-        )
-    require_pdf_database_action(conn, archived.release_id, "publish_integrated_pdf")
-    return conn.execute(
-        text(
-            "SELECT ops.publish_integrated_pdf("
-            ":task,:attempt,:holder,:contract,:payload,:artifacts)"
-        ),
-        dict(
-            task=task_id,
-            attempt=attempt,
-            holder=holder,
-            contract=product.contract_digest,
-            payload=product.payload,
-            artifacts=list(product.artifacts),
-        ),
-    ).scalar_one()

@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from threading import Event, RLock, Thread
 from typing import Literal, Protocol
 
-from sqlalchemy import Connection, Engine, text
+from sqlalchemy import ARRAY, BigInteger, Connection, Engine, cast, column, func, select
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
@@ -206,10 +206,7 @@ def _deadlines(conn, database, *, statement_timeout_seconds: float):
         ("statement_timeout", statement_timeout_seconds),
         ("lock_timeout", database.renewal_lock_timeout_seconds),
     ):
-        conn.execute(
-            text("SELECT set_config(:setting, :value, true)"),
-            {"setting": setting, "value": f"{max(1, int(seconds * 1000))}ms"},
-        )
+        conn.execute(select(func.pg_catalog.set_config(setting, f"{max(1, int(seconds * 1000))}ms", True)))
 
 
 def _retryable_renewal_failure(error: Exception, failure: DatabaseFailure) -> bool:
@@ -228,20 +225,25 @@ def _retryable_renewal_failure(error: Exception, failure: DatabaseFailure) -> bo
 def _leases_cover_retry(
     conn: Connection, claims: Sequence[OwnedClaim], attempt_budget: timedelta
 ) -> bool:
+    from .metadata import table
+
+    task = table("ops.task")
+    active = (
+        func.unnest(
+            cast([claim.task_id for claim in claims], ARRAY(BigInteger())),
+            cast([claim.attempt for claim in claims], ARRAY(BigInteger())),
+        )
+        .table_valued(column("id", BigInteger()), column("attempt", BigInteger()))
+        .render_derived(name="active")
+    )
     return conn.scalar(
-        text(
-            "SELECT count(*) FROM ops.task AS task "
-            "JOIN unnest(CAST(:tasks AS bigint[]), CAST(:attempts AS bigint[])) "
-            "AS active(id, attempt) USING (id, attempt) "
-            "WHERE task.status = 'running' AND task.claimed_by = :holder "
-            "AND task.lease_until > clock_timestamp() + :budget"
-        ),
-        {
-            "tasks": [claim.task_id for claim in claims],
-            "attempts": [claim.attempt for claim in claims],
-            "holder": claims[0].holder,
-            "budget": attempt_budget,
-        },
+        select(func.count())
+        .select_from(task.join(active, (task.c.id == active.c.id) & (task.c.attempt == active.c.attempt)))
+        .where(
+            task.c.status == "running",
+            task.c.claimed_by == claims[0].holder,
+            task.c.lease_until > func.pg_catalog.clock_timestamp() + attempt_budget,
+        )
     ) == len(claims)
 
 

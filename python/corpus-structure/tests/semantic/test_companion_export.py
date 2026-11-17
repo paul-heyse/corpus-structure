@@ -395,7 +395,7 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     assert isinstance(options, dict)
     assert options["adbc.postgresql.type_resolver_mode"] == "builtin"
     assert events[1] == {"adbc.postgresql.use_copy": "false"}
-    assert "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ WRITE" in events
+    assert "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ WRITE" in events
     assert "SET TRANSACTION SNAPSHOT '00000001-00000002-1'" in events
     assert {
         "adbc.postgresql.use_copy": "true",

@@ -6,7 +6,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Literal
 
-from sqlalchemy import Connection, Engine, text
+from sqlalchemy import Connection, Engine, Text, func, select
 from sqlalchemy.engine import URL, make_url
 
 from corpus_structure.settings import Settings
@@ -66,10 +66,10 @@ def require_runtime_principal(conn: Connection, *, purpose: Purpose) -> None:
     if purpose == "maintenance":
         return
     if purpose == "fit":
-        conn.execute(text("SELECT ops.ddo_require_feature_fit_principal()")).scalar_one()
+        conn.execute(select(func.ops.ddo_require_feature_fit_principal())).scalar_one()
     else:
         conn.execute(
-            text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": purpose}
+            select(func.data.require_runtime_principal(purpose, type_=Text()))
         ).scalar_one()
 
 

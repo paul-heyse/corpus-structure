@@ -54,23 +54,6 @@ def semantic_assertion_identity(values: Mapping[str, Any]) -> str:
     return "local-semantic-assertion:" + sha256(canonical_bytes(values)).hexdigest()
 
 
-def load_semantic_grade_evidence(
-    conn, job: Mapping[str, Any], cut_id: int
-) -> tuple[Mapping[str, Any], ...]:
-    import json
-
-    from sqlalchemy import text
-
-    dependencies = json.loads(job["dependencies"]) if job.get("dependencies") else {}
-    if not dependencies.get("local_semantic_admission"):
-        return ()
-    rows = conn.execute(
-        text("SELECT data.local_semantic_publication_candidates(:project,:release,:run,:cut)"),
-        dict(project=job["project_id"], release=job["release_id"], run=job["id"], cut=cut_id),
-    ).scalar_one()
-    return tuple(rows)
-
-
 def project_semantic_assertions(
     prepared, evidence: Sequence[Mapping[str, Any]]
 ) -> tuple[LocalSemanticAssertionRow, ...]:
