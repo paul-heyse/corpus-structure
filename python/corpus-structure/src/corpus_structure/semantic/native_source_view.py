@@ -61,7 +61,9 @@ class NativeSourceView:
     def __post_init__(self):
         from .source_products import native_projection_identity
 
-        value = self.value
+        # The owner may supply its already frozen snapshot. Projection identity
+        # consumes a detached JSON representation; frozen containers remain internal.
+        value = thaw_native(self.value)
         if (
             native_projection_identity(
                 value["text"],
