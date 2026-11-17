@@ -4,6 +4,7 @@ import json
 import sys
 from copy import deepcopy
 from dataclasses import asdict
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,10 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
 ):
     from corpus_structure.methods import native_profiles
 
+    model_file = tmp_path / "controlled-spacy-model.bin"
+    model_content = b"controlled profile declaration, never provider execution"
+    model_file.write_bytes(model_content)
+    model_digest = sha256(model_content).hexdigest()
     monkeypatch.setattr(
         native_profiles,
         "spacy_selection",
@@ -54,7 +59,7 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
             NativeProfile(
                 "spacy",
                 {"controlled": "runtime"},
-                {},
+                {"files": {model_file.name: model_digest}},
                 config.model_dump(mode="json"),
                 "float32",
                 "cupy",

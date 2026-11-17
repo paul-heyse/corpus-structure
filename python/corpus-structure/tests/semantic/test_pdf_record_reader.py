@@ -110,8 +110,8 @@ def test_compact_record_descriptor_preserves_health_availability_without_hydrati
 ):
     reader = object.__new__(PublishedPdfReader)
     reader.revision = dict(kind="integrated", release_id="producer-release")
-    producer = Mock()
-    monkeypatch.setattr(reader, "_payload_context", lambda: SimpleNamespace(execution=producer))
+    producer = Mock(spec=["require_operation"])
+    monkeypatch.setattr(reader, "_payload_context", lambda: producer)
     health = [dict(source_scope="whole_document", conversion="success")]
     if assessment != "absent":
         health.append(dict(source_fidelity="unassessed", execution_outcome="succeeded"))
