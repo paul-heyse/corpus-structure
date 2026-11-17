@@ -52,7 +52,7 @@ claim_source_item__data_operation__ = {
         {
             "name": "index",
             "parameter": "index",
-            "kind": "integer",
+            "kind": "primitive:integer",
             "direction": "input",
             "minimum": 1,
             "maximum": 1,
@@ -66,7 +66,7 @@ claim_source_item__data_operation__ = {
         },
         {
             "name": "address",
-            "kind": "string",
+            "kind": "primitive:string",
             "direction": "output",
             "minimum": 1,
             "maximum": 1,
