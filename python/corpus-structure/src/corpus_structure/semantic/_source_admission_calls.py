@@ -48,7 +48,7 @@ def _required[T](value: T | None, field: str, result_class: str, operation: str)
 
 
 SOURCE_DOCUMENT_REGISTRATION_CONTRACT_DIGEST = (
-    "b18f03302bd742b68f717ed306136138a1ad2056238ed455b709f727bd6e2f74"
+    "b33045920152889c44da0e4513960c4bb76531a1efd7ce3616aa7c9648620f82"
 )
 
 
@@ -225,7 +225,7 @@ def source_document_registration(
 
 
 ORIGINAL_DOCUMENT_DESCRIPTOR_CONTRACT_DIGEST = (
-    "cc75c4bf1ff3e67657c90cce56a071f38836ac22b399bac99736baae470760e7"
+    "ce00ea9d69b5a2f6e45833f8c313c5884283c0da90265177b32b1853a0bc18ea"
 )
 
 
@@ -350,7 +350,7 @@ def collect_original_document_descriptor(
 
 
 ORIGINAL_DOCUMENT_ARTIFACT_CONTRACT_DIGEST = (
-    "08cb024ed6511250f348d31450dec96606f07133b1b10c29d35fa30d8eae5d12"
+    "90ca2eb3278ed59058dd27db39b2ff7b376d5d5e1e0a914413b69ddb9ced4eb7"
 )
 
 
@@ -433,4 +433,4 @@ def collect_original_document_artifact(result: Result[bytes]) -> bytes | None:
         return None if row is None else materialize_original_document_artifact(row)
 
 
-CALL_CONTRACT_DIGEST = "79d1bdfb3f1028740b0a1e07053b8a070d4ed75db11c052f63141b7a18ef6505"
+CALL_CONTRACT_DIGEST = "7c3dabcf82751d8710182e70880f38785ae796513975abca2044c912922e0e18"
