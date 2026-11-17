@@ -1,5 +1,20 @@
 # Pinned interfaces and protected evaluation
 
+## Source-cut reuse within protected authoring · 2026-11-16
+
+**Accepted execution amendment; implementation/qualification Proposed.** DDO-SI-24 remains with
+the coordinator. Group independent A/B/C reference checks within one authoring invocation and pinned
+transaction. Reuse the authenticated selected-record index only for an identical complete selection,
+project, purpose and budget; preserve every question's independent source/reference comparison.
+Different selections remain different acquisitions. Neither a caller assertion nor a cached label
+substitutes for native acquisition. No source authority is shared across invocations or transactions.
+Native publication, fitting and attachment retain their own live support/permission checks.
+
+Verify shared-cut acquisition with independent reference expectations, a foreign/mismatched peer
+reference that still refuses, distinct-cut separation, current source/trust withdrawal and the actual
+grade/fitter/authorization journey. The one-source empty-carrier fixture remains independent of the
+four-source feature/calibration fitting population; neither criterion is dropped to fit a timeout.
+
 **Accepted planning amendments ·2026-11-15; remaining integration Proposed.** Develops DDO-10. The
 [coordinator](../declared-data-operations_2026-11-12.md) owns completion/disposition.
 Consumes product/member/support references, native DemandUse and change classifications; its

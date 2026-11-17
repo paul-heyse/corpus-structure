@@ -1,5 +1,27 @@
 # Declared data operations — demand planning and execution
 
+## Statement-local binding realization · 2026-11-16
+
+**Accepted execution amendment; implementation/qualification Proposed.** DDO-SI-23 is owned by the
+coordinator. Use SQLAlchemy's native PostgreSQL `cte().prefix_with("MATERIALIZED", dialect="postgresql")`
+for the admitted binding-row relation and existing selected-role queries. Reuse these within one
+typed statement; do not materialize the wide Cartesian peer universe. Preserve the separate unfiltered
+NULL-detection and optional-role selection semantics. Existing predicates and checks remain authoritative.
+
+Multiplex selected rows and scalar checks with typed `UNION ALL`, discriminator and role/check ordinal.
+`binding_row_contract()` owns native Text/BigInteger/JSONB column types. Use native types for union
+padding; apply `ContextJSONB` result decoding at the outermost SELECT, preserving fractional numeric
+values. Keep body fields inside role CTEs for predicates. Restore sequence ordering explicitly, retain
+duplicates/multiplicity and consume all checks even for empty roles. NULL check results remain unknown;
+parameters and choices retain their canonical tagged bytes. The existing decoder consumes the partitioned
+result. No JSON envelope, TEMP table or cross-invocation cache is added.
+
+The TVF still validates supplied read/trust pins. Later native attachment retains its separate
+READ COMMITTED statements, support locks, availability and binding revalidation. Statement-local reuse
+does not grant later authority. Verify joins, optional/unknown/empty distinctions, ordered/multiset
+populations, subject association, malformed support and high-precision JSONB transport, then actual
+current native consumers. Qualitative work reduction is expected; elapsed-time improvement is unmeasured.
+
 **Implementation plan · Proposed · 2026-11-12.** This supporting plan develops DDO-05 and
 DDO-06 of the [standalone coordinator](../declared-data-operations_2026-11-12.md). The coordinator
 alone owns package state, findings disposition, the shared native contract and assembled

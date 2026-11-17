@@ -11,7 +11,7 @@ application/provider qualification by preparing or installing infrastructure.
 The existing `corpus_structure_dev` remains PostgreSQL18.7 on dedicated5434, database OID25921445,
 system7701811359771751232, installed `semantic_bep_located_v2`; maintenance status reacquired this
 identity on2026-11-16. That development database has had no reset, rename, native deployment,
-activation or data conversion. The current root and ten successors are registered and installed on the owned stage. An application release/runtime is admitted there at source40b104a88; no activation occurred. The subsequent PDF executor repair requires new application capture for current execution. Historical frozen files remain
+activation or data conversion. The current root and twelve successors are registered and installed on the owned stage. The compiler24 application below is admitted and checked there; no application activation or inference follows from admission alone. Historical frozen files remain
 unchanged and are not a selectable current install route. The unregistered
 [v10 preparation](../2026-11-15_ddo-v10-native/README.md) is superseded.
 
@@ -630,6 +630,64 @@ SHA256 and matches every current document key. Record `ddo.original-descriptor-r
 adds [complete descriptors](original-descriptors.json) without changing the earlier finalized census.
 These are raw PDF registrations, including experiment inputs; no Chandra-generated result or
 protected judgment was read. Native registration, writer fencing and development adoption remain open.
+
+## Explicit nullable fields and compiler24 successor · 2026-11-16
+
+**passed:** preview `6042e67c70c14128a99d18f96704e076`, exact apply
+`aae6fcf84adc440ea66c308e79049650`, rollback-only candidate
+`5d6507b3543f41919b39d7767abaa2b8`, registration `cc6f8478f9ca4947ba694c9ad047f40a`
+and stage deployment `ebad4ba2af824895a1c690099713279a`. The
+[request](nullable-fields-successor.yaml) binds `semantic_ddo_rich_refusals`.
+Exact frozen `semantic_ddo_nullable_fields` files are committed `24099bf9d`.
+Separate `ci db status --maintenance --json` reacquired the unchanged stage
+OID130661481/system7701811359771751232 at revision=head `semantic_ddo_nullable_fields`.
+
+Root and independent read-only review compared all11 operations, full before/after desired
+catalogs, privilege snapshots and admission bytes. All510 desired identities remain, with no
+added/removed object or privilege change. Seven dependency guards and their descriptor change
+only the authenticated native digest; two archive/projection guards change compiler23 to24.
+The execution descriptor changes only matching body/source hashes and logical model identity.
+Owners, signatures, search paths, security attributes and physical layout are unchanged.
+Ordinary operations0; privilege operations0. Candidate hashes are
+`f6bbf5ece63d793d625e2685f8420c9056e1e6c5a2ca49ebdd2f35dde009fb15` (Python),
+`1eec9264ce88e7f64a4ab75e3498fe0afbcf05b2373d1ae8ef82d3e871e7f782` (operations),
+`438751b00f45cc3bcce33bcb62648e00bb4c37c7fb0b6b05c985ee87b8f098f7` (admission).
+Current native digest is
+`a7efe78bbb4cde7ed0219ad4612481ae8cbd80d2866a0898427bb2a3bcb319b9`;
+physical identity remains
+`physical:712bb15e4d66153ca86e006bfa383aa8233d34b02f81162b755912293cc4a2e2`.
+
+[ADR-0120](../../../adr/0120-explicit-nullable-fields.md) owns the explicit missing/null/value
+contract. Current pure/compiler/archive/parameter/context/prerequisite250 passed, held
+`3d42f40a38ec4d44b2c49a2cdff46c97`; integrated typing/lint passed as recorded by the coordinator.
+This establishes neither actual selected-context E5 nor grade/event/artifact/claim qualification.
+Their source-frozen native7 `a9dfcd84274740b48d962c9184603624` and actual CPU E5 cohorts retain
+their separate live/settled outcomes. The first current E5 attempt
+`57f398e4a67d46e59b19c56ad43b3fc9` failed at a test-only receipt envelope assertion after target
+publication; its root original is held. The assertion now follows the stored completion body,
+without changing runtime/receipt/worker expectations. Earlier ten lost worker originals are
+explicitly unavailable in the coordinator; none supplies qualification credit.
+
+## Fresh compiler24 maintained application · 2026-11-16
+
+**passed:** [application request](statistics-application.yaml) preview
+`db4c0a0b67684174976739b929ff475a`, exact apply `377e6a98bf504ffabb440cbc1e0fb959`,
+application candidate `510d2829409f46dd93c846dfa88a76d0` and archive/admit/verified deployment
+`21e68476ab78442cac650b176ae67ed2`, at source `24099bf9d` on the same owned stage.
+Release is `release:5d9a6a6fea4ef8c755e31d1d14b52e171f6e98cbf943d90d1bdc6be1128eb3e7`;
+runtime is `runtime:4eb8649ea303f5d234463a6ce33109dfb0b9ac5005f7efb2715661145eba7839`.
+Runtime archive SHA256 is
+`e70dacfce4b7ad0bb3e9a870f9e010faa935f53eef10d76d023c0c5ee96c8b91`;
+release-artifact inventory SHA256 is
+`968ea25b83020507f0ff3bf32e599885b125b62a452001c0aadef5f59e8be733`.
+There is no native/physical patch, fabricated application activation or old compiler fallback.
+
+Separate `ci db check --release … --json` and `ci release check --release … --json` passed on the
+exact stage. The former reports logical model digest
+`10ebe3d5f1135a689f1fcc9075076f91450474f93b2689b9b0c238824291a152`, current native digest and
+unchanged physical identity; the latter reports no active generation for the inspected default
+project. Bounded source qualification uses its own explicit project/original and actual provider
+operations. Admission/preparation alone establishes no inference, adoption or whole-book result.
 
 ## Records
 

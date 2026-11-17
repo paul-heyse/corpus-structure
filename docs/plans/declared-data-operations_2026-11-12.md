@@ -66,6 +66,44 @@ verification **passed250** as `3d42f40a38ec4d44b2c49a2cdff46c97`; actual E5 rema
 Root native2 `78b33079196b4afa9252911f147afaa2`, retirement15 and finalized descriptor records
 are unaffected. Future cleanup is a separate action after completed, verified original transfer.
 
+## Execution-fit increment · 2026-11-16
+
+**Operator-authorized within remaining execution; implementation in progress.** Review actual test
+and production work. Keep the finite fitting population: four originals, disjoint two-origin feature
+and calibration groups, eight events per partition, real fitting/authorization and all privacy,
+tamper and revocation criteria. Original native7 `a9dfcd84274740b48d962c9184603624` hit900s in
+late empty-carrier grading; reporting is incomplete/native `no_claim`, six siblings not_run.
+The original is held and custody drained. Short changing database operations and CPU progress
+showed no sampled lock blocker; no runtime cause or nontermination is established.
+
+The independent empty-carrier block is separated verbatim (`e2b2b7780`). Current grade2 CPU
+verification is `dd0147a7b8f2467ca7552347bd206fb8`; event/artifact/claim6 GPU verification is
+`90727fbd2ccb4ed3be0b437dbe6545cd`. Actual CPU E5 wiring verification is
+`27d13b2715814dc48c7537a605e19c92`; earlier root failures `57f398e4a67d46e59b19c56ad43b3fc9`
+and `8f6c7f78642b4c2f8283419e7adea225` are held. Envelope and current-demand producer/source
+wiring corrections affect only the E5 test. Live attempts supply no settled passing qualification.
+
+Integrate three clear source-level opportunities before final qualification:
+
+- **DDO-SI-23 / DDO-03–06:** materialize admitted binding rows and each selected-role relation once
+  within one PostgreSQL statement. Typed `UNION ALL` returns member rows and every scalar check.
+  Preserve native types, exact JSONB/Decimal values, outer result conversion, duplicates, multiplicity,
+  sequence, unknown/false and empty-role checks. Keep subsequent separate native attachment
+  statements, locks, availability and live binding revalidation. No TEMP or lifetime cache.
+- **DDO-SI-24 / DDO-10:** authenticate an identical source cut once within one authoring invocation
+  and pinned transaction, preserving every independent A/B/C reference comparison. Distinct cuts,
+  projects, budgets and purposes remain distinct; no authority cache crosses invocations.
+- **DDO-SI-25 / DDO-12:** use one source for the empty-carrier fixture, preserving four for fitting
+  and calibration. Keep real source publication/read/grade and all no-output/source/product checks.
+
+The execution/evaluation companions own these mechanism contracts. Implement in an isolated
+worktree while current cohorts settle, then independently review, integrate, recapture affected
+native/application sources and qualify actual consumers. Existing archive/purpose-engine caches
+already supply reuse; repeated compilation is not established. Repeated-work reduction is supported
+statically; elapsed-time benefit remains unmeasured. Reassess a scoped integration-test timeout if
+the correct workflow needs longer;900s is not an acceptance requirement. Add no benchmark framework,
+cost model or weakened criterion.
+
 ## Current execution boundary · 2026-11-16
 
 **Implemented; bounded Tested.** The97-relation physical declaration and maintained PDF actions now
@@ -335,6 +373,9 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-20 | PDF domain JSON projections are passed through strict Python validation, which rejects their nested JSON arrays against the compiled tuple types. | **Implemented; bounded native Tested2026-11-16**, `542b53744`: use strict JSON validation and exact numeric `json_bytes` at the three projection ingresses. Actual organization/enrichment/integration and exact-resume journey passed in held `78b33079196b4afa9252911f147afaa2` at compiler23/source99edcaec2. Physical receipt and native custody guards remain unchanged. This executor-only correction needs fresh application capture; later compiler24/native-context applicability remains an enclosing qualification obligation. |
 | DDO-SI-21 | The deliberately2MiB diagnostic fixture specifies a private budget for initial reading but omits it at publication's second support acquisition. | **Implemented; bounded native Tested2026-11-16**, `a2e770d3b`: existing page/max-byte options reach the second private support read; only this fixture requests1row/16MiB. Actual exact raw2MiB support equality, empty bounded public read and64KiB exact-support refusal passed in held `78b33079196b4afa9252911f147afaa2` at source99edcaec2. Ordinary defaults and public bounds remain unchanged. Later compiler24 context requires applicability assessment. |
 | DDO-SI-22 | Curated contextual targets are intentionally project-owned/source-free, but their compiled population contract rejects explicit null `original_source` in member contexts and bodies. | **Implemented; current verification open**, ADR-0120/`afc0e5d32`. Explicit nullable properties remain independent of required presence; current archives require the fact, tagged nominal schemas and inferred Python projections preserve it, and source-owned pins remain strict. The observed original3 setup failures `dd595e955ae945cfb04b670614e9c0c2` preceded E5 inference; its original artifacts are unavailable after the custody loss above. Fresh pure/current native and real E5 all3 recipes remain required; no lost receipt supplies qualification. |
+| DDO-SI-23 | Role queries/checks repeatedly evaluate admitted native rows and peer selections. | **In progress**, execution-fit increment and DDO-03–06. Statement-local materialized CTEs/typed union preserve all predicates, checks, types and live attachment fences. Runtime contribution remains unmeasured. |
+| DDO-SI-24 | A/B/C reference authoring repeatedly reacquires one exact source cut in the same invocation. | **In progress**, execution-fit increment and DDO-10. Share one authenticated cut within a pinned transaction while checking every reference independently. |
+| DDO-SI-25 | Empty-carrier verification captures four originals although its scope uses one. | **In progress**, DDO-12. Reduce only that fixture population; preserve the fitting/calibration populations and independent criteria. |
 
 
 
