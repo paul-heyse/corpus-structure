@@ -1347,6 +1347,13 @@ def admitted_data_read(
         _binding_context_parameter(original_source, name="data_binding_source"),
         _binding_context_parameter(analyzed_scope, name="data_binding_scope"),
     ).table_valued(*columns)
+    # The admitted TVF authenticates this statement once. Role aliases and
+    # constraint checks share its rows without sharing authority across reads.
+    relation = (
+        select(*relation.c)
+        .cte("admitted_binding_rows")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
     return AdmittedDataRead(
         relation,
         accepted,

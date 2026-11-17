@@ -1972,3 +1972,71 @@ def test_explicit_empty_source_set_is_closed_absence_and_never_an_unbounded_scan
     )
     assert refused.status != "ready"
     assert not refused.roles[0].members
+
+
+def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage):
+    from decimal import Decimal
+
+    from sqlalchemy import Boolean, event, literal, select, text
+
+    from corpus_structure.semantic.data_operation_bindings import BindingCheck, BindingReason
+    from corpus_structure.semantic.data_operation_json import json_loads
+
+    connection, _table, projection = storage
+    exact = Decimal("0.123456789012345678901234567890123456789")
+    connection.execute(
+        text(
+            'UPDATE admitted SET analyzed_scope = CAST(:scope AS jsonb), '
+            'support_evidence = CAST(:support AS jsonb)'
+        ),
+        {"scope": '{"fraction":' + str(exact) + '}', "support": '{"fraction":' + str(exact) + '}'},
+    )
+    target = model(
+        BindingExpression("scan", roles=("items", "empty")),
+        names=("items", "empty"),
+        minimum=0,
+        presence="optional",
+        collection="sequence",
+    )
+    operation = target.operations[0]
+    target = replace(
+        target,
+        operations=(
+            replace(
+                operation,
+                roles=(operation.roles[0], replace(operation.roles[1], subject_field="base")),
+            ),
+        ),
+    )
+    compiled = compile_binding(target, "urn:op", (projection,), subject="doc")
+    compiled = replace(
+        compiled,
+        checks=compiled.checks
+        + tuple(
+            BindingCheck(
+                BindingReason(code, "transport-control", code),
+                select(literal(value, type_=Boolean())),
+                "awaiting-inputs",
+            )
+            for code, value in (("true-control", True), ("false-control", False), ("null-control", None))
+        ),
+    )
+    statements = []
+
+    def executed(_connection, _cursor, statement, _parameters, _context, _many):
+        statements.append(statement)
+
+    event.listen(connection, "before_cursor_execute", executed)
+    try:
+        result = execute_binding(connection, compiled)
+    finally:
+        event.remove(connection, "before_cursor_execute", executed)
+    assert len(statements) == 1
+    assert result.status == "unknown"
+    assert {reason.code for reason in result.reasons} == {"false-control", "null-control"}
+    assert result.roles[1].members == ()
+    assert [member.position for member in result.roles[0].members] == [0, 1, 2]
+    assert [member.product for member in result.roles[0].members] == ["p3", "p2", "p1"]
+    for member in result.roles[0].members:
+        assert json_loads(member.analyzed_scope) == {"fraction": exact}
+        assert json_loads(member.support_evidence) == {"fraction": exact}
