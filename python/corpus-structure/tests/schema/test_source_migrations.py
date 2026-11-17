@@ -1,7 +1,6 @@
 """Independent source expectations and existing file-publication custody."""
 
 from collections.abc import Generator
-from copy import deepcopy
 from hashlib import sha256
 from pathlib import Path
 
@@ -16,16 +15,82 @@ from corpus_structure.schema.source_migrations import (
     SourceRoot,
     prepare_source_migration,
 )
-from corpus_structure.semantic.identity import claim_source_item__data_operation__
+
+
+def operation_metadata():
+    # These temporary callables transform an integer; they do not implement the
+    # production claim-source address operation or its enforcement invariants.
+    return {
+        "id": "urn:test:source-change",
+        "profile": "derivation",
+        "subject": "test-integer",
+        "subject_definition": {
+            "id": "test-integer",
+            "identifier_kind": "primitive:integer",
+            "scope": "project",
+        },
+        "discovery_relation": "role-associated",
+        "context": [],
+        "roles": [
+            {
+                "name": "input",
+                "parameter": "x",
+                "kind": "primitive:integer",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "value_substitution",
+                    "source": "selected-input",
+                    "coverage": {"role": "input", "description": "one-integer-input"},
+                },
+            },
+            {
+                "name": "result",
+                "kind": "primitive:integer",
+                "direction": "output",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            },
+        ],
+        "applicability": [],
+        "invariants": [],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "one-integer-result",
+        },
+        "outcomes": ["returned"],
+        "state_dimensions": [{"name": "completion", "values": ["pending", "success"]}],
+        "transitions": [
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": "success",
+                "outcome": "returned",
+            },
+        ],
+        "dependencies": [],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "none",
+            "cancellation": "call-boundary",
+            "ownership": "immutable-input-value",
+        },
+        "behavior": "test-integer-transform-v1",
+        "parameters": {},
+        "binding": {"operator": "scan", "roles": ["input"]},
+    }
 
 
 def migration(root, *, consumer="from api import old\nanswer = old(1)\n"):
     directory = root / "src"
     directory.mkdir()
-    metadata = deepcopy(claim_source_item__data_operation__)
-    metadata["id"] = "urn:test:source-change"
-    metadata["roles"][0]["parameter"] = "x"
-    metadata["roles"][1]["kind"] = "integer"
+    metadata = operation_metadata()
     before = (
         "def old(x: int) -> int:\n    return x\nold__data_operation__ = " + repr(metadata) + "\n"
     ).encode()
@@ -520,7 +585,7 @@ def test_real_cli_authored_preview_sources_apply_and_retry(model_checkout, monke
         (
             "contextual_declared.py",
             "ContextualRetrievalOperation",
-            "retrieve.contextual_candidates/declared",
+            "retrieve.contextual/declared",
         ),
         (
             "captured_document_composition.py",
@@ -624,7 +689,7 @@ def test_actual_family_source_and_caller_move_preserves_dispatch(
         function = namespace["run"]
         receiver = SimpleNamespace(marker="authentic receiver")
         if filename == "m1_declared.py":
-            args = ({"primary": 1}, {"annotations": 2}, ({"source": 3},))
+            args = ({"primary": 1}, {"annotations": 2}, {"construction": 3}, ({"source": 4},))
             stream = function(receiver, *args)
             assert isinstance(stream, Generator)
             assert next(stream) == "physical-step"
@@ -633,7 +698,7 @@ def test_actual_family_source_and_caller_move_preserves_dispatch(
             assert stopped.value.value == {"selected": "independent"}
             assert calls == [(receiver, *args)]
         elif filename == "contextual_declared.py":
-            args = ({"query": 1}, {"inventory": 2}, {"vectors": 3}, {"policy": 4})
+            args = ({"query": 1}, {"inventory": 2}, {"vectors": 3}, {"policy": 4}, {"scores": 5})
             assert function(receiver, *args) == {"selected": "independent"}
             assert calls == [(receiver, *args)]
         else:
@@ -650,10 +715,8 @@ def test_actual_family_source_and_caller_move_preserves_dispatch(
 def test_owned_class_move_compiles_complete_interface_and_existing_apply(model_checkout, inherited):
     root, _ = model_checkout
     move = migration(root, consumer="from api import OldOperation\nselected = OldOperation\n")
-    metadata = deepcopy(claim_source_item__data_operation__)
-    metadata.update(id="urn:test:source-change", entrypoints=["run"])
-    metadata["roles"][0]["parameter"] = "x"
-    metadata["roles"][1]["kind"] = "integer"
+    metadata = operation_metadata()
+    metadata["entrypoints"] = ["run"]
     before = (
         "class OldOperation:\n    __data_operation__ = "
         + repr(metadata)
