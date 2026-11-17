@@ -107,26 +107,19 @@ def execute(
 
 def selected(kernel, demand, kind, *, purpose="evaluate"):
     from corpus_structure.semantic.demand_results import read_demand_result
+    from corpus_structure.semantic.selected_support import SelectedReadReference
 
     with kernel.purpose(purpose).begin() as connection:
         page = read_demand_result(connection, demand, project_id=PROJECT, limit=1000)
+    read = SelectedReadReference.from_cut(page.cut)
     return page, tuple(
-        Product(row, row["body"], page.cut)
+        Product(row, row["body"], read)
         for row in page.members()
         if row["kind_contract"] == kernel.identities[kind, "kind"]
     )
 
 
-def cut_selection(page):
+def cut_selection(cut):
     from corpus_structure.evaluate.selected_operation_events import SelectedEventRead
 
-    cut = page.cut
-    return SelectedEventRead(
-        project_id=PROJECT,
-        demand_id=cut.record["demand_id"],
-        read_id=cut.record["read_id"],
-        release_id=cut.record["release_id"],
-        runtime_id=cut.record["runtime_id"],
-        cut_id=cut.identity,
-        cut_canonical_json=cut.content.decode(),
-    )
+    return SelectedEventRead.from_cut(cut)

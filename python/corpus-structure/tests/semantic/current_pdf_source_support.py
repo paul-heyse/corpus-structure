@@ -456,6 +456,7 @@ def selected_current_sources(source):
     """Read actual computational source members and their complete occurrence contexts."""
     from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
     from corpus_structure.semantic.demand_results import stream_demand_result
+    from corpus_structure.semantic.selected_support import SelectedReadReference
 
     kinds = {
         item.key
@@ -467,9 +468,10 @@ def selected_current_sources(source):
     with source.kernel.purpose("read").begin() as connection:
         selected = []
         for page in stream_demand_result(connection, source.demand_id, project_id=PROJECT):
+            read = SelectedReadReference.from_cut(page.cut)
             for row in page.members():
                 if row["kind_contract"] in kinds:
-                    selected.append((dict(row, _selected_entry=SelectedSourceSetEntry.from_selected_header(row, page.cut)), row["body"]))
+                    selected.append((dict(row, _selected_entry=SelectedSourceSetEntry.from_selected_header(row, read)), row["body"]))
         return tuple(selected)
 
 

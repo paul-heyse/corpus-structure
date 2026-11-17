@@ -94,7 +94,7 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
                     )
                 },
             )
-        selection = cut_selection(page)
+        selection = cut_selection(page.cut)
         definition = next(
             item
             for item in read_native_definition_projection(kernel.prepared)["operations"]
@@ -173,13 +173,13 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
         )
         framed, execution = execute(kernel, pending, authored=True)
         assert execution.receipt_count == 1
-        frame_page, (frame_product,) = selected(
+        _frame_page, (frame_product,) = selected(
             kernel, framed["demand_id"], NAMESPACE + "DdoOperationEventFrame"
         )
         frame = DdoOperationEventFrame.model_validate_json(json_bytes(frame_product.body))
         spec = DdoOperationEventFitSpecification(
             frame=SelectedOperationEventFrameSelection(
-                selection=cut_selection(frame_page),
+                selection=cut_selection(frame_product.read),
                 use_id=frame_product.row["use_id"],
                 reference=frame_product.reference,
                 derivation_id=frame_product.row["derivation_id"],

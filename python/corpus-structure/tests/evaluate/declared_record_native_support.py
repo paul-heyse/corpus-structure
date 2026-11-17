@@ -260,7 +260,7 @@ class SourceChoice:
         return self.selected_entry
 
 
-def selected_product_entries(index, cut, product_id, member_id=None):
+def selected_product_entries(index, read, product_id, member_id=None):
     from corpus_structure.semantic.data_operation_source_sets import selected_source_entries
     from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 
@@ -269,7 +269,7 @@ def selected_product_entries(index, cut, product_id, member_id=None):
         for use in index.frontier_rows("uses")
         if use["fate"] == "fulfilled"
         for selected in selected_source_entries(
-            index, cut, product_id=product_id, member_id=member_id,
+            index, read, product_id=product_id, member_id=member_id,
             anchor_use_id=use["use_id"],
             support=ComputationalSupportReference(
                 derivation_id=use["derivation_id"], admission_use_id=use["use_id"]
@@ -290,6 +290,7 @@ class CurrentRecordPolicyJourney:
     ):
         from corpus_structure.evaluate.declared_record_policy import _selected_body
         from corpus_structure.semantic.demand_results import selected_record_index
+        from corpus_structure.semantic.selected_support import SelectedReadReference
 
         names = (kind,) if isinstance(kind, str) else kind
         contracts = {
@@ -309,11 +310,12 @@ class CurrentRecordPolicyJourney:
                 capture_frontier=True,
             ) as (cut, index),
         ):
+            read = SelectedReadReference.from_cut(cut)
             products = []
             for row in index.rows("kb.data_product"):
                 if row["kind_contract"] in contracts:
                     _, body = _selected_body(index, row["id"])
-                    products.append((dict(row, _selected_entries=selected_product_entries(index, cut, row["id"])), body))
+                    products.append((dict(row, _selected_entries=selected_product_entries(index, read, row["id"])), body))
             uses = tuple(index.frontier_rows("uses"))
             episodes = tuple(index.rows("ops.data_derivation"))
             outputs = tuple(index.rows("ops.data_derivation_output"))
@@ -334,6 +336,7 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.selected_support import SelectedReadReference
     from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
     from corpus_structure.semantic.original_documents import (
         acquire_original_document_selection,
@@ -415,6 +418,7 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
                 index,
             ),
         ):
+            source_read = SelectedReadReference.from_cut(source_cut)
             for row in index.rows("kb.data_product_member"):
                 if row["kind_contract"] not in contracts:
                     continue
@@ -439,7 +443,7 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
                     ).decode(),
                     kind_contract=row["kind_contract"],
                 )
-                (selected_entry,) = selected_product_entries(index, source_cut, row["product_id"], row["member_id"])
+                (selected_entry,) = selected_product_entries(index, source_read, row["product_id"], row["member_id"])
                 selected.append(
                     SourceChoice(
                         pin,

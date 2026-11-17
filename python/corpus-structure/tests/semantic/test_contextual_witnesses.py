@@ -322,7 +322,7 @@ def test_acquisition_pins_original_query_cut_and_refuses_missing_cues(
     monkeypatch.setattr("corpus_structure.semantic.demand_results.selected_record_index", read)
 
     def candidates(index, exact_cut, *, product_id, member_id, anchor_use_id):
-        assert exact_cut is cut
+        assert exact_cut is query_entry.read
         assert anchor_use_id == query_entry.proof.anchor_use_id
         return (selected_entry(product_id, member_id, context),)
 

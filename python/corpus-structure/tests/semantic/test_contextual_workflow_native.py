@@ -114,6 +114,7 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
     from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
     from corpus_structure.semantic.data_operation_demands import RootSubject
     from corpus_structure.semantic.demand_results import read_demand_result
+    from corpus_structure.semantic.selected_support import SelectedReadReference
 
     directory = tmp_path_factory.mktemp("current-contextual-workflow")
 
@@ -142,8 +143,9 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
             "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
             "kind",
         ]
+        read = SelectedReadReference.from_cut(page.cut)
         (original,) = [
-            Product(row, row["body"], page.cut)
+            Product(row, row["body"], read)
             for row in page.members()
             if row["kind_contract"] == source_kind
             and row["body"]["text"] == TEXT

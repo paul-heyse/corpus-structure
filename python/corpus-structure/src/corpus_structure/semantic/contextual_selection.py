@@ -90,6 +90,7 @@ def _selected_product(connection, selection, *, project_id, kind_name):
     from .data_operation_identity import decode_semantic_value
     from .data_operation_support import ComputationalSupportReference
     from .demand_results import selected_record_index
+    from .selected_support import SelectedReadReference
 
     with selected_record_index(
         connection,
@@ -101,12 +102,13 @@ def _selected_product(connection, selection, *, project_id, kind_name):
         capture_frontier=True,
         max_total_bytes=64 * 1024 * 1024,
     ) as (cut, index):
+        read = SelectedReadReference.from_cut(cut)
         candidates = tuple(
             entry
             for use in index.frontier_rows("uses")
             if use["fate"] == "fulfilled"
             for entry in selected_source_entries(
-                index, cut, product_id=selection.product_id, member_id=None,
+                index, read, product_id=selection.product_id, member_id=None,
                 anchor_use_id=use["use_id"],
                 support=ComputationalSupportReference(
                     derivation_id=use["derivation_id"], admission_use_id=use["use_id"]
@@ -328,7 +330,7 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
             ):
                 raise ValueError("witness cue differs from its selected body/source")
             candidates = selected_source_entries(
-                index, cut, product_id=ref.product_id, member_id=ref.member_id,
+                index, query_entry.read, product_id=ref.product_id, member_id=ref.member_id,
                 anchor_use_id=query_entry.proof.anchor_use_id,
             )
             if len(candidates) != 1:

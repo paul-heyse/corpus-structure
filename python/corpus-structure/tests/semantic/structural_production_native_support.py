@@ -101,6 +101,7 @@ def recipe(directory):
 def produce_source_reports(source, kernel, target, *, text):
     """One source-discovery demand owns genuine source and primary producer uses."""
     from corpus_structure.semantic.demand_results import read_demand_result
+    from corpus_structure.semantic.selected_support import SelectedReadReference
     from semantic.current_pdf_source_support import current_consumer_request
 
     pending = current_consumer_request(source, kernel, (target,), discover=True)
@@ -108,7 +109,8 @@ def produce_source_reports(source, kernel, target, *, text):
     assert execution.receipt_count > 0
     with kernel.purpose("read").begin() as connection:
         page = read_demand_result(connection, retained["demand_id"], project_id=PROJECT, limit=1000)
-    products = tuple(Product(row, row["body"], page.cut) for row in page.members())
+    read = SelectedReadReference.from_cut(page.cut)
+    products = tuple(Product(row, row["body"], read) for row in page.members())
     contract = kernel.identities[
         "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
         "kind",

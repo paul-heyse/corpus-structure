@@ -9,6 +9,7 @@ from corpus_structure.semantic.declared_structural_references import (
     DeclaredProductRef,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.selected_support import SelectedReadReference
 from semantic.current_pdf_source_support import PROJECT, ROOT, current_pdf_recipe
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 from semantic.structural_native_fixture import OPERATION, TEXT, operation_sources
@@ -88,7 +89,7 @@ def recipe(directory):
 class Product:
     row: dict
     body: dict
-    cut: object
+    read: SelectedReadReference
 
     @property
     def context(self):
@@ -118,7 +119,7 @@ class Product:
     def entry(self):
         from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
 
-        return SelectedSourceSetEntry.from_selected_header(self.row, self.cut)
+        return SelectedSourceSetEntry.from_selected_header(self.row, self.read)
 
     @property
     def root(self):
@@ -138,8 +139,9 @@ def selected(kernel, demand, *, kind, purpose="read"):
     contract = kernel.identities[kind, "kind"]
     with kernel.purpose(purpose).begin() as connection:
         page = read_demand_result(connection, demand, project_id=PROJECT, limit=1000)
+    read = SelectedReadReference.from_cut(page.cut)
     return tuple(
-        Product(row, row["body"], page.cut) for row in page.members() if row["kind_contract"] == contract
+        Product(row, row["body"], read) for row in page.members() if row["kind_contract"] == contract
     )
 
 
@@ -347,8 +349,9 @@ def source_products(source):
     ]
     with source.kernel.purpose("read").begin() as connection:
         page = read_demand_result(connection, source.demand_id, project_id=PROJECT, limit=1000)
+    read = SelectedReadReference.from_cut(page.cut)
     products = tuple(
-        Product(row, row["body"], page.cut)
+        Product(row, row["body"], read)
         for row in page.members()
         if row["kind_contract"] == contract and row["body"]["text"] == TEXT
     )
