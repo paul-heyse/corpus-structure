@@ -60,21 +60,24 @@ def _engines(url: str) -> tuple[Any, Any, str]:
     return admin, create_engine(target, poolclass=NullPool), name
 
 
-def _quote(name: str) -> str:
+def _database_name(name: str) -> str:
     import re
 
     if not re.fullmatch(r"[a-z_][a-z0-9_]*", name):
         raise DbRefused(f"unexpected database name {name!r}")
-    return f'"{name}"'
+    return name
 
 
 def _create(admin: Any, name: str, template: str, creation_token: str | None = None) -> bool:
-    from sqlalchemy import create_engine, text
+    from pglast import ast
+    from pglast.stream import RawStream
+    from sqlalchemy import create_engine, func, select, text
 
     from corpus_structure.core.db import extensions
     from corpus_structure.core.db.ownership import (
         DatabaseCreation,
         DatabaseReservation,
+        database_catalog,
         stamp_owned,
     )
 
@@ -88,15 +91,15 @@ def _create(admin: Any, name: str, template: str, creation_token: str | None = N
         raise DbRefused(str(error)) from error
 
     with admin.connect() as conn:
-        encoding = conn.execute(text("SHOW server_encoding")).scalar()
+        encoding = conn.execute(select(func.pg_catalog.current_setting("server_encoding"))).scalar()
         if str(encoding).upper() not in ("UTF8", "UTF-8"):
             raise DbRefused(f"the server encoding is {encoding}, not UTF-8: {extensions.PROVISION}")
-        exists = conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": name})
+        exists = conn.execute(select(1).select_from(database_catalog).where(database_catalog.c.datname == name))
         if exists.scalar() is not None:
             if creation is not None:
                 raise DbRefused(f"creation-only database already exists: {name!r}")
             return False
-        found = conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": template})
+        found = conn.execute(select(1).select_from(database_catalog).where(database_catalog.c.datname == template))
         if found.scalar() is None:
             raise DbRefused(f"the template {template!r} is missing: {extensions.PROVISION}")
     probe = create_engine(admin.url.set(database=template), isolation_level="AUTOCOMMIT")
@@ -111,7 +114,15 @@ def _create(admin: Any, name: str, template: str, creation_token: str | None = N
     finally:
         probe.dispose()  # a template must have no connection while it is cloned
     with admin.connect() as conn:
-        conn.execute(text(f"CREATE DATABASE {_quote(name)} TEMPLATE {_quote(template)}"))
+        conn.exec_driver_sql(
+            RawStream()(
+                ast.CreatedbStmt(
+                    dbname=_database_name(name),
+                    options=(ast.DefElem(defname="template", arg=ast.String(sval=_database_name(template))),),
+                )
+            ),
+            execution_options={"no_parameters": True},
+        )
         if creation is not None:
             stamp_owned(conn, creation.acknowledge(conn))
     return True
@@ -120,7 +131,8 @@ def _create(admin: Any, name: str, template: str, creation_token: str | None = N
 def _migrate(
     engine: Any, name: str, created: bool, *, expected_predecessor: str | None = None
 ) -> DbReport:
-    from sqlalchemy import text
+    from sqlalchemy import func, or_, select
+    from sqlalchemy.dialects.postgresql import JSONB
 
     from corpus_structure.semantic import migrations
 
@@ -131,10 +143,10 @@ def _migrate(
         )
     with engine.begin() as conn:
         legacy = conn.execute(
-            text(
-                "SELECT to_regclass('meta.project') IS NOT NULL OR "
-                "to_regclass('public.alembic_version') IS NOT NULL"
-            )
+            select(or_(
+                func.pg_catalog.to_regclass("meta.project").is_not(None),
+                func.pg_catalog.to_regclass("public.alembic_version").is_not(None),
+            ))
         ).scalar_one()
         if legacy:
             raise DbRefused("legacy database refused: bootstrap a fresh owned semantic database")
@@ -148,7 +160,7 @@ def _migrate(
         applied = migrations.upgrade(conn, head, expected_predecessor=expected_predecessor)
         current = migrations.current_revision(conn)
         physical_id = conn.scalar(
-            text("SELECT data.execution_contract_descriptor()->>'physical_id'")
+            select(func.data.execution_contract_descriptor(type_=JSONB())["physical_id"].astext)
         )
     return DbReport(
         database=name,
@@ -399,7 +411,9 @@ def status(
     json: JsonOpt = False,
 ) -> None:
     """Check database reachability and report the revision if visible."""
-    from sqlalchemy import text
+    from pglast import ast, enums
+    from pglast.stream import RawStream
+    from sqlalchemy import func, select
 
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.target import select_target
@@ -436,17 +450,21 @@ def status(
             )
         )
         conn = stack.enter_context(engine.connect())
-        conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+        conn.exec_driver_sql(RawStream()(ast.VariableSetStmt(
+            kind=enums.VariableSetKind.VAR_SET_MULTI,
+            name="TRANSACTION",
+            args=(ast.DefElem(defname="transaction_read_only", arg=ast.A_Const(val=ast.Integer(ival=1))),),
+        )))
         if selected == "deployment":
             verify_declared_route(conn, settings)
         acquired = acquired_target(conn, purpose=purpose)
         database, principal, server_version = conn.execute(
-            text("select current_database(), current_user, current_setting('server_version')")
+            select(func.pg_catalog.current_database(), func.current_user(), func.pg_catalog.current_setting("server_version"))
         ).one()
         present, permitted = conn.execute(
-            text(
-                "SELECT to_regclass('public.semantic_alembic_version') IS NOT NULL, "
-                "has_table_privilege(to_regclass('public.semantic_alembic_version'),'SELECT')"
+            select(
+                func.pg_catalog.to_regclass("public.semantic_alembic_version").is_not(None),
+                func.pg_catalog.has_table_privilege(func.pg_catalog.to_regclass("public.semantic_alembic_version"), "SELECT"),
             )
         ).one()
         readable = bool(permitted)

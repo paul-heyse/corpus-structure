@@ -10,9 +10,19 @@ import re
 from dataclasses import dataclass
 from uuid import uuid4
 
-from sqlalchemy import Connection, text
+from pglast import ast, enums
+from pglast.stream import RawStream
+from sqlalchemy import Connection, Text, column, func, select, table
+from sqlalchemy.dialects.postgresql import OID
 
 _STAMP = re.compile(r"corpus-structure owned database ([0-9a-f]{32}) oid ([1-9][0-9]*)")
+database_catalog = table(
+    "pg_database",
+    column("oid", OID()),
+    column("datname", Text()),
+    column("datdba", OID()),
+    schema="pg_catalog",
+)
 
 
 @dataclass(frozen=True)
@@ -50,18 +60,23 @@ class DatabaseCreation:
     def acknowledge(self, connection: Connection) -> OwnedDatabase:
         # Call only after CREATE returned successfully, never following existence or cancellation.
         oid, owner = connection.execute(
-            text("SELECT oid,pg_get_userbyid(datdba) FROM pg_database WHERE datname=:name"),
-            {"name": self.reservation.name},
+            select(database_catalog.c.oid, func.pg_catalog.pg_get_userbyid(database_catalog.c.datdba))
+            .where(database_catalog.c.datname == self.reservation.name)
         ).one()
         self.owned = OwnedDatabase(self.reservation, oid, owner)
         return self.owned
 
 
 def stamp_owned(connection: Connection, owned: OwnedDatabase) -> None:
-    quote = connection.dialect.identifier_preparer.quote
-    # COMMENT does not accept a bound value. The comment contains only a fixed prefix, hex and int.
     connection.exec_driver_sql(
-        f"COMMENT ON DATABASE {quote(owned.reservation.name)} IS '{owned.comment}'"
+        RawStream()(
+            ast.CommentStmt(
+                objtype=enums.ObjectType.OBJECT_DATABASE,
+                object=ast.String(sval=owned.reservation.name),
+                comment=owned.comment,
+            )
+        ),
+        execution_options={"no_parameters": True},
     )
 
 
@@ -69,11 +84,11 @@ def acknowledged_database(
     connection: Connection, reservation: DatabaseReservation
 ) -> OwnedDatabase | None:
     row = connection.execute(
-        text(
-            "SELECT oid,pg_get_userbyid(datdba),shobj_description(oid,'pg_database') "
-            "FROM pg_database WHERE datname=:name"
-        ),
-        {"name": reservation.name},
+        select(
+            database_catalog.c.oid,
+            func.pg_catalog.pg_get_userbyid(database_catalog.c.datdba),
+            func.pg_catalog.shobj_description(database_catalog.c.oid, "pg_database"),
+        ).where(database_catalog.c.datname == reservation.name)
     ).one_or_none()
     if row is None:
         return None

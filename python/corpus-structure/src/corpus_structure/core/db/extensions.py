@@ -2,14 +2,13 @@
 
 `ops/postgresql/extensions.txt` records each extension's expected `extversion`, one
 `<extension> <version>` per line. `scripts/pg_provision.sh` installs those versions in
-`cs_template`; this module reads the record for the overlay's assertion (frozen into migration
-0001), `ci db init`, `open_store`'s startup check and the test fixtures. A database whose
+`cs_template`; this module reads the record for `ci db init`, `open_store`'s startup check
+and the test fixtures. A database whose
 extensions differ is refused, naming both versions and `just db-provision`.
 """
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -61,25 +60,3 @@ def check(found: Iterable[tuple[str, str]], expected: Mapping[str, str] | None =
     wrong = mismatches(found, expected)
     if wrong:
         raise ExtensionVersionMismatch(wrong)
-
-
-def _literal(value: str) -> str:
-    if not re.fullmatch(r"[A-Za-z0-9_.\-]+", value):
-        raise ValueError(f"unexpected extension name or version {value!r}")
-    return f"'{value}'"
-
-
-def assertion_sql(expected: Mapping[str, str] | None = None) -> str:
-    """A `DO` block that fails (`P0001`) unless each expected extension is installed at its
-    recorded version, naming the extension, both versions and `just db-provision`."""
-    expected = expected_extensions() if expected is None else expected
-    checks = []
-    for name, version in sorted(expected.items()):
-        checks.append(
-            f"  SELECT extversion INTO found FROM pg_extension WHERE extname = {_literal(name)};\n"
-            f"  IF found IS DISTINCT FROM {_literal(version)} THEN\n"
-            f"    RAISE EXCEPTION 'extension {name} is %, expected {version}: {PROVISION}',\n"
-            f"      coalesce(found, 'absent');\n"
-            f"  END IF;\n"
-        )
-    return "DO $$\nDECLARE found text;\nBEGIN\n" + "".join(checks) + "END $$"
