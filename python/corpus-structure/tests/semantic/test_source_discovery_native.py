@@ -14,12 +14,14 @@ from corpus_structure.semantic.data_operation_demands import (
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_service import execute_data_demand
+from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
 from corpus_structure.semantic.original_documents import acquire_original_document_selection
 from semantic.current_pdf_source_support import (
     PROJECT,
     ROOT,
+    source_entry,
 )
 from semantic.current_pdf_source_support import (
     current_pdf_source as current_pdf_source,
@@ -100,6 +102,11 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
                 ),
             ),
             original_sources=(original.selection(),),
+            source_sets=(
+                FrozenSourceSet(
+                    "selected-source-views", tuple(source_entry(row) for row in selected)
+                ),
+            ),
             inference="source-discovery-control",
             execution_profile=kernel.recipe.execution_profile,
         )

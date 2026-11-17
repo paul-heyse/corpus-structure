@@ -191,12 +191,13 @@ def test_acquire_preserves_body_under_its_older_pinned_source_contract(profile):
     assert "document_subject" not in preserved.value["source"]
 
 
-def test_discovery_views_require_computational_origin_without_precomputed_source_ids(profile):
+def test_discovery_views_require_computational_origin_and_exact_frozen_source_set(profile):
     operation = profile.model.operation("source.selected_views/discovery")
     role = next(role for role in operation.roles if role.name == "views")
     assert role.support.origins == ("computation",)
     assert role.support.identity_requirements == ("episode",)
-    assert role.support.source == "same-original" and role.support.source_set is None
+    assert role.support.source == "frozen-source-set"
+    assert role.support.source_set == "selected-source-views"
     assert role.subject_field == "/source/document_subject"
 
 
