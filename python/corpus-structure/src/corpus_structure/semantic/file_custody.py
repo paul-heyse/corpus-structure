@@ -85,3 +85,45 @@ def verified_file(path: Path, expected: str) -> FileCustody:
         else:
             record.check()
         return record
+
+
+_observed: dict[Path, FileCustody] = {}
+
+
+def observed_file(path: Path) -> FileCustody:
+    """Establish local runtime identity once; callers compare its admitted identity."""
+    path = Path(path)
+    with _lock:
+        record = _observed.get(path)
+        if record is None:
+            known = next((record for (known_path, _), record in _records.items() if known_path == path), None)
+            if known is not None:
+                known.check()
+                _observed[path] = known
+                return known
+            before = stat_identity(path)
+            with path.open("rb") as source:
+                digest = file_digest(source, "sha256").hexdigest()
+            after = stat_identity(path)
+            if before != after:
+                raise FileCustodyError(f"file changed during runtime acquisition: {path}")
+            record = FileCustody(path, digest, after, time_ns() - max(after[3:]) <= _RACY_WINDOW_NS)
+            _observed[path] = record
+            _records[path, record.digest] = record
+        else:
+            record.check()
+        return record
+
+
+def accept_file_receipt(receipt, *, path: Path, expected: str) -> FileCustody:
+    """Receive private parent custody without accepting a different file population."""
+    if Path(receipt[0]) != Path(path) or receipt[1] != expected:
+        raise FileCustodyError("model file handoff differs from admitted manifest")
+    with _lock:
+        record = _records.get((Path(path), expected))
+        if record is None:
+            record = FileCustody.accept(receipt)
+            _records[Path(path), expected] = record
+        else:
+            record.check()
+        return record

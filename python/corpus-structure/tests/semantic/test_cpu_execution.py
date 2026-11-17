@@ -193,7 +193,7 @@ def _gated_compute(
     from corpus_structure.semantic import cpu_execution
 
     cpu_execution._WORKER_REQUEST = (slot, generation)
-    if json.loads(content)["request_id"] == "slow":
+    if json.loads(content.content)["request_id"] == "slow":
         started.set()
         deadline = monotonic() + 60
         while not release.wait(0.05):
@@ -356,3 +356,19 @@ def test_async_independent_cancel_generation_reuse_and_reply_retention(prepared,
     finally:
         execution.close()
     assert execution.budget.used_bytes == 0
+
+
+def test_owned_dispatch_carries_sealed_packet_digest_without_rehashing(monkeypatch):
+    from corpus_structure.semantic import cpu_execution, data_operation_cpu
+
+    packet = cpu_execution._SealedPacket.seal(b"exact physical request")
+    expected = packet.digest
+    def forbidden(*args, **kwargs):
+        raise AssertionError("worker rehashed established request bytes")
+    monkeypatch.setattr(cpu_execution, "sha256", forbidden)
+    monkeypatch.setattr(cpu_execution, "_worker_active", lambda: None)
+    monkeypatch.setattr(cpu_execution, "_apply_native_thread_limits", lambda: None)
+    monkeypatch.setattr(data_operation_cpu, "execute_python_call", lambda *args, **kwargs: b"result")
+    reply = cpu_execution._dispatch(packet, 1024, -1, 0, "closed-python")
+    assert reply.request_digest == expected
+    assert reply.content == b"result"

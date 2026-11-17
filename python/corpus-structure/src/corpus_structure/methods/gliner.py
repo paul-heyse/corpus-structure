@@ -191,10 +191,11 @@ class GlinerProfile:
             path = self.snapshot / name
             if not path.is_file():
                 raise GlinerRefused(f"missing snapshot artifact: {name}")
-            with path.open("rb") as handle:
-                actual = hashlib.file_digest(handle, "sha256").hexdigest()
-            if actual != expected:
-                raise GlinerRefused(f"snapshot artifact differs: {name}")
+            from corpus_structure.semantic.file_custody import verified_file
+            try:
+                verified_file(path, expected)
+            except ValueError as error:
+                raise GlinerRefused(f"snapshot artifact differs: {name}") from error
 
 
 ASSERTION_LITERAL_PACK = "native-assertion-literal-v1"

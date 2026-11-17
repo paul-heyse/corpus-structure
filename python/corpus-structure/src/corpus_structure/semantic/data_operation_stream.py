@@ -71,13 +71,14 @@ class OwnedCPUStream:
         self.parent, self.child = cpu._context.Pipe(duplex=True)
         cpu._stream_transports.add(self)
         self.check_active = check_active
-        self.digest, self.ordinal = sha256(packet).hexdigest(), 0
+        self.ordinal = 0
         self.max_bytes = cpu.policy.max_reply_bytes
         self.fence = {"slot": admission.slot, "generation": admission.generation}
         try:
             self.handle = cpu.submit_closed_python_stream(
                 admission, packet, self.child, check_active
             )
+            self.digest = self.handle.digest
         except BaseException:
             self.parent.close()
             self.child.close()
@@ -244,7 +245,7 @@ def plan_cpu_coroutine(
 
     if not isinstance(descriptor, PythonCPUDescriptor) or descriptor.invocation_form != "coroutine":
         raise ValueError("CPU coroutine requires its acquired coroutine descriptor")
-    question_adapter, reply_adapter, result_adapter = coroutine_adapters(signature)
+    question_adapter, reply_adapter, result_adapter = coroutine_adapters(signature, descriptor)
     packet = descriptor.packet(bound.arguments, signature)
     cpu, stream = execution_owner.cpu, None
 

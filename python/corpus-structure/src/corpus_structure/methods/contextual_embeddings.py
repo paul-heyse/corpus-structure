@@ -13,7 +13,7 @@ import struct
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from functools import lru_cache
-from hashlib import file_digest, sha256
+from hashlib import sha256
 from pathlib import Path
 from threading import Event
 from time import monotonic
@@ -334,11 +334,8 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
             name for name, _ in artifact_hashes
         }:
             raise ValueError("encoder model file population differs from acquired artifacts")
-        observations = tuple((name, (root / name).stat()) for name, _ in artifact_hashes)
-        for name, digest in artifact_hashes:
-            with (root / name).open("rb") as source:
-                if file_digest(source, "sha256").hexdigest() != digest:
-                    raise ValueError("encoder model bytes differ from acquired artifacts")
+        from corpus_structure.semantic.file_custody import verified_file
+        observations = tuple((name, verified_file(root / name, digest)) for name, digest in artifact_hashes)
         _verify_cpu_artifacts(model_path, observations)
     from sentence_transformers import SentenceTransformer
     from sentence_transformers.sentence_transformer.modules import Pooling
@@ -357,6 +354,7 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
     poolings = [module for module in model if isinstance(module, Pooling)]
     if len(poolings) != 1 or poolings[0].get_config_dict().get("pooling_mode") != profile.pooling:
         raise ValueError("loaded model pooling differs from declared profile")
+    _verify_cpu_artifacts(model_path, observations)
     return model, implementation, observations
 
 
@@ -366,16 +364,8 @@ def _verify_cpu_artifacts(model_path, observations):
         path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
     } != {name for name, _ in observations}:
         raise ValueError("resident encoder model file population changed")
-    for name, prior in observations:
-        current = (Path(model_path) / name).stat()
-        if (
-            current.st_dev,
-            current.st_ino,
-            current.st_size,
-            current.st_mtime_ns,
-            current.st_ctime_ns,
-        ) != (prior.st_dev, prior.st_ino, prior.st_size, prior.st_mtime_ns, prior.st_ctime_ns):
-            raise ValueError("resident encoder acquisition changed after verified loading")
+    for name, record in observations:
+        record.check()
 
 
 def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_active):

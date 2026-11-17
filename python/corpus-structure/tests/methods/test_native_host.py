@@ -1,6 +1,7 @@
 """Pure controls for the unselected host checkpoint; no model/provider/GPU launches."""
 
 import json
+from hashlib import sha256
 from concurrent.futures import Future
 from contextlib import contextmanager
 from pathlib import Path
@@ -138,24 +139,28 @@ def test_real_adapter_rejects_missing_profile_before_model_loading():
         _load({"profile": {"provider": "gliner"}}, None)
 
 
-def test_profile_nested_aliases_and_returned_declarations_cannot_change_identity():
+def test_profile_nested_aliases_and_returned_declarations_cannot_change_identity(tmp_path):
     runtime = {"versions": [{"torch": "selected"}]}
-    artifacts = {"files": {"weights": ["original"]}}
+    path = tmp_path / "checkpoint" / "weights"
+    path.parent.mkdir()
+    path.write_bytes(b"original")
+    artifacts = {"checkpoint": {"files": {"weights": {"sha256": sha256(b"original").hexdigest(), "size": 8}}}}
     parameters = {"decoder": {"thresholds": [0.5]}}
     selected = selection(runtime_identity=runtime, artifacts=artifacts, parameters=parameters)
+    selected = NativeSelection(selected.native, tmp_path)
     content, identity, declaration = selected.profile, selected.identity, selected.declaration()
     runtime["versions"][0]["torch"] = "changed"
-    artifacts["files"]["weights"].append("changed")
+    artifacts["checkpoint"]["files"]["weights"]["sha256"] = "changed"
     parameters["decoder"]["thresholds"][0] = 0.9
     selected.native.runtime_identity["versions"][0]["torch"] = "another-change"
-    selected.native.artifacts["files"].clear()
+    selected.native.artifacts["checkpoint"]["files"].clear()
     selected.native.parameters["decoder"].clear()
     exposed = selected.declaration()
     exposed["profile"]["runtime_identity"].clear()
     assert selected.profile == content and selected.identity == identity
     assert selected.declaration() == declaration
     assert json.loads(selected.runtime) == {"versions": [{"torch": "selected"}]}
-    assert json.loads(selected.artifacts) == {"files": {"weights": ["original"]}}
+    assert json.loads(selected.artifacts)["checkpoint"]["files"]["weights"]["sha256"] == sha256(b"original").hexdigest()
 
 
 def test_partial_constructor_remains_owned_when_cleanup_is_unproven(monkeypatch):
@@ -231,7 +236,14 @@ def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(
         "dtype": "torch.bfloat16" if provider == "d1" else "torch.float32",
         "attention_implementation": "sdpa",
     }
-    runtime, artifacts = {"lock": "shared-runtime", "python": "3.14.10"}, {"checkpoint": "exact"}
+    runtime = {"lock": "shared-runtime", "python": "3.14.10"}
+    weights = tmp_path / "checkpoint" / "weights"
+    weights.parent.mkdir()
+    weights.write_bytes(b"selected model")
+    digest = sha256(b"selected model").hexdigest()
+    artifacts = {"checkpoint": {"files": {"weights": {"sha256": digest}}}}
+    from corpus_structure.semantic.file_custody import verified_file
+    custody = (verified_file(weights, digest).receipt(),)
 
     def loader(assets, device):
         calls.append((provider, assets, device))
@@ -264,7 +276,7 @@ def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(
         cuda=SimpleNamespace(get_device_name=lambda: "fixture"),
     )
     metadata, infer = native_host_adapters.load(
-        {"profile": profile, "assets": str(tmp_path)}, torch
+        {"profile": profile, "assets": str(tmp_path), "asset_custody": custody}, torch
     )
     assert calls == [(provider, tmp_path, "cuda")]
     assert metadata["runtime_identity"] == runtime and metadata["assets"] == artifacts
@@ -272,7 +284,7 @@ def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(
     assert infer({"ordered": [2, 1]}) == {"native": {"ordered": [2, 1]}}
     profile["runtime_identity"] = {"lock": "foreign"}
     with pytest.raises(ValueError, match="runtime differs"):
-        native_host_adapters.load({"profile": profile, "assets": str(tmp_path)}, object())
+        native_host_adapters.load({"profile": profile, "assets": str(tmp_path), "asset_custody": custody}, object())
     assert len(calls) == 1
 
 

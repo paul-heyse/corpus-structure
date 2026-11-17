@@ -89,18 +89,95 @@ def test_authenticated_runtime_refuses_changed_callable_premises(acquired, monke
     monkeypatch.setitem(sys.modules, module.__name__, module)
     runtime = AuthenticatedSlice(
         (record,), {module.__name__: module},
-        (lambda: module.original,), ((module, "TOKEN", None),),
+        (lambda: getattr(module, "original"),), ((module, "TOKEN", None),),
     )
     runtime.check()
+    function = vars(module)["original"]
     if mutation == "function":
-        module.original = lambda value=1: value
+        setattr(module, "original", lambda value=1: value)
     elif mutation == "code":
-        module.original.__code__ = (lambda value=1: value).__code__
+        function.__code__ = (lambda value=1: value).__code__
     elif mutation == "default":
-        module.original.__defaults__ = (3,)
+        function.__defaults__ = (3,)
     elif mutation == "global":
-        module.TOKEN = 3
+        setattr(module, "TOKEN", 3)
     else:
-        module.original.__annotations__["return"] = str
+        function.__annotations__["return"] = str
     with pytest.raises(ValueError, match="restart"):
         runtime.check()
+
+
+def test_child_adopts_parent_receipt_without_reading_established_bytes(acquired, monkeypatch):
+    path, record = acquired
+    receipt = record.receipt()
+    monkeypatch.setattr(file_custody, "_records", {})
+    def forbidden(*args, **kwargs):
+        raise AssertionError("child rehashed established parent file")
+    monkeypatch.setattr(type(path), "open", forbidden)
+    adopted = file_custody.accept_file_receipt(receipt, path=path, expected=record.digest)
+    assert adopted.identity == record.identity
+    assert file_custody.verified_file(path, record.digest) is adopted
+
+
+def test_child_receipt_cannot_authorize_a_different_file(acquired, monkeypatch):
+    path, record = acquired
+    monkeypatch.setattr(file_custody, "_records", {})
+    with pytest.raises(FileCustodyError, match="manifest"):
+        file_custody.accept_file_receipt(record.receipt(), path=path.with_name("foreign"), expected=record.digest)
+    with pytest.raises(FileCustodyError, match="manifest"):
+        file_custody.accept_file_receipt(record.receipt(), path=path, expected="0" * 64)
+
+
+@pytest.mark.parametrize("descriptor", ["static", "class", "property", "cached", "wrapped"])
+def test_authenticated_class_tracks_wrapped_function_code(acquired, monkeypatch, descriptor):
+    _, record = acquired
+    module = ModuleType("custody_descriptor_fixture")
+    exec(
+        "from functools import cached_property\n"
+        "class Owner:\n"
+        "    @staticmethod\n"
+        "    def static(): return 1\n"
+        "    @classmethod\n"
+        "    def class_method(cls): return 1\n"
+        "    @property\n"
+        "    def property_value(self): return 1\n"
+        "    @cached_property\n"
+        "    def cached(self): return 1\n"
+        "    def wrapper(self): return 1\n"
+        "def wrapped(self): return 2\n"
+        "Owner.wrapper.__wrapped__ = wrapped\n",
+        vars(module),
+    )
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    owner = vars(module)["Owner"]
+    runtime = AuthenticatedSlice((record,), {module.__name__: module}, (lambda: owner,), ())
+    runtime.check()
+    selected = {
+        "static": vars(owner)["static"].__func__,
+        "class": vars(owner)["class_method"].__func__,
+        "property": vars(owner)["property_value"].fget,
+        "cached": vars(owner)["cached"].func,
+        "wrapped": vars(owner)["wrapper"].__wrapped__,
+    }[descriptor]
+    selected.__code__ = (lambda self=None: 9).__code__
+    with pytest.raises(ValueError, match="restart"):
+        runtime.check()
+
+
+def test_pdf_model_handoff_reuses_parent_and_checks_after_load(acquired, monkeypatch):
+    from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
+
+    path, record = acquired
+    prepared = PreparedPdfAssets(path.parent, b"manifest", ((path.name, record.digest),))
+    monkeypatch.setattr(file_custody, "_records", {(path, record.digest): record})
+    child = prepared.with_custody()
+    monkeypatch.setattr(file_custody, "_records", {})
+    original = type(path).open
+    def forbidden(*args, **kwargs):
+        raise AssertionError("child rehashed established model")
+    monkeypatch.setattr(type(path), "open", forbidden)
+    child.verify()
+    monkeypatch.setattr(type(path), "open", original)
+    path.write_bytes(b"other")
+    with pytest.raises(FileCustodyError, match="restart"):
+        child.verify()

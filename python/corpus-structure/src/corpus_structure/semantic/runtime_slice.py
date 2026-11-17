@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
+from functools import cached_property
 import sys
 from collections.abc import Callable
 from types import FunctionType, ModuleType
@@ -52,10 +53,28 @@ class AuthenticatedSlice:
         def remember(getter):
             value = getter()
             self._checks.append((getter, _state(value)))
-            if isinstance(value, FunctionType):
+            if isinstance(value, FunctionType) and value.__module__ in modules:
                 function(value)
-            elif isinstance(value, type):
+            elif isinstance(value, type) and value.__module__ in modules:
                 owner(value)
+            elif isinstance(value, (staticmethod, classmethod)):
+                function(value.__func__)
+            elif isinstance(value, property):
+                for accessor in (value.fget, value.fset, value.fdel):
+                    if accessor is not None:
+                        function(accessor)
+            elif isinstance(value, cached_property):
+                function(value.func)
+            elif isinstance(value, dataclasses.Field):
+                for name in value.__slots__:
+                    remember(lambda value=value, name=name: getattr(value, name))
+            elif type(value) in (dict, tuple, list):
+                if id(value) in seen:
+                    return
+                seen.add(id(value))
+                keys = tuple(value) if type(value) is dict else range(len(value))
+                for key in keys:
+                    remember(lambda value=value, key=key: value[key])
 
         def function(value):
             if id(value) in seen:
@@ -83,6 +102,9 @@ class AuthenticatedSlice:
             if id(value) in seen or value.__module__ == "builtins":
                 return
             seen.add(id(value))
+            # Python 3.14 may materialize the class annotations on first access;
+            # this is preparation, not an observed runtime mutation.
+            getattr(value, "__annotations__", None)
             self._checks.append((lambda value=value: tuple(vars(value)), _state(tuple(vars(value)))))
             remember(lambda value=value: value.__bases__)
             for name in tuple(vars(value)):

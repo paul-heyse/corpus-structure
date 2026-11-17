@@ -104,6 +104,13 @@ class PreparedOriginalCallPort:
             )
         ):
             raise PortRefusal("prepared original call differs from its fixed typed signature")
+        from .data_operation_prepared_products import authenticated_prepared_product
+        functions = ((self.identity.declaration, self.original), (self.plan_owner, self.physical_plan), *self.functions)
+        verify_prepared_product(
+            self.identity, self.model, self.operation, self.sources, self.custody,
+            assets=self.assets, functions=functions, authorize=self.authorize,
+            required_sources=self.required_sources,
+        )
         self._port = ResolvedPythonPort(
             self.identity,
             self.model,
@@ -117,6 +124,8 @@ class PreparedOriginalCallPort:
             self._verify,
             logical_batch_signature(signature) if batch else None,
         )
+        self._verification = authenticated_prepared_product(self.sources, functions)
+        self._basis = tuple((name, getattr(self, name)) for name in ("identity", "model", "operation", "sources", "custody", "assets", "original", "physical_plan", "functions", "required_sources"))
         self._verify()
 
     @property
@@ -128,21 +137,13 @@ class PreparedOriginalCallPort:
         return self._port.logical_signature or self._port.signature
 
     def _verify(self):
-        verify_prepared_product(
-            self.identity,
-            self.model,
-            self.operation,
-            self.sources,
-            self.custody,
-            assets=self.assets,
-            functions=(
-                (self.identity.declaration, self.original),
-                (self.plan_owner, self.physical_plan),
-                *self.functions,
-            ),
-            authorize=self.authorize,
-            required_sources=self.required_sources,
-        )
+        if any(getattr(self, name) is not value for name, value in self._basis):
+            raise PortRefusal("prepared port correspondence changed after acquisition")
+        try:
+            self._verification.check()
+        except ValueError as error:
+            raise PortRefusal(str(error)) from error
+        self.authorize(self.identity)
 
     def plan_cpu_reply(
         self,
@@ -151,6 +152,7 @@ class PreparedOriginalCallPort:
         captured: PythonSourceCollection,
         *,
         prepared_release_id: str | None = None,
+        asset_custody: tuple = (),
         verify=None,
         check_active,
         execution_owner,
@@ -176,6 +178,7 @@ class PreparedOriginalCallPort:
             control_parameter="check_active",
             prepared_parameter="prepared" if prepared_release_id is not None else None,
             prepared_release_id=prepared_release_id,
+            asset_custody=asset_custody,
         )
         return (
             yield from plan_cpu_call(

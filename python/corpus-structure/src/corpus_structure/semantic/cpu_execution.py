@@ -23,6 +23,18 @@ from .identity import canonical_bytes
 from .types import PreparationProfile, PreparedArtifact, PreparedRelease, SourceBundle
 
 
+@dataclass(frozen=True)
+class _SealedPacket:
+    content: bytes
+    digest: str
+
+    @classmethod
+    def seal(cls, content: bytes):
+        if type(content) is not bytes:
+            raise TypeError("owned CPU packets require immutable bytes")
+        return cls(content, sha256(content).hexdigest())
+
+
 class CapacityExceeded(ValueError):
     """The complete owned input cannot fit the selected physical policy."""
 
@@ -256,7 +268,7 @@ def _worker_active() -> None:
                 raise CPURequestCancelled("CPU logical request cancelled")
 
 
-def _compute_formal(content: bytes, max_reply_bytes: int) -> CPUReply:
+def _compute_formal(content: bytes, max_reply_bytes: int, request_digest: str) -> CPUReply:
     """Private prepared target work, never a fabricated legacy task or Reader."""
     import os
 
@@ -287,7 +299,7 @@ def _compute_formal(content: bytes, max_reply_bytes: int) -> CPUReply:
         raise CapacityExceeded("CPU formal result exceeds admitted reply byte capacity")
     _worker_active()
     return CPUReply(
-        sha256(content).hexdigest(),
+        request_digest,
         result,
         os.getpid(),
         threading.current_thread() is threading.main_thread(),
@@ -297,7 +309,7 @@ def _compute_formal(content: bytes, max_reply_bytes: int) -> CPUReply:
 
 
 def _dispatch(
-    content: bytes,
+    packet: _SealedPacket,
     max_reply_bytes: int,
     slot: int,
     generation: int,
@@ -307,6 +319,7 @@ def _dispatch(
 ) -> CPUReply:
     import os
 
+    content, request_digest = packet.content, packet.digest
     global _WORKER_REQUEST
     _WORKER_REQUEST = None if slot < 0 else (slot, generation)
     releases = _WORKER_RELEASES
@@ -316,7 +329,7 @@ def _dispatch(
             prepared = _worker_release(capsule)
             releases = {prepared.release_id: prepared}
         if profile == "formal-source-native":
-            return _compute_formal(content, max_reply_bytes)
+            return _compute_formal(content, max_reply_bytes, request_digest)
         if profile in {"closed-python", "closed-python-stream"}:
             from .data_operation_cpu import execute_python_call
 
@@ -332,6 +345,7 @@ def _dispatch(
                     max_reply_bytes,
                     {"slot": slot, "generation": generation},
                     prepared_releases=releases,
+                    request_digest=request_digest,
                 )
             else:
                 result = execute_python_call(
@@ -343,7 +357,7 @@ def _dispatch(
             if len(result) > max_reply_bytes:
                 raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
             return CPUReply(
-                sha256(content).hexdigest(),
+                request_digest,
                 result,
                 os.getpid(),
                 threading.current_thread() is threading.main_thread(),
@@ -353,7 +367,7 @@ def _dispatch(
         raise ValueError("CPU dispatch has no admitted source-native profile")
     except Exception as error:
         return CPUReply(
-            sha256(content).hexdigest(),
+            request_digest,
             b"",
             os.getpid(),
             True,
@@ -861,6 +875,7 @@ class CPUExecutionScope:
         if len(content) > self.policy.max_packet_bytes:
             self.release_admission(admission)
             raise CapacityExceeded("CPU input exceeds admitted packet byte capacity")
+        packet = _SealedPacket.seal(content)
         with self._lock:
             pool = self._executor()
             if not admission.active or admission.submitted:
@@ -875,7 +890,7 @@ class CPUExecutionScope:
             # keep the invocation lock while entering that potentially wedged API.
             future = pool.submit(
                 _dispatch,
-                content,
+                packet,
                 self.policy.max_reply_bytes,
                 admission.slot,
                 admission.generation,
@@ -885,7 +900,7 @@ class CPUExecutionScope:
             )
             with self._lock:
                 handle = CPUHandle(
-                    self, admission, future, sha256(content).hexdigest(), check_active
+                    self, admission, future, packet.digest, check_active
                 )
                 handle._cancelled = self._closed
                 self._handles.add(handle)

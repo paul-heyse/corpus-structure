@@ -6,7 +6,7 @@ import json
 import re
 import shutil
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,16 +21,28 @@ class PreparedPdfAssets:
     manifest: bytes
     files: tuple[tuple[str, str], ...]
     repositories: tuple[tuple[str, str], ...] = ()
+    custody: tuple = field(default=(), repr=False, compare=False)
 
     @property
     def digest(self) -> str:
         return sha256(self.manifest).hexdigest()
 
     def verify(self) -> None:
+        from corpus_structure.semantic.file_custody import accept_file_receipt, verified_file
+        receipts = {receipt[0]: receipt for receipt in self.custody}
+        expected_population = {(str(self.root / name), digest) for name, digest in self.files}
+        if self.custody and (len(self.custody) != len(expected_population) or {(receipt[0], receipt[1]) for receipt in self.custody} != expected_population):
+            raise ValueError("PDF asset custody differs from prepared file population")
         for name, expected in self.files:
             path = self.root / name
-            if not path.is_file() or _hash(path) != expected:
-                raise ValueError(f"native model artifact integrity mismatch: {name}")
+            if str(path) in receipts:
+                accept_file_receipt(receipts[str(path)], path=path, expected=expected)
+            verified_file(path, expected)
+
+    def with_custody(self):
+        from corpus_structure.semantic.file_custody import verified_file
+        self.verify()
+        return replace(self, custody=tuple(verified_file(self.root / name, digest).receipt() for name, digest in self.files))
 
 
 def _hash(path: Path) -> str:

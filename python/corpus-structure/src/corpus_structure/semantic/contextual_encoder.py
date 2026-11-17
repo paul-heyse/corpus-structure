@@ -5,7 +5,6 @@ from __future__ import annotations
 import inspect
 import json
 from dataclasses import asdict, dataclass
-from hashlib import file_digest
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -53,16 +52,16 @@ class ContextualEncoderSelection:
         artifacts = []
         for path in sorted(root.rglob("*")):
             if path.is_file():
-                with path.open("rb") as source:
-                    artifacts.append(
-                        (
-                            path.relative_to(root).as_posix(),
-                            file_digest(source, "sha256").hexdigest(),
-                        )
-                    )
+                from .file_custody import observed_file
+                artifacts.append((path.relative_to(root).as_posix(), observed_file(path).digest))
         if not artifacts or not {"config.json", "modules.json"} <= {name for name, _ in artifacts}:
             raise ValueError("contextual encoder snapshot lacks actual model/module configuration")
         return cls(profile, root, tuple(artifacts))
+
+
+    def asset_custody(self):
+        from .file_custody import verified_file
+        return tuple(verified_file(self.model_path / name, digest).receipt() for name, digest in self.artifacts)
 
 
 def contextual_encoder_assets(selection):
@@ -605,6 +604,7 @@ class ContextualEncoderPlan:
             captured,
             execution_owner=execution_owner,
             check_active=check_active,
+            asset_custody=self.selection.asset_custody(),
         )
         result = cpu_authority_value(reply.content, expected_basis=basis)
         products = {
@@ -659,6 +659,7 @@ class ContextualTargetEncoderPlan:
             contextual_encoder_operation_sources(self.selection, include_dependencies=False),
             execution_owner=execution_owner,
             check_active=check_active,
+            asset_custody=self.selection.asset_custody(),
         )
         result = self.prepared.validate_json(
             "DdoContextualTargetVector",

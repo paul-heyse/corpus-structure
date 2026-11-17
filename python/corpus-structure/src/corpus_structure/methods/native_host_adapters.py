@@ -18,6 +18,15 @@ def load(declaration, torch):
     profile = declaration["profile"]
     provider = profile["provider"]
     assets = Path(declaration["assets"]).resolve(strict=True)
+    from corpus_structure.methods.native_profiles import native_asset_files
+    from corpus_structure.semantic.file_custody import accept_file_receipt, verified_file
+    receipts = declaration["asset_custody"]
+    expected_files = native_asset_files(profile, assets)
+    expected_population = {(str(path), digest) for path, digest in expected_files}
+    if {(receipt[0], receipt[1]) for receipt in receipts} != expected_population or len(receipts) != len(expected_files):
+        raise ValueError("native asset custody differs from declared file population")
+    for receipt in receipts:
+        accept_file_receipt(receipt, path=Path(receipt[0]), expected=receipt[1])
     root = Path(__file__).resolve().parents[5]
     project = root
     native = runpy.run_path(str(Path(__file__).with_name("pm2_native.py")))
@@ -56,6 +65,8 @@ def load(declaration, torch):
         raise ValueError("unsupported shared native provider")
     if metadata["backend"] != profile["backend"]:
         raise ValueError("native backend differs from frozen profile")
+    for path, digest in expected_files:
+        verified_file(path, digest).check()
     return {**metadata, "runtime_identity": runtime, "assets": profile["artifacts"]}, infer
 
 

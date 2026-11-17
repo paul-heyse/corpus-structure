@@ -438,11 +438,30 @@ class NativeSelection:
         return self.native.fingerprint, str(self.assets.absolute())
 
     def declaration(self):
+        from corpus_structure.semantic.file_custody import verified_file
+        assets = self.assets.resolve()
         return dict(
             profile=self.native.wire,
             fingerprint=self.native.fingerprint,
-            assets=str(self.assets.absolute()),
+            assets=str(assets),
+            asset_custody=tuple(
+                verified_file(path, digest).receipt()
+                for path, digest in native_asset_files(self.native.wire, assets)
+            ),
         )
+
+
+def native_asset_files(profile, root):
+    """Actual acquisition paths for the profile's already declared file population."""
+    root = Path(root).absolute()
+    provider, artifacts = profile["provider"], profile["artifacts"]
+    if provider in {"d1", "hanlp", "maverick", "dipo"}:
+        return tuple((root / group / name, identity["sha256"]) for group, manifest in artifacts.items() for name, identity in manifest["files"].items())
+    if provider == "gliner":
+        return tuple((root / name, digest) for name, digest in artifacts.items())
+    if provider == "spacy":
+        return tuple((root / name, digest) for name, digest in artifacts["files"].items())
+    raise ValueError("unsupported native artifact custody provider")
 
 
 def pm2_selection(provider, assets, runtime, artifacts, *, threads=4, interop_threads=1):
@@ -493,13 +512,21 @@ def preflight_native_runtime(provider, assets):
 
     root = Path(__file__).resolve().parents[5]
     project = root
-    return preflight_pm2_runtime(
+    result = preflight_pm2_runtime(
         python=project / ".venv/bin/python",
         script=Path(__file__).with_name("native_host_worker.py"),
         project=project,
         provider=provider,
         assets=assets,
     )
+    from corpus_structure.semantic.file_custody import accept_file_receipt
+    expected = {(str(Path(assets).absolute() / group / name), identity["sha256"]) for group, manifest in result["assets"].items() for name, identity in manifest["files"].items()}
+    receipts = result.get("asset_custody", ())
+    if {(receipt[0], receipt[1]) for receipt in receipts} != expected or len(receipts) != len(expected):
+        raise ValueError("preflight asset custody differs from authenticated manifest")
+    for receipt in receipts:
+        accept_file_receipt(receipt, path=Path(receipt[0]), expected=receipt[1])
+    return result
 
 
 def spacy_selection(config, *, threads=4, interop_threads=1):
@@ -525,13 +552,10 @@ def spacy_selection(config, *, threads=4, interop_threads=1):
 
 
 def spacy_artifacts(assets):
-    from hashlib import file_digest
+    from corpus_structure.semantic.file_custody import observed_file
 
     files = {}
     for path in sorted(assets.rglob("*")):
         if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc":
-            with path.open("rb") as stream:
-                files[path.relative_to(assets).as_posix()] = file_digest(
-                    stream, "sha256"
-                ).hexdigest()
+            files[path.relative_to(assets).as_posix()] = observed_file(path).digest
     return {"files": files}

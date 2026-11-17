@@ -339,6 +339,8 @@ class PdfConverter:
             },
         )
         converter.initialize_pipeline(InputFormat.PDF)
+        if self.assets is not None:
+            self.assets.verify()
         pipeline = next(iter(converter.initialized_pipelines.values()))
         if not isinstance(pipeline, StandardPdfPipeline):
             raise RuntimeError("PDF conversion did not initialize the admitted StandardPdfPipeline")

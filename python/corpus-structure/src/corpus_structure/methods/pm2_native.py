@@ -8,8 +8,8 @@ import platform
 import re
 import sys
 from collections.abc import Callable
-from hashlib import file_digest, sha256
-from importlib.metadata import distributions, version
+from hashlib import sha256
+from importlib.metadata import PathDistribution, distributions, version
 from pathlib import Path
 from typing import Any
 
@@ -59,9 +59,8 @@ def _verify_assets(root: Path, provider: str) -> ArtifactTable:
                 raise ValueError(f"missing or wrong-sized artifact {group}/{name}")
             if snapshot is not None and (snapshot / name).resolve() != path.resolve():
                 raise ValueError(f"offline backbone file differs for {group}/{name}")
-            with path.open("rb") as stream:
-                if file_digest(stream, "sha256").hexdigest() != identity["sha256"]:
-                    raise ValueError(f"artifact digest differs for {group}/{name}")
+            from corpus_structure.semantic.file_custody import verified_file
+            verified_file(path, identity["sha256"])
         selected[group] = manifest
     return selected
 
@@ -180,25 +179,31 @@ def _runtime_identity(provider: str, *, project: Path | None = None) -> Payload:
     packages = {name: version(name) for name in _RUNTIME_PACKAGES[provider]}
     if packages != _RUNTIME_PACKAGES[provider]:
         raise ValueError(f"{provider} package identity differs: {packages}")
+    from corpus_structure.semantic.file_custody import observed_file
+
     inventory = {}
     for installed in distributions():
         name = re.sub(r"[-_.]+", "-", installed.metadata["Name"]).lower()
         if name in inventory:
             raise ValueError(f"duplicate installed PM2 distribution {name}")
-        record = installed.read_text("RECORD")
-        if not record:
+        # The selected locked workstation runtime installs filesystem distributions.
+        # PathDistribution owns its metadata directory; reading .files would itself
+        # parse RECORD and defeat process-owned authentication.
+        if not isinstance(installed, PathDistribution):
+            raise ValueError(f"PM2 distribution is not filesystem-backed: {name}")
+        record_path = Path(str(installed._path)) / "RECORD"
+        if not record_path.is_file():
             raise ValueError(f"missing installed PM2 distribution record for {name}")
-        inventory[name] = (installed.version, sha256(record.encode()).hexdigest())
+        inventory[name] = (installed.version, observed_file(record_path).digest)
     root = Path(__file__).resolve().parents[5]
     project = root if project is None else project
-    with (project / "uv.lock").open("rb") as lock, Path(sys.executable).open("rb") as binary:
-        return {
-            "version": "pm2-runtime-1",
-            "python": python,
-            "platform": [sys.platform, platform.machine(), sys.implementation.cache_tag],
-            "python_sha256": file_digest(binary, "sha256").hexdigest(),
-            "lock_sha256": file_digest(lock, "sha256").hexdigest(),
-            "distributions_sha256": sha256(
-                json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
-            ).hexdigest(),
-        }
+    return {
+        "version": "pm2-runtime-1",
+        "python": python,
+        "platform": [sys.platform, platform.machine(), sys.implementation.cache_tag],
+        "python_sha256": observed_file(Path(sys.executable)).digest,
+        "lock_sha256": observed_file(project / "uv.lock").digest,
+        "distributions_sha256": sha256(
+            json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+    }
