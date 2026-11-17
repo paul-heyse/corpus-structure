@@ -2230,6 +2230,7 @@ def author_record_policy_inputs(engine, prepared, *, request):
         for row in read_native_definition_projection(prepared)["kinds"]
         if row["kind"] in supported and row["universe"] == "evaluator"
     }
+    populations: dict[tuple[str, str, str], list[DdoRecordReference]] = {}
     for selected in request.original_sources.values():
         reference = selected.reference
         cls = contracts.get(reference.get("kind_contract"))
@@ -2244,11 +2245,22 @@ def author_record_policy_inputs(engine, prepared, *, request):
             questions = tuple(row.question for row in value.references)
             if questions[0].project_id != request.project_id:
                 raise SemanticRefusal("record reference belongs to another project")
-            with engine.begin() as connection:
-                original = open_release(connection, questions[0].source_release_id)
+            key = (
+                questions[0].project_id,
+                questions[0].source_release_id,
+                questions[0].source_cut_canonical_json,
+            )
+            populations.setdefault(key, []).extend(value.references)
+    # One invocation pins one transaction. Identical exact cuts share their
+    # authenticated selected index; no authority survives this authoring call.
+    if populations:
+        with engine.begin() as connection:
+            for (_, release_id, _), references in populations.items():
+                original = open_release(connection, release_id)
+                questions = tuple(reference.question for reference in references)
                 sources = _authenticate_question_sources(connection, original, questions)
                 for reference, question, source_values in zip(
-                    value.references, questions, sources, strict=True
+                    references, questions, sources, strict=True
                 ):
                     rows = tuple(
                         original.validate_json("SourceRecord", canonical_bytes(row)).model_dump(
