@@ -67,11 +67,6 @@ def cpu_basis_connection(semantic_bare_engine):
 
     root = files("corpus_structure.semantic").joinpath("sql")
     closure = root.joinpath("closure.sql").read_text()
-    float_sql = closure[
-        closure.index("CREATE OR REPLACE FUNCTION data.require_float_lexical") : closure.index(
-            "CREATE OR REPLACE FUNCTION data.guard_float_codec"
-        )
-    ]
     with semantic_bare_engine.begin() as connection:
         for schema in ("ops", "sem", "data", "kb"):
             connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
@@ -86,7 +81,7 @@ def cpu_basis_connection(semantic_bare_engine):
             connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
         for source, names in (
             (root.joinpath("identity.sql").read_text(), {"canonical_json", "decimal_canonical"}),
-            (float_sql, {"require_float_lexical"}),
+            (closure, {"require_float_lexical"}),
             (
                 native_sql(native_protocol_sources()),
                 {

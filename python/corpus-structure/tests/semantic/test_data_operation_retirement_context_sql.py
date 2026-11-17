@@ -13,17 +13,19 @@ from corpus_structure.semantic.data_operation_identity import (
     contextual_product_identity,
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
-from corpus_structure.semantic.data_operation_protocol import render_data_task_guard
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.target_installation import target_task_guard_sql
 
 
 @pytest.mark.db
 def test_retired_attempt_preserves_holder_until_a_new_claim_fence(semantic_bare_engine):
-    source = files("corpus_structure.semantic").joinpath("sql/execution_guards.sql").read_text()
+    checks = (
+        files("corpus_structure.semantic").joinpath("sql/data_operation_task_checks.sql").read_text()
+    )
     protocol = (
         files("corpus_structure.model").joinpath("semantic/data-operation-native.yaml").read_bytes()
     )
-    source = render_data_task_guard(protocol, source)
+    source = target_task_guard_sql(protocol, checks)
     association_start = source.index("   IF (NEW.data_request_id,")
     association_end = source.index(" END IF;", association_start) + len(" END IF;")
     fence_start = source.index("   IF NEW.attempt<>OLD.attempt THEN")
@@ -113,6 +115,7 @@ def test_declared_product_primary_identity_allows_equal_body_in_distinct_scopes(
             "kind_contract": "kind:integer",
             "project_id": "project",
             "subject": "local",
+            "subject_definition": context.record["subject_definition"],
             "original_source": "original",
             "analyzed_scope": context.record["analyzed_scope"],
             "canonical_body": ["integer", "7"],
