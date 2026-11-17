@@ -1263,7 +1263,7 @@ def resolve_python_port(
     # that argument and conceal the invalid default.
     for parameter in signature.parameters.values():
         if parameter.default is not inspect.Parameter.empty:
-            TypeAdapter(parameter.annotation).validate_python(
+            adapters.get(parameter.annotation).validate_python(
                 _untrusted_value(parameter.default), strict=True
             )
     return ResolvedPythonPort(

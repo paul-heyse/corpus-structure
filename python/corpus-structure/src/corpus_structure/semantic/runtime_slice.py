@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copyreg
 import dataclasses
 import inspect
 from functools import cached_property
@@ -105,6 +106,11 @@ class AuthenticatedSlice:
             # Python 3.14 may materialize the class annotations on first access;
             # this is preparation, not an observed runtime mutation.
             getattr(value, "__annotations__", None)
+            if dataclasses.is_dataclass(value):
+                # deepcopy/pickle lazily cache this standard class fact. Prepare
+                # it before fixing the class dictionary, then protect the cache
+                # together with the already authenticated generated behavior.
+                copyreg._slotnames(value)
             self._checks.append((lambda value=value: tuple(vars(value)), _state(tuple(vars(value)))))
             remember(lambda value=value: value.__bases__)
             for name in tuple(vars(value)):

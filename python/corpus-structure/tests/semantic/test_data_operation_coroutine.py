@@ -153,7 +153,7 @@ def test_cpu_coroutine_refuses_untyped_reply_and_cancels_hung_continuation(
 
 
 def test_cpu_prepared_argument_is_exact_existing_worker_capsule_not_a_wire_object():
-    def kernel(value: int, prepared):
+    def kernel(value: int, prepared) -> int:
         return value
 
     signature = inspect.signature(kernel)
