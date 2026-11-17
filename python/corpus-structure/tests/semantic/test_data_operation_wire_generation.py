@@ -153,7 +153,7 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
         payload=omitted, projection_context=object()
     ).compile().params["payload"])
     with pytest.raises(ValueError, match="source_revision"):
-        validate_native_wire("record_data_fate", "input", omitted, sources)
+        validate_native_wire("record_data_fate", "input", omitted, sources=sources)
 
     # Exercise the emitted result function itself, including its exact decoder.
     class Connection:
@@ -220,7 +220,7 @@ def test_captured_set_schema_follows_item_request_and_result_changes():
         validate_native_wire("claim_data_requests", "input", {
             "holder": "worker", "lease_seconds": 3,
             "items": [{"request_id": "request:x", "generation": 1}],
-        }, changed)
+        }, sources=changed)
 
 
 

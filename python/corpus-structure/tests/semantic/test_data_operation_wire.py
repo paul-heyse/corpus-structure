@@ -901,6 +901,7 @@ def test_selected_population_wire_accepts_only_authenticated_parent_and_frozen_f
         "semantic_key": "population-value:one",
         "members": [],
         "complete": True,
+        "inserted_obligations": 0,
         "evidence": {
             "product_id": "product:parent",
             "derivation_id": "derivation:parent",
@@ -1153,6 +1154,7 @@ def test_read_obligation_carries_required_checked_subject_definition(mutation):
         analyzed_scope={},
         parameters={},
         historical_fate=None,
+        inputs_watermark="watermark:actual",
         fate="waiting",
         request_id=None,
         generation=None,

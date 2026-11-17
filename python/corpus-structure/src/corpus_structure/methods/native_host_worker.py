@@ -185,6 +185,14 @@ def serve(input_stream, output_stream, *, configure=_configure, loader=_load):
             output_stream.flush()
 
     def fatal(error):
+        from traceback import extract_tb
+
+        # Preserve the failing native call sites without transferring locals,
+        # source lines, model inputs or an unbounded formatted traceback.
+        sites = " <- ".join(
+            f"{Path(frame.filename).name}:{frame.lineno}:{frame.name}"
+            for frame in extract_tb(error.__traceback__, limit=-6)
+        )
         with state_lock:
             if failed.is_set():
                 return
@@ -193,7 +201,7 @@ def serve(input_stream, output_stream, *, configure=_configure, loader=_load):
             dict(
                 kind="fatal",
                 generation=generation,
-                message=f"{type(error).__name__}: {error}"[:1800],
+                message=f"{type(error).__name__}: {str(error)[:900]} [{sites[:850]}]",
             )
         )
 
