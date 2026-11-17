@@ -6,8 +6,10 @@ manufactured from run/task aliases. PostgreSQL owns every admission and publicat
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from threading import RLock
 from typing import Any, cast
 from uuid import uuid4
 
@@ -39,7 +41,7 @@ from .data_operation_model import EffectiveDataOperationModel
 from .data_operation_ports import PortRefusal, project_product_members
 from .data_operation_storage import DataOperationStorage
 from .data_operation_wire import validate_wire_schema
-from .releases import load_release_inputs
+from .releases import open_release
 
 _FENCE = ("request_id", "generation", "task_id", "attempt", "holder")
 
@@ -138,6 +140,37 @@ class ExternalDataSession:
         self.engine, self.project_id, self.demand_id = engine, project_id, demand_id
         self.max_packet_bytes, self.max_reply_bytes = max_packet_bytes, max_reply_bytes
         self.holder = "external-owner:" + uuid4().hex
+        self._packets: OrderedDict[tuple, bytes] = OrderedDict()
+        self._packet_bytes = 0
+        self._packet_lock = RLock()
+
+    def _packet_key(self, packet_id, claim):
+        fence = _fence(claim)
+        return (packet_id, *(fence[field] for field in _FENCE))
+
+    def _remember_packet(self, packet_id, claim, read):
+        content = json_bytes(read)
+        if len(content) > self.max_packet_bytes:
+            return
+        key = self._packet_key(packet_id, claim)
+        with self._packet_lock:
+            previous = self._packets.pop(key, None)
+            if previous is not None:
+                self._packet_bytes -= len(previous)
+            self._packets[key] = content
+            self._packet_bytes += len(content)
+            while self._packet_bytes > self.max_packet_bytes:
+                _, expired = self._packets.popitem(last=False)
+                self._packet_bytes -= len(expired)
+
+    def _packet_for_submit(self, packet_id, claim):
+        key = self._packet_key(packet_id, claim)
+        with self._packet_lock:
+            content = self._packets.get(key)
+            if content is not None:
+                self._packets.move_to_end(key)
+                return wire_json_loads(content)
+        return self._read(packet_id, claim)
 
     def _invoke[T](self, invoke: Callable[[DataOperationStorage], T], *, replay: bool = False) -> T:
         try:
@@ -197,6 +230,7 @@ class ExternalDataSession:
             raise PortRefusal("external packet must be an object")
         if packet["project_id"] != self.project_id:
             raise PortRefusal("external packet belongs to another project")
+        self._remember_packet(packet_id, claim, read)
         return dict(read)
 
     def read(self, packet_id: str, claim: Mapping[str, Any]) -> dict:
@@ -229,12 +263,12 @@ class ExternalDataSession:
         actor_assertion: str,
         model_assertion: str | None,
     ) -> dict:
-        read = self._read(packet_id, claim)
+        read = self._packet_for_submit(packet_id, claim)
         packet = read["packet"]
         if packet["project_id"] != self.project_id:
             raise PortRefusal("external packet belongs to another project")
         with self.engine.begin() as connection:
-            _, _, _, prepared = load_release_inputs(connection, packet["release_id"])
+            prepared = open_release(connection, packet["release_id"])
             model = bound_data_operation_model(prepared)
         port = ExternalResultPort(json_bytes(packet), model, self.max_reply_bytes)
         completion = port.completion(result)
@@ -327,7 +361,7 @@ class ExternalDataSession:
             )
             if snapshot["project_id"] != self.project_id:
                 raise PortRefusal("located report demand belongs to another project")
-            _, _, _, prepared = load_release_inputs(connection, snapshot["release_id"])
+            prepared = open_release(connection, snapshot["release_id"])
             model = bound_data_operation_model(prepared)
         kind = "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoLocatedExternalExtraction"
         contract = next(

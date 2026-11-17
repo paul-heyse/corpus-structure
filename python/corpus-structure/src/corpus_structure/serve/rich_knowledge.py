@@ -14,7 +14,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.demand_results import CutSelection, read_demand_result
-from corpus_structure.semantic.releases import load_release
+from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.rich_graph_validation import (
     RichWholeInput,
     ValidatedRichGraph,
@@ -97,7 +97,7 @@ def read_selected_rich_knowledge(
             ),
         ),
     )
-    prepared = load_release(connection, native["release_id"])
+    prepared = open_release(connection, native["release_id"])
     model = bound_data_operation_model(prepared)
     proof = RichWholeInput(reference, decode_semantic_value(product["body"]))
     state = read_retained_rich_graph(

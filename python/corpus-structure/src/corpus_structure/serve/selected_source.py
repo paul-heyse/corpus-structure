@@ -407,9 +407,9 @@ def export_selected_source(
         ):
             selected = acquire_selected_pdf_source(connection, request.pin)
             release = selected.prepared
-            from corpus_structure.semantic.releases import load_release_inputs
+            from corpus_structure.semantic.releases import open_release_inputs
 
-            _, dependencies, _, _ = load_release_inputs(connection, release.release_id)
+            _, dependencies, _, _ = open_release_inputs(connection, release.release_id)
             profile = _captured_analysis_profile(release, dependencies)
             reader = published_record_reader(
                 connection,

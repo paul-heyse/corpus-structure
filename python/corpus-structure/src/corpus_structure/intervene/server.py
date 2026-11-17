@@ -22,13 +22,20 @@ def build_server(
 ) -> FastMCP:
     from .external_server import build_external_server
 
-    server = build_external_server(session, project=project, demand=demand, settings=settings)
+    from .runtime_engines import McpRuntimeEngines
+
+    selected_settings = settings or Settings()
+    engines = McpRuntimeEngines(selected_settings, "ci-mcp-external", read_engine=read_engine)
+    server = build_external_server(
+        session, project=project, demand=demand, settings=selected_settings, engines=engines
+    )
     from .demand_read_tools import register_demand_read_tools
 
     register_demand_read_tools(
         server,
-        settings=settings or Settings(),
+        settings=selected_settings,
         read_engine=read_engine,
+        engine_provider=lambda: engines.engine("read"),
         project=project,
         demand=demand,
     )
@@ -36,7 +43,8 @@ def build_server(
 
     register_native_render_tools(
         server,
-        settings=settings or Settings(),
+        engines=engines,
+        settings=selected_settings,
         project=project
         if project is not None
         else session.project_id

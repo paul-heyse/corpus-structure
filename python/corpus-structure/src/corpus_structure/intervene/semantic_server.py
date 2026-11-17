@@ -41,12 +41,17 @@ def build_retained_reader_server(
 ) -> FastMCP:
     """Expose current pinned readers and explicit captured contract inspection."""
 
+    from .runtime_engines import McpRuntimeEngines
+
+    effective_settings = settings or Settings()
+    engines = McpRuntimeEngines(effective_settings, "ci-mcp-retained", read_engine=read_engine)
+
     @lifespan
     async def open_session(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
         from corpus_structure.cli.observation_logging import child_capture
 
-        with child_capture() as observations:
-            yield {"settings": settings or Settings(), "observation_writer": observations}
+        with child_capture() as observations, engines.lifespan():
+            yield {"settings": effective_settings, "observation_writer": observations}
 
     server = FastMCP(
         MCP_SERVER_NAME,
@@ -59,23 +64,8 @@ def build_retained_reader_server(
     @contextmanager
     def reader_snapshot(ctx: Context) -> Generator[Connection]:
         from corpus_structure.semantic.read_snapshot import read_snapshot
-        from corpus_structure.semantic.runtime import open_runtime_engine
-
-        injected = read_engine
-        if injected is not None:
-            with read_snapshot(injected) as connection:
-                yield connection
-        else:
-            with (
-                open_runtime_engine(
-                    ctx.lifespan_context["settings"],
-                    "ci-mcp-retained-read",
-                    max_size=1,
-                    purpose="read",
-                ) as engine,
-                read_snapshot(engine) as connection,
-            ):
-                yield connection
+        with read_snapshot(engines.engine("read")) as connection:
+            yield connection
 
     def reader_project(ctx: Context) -> str:
         return project or ctx.lifespan_context["settings"].runtime.default_project
@@ -83,34 +73,19 @@ def build_retained_reader_server(
     @contextmanager
     def selected_source_snapshot(ctx: Context, project_id: str) -> Generator[Connection]:
         from corpus_structure.semantic.demand_results import selected_read_snapshot
-        from corpus_structure.semantic.runtime import open_runtime_engine
-
         if project_id != reader_project(ctx):
             raise ProposalRefused("selected source belongs to another reader project")
-        injected = read_engine if read_engine is not None else None
-        if injected is not None:
-            with selected_read_snapshot(injected) as connection:
-                yield connection
-        else:
-            with (
-                open_runtime_engine(
-                    ctx.lifespan_context["settings"],
-                    "ci-mcp-selected-source",
-                    max_size=1,
-                    purpose="read",
-                ) as engine,
-                selected_read_snapshot(engine) as connection,
-            ):
-                yield connection
+        with selected_read_snapshot(engines.engine("read")) as connection:
+            yield connection
 
     from corpus_structure.intervene.demand_read_tools import register_demand_read_tools
     from corpus_structure.semantic.operation_reporting import report_schema
 
-    effective_settings = settings or Settings()
     register_demand_read_tools(
         server,
         settings=effective_settings,
         read_engine=read_engine,
+        engine_provider=lambda: engines.engine("read"),
         project=project or effective_settings.runtime.default_project,
     )
 

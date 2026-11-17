@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from contextlib import ExitStack
 from threading import Lock
 from typing import TYPE_CHECKING, Any
 
@@ -30,42 +29,40 @@ def build_external_server(
     project: str | None = None,
     demand: str | None = None,
     settings: Settings | None = None,
+    engines=None,
 ) -> FastMCP:
+    from .runtime_engines import McpRuntimeEngines
+
+    selected = settings or Settings()
+    engines = engines or McpRuntimeEngines(selected, "ci-mcp-external")
+
     @lifespan
     async def open_session(server: FastMCP) -> AsyncIterator[dict]:
         from corpus_structure.cli.observation_logging import child_capture
 
-        with child_capture() as observations:
+        with child_capture() as observations, engines.lifespan():
             if session is not None:
                 yield {"external": lambda: session, "observation_writer": observations}
                 return
-            selected = settings or Settings()
             active = None
             lock = Lock()
-            with ExitStack() as resources:
 
-                def external():
-                    nonlocal active
-                    with lock:
-                        if active is None:
-                            from corpus_structure.semantic.data_operation_external import (
-                                ExternalDataSession,
-                            )
-                            from corpus_structure.semantic.runtime import open_runtime_engine
+            def external():
+                nonlocal active
+                with lock:
+                    if active is None:
+                        from corpus_structure.semantic.data_operation_external import (
+                            ExternalDataSession,
+                        )
+                        engine = engines.engine("write")
+                        active = ExternalDataSession(
+                            engine,
+                            project or selected.runtime.default_project,
+                            demand_id=demand,
+                        )
+                    return active
 
-                            engine = resources.enter_context(
-                                open_runtime_engine(
-                                    selected, "ci-mcp-external", max_size=4, purpose="write"
-                                )
-                            )
-                            active = ExternalDataSession(
-                                engine,
-                                project or selected.runtime.default_project,
-                                demand_id=demand,
-                            )
-                        return active
-
-                yield {"external": external, "observation_writer": observations}
+            yield {"external": external, "observation_writer": observations}
 
     server = FastMCP(
         "corpus-structure",

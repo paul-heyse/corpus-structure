@@ -142,7 +142,7 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
         InterpretationRoot,
         grouped_candidate_product,
     )
-    from corpus_structure.semantic.releases import load_release
+    from corpus_structure.semantic.releases import open_release
     from corpus_structure.serve.selected_contributions import SelectedContributionScope
 
     body = checked_judgment(prepared, nominal, body)
@@ -171,7 +171,7 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
         max_total_records=request.max_graph_records,
         capture_frontier=True,
     ) as (cut, index):
-        original = load_release(connection, cut.record["release_id"])
+        original = open_release(connection, cut.record["release_id"])
         selected = SelectedContributionScope(
             cut,
             index,
@@ -290,7 +290,7 @@ def read_authored_judgment_selection(connection, request, selected_read):
     """Acquire one explicitly pinned authored input read using common native custody."""
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.demand_results import selected_record_index
-    from corpus_structure.semantic.releases import load_release
+    from corpus_structure.semantic.releases import open_release
     from corpus_structure.serve.selected_contributions import SelectedContributionScope
 
     with selected_record_index(
@@ -305,7 +305,7 @@ def read_authored_judgment_selection(connection, request, selected_read):
         max_total_records=request.max_graph_records,
         capture_frontier=True,
     ) as (cut, index):
-        prepared = load_release(connection, cut.record["release_id"])
+        prepared = open_release(connection, cut.record["release_id"])
         selected = SelectedContributionScope(
             cut,
             index,

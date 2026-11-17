@@ -60,7 +60,7 @@ def test_warm_cache_does_not_admit_changed_runtime_or_failed_source_verification
     from semantic.releases_support import stage
 
     with commit_db_engine.begin() as conn:
-        _, _, _, prepared = stage(conn)
+        bundle, dependencies, profile, prepared = stage(conn)
         conn.execute(insert(table("data.project")).values(project_id="cached"))
         opened = releases.open_release(conn, prepared.release_id)
         assert releases.open_release(conn, prepared.release_id) is opened
@@ -87,8 +87,16 @@ def test_warm_cache_does_not_admit_changed_runtime_or_failed_source_verification
             releases.activate_release(
                 conn, "cached", prepared.release_id, expected_parent=None, expected_generation=0
             )
-        # A read-cache hit is not an admission receipt.
+        # A read-cache hit is not an admission receipt. Original inputs can also
+        # be opened while the compiler is unavailable, without re-derivation.
         assert releases.open_release(conn, prepared.release_id) is opened
+        original, captured_dependencies, captured_profile, same = releases.open_release_inputs(
+            conn, prepared.release_id
+        )
+        assert original == bundle
+        assert captured_dependencies == dependencies
+        assert captured_profile == profile
+        assert same is opened
 
 
 def test_cache_is_database_scoped_and_rechecks_current_archive_digest(

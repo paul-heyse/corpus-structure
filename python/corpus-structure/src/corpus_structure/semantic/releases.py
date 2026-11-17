@@ -418,6 +418,15 @@ def open_release(conn: Connection, release_id: str) -> PreparedRelease:
     return open_archived_release(conn, release_id)
 
 
+def open_release_inputs(
+    conn: Connection, release_id: str
+) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
+    """Open authenticated archived inputs/products; never reprepare or admit."""
+    from .archive_reader import open_archived_release_inputs
+
+    return open_archived_release_inputs(conn, release_id)
+
+
 def verify_release(conn: Connection, release_id: str) -> PreparedRelease:
     """Fully rederive at explicit verification/admission boundaries."""
     return load_release(conn, release_id)

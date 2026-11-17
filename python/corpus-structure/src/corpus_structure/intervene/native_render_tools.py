@@ -1,5 +1,6 @@
 """Explicit source-region demand execution on the current command server."""
 
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Literal
 
@@ -37,7 +38,7 @@ class NativeRenderResponse(BaseModel):
     exact_json: str
 
 
-def execute_native_render(selection: NativeRenderRequest, *, settings, project, demand=None):
+def execute_native_render(selection: NativeRenderRequest, *, settings, project, demand=None, engines=None):
     from corpus_structure.orchestrate.native_execution import execute_native_intent
     from corpus_structure.orchestrate.source_reporting import native_demand_result
     from corpus_structure.orchestrate.source_request import method_settings
@@ -48,10 +49,13 @@ def execute_native_render(selection: NativeRenderRequest, *, settings, project, 
         raise ValueError("render belongs to another server project")
     if demand is not None and (selection.request is not None or selection.demand_id != demand):
         raise ValueError("render belongs to another server demand")
-    with (
-        open_runtime_engine(settings, "ci-mcp-native-render", purpose="write") as engine,
-        open_runtime_engine(settings, "ci-mcp-native-render-admit", purpose="admit") as admitted,
-    ):
+    with ExitStack() as resources:
+        engine = engines.engine("write") if engines is not None else resources.enter_context(
+            open_runtime_engine(settings, "ci-mcp-native-render", purpose="write")
+        )
+        admitted = engines.engine("admit") if engines is not None else resources.enter_context(
+            open_runtime_engine(settings, "ci-mcp-native-render-admit", purpose="admit")
+        )
         result = execute_native_intent(
             engine,
             admitted,
@@ -69,7 +73,7 @@ def execute_native_render(selection: NativeRenderRequest, *, settings, project, 
     )
 
 
-def register_native_render_tools(server, *, settings, project=None, demand=None):
+def register_native_render_tools(server, *, settings, project=None, demand=None, engines=None):
     from fastmcp import Context
 
     from corpus_structure.intervene.mcp_results import bounded_mcp_result
@@ -87,6 +91,7 @@ def register_native_render_tools(server, *, settings, project=None, demand=None)
             execute_native_render(
                 request,
                 settings=settings,
+                engines=engines,
                 project=project or settings.runtime.default_project,
                 demand=demand,
             ),

@@ -645,7 +645,7 @@ def read_demand_visual_routes(
 
     from .data_operation_admission import bound_data_operation_model
     from .demand_results import read_demand_result, stream_selected_support
-    from .releases import load_release
+    from .releases import open_release
 
     if first < 1 or not 1 <= limit <= 64:
         raise ValueError("visual routing requires a positive page and a limit of 1 to 64")
@@ -657,7 +657,7 @@ def read_demand_visual_routes(
         max_bytes=max_bytes,
         continuation=continuation,
     )
-    prepared = load_release(conn, page.cut.record["release_id"])
+    prepared = open_release(conn, page.cut.record["release_id"])
     model = bound_data_operation_model(prepared)
     contracts = {(item.owner, item.domain): item.key for item in model.identities}
     mapping_kind = contracts.get(

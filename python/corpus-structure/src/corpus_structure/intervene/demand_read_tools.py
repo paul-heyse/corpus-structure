@@ -30,25 +30,18 @@ class ExactSelectedResult(BaseModel):
     resource: str | None = None
 
 
-def register_demand_read_tools(server, *, settings, read_engine=None, project=None, demand=None):
+def register_demand_read_tools(server, *, settings, read_engine=None, engine_provider=None, project=None, demand=None):
     from corpus_structure.intervene.mcp_results import bounded_mcp_result
     from corpus_structure.semantic.refusals import tool_refusals
 
+    if read_engine is None and engine_provider is None:
+        raise ValueError("selected MCP tools require their lifespan-owned read engine")
+
     @contextmanager
     def reader():
-        if read_engine is not None:
-            with read_engine.begin() as connection:
-                yield connection
-        else:
-            from corpus_structure.semantic.runtime import open_runtime_engine
-
-            with (
-                open_runtime_engine(
-                    settings, "ci-mcp-selected-read", purpose="read", max_size=1
-                ) as engine,
-                engine.begin() as connection,
-            ):
-                yield connection
+        engine = engine_provider() if engine_provider is not None else read_engine
+        with engine.begin() as connection:
+            yield connection
 
     from .interpretation_tools import register_interpretation_tools
 

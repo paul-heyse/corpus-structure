@@ -100,3 +100,31 @@ def test_frozen_model_reuses_content_and_exact_decoding_without_caching_other_in
     assert read_effective_data_operations(captured) is not decoded
     with pytest.raises(ValueError):
         read_effective_data_operations(first[:-1])
+
+
+def test_server_packet_cache_is_fence_bound_detached_and_byte_bounded(monkeypatch):
+    from corpus_structure.semantic.data_operation_external import ExternalDataSession
+
+    class Storage:
+        reads = 0
+
+        def read_external_data_packet(self, payload):
+            self.reads += 1
+            return {"packet": {"project_id": "project:A", "inputs": [], "padding": "x" * 80}}
+
+    storage = Storage()
+    session = ExternalDataSession(object(), "project:A", max_packet_bytes=200)
+    monkeypatch.setattr(session, "_invoke", lambda action: action(storage))
+    claim = {"request_id": "request:A", "generation": 1, "task_id": 1, "attempt": 1, "holder": "owner"}
+    first = session.read("packet:A", claim)
+    first["packet"]["project_id"] = "caller-modified"
+    assert session._packet_for_submit("packet:A", claim)["packet"]["project_id"] == "project:A"
+    assert storage.reads == 1
+    # An explicit read always re-enters native authority, including on a warm cache.
+    session.read("packet:A", claim)
+    assert storage.reads == 2
+    session._packet_for_submit("packet:A", {**claim, "attempt": 2})
+    assert storage.reads == 3
+    assert session._packet_bytes <= session.max_packet_bytes
+    session._packet_for_submit("packet:A", claim)
+    assert storage.reads == 4  # previous attempt's entry was evicted, not aliased

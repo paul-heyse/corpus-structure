@@ -422,7 +422,7 @@ def selected_neighborhood_read(tmp_path, monkeypatch):
             acquired_index.close()
 
     monkeypatch.setattr(selected_contributions, "selected_record_index", read)
-    monkeypatch.setattr(selected_contributions, "load_release", lambda *args: prepared)
+    monkeypatch.setattr(selected_contributions, "open_release", lambda *args: prepared)
     monkeypatch.setattr(selected_contributions, "bound_data_operation_model", lambda *args: model)
     try:
         yield SimpleNamespace(

@@ -22,13 +22,14 @@ from .types import (
     PreparationProfile,
     PreparedArtifact,
     PreparedRelease,
+    ResolvedDependencies,
     SourceArtifact,
     SourceBundle,
 )
 
 # Engine lifetime bounds database authority; keys bind observed immutable archive headers
 # and the actual validation runtime. Mutable selection, authorization and facts never enter it.
-_OPEN_CACHE: WeakKeyDictionary[Any, OrderedDict[tuple, PreparedRelease]] = WeakKeyDictionary()
+_OPEN_CACHE: WeakKeyDictionary[Any, OrderedDict[tuple, tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]]] = WeakKeyDictionary()
 _CACHE_LOCK = RLock()
 
 _PRIMITIVES: dict[str, Any] = {
@@ -204,6 +205,11 @@ def open_release_parts(
     release_id: str, row: Any, input_rows: Any, artifact_rows: Any
 ) -> PreparedRelease:
     """Authenticate exact archive parts before hydration, independent of storage transport."""
+    return _open_release_parts_inputs(release_id, row, input_rows, artifact_rows)[3]
+
+
+def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artifact_rows: Any):
+    """Keep authenticated original inputs beside the reconstructed products."""
     from dataclasses import asdict
 
     from .determinants import boundary_compatible
@@ -333,7 +339,9 @@ def open_release_parts(
             or _archive_bytes(bundle, ResolvedDependencies(dependencies), prepared) != archive_bytes
         ):
             raise ReleaseConflict("archived products differ")
-        return prepared
+        return bundle, ResolvedDependencies(
+            dependencies, supplied, tuple(json.loads(source["ontology_sources", "ontology_sources"]))
+        ), profile, prepared
     except ReleaseConflict:
         raise
     except (
@@ -349,6 +357,11 @@ def open_release_parts(
 
 def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
     """Read a complete archive in one caller-owned snapshot, retaining row coherence checks."""
+    return open_archived_release_inputs(conn, release_id)[3]
+
+
+def open_archived_release_inputs(conn: Any, release_id: str):
+    """Open authenticated archived source/dependency bytes without recompilation."""
 
     from sqlalchemy import select
 
@@ -388,7 +401,7 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
     try:
         inputs = _table("sem.input")
         artifacts = _table("sem.artifact")
-        prepared = open_release_parts(
+        prepared = _open_release_parts_inputs(
             release_id,
             row,
             conn.execute(select(inputs).where(inputs.c.release_id == release_id)).mappings(),

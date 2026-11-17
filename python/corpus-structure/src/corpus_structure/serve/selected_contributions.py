@@ -27,7 +27,7 @@ from corpus_structure.semantic.demand_results import (
     SelectedGraphBudgetExceeded,
     selected_record_index,
 )
-from corpus_structure.semantic.releases import load_release
+from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.rich_graph_validation import (
     RichWholeInput,
     read_retained_rich_graph,
@@ -360,7 +360,7 @@ def selected_contribution_scope(connection, request, *, product_ids=None):
         max_total_records=request.max_graph_records,
         capture_frontier=True,
     ) as (cut, index):
-        prepared = load_release(connection, cut.record["release_id"])
+        prepared = open_release(connection, cut.record["release_id"])
         model = bound_data_operation_model(prepared)
         yield SelectedContributionScope(
             cut, index, prepared, model, scope, request.max_support_edges

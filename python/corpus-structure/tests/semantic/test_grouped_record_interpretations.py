@@ -401,7 +401,7 @@ def test_native_acquisition_scopes_exact_roots_and_preserves_explicit_null_sourc
     monkeypatch.setattr(selected_contributions, "selected_record_index", acquire)
     monkeypatch.setattr(
         selected_contributions,
-        "load_release",
+        "open_release",
         lambda connection, release: prepared if release == "release:exact" else None,
     )
     monkeypatch.setattr(
