@@ -142,7 +142,13 @@ def test_native_large_diagnostics_remain_in_actual_support_without_forcing_publi
     ((raw_product, raw),) = readings.raw
     assert json_loads(raw["diagnostics_json"])["controlled_large"] == "x" * (2 * 1024**2)
     selected = publish_readings(
-        journey, readings, source=source, inference="bounded-record-diagnostic-support"
+        journey,
+        readings,
+        source=source,
+        inference="bounded-record-diagnostic-support",
+        # The publication's private support includes the same full diagnostic body.
+        page_rows=1,
+        max_bytes=16 * 1024**2,
     )
     assert selected.admission.selected_reading_ids == ()
     assert raw_product["id"] in {
