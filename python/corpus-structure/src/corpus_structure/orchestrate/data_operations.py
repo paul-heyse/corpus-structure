@@ -382,6 +382,18 @@ class _RequestExecution:
         finally:
             plan.close()
 
+    def release_retired_inputs(self):
+        """Drop decoded bodies only after reduction and physical retirement."""
+        if self.running or not self.retired():
+            return False
+        self.hydrated_inputs = None
+        self.hydration_error = None
+        self.consumer_inputs.clear()
+        self.consumer_results.clear()
+        self.binding_rows.clear()
+        self.hydrated_sizes.clear()
+        return True
+
     def retired(self):
         if self.uncertain_submission and not self.invocation.physical_retired:
             return False
@@ -464,7 +476,7 @@ class _RunExecution:
             )
 
     def has_live_requests(self):
-        self.requests[:] = [request for request in self.requests if request.running or not request.retired()]
+        self.requests[:] = [request for request in self.requests if not request.release_retired_inputs()]
         return bool(self.requests)
 
     def _release_retired_claims(self):
@@ -1198,6 +1210,8 @@ class NativeDemandExecutor:
         traceback frame references are removed, including linked/grouped errors;
         physical resource custody remains with the normal owner and quarantine.
         """
+        from sqlalchemy.exc import StatementError
+
         from corpus_structure.cli.observation_logging import bound, logger
 
         bindings = dict(claim.fence, runtime_id=claim.runtime_id, release_id=claim.release_id) if claim is not None else {}
@@ -1223,6 +1237,11 @@ class NativeDemandExecutor:
             if isinstance(original, BaseException):
                 pending.append(original)
             current.__traceback__ = None
+            # SQLAlchemy retains the submitted JSON body separately from its
+            # traceback. The diagnostic has already been published; preserve the
+            # native original/SQLSTATE and typed recovery attributes, not params.
+            if isinstance(current, StatementError):
+                current.params = None
         return error
 
     def _known_failure(self, claim, owner, error, *, phase):
@@ -1332,6 +1351,7 @@ class NativeDemandExecutor:
         finally:
             physical.running = False
             reservation.release()
+            physical.release_retired_inputs()
 
     def _execute_batch(self, ready, owner, reservation, *, retain_claim=lambda item: None):
         physical = _RequestExecution(self._physical, reservation)
@@ -1510,6 +1530,7 @@ class NativeDemandExecutor:
         finally:
             physical.running = False
             reservation.release()
+            physical.release_retired_inputs()
 
     def _prepare_page(self, snapshot, authorization):
         with self.engine.begin() as connection:

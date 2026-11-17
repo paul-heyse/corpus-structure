@@ -16,6 +16,9 @@ def request_owner():
     owner.uncertain_submission = False
     owner.cpu = SimpleNamespace(reservation_retired=lambda _: True)
     owner.reservation = object()
+    owner.running = False
+    owner.hydrated_inputs, owner.hydration_error = None, None
+    owner.consumer_inputs, owner.consumer_results, owner.binding_rows, owner.hydrated_sizes = {}, {}, {}, {}
     return owner
 
 
@@ -146,3 +149,62 @@ def test_retained_failure_publishes_original_frames_then_releases_body_reference
     assert "failed_hydration" in str(trace)
     assert "opaque-request" in str(trace)
     assert "locals" not in str(trace)
+
+
+def test_completed_request_drops_body_caches_only_after_physical_retirement():
+    import weakref
+
+    owner, handle = request_owner(), Handle()
+
+    class Body:
+        pass
+
+    body = Body()
+    reference = weakref.ref(body)
+    owner.handles.append(handle)
+    owner.consumer_inputs["member"] = body
+    owner.consumer_results["member"] = body
+    owner.binding_rows["member"] = body
+    owner.hydrated_inputs = body
+    owner.hydrated_sizes["member"] = 100
+    del body
+    assert not owner.release_retired_inputs() and reference() is not None
+    handle.physically_retired = True
+    owner.running = True  # Physical completion alone does not finish reduction.
+    assert not owner.release_retired_inputs() and reference() is not None
+    owner.running = False
+    assert owner.release_retired_inputs() and reference() is None
+    assert owner.hydrated_inputs is None and not owner.consumer_inputs
+    assert not owner.consumer_results and not owner.binding_rows and not owner.hydrated_sizes
+
+
+def test_retained_statement_error_drops_parameter_body_after_structured_publication(monkeypatch):
+    import weakref
+
+    from sqlalchemy.exc import StatementError
+
+    from corpus_structure.cli import observation_logging
+    from corpus_structure.cli.exception_observations import transform_exception
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
+
+    class Body:
+        pass
+
+    class NativeFailure(ValueError):
+        sqlstate = "23514"
+
+    body, original = Body(), NativeFailure("native constraint diagnostic")
+    reference = weakref.ref(body)
+    error = StatementError("statement refused", "SELECT protected_writer(:p)", {"p": body}, original)
+    del body
+    events = []
+
+    def publish(_event, **details):
+        assert error.params is not None and reference() is not None
+        events.append(transform_exception(details["exc_info"]))
+
+    monkeypatch.setattr(observation_logging, "logger", lambda _: SimpleNamespace(error=publish))
+    retained = NativeDemandExecutor._retained_failure(error, phase="settlement")
+    assert retained is error and error.params is None and reference() is None
+    assert error.orig is original and original.sqlstate == "23514"
+    assert "native constraint diagnostic" in str(events[0])
