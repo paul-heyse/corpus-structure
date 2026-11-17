@@ -26,9 +26,9 @@ def test_process_scope_shares_one_owner_and_rejects_concurrent_runs():
 def controlled_archive(monkeypatch):
     from corpus_structure.semantic import archive_reader, cpu_execution, data_operation_service, determinants
 
-    header_type = namedtuple("Header", "release_id profile content_digest finalized_digest marker")
+    Header = namedtuple("Header", "release_id profile content_digest finalized_digest marker")
     state = SimpleNamespace(marker="original", runtime_marker="original", acquisitions=[])
-    monkeypatch.setattr(archive_reader, "_archive_header", lambda _, release: header_type(
+    monkeypatch.setattr(archive_reader, "_archive_header", lambda _, release: Header(
         release, "test", release, release, state.marker
     ))
     monkeypatch.setattr(determinants, "determinant_version", lambda _: "selected")

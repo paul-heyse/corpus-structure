@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import deque
 from collections.abc import Callable
-from concurrent.futures import CancelledError, Future
+from concurrent.futures import CancelledError, Future, InvalidStateError
 from contextlib import ExitStack, contextmanager, suppress
 from contextvars import Context, copy_context
 from dataclasses import asdict, dataclass, field, replace
@@ -271,7 +271,7 @@ class ProviderHandle:
             return False
         if not self.future.cancelled():
             error = self.future.exception()
-            self.uncertain = self.uncertain or physical_retirement_uncertain(error)
+            self.uncertain = self.uncertain or (error is not None and physical_retirement_uncertain(error))
             if error is None:
                 self.uncertain = self.uncertain or self.future.result().retirement_uncertain
         if self.uncertain and not self.owner.native_group.physical_drained:
@@ -450,6 +450,8 @@ class _Lane:
 
     def enqueue(self, handle):
         with self.lock:
+            if self.closed or self.broken is not None:
+                raise Pm2WorkerError("native provider lane is closed after a failure") from self.broken
             self.pending.append(handle)
 
     def flush(self):
@@ -462,6 +464,7 @@ class _Lane:
                 self.thread.start()
 
     def drain(self):
+        group = None
         try:
             while True:
                 with self.lock:
@@ -489,28 +492,29 @@ class _Lane:
                 if group is None:
                     self.wake.wait()
                     continue
-                context = group[0].context.copy()
+                selected_group = tuple(group)
+                context = selected_group[0].context.copy()
 
-                def exchange():
+                def exchange(selected: tuple[ProviderHandle, ...] = selected_group):
                     from structlog.contextvars import get_contextvars
 
                     from corpus_structure.cli.observation_logging import bound
                     from corpus_structure.cli.observations import Bindings
 
-                    if len(group) == 1:
-                        return self.owner.exchange(self, group)
+                    if len(selected) == 1:
+                        return self.owner.exchange(self, selected)
                     # A coalesced exchange belongs to all actual producers,
                     # rather than relabelling the first member as its owner.
                     members = [
                         {"correlation": handle.request.correlation,
                          **{key: value for key, value in handle.context.run(get_contextvars).items()
                             if key in Bindings.model_fields and value is not None}}
-                        for handle in group
+                        for handle in selected
                     ]
                     with bound(request_id=None, task_id=None, attempt=None,
                                runtime_id=None, release_id=None, demand_id=None,
                                logical_requests=members):
-                        return self.owner.exchange(self, group)
+                        return self.owner.exchange(self, selected)
 
                 try:
                     replies = context.run(exchange)
@@ -522,7 +526,31 @@ class _Lane:
                         handle.context.run(handle.future.set_result, reply)
                 # A reusable lane must not retain the previous run's borrower
                 # callbacks or encoded replies in its waiting thread frame.
-                first = following = handle = reply = replies = group = context = exchange = None
+                first = following = handle = reply = replies = group = selected_group = context = exchange = None
+        except BaseException as error:
+            # Selection can fail before exchange starts, including a malformed
+            # compatibility premise. Every admitted future still needs a fate.
+            with self.lock:
+                self.closed = True
+                self.pending.clear()
+                self.wake.set()
+            failure = error
+            try:
+                self.discard()
+            except BaseException as cleanup:
+                self.close_error = cleanup
+                uncertain = NativeRetirementUncertain("provider lane cleanup remains unconfirmed")
+                uncertain.__cause__ = cleanup
+                failure = BaseExceptionGroup("provider lane failure and retirement", [error, uncertain])
+            with self.owner._lock:
+                owned = tuple(handle for handle in self.owner._handles if handle.lane is self)
+            for handle in owned:
+                if not handle.future.done():
+                    try:
+                        handle.context.run(handle.future.set_exception, failure)
+                    except InvalidStateError:
+                        pass  # A concurrent cancellation already gave it a fate.
+            owned = handle = group = selected_group = first = following = reply = replies = context = exchange = None
         finally:
             try:
                 # Native context/device tokens are created and closed by this same
@@ -697,6 +725,8 @@ class ProviderExecution:
                 if lane_key not in self._lanes
                 else self._lanes[lane_key]
             )
+            if lane.closed or lane.broken is not None:
+                raise Pm2WorkerError("native provider lane is closed after a failure") from lane.broken
             if not lane.slots.acquire(blocking=False):
                 return None
             reservation = size + self.policy.max_native_reply_bytes
@@ -759,7 +789,7 @@ class ProviderExecution:
                 return False
             inputs = tuple(item for handle in (*group, following) for item in handle.request.inputs)
             try:
-                self._request_size(replace(first, inputs=inputs, logical_sizes=()))
+                self._request_size(replace(first, inputs=inputs, logical_sizes=(), logical_members=()))
             except GlinerRefused, CapacityExceeded:
                 return False
             return True
@@ -1093,6 +1123,8 @@ class ProviderExecution:
                 if lane_key not in self._lanes
                 else self._lanes[lane_key]
             )
+            if lane.closed or lane.broken is not None:
+                raise Pm2WorkerError("native provider lane is closed after a failure") from lane.broken
             if not lane.slots.acquire(blocking=False):
                 return None
             reservation = self.policy.max_native_request_bytes + self.policy.max_native_reply_bytes
@@ -1101,6 +1133,7 @@ class ProviderExecution:
             except CapacityExceeded:
                 lane.slots.release()
                 return None
+            handle = None
             try:
                 # Serialized bodies do not exist while admission is waiting. The
                 # factory reads its already-owned immutable semantic/source values.
@@ -1119,8 +1152,12 @@ class ProviderExecution:
                 lane.enqueue(handle)
                 return handle
             except BaseException:
-                self.budget.release(reservation)
-                lane.slots.release()
+                if handle is None:
+                    self.budget.release(reservation)
+                    lane.slots.release()
+                else:
+                    handle.future.cancel()
+                    handle.retire()
                 raise
 
     def lazy_work(self, factory, *, lane_key):

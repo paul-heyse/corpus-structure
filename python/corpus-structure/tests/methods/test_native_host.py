@@ -380,7 +380,7 @@ def test_analytical_gliner_borrows_frozen_population_without_new_runtime_or_cust
     frozen = gliner_selection(profile, {"runtime": "frozen-before-task"})
     declarations, closed = [], []
     group = SimpleNamespace(
-        _selections={frozen.native.fingerprint: frozen},
+        declared_selections=(frozen,),
         declare=lambda values: declarations.extend(values),
         close=lambda: closed.append(True),
     )
@@ -787,7 +787,7 @@ def test_residency_public_inspection_preserves_closed_population_without_activat
 def test_process_residency_reuses_warm_population_and_retires_before_profile_change():
     from types import SimpleNamespace
 
-    events = []
+    events: list[tuple[str, object]] = []
 
     class Group:
         def __init__(self, *_):
@@ -817,6 +817,7 @@ def test_process_residency_reuses_warm_population_and_retires_before_profile_cha
         residency.declare((first,))
         residency.infer_result(first, {}, lambda: None)
         original = residency._group
+        assert original is not None
         residency.finish_run(60)
         residency.begin_run()
         residency.declare((first,))
@@ -847,3 +848,32 @@ def test_completed_startup_timeout_is_not_retried_as_an_unfinished_wait():
     with pytest.raises(TimeoutError) as caught:
         group.ensure(active)
     assert caught.value is failure and checks == [True]
+
+
+def test_external_gpu_handoff_invalidates_old_keep_warm_expiry(monkeypatch):
+    timers = []
+
+    class Timer:
+        def __init__(self, interval, function):
+            self.function, self.cancelled, self.daemon = function, False, False
+            timers.append(self)
+
+        def start(self):
+            pass
+
+        def cancel(self):
+            self.cancelled = True
+
+    monkeypatch.setattr(native_host, "Timer", Timer)
+    residency = native_host.NativeHostResidency(CharacterizationExecutionPolicy())
+    residency.begin_run()
+    residency.finish_run(10)
+    old = timers[0]
+    try:
+        with residency.external_gpu(lambda: None):
+            assert old.cancelled and residency._suspended
+            old.function()  # Reproduce an already-woken expiry callback deterministically.
+            assert residency._quarantine is None and residency._suspended
+        residency._check()
+    finally:
+        residency.close()

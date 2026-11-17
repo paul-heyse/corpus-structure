@@ -984,3 +984,68 @@ def test_reused_provider_lane_attaches_each_jobs_actual_observation_context(runt
         assert selected[0]["bindings"]["request_id"] == f"request:{index}"
         assert selected[0]["bindings"]["task_id"] == index + 10
         assert selected[0]["bindings"]["attempt"] == index + 1
+
+
+def test_gliner_compatibility_sizes_physical_cohort_without_relabelling_logical_members(runtime, monkeypatch):
+    from dataclasses import asdict
+
+    from semantic.model_characterization_support import gliner_profile
+
+    from corpus_structure.methods.gliner import GlinerInput, GlinerPack
+    from corpus_structure.methods.native_host import payload_digest
+
+    execution, _, _ = runtime
+    requests = []
+    for index in range(2):
+        value = GlinerInput(str(index), "a" * 64, "source " + str(index))
+        logical = resources.LogicalProviderMember(
+            f"request:{index}", 1, index + 10, 1, str(index), 0, 1,
+            payload_digest([asdict(value)]),
+        )
+        requests.append(resources.GLiNERWork(
+            gliner_profile().profile, GlinerPack("release", "1", "{}"), (value,),
+            0.5, "flat", str(index), (), logical_sizes=(1,), logical_members=(logical,),
+        ))
+    probes = []
+
+    def size(request):
+        resources._validate_logical_members(request)
+        probes.append(request)
+        return len(request.inputs)
+
+    monkeypatch.setattr(execution, "_request_size", size)
+    for request in requests:
+        resources._validate_logical_members(request)
+    lane = resources._Lane(execution, "gliner")
+    handles = [resources.ProviderHandle(execution, lane, request, 0) for request in requests]
+    assert execution.compatible(handles[:1], handles[1])
+    assert probes[0].inputs == tuple(request.inputs[0] for request in requests)
+    assert probes[0].logical_members == ()
+    assert all(len(request.logical_members) == 1 for request in requests)
+
+
+def test_compatibility_failure_settles_started_and_pending_futures_without_exchange(runtime, monkeypatch):
+    execution, opened, _ = runtime
+    selected = selection("hanlp")
+    handles = [execution.try_submit(work(str(index), {"sentences": ["source"]}, selected=selected))
+               for index in range(2)]
+    failure = ValueError("controlled cohort-selection failure")
+
+    def refuse(_group, _following):
+        raise failure
+
+    monkeypatch.setattr(execution, "compatible", refuse)
+    handles[0].flush()
+    for handle in handles:
+        with pytest.raises(ValueError) as caught:
+            handle.future.result(timeout=2)
+        assert caught.value is failure
+        assert handle.retire()
+    assert not opened and execution.budget.used_bytes == 0
+    lane = execution._lanes["hanlp"]
+    thread = lane.thread
+    assert thread is not None
+    thread.join(timeout=2)
+    assert not thread.is_alive() and lane.closed
+    with pytest.raises(resources.Pm2WorkerError, match="closed after a failure"):
+        execution.try_submit(work("later", {"sentences": ["source"]}, selected=selected))

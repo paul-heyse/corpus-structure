@@ -364,11 +364,11 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(monkey
         events.append("commit claim")
 
     executor = object.__new__(NativeDemandExecutor)
-    executor.engine = SimpleNamespace(begin=transaction)
+    monkeypatch.setattr(executor, "engine", SimpleNamespace(begin=transaction), raising=False)
     executor.holder = "owner"
-    executor._execution_context = lambda _: SimpleNamespace(
+    monkeypatch.setattr(executor, "_execution_context", lambda _: SimpleNamespace(
         model=SimpleNamespace(operation=lambda _: SimpleNamespace(external=None))
-    )
+    ))
 
     def native_claim(_payload):
         events.append("claim")
@@ -385,7 +385,7 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(monkey
             raise ValueError("controlled hydration refusal")
         return ("selected input",)
 
-    executor._hydrate = hydrate
+    monkeypatch.setattr(executor, "_hydrate", hydrate)
     physical = SimpleNamespace(hydrated_inputs=None, hydration_error=None)
     ready = SimpleNamespace(native=canonical_bytes(metadata), operation="operation")
     claim, result = executor._claim(

@@ -487,6 +487,7 @@ class _RunExecution:
             and not self.pool.failed and not self.cpu._submission_uncertain
             and not self.cpu._admissions and not self.cpu._stream_transports
             and self.providers.retire()
+            and not any(lane.closed or lane.broken is not None for lane in self.providers._lanes.values())
             and all(work.retire() for work in self.python_work)
         )
         if healthy:
@@ -754,11 +755,14 @@ class NativeDemandExecutor:
             raise PortRefusal("native execution metadata lacks its authenticated runtime basis")
         key = release_id, runtime_id
         if key not in self._contexts:
+            host = self._host
+            if host is None:
+                raise RuntimeError("execution basis acquisition requires its active process host")
             with self.engine.begin() as connection:
-                basis = self._host.acquire_basis(
+                basis = host.acquire_basis(
                     self.engine, connection, *key, source_root=self.source_root, token=self._host_run
                 )
-            self._contexts[key] = self._host.context(basis)
+            self._contexts[key] = host.context(basis)
             context = self._contexts[key]
             context.admitted_operations.clear()
             context.cpu, context.prepared_schema = None, False
@@ -1386,7 +1390,7 @@ class NativeDemandExecutor:
     def _drive_sweep(self, pages, authorization, owner):
         """One frontier binds bounded compact pages between physical-work ticks."""
         pages = iter(pages)
-        pending = deque()
+        pending: deque[ReadyDataRequest | _PreparedReady | _ClaimedReady] = deque()
         receipts, failures, selected, fulfilled = [], [], [], []
         exhausted = False
 
@@ -1581,6 +1585,9 @@ class NativeDemandExecutor:
             raise PhysicalRetirementUncertain(
                 "native demand execution owner retains unproven physical work"
             )
+        host = self._host
+        if host is None or self._host_run is None:
+            raise RuntimeError("native execution requires its active process host run")
         if not self._invocation.acquire(blocking=False):
             raise RuntimeError("execution owner already has an active invocation")
         self.demand = demand
@@ -1594,7 +1601,7 @@ class NativeDemandExecutor:
             with (
                 self._report_execution_failure(demand),
                 maintained_claims(self.engine, (), self.holder, renew=self._renew) as owner,
-                self._host.execution(self, self._host_run) as physical,
+                host.execution(self, self._host_run) as physical,
             ):
                 self._physical = physical
                 self._claim_owner = owner

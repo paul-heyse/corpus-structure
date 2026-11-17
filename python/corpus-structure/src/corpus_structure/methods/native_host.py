@@ -798,13 +798,14 @@ class NativeHostResidency:
             self._check()
             incoming = tuple(selections)
             missing = any(item.native.fingerprint not in self._selections for item in incoming)
-            if self._run_selections is not None:
+            run_selections = self._run_selections
+            if run_selections is not None:
                 for item in incoming:
-                    self._run_selections[item.native.fingerprint] = item
-            replace_warm = missing and self._served and not self._calls_this_run and self._run_selections is not None
-        if replace_warm:
+                    run_selections[item.native.fingerprint] = item
+            replace_warm = missing and self._served and not self._calls_this_run
+        if replace_warm and run_selections is not None:
             self.retire_idle()
-            incoming = tuple(self._run_selections.values())
+            incoming = tuple(run_selections.values())
         with self._condition:
             self._check()
             proposed = dict(self._selections)
@@ -871,6 +872,10 @@ class NativeHostResidency:
     @contextmanager
     def external_gpu(self, check_active):
         with self._condition:
+            self._idle_epoch += 1
+            if self._idle_timer is not None:
+                self._idle_timer.cancel()
+                self._idle_timer = None
             self._external_waiters += 1
             try:
                 while True:
