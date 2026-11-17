@@ -44,27 +44,14 @@ def persist_runtime_binding(
     return RuntimeId(acquired)
 
 
-def runtime_binding_for_run(
-    conn: Connection, run_id: int, prepared: PreparedRelease
-) -> RuntimeBinding:
-    """Read the selected immutable provenance; never synthesize a pin from current code."""
-    run = table("ops.run")
-    selected = conn.execute(
-        select(run.c.release_id, run.c.runtime_id).where(run.c.id == run_id)
-    ).one()
-    if selected.release_id != prepared.release_id:
-        raise RuntimeBindingError("run and prepared release differ")
-    if selected.runtime_id is None:
-        raise RuntimeBindingError("run has no explicit immutable runtime pin")
-    return runtime_binding_for_release(conn, prepared, selected.runtime_id)
-
-
 def runtime_binding_for_release(
     conn: Connection,
     prepared: PreparedRelease,
     runtime_id: str,
 ) -> RuntimeBinding:
     """Acquire exact retained release/runtime custody without a legacy run anchor."""
+    if not runtime_id:
+        raise RuntimeBindingError("release has no explicit immutable runtime pin")
     from ._typed_columns import sem_runtime_binding
 
     stored = sem_runtime_binding
