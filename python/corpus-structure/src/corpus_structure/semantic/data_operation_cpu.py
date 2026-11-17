@@ -6,13 +6,14 @@ ports or prepared kernel adapters create descriptors after their own admission.
 
 from __future__ import annotations
 
-import base64
 import importlib
 import inspect
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import cached_property, lru_cache
+from hashlib import sha256
 from pathlib import Path
-from typing import Literal
+from typing import Any, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
@@ -23,7 +24,7 @@ class _Source(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     module: str
     path: str
-    content: str
+    digest: str
 
 
 class _Call(BaseModel):
@@ -71,13 +72,21 @@ class PythonCPUDescriptor:
         ):
             raise ValueError("only prepared kernels can bind the exact admitted release capsule")
 
+    @cached_property
+    def source_records(self):
+        return tuple(dict(module=module, path=path, digest=sha256(content).hexdigest()) for module, path, content in self.sources)
+
+    @cached_property
+    def serializers(self):
+        return {}
+
     def packet(self, arguments, signature) -> bytes:
+        for name, parameter in signature.parameters.items():
+            if name not in {self.control_parameter, self.prepared_parameter} and name not in self.serializers:
+                self.serializers[name] = TypeAdapter(parameter.annotation)
         return canonical_bytes(
             {
-                "sources": [
-                    dict(module=module, path=path, content=base64.b64encode(content).decode())
-                    for module, path, content in self.sources
-                ],
+                "sources": self.source_records,
                 "entrypoint": self.entrypoint,
                 "expected_nodes": self.expected_nodes,
                 "receiver": self.receiver,
@@ -87,8 +96,7 @@ class PythonCPUDescriptor:
                 "prepared_release_id": self.prepared_release_id,
                 "invocation_form": self.invocation_form,
                 "arguments": {
-                    name: TypeAdapter(signature.parameters[name].annotation)
-                    .dump_json(value)
+                    name: self.serializers[name].dump_json(value)
                     .decode()
                     for name, value in arguments.items()
                     if name not in {self.control_parameter, self.prepared_parameter}
@@ -128,14 +136,42 @@ def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, chec
 
 
 def _load(call):
+    prepared = _load_descriptor(call.model_dump_json(exclude={"arguments"}))
+    prepared.verify()
+    return prepared.function, prepared.verify
+
+
+@dataclass(frozen=True)
+class _LoadedCall:
+    function: Callable[..., Any]
+    verify: Callable[[], None]
+    signature: inspect.Signature
+    adapters: Any
+
+
+@lru_cache(maxsize=64)
+def _load_descriptor(content):
+    from .data_operation_ports import PortAdapters
+    call = _Call.model_validate_json(content[:-1] + ',"arguments":{}}', strict=True)
+    function, verify = _load_original(call)
+    signature = inspect.signature(function, eval_str=True)
+    controls = {call.control_parameter, call.prepared_parameter}
+    adapter_signature = signature.replace(parameters=[p for p in signature.parameters.values() if p.name not in controls])
+    return _LoadedCall(function, verify, signature, PortAdapters(adapter_signature))
+
+
+def _prepared_call(call):
+    return _load_descriptor(call.model_dump_json(exclude={"arguments"}))
+
+
+def _load_original(call):
+    import ast
     from .data_operation_ports import PortRefusal, _runtime_members
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     sources = PythonSourceCollection(
         tuple(
-            PythonSource(
-                source.module, base64.b64decode(source.content, validate=True), source.path
-            )
+            PythonSource(source.module, Path(source.path).read_bytes(), source.path)
             for source in call.sources
         )
     )
@@ -143,8 +179,11 @@ def _load(call):
     if len(paths) != len(sources.sources) or not paths:
         raise PortRefusal("CPU source collection must have distinct actual modules")
     roots = set()
+    digests = {source.module: source.digest for source in call.sources}
     for source in sources.sources:
         path = paths[source.module]
+        if sha256(source.content).hexdigest() != digests[source.module]:
+            raise PortRefusal("CPU runtime source digest differs from acquired parent")
         if not path.is_absolute() or path.resolve() != path or path.read_bytes() != source.content:
             raise PortRefusal("CPU runtime source differs from acquired bytes")
         parts = source.module.split(".")
@@ -231,7 +270,40 @@ def _load(call):
             raise PortRefusal("CPU receiver acquired unbound mutable state")
 
     verify()
-    return function, verify
+    from .file_custody import verified_file
+    from .runtime_slice import AuthenticatedSlice
+    from .data_operation_ports import _authenticated_closed_slice, _stream_annotation_references, _code_globals
+
+    if call.verification == "closed-slice":
+        runtime = _authenticated_closed_slice(
+            sources, modules, paths, set(call.expected_nodes),
+            standard_references=_stream_annotation_references() if call.invocation_form in {"stream", "coroutine"} else None,
+        )
+    else:
+        files = tuple(verified_file(paths[source.module], digests[source.module]) for source in sources.sources)
+        getters = []
+        for source in sources.sources:
+            module = modules[source.module]
+            for path, node, value, _ in _runtime_members(ast.parse(source.content).body, module, compile(source.content, source.filename, "exec", dont_inherit=True), source.module):
+                if inspect.isfunction(value):
+                    components = path.removeprefix(source.module + ".").split(".")
+                    def getter(module=module, components=components):
+                        value = module
+                        for component in components:
+                            value = inspect.getattr_static(value, component)
+                        return value
+                    getters.append(getter)
+        globals = tuple((modules[module_name], name, function.__builtins__.get(name)) for name in _code_globals(function.__code__))
+        runtime = AuthenticatedSlice(files, modules, getters, globals)
+
+    def check():
+        try:
+            runtime.check()
+            if call.receiver and vars(function.__self__):
+                raise ValueError("CPU receiver acquired mutable state")
+        except ValueError as error:
+            raise PortRefusal(str(error)) from error
+    return function, check
 
 
 def _bound_arguments(call, signature, check_active, prepared_releases):
@@ -244,8 +316,9 @@ def _bound_arguments(call, signature, check_active, prepared_releases):
         raise ValueError("CPU controls differ from admitted prepared-kernel parameters")
     if set(call.arguments) != set(signature.parameters) - controls:
         raise ValueError("CPU call arguments differ from acquired original signature")
+    adapters = _prepared_call(call).adapters
     arguments = {
-        name: TypeAdapter(signature.parameters[name].annotation).validate_json(value, strict=True)
+        name: adapters.get(signature.parameters[name].annotation).validate_json(value, strict=True)
         for name, value in call.arguments.items()
     }
     if call.control_parameter is not None:
@@ -278,7 +351,7 @@ def execute_python_call(
     """Child-only: typed original ingress and egress; no native/database access."""
     call = _Call.model_validate_json(content, strict=True)
     function, verify = _load(call)
-    signature = inspect.signature(function, eval_str=True)
+    signature = _prepared_call(call).signature
     bound = _bound_arguments(call, signature, check_active, prepared_releases)
     prepare_runtime()
     check_active()
@@ -286,7 +359,7 @@ def execute_python_call(
     prepare_runtime()
     check_active()
     verify()
-    adapter = TypeAdapter(signature.return_annotation)
+    adapter = _prepared_call(call).adapters.get(signature.return_annotation)
     return adapter.dump_json(adapter.validate_python(result, strict=True))
 
 
@@ -320,12 +393,13 @@ def execute_python_stream(
     if call.invocation_form != "stream":
         raise ValueError("CPU stream requires its admitted stream descriptor")
     function, verify = _load(call)
-    signature = inspect.signature(function, eval_str=True)
+    signature = _prepared_call(call).signature
     annotation = signature.return_annotation
     if get_origin(annotation) not in (Iterator, Generator):
         raise ValueError("stream call requires its typed iterator annotation")
+    adapters = _prepared_call(call).adapters
     arguments = {
-        name: TypeAdapter(signature.parameters[name].annotation).validate_json(value, strict=True)
+        name: adapters.get(signature.parameters[name].annotation).validate_json(value, strict=True)
         for name, value in call.arguments.items()
     }
     if set(arguments) != set(signature.parameters):
@@ -344,7 +418,7 @@ def execute_python_stream(
     iterator = function(*bound.args, **bound.kwargs)
     if not isinstance(iterator, Iterator):
         raise ValueError("stream callable did not return an iterator")
-    adapter, ordinal = TypeAdapter(get_args(annotation)[0]), 0
+    adapter, ordinal = _prepared_call(call).adapters.get(get_args(annotation)[0]), 0
     digest = sha256(content).hexdigest()
     try:
         while True:
@@ -425,8 +499,9 @@ def execute_python_coroutine(
     from hashlib import sha256
 
     function, verify = _load(call)
-    signature = inspect.signature(function, eval_str=True)
-    question_adapter, reply_adapter, result_adapter = coroutine_adapters(signature)
+    signature = _prepared_call(call).signature
+    from typing import get_args
+    question_adapter, reply_adapter, result_adapter = tuple(_prepared_call(call).adapters.get(item) for item in get_args(signature.return_annotation))
     bound = _bound_arguments(call, signature, check_active, prepared_releases)
     generator = function(*bound.args, **bound.kwargs)
     if not isinstance(generator, Generator):

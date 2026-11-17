@@ -190,13 +190,13 @@ def _hydrated_container(annotation):
     return None
 
 
-def _validated_hydrated_collection(annotation, population, container, *, collection, role):
+def _validated_hydrated_collection(annotation, population, container, *, collection, role, adapters=None):
     """Assemble one finite population, preserving its admitted order and count."""
     if container is None or type(population) is not tuple:
         raise PortRefusal("native collection lacks an acquired finite container: " + role)
     if collection == "sequence" and container in (set, frozenset):
         raise PortRefusal("native sequence requires an ordered callable container: " + role)
-    checked = _validated_python_input(annotation, container(population))
+    checked = _validated_python_input(annotation, container(population), adapters=adapters)
     try:
         count = len(checked)
     except TypeError as error:
@@ -451,6 +451,29 @@ class PortDataStream:
             self._close_iterator()
 
 
+class PortAdapters:
+    """Prepared validation/serialization owned by one authenticated callable."""
+
+    def __init__(self, *signatures):
+        self._values: dict[int, tuple[Any, TypeAdapter[Any]]] = {}
+        for signature in signatures:
+            if signature is not None:
+                for parameter in signature.parameters.values():
+                    self.get(_input_annotation(parameter))
+                annotation = signature.return_annotation
+                if get_origin(annotation) not in (Generator, Iterator):
+                    self.get(annotation)
+                for item in get_args(annotation) if get_origin(annotation) in (Generator, Iterator, tuple, list, dict) else ():
+                    if item not in (Ellipsis, None, type(None)) and item is not Any:
+                        self.get(item)
+
+    def get(self, annotation):
+        key = id(annotation)
+        if key not in self._values:
+            self._values[key] = (annotation, TypeAdapter(annotation))
+        return self._values[key][1]
+
+
 @dataclass(frozen=True)
 class ResolvedPythonPort:
     identity: PythonPortIdentity
@@ -464,9 +487,11 @@ class ResolvedPythonPort:
     logical_signature: inspect.Signature | None = None
     cpu_descriptor: PythonCPUDescriptor | None = None
     _hydrated_containers: Mapping[str, Any] = field(init=False, repr=False, compare=False)
+    _adapters: PortAdapters = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
         signature = self.logical_signature or self.signature
+        object.__setattr__(self, "_adapters", PortAdapters(self.signature, self.logical_signature))
         containers = {}
         for role in self.operation.roles:
             if role.direction != "input" or role.collection == "scalar" or role.parameter is None:
@@ -512,7 +537,7 @@ class ResolvedPythonPort:
             execution_owner=execution_owner,
             check_active=check_active,
         )
-        result = TypeAdapter(self.signature.return_annotation).validate_json(
+        result = self._adapters.get(self.signature.return_annotation).validate_json(
             reply.content, strict=True
         )
         return replace(
@@ -553,14 +578,14 @@ class ResolvedPythonPort:
             execution_owner=execution_owner,
             check_active=check_active,
         )
-        adapter = TypeAdapter(tuple[arguments[0], ...])
+        adapter = self._adapters.get(tuple[arguments[0], ...])
         items = adapter.validate_json(encoded, strict=True)
         del encoded
         if len(items) < output.minimum or (
             output.maximum is not None and len(items) > output.maximum
         ):
             raise PortRefusal("stream terminal item count differs from declared cardinality")
-        item_adapter = TypeAdapter(arguments[0])
+        item_adapter = self._adapters.get(arguments[0])
         contracts = dict(self.kind_contracts)
         outputs = tuple(
             RoleValue(
@@ -593,7 +618,7 @@ class ResolvedPythonPort:
             execution_owner=execution_owner,
             check_active=check_active,
         )
-        checked = TypeAdapter(self.signature.return_annotation).validate_json(
+        checked = self._adapters.get(self.signature.return_annotation).validate_json(
             reply.content, strict=True
         )
         completed = self._batch_complete(checked, members)
@@ -680,7 +705,7 @@ class ResolvedPythonPort:
                 value = supplied[name]
                 if route == "json":
                     assert isinstance(value, RoleValue)
-                    adapter = TypeAdapter(annotation)
+                    adapter = self._adapters.get(annotation)
                     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
                         raw = value.value()
                         fields = {
@@ -689,7 +714,7 @@ class ResolvedPythonPort:
                         if not isinstance(raw, dict) or set(raw) - fields:
                             raise PortRefusal("dataclass JSON ingress contains undeclared fields")
                         checked = _validated_python_input(
-                            annotation, adapter.validate_json(value.content, strict=True)
+                            annotation, adapter.validate_json(value.content, strict=True), adapters=self._adapters
                         )
                     else:
                         checked = adapter.validate_json(value.content, strict=True)
@@ -702,11 +727,12 @@ class ResolvedPythonPort:
                             self._hydrated_containers[name],
                             collection=role.collection,
                             role=name,
+                            adapters=self._adapters,
                         )
                     else:
-                        checked = _validated_python_input(annotation, value.value)
+                        checked = _validated_python_input(annotation, value.value, adapters=self._adapters)
             elif parameter.default is not inspect.Parameter.empty:
-                checked = TypeAdapter(annotation).validate_python(
+                checked = self._adapters.get(annotation).validate_python(
                     _untrusted_value(parameter.default), strict=True
                 )
             else:
@@ -745,7 +771,7 @@ class ResolvedPythonPort:
                     value = parameter.default
                 else:
                     raise PortRefusal("unbound callable parameter: " + name)
-                arguments[name] = TypeAdapter(parameter.annotation).validate_python(
+                arguments[name] = self._adapters.get(parameter.annotation).validate_python(
                     _untrusted_value(value), strict=True
                 )
         positional = tuple(
@@ -815,7 +841,7 @@ class ResolvedPythonPort:
     def _batch_complete(self, result, members) -> BatchPortCompletion:
         signature = self.logical_signature
         assert signature is not None
-        checked = TypeAdapter(self.signature.return_annotation).validate_python(
+        checked = self._adapters.get(self.signature.return_annotation).validate_python(
             _untrusted_value(result), strict=True
         )
         if len(checked) != len(members):
@@ -833,7 +859,7 @@ class ResolvedPythonPort:
 
         outcome = successful_return_outcome(self.operation)
         contracts = dict(self.kind_contracts)
-        checked = _validated_python_input(return_annotation, result)
+        checked = _validated_python_input(return_annotation, result, adapters=self._adapters)
         from .data_operation_identity import semantic_value
 
         outputs = [role for role in self.operation.roles if role.direction == "output"]
@@ -844,7 +870,7 @@ class ResolvedPythonPort:
             # The whole return annotation has already validated every field.
             # Encode privately; no partial PortCompletion escapes if encoding fails.
             value_type = get_args(return_annotation)[1]
-            adapter = TypeAdapter(value_type)
+            adapter = self._adapters.get(value_type)
             encoded_outputs = tuple(
                 RoleValue(
                     role.name,
@@ -868,7 +894,7 @@ class ResolvedPythonPort:
         if len(outputs) != 1 or outputs[0].collection != "scalar":
             raise PortRefusal("direct function result requires one declared scalar output")
         output = outputs[0]
-        adapter = TypeAdapter(return_annotation)
+        adapter = self._adapters.get(return_annotation)
         encoded = adapter.dump_json(checked)
         semantic = adapter.dump_python(checked, mode="python")
         return PortCompletion(
@@ -886,7 +912,8 @@ class ResolvedPythonPort:
         )
 
 
-def _validated_python_input(annotation: Any, value: Any) -> Any:
+def _validated_python_input(annotation: Any, value: Any, *, adapters=None) -> Any:
+    adapters = adapters or PortAdapters()
     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
         if type(value) is not annotation:
             raise PortRefusal("typed Python dataclass ingress requires its exact nominal class")
@@ -899,15 +926,15 @@ def _validated_python_input(annotation: Any, value: Any) -> Any:
         annotations = typing.get_type_hints(annotation)
         for field in fields:
             checked = _validated_python_input(
-                annotations[field.name], object.__getattribute__(value, field.name)
+                annotations[field.name], object.__getattribute__(value, field.name), adapters=adapters
             )
             object.__setattr__(result, field.name, copy.deepcopy(checked))
         return result
-    checked = TypeAdapter(annotation).validate_python(_untrusted_value(value), strict=True)
+    checked = adapters.get(annotation).validate_python(_untrusted_value(value), strict=True)
 
     def owned(item):
         if dataclasses.is_dataclass(item) and not isinstance(item, type):
-            return _validated_python_input(type(item), item)
+            return _validated_python_input(type(item), item, adapters=adapters)
         if isinstance(item, dict):
             return {key: owned(value) for key, value in item.items()}
         if isinstance(item, tuple):
@@ -1197,8 +1224,13 @@ def resolve_python_port(
     if tuple(signature.parameters) != expected_parameters:
         raise PortRefusal("runtime callable signature differs from compiled declaration")
 
+    runtime = _authenticate_runtime_sources(model, selected, sources, modules, paths)
+
     def verify_runtime() -> None:
-        _verify_runtime_sources(model, selected, sources, modules, paths)
+        try:
+            runtime.check()
+        except ValueError as error:
+            raise PortRefusal(str(error)) from error
         if receiver is not None and vars(receiver):
             raise PortRefusal("receiver acquired unbound mutable instance state")
 
@@ -1286,6 +1318,43 @@ def _stream_annotation_references():
         "typing.Iterator": typing.Iterator,
         "typing.Generator": typing.Generator,
     }
+
+
+def _authenticate_runtime_sources(model, operation, sources, modules, paths):
+    implementation = next(s for s in model.implementation_slices if s.root == operation.implementation_root)
+    expected = {n.id.removeprefix("python:") for n in implementation.nodes if n.id.startswith("python:")}
+    references = {}
+    if operation.capabilities.forms == ("stream",):
+        references.update(_stream_annotation_references())
+    if "unpack-typeddict-runtime" in sources.generated_interfaces:
+        references.update({"typing." + name: getattr(typing, name) for name in ("TypedDict", "Unpack", "NotRequired", "Required")})
+    if "dataclasses-runtime" in sources.generated_interfaces:
+        references.update({"dataclasses.dataclass": dataclasses.dataclass, "dataclasses.field": dataclasses.field})
+    _verify_closed_runtime_sources(sources, modules, paths, expected, standard_references=references)
+    return _authenticated_closed_slice(sources, modules, paths, expected, standard_references=references)
+
+
+def _authenticated_closed_slice(sources, modules, paths, expected_nodes, *, standard_references=None):
+    from .file_custody import verified_file
+    from .runtime_slice import AuthenticatedSlice
+
+    globals = _verify_consumed_globals(sources, modules, expected_nodes, standard_references=standard_references)
+    members = []
+    for source in sources.sources:
+        module = modules[source.module]
+        tree = ast.parse(source.content)
+        code = compile(source.content, str(paths[source.module]), "exec", dont_inherit=True)
+        for path, node, value, expected in _runtime_members(tree.body, module, code, source.module):
+            if path in expected_nodes:
+                components = path.removeprefix(source.module + ".").split(".")
+                def getter(module=module, components=components):
+                    value = module
+                    for component in components:
+                        value = inspect.getattr_static(value, component)
+                    return value
+                members.append(getter)
+    files = tuple(verified_file(paths[source.module], sha256(source.content).hexdigest()) for source in sources.sources)
+    return AuthenticatedSlice(files, modules, members, globals)
 
 
 def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> None:
@@ -1827,7 +1896,7 @@ def _verify_function_builtins(function) -> None:
 
 def _verify_consumed_globals(
     sources, modules, expected_nodes: set[str], *, standard_references=None
-) -> None:
+) -> tuple[tuple[ModuleType, str, object], ...]:
     """Authenticate each consumed global along its full closed import/alias chain.
 
     Verifying dep.helper alone says nothing about application.alias. Every link
@@ -2061,6 +2130,11 @@ def _verify_consumed_globals(
                     + member
                 )
             value = resolve(value.__name__, member)
+
+    return tuple(
+        (modules[module_name], name, _STANDARD_BUILTINS.get(name, inspect.Parameter.empty))
+        for module_name, name in dict.fromkeys((*checked, *uses))
+    )
 
 
 @dataclass(frozen=True)
