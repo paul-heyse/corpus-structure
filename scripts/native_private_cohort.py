@@ -19,6 +19,8 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
+type _OwnedTree = list[tuple[str, os.stat_result, _OwnedTree | None]]
+
 ROOT = Path(__file__).resolve().parents[1]
 _SCRIPT_INPUTS = frozenset(
     {
@@ -231,8 +233,10 @@ def _remove_owned_empty_tree(
         if os.fstat(root) != identity:
             raise ValueError("private PostgreSQL temporary ownership changed")
 
-        def inspect_tree(fd, *, selected_scratch=False, top=False):
-            children = []
+        def inspect_tree(
+            fd: int, *, selected_scratch: bool = False, top: bool = False
+        ) -> _OwnedTree:
+            children: _OwnedTree = []
             for name in os.listdir(fd):
                 found = os.stat(name, dir_fd=fd, follow_symlinks=False)
                 if (
@@ -269,7 +273,7 @@ def _remove_owned_empty_tree(
                     os.close(child)
             return children
 
-        def remove_tree(fd, children):
+        def remove_tree(fd: int, children: _OwnedTree) -> None:
             for name, found, descendants in children:
                 if descendants is None:
                     actual = os.stat(name, dir_fd=fd, follow_symlinks=False)
