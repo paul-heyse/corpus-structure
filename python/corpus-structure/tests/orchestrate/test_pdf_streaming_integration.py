@@ -95,7 +95,7 @@ def _controlled_native_child(connection, recipe, assets):
         pdf_worker._native_child(connection, recipe, assets)
 
 
-def test_real_private_native_pipeline_adopts_pages_records_and_companions(
+def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement(
     scenario_seeds, tmp_path, monkeypatch
 ):
     # The current source demand owns original admission, actual capture/discovery
@@ -104,8 +104,10 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
     monkeypatch.setattr(PdfWorker, "_child_target", staticmethod(_controlled_native_child))
     original_stream = PdfWorker.stream
     replies = []
+    workers = []
 
     def inspect_reply(self, *args, **kwargs):
+        workers.append(self)
         result = original_stream(self, *args, **kwargs)
         assert isinstance(result, PdfStreamReply)
         assert not hasattr(result, "document") and not hasattr(result, "native")
@@ -113,6 +115,19 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
         replies.append(result)
         return result
 
+    # Execute the real adopters while checking the conversion-child boundary.
+    # A callback may ACK durable spool custody, but native uptake begins only
+    # after every producer process has been physically retired.
+    from corpus_structure.semantic import pdf_publication, pdf_staging
+
+    def after_retirement(actual):
+        def checked(*args, **kwargs):
+            assert workers and all(worker.closed and worker.pid is None for worker in workers)
+            return actual(*args, **kwargs)
+        return checked
+
+    monkeypatch.setattr(pdf_staging, "adopt_pdf_batch", after_retirement(pdf_staging.adopt_pdf_batch))
+    monkeypatch.setattr(pdf_publication, "adopt_pdf_companion_batch", after_retirement(pdf_publication.adopt_pdf_companion_batch))
     original_run = pdf_streaming.run_private_native_pdf_build
     adopted, private = [], []
 
@@ -139,8 +154,14 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
             "native:runtime-report:fields:0"
         }
         assert sum(receipt.row_count for receipt in receipts) > 10
-        assert any(receipt.replay_key.startswith("page:1:assembly:") for receipt in receipts)
-        assert any(receipt.replay_key.startswith("page:1:raster:") for receipt in receipts)
+        assert not any(receipt.replay_key.startswith("page:") for receipt in receipts)
+        manifests = list(directory.glob("*/attempt-*/manifest.jsonl"))
+        assert len(manifests) == 1
+        import json
+
+        entries = [json.loads(line) for line in manifests[0].read_text().splitlines()]
+        assert entries[0]["attempt"] == build.attempt
+        assert {item["replay"]["family"] for item in entries[1:]} >= {"page", "native-raster"}
         assert any(receipt.replay_key.startswith("ipc:native:") for receipt in receipts)
         assert any(receipt.replay_key.startswith("ipc:artifact_stream:") for receipt in receipts)
         with source.kernel.purpose("read").connect() as connection:

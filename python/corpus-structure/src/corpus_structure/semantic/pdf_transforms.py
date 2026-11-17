@@ -99,6 +99,9 @@ def _implementation_files(mode):
         "ingest/pdf_section_views.py",
         "ingest/pdf_candidate_source.py",
         "ingest/pdf_worker.py",
+        "ingest/pdf_streaming.py",
+        "ingest/pdf_stream_types.py",
+        "ingest/pdf_build_spool.py",
         "ingest/pdf_capacity.py",
     )
     if mode == "organized":

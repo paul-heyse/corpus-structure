@@ -412,3 +412,27 @@ def test_native_occurrence_index_keeps_region_identity_without_copying_large_tex
     assert rows[item.self_ref + "/prov/0"]["page_no"] == 1
     assert "text" not in rows[item.self_ref]
     assert document.texts[0].text == text
+
+
+def test_page_working_streams_are_not_reemitted_into_record_products(tmp_path):
+    from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+
+    spool = PdfStreamSpool(tmp_path / "spool")
+    # Deliberately invalid page payloads: record lowering must not reopen these
+    # producer-only files or turn them into stage artifact streams.
+    invalid = tmp_path / "producer-only"
+    invalid.write_bytes(b"not a page assembly")
+    ref = PdfReplayRef(invalid, sha256(invalid.read_bytes()).hexdigest(), invalid.stat().st_size, "page")
+    spool.pages[1] = ref
+    spool.candidates[1] = ref
+    result = StreamingPdfResult(native_document(), spool, "success", (), b"recipe", ())
+    refs = result.write_record_batches(tmp_path / "records", build_id="build:one", release_id="release:one", source_digest="a" * 64)
+    streams = []
+    for item in refs:
+        if item.family == "artifact_stream":
+            with pa.memory_map(str(item.path), "r") as source:
+                reader = pa.ipc.open_file(source)
+                for index in range(reader.num_record_batches):
+                    streams.extend(reader.get_batch(index).column("stream_id").to_pylist())
+    assert {"native/completion", "native/recipe", "native/prepared-runtime"} <= set(streams)
+    assert not any(name.startswith("page/") for name in streams)

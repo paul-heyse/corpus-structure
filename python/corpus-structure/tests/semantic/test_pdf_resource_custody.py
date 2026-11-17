@@ -149,14 +149,15 @@ def test_stable_actual_pdf_resource_capture_verifies_without_native_execution(
         "source.pdf_sections/organize",
     ),
 )
-@pytest.mark.parametrize("helper", ("pdf_health", "pdf_hierarchy"))
+@pytest.mark.parametrize("helper", ("pdf_health", "pdf_hierarchy", "pdf_build_spool"))
 def test_changed_helper_refuses_before_authorization(
     captured_pdf_ports, operation, helper, monkeypatch
 ):
     port, authorized, identity = acquired_port(captured_pdf_ports, operation)
-    from corpus_structure.ingest import pdf_health, pdf_hierarchy
+    from corpus_structure.ingest import pdf_build_spool, pdf_health, pdf_hierarchy
 
-    module = pdf_health if helper == "pdf_health" else pdf_hierarchy
+    module = {"pdf_health": pdf_health, "pdf_hierarchy": pdf_hierarchy,
+              "pdf_build_spool": pdf_build_spool}[helper]
     path = Path(module.__file__).resolve()
     original = Path.read_bytes
     before = original(path)
@@ -164,6 +165,8 @@ def test_changed_helper_refuses_before_authorization(
         before.replace(b"value = dict(health)", b'value = {"display_coverage": "complete"}', 1)
         if helper == "pdf_health"
         else before.replace(b"    return result\n", b"    return {}\n", 1)
+        if helper == "pdf_hierarchy"
+        else before.replace(b"pdf-build-spool-1", b"pdf-build-spool-mutated", 1)
     )
     assert changed != before
 

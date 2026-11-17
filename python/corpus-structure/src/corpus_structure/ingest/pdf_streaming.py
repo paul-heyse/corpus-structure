@@ -502,30 +502,6 @@ class StreamingPdfResult:
             iter((self.effective_options,)),
         )
 
-        for number, replay in sorted(self.spool.pages.items()):
-            replay.verify()
-            data = json.loads(replay.path.read_bytes())
-            scalar(
-                f"page/{number}/assembly", artifact_profile("assembly"), file_chunks(replay.path)
-            )
-            raster = data["raster"]
-            raster_ref = PdfReplayRef(
-                Path(raster["path"]), raster["digest"], raster["byte_length"], "native-raster"
-            )
-            raster_ref.verify()
-            scalar(
-                f"page/{number}/raster",
-                artifact_profile("raster"),
-                file_chunks(raster_ref.path),
-            )
-        for number, replay in sorted(self.spool.candidates.items()):
-            replay.verify()
-            scalar(
-                f"page/{number}/candidates",
-                artifact_profile("candidates"),
-                file_chunks(replay.path),
-            )
-
         for row in self.iter_records(
             product_id=build_id,
             revision_id=build_id,
