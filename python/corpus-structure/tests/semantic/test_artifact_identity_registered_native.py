@@ -66,7 +66,9 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
     def stream(self, original, **options):
         return artifact_stream(rows, self, original, **options)
 
-    with _current_pdf_source(scenario_seeds, tmp_path, monkeypatch, stream=stream) as source:
+    with _current_pdf_source(
+        scenario_seeds, tmp_path, monkeypatch, stream=stream, sections=("#/groups/0",)
+    ) as source:
         kernel = admit_current_target(
             source, artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer"
         )
