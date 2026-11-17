@@ -637,12 +637,12 @@ class DemandPlanner:
         return {**snapshot, "completion_inspections": inspections}
 
     def ready(
-        self, snapshot: Mapping[str, Any], *, authorization: bytes
+        self, snapshot: Mapping[str, Any], *, authorization: bytes, excluded_requests: frozenset[tuple[str, int]] = frozenset()
     ) -> tuple[ReadyDataRequest, ...]:
         ready = []
         selected = {item["operation"]: item for item in snapshot["intent"]["operations"]}
         obligations = {item["obligation_id"]: item for item in snapshot["obligations"]}
-        for bound in self.bound_requests(snapshot, authorization=authorization):
+        for bound in self.bound_requests(snapshot, authorization=authorization, excluded_requests=excluded_requests):
             obligation = obligations[bound.obligation]
             operation = selected[bound.operation]
             wire_binding = wire_json_loads(bound.binding)
@@ -683,7 +683,7 @@ class DemandPlanner:
         return tuple(ready)
 
     def bound_requests(
-        self, snapshot: Mapping[str, Any], *, authorization: bytes, retained: bool = False
+        self, snapshot: Mapping[str, Any], *, authorization: bytes, retained: bool = False, excluded_requests: frozenset[tuple[str, int]] = frozenset()
     ):
         self.selected_population_ids = ()
         self.fulfilled_request_ids = ()
@@ -709,6 +709,8 @@ class DemandPlanner:
         selected = {item["operation"]: item for item in frozen["operations"]}
         source_sets = frozen.get("source_sets", {})
         for obligation in snapshot["obligations"]:
+            if (obligation.get("request_id"), obligation.get("generation")) in excluded_requests:
+                continue
             if obligation["fate"] in {"fulfilled", "closed", "cancelled", "failed"}:
                 continue
             operation = selected[obligation["operation_id"]]

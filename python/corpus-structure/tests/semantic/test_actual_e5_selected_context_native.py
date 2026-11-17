@@ -211,7 +211,7 @@ def assert_published_cpu(kernel, product, operation):
             text(
                 "SELECT i.payload,r.operation_id,d.runtime_id,r.id,"
                 "(SELECT count(*) FROM ops.data_publication_receipt p WHERE p.derivation_id=d.id),"
-                "ops.ddo_support_valid(d.id) "
+                "ops.ddo_node_valid('episode',d.id) "
                 "FROM ops.data_derivation d JOIN ops.data_completion_intent i ON i.id=d.intent_id "
                 "JOIN ops.data_request r ON r.id=d.request_id WHERE d.id=:id"
             ),

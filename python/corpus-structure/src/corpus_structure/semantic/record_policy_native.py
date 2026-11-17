@@ -192,8 +192,8 @@ BEGIN
  SELECT * INTO STRICT chosen FROM ops.demand_use WHERE id=selected_use AND derivation_id=episode;
  IF NOT ops.ddo_read_visible(chosen.created_at,chosen.created_xid,boundary) THEN
  RAISE EXCEPTION 'policy authority use is outside selected native visibility' USING ERRCODE='23514'; END IF;
- standing:=CASE WHEN ops.ddo_use_valid(chosen,boundary) THEN 'valid' ELSE 'unavailable' END;
- ELSE standing:=CASE WHEN ops.ddo_support_valid(episode,boundary) THEN 'valid' ELSE 'unavailable' END;
+ standing:=CASE WHEN ops.ddo_node_valid('use',chosen.id,boundary) THEN 'valid' ELSE 'unavailable' END;
+ ELSE standing:=CASE WHEN ops.ddo_node_valid('episode',episode,boundary) THEN 'valid' ELSE 'unavailable' END;
  END IF;
  RETURN jsonb_build_object('format','ddo-native-authority-leaf-v1','derivation_id',episode,
  'use_id',selected_use,'issuer_operation',(SELECT operation_id FROM ops.data_request WHERE id=d.request_id),'release_id',d.release_id,'runtime_id',d.runtime_id,

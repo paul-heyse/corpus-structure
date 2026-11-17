@@ -623,6 +623,9 @@ classes:
       frontier_at: {range: timestamp, required: true}
       owner_xid: {range: string, required: true}
       trust_snapshot: {range: json_payload, required: true}
+      locked_scopes: {range: json_payload, required: false}
+      access_universes: {range: json_payload, required: false}
+      kernel_digest: {range: string, required: false}
       scope: {range: json_payload, required: true, annotations: {ph:default: "'{}'::jsonb"}}
     unique_keys:
       primary_key: {unique_key_slots: [id]}

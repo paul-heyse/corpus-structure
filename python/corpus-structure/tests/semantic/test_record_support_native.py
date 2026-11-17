@@ -89,7 +89,7 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
         assert isinstance(support, ComputationalSupportReference)
         assert (
             connection.scalar(
-                text("SELECT ops.ddo_support_valid(:episode)"), {"episode": support.derivation_id}
+                text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": support.derivation_id}
             )
             is True
         )
@@ -107,7 +107,7 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
         )
         assert (
             connection.scalar(
-                text("SELECT ops.ddo_support_valid(:episode)"), {"episode": support.derivation_id}
+                text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": support.derivation_id}
             )
             is False
         )

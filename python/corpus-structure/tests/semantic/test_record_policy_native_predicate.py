@@ -105,11 +105,7 @@ def policy_visibility_connection(semantic_bare_engine):
             "LANGUAGE sql AS 'SELECT true'"
         )
         connection.exec_driver_sql(
-            "CREATE FUNCTION ops.ddo_use_valid(ops.demand_use,ops.data_demand_read) "
-            "RETURNS boolean LANGUAGE sql AS 'SELECT true'"
-        )
-        connection.exec_driver_sql(
-            "CREATE FUNCTION ops.ddo_support_valid(text,ops.data_demand_read) "
+            "CREATE FUNCTION ops.ddo_node_valid(text,text,ops.data_demand_read) "
             "RETURNS boolean LANGUAGE sql AS 'SELECT true'"
         )
         source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()

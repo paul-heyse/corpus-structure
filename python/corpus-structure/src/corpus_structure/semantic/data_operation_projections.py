@@ -27,7 +27,7 @@ from sqlalchemy import (
     union,
     union_all,
 )
-from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, dialect
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, dialect
 from sqlalchemy.sql.elements import ColumnClause
 from sqlalchemy.sql.type_api import TypeEngine
 
@@ -87,6 +87,22 @@ def _visible(table):
 def _node(kind, identity):
     kind_value = literal(kind) if isinstance(kind, str) else kind
     return select(cast(kind_value, Text).label("kind"), cast(identity, Text).label("id"))
+
+
+def _validity_rows(seed_uses, seed_episodes=None, *, name="validity", boundary=None):
+    from sqlalchemy.dialects.postgresql import ARRAY
+
+    empty = cast(literal("{}"), ARRAY(Text))
+    rows = func.ops.ddo_valid_closure(
+        seed_uses,
+        empty if seed_episodes is None else seed_episodes,
+        literal_column("boundary") if boundary is None else boundary,
+    ).table_valued(column("kind", Text), column("id", Text), column("valid", Boolean)).alias(name + "_rows")
+    return select(rows).cte(name).prefix_with("MATERIALIZED")
+
+
+def _set_valid(rows, kind, identity):
+    return exists(select(1).select_from(rows).where(rows.c.kind == kind, rows.c.id == identity, rows.c.valid))
 
 
 def _reference_node(reference):
@@ -348,6 +364,23 @@ def support_scopes(metadata, *, domain_dependencies=True, include_unfulfilled=Tr
     )
 
 
+def read_access_universes(metadata):
+    nodes, _ = _demand_support_scope_inputs(metadata, include_unfulfilled=True)
+    products = metadata.tables["kb.data_product"]
+    outputs = metadata.tables["ops.data_derivation_output"]
+    admissions = metadata.tables["ops.original_source_admission"]
+    kinds = metadata.tables["sem.data_kind_contract"]
+    reached = union(
+        select(outputs.c.product_id).select_from(nodes.join(outputs, and_(nodes.c.kind == "episode", nodes.c.id == outputs.c.derivation_id))),
+        select(admissions.c.product_id).select_from(nodes.join(admissions, and_(nodes.c.kind == "original", nodes.c.id == admissions.c.id))),
+    ).cte("access_products")
+    nested = func.ops.ddo_body_kind_contracts(products.c.kind_contract, products.c.canonical_body).table_valued(column("kind_contract", Text)).render_derived(name="nested_access_kind")
+    universes = select(kinds.c.universe).select_from(
+        reached.join(products, products.c.id == reached.c.product_id).join(nested, literal(True)).join(kinds, kinds.c.kind_contract == nested.c.kind_contract)
+    ).distinct().subquery("acquired_access_universes")
+    return select(func.coalesce(func.jsonb_agg(universes.c.universe), _json([])))
+
+
 def record_grade_census_nodes(metadata):
     """Inspect the actual frozen census graph without recursive validity calls."""
     nodes, _ = _demand_support_scope_inputs(metadata, include_unfulfilled=True)
@@ -574,7 +607,6 @@ def binding_branches(metadata):
             products.c.project_id == project,
             selected_key(products.c.id),
             _visible(uses),
-            func.ops.ddo_use_valid(uses.table_valued(), boundary),
             # A role-scoped explicit pin selects genuine input provenance;
             # production dependencies constrain default acquisition, not that
             # independent source workflow. Role/header/access checks below and
@@ -718,6 +750,10 @@ def binding_branches(metadata):
         .cte("candidates")
         .prefix_with("MATERIALIZED")
     )
+    candidate_validity = _validity_rows(
+        select(func.coalesce(func.array_agg(candidates.c.use_id.distinct()), cast(literal("{}"), ARRAY(Text)))).scalar_subquery(),
+        name="candidate_validity",
+    )
     coverage = metadata.tables["kb.data_member_coverage"].alias("coverage_row")
     coverage_query = (
         select(
@@ -779,6 +815,7 @@ def binding_branches(metadata):
             for field, value in zip(binding_columns(), computed_values, strict=True)
         )
     ).where(
+        _set_valid(candidate_validity, "use", candidates.c.use_id),
         func.ops.ddo_kind_access(candidates.c.parent_kind),
         func.ops.ddo_body_access(candidates.c.projected_kind, candidates.c.projected_body),
     )
@@ -1442,7 +1479,7 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
         .where(
             *([selected.c.id == _var("p_use", Text)] if one_use else []),
             selected.c.fate == "fulfilled",
-            func.ops.ddo_use_valid(selected.table_valued(), boundary),
+            func.ops.ddo_node_valid("use", selected.c.id, boundary),
         )
         .cte("selected_output_seed")
     )
@@ -1491,7 +1528,7 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
         producing_reached = and_(
             producing.c.fate == "fulfilled",
             _visible(producing),
-            func.ops.ddo_use_valid(producing.table_valued(), boundary),
+            func.ops.ddo_node_valid("use", producing.c.id, boundary),
             exists(
                 select(1)
                 .select_from(nodes)
@@ -1506,7 +1543,7 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
             producing_reached,
             literal(True) if member_aware else outputs.c.member_id.is_(None),
             products.c.project_id == _var("d.project_id", Text),
-            func.ops.ddo_support_valid(episodes.c.id, boundary),
+            func.ops.ddo_node_valid("episode", episodes.c.id, boundary),
             *access,
         )
         .distinct()
@@ -1567,7 +1604,10 @@ def read_page(metadata):
         .cte("selected_uses")
         .prefix_with("MATERIALIZED")
     )
-    valid = func.ops.ddo_use_valid(selected_uses.table_valued(), boundary)
+    validity = _validity_rows(
+        select(func.array_agg(selected_uses.c.id)).scalar_subquery(), name="page_validity"
+    )
+    valid = _set_valid(validity, "use", selected_uses.c.id)
     fulfilled_invalid = and_(selected_uses.c.fate == "fulfilled", valid == false())
     input_roles = _items(definitions.c.input_roles, "required_identity_role")
     rebind_allowed = exists(
@@ -1746,7 +1786,7 @@ def read_page(metadata):
                     (
                         and_(
                             latest.c.fate == "fulfilled",
-                            func.ops.ddo_use_valid(latest.table_valued(), boundary) == false(),
+                            func.ops.ddo_node_valid("use", latest.c.id, boundary) == false(),
                         ),
                         literal("unavailable"),
                     ),
@@ -1893,7 +1933,7 @@ def read_page(metadata):
                 populations.c.selected_obligation_id.in_(select(bounded.c.id)),
             ),
             _visible(populations),
-            func.ops.ddo_population_valid(populations.table_valued(), boundary),
+            func.ops.ddo_node_valid("population", populations.c.id, boundary),
         )
         .scalar_subquery()
     )
@@ -2014,6 +2054,7 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None):
     branches = binding_branches(metadata)
     products = {
         "support_scopes": compiled(support_scopes(metadata)),
+        "access_universes": compiled(read_access_universes(metadata)),
         "record_grade_census_scopes": compiled(
             support_scopes(metadata, domain_dependencies=False, include_unfulfilled=True)
         ),

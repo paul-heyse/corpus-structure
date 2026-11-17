@@ -689,14 +689,14 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     with kernel.engine.begin() as connection:
         assert (
             connection.scalar(
-                text("SELECT ops.ddo_support_valid(:episode)"),
+                text("SELECT ops.ddo_node_valid('episode',:episode)"),
                 {"episode": actual_admission.row["derivation_id"]},
             )
             is True
         )
         assert (
             connection.scalar(
-                text("SELECT ops.ddo_support_valid(:episode)"),
+                text("SELECT ops.ddo_node_valid('episode',:episode)"),
                 {"episode": dossier.row["derivation_id"]},
             )
             is True
@@ -717,14 +717,14 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     with kernel.engine.begin() as connection:
         assert (
             connection.scalar(
-                text("SELECT ops.ddo_support_valid(:episode)"),
+                text("SELECT ops.ddo_node_valid('episode',:episode)"),
                 {"episode": actual_admission.row["derivation_id"]},
             )
             is False
         )
         assert (
             connection.scalar(
-                text("SELECT ops.ddo_support_valid(:episode)"),
+                text("SELECT ops.ddo_node_valid('episode',:episode)"),
                 {"episode": dossier.row["derivation_id"]},
             )
             is False

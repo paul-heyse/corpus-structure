@@ -184,20 +184,6 @@ BEGIN
  -- A recursive closure includes every producing scope, not merely caller named epochs.
  FOR scope_key IN __DDO_CORE_LOCK_SUPPORT_SCOPES__ LOOP
  INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,project,0) ON CONFLICT DO NOTHING;
- SELECT epoch INTO e FROM ops.data_trust_scope WHERE scope=scope_key FOR UPDATE;
- snapshot:=snapshot||jsonb_build_object(scope_key,e);
- END LOOP;
- RETURN snapshot;
-END $$;
--- A live reader holds shared trust locks while detaching a selected cut. Renewal
--- needs the same revocation barrier, not exclusion from that reader. Request and
--- task rows are still locked independently before the physical lease is changed.
-CREATE OR REPLACE FUNCTION ops.ddo_lock_renewal_support(project text,source text,support jsonb) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE scope_key text; snapshot jsonb:='{}'; e bigint;
-BEGIN
- FOR scope_key IN __DDO_CORE_LOCK_SUPPORT_SCOPES__ LOOP
- INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,project,0) ON CONFLICT DO NOTHING;
  SELECT epoch INTO e FROM ops.data_trust_scope WHERE scope=scope_key FOR SHARE;
  snapshot:=snapshot||jsonb_build_object(scope_key,e);
  END LOOP;
@@ -218,11 +204,19 @@ BEGIN
  ORDER BY scope
  LOOP
  INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,project,0) ON CONFLICT DO NOTHING;
- SELECT epoch INTO e FROM ops.data_trust_scope WHERE scope=scope_key FOR UPDATE;
+ SELECT epoch INTO e FROM ops.data_trust_scope WHERE scope=scope_key FOR SHARE;
  snapshot:=snapshot||jsonb_build_object(scope_key,e);
  END LOOP;
  RETURN snapshot;
 END $$;
+CREATE OR REPLACE FUNCTION ops.ddo_refuse_post_acquisition_graph_write() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF EXISTS(SELECT FROM ops.data_demand_read WHERE owner_xid=pg_current_xact_id()::text) THEN
+ RAISE EXCEPTION 'support/frontier writes require a fresh transaction after demand read acquisition' USING ERRCODE='25001'; END IF;
+ RETURN NULL;
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_read_visible(created_at timestamp with time zone,created_xid text,boundary ops.data_demand_read) RETURNS boolean
 LANGUAGE sql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  SELECT created_at<=boundary.frontier_at AND (created_xid=boundary.owner_xid OR pg_visible_in_snapshot(created_xid::xid8,boundary.read_snapshot::pg_snapshot))
@@ -254,61 +248,152 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_direct_support_valid(episode text) RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
- RETURN (SELECT EXISTS(SELECT FROM ops.data_derivation WHERE id=episode AND outcome IN ('success','empty'))
- AND ops.ddo_record_grade_dependencies_valid(episode)
- AND ops.ddo_record_fit_dependencies_valid(episode)
- AND ops.ddo_operation_event_dependencies_valid(episode)
- AND ops.ddo_contextual_dependencies_valid(episode)
- AND ops.ddo_definition_dependencies_valid(episode)
- AND ops.ddo_artifact_dependencies_valid(episode)
- AND ops.ddo_rich_admission_dependencies_valid(episode) AND NOT EXISTS(
+ RETURN (SELECT EXISTS(SELECT FROM ops.data_derivation d
+ JOIN ops.data_request r ON r.id=d.request_id JOIN sem.data_operation_definition def
+ ON def.release_id=d.release_id AND def.recipe=d.recipe AND def.operation_id=r.operation_id
+ WHERE d.id=episode AND d.outcome IN ('success','empty') AND CASE def.validity_family
+ WHEN 'record-grade' THEN ops.ddo_record_grade_dependencies_valid(episode)
+ WHEN 'record-fit' THEN ops.ddo_record_fit_dependencies_valid(episode)
+ WHEN 'operation-event' THEN ops.ddo_operation_event_dependencies_valid(episode)
+ WHEN 'contextual' THEN ops.ddo_contextual_dependencies_valid(episode)
+ WHEN 'definition' THEN ops.ddo_definition_dependencies_valid(episode)
+ WHEN 'artifact' THEN ops.ddo_artifact_dependencies_valid(episode)
+ WHEN 'rich' THEN ops.ddo_rich_admission_dependencies_valid(episode)
+ ELSE true END) AND NOT EXISTS(
  SELECT FROM ops.data_derivation d JOIN ops.data_request r ON r.id=d.request_id
  JOIN ops.data_revocation v ON v.scope=ops.ddo_scope(r.project_id,r.original_source)
  WHERE d.id=episode AND ((v.selector_kind='derivation' AND v.selector=d.id) OR (v.selector_kind='recipe' AND v.selector=d.recipe)
  OR (v.selector_kind='runtime' AND v.selector=d.runtime_id) OR (v.selector_kind='product' AND EXISTS(SELECT FROM ops.data_derivation_output o WHERE o.derivation_id=d.id AND o.product_id=v.selector)))));
 END $$;
-CREATE OR REPLACE FUNCTION ops.ddo_support_valid(episode text,boundary ops.data_demand_read DEFAULT NULL) RETURNS boolean
+-- Each row is one edge in an explicitly conjunctive alternative. Empty groups
+-- have a NULL child, so an admitted empty replacement remains a true conjunction.
+CREATE OR REPLACE FUNCTION ops.ddo_validity_edges(p_kind text,p_id text)
+RETURNS TABLE(alternative integer,child_kind text,child_id text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE s ops.data_derivation_support; u ops.demand_use; original ops.original_source_admission;
+DECLARE u ops.demand_use; pop ops.data_population; item jsonb; choice integer; substitution boolean;
 BEGIN
- IF NOT ops.ddo_direct_support_valid(episode) THEN RETURN false; END IF;
- FOR original IN SELECT admission.* FROM ops.data_derivation_original_support selected
- JOIN ops.original_source_admission admission ON admission.id=selected.admission_id WHERE selected.derivation_id=episode LOOP
- IF NOT ops.ddo_original_admission_valid(original,boundary) THEN RETURN false; END IF;
- END LOOP;
- FOR s IN SELECT * FROM ops.data_derivation_support WHERE derivation_id=episode LOOP
- IF s.admission_use_id IS NULL THEN
-  IF NOT ops.ddo_support_valid(s.support_derivation_id,boundary) THEN RETURN false; END IF;
+ IF p_kind='episode' THEN
+ RETURN QUERY SELECT 0,'producer'::text,p_id;
+ RETURN QUERY SELECT 0,CASE WHEN support.admission_use_id IS NULL THEN 'episode' ELSE 'use' END,
+ coalesce(support.admission_use_id,support.support_derivation_id)
+ FROM ops.data_derivation_support support WHERE support.derivation_id=p_id;
+ RETURN QUERY SELECT 0,'original'::text,support.admission_id
+ FROM ops.data_derivation_original_support support WHERE support.derivation_id=p_id;
+ ELSIF p_kind='use' THEN
+ SELECT * INTO u FROM ops.demand_use WHERE id=p_id;
+ SELECT EXISTS(SELECT FROM ops.data_derivation d
+ JOIN sem.data_operation_definition def ON (def.release_id,def.recipe)=(d.release_id,d.recipe)
+ JOIN ops.data_demand demand ON demand.id=u.demand_id
+ WHERE d.id=u.derivation_id AND def.support_contract->>'provenance'='value_substitution'
+ AND demand.strength='value') INTO substitution;
+ FOR choice IN SELECT 1 UNION ALL SELECT 2 WHERE substitution LOOP
+ RETURN QUERY SELECT choice,NULL::text,NULL::text;
+ -- A substituted use still depends on its actual producing execution. Only
+ -- upstream support can be replaced; direct producer revocation is final.
+ RETURN QUERY SELECT choice,'producer'::text,u.derivation_id;
+ RETURN QUERY SELECT choice,'population'::text,ref->>'population_id'
+ FROM jsonb_array_elements(coalesce(u.selection->'populations','[]')) ref;
+ IF choice=1 THEN RETURN QUERY SELECT choice,'episode'::text,u.derivation_id;
  ELSE
-  SELECT * INTO u FROM ops.demand_use WHERE id=s.admission_use_id AND derivation_id=s.support_derivation_id;
-  IF NOT FOUND OR NOT ops.ddo_use_valid(u,boundary) THEN RETURN false; END IF;
+ FOR item IN SELECT value FROM jsonb_array_elements(coalesce(u.selection->'support','[]')) LOOP
+ RETURN QUERY SELECT choice,
+ CASE WHEN item->>'kind' IN ('original-source','authored') THEN 'original'
+ WHEN item->>'admission_use_id' IS NOT NULL THEN 'use' ELSE 'episode' END,
+ coalesce(item->>'admission_id',item->>'admission_use_id',item->>'derivation_id');
+ END LOOP;
  END IF;
  END LOOP;
- RETURN true;
+ ELSIF p_kind='population' THEN
+ SELECT * INTO pop FROM ops.data_population WHERE id=p_id;
+ RETURN QUERY SELECT 0,'use'::text,pop.evidence->>'admission_use_id';
+ IF pop.evidence ? 'selection' THEN
+ RETURN QUERY SELECT 0,'population'::text,pop.evidence->'selection'->>'parent_population_id'; END IF;
+ ELSE RETURN QUERY SELECT 0,NULL::text,NULL::text;
+ END IF;
 END $$;
-CREATE OR REPLACE FUNCTION ops.ddo_use_valid(u ops.demand_use,boundary ops.data_demand_read DEFAULT NULL) RETURNS boolean
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE support jsonb; selected ops.demand_use;
+CREATE OR REPLACE FUNCTION ops.ddo_validity_direct(p_kind text,p_id text,boundary ops.data_demand_read)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE u ops.demand_use; pop ops.data_population; admission ops.original_source_admission;
 BEGIN
- IF u.fate<>'fulfilled' OR NOT ops.ddo_direct_support_valid(u.derivation_id) THEN RETURN false; END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(u.selection->'populations','[]')) ref LEFT JOIN ops.data_population pop ON pop.id=ref->>'population_id' AND pop.demand_id=u.demand_id WHERE pop.id IS NULL OR NOT ops.ddo_population_valid(pop,boundary)) THEN RETURN false; END IF;
- IF ops.ddo_support_valid(u.derivation_id,boundary) THEN RETURN true; END IF;
- IF NOT EXISTS(SELECT FROM ops.data_derivation d JOIN sem.data_operation_definition def ON (def.release_id,def.recipe)=(d.release_id,d.recipe)
- JOIN ops.data_demand demand ON demand.id=u.demand_id WHERE d.id=u.derivation_id AND def.support_contract->>'provenance'='value_substitution' AND demand.strength='value') THEN RETURN false; END IF;
- FOR support IN SELECT value FROM jsonb_array_elements(u.selection->'support') LOOP
- IF support->>'kind' IN ('original-source','authored') THEN
- IF NOT EXISTS(SELECT FROM ops.original_source_admission admission WHERE admission.id=support->>'admission_id'
- AND admission.source_reference=support->>'source_reference' AND ops.ddo_original_admission_valid(admission,boundary)) THEN RETURN false; END IF;
- CONTINUE;
+ IF p_kind='producer' THEN RETURN ops.ddo_direct_support_valid(p_id);
+ ELSIF p_kind='episode' THEN
+ RETURN EXISTS(SELECT FROM ops.data_derivation WHERE id=p_id)
+ AND NOT EXISTS(SELECT FROM ops.data_derivation_support support
+ LEFT JOIN ops.demand_use selected ON selected.id=support.admission_use_id
+ AND selected.derivation_id=support.support_derivation_id
+ WHERE support.derivation_id=p_id AND support.admission_use_id IS NOT NULL AND selected.id IS NULL);
+ ELSIF p_kind='original' THEN
+ SELECT * INTO admission FROM ops.original_source_admission WHERE id=p_id;
+ RETURN ops.ddo_original_admission_valid(admission,boundary);
+ ELSIF p_kind='use' THEN
+ SELECT * INTO u FROM ops.demand_use WHERE id=p_id;
+ RETURN coalesce(u.fate='fulfilled',false) AND u.derivation_id IS NOT NULL
+ AND NOT EXISTS(SELECT FROM jsonb_array_elements(coalesce(u.selection->'populations','[]')) ref
+ LEFT JOIN ops.data_population population ON population.id=ref->>'population_id' AND population.demand_id=u.demand_id
+ WHERE population.id IS NULL)
+ AND NOT EXISTS(SELECT FROM jsonb_array_elements(coalesce(u.selection->'support','[]')) ref
+ LEFT JOIN ops.demand_use selected ON selected.id=ref->>'admission_use_id' AND selected.derivation_id=ref->>'derivation_id'
+ LEFT JOIN ops.original_source_admission original ON original.id=ref->>'admission_id' AND original.source_reference=ref->>'source_reference'
+ WHERE (ref->>'admission_use_id' IS NOT NULL AND selected.id IS NULL)
+ OR (ref->>'kind' IN ('original-source','authored') AND original.id IS NULL));
+ ELSIF p_kind='population' THEN
+ SELECT * INTO pop FROM ops.data_population WHERE id=p_id;
+ RETURN pop.id IS NOT NULL
+ AND EXISTS(SELECT FROM ops.demand_use source_use WHERE source_use.id=pop.evidence->>'admission_use_id'
+ AND source_use.demand_id=pop.demand_id AND source_use.derivation_id=pop.evidence->>'derivation_id')
+ AND (NOT pop.evidence ? 'selection' OR EXISTS(SELECT FROM ops.data_population parent
+ WHERE parent.id=pop.evidence->'selection'->>'parent_population_id' AND parent.demand_id=pop.demand_id AND parent.id<>pop.id))
+ AND NOT EXISTS(SELECT FROM ops.data_population newer WHERE newer.demand_id=pop.demand_id
+ AND newer.name=pop.name AND newer.context_key=pop.context_key AND (newer.created_at,newer.id)>(pop.created_at,pop.id)
+ AND (boundary.id IS NULL OR ops.ddo_read_visible(newer.created_at,newer.created_xid,boundary)));
  END IF;
- IF support->>'admission_use_id' IS NULL THEN
-  IF NOT ops.ddo_support_valid(support->>'derivation_id',boundary) THEN RETURN false; END IF;
- ELSE
-  SELECT * INTO selected FROM ops.demand_use WHERE id=support->>'admission_use_id' AND derivation_id=support->>'derivation_id';
-  IF NOT FOUND OR NOT ops.ddo_use_valid(selected,boundary) THEN RETURN false; END IF;
- END IF;
+ RETURN false;
+END $$;
+CREATE OR REPLACE FUNCTION ops.ddo_valid_closure(seed_uses text[],seed_episodes text[],boundary ops.data_demand_read DEFAULT NULL,seed_populations text[] DEFAULT '{}')
+RETURNS TABLE(kind text,id text,valid boolean)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE facts jsonb; edges jsonb; good text[]:='{}'; added text[];
+BEGIN
+ WITH RECURSIVE nodes(kind,id) AS (
+ SELECT 'use'::text,unnest(seed_uses) UNION SELECT 'episode',unnest(seed_episodes)
+ UNION SELECT 'population',unnest(seed_populations)
+ UNION SELECT edge.child_kind,edge.child_id FROM nodes
+ CROSS JOIN LATERAL ops.ddo_validity_edges(nodes.kind,nodes.id) edge WHERE edge.child_id IS NOT NULL
+ ), adjacency AS MATERIALIZED (
+ SELECT jsonb_build_array(nodes.kind,nodes.id)::text AS parent,edge.alternative,
+ CASE WHEN edge.child_id IS NOT NULL THEN jsonb_build_array(edge.child_kind,edge.child_id)::text END AS child
+ FROM nodes CROSS JOIN LATERAL ops.ddo_validity_edges(nodes.kind,nodes.id) edge
+ ), reach(parent,child) AS (
+ SELECT adjacency.parent,adjacency.child FROM adjacency WHERE adjacency.child IS NOT NULL
+ UNION SELECT reach.parent,adjacency.child FROM reach JOIN adjacency ON adjacency.parent=reach.child WHERE adjacency.child IS NOT NULL
+ ), direct AS MATERIALIZED (
+ SELECT nodes.kind,nodes.id,jsonb_build_array(nodes.kind,nodes.id)::text AS key,
+ ops.ddo_validity_direct(nodes.kind,nodes.id,boundary)
+ AND NOT EXISTS(SELECT FROM reach WHERE reach.parent=jsonb_build_array(nodes.kind,nodes.id)::text AND reach.child=reach.parent) AS valid
+ FROM nodes
+ )
+ SELECT coalesce((SELECT jsonb_agg(to_jsonb(direct)) FROM direct),'[]'),
+ coalesce((SELECT jsonb_agg(to_jsonb(adjacency)) FROM adjacency),'[]') INTO facts,edges;
+ LOOP
+ SELECT coalesce(array_agg(fact->>'key'),'{}') INTO added FROM jsonb_array_elements(facts) fact
+ WHERE (fact->>'valid')::boolean AND NOT fact->>'key'=ANY(good)
+ AND EXISTS(SELECT FROM jsonb_array_elements(edges) edge WHERE edge->>'parent'=fact->>'key'
+ GROUP BY edge->>'alternative' HAVING bool_and(edge->>'child' IS NULL OR edge->>'child'=ANY(good)));
+ EXIT WHEN cardinality(added)=0;
+ good:=good||added;
  END LOOP;
- RETURN true;
+ RETURN QUERY SELECT fact->>'kind',fact->>'id',fact->>'key'=ANY(good) FROM jsonb_array_elements(facts) fact;
+END $$;
+-- Scalar boundaries share the set evaluator; candidate/read projections seed it
+-- once for the entire reduced candidate set instead of calling this per row.
+CREATE OR REPLACE FUNCTION ops.ddo_node_valid(p_kind text,p_id text,boundary ops.data_demand_read DEFAULT NULL)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ RETURN coalesce((SELECT result.valid FROM ops.ddo_valid_closure(
+ CASE WHEN p_kind='use' THEN ARRAY[p_id] ELSE '{}' END,
+ CASE WHEN p_kind='episode' THEN ARRAY[p_id] ELSE '{}' END,boundary,
+ CASE WHEN p_kind='population' THEN ARRAY[p_id] ELSE '{}' END) result
+ WHERE result.kind=p_kind AND result.id=p_id),false);
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_replicate_required(policy text) RETURNS boolean
 LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -376,23 +461,10 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
  SELECT ops.ddo_population_evidence_scope(pop.evidence)
 $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_population_valid(pop ops.data_population,boundary ops.data_demand_read DEFAULT NULL) RETURNS boolean
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE source_use ops.demand_use; parent ops.data_population;
-BEGIN
- IF pop.id IS NULL OR EXISTS(SELECT FROM ops.data_population newer WHERE newer.demand_id=pop.demand_id AND newer.name=pop.name AND newer.context_key=pop.context_key AND (newer.created_at,newer.id)>(pop.created_at,pop.id) AND (boundary.id IS NULL OR ops.ddo_read_visible(newer.created_at,newer.created_xid,boundary))) THEN RETURN false; END IF;
- IF pop.evidence ? 'selection' THEN
- SELECT * INTO parent FROM ops.data_population WHERE id=pop.evidence->'selection'->>'parent_population_id' AND demand_id=pop.demand_id;
- IF parent.id IS NULL OR parent.id=pop.id OR NOT ops.ddo_population_valid(parent,boundary) THEN RETURN false; END IF;
- END IF;
- SELECT * INTO source_use FROM ops.demand_use u WHERE u.id=pop.evidence->>'admission_use_id' AND u.demand_id=pop.demand_id AND u.derivation_id=pop.evidence->>'derivation_id';
- RETURN FOUND AND ops.ddo_use_valid(source_use,boundary);
-END $$;
-
 CREATE OR REPLACE FUNCTION ops.ddo_discovery_role_population(d ops.data_demand,pop ops.data_population,target text,input_role text,subject text,source text,scope jsonb,boundary ops.data_demand_read DEFAULT NULL) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
  SELECT pop.demand_id=d.id AND NOT (pop.evidence ? 'selection')
- AND ops.ddo_population_valid(pop,boundary)
+ AND ops.ddo_node_valid('population',pop.id,boundary)
  AND (boundary.id IS NULL OR ops.ddo_read_visible(pop.created_at,pop.created_xid,boundary))
  AND EXISTS(SELECT FROM jsonb_array_elements(d.selection->'discovery') relation
  JOIN ops.data_derivation episode ON episode.id=pop.evidence->>'derivation_id'
@@ -452,10 +524,10 @@ BEGIN
  AND ops.ddo_binding_source(roledef,jsonb_build_object('product',product.id,'member',member.member_id,'subject',coalesce(member.subject,product.subject),'subject_definition',coalesce(member.subject_definition,product.subject_definition),'original_source',product.original_source,'analyzed_scope',coalesce(member.analyzed_scope,product.analyzed_scope),'meaning_body',coalesce(member.body,product.canonical_body),'support_references',jsonb_build_array(jsonb_build_object('kind','computation','derivation_id',item->>'derivation_id','admission_use_id',item->>'admission_use_id')),'support_evidence',jsonb_build_object('producer_output',input->'producer_output')),r.original_source,coalesce((SELECT demand.selection->'source_sets' FROM ops.data_demand demand JOIN ops.data_demand_read acquired ON acquired.demand_id=demand.id WHERE acquired.id=binding->>'read_id'),'{}'))
  ) THEN RAISE EXCEPTION 'foreign support outside exact frozen source-set custody'; END IF;
  IF item->>'admission_use_id' IS NULL THEN
- IF NOT ops.ddo_support_valid(episode.id) THEN RETURN false; END IF;
+ IF NOT ops.ddo_node_valid('episode',episode.id) THEN RETURN false; END IF;
  ELSE
  SELECT * INTO selected FROM ops.demand_use WHERE id=item->>'admission_use_id' AND derivation_id=episode.id;
- IF NOT FOUND OR NOT ops.ddo_use_valid(selected) THEN RETURN false; END IF;
+ IF NOT FOUND OR NOT ops.ddo_node_valid('use',selected.id) THEN RETURN false; END IF;
  END IF;
  END LOOP;
  RETURN true;
@@ -534,21 +606,19 @@ BEGIN
  NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=p->>'release_id') OR
  p->>'strength' NOT IN ('value','episode','independent') THEN RAISE EXCEPTION 'unadmitted demand/project/strength'; END IF;
  IF p->'selection'->>'version' IS DISTINCT FROM 'data-demand-intent-v2' OR p->'root' IS DISTINCT FROM p->'selection'->'roots'
- OR NOT EXISTS(SELECT FROM sem.artifact a WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operations.json' AND a.content_digest=p->'selection'->>'model')
+ OR NOT EXISTS(SELECT FROM sem.data_operation_release a WHERE a.release_id=p->>'release_id' AND a.lowering_digest='__DDO_LOWERING_DIGEST__' AND a.model_digest=p->'selection'->>'model')
  OR EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected WHERE NOT EXISTS(
- SELECT FROM sem.artifact a CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'operations') op
- WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operation_native_definitions.json'
- AND op->>'operation_id'=selected->>'operation' AND op->>'recipe'=selected->>'recipe'
- AND op->>'definition'=selected->>'definition' AND op->>'eligibility'=selected->>'eligibility')) THEN RAISE EXCEPTION 'demand differs from authenticated effective model/selection'; END IF;
+ SELECT FROM sem.data_operation_definition op WHERE op.release_id=p->>'release_id'
+ AND op.operation_id=selected->>'operation' AND op.recipe=selected->>'recipe'
+ AND op.definition_identity=selected->>'definition' AND op.eligibility_identity=selected->>'eligibility')) THEN RAISE EXCEPTION 'demand differs from authenticated effective model/selection'; END IF;
  -- Authenticate the selected graph, not merely each node's recipe identity.
  IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected GROUP BY selected->>'operation' HAVING count(*)<>1)
- OR EXISTS(SELECT FROM sem.artifact a
- CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'operations') operation
- JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=operation->>'semantic_id'
- WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operations.json'
- AND (NOT (coalesce(operation->'dependencies','[]') <@ (selected->'dependencies'))
+ OR EXISTS(SELECT FROM sem.data_operation_definition operation
+ JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=operation.operation_id
+ WHERE operation.release_id=p->>'release_id'
+ AND (NOT (operation.dependencies->'required' <@ (selected->'dependencies'))
  OR EXISTS(SELECT FROM jsonb_array_elements_text(selected->'dependencies') dependency
- WHERE NOT ((coalesce(operation->'dependencies','[]')||coalesce(operation->'potential_dependencies','[]')) ? dependency))
+ WHERE NOT (((operation.dependencies->'required')||(operation.dependencies->'potential')) ? dependency))
  OR EXISTS(SELECT FROM jsonb_array_elements_text(selected->'dependencies') dependency GROUP BY dependency HAVING count(*)<>1)))
  OR EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected
  CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency
@@ -557,11 +627,9 @@ BEGIN
  IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation GROUP BY relation->>'population' HAVING count(DISTINCT jsonb_build_array(relation->>'producer',relation->>'output_role'))<>1)
  OR EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation GROUP BY relation HAVING count(*)<>1) THEN RAISE EXCEPTION 'discovery population requires one source projection and distinct targets'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation
- WHERE NOT EXISTS(SELECT FROM sem.artifact a
- CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'operations') operation
- WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operations.json'
- AND operation->>'semantic_id'=relation->>'producer' AND operation->>'profile'='discovery'
- AND EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->>'direction'='output' AND role->>'name'=relation->>'output_role')))
+ WHERE NOT EXISTS(SELECT FROM sem.data_operation_definition operation
+ WHERE operation.release_id=p->>'release_id' AND operation.operation_id=relation->>'producer' AND operation.profile='discovery'
+ AND EXISTS(SELECT FROM jsonb_array_elements(operation.output_roles) role WHERE role->>'name'=relation->>'output_role')))
  THEN RAISE EXCEPTION 'discovery relation differs from declared producer output'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation
  WHERE relation ? 'target_role' AND (jsonb_typeof(relation->'target_role') IS DISTINCT FROM 'string' OR NOT EXISTS(
@@ -654,7 +722,7 @@ BEGIN
  -- creation/attachment paths; no new request can enter this demand during cancellation.
  FOR scope_key IN SELECT DISTINCT ops.ddo_scope(d.project_id,root->>'original_source')
  FROM jsonb_array_elements(d.root) root ORDER BY 1 LOOP
- PERFORM 1 FROM ops.data_trust_scope WHERE scope=scope_key FOR UPDATE;
+ PERFORM 1 FROM ops.data_trust_scope WHERE scope=scope_key FOR SHARE;
  END LOOP;
  PERFORM 1 FROM ops.data_demand WHERE id=d.id FOR UPDATE;
  PERFORM 1 FROM ops.data_request req WHERE EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.request_id=req.id) ORDER BY req.id FOR UPDATE;
@@ -711,7 +779,7 @@ BEGIN
  PERFORM ops.ddo_require_subject_source(ops.ddo_release_subject_scopes(d.release_id),ops.ddo_operation_subject(d.release_id,p->>'operation_id'),p->>'original_source');
  IF p ? 'population_id' THEN
  SELECT * INTO STRICT population FROM ops.data_population WHERE id=p->>'population_id' AND demand_id=d.id;
- IF NOT ops.ddo_population_valid(population) THEN RAISE EXCEPTION 'discovery population is not currently admitted'; END IF;
+ IF NOT ops.ddo_node_valid('population',population.id) THEN RAISE EXCEPTION 'discovery population is not currently admitted'; END IF;
  SELECT EXISTS(WITH RECURSIVE allowed_operations(id) AS (
  SELECT rel->>'target' FROM jsonb_array_elements(d.selection->'discovery') rel WHERE rel->>'population'=population.name
  UNION SELECT dep.value FROM allowed_operations a JOIN LATERAL jsonb_array_elements(d.selection->'operations') op ON op->>'operation'=a.id CROSS JOIN LATERAL jsonb_array_elements_text(op->'dependencies') dep(value)) SELECT FROM allowed_operations WHERE id=p->>'operation_id') INTO allowed;
@@ -753,7 +821,7 @@ BEGIN
  PERFORM ops.ddo_require_active_demand(d.id);
  SELECT DISTINCT value-'target'-'target_role' INTO STRICT rel FROM jsonb_array_elements(d.selection->'discovery') value WHERE value->>'population'=p->>'name' AND value->>'producer'=r.operation_id AND value->>'output_role'=p->>'member_role';
  IF x.project_id<>d.project_id OR r.project_id<>d.project_id OR r.release_id<>d.release_id
- OR NOT EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.derivation_id=producer.id AND ops.ddo_use_valid(u)) OR NOT EXISTS(SELECT FROM sem.data_operation_definition op WHERE op.release_id=d.release_id AND op.operation_id=r.operation_id AND op.profile='discovery')
+ OR NOT EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.derivation_id=producer.id AND ops.ddo_node_valid('use',u.id)) OR NOT EXISTS(SELECT FROM sem.data_operation_definition op WHERE op.release_id=d.release_id AND op.operation_id=r.operation_id AND op.profile='discovery')
  OR NOT EXISTS(SELECT FROM ops.data_derivation_output outp WHERE outp.derivation_id=producer.id AND outp.product_id=x.id AND outp.role=p->>'member_role')
  OR NOT EXISTS(SELECT FROM ops.demand_use u WHERE u.demand_id=d.id AND u.derivation_id=producer.id AND u.fate='fulfilled') THEN RAISE EXCEPTION 'population lacks admitted declared discovery output'; END IF;
  PERFORM ops.ddo_authorize(k.universe) FROM sem.data_kind_contract k WHERE k.kind_contract=x.kind_contract;
@@ -762,7 +830,7 @@ BEGIN
  IF EXISTS(SELECT FROM kb.data_product_member m WHERE m.product_id=x.id AND (nullif(m.subject,'') IS NULL OR nullif(m.subject_definition,'') IS NULL OR m.original_source IS DISTINCT FROM x.original_source OR m.analyzed_scope IS NULL)) THEN RAISE EXCEPTION 'discovery member lacks qualified subject/source/scope'; END IF;
  SELECT coalesce(jsonb_agg(jsonb_build_object('member_id',m.member_id,'subject',m.subject,'subject_definition',m.subject_definition,'original_source',m.original_source,'analyzed_scope',m.analyzed_scope) ORDER BY m.member_id),'[]') INTO members FROM kb.data_product_member m WHERE m.product_id=x.id;
  IF EXISTS(SELECT FROM jsonb_array_elements(members) m GROUP BY m->>'subject',m->>'subject_definition',m->>'original_source',m->'analyzed_scope' HAVING count(*)<>1) THEN RAISE EXCEPTION 'discovery has ambiguous duplicate complete contexts'; END IF;
- SELECT * INTO STRICT source_use FROM ops.demand_use u WHERE u.demand_id=d.id AND u.derivation_id=producer.id AND ops.ddo_use_valid(u) ORDER BY u.created_at DESC,u.id DESC LIMIT 1;
+ SELECT * INTO STRICT source_use FROM ops.demand_use u WHERE u.demand_id=d.id AND u.derivation_id=producer.id AND ops.ddo_node_valid('use',u.id) ORDER BY u.created_at DESC,u.id DESC LIMIT 1;
  semantic_key:='population-value:'||ops.ddo_digest(jsonb_build_object('product',x.id,'member_role',p->>'member_role','members',members,'complete',complete));
  evidence:=jsonb_build_object('product_id',x.id,'derivation_id',producer.id,'member_role',p->>'member_role','admission_use_id',source_use.id,'trust_snapshot',snapshot,'producer_context',jsonb_build_object('operation_id',r.operation_id,'subject',r.subject,'subject_definition',ops.ddo_operation_subject(r.release_id,r.operation_id),'original_source',r.original_source,'analyzed_scope',r.analyzed_scope));
  key:='population:'||ops.ddo_digest(jsonb_build_array(d.id,p->>'name',semantic_key,evidence));
@@ -770,7 +838,7 @@ BEGIN
  PERFORM 1 FROM ops.data_demand WHERE id=d.id FOR UPDATE;
  INSERT INTO ops.data_population (id,demand_id,semantic_key,name,context_key,members,complete,evidence,created_at,created_xid) VALUES(key,d.id,semantic_key,p->>'name',ops.ddo_digest(ops.ddo_population_evidence_scope(evidence)),members,complete,evidence,clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT old FROM ops.data_population WHERE id=key;
- IF NOT ops.ddo_population_valid(old) THEN RAISE EXCEPTION 'population witness is historical or no longer admitted'; END IF;
+ IF NOT ops.ddo_node_valid('population',old.id) THEN RAISE EXCEPTION 'population witness is historical or no longer admitted'; END IF;
  RETURN jsonb_build_object('payload',jsonb_build_object('population_id',key,'semantic_key',semantic_key,'name',old.name,'complete',old.complete,'members',old.members,'evidence',old.evidence));
 END $$;
 CREATE OR REPLACE FUNCTION data.ddo_field(v jsonb,k text) RETURNS jsonb
@@ -805,7 +873,7 @@ BEGIN
  IF witness IS NOT NULL AND witness<>'null'::jsonb AND witness ? 'identity' THEN
  IF population_reference IS NULL THEN RAISE EXCEPTION 'population witness lacks authenticated native receipt reference'; END IF;
  SELECT * INTO STRICT pop FROM ops.data_population WHERE id=population_reference->>'population_id' AND demand_id=d.id AND name=population_reference->>'name';
- IF NOT ops.ddo_population_valid(pop) THEN RAISE EXCEPTION 'population witness is historical or revoked'; END IF;
+ IF NOT ops.ddo_node_valid('population',pop.id) THEN RAISE EXCEPTION 'population witness is historical or revoked'; END IF;
  IF pop.evidence ? 'selection' AND (pop.evidence->'selection'->>'obligation_id',pop.evidence->'selection'->>'operation_id',pop.evidence->'selection'->>'subject',pop.evidence->'selection'->>'subject_definition',pop.evidence->'selection'->>'original_source') IS DISTINCT FROM (o.id,o.operation_id,o.subject,ops.ddo_operation_subject(d.release_id,o.operation_id),o.original_source) THEN RAISE EXCEPTION 'selected population belongs to another binding context'; END IF;
  PERFORM ops.ddo_require_release_facts(d.release_id);
  SELECT binding_expression INTO STRICT frozen_binding FROM sem.data_operation_definition WHERE release_id=d.release_id AND operation_id=o.operation_id;
@@ -965,7 +1033,7 @@ BEGIN
  SELECT coalesce(sum((v->>'multiplicity')::integer),0) INTO cnt FROM jsonb_array_elements(p->'binding'->'inputs') v WHERE v->>'role'=declared->>'name';
  IF cnt<coalesce((declared->>'minimum')::integer,0) OR (declared->>'maximum' IS NOT NULL AND cnt>(declared->>'maximum')::integer) THEN RAISE EXCEPTION 'input cardinality mismatch'; END IF;
  END LOOP;
- SELECT x.id INTO episode FROM ops.data_derivation x WHERE x.request_id=r.id AND x.generation=r.generation AND ops.ddo_support_valid(x.id) ORDER BY x.id LIMIT 1;
+ SELECT x.id INTO episode FROM ops.data_derivation x WHERE x.request_id=r.id AND x.generation=r.generation AND ops.ddo_node_valid('episode',x.id) ORDER BY x.id LIMIT 1;
  IF p ? 'rebind_derivation' THEN
  episode:=p->>'rebind_derivation';
  -- Substitution can replace upstream witnesses, never a directly distrusted producer.
@@ -988,10 +1056,10 @@ BEGIN
  invalid_retained:=retained.id IS NOT NULL AND (
  EXISTS(SELECT FROM jsonb_array_elements(retained.payload->'support') old_support
  WHERE CASE WHEN old_support->>'kind' IN ('original-source','authored') THEN NOT EXISTS(SELECT FROM ops.original_source_admission admission WHERE admission.id=old_support->>'admission_id' AND admission.source_reference=old_support->>'source_reference' AND ops.ddo_original_admission_valid(admission)) WHEN old_support->>'admission_use_id' IS NULL
- THEN NOT ops.ddo_support_valid(old_support->>'derivation_id')
+ THEN NOT ops.ddo_node_valid('episode',old_support->>'derivation_id')
  ELSE NOT EXISTS(SELECT FROM ops.demand_use selected
  WHERE selected.id=old_support->>'admission_use_id'
- AND selected.derivation_id=old_support->>'derivation_id' AND ops.ddo_use_valid(selected)) END)
+ AND selected.derivation_id=old_support->>'derivation_id' AND ops.ddo_node_valid('use',selected.id)) END)
  OR EXISTS(SELECT FROM ops.data_revocation v WHERE v.scope=ops.ddo_scope(r.project_id,r.original_source)
  AND ((v.selector_kind='runtime' AND v.selector=retained.runtime_id)
  OR (v.selector_kind='recipe' AND v.selector=r.recipe))));
@@ -1075,7 +1143,7 @@ BEGIN
  OR (p->>'generation')::integer<1 OR (p->>'attempt')::integer<1 OR (p->>'task_id')::bigint<1 THEN RAISE EXCEPTION 'invalid request attempt/holder/lease'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  PERFORM ops.ddo_authorize_request(r);
- snapshot:=ops.ddo_lock_renewal_support(r.project_id,r.original_source,r.binding->'support');
+ snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
  SELECT * INTO t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
  IF NOT ops.ddo_request_useful(r) THEN RETURN ops.ddo_lost_attempt(p,CASE WHEN t.status IN ('done','empty','failed') THEN 'fence' ELSE 'cancelled' END); END IF;
@@ -1672,28 +1740,33 @@ BEGIN
  -- support must still contribute its authority scope to the read's pinned closure.
  IF p ? 'read_id' THEN
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=d.id;
+ IF boundary.kernel_digest IS DISTINCT FROM '__DDO_SOURCE_DIGEST__' OR boundary.locked_scopes IS NULL OR boundary.access_universes IS NULL THEN RAISE EXCEPTION 'read requires reacquisition under current native kernel'; END IF;
  IF boundary.scope IS DISTINCT FROM coalesce(p->'scope','{}') THEN RAISE EXCEPTION 'read scope differs from its pinned acquisition'; END IF;
  ELSE
  boundary.id:='read:'||gen_random_uuid()::text; boundary.demand_id:=d.id;
  boundary.read_snapshot:=pg_current_snapshot()::text; boundary.frontier_at:=clock_timestamp();
  boundary.owner_xid:=pg_current_xact_id()::text;
  END IF;
- FOR scope_key IN __DDO_CORE_SUPPORT_SCOPES__ LOOP
+ IF NOT p ? 'read_id' THEN
+ boundary.locked_scopes:=(SELECT coalesce(jsonb_agg(scope ORDER BY scope),'[]') FROM (__DDO_CORE_SUPPORT_SCOPES__) acquired(scope));
+ boundary.access_universes:=(__DDO_CORE_ACCESS_UNIVERSES__);
+ boundary.kernel_digest:='__DDO_SOURCE_DIGEST__';
+ END IF;
+ FOR scope_key IN SELECT value#>>'{}' FROM jsonb_array_elements(boundary.locked_scopes) ORDER BY value#>>'{}' LOOP
  INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,d.project_id,0) ON CONFLICT DO NOTHING;
  SELECT s.epoch INTO epoch FROM ops.data_trust_scope s WHERE s.scope=scope_key FOR SHARE;
  snapshot:=snapshot||jsonb_build_object(scope_key,epoch);
  END LOOP;
- snapshot:=ops.ddo_trust_snapshot_meaning(snapshot);
  IF p ? 'read_id' THEN
- IF ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) IS DISTINCT FROM snapshot
+ IF boundary.trust_snapshot IS DISTINCT FROM snapshot
  OR (p ? 'read_snapshot' AND p->>'read_snapshot' IS DISTINCT FROM boundary.read_snapshot)
  OR (p ? 'frontier_at' AND (p->>'frontier_at')::timestamptz IS DISTINCT FROM boundary.frontier_at) THEN RAISE EXCEPTION 'read acquisition pins or current trust differ'; END IF;
  ELSE
- INSERT INTO ops.data_demand_read(id,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope)
- VALUES(boundary.id,d.id,boundary.read_snapshot,boundary.frontier_at,boundary.owner_xid,snapshot,coalesce(p->'scope','{}')) RETURNING * INTO boundary;
+ INSERT INTO ops.data_demand_read(id,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope,locked_scopes,access_universes,kernel_digest)
+ VALUES(boundary.id,d.id,boundary.read_snapshot,boundary.frontier_at,boundary.owner_xid,snapshot,coalesce(p->'scope','{}'),boundary.locked_scopes,boundary.access_universes,boundary.kernel_digest) RETURNING * INTO boundary;
  END IF;
- IF p ? 'trust_snapshot' AND ops.ddo_trust_snapshot_meaning(p->'trust_snapshot') IS DISTINCT FROM snapshot THEN RAISE EXCEPTION 'trust snapshot changed; reacquire demand read'; END IF;
- PERFORM ops.ddo_authorize(k.universe) FROM ops.demand_use u JOIN ops.data_derivation_output outp ON outp.derivation_id=u.derivation_id JOIN kb.data_product x ON x.id=outp.product_id JOIN sem.data_kind_contract k ON k.kind_contract=x.kind_contract WHERE u.demand_id=d.id AND ops.ddo_read_visible(u.created_at,u.created_xid,boundary);
+ IF p ? 'trust_snapshot' AND ops.ddo_trust_snapshot_meaning(p->'trust_snapshot') IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(snapshot) THEN RAISE EXCEPTION 'trust snapshot changed; reacquire demand read'; END IF;
+ PERFORM ops.ddo_authorize(value#>>'{}') FROM jsonb_array_elements(boundary.access_universes);
  __DDO_CORE_READ_PAGE__ INTO results;
  IF selected_view IN ('products','support') AND octet_length(data.canonical_json(results))>selected_max_bytes THEN
  RAISE EXCEPTION 'complete native product page envelope exceeds max_bytes; reduce the page limit'; END IF;
@@ -1840,7 +1913,7 @@ BEGIN
  PERFORM ops.ddo_require_active_demand(demand.id);
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=demand.id;
  IF NOT (ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) @> ops.ddo_trust_snapshot_meaning(scope)) OR NOT ops.ddo_read_visible(parent.created_at,parent.created_xid,boundary)
- OR NOT ops.ddo_population_valid(parent,boundary) OR source_request.project_id IS DISTINCT FROM demand.project_id
+ OR NOT ops.ddo_node_valid('population',parent.id,boundary) OR source_request.project_id IS DISTINCT FROM demand.project_id
  OR parent.evidence ? 'selection' OR parent.name=p->>'population_name' THEN RAISE EXCEPTION 'selected population lacks its pinned admitted base parent'; END IF;
  scope:=boundary.trust_snapshot;
  PERFORM ops.ddo_authorize(kind.universe) FROM kb.data_product product JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract WHERE product.id=parent.evidence->>'product_id';
@@ -1906,7 +1979,7 @@ BEGIN
  IF projection_mode='qualified-context' THEN meaning:=meaning||jsonb_build_object('projection',projection_mode); END IF;
  value_key:='population-value:'||ops.ddo_digest(meaning);
  SELECT * INTO selected FROM ops.data_population old WHERE old.demand_id=demand.id AND old.name=p->>'population_name'
- AND old.selected_obligation_id=obligation.id AND old.semantic_key=value_key AND old.evidence->'selection'->>'parent_population_id'=parent.id AND ops.ddo_population_valid(old) ORDER BY old.created_at DESC,old.id DESC LIMIT 1;
+ AND old.selected_obligation_id=obligation.id AND old.semantic_key=value_key AND old.evidence->'selection'->>'parent_population_id'=parent.id AND ops.ddo_node_valid('population',old.id) ORDER BY old.created_at DESC,old.id DESC LIMIT 1;
  IF selected.id IS NULL THEN
  evidence:=(parent.evidence-'population_id')||jsonb_build_object('producer_context',ops.ddo_population_producer_context(parent),'selection',jsonb_build_object('parent_population_id',parent.id,
  'read_id',boundary.id,'obligation_id',obligation.id,'operation_id',p->>'operation_id','subject',p->>'subject','subject_definition',ops.ddo_operation_subject(demand.release_id,obligation.operation_id),'original_source',p->>'original_source','analyzed_scope',obligation.analyzed_scope,'role',role,

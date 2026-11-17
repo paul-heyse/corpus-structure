@@ -1130,7 +1130,7 @@ BEGIN
   JOIN ops.pdf_frozen_build f ON f.build_id=p_build AND f.kind=p.kind
   WHERE EXISTS(
    SELECT FROM ops.data_derivation episode WHERE episode.producer_task_id=t.id
-   AND ops.ddo_support_valid(episode.id))
+   AND ops.ddo_node_valid('episode',episode.id))
    AND p.source_digest=b.source_digest AND p.schema_digest=b.schema_digest
    AND p.recipe_digest=b.recipe_digest AND p.release_id=b.release_id
    AND previous_context.project_id=(SELECT project_id FROM ops.pdf_task_context(b.task_id))

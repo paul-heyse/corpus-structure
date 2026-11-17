@@ -780,7 +780,7 @@ BEGIN
  END LOOP;
  IF EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference GROUP BY reference->>'name' HAVING count(DISTINCT reference->>'population_id')<>1) THEN RAISE EXCEPTION 'one named population cannot select conflicting receipt scopes'; END IF;
  FOR native_population IN SELECT * FROM ops.data_population pop
- WHERE demand_id=p_demand AND ops.ddo_population_valid(pop)
+ WHERE demand_id=p_demand AND ops.ddo_node_valid('population',pop.id)
  AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=pop.id AND reference->>'name'=pop.name)
  AND (EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=pop.id
  AND ops.ddo_discovery_role_population(demand,pop,p_operation,reference->>'role',p_subject,request.original_source,request.analyzed_scope,boundary))

@@ -336,7 +336,7 @@ def test_native_score_currentness_detects_known_linguistic_change_without_replac
     (scores,) = retained_products(case.kernel, demand, "DdoContextualNativeScores")
     score_episode = scores.row["derivation_id"]
     target_episode = case.targets[0].row["derivation_id"]
-    valid = text("SELECT ops.ddo_support_valid(:episode)")
+    valid = text("SELECT ops.ddo_node_valid('episode',:episode)")
     payload = text(
         "SELECT i.payload FROM ops.data_completion_intent i JOIN ops.data_derivation d "
         "ON d.intent_id=i.id WHERE d.id=:episode"

@@ -2708,3 +2708,31 @@ def test_native_graph_execution_capture_names_selected_engine_and_library():
         "networkx": "3.7",
         "backend": "networkx",
     }
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_native_set_validity_deduplicates_and_refuses_cyclic_support(ddo_kernel):
+    _, _, _, attached = attach(ddo_kernel)
+    fence = claim(ddo_kernel, attached)
+    receipt = publish(ddo_kernel, fence, retain(ddo_kernel, fence))
+    episode = receipt["derivation_id"]
+    with ddo_kernel["engine"].begin() as connection:
+        rows = connection.execute(text(
+            "SELECT kind,id,valid FROM ops.ddo_valid_closure('{}',ARRAY[:episode,:episode])"
+        ), {"episode": episode}).all()
+        assert len(rows) == len({(row.kind, row.id) for row in rows})
+        assert next(row.valid for row in rows if row.kind == "episode" and row.id == episode)
+        connection.execute(text(
+            "INSERT INTO ops.data_derivation_support "
+            "SELECT :episode,'deliberate-cycle',0,:episode,ops.ddo_scope('ddo-test','source:test'),0,NULL,999999"
+        ), {"episode": episode})
+        assert connection.scalar(text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": episode}) is False
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_native_read_acquisition_forbids_later_frontier_writes(ddo_kernel):
+    demand, _, _, _ = attach(ddo_kernel)
+    with ddo_kernel["engine"].begin() as connection:
+        DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
+        with pytest.raises(DBAPIError, match="fresh transaction"):
+            connection.execute(text("INSERT INTO ops.data_obligation SELECT * FROM ops.data_obligation LIMIT 1 ON CONFLICT DO NOTHING"))

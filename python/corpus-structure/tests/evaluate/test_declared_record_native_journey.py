@@ -366,7 +366,7 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
         ]
     with journey.kernel.engine.begin() as connection:
         assert (
-            connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": issuer})
+            connection.scalar(text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": issuer})
             is True
         )
         source = journey.sources[0].pin
@@ -383,7 +383,7 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
             )
         )
         assert (
-            connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": issuer})
+            connection.scalar(text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": issuer})
             is False
         )
     with (

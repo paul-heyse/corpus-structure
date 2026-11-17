@@ -431,7 +431,7 @@ BEGIN
  SELECT * INTO STRICT demand FROM ops.data_demand WHERE id=boundary.demand_id;
  SELECT * INTO STRICT chosen FROM ops.demand_use WHERE id=selected_use AND demand_id=boundary.demand_id;
  IF chosen.fate IS DISTINCT FROM 'fulfilled' OR NOT coalesce(ops.ddo_read_visible(chosen.created_at,chosen.created_xid,boundary),false)
- OR NOT coalesce(ops.ddo_use_valid(chosen,boundary),false) OR EXISTS(SELECT FROM ops.demand_use newer
+ OR NOT coalesce(ops.ddo_node_valid('use',chosen.id,boundary),false) OR EXISTS(SELECT FROM ops.demand_use newer
  WHERE newer.obligation_id=chosen.obligation_id AND ops.ddo_read_visible(newer.created_at,newer.created_xid,boundary)
  AND (newer.created_at,newer.id)>(chosen.created_at,chosen.id)) THEN RETURN NULL; END IF;
  SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=chosen.derivation_id AND outcome='success';
@@ -472,7 +472,7 @@ BEGIN
  AND used.fate='fulfilled' AND producer.outcome='success' AND producer.completed_at<=boundary.frontier_at
  AND request.project_id=demand.project_id AND output.product_id=report.id AND output.member_id IS NULL
  AND output.role='result' AND output.position=0 AND output.multiplicity=1
- AND ops.ddo_read_visible(used.created_at,used.created_xid,boundary) AND ops.ddo_use_valid(used,boundary);
+ AND ops.ddo_read_visible(used.created_at,used.created_xid,boundary) AND ops.ddo_node_valid('use',used.id,boundary);
  RETURN jsonb_build_object('product_id',report.id,'derivation_id',report_use.derivation_id,'use_id',report_use.id);
 EXCEPTION WHEN no_data_found OR too_many_rows THEN RETURN NULL;
 END $structural$;

@@ -120,7 +120,7 @@ def test_actual_rich_admission_keeps_complete_reading_authority_separate_from_sc
     with journey.kernel.engine.begin() as connection:
         assert (
             connection.scalar(
-                text("SELECT ops.ddo_support_valid(:episode)"), {"episode": selected.episode}
+                text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": selected.episode}
             )
             is True
         )
@@ -204,7 +204,7 @@ def test_actual_rich_admission_keeps_complete_reading_authority_separate_from_sc
         )
         assert (
             connection.scalar(
-                text("SELECT ops.ddo_support_valid(:episode)"), {"episode": selected.episode}
+                text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": selected.episode}
             )
             is False
         )

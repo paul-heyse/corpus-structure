@@ -198,7 +198,7 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $
 DECLARE producer ops.data_request; derivation ops.data_derivation; intent ops.data_completion_intent;
  product kb.data_product; receipts jsonb; receipt jsonb; expected jsonb;
 BEGIN
- IF NOT ops.ddo_support_valid(p_derivation,p_read) THEN
+ IF NOT ops.ddo_node_valid('episode',p_derivation,p_read) THEN
  RAISE EXCEPTION 'PDF derivation support is not admitted at selected read' USING ERRCODE='23514'; END IF;
  SELECT der.* INTO STRICT derivation FROM ops.data_derivation der
  JOIN ops.data_derivation_output output ON output.derivation_id=der.id
@@ -270,7 +270,7 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $
 DECLARE producer ops.data_request; derivation ops.data_derivation; intent ops.data_completion_intent;
  product kb.data_product; receipts jsonb; receipt jsonb; expected jsonb;
 BEGIN
- IF NOT ops.ddo_support_valid(p_derivation,p_read) THEN
+ IF NOT ops.ddo_node_valid('episode',p_derivation,p_read) THEN
  RAISE EXCEPTION 'observation derivation support is not admitted at selected read' USING ERRCODE='23514'; END IF;
  SELECT der.* INTO STRICT derivation FROM ops.data_derivation der
  JOIN ops.data_derivation_output output ON output.derivation_id=der.id
@@ -340,7 +340,7 @@ BEGIN
  WHERE output.member_id IS NULL AND candidate.id=raw_product.id
  AND candidate.kind_contract=raw_product.kind_contract
  AND candidate.project_id=p_project AND candidate.original_source=consumer.original_source
- AND ops.ddo_support_valid(lineage.id)) THEN
+ AND ops.ddo_node_valid('episode',lineage.id)) THEN
  RAISE EXCEPTION 'observation raw capture differs from qualified selected source lineage' USING ERRCODE='23514'; END IF;
  RETURN jsonb_build_object('receipt',receipt,'value',(SELECT data.ddo_json(product.canonical_body) FROM kb.data_product product WHERE product.id=p_product));
 END $$;

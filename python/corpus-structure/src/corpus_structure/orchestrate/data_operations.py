@@ -740,9 +740,19 @@ class NativeDemandExecutor:
         context = self._ready_context(ready)
         if native["action"] == "reconcile":
             return ready
-        original, operations = self._generation_ready(
-            ready, native["request_id"], native, context, authorization
-        )
+        if (
+            native["release_id"] == self.prepared.release_id
+            and native["runtime_id"] == self.runtime.runtime_id
+            and native["binding_obligation_id"] == ready.obligation
+            and canonical_bytes(native["binding"]) == canonical_bytes(wire_json_loads(ready.binding))
+        ):
+            # Native attachment has already validated this exact same-read
+            # binding. Preserve its typed roles instead of rebuilding SQL/ASTs.
+            original, operations = ready, (ready.operation,)
+        else:
+            original, operations = self._generation_ready(
+                ready, native["request_id"], native, context, authorization
+            )
         self._physical.select_operations(operations, context)
         return original
 
@@ -1225,7 +1235,7 @@ class NativeDemandExecutor:
             planner = DemandPlanner(self.model, DataOperationStorage(connection))
             ready = tuple(
                 item
-                for item in planner.ready(snapshot, authorization=authorization)
+                for item in planner.ready(snapshot, authorization=authorization, excluded_requests=frozenset(self._failed_requests))
                 if (
                     json.loads(item.native)["request_id"],
                     json.loads(item.native).get("generation"),
@@ -1399,6 +1409,8 @@ class NativeDemandExecutor:
                             self._last_snapshot = json_bytes(page)
                             if page.get("state") == "cancelled":
                                 return self._result(demand, self._last_snapshot)
+                        with self.engine.begin() as connection:
+                            planner = DemandPlanner(self.model, DataOperationStorage(connection))
                             for use in page["uses"]:
                                 if use["fate"] != "fulfilled":
                                     continue
