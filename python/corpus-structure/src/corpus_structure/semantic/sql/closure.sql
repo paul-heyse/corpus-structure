@@ -479,7 +479,7 @@ BEGIN
  document:=convert_from(archived.prepared_bytes,'UTF8')::jsonb;
  manifest:=convert_from(archived.manifest_bytes,'UTF8')::jsonb;
  IF archived.profile NOT IN ('semantic-1','semantic-2') OR document->>'format' IS DISTINCT FROM 'semantic-release-archive-3'
- OR manifest->'profile'->>'compiler_version' IS DISTINCT FROM '23'
+ OR manifest->'profile'->>'compiler_version' IS DISTINCT FROM '24'
  OR archived.release_id<>'release:'||encode(sha256(archived.manifest_bytes),'hex')
  OR archived.content_digest<>encode(sha256(archived.prepared_bytes),'hex')
  OR document->'products'->>'release_id' IS DISTINCT FROM r
