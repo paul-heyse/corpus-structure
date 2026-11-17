@@ -218,7 +218,7 @@ consumes real futures; later ready scheduling consumes the same kernels without 
 backend. Provider preparation/inference/reduction and authenticated batch member projection
 retain their semantic owners as BEP-04/06 deliver those seams.
 
-> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+> Decision: [ADR-0125](../adr/0125-process-owned-execution-host.md)
 
 ## Primary characterization operation boundary
 

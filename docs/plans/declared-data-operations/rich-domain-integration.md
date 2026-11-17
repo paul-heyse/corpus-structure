@@ -190,7 +190,7 @@ owns PE-S08 and the rich part of PE-S03.
   typed decoding and its consumer-relative checks only. Bodies adopted across releases, or whose
   validator revision differs, still validate fully. A digest alone is not sufficient; the
   validator revision and premises make the established status explicit. This applies
-  ADR-0083's established-validation clause ("a digest is not proof"), which ADR-D restates when
+  ADR-0083's established-validation clause ("a digest is not proof"), which ADR-0125 restates when
   it supersedes that record; PE-S08 depends on that restatement and needs no further decision.
 - **One rich-graph validation.** Consolidation validates its in-process graph three times
   today. The graph reader is split into an index constructor and the boundary validation. The

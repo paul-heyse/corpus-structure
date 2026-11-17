@@ -130,7 +130,7 @@ permissions and native task/run/attempt/holder publication fences remain authori
 Large bodies leave after their last regional consumer; compact manifests/pins survive composition.
 The existing layer publication limit remains independent of transport/admission limits.
 
-> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+> Decision: [ADR-0125](../adr/0125-process-owned-execution-host.md)
 
 ## Immutable characterization storage and publication
 

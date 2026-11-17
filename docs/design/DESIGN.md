@@ -273,7 +273,7 @@ headers remain distinct from that context. D1 and the DDO coordinator own implem
 
 **Proposed accepted physical target · 2026-11-11.** Physical characterization placement preserves exact occurrence/source, term and choice identities. Owned regional inputs and CPU envelopes retain original extents and dependency pins; workers cannot reinterpret equal text as equal source. [D4](D4-method-catalog.md#owned-characterization-preparation-and-cpu-kernels) owns the method seam.
 
-> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+> Decision: [ADR-0125](../adr/0125-process-owned-execution-host.md)
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** Enriched-document views bind a
 full exact published document and immutable analysis-layer pins. SourceViews are scoped
@@ -400,7 +400,7 @@ D3 owns normal installation; DDO owns current consumer/fixture migration and rec
 
 **Proposed accepted physical target · 2026-11-11.** Characterization workers return private drafts. The parent retains validation, claims, renewal and native completion/publication; child completion confers neither visibility nor knowledge standing. [D6](D6-orchestration-metrics-policies.md#invocation-owned-characterization-execution) owns execution lifetime.
 
-> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+> Decision: [ADR-0125](../adr/0125-process-owned-execution-host.md)
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** Characterization layer/view
 publication provides immutable private analysis through protected task completion. It confers no
@@ -618,9 +618,9 @@ owns implementation and qualification. No new progress store or synthetic run is
 
 > Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
 
-**Proposed accepted physical target · 2026-11-11.** Invocation-owned regional preparation carries authentic immutable input guarantees while current DB admission, source authorization and native attempt fences remain live. CPU workers hold no connections or engines. [D3](D3-database.md#prepared-characterization-reads-and-publication-authority) owns this boundary.
+**Proposed accepted physical target · 2026-11-11.** Host-verified, run-owned regional preparation carries authentic immutable input guarantees while current DB admission, source authorization and native attempt fences remain live. CPU workers hold no connections or engines. [D3](D3-database.md#prepared-characterization-reads-and-publication-authority) owns this boundary.
 
-> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+> Decision: [ADR-0125](../adr/0125-process-owned-execution-host.md)
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** D3 extends generated physical
 storage for canonical analysis products and indexed relationship projections. Native completion
@@ -931,9 +931,9 @@ meaning; historical frozen encodings retain their original interpretation.
 
 > Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
 
-**Proposed accepted physical target · 2026-11-11.** Full verification creates a private invocation preparation reused under exact release/compiler/runtime premises. Historical archive hydration and arbitrary prepared objects confer no such authority; workers hydrate local state from authenticated capsules. [D6](D6-orchestration-metrics-policies.md#invocation-owned-characterization-execution) and [D8](D8-agent-and-query-interfaces.md#shared-characterization-execution-boundary) own the affected consumers.
+**Proposed accepted physical target · 2026-11-11.** Full first-use verification creates a process-host basis reused under exact engine/release/archive/finalization/runtime/source/compiler premises; each run rereads its header and runtime binding. Historical archive hydration and arbitrary prepared objects confer no such authority; workers hydrate local state from authenticated capsules. [D6](D6-orchestration-metrics-policies.md#invocation-owned-characterization-execution) and [D8](D8-agent-and-query-interfaces.md#shared-characterization-execution-boundary) own the affected consumers.
 
-> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+> Decision: [ADR-0125](../adr/0125-process-owned-execution-host.md)
 
 **Accepted target, Proposed until implemented · 2026-11-10.** The trusted characterization
 module is explicitly acquired and archived with release inputs. D2's typed declarations govern

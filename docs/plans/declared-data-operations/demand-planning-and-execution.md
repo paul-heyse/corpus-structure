@@ -760,7 +760,7 @@ construction; the per-tick re-verification.
 
 ### PE-S25 — process-scoped execution host (PE-F19, PE-F03 execution, PE-RC05)
 
-**Rule change PE-RC05** (ADR-D, superseding ADR-0083). One execution host per process owns the
+**Rule change PE-RC05** ([ADR-0125](../../adr/0125-process-owned-execution-host.md), superseding ADR-0083). One execution host per process owns the
 owned-byte budget, CPU worker generations and release capsules (reference-counted per run, with
 a byte-bounded idle LRU charged to the budget), prepared ports, provider lanes and verified
 execution bases. A short `ci` process creates the host around its runs and closes it at exit;

@@ -198,33 +198,31 @@ reduction and native settlement authority remain. The DDO plan owns PE-S23 imple
 
 ## Invocation-owned characterization execution
 
-**Proposed accepted target · 2026-11-11.** A private invocation execution context is constructed
-only after full release verification and reused through internal demand/stage/registry paths.
-Standalone operations own their own context. Historical archive opening or registry preparation
-does not confer verification. Structural preparation follows its actual compiler/runtime/release
-determinants; regional text and result-neutral capacity settings do not force full recompilation.
-Each spawned worker hydrates exact authenticated preparation once per address space and checks
-runtime correspondence; hydration supplies no live DB admission.
+**Accepted target; implementation/qualification Proposed · 2026-11-17.** One process execution
+host owns the shared byte budget, worker generations, capsules, prepared ports, provider lanes
+and verified bases. CLI brackets its runs with the host; MCP holds it for its lifespan. One run
+is active per host. Run-owned claims, renewal, admission, cancellation and native settlement stay
+live. A run finishes only after its requests physically retire; uncertain generations retain
+their charges under quarantine. An unconfirmed bounded shutdown/kill/join quarantines the host
+until restart. A successor generation requires actual available capacity.
 
-One invocation owns regional lifetimes and physical admission across retained bodies, submitted
-packets and completed replies awaiting consumption. Capacity-one uses the same implementation
-as overlap; the ready-coordination boundary above owns the selected next-increment limits and
-per-request cancellation extension. Limits cover encoded owned bodies, not interpreter RSS.
-Oversized indivisible input refuses without truncating semantic scope. The final policy above
-owns selected coordinated counts/devices and the remaining materialization decision route.
+Capsules use reference-counted run ownership and a charged, byte-bounded idle LRU. Full first-use
+re-derivation establishes a private verified basis under exact engine/release/archive/finalization/
+runtime/source/compiler determinants; each run rereads the archive header and runtime binding.
+Historical archive hydration or caller construction confers no authority. Activation and
+registration retain full verification. Native residency extends across runs only under an explicit
+keep-warm policy, default zero; expiry, an external GPU borrower or incompatible profile retires
+the native generation. Two GPU generations never coexist.
 
-Warm ProcessPoolExecutor workers use explicit spawn and main-thread parser execution. The parent
-retains durable claims, renewal, validation, completion and publication. Stop prevents admission,
-signals cooperative cancellation and discards late results; bounded drain may terminate the owned
-pool. Independently admitted claims use the request-specific cancellation contract above;
-operation-wide cancellation remains invocation stop. Provider lanes
-replace ambient borrower refusal under explicit operation-owned admission in BEP-04; native branch
-replies are reduced under their semantic operation in stable order. Real dependencies remain;
-unrelated units need not reach terminal state before independent work advances.
-Implementation/qualification and remaining whole-book obligations belong to the
-[BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md).
+Workers hydrate authenticated immutable capsules, execute pure kernels on spawned process main
+threads and hold no database connections or publication authority. The parent validates private
+replies and retains durable effects. Regional bodies leave after their final consumer; compact
+pins survive composition. Original source/choice/coverage and established-validation premises
+remain; a digest is not proof. Public payload access stays fresh. Capacity-one shares the same
+route and oversized indivisible inputs refuse without truncation. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md)
+owns PE-S25 implementation, provider/fault qualification and remaining whole-book acceptance.
 
-> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+> Decision: [ADR-0125](../adr/0125-process-owned-execution-host.md)
 
 ## Characterization layer lifecycle
 
@@ -493,7 +491,7 @@ retained historical schema tests do not authorize an alternate production route.
   submission transaction. FastMCP background tasks are not used: they
   would duplicate `ops.task`, and Claude Code accepts MCP tasks only from the main conversation.
   > Status: **Proposed** (source-read and reasoned; not probed end to end against PostgreSQL)
-- **Real dependencies determine readiness.** Accepted target under ADR-0083: unrelated natural
+- **Real dependencies determine readiness.** Accepted target under ADR-0125: unrelated natural
   units/producers may overlap; a stage-wide terminal barrier is not a semantic prerequisite.
   Existing synchronous execution remains until the BEP ready coordinator is implemented.
 - **Policies decide escalation; methods never do.** Every task that is not part of a base stage
@@ -1122,7 +1120,7 @@ and per-iteration agent budgets bound how much Opus is asked to do (§7.4).
 
 | ID | Question | Resolved by |
 |---|---|---|
-| OPEN-D6-1 | Resolved target: dependency-ready natural-unit progress, ADR-0083 | [BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns implementation |
+| OPEN-D6-1 | Resolved target: dependency-ready natural-unit progress, ADR-0125 | [BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns implementation |
 | OPEN-D6-2 | Co-resident or exclusive GPU mode by default, given the S3 model choice | Spikes S3, S7 |
 | OPEN-D6-3 | Default iteration limit and agent budgets that keep debugging output reviewable | Phase 0 practice |
 
