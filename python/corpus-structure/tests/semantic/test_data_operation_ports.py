@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_ports import (
     DataOperationWireValue,
+    HydratedRoleValue,
     PortRefusal,
     PythonRoleValue,
     RoleValue,
@@ -1387,3 +1388,122 @@ def test_colliding_source_subclass_cannot_borrow_warm_static_correspondence():
         python_port_identity(model, forged, operation)
     assert _prepared_python_sources.cache_info().hits == 0
     assert _prepared_python_sources.cache_info().misses == 1
+
+
+@pytest.mark.parametrize(
+    "annotation,expected_type,collection,presence",
+    [
+        ("list[int]", "list", "sequence", "optional"),
+        ("tuple[int, ...]", "tuple", "sequence", "optional"),
+        ("set[int]", "set", "set", "optional"),
+        ("frozenset[int]", "frozenset", "set", "optional"),
+        ("list[int] | None", "list", "sequence", "optional"),
+    ],
+)
+@pytest.mark.parametrize("population", [(), (2, 1)])
+def test_selected_population_uses_acquired_outer_container_without_changing_python_ingress(
+    tmp_path, monkeypatch, annotation, expected_type, collection, presence, population
+):
+    metadata = controlled_port_declaration()
+    metadata["roles"][0].update(
+        collection=collection, minimum=0, maximum=None, presence=presence
+    )
+    model, sources = fixture_source(
+        tmp_path,
+        monkeypatch,
+        "index: " + annotation,
+        metadata=metadata,
+    )
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    hydrated = HydratedRoleValue("index", kind(model, "index"), population)
+    arguments = port._arguments(
+        (hydrated,), route="python", binding=None, signature=port.signature
+    )
+    assert type(arguments.arguments["index"]).__name__ == expected_type
+    assert port.invoke_python((hydrated,)).outcome == "addressed"
+    assert hydrated.value == population
+    if expected_type == "list":
+        with pytest.raises(ValidationError):
+            port.invoke_python((PythonRoleValue("index", kind(model, "index"), population),))
+    with pytest.raises(ValidationError):
+        port.invoke_python((HydratedRoleValue("index", kind(model, "index"), (True,)),))
+
+
+def test_selected_population_rejects_lossy_set_assembly(tmp_path, monkeypatch):
+    metadata = controlled_port_declaration()
+    metadata["roles"][0].update(collection="bag", minimum=1, maximum=None)
+    model, sources = fixture_source(
+        tmp_path, monkeypatch, "index: set[int]", metadata=metadata
+    )
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
+    with pytest.raises(PortRefusal, match="loses admitted multiplicity"):
+        port.invoke_python((HydratedRoleValue("index", kind(model, "index"), (1, 1)),))
+
+
+def test_selected_container_preparation_preserves_abstract_tuple_and_decimal_members():
+    from collections.abc import Collection, Iterable, Sequence
+    from decimal import Decimal
+    from typing import Annotated
+
+    from corpus_structure.semantic.data_operation_ports import (
+        _hydrated_container,
+        _validated_python_input,
+    )
+
+    assert _hydrated_container(Sequence[int]) is tuple
+    assert _validated_python_input(Sequence[int], (2, 1)) == (2, 1)
+    # Lazy Iterable validation and unsupported Collection schemas do not
+    # establish an eager finite selected population for this callable boundary.
+    assert _hydrated_container(Iterable[int]) is None
+    assert _hydrated_container(Collection[int]) is None
+    annotation = Annotated[list[Decimal], "selected-values"]
+    container = _hydrated_container(annotation)
+    assert container is list
+    original = Decimal("12.3400")
+    checked = _validated_python_input(annotation, container((original,)))
+    assert str(checked[0]) == "12.3400"
+    assert checked[0].as_tuple() == original.as_tuple()
+
+
+
+def test_native_sequence_cannot_use_unordered_annotation_or_postvalidation_collapse():
+    from typing import Annotated
+
+    from pydantic import AfterValidator
+
+    from corpus_structure.semantic.data_operation_ports import _validated_hydrated_collection
+
+    with pytest.raises(PortRefusal, match="requires an ordered callable container"):
+        _validated_hydrated_collection(
+            set[int], (2, 1), set, collection="sequence", role="ordered"
+        )
+    annotation = set[Annotated[str, AfterValidator(str.lower)]]
+    with pytest.raises(PortRefusal, match="loses admitted multiplicity"):
+        _validated_hydrated_collection(
+            annotation, ("A", "a"), set, collection="bag", role="selected"
+        )
+    with pytest.raises(PortRefusal, match="not an eager finite population"):
+        _validated_hydrated_collection(
+            Annotated[list[int], AfterValidator(iter)],
+            (2, 1),
+            list,
+            collection="sequence",
+            role="selected",
+        )
+
+
+
+def test_sequence_with_unordered_callable_container_refuses_at_acquisition(tmp_path, monkeypatch):
+    metadata = controlled_port_declaration()
+    metadata["roles"][0].update(collection="sequence", minimum=1, maximum=None)
+    model, sources = fixture_source(
+        tmp_path, monkeypatch, "index: set[int]", metadata=metadata
+    )
+    with pytest.raises(PortRefusal, match="requires an ordered callable container"):
+        resolve_python_port(
+            model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+        )

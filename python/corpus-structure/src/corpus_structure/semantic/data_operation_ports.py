@@ -17,11 +17,11 @@ import importlib.util
 import inspect
 import json
 import typing
-from collections.abc import Callable, Generator, Iterator, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
-from types import CodeType, MappingProxyType, ModuleType
+from types import CodeType, MappingProxyType, ModuleType, UnionType
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast, get_args, get_origin
 
 from corpus_structure.semantic._data_operation_wire import (
@@ -151,6 +151,54 @@ class PythonRoleValue:
     role: str
     kind_contract: str
     value: Any
+
+
+@dataclass(frozen=True)
+class HydratedRoleValue(PythonRoleValue):
+    """Selected native bodies; collection tuples still need callable assembly.
+
+    This internal ingress distinguishes an admitted population from caller-typed
+    Python values. It grants no execution or publication authority.
+    """
+
+
+def _hydrated_container(annotation):
+    """Select outer shape once from the acquired callable, without coercing members."""
+    origin = get_origin(annotation)
+    if origin is typing.Annotated:
+        return _hydrated_container(get_args(annotation)[0])
+    if origin in (typing.Union, UnionType):
+        containers = {
+            _hydrated_container(item) for item in get_args(annotation) if item is not type(None)
+        }
+        # Preserve tuple ingress when the declared union already accepts it.
+        if tuple in containers:
+            return tuple
+        return next(iter(containers)) if len(containers) == 1 else None
+    shape = origin or annotation
+    if shape in (list, tuple, set, frozenset):
+        return shape
+    if shape in (Sequence, Any):
+        return tuple
+    return None
+
+
+def _validated_hydrated_collection(annotation, population, container, *, collection, role):
+    """Assemble one finite population, preserving its admitted order and count."""
+    if container is None or type(population) is not tuple:
+        raise PortRefusal("native collection lacks an acquired finite container: " + role)
+    if collection == "sequence" and container in (set, frozenset):
+        raise PortRefusal("native sequence requires an ordered callable container: " + role)
+    checked = _validated_python_input(annotation, container(population))
+    try:
+        count = len(checked)
+    except TypeError as error:
+        raise PortRefusal("native collection validation is not an eager finite population: " + role) from error
+    if collection == "sequence" and not isinstance(checked, Sequence):
+        raise PortRefusal("native sequence validation lost its ordered container: " + role)
+    if count != len(population):
+        raise PortRefusal("native collection loses admitted multiplicity: " + role)
+    return checked
 
 
 @dataclass(frozen=True)
@@ -406,6 +454,23 @@ class ResolvedPythonPort:
     verify_runtime: Callable[[], None]
     logical_signature: inspect.Signature | None = None
     cpu_descriptor: PythonCPUDescriptor | None = None
+    _hydrated_containers: Mapping[str, Any] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        signature = self.logical_signature or self.signature
+        containers = {}
+        for role in self.operation.roles:
+            if role.direction != "input" or role.collection == "scalar" or role.parameter is None:
+                continue
+            container = _hydrated_container(
+                _input_annotation(signature.parameters[role.parameter])
+            )
+            if role.collection == "sequence" and container in (set, frozenset):
+                raise PortRefusal(
+                    "native sequence requires an ordered callable container: " + role.name
+                )
+            containers[role.name] = container
+        object.__setattr__(self, "_hydrated_containers", MappingProxyType(containers))
 
     @property
     def native_selections(self) -> tuple:
@@ -604,11 +669,11 @@ class ResolvedPythonPort:
                 raise PortRefusal("input role has no authoritative callable parameter: " + name)
             parameter = signature.parameters[role.parameter]
             annotation = _input_annotation(parameter)
-            adapter = TypeAdapter(annotation)
             if name in supplied:
                 value = supplied[name]
                 if route == "json":
                     assert isinstance(value, RoleValue)
+                    adapter = TypeAdapter(annotation)
                     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
                         raw = value.value()
                         fields = {
@@ -623,9 +688,20 @@ class ResolvedPythonPort:
                         checked = adapter.validate_json(value.content, strict=True)
                 else:
                     assert isinstance(value, PythonRoleValue)
-                    checked = _validated_python_input(annotation, value.value)
+                    if isinstance(value, HydratedRoleValue) and role.collection != "scalar":
+                        checked = _validated_hydrated_collection(
+                            annotation,
+                            value.value,
+                            self._hydrated_containers[name],
+                            collection=role.collection,
+                            role=name,
+                        )
+                    else:
+                        checked = _validated_python_input(annotation, value.value)
             elif parameter.default is not inspect.Parameter.empty:
-                checked = adapter.validate_python(_untrusted_value(parameter.default), strict=True)
+                checked = TypeAdapter(annotation).validate_python(
+                    _untrusted_value(parameter.default), strict=True
+                )
             else:
                 raise PortRefusal("missing callable input role: " + name)
             if typing.is_typeddict(annotation):

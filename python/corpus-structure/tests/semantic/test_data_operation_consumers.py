@@ -141,4 +141,7 @@ def test_executor_scalar_handoff_preserves_optional_omission_and_exact_cardinali
     else:
         values = NativeDemandExecutor._hydrate(executor, ready, context=context)
         assert [item.value for item in values] == ([] if count == 0 else [{"value": 7}])
+        from corpus_structure.semantic.data_operation_ports import HydratedRoleValue
+
+        assert all(isinstance(item, HydratedRoleValue) for item in values)
         assert binding.roles[0].state == "present"

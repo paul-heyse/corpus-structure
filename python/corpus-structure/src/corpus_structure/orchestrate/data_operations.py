@@ -58,7 +58,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_
 from corpus_structure.semantic.data_operation_ports import (
     PortRefusal,
     PythonBatchMember,
-    PythonRoleValue,
+    HydratedRoleValue,
     resolve_python_port,
 )
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
@@ -822,7 +822,7 @@ class NativeDemandExecutor:
                 value = decoded[0]
             else:
                 value = decoded
-            values.append(PythonRoleValue(role, identities[roles[role].kind, "kind"], value))
+            values.append(HydratedRoleValue(role, identities[roles[role].kind, "kind"], value))
         return tuple(values)
 
     def _retain_answer(self, ready, claim, answer, port, owner, *, physical=None):
