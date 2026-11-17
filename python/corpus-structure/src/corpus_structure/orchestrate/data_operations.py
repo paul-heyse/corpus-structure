@@ -427,6 +427,9 @@ class _RunExecution:
         self.uncertain_python = []
         self.pending_failures = []
         self.requests = []
+        # Stage-A credit exists before a frontier child starts and constructs
+        # its _RequestExecution. It already borrows the prepared generation.
+        self.pending_reservations = set()
         self.physical_retired = False
         self.cpu = resources.cpu
         self.native_hosts = resources.native_hosts
@@ -499,7 +502,7 @@ class _RunExecution:
         self.requests[:] = [
             request for request in self.requests if not request.release_retired_inputs()
         ]
-        return bool(self.requests)
+        return bool(self.requests or self.pending_reservations)
 
     def _release_retired_claims(self):
         owner = getattr(self.executor, "_claim_owner", None)
@@ -1693,6 +1696,9 @@ class NativeDemandExecutor:
 
             def execute(batch, items, reservation):
                 nonlocal active_requests
+                # The child now runs synchronously into its request owner before
+                # its first yield; that owner carries the physical lifetime.
+                self._physical.pending_reservations.discard(reservation)
                 deferred = ()
                 try:
                     result = yield from (
@@ -1844,6 +1850,7 @@ class NativeDemandExecutor:
                     if reservation is None:
                         return None
                     reservations.add(reservation)
+                    self._physical.pending_reservations.add(reservation)
                     active_requests += fresh
                     for _ in items:
                         pending.popleft()
@@ -1855,6 +1862,7 @@ class NativeDemandExecutor:
                 )
             finally:
                 for reservation in reservations:
+                    self._physical.pending_reservations.discard(reservation)
                     reservation.release()
                 # Lookahead claims have no submitted work. Cancellation must
                 # release them through the normal confirmed-failure owner.

@@ -102,7 +102,13 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
     executor._contexts = {context.basis.key: context}
     executor._execution_context = lambda _: context
     executor._ready_context = lambda _: context
-    executor._prepare_ready = lambda item, _: item
+    def prepare_ready(item, _authorization):
+        # Replace native correspondence only: preparation still belongs to the
+        # actual host and must run again after an idle generation is retired.
+        executor._physical.select_operations((item.operation,), context)
+        return item
+
+    executor._prepare_ready = prepare_ready
     executor._port = lambda operation, _context=None: ports[operation]
     ready = tuple(
         SimpleNamespace(
@@ -736,3 +742,32 @@ def test_batch_order_failure_settles_every_owned_claim(monkeypatch, prepared):
     assert not receipts and len(failures) == 1 and "controlled order failure" in str(failures[0])
     assert {item for item, _ in observed.failures} == {"0", "1", "2"}
     assert not observed.live and executor.budget.used_bytes == 0
+
+
+def test_closing_frontier_releases_reserved_work_that_never_started(monkeypatch, prepared):
+    from corpus_structure.core.work import ReadyFrontier
+
+    executor, observed = controlled_executor(
+        monkeypatch, prepared, policy_for(prepared), ("scalar",),
+        {"scalar": SimpleNamespace(native_selections=())},
+    )
+
+    def close_unstarted(plan, _check_active):
+        frontier = next(plan)
+        assert isinstance(frontier, ReadyFrontier)
+        child = frontier.admit()
+        assert child is not None
+        assert executor.budget.used_bytes == executor.reservation
+        assert not executor._physical.requests  # No request or native claim ran.
+        assert executor._physical.has_live_requests()
+        child.close()
+        plan.close()
+        assert not executor._physical.has_live_requests()
+        assert executor.budget.used_bytes == 0
+
+    monkeypatch.setattr(data_operations, "drive_prepared_work", close_unstarted)
+    with execution_resources(executor) as physical:
+        executor._physical = physical
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
+        assert not receipts and not failures
+    assert not observed.claims and not observed.live and executor.budget.used_bytes == 0
