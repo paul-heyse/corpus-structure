@@ -158,12 +158,12 @@ One frozen provider profile owns requested model/runtime/device/dtype/backend/nu
 resolved physical placement and actual startup metadata validate it. D4/D6 own GPU defaults,
 streamed shared hosts and admission. Retained/source-only/query/export reads perform no fresh NLP.
 
-[ADR-0090](../adr/0090-native-source-operation-lineage.md) makes operation membership explicit in
-existing immutable native run options. One application operation identifies its actual capture,
-primary and analytical runs independently of reused products' original producers. Recovery preserves
-recorded links; historical missing associations remain unknown. The typed
-[source lineage contract](../../python/corpus-structure/src/corpus_structure/orchestrate/source_lineage.py)
-owns the fields; the BEP plan owns implementation and qualification.
+Historical run associations described by [ADR-0090](../adr/0090-native-source-operation-lineage.md)
+remain recorded provenance; missing associations remain unknown. Current operation membership and
+recovery use explicit native demand IDs and their authenticated source/release selections, under
+[ADR-0094](../adr/0094-ddo-demand-and-recovery.md). The unused historical lineage DTO is retired;
+retained old bytes confer no requirement for a separate lineage decoder. The DDO coordinator owns
+current implementation and qualification.
 
 > Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md), ADR-0089, ADR-0090
 

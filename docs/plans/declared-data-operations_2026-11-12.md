@@ -68,6 +68,28 @@ Independent review repairs are covered. No speedup or full DDO qualification is 
 
 ### Cross-cutting implementation in progress · 2026-11-17
 
+**Remaining-scope execution resumed · 2026-11-17.** The operator authorized the detailed
+completion approach after `5683842c3`. The first dependency is the missing named frozen DATA-step
+authoring route: current ChangeRequest/preview/candidate code does not yet implement the route
+previously described as delivered. Extend that existing owner with closed first-party Core builders,
+captured source/dependency staleness and frozen SQL, then stage nullable DDL, native helper
+installation, authenticated backfill, final constraints and exact guard restoration before N1
+capture. This is a discovered implementation prerequisite, not a new design-review gate.
+
+Parallel execution owns grammar/HanLP S15 and PDF spool/adoption S34/35 in isolated trees;
+the root owns native capture, shared contracts, current consumer investigation and receipts.
+S08's missing durable validator-success carrier follows through N2's completion/publication
+contract, preserving strict typed decoding and full semantic fallback whenever its exact producer,
+validator and original premises do not match. Host/N2, qualified model batching, PDF certification/
+recovery, serving/N4, adoption and final DDO-12 remain authorized work, not separate approvals.
+
+S14 investigation resolved: HostedPipeline.pipe has a production sentence-processing caller and
+is retained. The unconsumed historical SourceOperationLink DTO and test-only run-runtime lookup
+are retired; explicit release/runtime selection refuses a missing pin before any archive lookup.
+Focused missing-pin control **passed**, `f2d24c6bbd804525a5ee0bcdac9d364b`, via
+`ci test --json -- …test_missing_explicit_runtime_pin_refuses_before_reading_archived_code`.
+No native deployment, actual provider or adoption claim follows.
+
 Main additionally integrates read-release reuse and MCP lifespan engines (S04), immutable source
 indexes and rich in-process validation reuse (S03/part S08), digest-only CPU source descriptors,
 prepared adapters, sealed CPU packet digests and parent-child model-asset custody (S05/S07),
