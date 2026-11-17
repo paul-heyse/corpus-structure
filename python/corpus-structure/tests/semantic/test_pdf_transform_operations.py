@@ -2,10 +2,13 @@
 
 import json
 import sys
+from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
@@ -15,6 +18,8 @@ from corpus_structure.methods.native_profiles import NativeProfile, NativeSelect
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
+from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_ports import _untrusted_value
 from corpus_structure.semantic.pdf_capture import pdf_capture_operation_sources
 from corpus_structure.semantic.pdf_effect_contract import (
     PDF_ENRICHMENT_EFFECT,
@@ -115,6 +120,57 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
         pdf_integration_sources=transformed if mode == "integrated" else None,
     )
     prepared = prepare_release(acquired.bundle, acquired.dependencies, acquired.profile)
+    # These are JSON product projections, not already-typed Python model values.
+    # The compiled boundary retains immutable tuples while strict JSON admits
+    # their array representation at both production handoffs.
+    observations: dict[str, Any] = {
+        "document": "document:controlled-original",
+        "source_digest": "a" * 64,
+        "recipe_digest": "b" * 64,
+        "pages": [
+            {
+                "page_no": 1,
+                "recipe_digest": "b" * 64,
+                "outcome": "partial",
+                "observations": [
+                    {
+                        "ordinal": 0,
+                        "meaning_digest": "c" * 64,
+                        "pass_role": "A",
+                        "outcome": "succeeded",
+                    }
+                ],
+            }
+        ],
+    }
+    checked = prepared.validate_json("DdoPdfObservationSet", json_bytes(observations))
+    typed = checked.model_dump(mode="python", exclude_unset=True)
+    assert isinstance(typed["pages"], tuple)
+    assert isinstance(typed["pages"][0]["observations"], tuple)
+    assert checked.model_dump(mode="json", exclude_unset=True) == observations
+    assert (
+        prepared.validate_json(
+            "DdoPdfObservationSet", json_bytes(_untrusted_value(checked))
+        ).model_dump(mode="json", exclude_unset=True)
+        == observations
+    )
+    with pytest.raises(ValidationError, match="pages"):
+        prepared.validate_python("DdoPdfObservationSet", observations)
+    for changed in ("empty-pages", "empty-requests", "ordinal", "outcome", "extra-field"):
+        invalid = deepcopy(observations)
+        if changed == "empty-pages":
+            invalid["pages"] = []
+        elif changed == "empty-requests":
+            invalid["pages"][0]["observations"] = []
+        elif changed == "ordinal":
+            invalid["pages"][0]["observations"][0]["ordinal"] = "0"
+        elif changed == "outcome":
+            invalid["pages"][0]["outcome"] = "invented"
+        else:
+            invalid["pages"][0]["publication_context"] = {}
+        with pytest.raises(ValidationError):
+            prepared.validate_json("DdoPdfObservationSet", json_bytes(invalid))
+
     model = bound_data_operation_model(prepared)
     effect = model.operation(operation)
     assert effect.effects == (expected_effect,)

@@ -17,6 +17,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 
+from .data_operation_json import json_bytes
 from .identity import canonical_bytes
 from .product_reference import ProductReference
 from .types import SourceArtifact
@@ -828,7 +829,7 @@ class PreparedPdfTransform:
                 "enriched": "DdoPdfEnrichedPublication",
                 "integrated": "DdoPdfIntegratedPublication",
             }[self.mode]
-            checked = self.prepared.validate_python(schema, value)
+            checked = self.prepared.validate_json(schema, json_bytes(value))
             return PdfCaptureProduct(
                 canonical_bytes(checked.model_dump(mode="json", exclude_unset=True)),
                 canonical_bytes(asdict(receipt)),
@@ -1021,7 +1022,7 @@ class PreparedPdfTransform:
                 "recipe_digest": recipe.digest,
                 "pages": page_values,
             }
-            checked = self.prepared.validate_python("DdoPdfObservationSet", value)
+            checked = self.prepared.validate_json("DdoPdfObservationSet", json_bytes(value))
             receipt = PdfObservationExecutionReceipt(
                 version="pdf-observation-execution-1",
                 **claim.fence,
@@ -1385,8 +1386,8 @@ class PreparedPdfTransformPort:
             raise PortRefusal("PDF effect requires its exact nominal selected input roles")
         schemas = {"capture": "DdoPdfPublication", "observations": "DdoPdfObservationSet"}
         typed_inputs = {
-            value.role: self.profile.prepared.validate_python(
-                schemas[value.role], _untrusted_value(value.value)
+            value.role: self.profile.prepared.validate_json(
+                schemas[value.role], json_bytes(_untrusted_value(value.value))
             ).model_dump(mode="json")
             for value in values
         }
