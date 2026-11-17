@@ -640,3 +640,189 @@ passing/full selections are not repeated after a fix. No tests resume through th
 Reuse identical captured static extraction before wider qualification resumes, under the existing
 [efficiency boundary](../declared-data-operations_2026-11-12.md#remaining-scope-and-efficiency-follow-up);
 mutable native permission/source/trust checks remain at acquisition and admission boundaries.
+
+## Binding reuse, admission and execution lifecycle — production-efficiency · 2026-11-17
+
+**Accepted scope; implementation Proposed.** The coordinator owns status; the
+[integration companion](production-efficiency-integration.md) owns slice order. This section
+owns the executor-side contracts for PE-S05 and PE-S22–S25 and the planner side of PE-S26.
+Paths are under `python/corpus-structure/src/corpus_structure/`.
+
+This section replaces three statements above. "Withdrawal still requires exclusive scope
+access, and completion/publication retain their existing exclusive authority" is replaced by
+share-mode settlement (products companion, PE-S20); withdrawal by revocation stays exclusive.
+"One invocation-wide execution owner coordinates shared CPU/provider capacity, bytes and
+resident models" and "keeping one invocation's byte, claim, CPU/provider and cancellation
+owner" are replaced by one execution host per process whose resources a run borrows (PE-S25).
+
+### PE-S22 — one binding per obligation (PE-F06)
+
+The native verifier at attach stays the only binding authority (§B4, §B5). The Python-compiled
+SQL is a proposer: it searches, selects and classifies waiting reasons, and is never trusted.
+Agreement between the two is a differential test lane, not a runtime double evaluation.
+
+- **Reuse the attached binding.** When a claim's `(request_id, generation)` equals the native
+  attach result held by the `ReadyDataRequest` from the same invocation, under the same demand
+  and read, and the canonical binding bytes are equal, the executor uses that binding and skips
+  `_generation_ready`. Reconstruction remains only for generations adopted from another demand
+  or read, and for reconciliation. Those keep frozen-binding semantics. Until N2 they keep the
+  current paged read; N2 adds the `obligation_id` filter (products companion, PE-S26).
+- **Filter failed requests before binding**, not after attach.
+- **Hydration** passes the selected keys so validity and body reads cover only the chosen
+  members. Late hydration itself stays: bodies are not moved for reused obligations.
+- The limit-1 pinned pre-read in `admitted_data_read` is removed; each native entrypoint runs
+  its own narrow read check (products companion, PE-S19).
+
+Removed: the runtime re-bind and byte comparison for same-read generations.
+
+### PE-S26, planner side — set-form calls and repeat runs (PE-F10)
+
+The planner's register loop and its per-member `expand_data_obligation` calls are removed;
+registration and population closure expand natively. Attach and claim use the set forms, one
+call per page or batch, with per-item results. The executor skips `close_data_population` when
+the page shows a valid population for the same name, product and derivation, and counts
+progress only from native inserted, attached and fulfilled results. `seen_discovered` and
+`seen_fulfilled` are removed.
+
+**Skip unchanged waiting obligations.** When binding is insufficient, the recorded waiting fate
+stores the obligation's `inputs_watermark`, which the N2 read page returns. A later sweep, in
+this run or a later one, skips binding while the latest use is a waiting fate with an equal
+watermark. This is sound because readiness only grows with new visible rows; revocation,
+supersession and kernel change only invalidate, and those are evaluated at attach and at every
+settlement. With the watermark, a run over an unchanged demand returns after one frontier read.
+
+### PE-S23 — two-stage byte admission (PE-F11, PE-RC03)
+
+**Rule change PE-RC03** (ADR-B, superseding ADR-0084's admission clause; D6 amended). Admission
+still precedes hydration. Three quantities are separated:
+
+- **Logical page size** is a planner parameter and no longer depends on capacity.
+- **In-flight claims** are bounded by `max_claims`.
+- **Memory admission** is bounded by one owned-byte budget.
+
+Stage A, before claim and hydration, reserves the worst case for the request's physical form:
+twice the packet bound plus three times the reply bound. A stage-A charge never grows. Stage B,
+after hydration, reduces the same reservation to twice the hydrated bytes the hydrator already
+measures plus three times the reply bound, and holds it through the last consumer. A charge is
+reduced only while one owner holds it. An indivisible input above the packet bound still
+refuses and releases its charge.
+
+A batch is one physical call. It is charged once, its packet stays within the packet bound, and
+it is split into further calls when measured member inputs would exceed that bound. Members stay
+bounded by `max_claims`. The CPU-scope precondition becomes credit at least the actual packet
+length plus the reply bound.
+
+One `ReadyFrontier` per sweep replaces the per-page drive-to-completion: admission takes the
+next compact ready manifest from a bounded queue when stage A fits, and binds the next page
+under the same pinned read when the queue runs low. Binding then runs on the driver between
+ticks while workers compute; no thread and no scheduler is added. Publications still become
+visible on the next sweep. The page's obligations and uses are indexed once per page, replacing
+two per-item linear searches that would turn quadratic at larger pages.
+
+PE-S23 follows PE-S22: without binding reuse a larger page re-reads the frontier per item.
+
+Rejected: operation-declared byte bounds (an authored estimator, excluded by DDO-06 and D6);
+hydrating before reserving (breaks admission-before-hydration and lets concurrent hydrations
+overshoot); native size metadata before hydration (no encoded-size column exists, and computing
+one costs about what hydration does).
+
+### PE-S24 — claim and hydrate in one transaction (PE-F19, part)
+
+Claim, then a savepoint, then hydrate. On a hydration refusal, roll back to the savepoint,
+commit the claim and release it through the existing known-failure path; no physical work
+exists yet. Retain and publish stay two transactions (products companion, PE-S21). External
+results keep their separate admit-then-publish path.
+
+### PE-S05 — captured-source authentication and prepared ports (PE-F09 a, e)
+
+Full authentication runs once at `resolve_python_port` and once at worker import. The result
+(working name `AuthenticatedSlice`) records the file-custody record of every source, the
+identity of every expected node and consumed global with its code object, and the receiver's
+emptiness. The per-call check is one `stat` per source plus identity comparisons; nothing is
+read, parsed or compiled. It replaces every hot-path verification: in argument preparation,
+before admission (once per submit sequence, each retry repeating only the check), after the
+reply, on every stream pull and coroutine turn, and in prepared kernels.
+
+Packets carry the ordered `(module, path, digest)` list instead of source bytes. The worker
+caches function, signature, adapters and slice per descriptor digest; a miss reads from disk,
+compares digests, imports and verifies fully; a hit runs the check. Worker authentication stays
+independent of the parent because it compares disk against digests the parent acquired.
+
+`ResolvedPythonPort` prepares once: the input adapter per role parameter, default adapters, the
+return, stream-item and coroutine adapters, and the member-projection contract per output kind.
+On the CPU route the parent serializes only, and the worker's strict validation is the single
+ingress check at the process boundary. The in-process route keeps parent validation. The parent
+still validates the worker's reply once.
+
+A captured source whose content changes refuses with a restart instruction in parent and
+worker. Removed: per-call re-read, compile and parse; source bytes in packets; inline adapter
+construction; the per-tick re-verification.
+
+### PE-S25 — process-scoped execution host (PE-F19, PE-F03 execution, PE-RC05)
+
+**Rule change PE-RC05** (ADR-D, superseding ADR-0083). One execution host per process owns the
+owned-byte budget, CPU worker generations and release capsules (reference-counted per run, with
+a byte-bounded idle LRU charged to the budget), prepared ports, provider lanes and verified
+execution bases. A short `ci` process creates the host around its runs and closes it at exit;
+the MCP lifespan holds it. There is one implementation.
+
+A run owns its claims and renewal, admissions, cancellation and settlement. It ends when every
+request it submitted has proven physical retirement, by terminal collection or by retirement of
+the generation that held it. A request whose retirement cannot be shown quarantines its
+generation with that generation's charges; the host stops admitting to it, opens a successor
+if the budget allows, and retires the old one with the existing bounded shutdown, kill and
+join. Pending failures are released as confirmed only after that join. If the join cannot be
+confirmed, the whole host is quarantined and refuses until restart. Capacity is never invented.
+
+One run is active per host. This keeps the database-capacity contract without new arithmetic
+and restores the combined memory bound that concurrent MCP renders breach today (PE-D01).
+Concurrent runs are a later extension that needs a consumer.
+
+Native model residency is process-scoped only under an explicit keep-warm execution-policy
+setting, default zero, which reproduces today's per-run residency. The group holds Nemotron
+suspended while it lives, so unconditional process scope would starve recognition. The host
+retires a native generation when the keep-warm window expires, when an external GPU borrower
+asks, or when a run declares a profile outside the serving closure; two GPU generations never
+coexist.
+
+A verified basis is established by full re-derivation at a host's first use and carried within
+that host for the same engine, release, archive digest, finalization, runtime, source root and
+compiler determinants. Each run re-reads the archive header row and the runtime binding. This
+is sound because finalized `sem` rows reject mutation. The carried basis is verified meaning,
+never admission: execution acquisition, port admission, permissions, trust and fences stay live.
+Registration and activation remain full verification boundaries.
+
+### Acceptance
+
+- **Budget:** a wrapped budget records its high-water mark, which never exceeds the limit under
+  mixed small and near-bound inputs; the request after the last fitting one waits and proceeds
+  after a retirement; a hydration above the packet bound refuses and the charge returns to the
+  capsule baseline; the post-hydration charge equals the stated formula; a reduction after
+  sharing refuses; a batch is charged once and splits when its inputs exceed the packet bound;
+  host preparation refuses when capsules plus one worst case exceed the budget (CA-13
+  regression).
+- **Page and queue:** a page of 100 with small capacity executes every obligation, the queue
+  stays within its bound, and the next page is read before the current page's first request
+  publishes; a publication made during a sweep is invisible until the next.
+- **Retirement:** two runs on one host reuse the same workers and capsule; a kernel that ignores
+  cancellation quarantines its generation, its attempt stays claimed until the join, and a
+  successor generation serves the next request; an injected join failure quarantines the host
+  and frees no capacity; a new native profile retires the old generation first.
+- **Sources:** each of these changes after acquisition refuses in parent and worker: same size
+  with modification time restored, different size, atomic rename, a change inside the racy
+  window. A touch with equal bytes does not refuse. Rebinding a slice function or consumed
+  global refuses. A change between stream items refuses at the next turn. Packet size is
+  independent of source size.
+- **Binding reuse (PE-S22):** a storage spy shows one binding evaluation per same-read
+  obligation; an adopted generation still reconstructs.
+- **Waiting obligations (PE-S26):** an unchanged waiting obligation is not re-bound and is
+  re-bound after a relevant publication.
+- **Basis:** read consumers never call release preparation; an archive header altered by a
+  test superuser is detected by the carried basis; a different engine re-verifies.
+
+### For the design/target review due before PE-S23 and PE-S25
+
+Whether two-stage admission is free of deadlock and how it interacts with the driver's stall
+error; generation-quarantine correctness; the one-run-per-host simplification; whether
+trigger-backed immutability is a sufficient premise for a carried basis; and how larger pages
+interact with set-form calls.

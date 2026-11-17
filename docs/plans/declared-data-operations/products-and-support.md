@@ -372,3 +372,270 @@ wrapper remains. Ordinary selected queries do not capture the extra graph fronti
 Native implementation capture includes the actual delegated graph helpers and NetworkX execution
 profile; archived nominal source without those imports retains its original requirements. The DDO
 coordinator and native evidence own qualification, not this contract description.
+
+## Native validity, pinned reads, release facts and settlement — production-efficiency · 2026-11-17
+
+**Accepted scope; implementation Proposed.** The coordinator owns status. The
+[integration companion](production-efficiency-integration.md) owns the slice order and shared
+mechanisms. This section owns the native contracts for PE-S16–S21, the native half of PE-S26 and
+the SQL half of PE-S27. They deliver in two frozen successors: N1 (no wire change) and N2.
+Paths: `sql/` = `python/corpus-structure/src/corpus_structure/semantic/sql/`.
+
+### PE-S16 — indexes and the exact-pin union (PE-F08)
+
+The sentence above, "Indexes cover demand+subject+target obligations, request uniqueness,
+unsettled tasks, product identity, input/support reverse lineage and revocation selectors", is
+the intent. At `2cc4e4d9d` the physical model declares only keys on the most-probed tables.
+Declare through `ph:indexes` (`schema/relational.py` already supports list and dict forms):
+
+| Table | Index | Serves |
+|---|---|---|
+| `ops.demand_use` | `(obligation_id, created_at, id)` | latest and later use per obligation |
+| | `(demand_id, fate)` including `obligation_id, derivation_id, created_at` | demand-scoped scans, fulfilled filter |
+| | `(request_id, generation)` | attach, claim, publish fan-out, request usefulness |
+| | `(derivation_id)` where not null | support walk, read seeds |
+| `ops.data_derivation` | `(request_id, generation)` | attach, read-page joins |
+| `ops.data_obligation` | `(demand_id, id)` | frontier keyset page |
+| `ops.data_derivation_output` | `(product_id, member_id)` | exact-pin arm, revocation by product |
+| `ops.data_revocation` | `(scope, selector_kind, selector)` | direct validity, renewal, publish |
+| `ops.data_population` | add a stored `context_key` (digest of the population scope, fixed at insert) to the existing index as `(demand_id, name, context_key, created_at, id)` | supersession probe |
+
+Reverse-lineage indexes on `ops.data_derivation_support` are declared only when a
+reverse-impact consumer lands (DDO-09); the forward walk is served by the primary key.
+
+The binding universe's `(demand OR exact pin)` predicate is emitted as two arms joined by
+`UNION`: demand-owned fulfilled uses, and uses reached from the declared pins through
+`data_derivation_output(product_id, member_id)`. The existing distinct key removes a use that is
+both. Acceptance checks index presence in the catalog and index use per listed predicate with
+sequential scans disabled. That is usability evidence, not timing.
+
+### PE-S17 — release facts lowered at admission (PE-F09 b)
+
+`sem.admit_data_operation_definitions` already authenticates the release artifacts. The same
+call writes immutable rows, and native readers use them instead of parsing and re-hashing
+artifacts per call:
+
+- `sem.data_operation_release(release_id, model_digest, native_definitions_digest,
+  native_kernel_digest, lowering_digest)`;
+- `sem.data_subject_scope(release_id, subject_definition) → scope`;
+- on `sem.data_operation_definition`: `binding_expression`, `definition_identity`,
+  `eligibility_identity`, `quantified`, `validity_family` (null when no per-kind validator
+  applies), `command_class`, `dependencies`;
+- `sem.pdf_operation_contract(release_id, operation_id, contract_id)`, written by PDF admission
+  after its single digest verification;
+- `execution_profile` on `sem.runtime_binding`.
+
+Changed native code is still detected. Validity compares `native_kernel_digest` with the
+installed source digest. A successor that changes the lowering re-lowers every admitted release
+from its immutable artifacts in its data step, and readers refuse a release whose
+`lowering_digest` differs from the installed constant. Removed: per-call
+`convert_from(...)::jsonb`, the per-call `sha256` re-hashes, the JSON command-eligibility tests
+and the four parses in `require_pdf_operation`.
+
+### PE-S18 — set-wise support validity (PE-F05)
+
+**Rule change PE-RC02, part 1** (ADR-A, superseding ADR-0093). Current support is evaluated
+once per statement over the distinct support closure of the candidates.
+
+Contract `ops.ddo_valid_closure(seed_uses, seed_episodes, boundary)`: a stable set-returning
+function, called once per statement in a materialized CTE, returning `(kind, id, valid)` for
+every distinct node reached.
+
+1. **Closure.** The existing deduplicating `_support_walk` edge set, extended to emit an edge
+   kind. AND-edges: episode to support episode, to support use and to original; use to producing
+   episode and to population; population to source use and to parent. OR-groups: a use's
+   recorded support, and its selected support when the producing definition's provenance is
+   value substitution under a value-strength demand.
+2. **Direct validity, once per distinct node, by set joins.** An episode is valid when its
+   outcome is success or empty and no revocation row matches its scope and selectors; its
+   per-kind check runs only when its lowered `validity_family` is non-null and checks only
+   mutable premises (kernel digest, and cut trust for grade, fit and event episodes). An
+   original admission is valid when visible under the boundary and unrevoked. A population is
+   valid when no newer same-name, same-context population is visible. A use is valid when
+   fulfilled.
+3. **Propagation.** A recursive CTE marks nodes reaching an invalid node through AND-edges. A
+   bounded loop resolves OR-groups: a substitutable use is invalid only when both groups are.
+   Arrays and `unnest` joins are used; no temporary table (the statement-local rule of
+   DDO-SI-23 stands).
+4. **Termination.** Support is acyclic by construction. A node on a malformed cycle is invalid.
+
+Boundary-relative facts (seed choice, original visibility, population supersession) use
+`ddo_read_visible`. Revocation is always current, as today. Direct episode invalidity is an
+AND-edge outside the OR-group, so a directly revoked producer is never rehabilitated.
+
+The immutable `_require_*_producer` replays inside the `*_dependencies_valid` functions leave
+validity. Their correspondence is established by the completion battery at retention today;
+PE-S21 later records it under the kernel digest. PE-S00 confirms each helper reads only
+immutable rows before that is relied on.
+
+Removed: recursive `ddo_support_valid`, `ddo_use_valid`, `ddo_population_valid`,
+`ddo_direct_support_valid`, and the seven unconditional per-kind calls.
+
+Rejected: a maintained invalidation record. A transitive one puts a reverse-lineage walk inside
+the revocation lock and duplicates the value-substitution semantics in a second authority; a
+direct-only one adds nothing to a keyed join; boundary-relative parts would still be per read.
+
+In the binding universe, role, kind, subject and source reduction now precede validity, and
+validity is computed once on the distinct reduced candidates. The access check keeps its place
+before subject and source, so the refusal surface is unchanged. Quantified operators still
+receive the full role-filtered universe.
+
+### PE-S19 — pinned read as acquisition evidence (PE-F07)
+
+**Rule change PE-RC02, part 2.** At acquisition, the only write, the read records its complete
+trust-scope closure as immutable `ops.data_demand_read_scope(read_id, scope, epoch, ordinary,
+domain)` rows (zero epochs included; the flags keep the census subset used by grade cuts), its
+distinct access universes, and the native kernel digest.
+
+`ops.ddo_require_read_current(read)` then: locks the recorded scopes in shared mode in scope
+order; refuses on any epoch difference; refuses on a kernel difference; authorizes the live
+caller for each recorded universe. It recomputes no closure and performs no insert. Callers:
+the pinned `read_demand_result` path, both binding functions, attach, population selection, the
+grade, fit and event cut checks, which compare the cut read's recorded ordinary scopes, and the
+selected-acquisition checks `ddo_require_source_set_acquisitions` and
+`ddo_require_selected_output`, which today run a pinned page read per cut and per use.
+
+This is acquisition evidence, not a cached authority result: every call re-locks, re-compares
+live epochs and re-authorizes against live role membership, so ADR-0121's "no authenticated cut
+or authority result is cached across invocations" stands. No session marker records "already
+checked"; a caller could forge one. Reads acquired before N1 have no scope rows and refuse with
+"reacquire".
+
+By reading, the visible closure under a fixed boundary cannot gain scopes, because every walk
+edge comes from a row immutable after insert. One tie remains open (PE-D03); PE-S00 decides
+between strict owner-row visibility and forbidding writes in the acquiring transaction after
+acquisition.
+
+PE-S00 confirms that every binding candidate, including exact-pin uses from other demands, lies
+inside the recorded closure; if not, pin scopes are added at acquisition.
+
+### PE-S20 — settlement lock mode (PE-F30)
+
+**Rule change PE-RC02, part 3.** Every settlement, cancellation, renewal and pinned read takes
+the canonical closure in shared mode, in sorted scope order, before demand, request and task
+row locks. Only `revoke_data_support` takes scopes exclusively and bumps the epoch. One
+share-mode function replaces the separate renewal variant.
+
+By reading, exclusivity among settlements protects nothing: epoch stability needs only the
+single writer excluded; publication–revocation ordering holds under share because each
+settlement statement takes a new snapshot; coalescing and attempt fences use request and task
+locks; population creation is serialized by the demand lock. Share mode also removes the
+inferred upgrade deadlock (PE-D07). This replaces the sentence in the demand-planning companion
+that completion and publication retain exclusive authority.
+
+### PE-S21 — kernel-sealed completion intent (PE-F09 c)
+
+The intent records the installed kernel digest, which covers every completion-validator body,
+and the complete locked trust snapshot. At publish, when the intent's digest equals the
+installed digest, the immutable correspondence battery is skipped. Publish always runs: the
+fence and adoption check; request authorization and the caller-purpose checks now inside the
+policy, structural and rich validators; runtime and recipe revocation; set-wise support
+validity over the intent's support, which also covers population supersession; and the per-kind
+mutable premises. A differing or absent digest runs the full battery as today.
+
+Classification of completion validators, read 2026-11-17 and confirmed in PE-S00
+(I immutable only, M mutable trust state, A caller authority):
+
+| Validator | Class |
+|---|---|
+| PDF, external, artifact, definition, contextual, rich preparation, structural dossier completion | I |
+| Record grade, record fit, operation event completion | M (cut trust epochs) |
+| Policy authorization, rich admission, structural admission completion | M + A |
+| Output witnesses | I + A (body access authorizes the caller) |
+| Support assertion | M |
+
+Retain and publish remain two transactions. The retained intent is the durable recovery point
+that distinguishes a lost acknowledgement from a rollback (ADR-0094); a savepoint inside one
+transaction would lose it when the commit fails, and recomputing provider or GPU work is the
+cost that point exists to avoid. With the battery sealed, the second transaction is short.
+
+### PE-S26 — set-form native operations and member installation (PE-F10, PE-F12)
+
+1. `register_data_demand` inserts the roots × root-operation obligations in the same call.
+2. `close_data_population` inserts the population and the obligations for its members × the
+   native discovery closure atomically and returns the count inserted. `expand_data_obligation`
+   becomes internal. Items derived natively from authenticated members fail only on a broken
+   invariant, so whole-call failure is correct here.
+3. `attach_data_requests(read_id, items[])` returns, per item, `attached`, `fulfilled` or
+   `refused` with its result or refusal. The union of support scopes is locked once, in shared
+   mode, outside the per-item exception blocks; the narrow read check runs once; each item runs
+   in its own subtransaction. Authorization failure aborts the call. Repeated request keys are
+   deduplicated. Use keys stay deterministic, so replaying the call returns the same per-item
+   results and inserts nothing.
+4. `claim_data_requests(holder, lease, items[])` returns per item a fence, `no-work` or a
+   refusal. Each item keeps its own task, attempt and lease fence.
+5. Publication installs members with one `INSERT … SELECT` over the member array with
+   ordinality, one insert per family table, and one anti-join collision check that raises on the
+   first mismatching ordinal. When the product row already existed under an identical key,
+   installation inserts nothing, and the anti-join check still runs against the existing
+   members. Members are extracted from the body by native code, so a key match alone does not
+   prove member equality across a kernel change; the check is one statement and keeps that
+   detection.
+6. The read page returns per obligation an `inputs_watermark`: the latest visible fulfilled use,
+   population or original among its prerequisite operations and exact pins.
+7. `read_demand_result` gains an `obligation_id` filter so a single pinned obligation is read
+   without paging from the start. The request schema is closed, so this is a protocol change
+   and ships in N2 with the set forms.
+
+Preserve per-item fates, receipts and fences, idempotent obligation identity and member failure
+isolation. Rejected: whole-call atomic attach (one bad obligation would block a page) and
+client-side batching over single-item natives (keeps one round trip and one validation per item).
+
+### PE-S27, SQL half — wire validation placement (PE-F04)
+
+**Rule change PE-RC01** (ADR-C, superseding ADR-0106; the Python half is in the contracts
+companion). Each externally callable native entrypoint validates its complete input once per
+call against the contract installed with its release, before any effect; a set-form call
+validates the whole set once. Native wrappers do not re-validate their own results, and
+native-to-native calls do not re-validate an admitted payload. The generated wrapper lowers one
+schema constant per operation instead of extracting from the whole-contract constant, and adds
+the installed contract's digest to its envelope. Removed: the output `ddo_require_wire` call
+and the duplicate in-body input check in `release_data_attempt`. The client result check that
+replaces the native one completes before the calling transaction commits; a call path that
+commits inside the native call keeps its SQL output check.
+
+### Acceptance
+
+Expectations are specified by hand per fixture, under both a null and a pinned boundary.
+
+- **Validity:** a diamond with a revoked shared ancestor; a deep chain revoked at the leaf;
+  revocation by each selector kind; value substitution (recorded support revoked with a valid
+  replacement is valid; the same under episode strength is invalid; a directly revoked producer
+  with a valid replacement is invalid); population supersession inside and after the boundary;
+  an original admitted after the boundary; kernel mismatch invalidating only kernel-checked
+  families; an epoch bump in a census scope versus a domain-only scope; an injected cycle;
+  a revoked evaluator-universe episode invalidating an ordinary consumer while ordinary export
+  still stops at the authority leaf.
+- **Binding order:** a revoked or malformed candidate of another subject or kind neither raises
+  nor refuses this obligation; an unauthorized-universe row of an accepted kind still refuses.
+  The union arms: a superseded pinned use from another demand is selected, a superseded demand
+  use is not, a use both pinned and owned appears once.
+- **Pinned read:** recorded scopes equal the hand-specified scope set of each fixture; a revocation in any recorded
+  scope refuses, including a scope with zero epoch at acquisition, a domain scope and an
+  evaluator scope; a revocation outside the closure passes; a caller lacking the evaluator role
+  is refused on every call; a re-check leaves insert and update counters unchanged; a kernel
+  change refuses; a pre-N1 read refuses.
+- **Publish:** under the same kernel, publish still refuses after a revocation, after a
+  supersession with no epoch change, and for an adopter lacking the evaluator role; a tampered
+  intent that only the battery rejects is refused when the digest differs; exact replay returns
+  the same receipt.
+- **Locks:** two settlements on one scope proceed together; a revocation waits behind a
+  settlement's share lock; a settlement queued behind a committed revocation refuses; two
+  transactions each holding a pinned read and then attaching on one scope both finish.
+- **Set forms:** a mixed batch commits its valid items and leaves no effect for the refused
+  one; replay inserts nothing; duplicates within a batch are handled; two overlapping concurrent
+  batches do not deadlock; a second run over an unchanged demand issues one frontier read and no
+  expansion, binding or attach.
+- **Release facts:** lowered rows equal facts parsed independently from the artifact bytes; a
+  differing `lowering_digest` refuses.
+
+### For the design/target review due before N1
+
+Equivalence of set-wise validity including value-substitution OR semantics and boundary
+composition; the owner-row visibility tie; coverage of nested member kinds by stored universes;
+share-mode correctness under revocation, renewal and cancellation; which SQLSTATEs set forms
+trap and lock placement outside savepoints; whether set-form attach keeps ADR-0121's separate
+attachment statements and live revalidation (attach stays separate from acquisition and each
+item revalidates live); re-lowering in the data step; census-subset
+correctness of stored cut checks; and the A4 judgment for register, bind, attach, execute,
+publish and for the repeat run after N1 and N2.

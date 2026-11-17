@@ -323,3 +323,30 @@ including the implemented transient vector contract. Distinguish stale descripti
 historical behavior. Parser/deparser hazards from prior PostgreSQL defect 5 remain limits for actual
 constructs; an affected case can justify a deliberate upstream correction under dependency policy,
 but no wholesale upgrade or parser audit is scheduled.
+
+## Engine lifetime, declared indexes and set-wise transfers — production-efficiency · 2026-11-17
+
+**Accepted scope; implementation Proposed.** The coordinator owns status; the
+[integration companion](production-efficiency-integration.md) owns slice order.
+
+- **MCP engine lifetime (PE-S04, PE-F16).** D9 already says the MCP lifespan holds its purpose
+  pools; the read tools at `2cc4e4d9d` open a pool and engine per tool call instead. Target:
+  the lifespan opens one read engine per purpose, sized to tool concurrency, and lazily opens
+  write and admit engines and the execution host for render, as the external server already
+  does. Per-call transactions, snapshots and cancellation are unchanged. The archived-release
+  cache stays keyed on the engine, because engine lifetime bounds database authority; with a
+  lifespan engine it persists for the session. This closes a gap between code and design and
+  changes no rule. Principal authentication stays per physical connection.
+- **Index declaration (PE-S16, PE-F08).** Indexes are declared only through `ph:indexes` in the
+  physical model; the products companion lists them. No hand-written index statement is added.
+- **Set-wise transfer paths (PE-S34, PE-S37).** PDF companion rows use the existing protected
+  scratch plus COPY route and one adopt call; whole-product scalar reads use ordered pages under
+  one admitted bound. Both reuse the typed-transfer owners in this document.
+- **Content-addressed streams (PE-S40)** add a project-scoped content key to stream descriptors
+  and one verification receipt per key. Retention and collection of shared content when a build
+  is abandoned are settled in that slice's design/target review.
+- **Retirement.** `orchestrate/liveness.py`, already listed here, is removed in PE-S14.
+
+Acceptance for the lifespan engine: N tool calls in one session create one pool and one
+principal check and hit the release cache after the first; cancelling one call does not affect
+a sibling; a server restart re-authenticates.

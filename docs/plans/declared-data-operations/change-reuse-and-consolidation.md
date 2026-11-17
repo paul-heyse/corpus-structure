@@ -239,3 +239,26 @@ Root-inclusive declaration closure remains potential impact only. Native target 
 existing equal-value/support cutoff remain the substitution owner. Typed graph paths/components/
 boundaries are explanations relative to their pinned examined universe, never proof of readiness,
 trust, global exhaustion or evidence independence.
+
+## Validity and change-triggered readiness — production-efficiency · 2026-11-17
+
+**Accepted scope; implementation Proposed.** The coordinator owns status; the
+[integration companion](production-efficiency-integration.md) owns slice order. The products
+companion owns the native contract; this section states what it means for currentness.
+
+- **One validity definition (PE-S18).** Currentness and substitutability keep one mechanism.
+  Set-wise evaluation changes how validity is computed, not what it means: an episode's direct
+  validity, population supersession, original visibility and the value-substitution rule are
+  the same predicates, evaluated once per distinct node per statement. No maintained
+  invalidation record is introduced, so revocation and impact keep a single authority.
+- **Invalidation causes.** Revocation is append-only and always current. Supersession and
+  original visibility are relative to the read boundary. A native kernel change invalidates
+  kernel-checked families through the lowered release digest. These three are the only causes;
+  an obligation's readiness otherwise only grows.
+- **Change-triggered readiness (PE-S26).** A waiting obligation is re-bound only when its
+  `inputs_watermark` advances, that is when a prerequisite publication, population or original
+  becomes visible. This is the "propagate relevant change, not touch" rule applied to the
+  frontier. It never suppresses a re-check after an invalidating event: invalidation is
+  evaluated by validity at attach and at every settlement, not by the watermark.
+- **Reverse impact.** Reverse-lineage indexes are added with the first reverse-impact consumer
+  in DDO-09, not before.

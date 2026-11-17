@@ -237,3 +237,29 @@ order, pointer, parallel relationship and table-cell multiplicity expectations r
 This records the bounded graph-fidelity contribution without performing DDO-11 target-native
 adoption, persistent deployment or reference regrading. The coordinator owns the actual required
 functional/native/public union and retained failed originals; whole-series DDO-12 remains separate.
+
+## Qualification and adoption consequences — production-efficiency · 2026-11-17
+
+**Accepted scope.** The coordinator owns status; the
+[integration companion](production-efficiency-integration.md) owns slice order.
+
+- **DDO-12 qualifies the corrected source.** The assembled union runs after the
+  production-efficiency slices are integrated. Evidence gathered before a slice changes its
+  source keeps its original scope and is not carried forward as credit for the changed source.
+- **Additions to the required union:** the same-demand whole-book run on the corrected
+  executor, including an unchanged repeat run; the revocation, supersession and protected-closure
+  controls of set-wise validity; the pinned-read, share-lock and set-form controls; the budget,
+  retirement and quarantine controls of the execution host; the encoder and CUDA GLiNER
+  qualification panels; the PDF product-equivalence, tamper, resume and failure-classification
+  controls; and the round-trip oracle on each PDF publication kind.
+- **Regeneration, not conversion.** The new encoder numerical policy changes every encoder
+  vector identity; vectors under the old policy are regenerated under I09 and no reader for
+  them is kept. Reads acquired before successor N1 are reacquired. Intents retained before N1
+  publish through the full completion battery and are not regenerated: the retained intent
+  exists to avoid recomputing that work.
+- **Frozen revisions.** No production-efficiency slice edits a frozen revision or reduces the
+  stored history. The model-change cycle (PE-S13) reduces compiles per change only.
+- **Development adoption** (completion step 7: fencing the old database, initializing the
+  canonical one and registering originals) follows the last production-efficiency native
+  successor and the encoder policy of PE-S29, so the adopted database starts at the corrected
+  head and nothing is regenerated twice. Steps 8 and 9 follow integration of every slice.

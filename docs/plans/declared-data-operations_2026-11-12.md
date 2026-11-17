@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and14successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged.**
+**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and14successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; no slice has started.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -9,6 +9,171 @@ Consumes [the audited domain-model review](../plan_improvement_reviews/declared-
 at `4f32589d0`. All actionable I01–I09 scope is scheduled below, with explicit investigations and
 conditional choices retained. Existing F01–F14/C1–C7/CA identities and scoped closures survive.
 Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No broad audit is initiated.
+
+## Production-efficiency integration · 2026-11-17
+
+**Accepted and authorized by the operator, 2026-11-17; implementation Proposed, no slice
+started.** This section adopts the
+[production-efficiency review](../design_review/reviews/design_review_production-efficiency_2026-11-17.md),
+consumed as published at `2cc4e4d9d` (source baseline `fc73d2c8c`, re-read at `2cc4e4d9d` with
+no finding moved). It supersedes the statement in the completion sequence above that the review
+"is not automatically adopted into execution". This coordinator is the single
+scheduled-disposition owner for every finding, including the `ci`, serving, PDF, model-method
+and evaluation findings; the earlier production-efficiency and book-efficiency plans are
+history and own nothing here.
+
+The review's items are cited as `PE-Fnn` and `PE-RCnn`, because `F01–F14` and `RC` numbers in
+this document already belong to earlier reviews. `PE-F27` was withdrawn by the review. Slices
+are `PE-Snn`. The
+[integration companion](declared-data-operations/production-efficiency-integration.md) owns the
+cross-cutting target, the slice table and its dependency order; each technical companion owns
+its mechanism contracts in a section dated 2026-11-17. Benefits are stated qualitatively as
+work removed. No slice has a timing criterion and no benchmark, cost model or runtime
+accounting is added.
+
+### Position in the completion sequence
+
+The numbered completion sequence above continues. This integration changes it as follows.
+
+- Steps 1–4 are recorded complete in the repair section above. Step 5 continues. A step-5
+  result covers only the source it ran on; a later production-efficiency slice that changes
+  that source does not inherit it.
+- Step 6's explicit `reuse_failures=False` attempt has run; its bounded native demand remains.
+  PE-S09 then removes the flag by classifying recognition failures at their origin, after
+  which no manual retry step is needed.
+- Step 7 (development adoption) follows the last production-efficiency native successor and
+  the encoder policy of PE-S29, so the adopted database starts at the corrected head and
+  nothing is regenerated twice. Steps 8 and 9 (the whole-book same-demand run and the final
+  union) follow integration of every slice, so DDO-12 qualifies the corrected source. The
+  whole-book run is where the removed work matters most.
+- Production-efficiency edits change captured sources, and captured-source custody refuses on
+  any on-disk change. They are therefore made in isolated worktrees, under the repository's
+  isolation rule for concurrent production work, and integrated only between step-5 cohorts.
+- Native successors N1–N4 are authored from the head current when each is ready, under the
+  normal frozen forward route. Step 4's "no planned wire/compiler version bump" applies to its
+  own successor only; N2 changes the captured protocol.
+
+### Operator-confirmed production-efficiency rule changes · 2026-11-17
+
+The operator accepted all eight rule impacts on 2026-11-17. Do not request confirmation again.
+Accepted ADR bodies are immutable; each change is recorded by a superseding ADR written before
+the first slice that depends on it, with the affected design sections amended in the same
+commit. Replacement rule text is in the named companion.
+
+Supersession replaces a whole record. Each successor ADR therefore restates every decision of
+the record it supersedes that this integration does not change, verbatim or with an explicit
+note, and names the changed clause by quotation. A successor that restates only the changed
+clause is not acceptable: it would silently retire live decisions, among them ADR-0094's
+durable completion intents, which are the retained-intent recovery point.
+
+| Rule impact | Accepted target and consequence | Route | First dependent slice |
+|---|---|---|---|
+| PE-RC01 | PostgreSQL validates every request at the definer boundary; the native envelope names the installed contract digest; the client refuses on a digest difference, validates results and does not re-validate its own requests; native code does not re-validate its results. Exactly one result check remains | ADR-C supersedes ADR-0106, changing its "keep authoritative schema validation and exact transport" realization and restating the rest; D6 and the PostgreSQL companion amended. Written after PE-S00's `pg_jsonschema` item. Text: contracts and products companions | PE-S27 |
+| PE-RC02 | Support validity is evaluated set-wise once per statement; a pinned read records its scope closure, access universes and kernel digest at acquisition and later calls lock and compare; settlements take trust scopes in shared mode and only revocation takes them exclusively | ADR-A supersedes ADR-0093, changing "Cross-release inputs require … current support" (how it is evaluated) and "Trust publication/revocation shares ordered scoped epoch authority", adding the pinned-read clause and restating the rest, including product identity and "Directly revoked producing execution cannot be rehabilitated". ADR-0110 stays in force unchanged. The exclusive-lock sentence lives only in the demand-planning companion and is replaced there. Text: products companion | PE-S18 |
+| PE-RC03 | Admission still precedes hydration. The worst-case reservation is reduced to the measured hydrated size afterwards; a batch is charged once; logical page size is independent of memory admission; one owned-byte budget per process | ADR-B is a new record for two-stage byte admission, page size independent of memory admission and once-per-call batch charging. It supersedes nothing: ADR-0084's clause "Admission/reservations precede hydration and queueing" is kept literally, and what changes was not stated in any ADR. D6 is amended to add the stage-B reduction. ADR-0084's successor remains the one owed by the 2026-11-12 RC05 at DDO-11. Text: demand-planning companion | PE-S23 |
+| PE-RC04 | The three encoder operations keep one request, product and vector per occurrence or target and declare the batch form under a new encoder numerical policy with authentic-observation batch semantics. Every encoder vector identity changes; existing vectors are regenerated | ADR-E supersedes ADR-0114, changing its paragraph "Encoder model execution remains scalar under its existing exact profile until an explicit released encoder policy selects cross-request batching" and restating the rest; ADR-0084 and ADR-0085 are not contradicted; D6 amended. Text: operations companion | PE-S29 |
+| PE-RC05 | One execution host per process owns the budget, worker generations, capsules, prepared ports, provider lanes and verified bases; a run proves retirement of its own work; one run is active per host; native model residency is process-scoped only under an explicit keep-warm setting | ADR-D supersedes ADR-0083, changing "One invocation owns verified preparation, regional lifetimes, physical admission and worker/provider scopes" and "No global verification cache…", and restating the rest, including established validation under original premises and "a digest is not proof"; D6 amended. Text: demand-planning companion | PE-S25 (PE-S08 relies on the restated clause) |
+| PE-RC06 | The producer certifies each PDF publication before staging; PostgreSQL certifies custody and structure and seal requires equal logical digests; the reconstruct-from-rows round trip runs per lowering identity, on explicit verify and in qualification. Independent per-publication reconstruction is given up; this is an accepted weakening, not an equivalence | ADR-F supersedes ADR-0045, changing "The model-bound finite runtime validates actual immutable payload interiors and required closure, then derives access projections" and restating the rest; D3 amended. Text: operations companion | PE-S36 |
+| PE-RC07 | An operation outcome is terminal or an execution failure; execution failures are never published or reused. Draft stages finish frozen builds; capture resumes from the spool; a sealed receipt names every contributing attempt | ADR-G supersedes ADR-0094, changing only "Native refusal, cancellation, failed/empty/partial and externally awaiting work remain distinct" and restating the rest, including durable exact completion intents. ADR-H supersedes ADR-0099, changing only "A sealed PDF publication retains its actual publisher task, attempt, holder…" to name every contributing attempt, and restating the rest. Both are written after the failure-classification review. Text: operations companion | PE-S09 (both), PE-S39 (ADR-H resume) |
+| PE-RC08 | A serving identity names the running code; drift is detected by file metadata with content confirmation, and changed content refuses with a restart instruction | ADR-I, a new record that supersedes nothing (the guarantee was in no ADR); D8 amended. Text: interfaces companion | PE-S06 |
+
+Preserved without change: §B1–§B6; ADR-0110; ADR-0121's rule that no authenticated cut or
+authority result is cached across invocations; the retain and publish split; freeze, then
+validate, then seal; Chandra's exclusion.
+
+### Production-efficiency review disposition · accepted 2026-11-17
+
+Every row is **scheduled, not started**. Closure needs the slice's consumers migrated, its
+superseded machinery removed and its companion's acceptance evidence, not a decision or a
+foundation pass.
+
+| Source finding | Disposition and technical owner | Slices | Required closure |
+|---|---|---|---|
+| PE-F01 | One prepared immutable source view per kernel call. Operations companion, DDO-07/08 | PE-S02 | Bytes-backed classes consume the view; identical occurrence identities and products on bounded real sources |
+| PE-F02 | Keyed and ordered access with the owner of each collection. Operations and rich companions, DDO-07–09 | PE-S03 | Scan loops removed; output order and completeness semantics unchanged |
+| PE-F03 | Read and external consumers open the admitted archive; execution carries a verified basis within the host. Interfaces and demand-planning companions, DDO-06/10 | PE-S04, PE-S25 | No read path prepares a release; registration, activation and verify still re-derive |
+| PE-F04 | Protocol prepared once per process; one request check and one result check per call under a contract digest. Contracts and products companions, DDO-03/04 | PE-S01, PE-S27 | Mismatch refuses before commit; malformed input still refuses natively |
+| PE-F05 | Set-wise support validity per statement, per-kind checks by lowered family. Products and change-reuse companions, DDO-04/09 | PE-S18 | Recursive validity functions removed; revocation, supersession and protected-closure controls |
+| PE-F06 | Native attach is the only binding authority; reduction precedes validity; the executor reuses the attached binding; unchanged waiting obligations are not re-bound. Products and demand-planning companions, DDO-03–06 | PE-S18, PE-S22, PE-S26 (waiting obligations) | One binding evaluation per same-read obligation; adopted generations still reconstruct; a waiting obligation is re-bound only after a relevant publication |
+| PE-F07 | Pinned read as acquisition evidence with a narrow lock-and-compare check. Products companion, DDO-04 | PE-S19 | No closure recomputation or insert on a re-check; every call still authorizes the caller |
+| PE-F08 | Indexes declared in the physical model; exact-pin predicate as a union. Products and PostgreSQL companions, DDO-04 | PE-S16 | Catalog presence and index use for each listed predicate |
+| PE-F09 | Established properties carried with their premises: (a) captured sources, (b) release facts, (c) completion at publish, (d) retained products at consumers, (e) prepared ports, (f) model assets, (g) serving identity | (a, e) PE-S05; (b) PE-S17; (c) PE-S21; (d) PE-S08; (f) PE-S07; (g) PE-S06 | Each sub-item's companion acceptance; mutable premises and caller authority still checked on every use |
+| PE-F10 | Set-form native operations with per-item results; an unchanged repeat run ends after one frontier read. Products, contracts and demand-planning companions, DDO-03–05 | PE-S26 | Mixed-batch isolation, replay idempotence, repeat-run control |
+| PE-F11 | Two-stage byte admission; page size independent of admission; ready queue. Demand-planning companion, DDO-06 | PE-S23 | Budget high-water, backpressure, batch-split and CA-13 regression controls |
+| PE-F12 | Set-wise companion adoption and member installation. Operations and products companions, DDO-04/07 | PE-S26, PE-S34 | Per-row native function removed; changed-duplicate refusals; exact replay neutral |
+| PE-F13 | Encoder batch form; one GLiNER host exchange with multi-input questions; learned primary across blocks; HanLP admission per frame-bounded chunk. Operations companion, DDO-07/08 | PE-S15, PE-S28–S32 | Qualification panels first; identical identities and reports; per-member isolation |
+| PE-F14 | Admitted bulk scalar read; narrow recognition inventory; ordered observation read. Operations and PostgreSQL companions, DDO-07 | PE-S37 | Identical hydrated bytes; over-budget refusal before transfer |
+| PE-F15 | Per-publication search projection. Interfaces companion, DDO-10 | PE-S41 | Identical ranked hits and cursors |
+| PE-F16 | MCP lifespan engines per purpose; engine-keyed release cache retained. PostgreSQL and interfaces companions, DDO-10 | PE-S04 | One pool per session; per-call transactions and cancellation unchanged |
+| PE-F17 | Continuation pages from a cut-keyed process cache with ordinal cursors; read-scoped support closure for export. Interfaces companion, DDO-10 | PE-S42 | Byte-identical pages; revocation between pages refuses |
+| PE-F18 | The external session reuses packet bytes it read under the same fence. Interfaces companion, DDO-10 | PE-S04 | Agent bytes never consulted; changed fence re-reads |
+| PE-F19 | Process-scoped execution host; claim and hydrate in one transaction; retain and publish stay separate. Demand-planning companion, DDO-06 | PE-S24, PE-S25 | Retirement, quarantine and combined-budget controls |
+| PE-F20 | One recognition worker per slot; context once per operation; page-atomic publication. Operations companion, DDO-07 | PE-S38 | Per-page cancellation and evidence files unchanged |
+| PE-F21 | Grammar hash at process lifetime; prepared grammar with supplied terminals only on exact forest equality. Operations companion, DDO-07 | PE-S15, PE-S33 | PE-S15 closes the hash; PE-S33 closes or is declined on its first slice |
+| PE-F22 | Lazy `ci` command registration. Integration companion, DDO-10 | PE-S11 | Dispatch test; registry and reference generation preserved |
+| PE-F23 | Reading verbs compose from settled classification. Integration companion, DDO-10 | PE-S12 | Identical projections for settled receipts; active receipts re-classify |
+| PE-F24 | Deploy reuses the candidate's prepared archive after a fingerprint check. Frozen revisions are never rewritten. Reducing stored history remains an operator decision; none is scheduled. Integration companion, DDO-11 | PE-S13 | Deploy still refuses on changed sources; at most one compile per change |
+| PE-F25 | Page artifacts stay in spool custody; candidates stored once; one set-wise adoption after conversion. Operations companion, DDO-07 | PE-S35 | Logical digests unchanged; frozen digests differ only by the removed page streams |
+| PE-F26 | Producer certification with a round-trip oracle per lowering identity; content-addressed byte streams; stages stay separate published products. Operations and PostgreSQL companions, DDO-07/11 | PE-S36, PE-S40 | Tamper refusals; oracle on first publication per lowering identity |
+| PE-F27 | Withdrawn by the review; its per-page payload-family preparation is covered by PE-F12 | — | — |
+| PE-F28 | Failure classes for recognition; draft stages finish frozen builds; capture resumes from the spool. Operations companion, DDO-07 | PE-S09, PE-S39 | Interrupted-then-resumed equivalence; transient retry versus terminal reuse |
+| PE-F29 | Prepared reference alignment once per question; indexed plan lookups; sources once per plan. Interfaces companion, DDO-10 | PE-S10 | Identical grade outputs and refusals on protected fixtures |
+| PE-F30 | Share locks for settlement; exclusive only for revocation. Products companion, DDO-04 | PE-S20 | Concurrency controls with two connections |
+| PE-F31 | Unreferenced code removed; duplicate verifications removed; the two unverified observations are checked before any change. Integration companion, DDO-07–11 | PE-S14 | Re-grep at removal; affected checks pass |
+
+Earlier items that already narrowed a finding keep their own receipts above: DDO-SI-23 shares
+binding rows within one statement (PE-F06 covers what remains across statements); DDO-SI-24
+shares source-cut authentication in reference authoring (PE-F29 covers grading); DDO-SI-29
+reuses the composed effective model (PE-F04 and PE-F09 e are separate); DDO-CA-13 made
+admission capsule-aware (PE-F11's capacity of two is the result after it). ADR-0121's selected
+acquisition added per-cut and per-use pinned reads, which PE-F07 now covers.
+
+### Package additions
+
+These add to the [current package table](#current-state-and-execution-order); its rows are
+unchanged.
+
+| Package | Production-efficiency scope added |
+|---|---|
+| DDO-03 | PE-S01, PE-S05 (ports), PE-S26 and PE-S27 (generator and client) |
+| DDO-04 | PE-S16–S21, native halves of PE-S26 and PE-S27; successors N1 and N2 |
+| DDO-05/06 | PE-S05 (executor and worker half), PE-S22–S25, planner side of PE-S26 |
+| DDO-07/08 | PE-S02, S03, S07, S08, S09, S14 (model and PDF removals), S15, S28–S40; successors N3 and N4 |
+| DDO-09 | Validity and readiness semantics behind PE-S18 and PE-S26; rich part of PE-S03 and PE-S08 |
+| DDO-10 | PE-S04, S06, S10, S11, S12, S14 (serving and evaluation removals), S41, S42 |
+| DDO-11 | PE-S13, PE-S14 (retirements), PE-S40 (storage); adoption follows the production-efficiency native successors |
+| DDO-12 | Qualifies the corrected source; union additions in the adoption and qualification companion |
+
+### Preparation questions and discovered items
+
+PE-S00 in the integration companion lists eight questions settled by reading source, each with
+the slice it decides. Four further questions need a first executed slice and are stated in the
+slice that owns them: encoder batch attribution (PE-S28), CUDA GLiNER batch attribution
+(PE-S30), Docling page-subset resume and GPU determinism (PE-S39), and forest equality for a
+prepared grammar (PE-S33). No standalone probe is scheduled.
+
+The integration companion records seven discovered items, PE-D01–D07. Two are not efficiency
+matters and need attention in their own right: PE-D02, a possible silent loss of same-start
+lexical alternatives in construction parsing, and PE-D05, CUDA GLiNER coalescing running ahead
+of its ADR-0085 qualification.
+
+### Execution order and review cadence
+
+Wave 1 of the integration companion (local slices with no native change) starts first, in
+isolated worktrees integrated between step-5 cohorts. Two correctness questions start with it
+and do not wait for their efficiency slices: whether construction parsing can lose same-start
+lexical alternatives (PE-D02) and the CUDA GLiNER batch qualification (PE-D05, PE-S30).
+Successor N1 (PE-S16–S22) precedes the admission slice PE-S23 and
+the set forms of N2. PE-S29 and PE-S31 each follow their qualification slice. The PDF slices
+start with PE-S09 and PE-S34. The root serializes native captures and owns integration; shared
+kernel, projection, storage, executor and physical-model files have one editing owner at a time.
+
+A design/target review is due, under the binding, before the first package of each of these
+executes: the native validity, binding, read and wire-placement target; the execution host and
+admission model; PDF publication assurance; failure classification and recovery units, before
+ADR-G and ADR-H are written; and encoder and GLiNER batch semantics, after their qualification
+slices. The focused advice used to author this integration does not replace them. Other slices
+proceed under change/target review.
 
 ## Current repair and successor integration · 2026-11-17
 
@@ -2350,6 +2515,7 @@ optional ranking/community/GED/WL/LCA/visualization product or provider campaign
 | [Operations and adapter cutover](declared-data-operations/operations-and-adapter-cutover.md) | DDO-07/08, complete source/primary/downstream/external operation replacements |
 | [Change, reuse and consolidation](declared-data-operations/change-reuse-and-consolidation.md) | DDO-09, common substitutability/currentness, revocation and cut materialization |
 | [Interfaces and evaluation](declared-data-operations/interfaces-and-evaluation.md) | DDO-10, native/ci/MCP/export/replay and protected assessment |
+| [Production-efficiency integration](declared-data-operations/production-efficiency-integration.md) | Cross-cutting efficiency target, shared mechanisms, PE slice order and native successor grouping, and the `ci`, model-change and cleanup contracts; DDO-03–12 |
 | [Preservation/adoption/qualification](declared-data-operations/preservation-adoption-and-qualification.md) | DDO-00 preparation, DDO-11/12 preservation/cutover and final required union |
 
 ## SQLAlchemy/Alembic alignment amendment · accepted 2026-11-14

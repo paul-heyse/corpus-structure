@@ -340,3 +340,94 @@ rooted attributed matcher retains exact/asymmetric policies and every mapping re
 choices or feasible prerequisite checks. That increment implemented exact historical archive reads;
 the target now retires obsolete encodings rather than retaining unavailable-view compatibility.
 Current-basis snapshots keep exact released interpretation and native authority.
+
+## Read paths, paging, search and grading — production-efficiency · 2026-11-17
+
+**Accepted scope; implementation Proposed.** The coordinator owns status; the
+[integration companion](production-efficiency-integration.md) owns slice order. This section
+owns PE-S04 (release access and the external session), PE-S06, PE-S10, PE-S41 and PE-S42.
+
+### PE-S04 — release access on read and external paths (PE-F03, PE-F18)
+
+Read and external consumers open the admitted archive through `open_release`. A companion
+opener returns the digest-checked archived source bundle and dependencies without
+re-preparation, for the one consumer that needs dependencies (`serve/selected_source.py`).
+Consumers moved: rich knowledge reads, the composite contribution scope, interpretation
+authoring reads, visual routing, and the external session's submit and located reads.
+Registration, activation and explicit verification commands remain full re-derivation
+boundaries. Execution's boundary is in the demand-planning companion (PE-S25).
+
+The external session keeps the packet bytes it read under a fence, keyed by packet, task,
+attempt and holder, in a byte-bounded cache; submit uses them and re-reads natively on a miss
+or a different fence. Only server-read bytes are cached; agent-supplied bytes are never used,
+and native admission stays authoritative (§B3).
+
+### PE-S06 — serving implementation identity (PE-F09 g, PE-RC08)
+
+**Rule change PE-RC08** (ADR-I, a new record that supersedes nothing; the guarantee was not in
+an ADR. D8 is amended). A serving implementation identity names the code
+the process is running: source digests recorded at import, library versions at first use, the
+query contract and the profile. It is computed once per process per contract and source set.
+Per request the server compares each custody source's file metadata with the record made when
+its content was authenticated, re-hashing on any difference or racily clean record, and checks
+module identity. Changed content, a module loaded outside custody, or a pinned identity that
+differs from the running one refuses with a restart instruction. Equal content does not refuse.
+
+The guarantee changes from "running code equals current disk, by content" to "identity names
+the running code, and drift is detected by metadata with content confirmation". "Unsupported
+edits refuse" is kept. A content change that leaves inode, size and both timestamps unchanged
+would go undetected. (Proposed) Ordinary unprivileged writes on the local filesystems in use
+update the change time; a delayed timestamp update from a memory-mapped write is detected at
+the next `stat` that observes it.
+
+### PE-S41 — per-publication search projection (PE-F15)
+
+`find` rebuilds and re-tokenizes the text of every selected section on each request. Target:
+derived immutable search rows keyed by publication pin, section pointer, membership, projection
+recipe digest and text-search configuration, each holding text, projection digest and a stored
+`tsvector` with an index. One protected definer function fills them lazily on first search per
+pin; that first fill is a write on the read path, and it has its own byte bound per
+publication, refusing above it.
+The rows are non-authoritative: hits carry the projection digest, and opening a hit re-reads
+under the pin. Each request acquires its pins, ranks over the population's stored rows and
+computes headlines only for returned rows. Cursor binding is unchanged. The whole-population
+budget refusal disappears; budgets apply to returned rows.
+
+### PE-S42 — continuation pages (PE-F17)
+
+A small per-process cache keyed by cut identity, implementation identity and root reference
+holds the validated rich graph or query index and its ordered rows per query selection. Each
+page runs the narrow pinned-read check (products companion, PE-S19) and uses the cache only
+when the reacquired cut matches; a miss or a changed cut does the full read. The cache holds
+derived content only, never an authenticated cut or authority result (ADR-0121), and is
+byte-bounded with least-recently-used eviction. The cursor stores
+a row ordinal instead of a position to replay. The byte budget accumulates row widths over a
+once-computed envelope, with a final exact check that backs off one row so page boundaries are
+unchanged. Demand export reads one read-scoped support closure, keyset-paged and distinct by
+key, instead of one closure per frontier page. The per-page trust recheck, cut identity on
+cursors and byte budgets are preserved; the cache confers no authority.
+
+### PE-S10 — grading (PE-F29)
+
+DDO-SI-24 already authenticates a source cut once per reference-authoring invocation. The
+grade side is untouched. Target: `align_records` is split into a prepared reference alignment
+(contracts, frame, contexts and bound reference records), built once per question, reference
+pass, release and coordinate texts, and a candidate stage of validation and matching.
+`whole_reading_correct` runs the validation stage and then the accepted-standing stage against
+the same prepared reference. The grade plan uses the indexed row lookup that already exists
+instead of scanning a relation per selection, and acquires each source and release once per
+plan. Native reference scoring authenticates the annotation product, its source and producing
+episode once per evaluation. Preserved: refusal of an invalid candidate; one-to-one accounting
+over the full reference set; each of the three passes prepared separately; every custody check.
+
+### Acceptance
+
+- Read consumers never call release preparation (spy); the selected-source export still
+  receives its dependencies; a cache hit in the external session reads no native packet, and a
+  changed fence re-reads.
+- Modifying a custody source after import refuses the next request; a touch does not; the
+  identity equals an independently computed digest of the files at start.
+- `find` returns identical ranked hits and cursors on a fixture; a stale or foreign cursor
+  refuses.
+- Paged reads return byte-identical pages; a revocation between pages refuses.
+- Grade outputs are identical on the existing protected fixtures, with every refusal case.

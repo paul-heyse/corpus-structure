@@ -297,3 +297,9 @@ construction and analysis hold no shared trust/publication locks. Assessment roo
 nominal admission and per-container/member preparation are reused within the invocation, avoiding
 whole-container duplication per requested member. This is invocation-local preparation, not another
 cache authority. Dated integrated qualification is recorded in the coordinator; it does not requalify subsequent v7 changes.
+
+## Task-semantics module retirement — production-efficiency · 2026-11-17
+
+`evaluate/task_semantics.py` has no production consumer. It is removed with its tests in PE-S14 of the
+[integration companion](production-efficiency-integration.md); the earlier sentence that it migrates
+with its actual consumers no longer applies to it. The coordinator owns status.

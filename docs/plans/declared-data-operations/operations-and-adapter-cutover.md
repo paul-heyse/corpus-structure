@@ -332,3 +332,349 @@ standing. Target selection-only or declared-factory availability is insufficient
 M1 formal/rule, finite, math, dossier and external/effectful production. Public query/export/replay
 replacement requires DDO-10's missing read contract; demand inspection alone is not that replacement.
 The coordinator owns dispositions and prerequisite order; this companion is not another progress ledger.
+
+## Kernel views, model-call granularity and PDF movement — production-efficiency · 2026-11-17
+
+**Accepted scope; implementation Proposed.** The coordinator owns status; the
+[integration companion](production-efficiency-integration.md) owns slice order and the shared
+mechanisms. This section owns the contracts for PE-S02, S03, S07, S09, S15 and S28–S40. Paths
+are under `python/corpus-structure/src/corpus_structure/`. Chandra OCR stays excluded.
+
+### PE-S02 — prepared immutable source view (PE-F01)
+
+One owner, a native source view factored out of `PreparedNativeSource`
+(`semantic/source_contexts.py`), built once per kernel call from a source's canonical value. It
+holds the text; frozen pieces with `starts` and `ends`; the native-text subset with its own
+ends; piece indices by `item_ref`; items and ancestors by `self_ref`, recursively frozen; an
+item-order ordinal; table-cell pointers; and the projection digest and coordinate. Construction
+checks the native projection identity once and requires sorted, non-overlapping pieces with
+non-decreasing ends, refusing otherwise. That requirement is what makes bisect lookups equal to
+today's scans. `PreparedNativeSource` composes the view and adds the pin, item locators and
+dependency digest. Per-layer interval indexes are built lazily by the first helper that needs
+them and kept on the view.
+
+Consumers, with custody bytes unchanged in every case:
+
+- `ConstructionSource` keeps its bytes and reads one cached view instead of decoding per
+  property. `ConstructionLayer.occurrence` bisects instead of iterating all pieces.
+- `DeclaredNativeFrameSource` returns the view's frozen tuples with no deep copy. A caller's
+  edit now raises instead of being absorbed, which keeps "caller edits cannot change source
+  custody". Sites that serialize these values must thaw them explicitly; the slice finds them.
+- `ContextualLayer` drops its per-block source maps and the per-occurrence copy. `structural()`
+  collects the items whose pieces intersect the block by bisect, in item-ordinal order.
+  `quotations()` tests protected extents by bisect.
+- `prepare_model_scope` receives the per-call view instead of rebuilding per block.
+- `FrozenNativeSource.value` and `DemandResult.record`/`cut` decode once and cache privately.
+
+Block-local inference scope is preserved: the view is read-only and every block's query is
+parameterized by that block's extent. The view lives for one kernel call. Rejected: per-class
+cached decoding only (leaves three index builders with their own ordering assumptions) and a
+global view cache (adds custody keying with no consumer).
+
+### PE-S03 — keyed and ordered access (PE-F02)
+
+Indexes stay with their owners. `FormalSourceReadings` builds, lazily and once per retained
+pin, occurrence and annotation maps, per-(kind, family) lists sorted by start, memberships by
+group and coverage by family; its queries bisect and then re-sort hits by original ordinal, so
+output order and the uniqueness rule are unchanged. The formal and construction validators use
+a view helper that finds the containing native piece by `item_ref` then bisect.
+`_requested_regions` finds the non-native gap by bisect; sentence clipping becomes a two-pointer
+sweep with the same output order. The per-block `source_layout` scan and the heading search in
+`retained_rules.py`, navigation's per-annotation scans, procedure readings in
+`scoped_relations`, formula windows in `source_preparation`, `pdf_selected_enrichment` and
+`source_hierarchy_graph` follow the same rule: one sorted sweep
+or keyed map per product, output order preserved. The rich-rule sites are in the rich companion.
+
+### PE-S07 — model-asset custody (PE-F09 f)
+
+One shared helper hashes each artifact once per process and stat identity (the file-custody
+mechanism of the integration companion), with the exact file population. A verifying parent
+passes name, digest and stat identity to a host or capture child, which re-stats before and
+after loading and refuses on any difference without re-hashing. Consumers: PM2 asset and
+runtime-identity verification, the GLiNER profile, the Docling bundle, and the contextual
+encoder, whose private copy of this pattern is removed. Modified weights are still refused. A
+persistent on-disk memo is not added; process-scoped execution (PE-S25) removes most
+cross-invocation repetition.
+
+### PE-S15 — grammar hash and HanLP admission (PE-F21 a, PE-F13)
+
+The prose grammar is authenticated through the file-custody helper (integration companion,
+Mechanism 2): hashed once per worker process, one `stat` per parse, and a changed grammar
+refuses with a restart instruction. Workers will outlive runs under PE-S25, so a plain
+process-lifetime hash would miss an edit. HanLP's `prepare_bulk` is CPU tokenization only and gets its own bound set by request
+frame bytes, so one exchange admits the population chunk that fits a frame. Inference batching
+is unchanged: the sentence cap, padded-subword and character bounds stay, and inference still
+prepares its own samples (ADR-0084). Product bytes are identical because batch packing depends
+only on admitted lengths in order.
+
+### PE-S28, PE-S29 — encoder batch form (PE-F13, PE-RC04)
+
+**Rule change PE-RC04** (ADR-E, superseding ADR-0114's encoder paragraph and restating its
+other decisions unchanged; ADR-0084 and ADR-0085 are not contradicted and stay). The three
+encoder operations (declared query, selected-context query, target vector) keep one logical
+request, product and vector observation per occurrence or target and declare the `batch` form.
+The existing batch path carries them; no operation declares it today.
+
+- **Cohort.** The executor groups ready members by exact execution basis and operation, orders
+  them by source product and member, and chunks them by the encoder profile's item, byte and
+  deadline bounds and the shared admission. The view is not a grouping key.
+- **Packet.** Each distinct role body is carried once under its canonical digest, with one
+  frame record per distinct source. The worker rebuilds each member basis and checks every body
+  digest before computing that member's basis digest; a mismatch refuses the packet as a
+  custody failure. Without this a cohort over one view would carry the view twice per member.
+- **Kernel.** Each distinct frame is decoded once into the prepared view (PE-S02); every member
+  is rendered and limited; one encode call runs per role.
+- **Failure isolation.** A member-local failure (pin or projection mismatch, unavailable
+  selected context, token-core limit, invalid vector) is a typed failure in that member's reply
+  slot; only that claim settles as a known failure and siblings publish. Custody, deadline,
+  worker or packet-integrity failure fails every member, each keeping its ordinary fenced retry.
+- **Native.** The contextual producer check compares each operation's declared form with the
+  actual reply form and keeps exactly one CPU receipt per completion. The scalar-form pins of
+  the other admission families stay; their operations remain scalar.
+- **Numerics.** A new released policy binds model and artifacts, rendering, tokenizer, pooling,
+  padding side, dtype, normalization, prompts and native chunk size, and declares
+  authentic-observation batch semantics: native float32 values may vary with cohort composition
+  and order, while vector identity never depends on the cohort. No epsilon, byte equality or
+  ranking invariance across groupings is promised. The new policy changes the profile id and so
+  every encoder vector identity; existing vectors are regenerable and no reader for them is kept.
+
+**PE-S28 runs first.** Actual CPU runs of both encoder profiles on real book occurrences and
+targets, encoded singly, in mixed-length cohorts, reversed and regrouped, must show identical
+identity populations, each batched vector nearest to its own singleton, and per-vector
+normalization admission. Observed deviation is recorded as evidence, not as a tolerance. A
+pooling or attribution fault is a defect to repair, and that profile stays scalar until it is.
+
+Rejected: one request per view. Adding or re-ranking one occurrence would re-encode every
+vector of the view, it bundles many vectors into one observation against §B2, and it loses
+per-member admission and failure isolation.
+
+### PE-S30–S32 — GLiNER, M1 and learned families (PE-F13)
+
+**PE-S30 runs first**: actual production cue, classification, definition and M1 packs on CUDA,
+run singly, mixed, reordered and regrouped, separating attribution faults from numerical
+variation. Cross-request coalescing on CUDA is already live ahead of this qualification (PE-D05).
+
+**PE-S31.** One host request admits and extracts: the host applies per-member admission,
+extracts the admitted population in one batch, computes the batch receipt and request digest
+over exactly that ordered population, and returns admissions and reports together. Compiled
+packs are memoized by pack fingerprint for the host generation. M1 prepares every selection
+first, yields one multi-input question per pack and variant chunked by the profile's bounds,
+and assembles in the original loop order so reports, item keys, coverage and contribution order
+are unchanged. The reply is per input: a report or a refusal each. One behavior changes. It is
+accepted under PE-RC04 and confirmed in the batch-semantics review: a worker failure during a pack's batch marks every member of that batch not run,
+where today members ahead of the failure survived. Removed: the two-exchange protocol, the
+host's prepare-only branch and the all-or-nothing question refusal.
+
+**PE-S32.** Each block of learned primary becomes a child plan under a bounded ready group.
+Each block keeps its own stage loop and priors, so D1 stage order within a block holds by
+construction; compatible D1 work from concurrent blocks coalesces in the lane; children return
+in plan order, so outputs are unchanged. The executor's relay must accept a ready group and
+capture every submitted handle for retirement. GLiNER cues and functions emit one multi-input
+work per pack across the blocks of the call. Reply credit is held until reduction, unchanged.
+Rejected: stage-major yields inside one plan, which hold reply credit for a whole stage and
+interleave accumulators across blocks.
+
+### PE-S33 — prepared grammar with per-region terminals (PE-F21 b, gated)
+
+Lark 1.3.1 has no public way to supply terminals as data to dynamic Earley. A custom term
+matcher installed once is feasible but relies on undocumented internals and needs a hold row in
+`docs/pins.md` with a revisit trigger. It is adopted only if the slice's first step shows exact
+forest equality over the book's construction regions. Otherwise PE-S15 is the whole correction.
+The same step answers PE-D02.
+
+### PE-S34 — set-wise companion adoption (PE-F12)
+
+Companion rows, field descriptors and parts are copied into protected scratch (the
+`adopt_pdf_batch` pattern), followed by one `ops.adopt_pdf_companions` call: one build fence
+and one operation check; set-wise identity, order and changed-duplicate predicates; per-kind
+schema checks over the scratch rows; relation endpoints resolved by one join. Formula outcomes
+go in one call. The payload family is prepared once per build. The row's encoded length is
+carried from the child instead of re-serializing each row to size it, which removes two of the
+five representation crossings the review counted; the remaining ones are the encode, transfer
+and typed validation the boundary needs. Removed: the per-row native function and its
+executemany wrapper.
+
+### PE-S35 — single adoption of page artifacts (PE-F25)
+
+No reader of the page assembly, raster or candidate streams exists in Python, SQL or
+migrations, and downstream stages re-render from the original. Target: the conversion child is
+acknowledged as soon as its fsynced spool file is verified and appended to a build-owned spool
+manifest; the parent makes no database call there. The spool is located deterministically per
+build, and each attempt writes under its own attempt-fenced subdirectory. Appending to the
+build-owned manifest requires the attempt's current fence, so mutable state still belongs to
+one identified attempt (DP-19). A resuming attempt adopts verified entries from an earlier
+attempt's manifest only after that attempt's physical retirement is proven. The spool is
+retained until the build is sealed or abandoned; the slice states the rule for keeping or
+collecting rasters and assemblies after that. After conversion the parent adopts once, set-wise: candidates as the companion (their
+only reader's source), records and occurrences as now. Rasters and assemblies stay in the spool
+as producer working state, with their digests recorded in the runtime report. Removed: per-page
+database adoption, the end-of-run re-emission of page streams, and the unused artifact profiles.
+
+Page memory is still released only after durable spool custody. Frozen digests of new builds
+differ because the inventory loses those streams; logical digests are expected not to change,
+and acceptance checks that.
+
+### PE-S36 — producer certification and the round-trip oracle (PE-F26, PE-RC06)
+
+**Rule change PE-RC06** (ADR-F, superseding ADR-0045; D3 amended). On the record path today the
+read-back child is the only complete output certification (PE-D04). The target moves
+certification to the producer and keeps the round trip as an oracle.
+
+- **Producer certifies before staging**, where the document lives: native callbacks on the
+  output document; payload interiors, report metadata and integrated meaning over the exact
+  encoded bytes it stages; and access and region rows derived from the same document and staged
+  before freeze, so the frozen digest covers them. It computes the logical digest with the
+  Python frame fold, whose parity with the native fold ADR-0119 already requires.
+- **PostgreSQL certifies** stored bytes against staged roots, the frozen inventory, structural
+  closure, access correspondence (now an independent check of a producer-derived projection),
+  identity and projection, and JSON metadata schemas. Seal additionally requires the database
+  logical identity to equal the producer's attested digest.
+- **The receipt** records its basis (producer-certified or round-trip-verified), the lowering
+  identity, the attested logical digest and any oracle receipt relied on.
+- **The oracle** is today's reconstruct-from-frozen-rows child. It runs on the first sealed
+  publication of each kind under a lowering identity with no passed oracle receipt, on an
+  explicit `ci` verify, and in DDO-12. The lowering identity is the release-captured digest of
+  the record lowering and reconstruction contract; PE-S00 establishes whether the release
+  captures those sources and adds them to the PDF facet's validation contract if not.
+
+Stated plainly: today every publication is independently reconstructed and callback-checked.
+Under the target every publication is producer-certified and structurally checked by the
+database, and reconstruction fidelity is certified per lowering identity. A lowering defect
+that preserves structure and appears only on content shapes absent from the oracle's
+publication could be published until a reader, the next oracle or qualification finds it. That
+is an accepted weakening of independent verification (DP-23), not an equivalence. Freeze, then
+validate, then seal is unchanged (DP-19); the certified content is bound to the frozen content
+by stream roots and logical-digest equality.
+
+Also: union resolution in the native schema mapping takes the first match instead of building
+the full match list; first-match semantics are unchanged.
+
+### PE-S40 — content-addressed byte streams (PE-F26, stage copies)
+
+Every stage stays an immutable published product with its own records: each has its own
+discovery view and sibling consumers and is the reuse unit when downstream policy changes.
+Large byte streams (candidate payloads, big scalars, native JSON extensions) become
+content-addressed within a project: per-build stream descriptors gain a content key of profile,
+byte length and byte root; parts are stored once per project and key, with a one-time fold
+verification receipt; a producer sends a descriptor without parts when the key exists. Sharing
+is scoped to a project so shared content cannot reveal another project's content.
+
+Rejected: content-addressed records with per-stage membership (organize reparents most items
+and integrate rewrites many, so little would be shared, while every reader and validator would
+gain an indirection) and private intermediate stages (each has consumers).
+
+### PE-S37 — whole-document and narrow reads (PE-F14)
+
+After the whole-product materialization admission, the per-statement preflight is skipped and
+stream descriptors and parts are fetched in ordered pages into a stream map inside the admitted
+bound; this needs no native change. Per-stream digest verification and the over-budget refusal
+stay. Recognition reads the page membership rows and the health companion instead of hydrating
+the document, keeping its whole-source and conversion-success refusals. Integration reads
+observations with one native set read in the canonical input-key order, refusing duplicates,
+and the Arrow spool and DuckDB sort are removed if that order is reproduced exactly; otherwise
+the order change is versioned as a recipe change.
+
+### PE-S09, PE-S38, PE-S39 — recovery units and recognition lifetime (PE-F28, PE-F20, PE-RC07)
+
+**Rule change PE-RC07** (ADR-G supersedes ADR-0094, changing only its outcome clause and
+restating the rest, including durable completion intents; ADR-H supersedes ADR-0099, changing
+only its sealed-publisher clause and restating the rest, and records the PDF failure-reuse
+rule). ADR-G is scoped to recognition and PDF provider outcomes unless the review held before
+it is written extends it.
+
+**PE-S09.** An operation outcome is either terminal or an execution failure. A terminal outcome
+is a fact about the declared input under the recipe (success, empty, partial or capped, or a
+provider or kernel refusal of that input); it is published as such and reused under the same
+recipe. An execution failure is a failure of the physical attempt (transport, timeout,
+unavailability, service generation change, environment drift, crash, cancellation, lease
+loss); it is kept as attempt evidence, never published as an outcome and never reused. The
+recognition worker records the class at its origin:
+
+| Class | Cases |
+|---|---|
+| Provider outcome (terminal) | HTTP 400, 413 and 422, and any provider response the adapter contract declares an input refusal, under the admitted generation; finish caps; partial or empty readings; a parser failure after every response was received |
+| Execution (transient) | Transport error, timeout, every other HTTP status including 401, 403, 404, 409 and 5xx; generation crossing; package drift or initialization failure; crash without a result file; cancellation or lease loss |
+
+Deployment and configuration errors are execution failures: they say nothing about the
+declared input, and reusing them is the defect this slice removes.
+
+A recorded failure with no class is treated as execution. The `reuse_failures` flag is removed.
+The recognition operation completes the pages it can and, if any page ended in an execution
+failure, ends the request as retryable instead of publishing the set. Repetition recovery stays
+bound to terminal capped pages. No retry loop is added; retries use the existing request
+attempts. After this slice no manual `reuse_failures=False` attempt is needed (coordinator
+completion step 6, which has already run once).
+
+Every draft stage inspects build state before computing: a published build is returned; a
+frozen build with equal premises is finished through the path the native producer already
+uses; an open build computes and adopts by exact replay; differing premises refuse.
+
+**PE-S38.** One long-lived recognition worker per concurrency slot imports the client and
+checks package pins once and serves page requests over a pipe, writing the same per-attempt
+files. Per-page cancellation kills the slot's process group and respawns it. The parent opens
+the PDF once and admits the service generation once per claimed operation, re-admitting when a
+response reports a different generation. The PDF publication context is resolved once per
+claimed operation, and a page's requests are published in one transaction, which makes a page
+atomic.
+
+**PE-S39.** Capture resumes by this ladder: sealed, return it; frozen, finish; open with a
+complete verified record spool, re-adopt it; open with a partial page spool, restore verified
+pages, compute page-local stages only for missing pages, then run global assembly and
+enrichment; otherwise start fresh. With PE-S35 nothing per page is in the database before
+finalization, so resume depends neither on GPU determinism nor on byte-identical reconversion.
+The sealed receipt names the sealing attempt and every attempt that contributed frozen content.
+The slice's first step settles whether the pinned Docling pipeline can skip page stages for
+spooled pages.
+
+### Acceptance
+
+- **Views and lookups (PE-S02, S03):** identical occurrence identities, products and coverage on
+  bounded real sources before and after; unsorted or overlapping pieces refuse at construction;
+  a caller mutation of a view column raises.
+- **Encoders (PE-S29):** the same set of (occurrence or target, operation) members, each with
+  exactly one vector, whose identities differ from the scalar ones only through the new policy's
+  profile id; a member-local refusal leaves
+  siblings published; a packet with one altered body digest refuses the whole packet; a scalar
+  reply for a batch-declared operation refuses natively.
+- **GLiNER and M1 (PE-S31):** identical reports and contribution order; a refused input is
+  limited, never dropped; receipts cover exactly the admitted ordered population.
+- **PDF products (PE-S34–S37):** for a bounded original under the CPU recipe or a fixed spool,
+  logical digests of every stage, exported native JSON bytes, companion rows and access and
+  region rows are identical before and after; frozen digests differ only by the removed page
+  streams.
+- **Tamper refusals (PE-S36):** a staged part altered after staging; an access row inconsistent
+  with the records; an attested digest unequal to the database identity; a candidate with
+  invalid OCR geometry but correct digests (refused by producer certification before staging);
+  an injected lossy lowering under a new lowering identity (refused by the first-publication
+  oracle).
+- **Set-wise companions (PE-S34):** a changed duplicate, an identity or order mismatch and a
+  duplicate inside one copy refuse; exact replay is neutral.
+- **Recovery (PE-S09, S39):** a kill during conversion resumes computing only missing pages; a
+  kill during record adoption reconverts nothing; a kill after freeze in a draft stage computes
+  nothing; a frozen build with a different recipe refuses. On a controlled endpoint, a 503,
+  refused connection, timeout or generation change yields an execution failure and a new
+  provider call on the next attempt, while a 400, 422 or length cap is reused with no call.
+- **Reads (PE-S37):** identical hydrated bytes; an over-budget product refuses before transfer;
+  the narrow inventory equals the full read's; the ordered observation read reproduces the
+  reconciled output.
+- **Assets (PE-S07):** a modified weight refuses; a child whose re-stat differs refuses without
+  re-hashing; equal bytes after a touch pass.
+- **HanLP and grammar (PE-S15):** product bytes identical to the per-group exchange on a bounded
+  multi-group input; a grammar edited after first use refuses.
+- **Learned primary (PE-S32):** identical outputs and order; each block's D1 stage order
+  observed; every submitted handle retired on cancellation.
+- **Recognition worker (PE-S38):** per-page cancellation kills and respawns only that slot;
+  per-attempt files identical in kind; a generation change re-admits; a 401 or 404 yields an
+  execution failure and a new call on the next attempt.
+- **Shared streams (PE-S40):** a stream equal across stages is stored once; a tampered shared
+  part refuses every build that references it; another project's key is not reusable.
+- **Prepared grammar (PE-S33):** adopted only on exact forest equality over the book's regions.
+
+### For the design/target review due before PE-S36 and PE-S40
+
+Whether the release captures the lowering and reconstruction sources; the certification-basis
+receipt and the DP-23 residual risk; Python and native frame parity now being load-bearing for
+seal; project scoping, retention and collection of shared content; attempt-fenced spool
+ownership and spool retention; multi-attempt attribution in sealed receipts; and whether
+page-subset resume preserves global assembly semantics. The failure classification table and
+its reach beyond PDF are examined earlier, in the review held before PE-S09.

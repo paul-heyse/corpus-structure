@@ -175,3 +175,35 @@ output, the same validator on both actual and expected, or an export round trip 
 rich correctness. No universal accuracy threshold, provider campaign or benchmark is introduced by
 this plan-writing increment. Later targeted checks and final assembled qualification follow the
 coordinator’s authorized execution boundary.
+
+## Established validity and rule policy lifetime — production-efficiency · 2026-11-17
+
+**Accepted scope; implementation Proposed.** The coordinator owns status; the
+[integration companion](production-efficiency-integration.md) owns slice order. This section
+owns PE-S08 and the rich part of PE-S03.
+
+- **Retained products at consumers (PE-F09 d).** A consumer relies on validity established at
+  production for a retained product body when all three hold: the hydrated body is the native
+  product's canonical body; the producing operation's captured validator is the implementation
+  revision the consuming release admits; and the producer's recorded premises (source
+  coordinate, selectors, subject context) equal the consumer's. The consumer then performs
+  typed decoding and its consumer-relative checks only. Bodies adopted across releases, or whose
+  validator revision differs, still validate fully. A digest alone is not sufficient; the
+  validator revision and premises make the established status explicit. This applies
+  ADR-0083's established-validation clause ("a digest is not proof"), which ADR-D restates when
+  it supersedes that record; PE-S08 depends on that restatement and needs no further decision.
+- **One rich-graph validation.** Consolidation validates its in-process graph three times
+  today. The graph reader is split into an index constructor and the boundary validation. The
+  scientific and rule stages receive the index of the builder's graph; the output graph is
+  validated once before return, as today. Authored inputs are retained products and follow the
+  rule above.
+- **Rule policy per release.** The rich rule policy is prepared once per release and rule
+  artifact digest in the worker, with its `is_a` closures and alternative maps built inside it.
+  The slice first confirms the policy holds no per-document mutable state.
+- **Keyed joins (PE-F02).** The alternatives table, the given-by-others test and the
+  value-disagreement slots use maps built once per evaluation; output order and sorted tuples
+  are unchanged.
+
+Acceptance: identical consolidation outputs on existing fixtures; a retained body whose
+validator revision differs is fully validated; a malformed member that reaches the output
+graph is still refused at the boundary.

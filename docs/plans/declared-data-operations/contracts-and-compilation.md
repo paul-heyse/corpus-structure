@@ -737,3 +737,61 @@ owns effect boundaries and protected compilation. Library mechanisms and source 
 [review I01](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I01),
 [I02](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I02),
 [I03](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I03).
+
+## Wire protocol preparation and set-form generation — production-efficiency · 2026-11-17
+
+**Accepted scope; implementation Proposed.** The coordinator owns status; the
+[integration companion](production-efficiency-integration.md) owns slice order. This section
+owns the Python and generator contracts for PE-S01, PE-S27 and the generated half of PE-S26.
+
+### PE-S01 — protocol prepared once per process (PE-F04, no rule change)
+
+Each native call today rebuilds the ambient protocol three times: it re-reads and parses the
+protocol file, rebuilds the ambient extension schemas and canonicalizes the document, and only
+the steps after that are cached. Target: the ambient protocol bytes, checked document, contract
+bytes, per-operation schema bytes, the role-kind map and the compiled Draft7 validators are
+prepared once at first use in a process. Generated calls compile their validators at import.
+The captured-sources path, used to install or inspect a captured release, keeps its
+argument-keyed route. Preparing at first use also aligns the protocol with the generated typed
+views the process imported, which re-reading disk per call did not. This changes no guarantee
+and lands first.
+
+### PE-S27 — validation placement (PE-F04, PE-RC01)
+
+**Rule change PE-RC01** (ADR-C, superseding ADR-0106 and restating its renewal-checkout,
+notice-handler and compiler-retirement decisions unchanged). Draft7 remains authoritative for
+wire shape. Four validations run per call today; the Python and SQL checks validate against
+different authorities (the on-disk protocol and the contract installed with the release), so
+they are not one check repeated. Target:
+
+- PostgreSQL validates every request at the security-definer boundary (products companion).
+- Each native envelope names the digest of the installed contract. The client compares it with
+  its prepared protocol's digest and refuses on a difference, before its transaction commits.
+- Under that equality the client validates results and does not re-validate its own requests,
+  and native code does not re-validate its results.
+
+The client result check is the one kept: it answers the consumer's question, and its
+validators compile once per process. Client result validation completes before the calling
+transaction commits, so an off-contract result rolls its effects back; a call path that commits
+inside the native call keeps its SQL output check. PE-S00 reads the pinned `pg_jsonschema`
+source only to inform the cost of SQL input validation. Moving the result check to SQL would
+need a plan amendment and a revised ADR-C. ADR-C is written after that PE-S00 item and before
+PE-S27. Generated non-DDO calls adopt the pattern only where their
+SQL side validates input; otherwise they keep both client checks.
+
+Preserve exact-JSON encodability, the captured path, and retained archives decoded from their
+original schema.
+
+### PE-S26, generator half — set-form wire operations (PE-F10)
+
+The protocol declares a set entry that references its item operation. The generator emits the
+item-list request and the per-item result-or-refusal list from the same definitions; there is
+no second catalogue of transport types. A set call is validated once per call.
+
+### Acceptance
+
+A process reads the protocol file once; a malformed request still refuses at SQL input; an
+off-contract result from a test-only native implementation is refused by the client and no
+native row changes; with
+contract X installed and a client prepared for Y, the first call refuses and no native row
+changes; the captured-sources path still validates against the captured contract.
