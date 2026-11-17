@@ -131,50 +131,106 @@ def _compare(connection, request, implementation):
             reason="invalid_continuation",
         )
     from corpus_structure.semantic.demand_results import recheck_selected_frontier
-    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE, bounded_rows, byte_bounded_page, uncached_rows_from
+    from corpus_structure.semantic.selected_query_cache import (
+        SELECTED_QUERY_CACHE,
+        bounded_rows,
+        byte_bounded_page,
+        uncached_rows_from,
+    )
 
     cuts, stamps = [], []
     for pin in (request.before, request.after):
-        cut, _, stamp = recheck_selected_frontier(connection, pin.demand_id, project_id=pin.project_id,
-            scope={"product_ids": [pin.product_id]}, read_id=pin.read_id, expected_cut=pin.cut_id,
-            max_bytes=request.max_graph_bytes, max_records=request.max_graph_records)
+        cut, _, stamp = recheck_selected_frontier(
+            connection,
+            pin.demand_id,
+            project_id=pin.project_id,
+            scope={"product_ids": [pin.product_id]},
+            read_id=pin.read_id,
+            expected_cut=pin.cut_id,
+            max_bytes=request.max_graph_bytes,
+            max_records=request.max_graph_records,
+        )
         cuts.append(cut)
         stamps.append(stamp)
     key = json_bytes(["exclusions", implementation, digest, stamps])
     entry, remaining = SELECTED_QUERY_CACHE.get(key), None
+    metadata = None
     with ExitStack() as stack:
         if entry is None:
             before, left = _selected_snapshot(connection, request.before, request, stack)
             after, right = _selected_snapshot(connection, request.after, request, stack)
-            metadata = dict(before={key: value for key, value in before.items() if key not in {"pin", "cut"}},
-                            after={key: value for key, value in after.items() if key not in {"pin", "cut"}})
-            source = (row.value for row in compare_constraint_snapshots(left, right,
-                include_unchanged=request.include_unchanged, max_entries=request.max_declarations))
+            metadata = dict(
+                before={key: value for key, value in before.items() if key not in {"pin", "cut"}},
+                after={key: value for key, value in after.items() if key not in {"pin", "cut"}},
+            )
+            source = (
+                row.value
+                for row in compare_constraint_snapshots(
+                    left,
+                    right,
+                    include_unchanged=request.include_unchanged,
+                    max_entries=request.max_declarations,
+                )
+            )
             entry, remaining = bounded_rows(source, metadata)
             if entry is not None:
                 SELECTED_QUERY_CACHE.put(key, entry)
-        metadata = entry.record() if entry is not None else metadata
-        before = dict(metadata["before"], pin=request.before.model_dump(mode="python"), cut=cuts[0].record)
-        after = dict(metadata["after"], pin=request.after.model_dump(mode="python"), cut=cuts[1].record)
+        if entry is not None:
+            metadata = entry.record()
+        assert metadata is not None
+        before = dict(
+            metadata["before"], pin=request.before.model_dump(mode="python"), cut=cuts[0].record
+        )
+        after = dict(
+            metadata["after"], pin=request.after.model_dump(mode="python"), cut=cuts[1].record
+        )
         offset = 0 if cursor is None else cursor["ordinal"]
         if type(offset) is not int or offset < 0:
-            raise InvalidContinuation("invalid constraint comparison ordinal", reason="invalid_continuation")
+            raise InvalidContinuation(
+                "invalid constraint comparison ordinal", reason="invalid_continuation"
+            )
         rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
         def report(end, values, more):
-            token = None if not more else _cursor(dict(version=VERSION, implementation=implementation,
-                                                       selection=digest, ordinal=end))
+            token = (
+                None
+                if not more
+                else _cursor(
+                    dict(
+                        version=VERSION,
+                        implementation=implementation,
+                        selection=digest,
+                        ordinal=end,
+                    )
+                )
+            )
             pinned = request.model_copy(update={"implementation": implementation})
-            return dict(version=VERSION, implementation=implementation, before=before, after=after,
-                        changes=values, cursor=token, resource_handle=_cursor(pinned.model_dump(mode="python")),
-                        scope=dict(matching="exact-original-declaration-product/member-address",
-                            population="explicit-typed-constraints-in-two-selected-whole-roots",
-                            original_source_completeness="unknown",
-                            protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
-                            source_change_authority="not-established"))
+            return dict(
+                version=VERSION,
+                implementation=implementation,
+                before=before,
+                after=after,
+                changes=values,
+                cursor=token,
+                resource_handle=_cursor(pinned.model_dump(mode="python")),
+                scope=dict(
+                    matching="exact-original-declaration-product/member-address",
+                    population="explicit-typed-constraints-in-two-selected-whole-roots",
+                    original_source_completeness="unknown",
+                    protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
+                    source_change_authority="not-established",
+                ),
+            )
+
         try:
-            return byte_bounded_page(rows, offset=offset, limit=request.limit, max_bytes=request.max_bytes,
-                                     report=report, row_fields={"changes": lambda value: (value,)})
+            return byte_bounded_page(
+                rows,
+                offset=offset,
+                limit=request.limit,
+                max_bytes=request.max_bytes,
+                report=report,
+                row_fields={"changes": lambda value: (value,)},
+            )
         except InvalidContinuation:
             raise
         except ValueError as error:

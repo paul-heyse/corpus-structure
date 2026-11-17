@@ -19,7 +19,9 @@ from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.serve import rich_queries as service
 from corpus_structure.serve.rich_knowledge import SelectedRichKnowledge, SelectedRichReference
-from semantic.selected_query_cache_support import clear_selected_query_cache as clear_selected_query_cache
+from semantic.selected_query_cache_support import (
+    clear_selected_query_cache as clear_selected_query_cache,
+)
 from semantic.test_rich_queries import query_source as query_source
 from semantic.test_rich_queries import statistics as statistics
 
@@ -70,9 +72,12 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
         return selected
 
     header_seen = []
+
     def header(connection, demand_id, **kwargs):
         header_seen.append(kwargs)
-        return SelectedRichReference(cut, json_bytes(dict(read, view="frontier")), ref, graph.context)
+        return SelectedRichReference(
+            cut, json_bytes(dict(read, view="frontier")), ref, graph.context
+        )
 
     monkeypatch.setattr(service, "read_selected_rich_reference", header)
     monkeypatch.setattr(service, "read_selected_rich_knowledge", load)
@@ -108,8 +113,10 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
         service,
         "read_selected_rich_reference",
         lambda *a, **k: SelectedRichReference(
-            cut, json_bytes(dict(read, view="frontier")),
-            ref.model_copy(update={"support_references": ()}), graph.context,
+            cut,
+            json_bytes(dict(read, view="frontier")),
+            ref.model_copy(update={"support_references": ()}),
+            graph.context,
         ),
     )
     with pytest.raises(InvalidContinuation, match="root support"):
@@ -138,8 +145,11 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
         "read_selected_rich_knowledge",
         lambda *a, **k: SelectedRichKnowledge(cut, b"{}", ref, graph.context, index.state),
     )
-    monkeypatch.setattr(service, "read_selected_rich_reference", lambda *a, **k:
-                        SelectedRichReference(cut, b"{}", ref, graph.context))
+    monkeypatch.setattr(
+        service,
+        "read_selected_rich_reference",
+        lambda *a, **k: SelectedRichReference(cut, b"{}", ref, graph.context),
+    )
     fraction = Decimal("0.123456789123456789123456789123456789")
     selected = request(
         query={"name": "families_where", "predicate": "stat:parameter_role", "value": fraction}

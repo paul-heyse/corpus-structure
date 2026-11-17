@@ -6,9 +6,6 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
-from semantic.selected_query_cache_support import (
-    clear_selected_query_cache as clear_selected_query_cache, control_frontier,
-)
 from evaluate.declared_record_grading_support import current, current_reading
 
 from corpus_structure.semantic.data_operation_json import json_bytes
@@ -23,6 +20,12 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.record_contracts import interpretation_identity
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
 from corpus_structure.serve.selected_contributions import SelectedContribution
+from semantic.selected_query_cache_support import (
+    clear_selected_query_cache as clear_selected_query_cache,
+)
+from semantic.selected_query_cache_support import (
+    control_frontier,
+)
 
 
 def universe(*, second_source=False, resolved=False):
@@ -242,7 +245,18 @@ def test_group_paging_pins_cut_and_selection_and_never_splits_readings(monkeypat
         )
 
     monkeypatch.setattr(selected_contributions, "selected_contribution_scope", scope)
-    control_frontier(monkeypatch, lambda _: (cut(), {"obligations": [{"fate": "unknown"}], "uses": [], "populations": [], "original_source_admissions": []}))
+    control_frontier(
+        monkeypatch,
+        lambda _: (
+            cut(),
+            {
+                "obligations": [{"fate": "unknown"}],
+                "uses": [],
+                "populations": [],
+                "original_source_admissions": [],
+            },
+        ),
+    )
     request = GroupedInterpretationRequest(
         project_id="project:one",
         demand_id="demand:source",

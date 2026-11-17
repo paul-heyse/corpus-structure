@@ -6,9 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from semantic.selected_query_cache_support import (
-    clear_selected_query_cache as clear_selected_query_cache, control_frontier,
-)
 
 from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.candidate_contribution_facets import (
@@ -33,6 +30,12 @@ from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMe
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from corpus_structure.serve import contribution_facets as serving
+from semantic.selected_query_cache_support import (
+    clear_selected_query_cache as clear_selected_query_cache,
+)
+from semantic.selected_query_cache_support import (
+    control_frontier,
+)
 
 
 @pytest.fixture(scope="module")
@@ -439,7 +442,13 @@ def test_current_delivery_dispatches_real_candidates_and_pins_pagination_and_byt
         yield scope
 
     monkeypatch.setattr(serving, "selected_contribution_scope", acquire)
-    control_frontier(monkeypatch, lambda _: (cut, {"obligations": [], "uses": [], "populations": [], "original_source_admissions": []}))
+    control_frontier(
+        monkeypatch,
+        lambda _: (
+            cut,
+            {"obligations": [], "uses": [], "populations": [], "original_source_admissions": []},
+        ),
+    )
     request = serving.ContributionFacetsRequest(
         demand_id="actual-demand", project_id="project", include_operations=False, limit=1
     )

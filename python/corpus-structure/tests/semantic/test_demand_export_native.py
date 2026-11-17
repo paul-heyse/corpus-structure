@@ -25,6 +25,7 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
     clone, stage = declared_serving_case, declared_serving_case.stage.agent
     destination = tmp_path / encoding
     from corpus_structure.serve import demand_export
+
     support_calls = []
     original_support = demand_export.stream_selected_support
 
@@ -237,10 +238,18 @@ def test_whole_read_support_is_distinct_and_covers_later_frontier_pages(declared
     with clone.reader.begin() as connection:
         complete = read_demand_result(connection, stage.demand_id, project_id=stage.project_id)
         expected = {row["product_id"] for row in complete.members()}
-        first = read_demand_result(connection, stage.demand_id, project_id=stage.project_id,
-                                   limit=1, view="frontier", recheck_bodies=True)
+        first = read_demand_result(
+            connection,
+            stage.demand_id,
+            project_id=stage.project_id,
+            limit=1,
+            view="frontier",
+            recheck_bodies=True,
+        )
         assert first.continuation is not None
-        first_products = {product["product_id"] for use in first.record["uses"] for product in use["products"]}
+        first_products = {
+            product["product_id"] for use in first.record["uses"] for product in use["products"]
+        }
         assert first_products < expected
         support = list(stream_selected_support(connection, first, whole_read=True))
     keys = [row["key"] for row in support]

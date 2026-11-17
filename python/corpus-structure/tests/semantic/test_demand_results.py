@@ -12,7 +12,9 @@ from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_results import CutSelection, DemandResult
 from corpus_structure.serve.demand_journey import DemandQueryRequest, _decode, serve_demand_query
-from semantic.selected_query_cache_support import clear_selected_query_cache as clear_selected_query_cache
+from semantic.selected_query_cache_support import (
+    clear_selected_query_cache as clear_selected_query_cache,
+)
 
 
 def _page(*, trust=None, member_id=None, empty=False) -> dict[str, Any]:
@@ -149,11 +151,13 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
     assert serve_demand_query(None, resource)["items"] == second["items"]
     assert reads.count(("products", False)) == 1
     assert reads.count(("frontier", True)) == 4
+
     # Cache content cannot grant disclosure after current native authorization
     # changes, even for the identical pinned cursor and immutable cached rows.
     def refused(*args, **kwargs):
         assert kwargs["view"] == "frontier" and kwargs["recheck_bodies"] is True
         raise ValueError("current body disclosure refused")
+
     monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", refused)
     with pytest.raises(ValueError, match="disclosure refused"):
         serve_demand_query(None, resource)
@@ -655,7 +659,9 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
 
     selected = pages()
     monkeypatch.setattr(owner, "read_demand_result", lambda *args, **kwargs: next(selected))
-    monkeypatch.setattr(owner, "stream_selected_support", lambda *args, **kwargs: iter((payload, payload)))
+    monkeypatch.setattr(
+        owner, "stream_selected_support", lambda *args, **kwargs: iter((payload, payload))
+    )
     with owner.selected_record_index(
         None,
         "demand:A",

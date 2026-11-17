@@ -55,7 +55,11 @@ def test_companion_set_refusal_rolls_back_every_member(
         rows[1]["ordinal"] = 0
     else:
         rows[1] = raw(build, "two", 1, unmodeled=True)
-    with commit_writer_engine.begin() as connection, pytest.raises(DBAPIError, match=reason), connection.begin_nested():
+    with (
+        commit_writer_engine.begin() as connection,
+        pytest.raises(DBAPIError, match=reason),
+        connection.begin_nested(),
+    ):
         adopt_raw_companion_set(connection, build, rows, replay_key="hostile-set")
     with commit_db_engine.connect() as connection:
         assert (
@@ -76,9 +80,11 @@ def test_companion_set_exact_replay_is_neutral_and_changed_duplicate_refuses(
             adopt_pdf_companions(
                 connection, build, "occurrence", [occurrence("one"), occurrence("two")], "same-set"
             )
-    with (commit_writer_engine.begin() as connection,
-          pytest.raises(DBAPIError, match="changed companion duplicate"),
-          connection.begin_nested()):
+    with (
+        commit_writer_engine.begin() as connection,
+        pytest.raises(DBAPIError, match="changed companion duplicate"),
+        connection.begin_nested(),
+    ):
         adopt_raw_companion_set(
             connection, build, [raw(build, "one", text="changed")], replay_key="changed"
         )

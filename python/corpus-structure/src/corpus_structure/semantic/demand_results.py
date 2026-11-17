@@ -286,19 +286,44 @@ def stream_demand_result(
             break
 
 
-def recheck_selected_frontier(connection, demand_id, *, project_id, scope, read_id=None,
-                              expected_cut=None, max_bytes=8388608, max_records=100000):
+def recheck_selected_frontier(
+    connection,
+    demand_id,
+    *,
+    project_id,
+    scope,
+    read_id=None,
+    expected_cut=None,
+    max_bytes=8388608,
+    max_records=100000,
+):
     """Fresh narrow custody and body disclosure, with no reusable authority result."""
-    request = None if read_id is None else dict(demand_id=demand_id, read_id=read_id,
-                                               scope=dict(scope), view="frontier")
+    request = (
+        None
+        if read_id is None
+        else dict(demand_id=demand_id, read_id=read_id, scope=dict(scope), view="frontier")
+    )
     cut, retained = None, 0
-    identities = {"obligations": "obligation_id", "uses": "use_id", "populations": "population_id",
-                  "original_source_admissions": "admission_id"}
+    identities = {
+        "obligations": "obligation_id",
+        "uses": "use_id",
+        "populations": "population_id",
+        "original_source_admissions": "admission_id",
+    }
     selected = {name: {} for name in identities}
     while True:
-        page = read_demand_result(connection, demand_id, project_id=project_id,
-                                 continuation=request, cut=cut, scope=scope, view="frontier",
-                                 limit=100, max_bytes=max_bytes, recheck_bodies=True)
+        page = read_demand_result(
+            connection,
+            demand_id,
+            project_id=project_id,
+            continuation=request,
+            cut=cut,
+            scope=scope,
+            view="frontier",
+            limit=100,
+            max_bytes=max_bytes,
+            recheck_bodies=True,
+        )
         cut = page.cut
         if expected_cut is not None and cut.identity != expected_cut:
             raise ValueError("selected resource belongs to another cut/trust assessment")
@@ -313,18 +338,25 @@ def recheck_selected_frontier(connection, demand_id, *, project_id, scope, read_
                     selected[name][row[identity]] = encoded
                     retained += len(encoded)
         if sum(map(len, selected.values())) > max_records or retained > max_bytes:
-            raise SelectedGraphBudgetExceeded("selected frontier exceeds examined capacity", cut=cut)
+            raise SelectedGraphBudgetExceeded(
+                "selected frontier exceeds examined capacity", cut=cut
+            )
         request = page.continuation
         if request is None:
             break
-    frontier = {name: [wire_json_loads(value) for _, value in sorted(rows.items())] for name, rows in selected.items()}
+    frontier = {
+        name: [wire_json_loads(value) for _, value in sorted(rows.items())]
+        for name, rows in selected.items()
+    }
     content = json_bytes(frontier)
     if len(content) > max_bytes:
         raise SelectedGraphBudgetExceeded("selected frontier exceeds examined capacity", cut=cut)
     return cut, frontier, sha256(content).hexdigest()
 
 
-def stream_selected_support(connection, page: DemandResult, *, whole_read: bool = False) -> Iterator[dict[str, Any]]:
+def stream_selected_support(
+    connection, page: DemandResult, *, whole_read: bool = False
+) -> Iterator[dict[str, Any]]:
     """Read the page or whole scoped cut closure in bounded native keyset pages."""
     from .data_operation_storage import DataOperationStorage
 

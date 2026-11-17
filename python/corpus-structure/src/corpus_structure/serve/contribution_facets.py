@@ -15,7 +15,6 @@ from corpus_structure.semantic.contribution_facets import (
 )
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.nonrich_contribution_facets import nonrich_facets, nonrich_family
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused, RichQueryRow
@@ -173,7 +172,8 @@ def unsupported_rows(scope, selected, request):
         reference = selected.reference.model_copy(
             update={"member_id": member, "kind_contract": contract}
         ).model_dump(mode="python")
-        yield RichQueryRow(dict(
+        yield RichQueryRow(
+            dict(
                 population="contribution",
                 row=dict(
                     reference=reference,
@@ -183,7 +183,8 @@ def unsupported_rows(scope, selected, request):
                     assessment="unknown",
                     reason="no-current-facet-decoder-for-this-declared-nominal-kind",
                 ),
-            ))
+            )
+        )
 
 
 def serve_contribution_facets(connection, request: ContributionFacetsRequest):
@@ -235,26 +236,48 @@ def _serve(connection, request, implementation):
     from itertools import chain
 
     from corpus_structure.semantic.demand_results import recheck_selected_frontier
-    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE, bounded_rows, byte_bounded_page, uncached_rows_from
+    from corpus_structure.semantic.selected_query_cache import (
+        SELECTED_QUERY_CACHE,
+        bounded_rows,
+        byte_bounded_page,
+        uncached_rows_from,
+    )
+
     from .selected_contributions import selected_contribution_selection
 
     cut, frontier, stamp = recheck_selected_frontier(
-        connection, request.demand_id, project_id=request.project_id,
-        scope=selected_contribution_selection(request), read_id=request.read_id, expected_cut=request.expected_cut,
-        max_bytes=request.max_graph_bytes, max_records=request.max_graph_records,
+        connection,
+        request.demand_id,
+        project_id=request.project_id,
+        scope=selected_contribution_selection(request),
+        read_id=request.read_id,
+        expected_cut=request.expected_cut,
+        max_bytes=request.max_graph_bytes,
+        max_records=request.max_graph_records,
     )
-    pinned = request.model_copy(update=dict(read_id=cut.record["read_id"], expected_cut=cut.identity, implementation=implementation))
+    pinned = request.model_copy(
+        update=dict(
+            read_id=cut.record["read_id"], expected_cut=cut.identity, implementation=implementation
+        )
+    )
     key = json_bytes(["facets", cut.identity, implementation, digest, stamp])
     entry, remaining = SELECTED_QUERY_CACHE.get(key), None
+    metadata = None
     with ExitStack() as stack:
         if entry is None:
             scope = stack.enter_context(selected_contribution_scope(connection, pinned))
             metadata = dict(records=scope.index.retained_records)
-            source = (row.value for row in contribution_rows(scope, request.model_copy(update={"include_operations": False})))
+            source = (
+                row.value
+                for row in contribution_rows(
+                    scope, request.model_copy(update={"include_operations": False})
+                )
+            )
             entry, remaining = bounded_rows(source, metadata)
             if entry is not None:
                 SELECTED_QUERY_CACHE.put(key, entry)
         metadata = entry.record() if entry is not None else metadata
+        assert metadata is not None
         operations = []
         if request.include_operations:
             uses = {}
@@ -264,27 +287,70 @@ def _serve(connection, request, implementation):
                 # observations fresh, preserving that exact projection.
                 value = {key: value for key, value in use.items() if key != "products"}
                 uses.setdefault(use["obligation_id"], []).append(value)
-            operations = [dict(population="operation", row=dict(obligation=obligation,
-                uses=uses.get(obligation["obligation_id"], []), standing="native-selected-operation", output_absence="not-inferred"))
-                for obligation in frontier["obligations"]]
+            operations = [
+                dict(
+                    population="operation",
+                    row=dict(
+                        obligation=obligation,
+                        uses=uses.get(obligation["obligation_id"], []),
+                        standing="native-selected-operation",
+                        output_absence="not-inferred",
+                    ),
+                )
+                for obligation in frontier["obligations"]
+            ]
         offset = 0 if cursor is None else cursor["ordinal"]
         if type(offset) is not int or offset < 0:
-            raise InvalidContinuation("invalid contribution row ordinal", reason="invalid_continuation")
+            raise InvalidContinuation(
+                "invalid contribution row ordinal", reason="invalid_continuation"
+            )
         derived_offset = max(0, offset - len(operations))
-        rows = chain(operations[offset:], entry.rows(derived_offset) if entry is not None else uncached_rows_from(remaining, derived_offset))
+        rows = chain(
+            operations[offset:],
+            entry.rows(derived_offset)
+            if entry is not None
+            else uncached_rows_from(remaining, derived_offset),
+        )
 
         def report(end, values, more):
-            token = None if not more else _cursor(dict(version=VERSION, implementation=implementation,
-                selection=digest, read_id=cut.record["read_id"], cut_id=cut.identity, ordinal=end))
-            return dict(version=VERSION, implementation=implementation, cut=cut.record, cut_id=cut.identity,
-                selection=request.selection(), items=values, cursor=token,
+            token = (
+                None
+                if not more
+                else _cursor(
+                    dict(
+                        version=VERSION,
+                        implementation=implementation,
+                        selection=digest,
+                        read_id=cut.record["read_id"],
+                        cut_id=cut.identity,
+                        ordinal=end,
+                    )
+                )
+            )
+            return dict(
+                version=VERSION,
+                implementation=implementation,
+                cut=cut.record,
+                cut_id=cut.identity,
+                selection=request.selection(),
+                items=values,
+                cursor=token,
                 resource_handle=_cursor(pinned.model_dump(mode="python", exclude_unset=True)),
-                examination=dict(records=metadata["records"], scope="exact-native-selected-product-and-disclosed-support-population",
-                    global_completeness="unknown", protected_dependencies="undisclosed-where-bounded-authority-leaves-occur"),
+                examination=dict(
+                    records=metadata["records"],
+                    scope="exact-native-selected-product-and-disclosed-support-population",
+                    global_completeness="unknown",
+                    protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
+                ),
                 interpretation_scope="declared-rich-graph-private-candidate-finite-and-structural-meaning",
-                assessment_scope="captured-native-producer-judgments", source_completeness="unknown")
+                assessment_scope="captured-native-producer-judgments",
+                source_completeness="unknown",
+            )
+
         try:
-            return byte_bounded_page(rows, offset=offset, limit=request.limit, max_bytes=request.max_bytes, report=report)
+            return byte_bounded_page(
+                rows, offset=offset, limit=request.limit, max_bytes=request.max_bytes, report=report
+            )
         except InvalidContinuation:
             raise
         except ValueError as error:

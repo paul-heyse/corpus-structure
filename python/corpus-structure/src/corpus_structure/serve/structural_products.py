@@ -193,10 +193,12 @@ def dossier_member_page(report, *, population, offset, limit):
 
 def inspect_selected_dossier(conn, request: SelectedDossierRequest):
     from corpus_structure._query_custody import STRUCTURAL_READ_SOURCES
+
     from .rich_queries import installed_read_implementation
 
-    with installed_read_implementation(type(request), sources=STRUCTURAL_READ_SOURCES,
-                                       profile="selected-structural-read-v1") as implementation:
+    with installed_read_implementation(
+        type(request), sources=STRUCTURAL_READ_SOURCES, profile="selected-structural-read-v1"
+    ) as implementation:
         if request.implementation is not None and request.implementation != implementation:
             raise ValueError("dossier resource differs from its installed implementation")
         return _inspect_selected_dossier(conn, request, implementation)
@@ -240,52 +242,98 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
             )
         )
     from collections import defaultdict
+
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.demand_results import recheck_selected_frontier
-    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE, bounded_rows, byte_bounded_page, uncached_rows_from
+    from corpus_structure.semantic.selected_query_cache import (
+        SELECTED_QUERY_CACHE,
+        bounded_rows,
+        byte_bounded_page,
+        uncached_rows_from,
+    )
+
     from .selected_structural import StructuralScope
 
-    selection = request.model_dump(mode="python", exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"})
+    selection = request.model_dump(
+        mode="python",
+        exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"},
+    )
     detached = isinstance(conn, StructuralScope)
     if detached:
         current_cut, stamp = conn.cut, None
     else:
         current_cut, _, stamp = recheck_selected_frontier(
-            conn, request.demand_id, project_id=request.project_id,
-            scope={"product_ids": [request.root.product_id]}, read_id=request.read_id,
-            expected_cut=request.expected_cut, max_bytes=request.max_graph_bytes,
+            conn,
+            request.demand_id,
+            project_id=request.project_id,
+            scope={"product_ids": [request.root.product_id]},
+            read_id=request.read_id,
+            expected_cut=request.expected_cut,
+            max_bytes=request.max_graph_bytes,
             max_records=request.max_graph_records,
         )
-    pinned = request.model_copy(update=dict(read_id=current_cut.record["read_id"],
-                                           expected_cut=current_cut.identity, implementation=implementation))
+    pinned = request.model_copy(
+        update=dict(
+            read_id=current_cut.record["read_id"],
+            expected_cut=current_cut.identity,
+            implementation=implementation,
+        )
+    )
     key = json_bytes(["dossier", current_cut.identity, implementation, selection, stamp])
     entry, remaining = (None if detached else SELECTED_QUERY_CACHE.get(key)), None
+    metadata = None
     if entry is None:
         with structural_scope(conn, pinned, roots=(request.root,)) as scope:
             selected = selected_root(scope, request.root)
             if selected is None:
-                return bounded_result(request, dict(format="selected-dossier-page-v2", availability="outside_selection",
-                    cut_id=current_cut.identity, cut=current_cut.record, implementation=implementation))
+                return bounded_result(
+                    request,
+                    dict(
+                        format="selected-dossier-page-v2",
+                        availability="outside_selection",
+                        cut_id=current_cut.identity,
+                        cut=current_cut.record,
+                        implementation=implementation,
+                    ),
+                )
             report = structural_report(scope, selected)
             if report.dossier is None:
                 raise ValueError("selected output is not a dossier")
-            complete = dossier_member_page(report, population=request.population, offset=0, limit=len(report.dossier.members))
+            complete = dossier_member_page(
+                report, population=request.population, offset=0, limit=len(report.dossier.members)
+            )
             citations, facets = defaultdict(list), defaultdict(list)
             for citation in complete["citations"]:
                 citations[citation["member_id"]].append(citation)
             for ordinal, facet in enumerate(complete["supported_facets"]):
                 facets[facet["member_id"]].append(dict(ordinal=ordinal, value=facet))
-            items = [dict(members=[member], citations=citations[member["member_id"]],
-                          supported_facets=facets[member["member_id"]]) for member in complete["members"]]
-            metadata = {name: value for name, value in complete.items()
-                        if name not in {"members", "citations", "supported_facets", "next_offset"}}
+            items = [
+                dict(
+                    members=[member],
+                    citations=citations[member["member_id"]],
+                    supported_facets=facets[member["member_id"]],
+                )
+                for member in complete["members"]
+            ]
+            metadata = {
+                name: value
+                for name, value in complete.items()
+                if name not in {"members", "citations", "supported_facets", "next_offset"}
+            }
             metadata["producer"] = producer(selected)
         entry, remaining = bounded_rows(items, metadata)
         if entry is not None and not detached:
             SELECTED_QUERY_CACHE.put(key, entry)
     metadata = entry.record() if entry is not None else metadata
-    binding = dict(cut_id=current_cut.identity, implementation=implementation,
-                   **{name: metadata[name] for name in ("product_id", "membership_digest", "facet_digest", "policy")})
+    assert metadata is not None
+    binding = dict(
+        cut_id=current_cut.identity,
+        implementation=implementation,
+        **{
+            name: metadata[name]
+            for name in ("product_id", "membership_digest", "facet_digest", "policy")
+        },
+    )
     if cursor is not None and cursor["binding"] != binding:
         raise ValueError("dossier continuation differs from exact membership/facets/policy")
     offset = 0 if cursor is None else cursor["offset"]
@@ -294,23 +342,54 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
     rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
     def report_page(end, values, more):
-        next_cursor = None if not more else _cursor(dict(version="selected-dossier-page-v2", cut=current_cut.record,
-                                                        binding=binding, offset=end, request=selection))
-        facets = sorted((facet for value in values for facet in value["supported_facets"]), key=lambda item: item["ordinal"])
-        return dict(format="selected-dossier-page-v2", availability="observed", cut_id=current_cut.identity,
-                    cut=current_cut.record, implementation=implementation, population=request.population,
-                    standing="private_proposal", public_admission="not-established", **metadata,
-                    members=[member for value in values for member in value["members"]],
-                    citations=[citation for value in values for citation in value["citations"]],
-                    supported_facets=[facet["value"] for facet in facets], next_cursor=next_cursor)
+        next_cursor = (
+            None
+            if not more
+            else _cursor(
+                dict(
+                    version="selected-dossier-page-v2",
+                    cut=current_cut.record,
+                    binding=binding,
+                    offset=end,
+                    request=selection,
+                )
+            )
+        )
+        facets = sorted(
+            (facet for value in values for facet in value["supported_facets"]),
+            key=lambda item: item["ordinal"],
+        )
+        return dict(
+            format="selected-dossier-page-v2",
+            availability="observed",
+            cut_id=current_cut.identity,
+            cut=current_cut.record,
+            implementation=implementation,
+            population=request.population,
+            standing="private_proposal",
+            public_admission="not-established",
+            **metadata,
+            members=[member for value in values for member in value["members"]],
+            citations=[citation for value in values for citation in value["citations"]],
+            supported_facets=[facet["value"] for facet in facets],
+            next_cursor=next_cursor,
+        )
 
     try:
-        return byte_bounded_page(rows, offset=offset, limit=request.limit, max_bytes=request.max_bytes,
-                                 report=report_page, row_fields={
-                                     "members": lambda row: row["members"],
-                                     "citations": lambda row: row["citations"],
-                                     "supported_facets": lambda row: [facet["value"] for facet in row["supported_facets"]],
-                                 })
+        return byte_bounded_page(
+            rows,
+            offset=offset,
+            limit=request.limit,
+            max_bytes=request.max_bytes,
+            report=report_page,
+            row_fields={
+                "members": lambda row: row["members"],
+                "citations": lambda row: row["citations"],
+                "supported_facets": lambda row: [
+                    facet["value"] for facet in row["supported_facets"]
+                ],
+            },
+        )
     finally:
         if remaining is not None:
             remaining.close()

@@ -20,7 +20,7 @@ class InterpretationAnswer(BaseModel):
 
 
 def answer(kind, body, max_bytes=1024**2):
-    from corpus_structure.semantic.refusals import ReadLimit, InvalidContinuation
+    from corpus_structure.semantic.refusals import ReadLimit
 
     report = InterpretationAnswer(kind=kind, body=body)
     content = json_bytes(report.model_dump(mode="python"))
@@ -121,7 +121,7 @@ def _group_selected_interpretations(connection, request, implementation):
         attach_finite_interpretations,
         grouped_candidate_product,
     )
-    from corpus_structure.semantic.refusals import ReadLimit, InvalidContinuation
+    from corpus_structure.semantic.refusals import InvalidContinuation, ReadLimit
     from corpus_structure.serve.selected_contributions import (
         actual_graph_inputs,
         selected_contribution_scope,
@@ -166,26 +166,47 @@ def _group_selected_interpretations(connection, request, implementation):
         roots.setdefault(root.product_id, []).append(root)
     from corpus_structure.semantic.authored_interpretations import JUDGMENT_KINDS
     from corpus_structure.semantic.demand_results import recheck_selected_frontier
-    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE, bounded_rows, byte_bounded_page, uncached_rows_from
+    from corpus_structure.semantic.selected_query_cache import (
+        SELECTED_QUERY_CACHE,
+        bounded_rows,
+        byte_bounded_page,
+        uncached_rows_from,
+    )
+
     from .selected_contributions import selected_contribution_selection
 
-    scope = selected_contribution_selection(acquired, product_ids=(*roots, *request.authored_products))
+    scope = selected_contribution_selection(
+        acquired, product_ids=(*roots, *request.authored_products)
+    )
     current_cut, frontier, stamp = recheck_selected_frontier(
-        connection, request.demand_id, project_id=request.project_id, scope=scope,
-        read_id=acquired.read_id, expected_cut=acquired.expected_cut,
-        max_bytes=request.max_graph_bytes, max_records=request.max_graph_records,
+        connection,
+        request.demand_id,
+        project_id=request.project_id,
+        scope=scope,
+        read_id=acquired.read_id,
+        expected_cut=acquired.expected_cut,
+        max_bytes=request.max_graph_bytes,
+        max_records=request.max_graph_records,
     )
     stamps = [stamp]
     for authored in request.authored_reads:
         _, _, authored_stamp = recheck_selected_frontier(
-            connection, authored.demand_id, project_id=request.project_id, scope=authored.scope,
-            read_id=authored.read_id, expected_cut=authored.expected_cut,
-            max_bytes=request.max_graph_bytes, max_records=request.max_graph_records,
+            connection,
+            authored.demand_id,
+            project_id=request.project_id,
+            scope=authored.scope,
+            read_id=authored.read_id,
+            expected_cut=authored.expected_cut,
+            max_bytes=request.max_graph_bytes,
+            max_records=request.max_graph_records,
         )
         stamps.append(authored_stamp)
-    acquired = acquired.model_copy(update=dict(read_id=current_cut.record["read_id"], expected_cut=current_cut.identity))
+    acquired = acquired.model_copy(
+        update=dict(read_id=current_cut.record["read_id"], expected_cut=current_cut.identity)
+    )
     cache_key = json_bytes(["grouped", current_cut.identity, implementation, digest, stamps])
     entry, remaining = SELECTED_QUERY_CACHE.get(cache_key), None
+    metadata, items = None, None
     if entry is None:
         with selected_contribution_scope(
             connection, acquired, product_ids=(*roots, *request.authored_products)
@@ -201,7 +222,11 @@ def _group_selected_interpretations(connection, request, implementation):
                     continue
                 found.add(identity)
                 definition = next(
-                    (value for value in selected.prepared.definitions if value.iri == product.nominal),
+                    (
+                        value
+                        for value in selected.prepared.definitions
+                        if value.iri == product.nominal
+                    ),
                     None,
                 )
                 if definition is not None and (
@@ -229,7 +254,9 @@ def _group_selected_interpretations(connection, request, implementation):
                 ):
                     groups[group.identity] = group
             if set(roots) != found:
-                raise ValueError("interpretation roots require exact selected whole candidate products")
+                raise ValueError(
+                    "interpretation roots require exact selected whole candidate products"
+                )
             grouped = tuple(groups[key] for key in sorted(groups))
             candidate_product_ids = set(roots) - {value.reference.product_id for value in finite}
             finite_universes = []
@@ -245,7 +272,9 @@ def _group_selected_interpretations(connection, request, implementation):
                     or inputs[0].get("member_id") is not None
                     or inputs[0]["product_id"] not in candidate_product_ids
                 ):
-                    raise ValueError("finite root requires its exact selected whole candidate input")
+                    raise ValueError(
+                        "finite root requires its exact selected whole candidate input"
+                    )
                 candidate_id = inputs[0]["product_id"]
                 references, _ = actual_graph_inputs(
                     selected.index,
@@ -271,7 +300,9 @@ def _group_selected_interpretations(connection, request, implementation):
                     }
                 )
             if request.authored_products or request.authored_reads:
-                from corpus_structure.semantic.authored_interpretations import attach_authored_judgment
+                from corpus_structure.semantic.authored_interpretations import (
+                    attach_authored_judgment,
+                )
                 from corpus_structure.serve.interpretation_authoring import (
                     read_authored_judgment_selection,
                     selected_authored_judgments,
@@ -295,20 +326,32 @@ def _group_selected_interpretations(connection, request, implementation):
                 if value.domain == "kind" and definitions.get(value.owner) in JUDGMENT_KINDS
             }
             items = [group.model_dump(mode="python") for group in grouped]
-        metadata = dict(universes=list(universes.values()), finite_universes=finite_universes,
-                        judgment_contracts=judgment_contracts)
+        metadata = dict(
+            universes=list(universes.values()),
+            finite_universes=finite_universes,
+            judgment_contracts=judgment_contracts,
+        )
         entry, remaining = bounded_rows(items, metadata)
         if entry is not None:
             SELECTED_QUERY_CACHE.put(cache_key, entry)
     metadata = entry.record() if entry is not None else metadata
-    universes, finite_universes, judgment_contracts = metadata["universes"], metadata["finite_universes"], metadata["judgment_contracts"]
+    assert metadata is not None
+    universes, finite_universes, judgment_contracts = (
+        metadata["universes"],
+        metadata["finite_universes"],
+        metadata["judgment_contracts"],
+    )
     cut_id, cut = current_cut.identity, current_cut.record
     obligations = tuple(frontier["obligations"])
     offset = 0 if cursor is None else cursor["offset"]
     if type(offset) is not int or offset < 0:
         raise ValueError("grouped cursor exceeds its pinned population")
     rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
-    total = len(entry) if entry is not None else len(items)
+    if entry is None:
+        assert items is not None
+        total = len(items)
+    else:
+        total = len(entry)
 
     def report(end, values, more):
         continuation = None
@@ -356,9 +399,23 @@ def _group_selected_interpretations(connection, request, implementation):
         }
 
     try:
-        body = byte_bounded_page(rows, offset=offset, limit=request.limit,
-                                 max_bytes=request.max_bytes - len(json_bytes(dict(version="source-interpretation-1", kind="grouped_source_record_interpretations", body={}))) + 2,
-                                 report=report)
+        body = byte_bounded_page(
+            rows,
+            offset=offset,
+            limit=request.limit,
+            max_bytes=request.max_bytes
+            - len(
+                json_bytes(
+                    dict(
+                        version="source-interpretation-1",
+                        kind="grouped_source_record_interpretations",
+                        body={},
+                    )
+                )
+            )
+            + 2,
+            report=report,
+        )
         return answer("grouped_source_record_interpretations", body, request.max_bytes)
     except InvalidContinuation:
         raise

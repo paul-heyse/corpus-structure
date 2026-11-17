@@ -30,12 +30,16 @@ from corpus_structure.serve import contribution_facets as facets
 from corpus_structure.serve import identity_exclusion_comparison as comparison
 from corpus_structure.serve.selected_contributions import SelectedContributionScope
 from semantic.record_contracts_support import release_inputs
+from semantic.selected_query_cache_support import (
+    clear_selected_query_cache as clear_selected_query_cache,
+)
+from semantic.selected_query_cache_support import (
+    control_frontier,
+    index_frontier,
+)
 from semantic.test_rich_identity_exclusions import constraint
 from semantic.test_rich_queries import PREFIX, Graph
 from semantic.test_selected_contribution_inputs import append
-from semantic.selected_query_cache_support import (
-    clear_selected_query_cache as clear_selected_query_cache, control_frontier, index_frontier,
-)
 
 app = build_full_app()
 
@@ -198,7 +202,9 @@ def test_current_facet_pages_pin_native_selection_root_and_implementation(
     monkeypatch, tmp_path, rich_source
 ):
     selected = scope(tmp_path, rich_source)
-    headers = control_frontier(monkeypatch, lambda _: (selected.cut, index_frontier(selected.index)))
+    headers = control_frontier(
+        monkeypatch, lambda _: (selected.cut, index_frontier(selected.index))
+    )
     seen = []
     monkeypatch.setattr(
         facets,
@@ -244,8 +250,14 @@ def test_current_comparison_uses_exact_two_root_use_and_cut_pins(
 ):
     before = scope(tmp_path, rich_source, side="before")
     after = scope(tmp_path, rich_source, side="after", left="C")
-    control_frontier(monkeypatch, lambda demand: ((before.cut, index_frontier(before.index))
-        if demand == before.cut.record["demand_id"] else (after.cut, index_frontier(after.index))))
+    control_frontier(
+        monkeypatch,
+        lambda demand: (
+            (before.cut, index_frontier(before.index))
+            if demand == before.cut.record["demand_id"]
+            else (after.cut, index_frontier(after.index))
+        ),
+    )
     seen = []
     monkeypatch.setattr(
         comparison,

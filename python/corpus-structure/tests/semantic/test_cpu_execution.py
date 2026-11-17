@@ -294,7 +294,7 @@ def test_transient_byte_saturation_backpressures_before_second_submission(prepar
             submitted = []
 
             def submit_gated(_fn, *args):
-                submitted.append(json.loads(args[0])["request_id"])
+                submitted.append(json.loads(args[0].content)["request_id"])
                 return submit(_gated_compute, *args, started, release)
 
             monkeypatch.setattr(pool, "submit", submit_gated)

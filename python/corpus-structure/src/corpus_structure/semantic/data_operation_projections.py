@@ -1044,11 +1044,15 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         select(selected_uses.c.id).where(~func.coalesce(whole, literal(False))),
         select(latest.c.id).select_from(scoped.join(latest, literal(True))).where(whole),
     ).cte("export_selected_use_ids")
-    in_scope = exists(select(1).select_from(scoped).where(
-        scoped.c.subject == admissions.c.subject,
-        scoped.c.original_source.is_not_distinct_from(admissions.c.original_source),
-        scoped.c.analyzed_scope == admissions.c.analyzed_scope,
-    ))
+    in_scope = exists(
+        select(1)
+        .select_from(scoped)
+        .where(
+            scoped.c.subject == admissions.c.subject,
+            scoped.c.original_source.is_not_distinct_from(admissions.c.original_source),
+            scoped.c.analyzed_scope == admissions.c.analyzed_scope,
+        )
+    )
     in_page = case((whole, or_(in_scope, ~exists(select(1).select_from(scoped)))), else_=in_page)
     seed = union(
         _node("use", seeds.c.id),
@@ -2067,7 +2071,9 @@ def read_page(metadata):
                 (
                     or_(
                         _var("selected_view", Text) == "products",
-                        func.coalesce(_var("p", JSONB)["recheck_bodies"].as_boolean(), literal(False)),
+                        func.coalesce(
+                            _var("p", JSONB)["recheck_bodies"].as_boolean(), literal(False)
+                        ),
                     ),
                     case(
                         (
@@ -2389,7 +2395,9 @@ def read_page(metadata):
         .scalar_subquery()
     )
     support_page, support_body_access = selected_support_export(
-        metadata, selected_uses, admissions,
+        metadata,
+        selected_uses,
+        admissions,
         or_(in_page, ~exists(select(1).select_from(bounded))),
     )
     payload = _obj(
@@ -2424,10 +2432,16 @@ def read_page(metadata):
         ),
         else_=literal(True),
     )
-    within_budget = and_(within_budget, case(
-        (func.coalesce(_var("p", JSONB)["recheck_bodies"].as_boolean(), literal(False)), support_body_access),
-        else_=literal(True),
-    ))
+    within_budget = and_(
+        within_budget,
+        case(
+            (
+                func.coalesce(_var("p", JSONB)["recheck_bodies"].as_boolean(), literal(False)),
+                support_body_access,
+            ),
+            else_=literal(True),
+        ),
+    )
     return select(
         case((within_budget, payload), else_=func.ops.ddo_result_bytes_refusal()).label("result")
     )

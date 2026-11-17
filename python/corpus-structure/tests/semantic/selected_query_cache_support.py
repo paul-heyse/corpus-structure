@@ -18,8 +18,10 @@ def clear_selected_query_cache():
 
 
 def index_frontier(index):
-    return {name: list(index.frontier_rows(name)) for name in
-            ("obligations", "uses", "populations", "original_source_admissions")}
+    return {
+        name: list(index.frontier_rows(name))
+        for name in ("obligations", "uses", "populations", "original_source_admissions")
+    }
 
 
 def control_frontier(monkeypatch, select):

@@ -129,11 +129,25 @@ def read_selected_rich_reference(
     return SelectedRichKnowledge(page.cut, request, reference, context, state)
 
 
-def read_selected_rich_knowledge(connection, demand_id, *, project_id, product_id,
-                                 continuation=None, cut=None, max_bytes=8 * 1024 * 1024) -> SelectedRichKnowledge:
+def read_selected_rich_knowledge(
+    connection,
+    demand_id,
+    *,
+    project_id,
+    product_id,
+    continuation=None,
+    cut=None,
+    max_bytes=8 * 1024 * 1024,
+) -> SelectedRichKnowledge:
     selected = read_selected_rich_reference(
-        connection, demand_id, project_id=project_id, product_id=product_id,
-        continuation=continuation, cut=cut, max_bytes=max_bytes, _bodies=True,
+        connection,
+        demand_id,
+        project_id=project_id,
+        product_id=product_id,
+        continuation=continuation,
+        cut=cut,
+        max_bytes=max_bytes,
+        _bodies=True,
     )
     if not isinstance(selected, SelectedRichKnowledge):
         raise RuntimeError("whole rich read lacks its validated graph")

@@ -127,7 +127,9 @@ def statistics_rows(index: RichQueryIndex, query):
                 if expected != index.object(key):
                     continue
             for family in sorted(by_subject[fact.subject_entity]):
-                yield RichQueryRow(dict(family=index.entity_record(family), claim=index.claim_record(key)))
+                yield RichQueryRow(
+                    dict(family=index.entity_record(family), claim=index.claim_record(key))
+                )
     else:
         raise RichQueryRefused("unsupported current statistics query")
 
@@ -164,13 +166,15 @@ def transformations(index: RichQueryIndex, query: FamilyProfileQuery):
         )
         if not definitions:
             continue
-        yield RichQueryRow(dict(
+        yield RichQueryRow(
+            dict(
                 conclusion=index.claim_record(key),
                 premises=index.claim_records(sorted(known)),
                 definiens=index.claim_records(sorted(definitions)),
                 unresolved_premise_ids=sorted(missing),
                 completeness="partial" if missing else "complete-within-selected-root",
-            ))
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -248,11 +252,13 @@ def relation_walks(index: RichQueryIndex, query: RelationsQuery):
                 queue.append((child, child_size))
                 retained += child_size
             if target in targets:
-                yield RichQueryRow(dict(
+                yield RichQueryRow(
+                    dict(
                         depth=len(witness),
                         origin=origin,
                         target=target,
                         fact_ids=list(witness),
                         claims=index.claim_records(witness),
-                    ))
+                    )
+                )
         retained -= size

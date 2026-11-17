@@ -83,6 +83,7 @@ def fixture() -> tuple[DemandContextRequest, list[dict[str, Any]]]:
                 member_id="member:source",
                 kind_contract="kind:source",
                 subject="source:A",
+                subject_definition="original-source-view",
                 original_source="document:A",
                 analyzed_scope=decode_semantic_value(
                     json_loads(frame.pin.values()["analyzed_scope_meaning"])

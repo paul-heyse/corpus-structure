@@ -118,10 +118,12 @@ def graph_facets(
                 )
             else:
                 meaning = body.model_dump(mode="python")
-            yield RichQueryRow(dict(
+            yield RichQueryRow(
+                dict(
                     population="interpretation",
                     row=dict(base, meaning=meaning, availability="observed"),
-                ))
+                )
+            )
         if assessment:
             occurrences = (
                 (identifier,)
@@ -162,7 +164,8 @@ def graph_facets(
                 else None,
             )
             observed = any(actual.values())
-            yield RichQueryRow(dict(
+            yield RichQueryRow(
+                dict(
                     population="assessment",
                     row=dict(
                         base,
@@ -171,12 +174,14 @@ def graph_facets(
                         reason=None if observed else "no-associated-judgment-in-this-selected-root",
                         **actual,
                     ),
-                ))
+                )
+            )
     if assessment and member_id is None and isinstance(root, DdoRichAdmission):
         # Rejected/uncheckable readings have no assertion member. Their genuine
         # adjudication must not disappear merely because they produced no value.
         for decision in readings[None]:
-            yield RichQueryRow(dict(
+            yield RichQueryRow(
+                dict(
                     population="assessment",
                     row=dict(
                         reference=selected.reference.model_dump(mode="python"),
@@ -185,7 +190,8 @@ def graph_facets(
                         scope="captured-native-producer-judgments",
                         reading_decision=decision.model_dump(mode="python"),
                     ),
-                ))
+                )
+            )
 
 
 def proposal_facets(
@@ -234,7 +240,8 @@ def proposal_facets(
                     )
                     for ref in body["claims"]
                 ]
-            yield RichQueryRow(dict(
+            yield RichQueryRow(
+                dict(
                     population="interpretation",
                     row=dict(
                         base,
@@ -246,9 +253,11 @@ def proposal_facets(
                         known_reference_standing=report["known_reference_standing"],
                         scientific_truth="not-established",
                     ),
-                ))
+                )
+            )
         if assessment:
-            yield RichQueryRow(dict(
+            yield RichQueryRow(
+                dict(
                     population="assessment",
                     row=dict(
                         base,
@@ -256,9 +265,11 @@ def proposal_facets(
                         scope="captured-native-producer-judgments",
                         reason="source-proposal-has-no-computed-acceptance-judgment",
                     ),
-                ))
+                )
+            )
     for coverage in report["coverage"]:
-        yield RichQueryRow(dict(
+        yield RichQueryRow(
+            dict(
                 population="coverage",
                 row=dict(
                     reference=selected.reference.model_dump(mode="python"),
@@ -266,4 +277,5 @@ def proposal_facets(
                     source_scope="supplied-authored-response",
                     original_source_completeness="unknown",
                 ),
-            ))
+            )
+        )

@@ -122,8 +122,21 @@ def nonrich_facets(
                 raise RichQueryRefused("structural facet exceeds its complete nested-member bound")
             pending.extend(item)
     base = _base(selected, root)
-    yield _row('contribution', **base)
+    yield _row("contribution", **base)
     if interpretation:
-        yield _row('interpretation', **base, availability='observed', meaning=root.body, scope='typed-private-structural-reading')
+        yield _row(
+            "interpretation",
+            **base,
+            availability="observed",
+            meaning=root.body,
+            scope="typed-private-structural-reading",
+        )
     if assessment:
-        yield _row('assessment', **base, availability='observed', scope='captured-private-producer-judgments', judgments=root.body, public_admission='not-established')
+        yield _row(
+            "assessment",
+            **base,
+            availability="observed",
+            scope="captured-private-producer-judgments",
+            judgments=root.body,
+            public_admission="not-established",
+        )

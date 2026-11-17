@@ -1325,9 +1325,11 @@ class WireReadDemandResultRequest(TypedDict):
     obligation_id: NotRequired[WireObligationId]
     read_id: NotRequired[WireReadIdentity]
     read_snapshot: NotRequired[WireReadSnapshot]
+    recheck_bodies: NotRequired[bool]
     scope: NotRequired[WireDemandReadScope]
     selection: NotRequired[WireDemandIntent]
     support_after: NotRequired[WireIdentifier]
+    support_scope: NotRequired[Literal["page", "read"]]
     trust_snapshot: NotRequired[WireTrustSnapshot]
     view: NotRequired[Literal["frontier", "products", "support"]]
 

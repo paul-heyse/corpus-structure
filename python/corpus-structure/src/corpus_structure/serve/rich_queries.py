@@ -23,11 +23,14 @@ from corpus_structure.semantic.rich_queries import (
     RichQueryRefused,
     query_rows,
 )
+from corpus_structure.semantic.selected_query_cache import (
+    SELECTED_QUERY_CACHE,
+    bounded_rows,
+    byte_bounded_page,
+    uncached_rows_from,
+)
 
 from .rich_knowledge import read_selected_rich_knowledge, read_selected_rich_reference
-from corpus_structure.semantic.selected_query_cache import (
-    SELECTED_QUERY_CACHE, bounded_rows, byte_bounded_page, uncached_rows_from,
-)
 
 VERSION = "selected-rich-query-2"
 
@@ -199,44 +202,63 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
                 scope={"operation_id": "rich.admit", "product_ids": [request.product_id]},
             )
     selected = read_selected_rich_reference(
-        connection, request.demand_id, project_id=request.project_id,
-        product_id=request.product_id, continuation=continuation, cut=cut,
+        connection,
+        request.demand_id,
+        project_id=request.project_id,
+        product_id=request.product_id,
+        continuation=continuation,
+        cut=cut,
         max_bytes=request.max_graph_bytes,
     )
     if request.expected_cut is not None and selected.cut.identity != request.expected_cut:
-        raise InvalidContinuation("rich query differs from its pinned cut", reason="invalid_continuation")
+        raise InvalidContinuation(
+            "rich query differs from its pinned cut", reason="invalid_continuation"
+        )
     reference = selected.reference.model_dump(mode="python")
     if cursor is not None and json_bytes(cursor["reference"]) != json_bytes(reference):
-        raise InvalidContinuation("rich query changed its actual root support", reason="invalid_continuation")
+        raise InvalidContinuation(
+            "rich query changed its actual root support", reason="invalid_continuation"
+        )
     offset = 0 if cursor is None else cursor["ordinal"]
     if type(offset) is not int or offset < 0:
         raise InvalidContinuation("invalid rich row ordinal", reason="invalid_continuation")
     key = json_bytes(["rich", selected.cut.identity, implementation, reference, selection])
     entry = SELECTED_QUERY_CACHE.get(key)
     remaining = None
+    metadata_provider = entry.record if entry is not None else None
     if entry is None:
         native_request = dict(json_loads(selected.read_request), view="products")
         whole = read_selected_rich_knowledge(
-            connection, request.demand_id, project_id=request.project_id,
-            product_id=request.product_id, continuation=native_request, cut=selected.cut,
+            connection,
+            request.demand_id,
+            project_id=request.project_id,
+            product_id=request.product_id,
+            continuation=native_request,
+            cut=selected.cut,
             max_bytes=request.max_graph_bytes,
         )
         if whole.reference != selected.reference or whole.context != selected.context:
-            raise InvalidContinuation("rich body differs from its freshly acquired root", reason="invalid_continuation")
+            raise InvalidContinuation(
+                "rich body differs from its freshly acquired root", reason="invalid_continuation"
+            )
         index = RichQueryIndex(whole.state, max_members=request.max_graph_members)
+
         def source():
             for row in query_rows(index, request.query):
-                yield dict(value=row.value, unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
+                yield dict(
+                    value=row.value,
+                    unknowns=[index.unknowns[key] for key in sorted(index.unknowns)],
+                )
 
-        metadata_provider = lambda: dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
+        def current_metadata():
+            return dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
+        metadata_provider = current_metadata
         entry, remaining = bounded_rows(source(), metadata_provider)
         if entry is not None:
             SELECTED_QUERY_CACHE.put(key, entry)
-    metadata = entry.record() if entry is not None else metadata_provider()
-    if entry is not None:
-        rows = entry.rows(offset)
-    else:
-        rows = uncached_rows_from(remaining, offset)
+    assert metadata_provider is not None
+    metadata = metadata_provider()
+    rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
     observed_unknowns = metadata["unknowns"]
 
@@ -245,7 +267,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
         for packet in rows:
             observed_unknowns = packet["unknowns"]
             yield packet["value"]
-        observed_unknowns = entry.record()["unknowns"] if entry is not None else metadata_provider()["unknowns"]
+        observed_unknowns = metadata_provider()["unknowns"]
 
     def report(end, values, more):
         next_cursor = (
@@ -291,9 +313,14 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
         )
 
     try:
-        return byte_bounded_page(public_rows(), offset=offset, limit=request.limit,
-                                 max_bytes=request.max_bytes, report=report,
-                                 row_fields={"rows": lambda value: (value,)})
+        return byte_bounded_page(
+            public_rows(),
+            offset=offset,
+            limit=request.limit,
+            max_bytes=request.max_bytes,
+            report=report,
+            row_fields={"rows": lambda value: (value,)},
+        )
     except InvalidContinuation:
         raise
     except ValueError as error:

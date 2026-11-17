@@ -67,15 +67,18 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
             raise InterruptedAfterDurablePage()
 
     with OwnedPdfSource.acquire(ORIGINAL, tmp_path / "owned") as source:
-        with closing(PdfWorker(recipe, assets=assets)) as worker, pytest.raises(InterruptedAfterDurablePage):
+        with (
+            closing(PdfWorker(recipe, assets=assets)) as worker,
+            pytest.raises(InterruptedAfterDurablePage),
+        ):
             worker.stream(
-                    source,
-                    spool_root=tmp_path / "interrupted",
-                    record_root=tmp_path / "discarded-records",
-                    build_id="controlled-recovery",
-                    release_id="controlled-release",
-                    on_replay=stop_after_page,
-                    page_range=PAGE_RANGE,
+                source,
+                spool_root=tmp_path / "interrupted",
+                record_root=tmp_path / "discarded-records",
+                build_id="controlled-recovery",
+                release_id="controlled-release",
+                on_replay=stop_after_page,
+                page_range=PAGE_RANGE,
             )
         first = _recoveries(interrupted)
         assert len(first) == 1

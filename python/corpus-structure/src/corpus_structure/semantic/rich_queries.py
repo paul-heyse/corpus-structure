@@ -505,13 +505,15 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                 if not query.include_suppositions and qualification.get("modality") == "supposed":
                     continue
                 interval = qualification.get("valid_time")
-                yield RichQueryRow(dict(
+                yield RichQueryRow(
+                    dict(
                         claim=index.claim_record(key),
                         occurrence=occurrence.model_dump(mode="python"),
                         qualification=semantic_value(qualification),
                         interval=semantic_value(interval),
                         applicability=ownership_applicability(interval, query.date),
-                    ))
+                    )
+                )
     elif isinstance(query, StatementQuery):
         key = canonical_bytes([query.product_id, query.member_id]).decode()
         claims = [
@@ -533,11 +535,13 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                 for item in index.visible_occurrences(identifier, query)
                 if statement_key(item.statement) == key
             }
-            yield RichQueryRow(dict(
+            yield RichQueryRow(
+                dict(
                     statement_key=key,
                     sources=[refs[item] for item in sorted(refs)],
                     claims=index.claim_records(claims),
-                ))
+                )
+            )
     elif isinstance(query, EvidenceQuery):
         for key in index.included(query):
             if query.fact_id is not None and query.fact_id != key:
@@ -553,19 +557,22 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                     and occurrence.occurrence_id not in index.selected_occurrences
                 ):
                     continue
-                yield RichQueryRow(dict(
+                yield RichQueryRow(
+                    dict(
                         fact_id=key,
                         occurrence=occurrence.model_dump(mode="python"),
                         availability="retained-source-references",
                         source_body_retrieval="not_run",
-                    ))
+                    )
+                )
     elif isinstance(query, SourceReadingsQuery):
         pool = index.readings if query.population == "retained" else index.selected_readings
         for key in sorted(pool):
             reading = index.readings[key]
             if query.record_id is not None and reading.record_id != query.record_id:
                 continue
-            yield RichQueryRow(dict(
+            yield RichQueryRow(
+                dict(
                     assertion=reading.model_dump(mode="python"),
                     selected=key in index.selected_readings,
                     reading=semantic_value(
@@ -573,6 +580,7 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                     ),
                     values=index.values((reading.reading_value,)),
                     scientific_truth="not-established",
-                ))
+                )
+            )
     else:
         raise RichQueryRefused("unsupported current rich query")
