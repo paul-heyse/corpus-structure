@@ -120,7 +120,7 @@ linguistic accuracy or enclosing DDO qualification.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
-> Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md)
+> Decision: [ADR-0126](../adr/0126-terminal-outcomes-and-attempt-failures.md)
 
 **Implemented preparation slice · 2026-11-13; broader DDO-10 migration remains open.**
 The existing typed model-change preview accepts explicit finite source migrations and returns
@@ -161,7 +161,7 @@ streamed shared hosts and admission. Retained/source-only/query/export reads per
 Historical run associations described by [ADR-0090](../adr/0090-native-source-operation-lineage.md)
 remain recorded provenance; missing associations remain unknown. Current operation membership and
 recovery use explicit native demand IDs and their authenticated source/release selections, under
-[ADR-0094](../adr/0094-ddo-demand-and-recovery.md). The unused historical lineage DTO is retired;
+[ADR-0126](../adr/0126-terminal-outcomes-and-attempt-failures.md). The unused historical lineage DTO is retired;
 retained old bytes confer no requirement for a separate lineage decoder. The DDO coordinator owns
 current implementation and qualification.
 

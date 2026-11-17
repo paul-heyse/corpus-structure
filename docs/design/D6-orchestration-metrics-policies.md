@@ -10,6 +10,17 @@ provenance. The registered current root supplies the replacement native ABI. Rem
 consumers are retirement obligations. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
+**Accepted target; implementation/qualification Proposed · 2026-11-17.** Recognition/PDF input
+outcomes are terminal facts under the admitted generation; execution failures remain attempt
+evidence and are never published or reused. Transport, timeout, service/generation/configuration
+failure, crash, cancellation and lease loss use existing fenced retry. Missing classification is
+execution failure; caller-controlled failure reuse is removed. A request with any execution-failed
+page retains useful page evidence and remains retryable instead of publishing an incomplete set.
+Durable exact completion intents, known rollback versus uncertain acknowledgement, shared-request
+interest and physical retirement remain authoritative. The DDO coordinator owns PE-S09 acceptance.
+
+> Decision: [ADR-0126](../adr/0126-terminal-outcomes-and-attempt-failures.md)
+
 **Accepted target; integration/qualification Proposed · 2026-11-15.** The existing typed CPU
 execution receipt binds its actual request and reply bytes while retaining actual process/thread
 facts outside semantic product identity. At rich admission, the actual child reply carries the
@@ -64,7 +75,7 @@ The closed optional wire field is derived from one captured protocol for Python 
 validation. Registered `semantic_ddo_drole_v2` realizes the native interface; the coordinator's
 foundation receipt owns actual scoped qualification and its remaining limits.
 
-> Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0104](../adr/0104-ddo-discovery-input-association.md)
+> Decision: [ADR-0126](../adr/0126-terminal-outcomes-and-attempt-failures.md), [ADR-0104](../adr/0104-ddo-discovery-input-association.md)
 
 **Implemented foundation · 2026-11-13; scoped acceptance belongs to the coordinator.**
 Demand freezing consumes the compiled selected-dependency projection and explicit alternative

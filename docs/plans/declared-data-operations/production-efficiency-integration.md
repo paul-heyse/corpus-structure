@@ -204,7 +204,7 @@ dependency, not synchronization barriers: any slice whose prerequisites are met 
 | PE-S06 | Serving identity from import digests with metadata drift check | PE-F09 g, PE-RC08 | interfaces / DDO-10 | PE-S05, ADR-I |
 | PE-S07 | Model-asset custody with parent-to-child handoff | PE-F09 f | operations / DDO-07 | PE-S05 |
 | PE-S08 | Established validity at consumers; one rich-graph validation | PE-F09 d | rich, operations / DDO-08, 09 | — |
-| PE-S09 | Recognition failure classes; draft stages finish frozen builds | PE-F28 (part), PE-RC07 | operations / DDO-07 | ADR-G, ADR-H |
+| PE-S09 | Recognition failure classes; draft stages finish frozen builds | PE-F28 (part), PE-RC07 | operations / DDO-07 | ADR-0126, ADR-0127 |
 | PE-S10 | Grading reference stage; indexed plan lookups | PE-F29 | interfaces / DDO-10 | — |
 | PE-S11 | Lazy `ci` command registration | PE-F22 | this page / DDO-10 | — |
 | PE-S12 | Result-reading verbs from settled classification | PE-F23 | this page / DDO-10 | PE-S00 |
@@ -239,7 +239,7 @@ dependency, not synchronization barriers: any slice whose prerequisites are met 
 | PE-S36 | Producer certification; round-trip oracle per lowering identity | PE-F26, PE-RC06 | operations / DDO-07 | PE-S00, ADR-F |
 | PE-S37 | Admitted bulk scalar read; narrow inventory read; ordered observation read | PE-F14 | operations, postgresql / DDO-07 | — |
 | PE-S38 | Recognition worker per slot; context once per operation; page-atomic publication | PE-F20 | operations / DDO-07 | PE-S09 |
-| PE-S39 | Capture resumes from the spool | PE-F28 (capture) | operations / DDO-07 | PE-S35, ADR-H |
+| PE-S39 | Capture resumes from the spool | PE-F28 (capture) | operations / DDO-07 | PE-S35, ADR-0127 |
 | PE-S40 | Content-addressed byte streams | PE-F26 (copies) | operations, postgresql / DDO-07, 11 | PE-S36 |
 | **Wave 7 — serving consumers** | | | | |
 | PE-S41 | Per-publication search projection | PE-F15 | interfaces / DDO-10 | — |

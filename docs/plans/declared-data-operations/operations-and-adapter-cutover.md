@@ -576,10 +576,10 @@ the order change is versioned as a recipe change.
 
 ### PE-S09, PE-S38, PE-S39 — recovery units and recognition lifetime (PE-F28, PE-F20, PE-RC07)
 
-**Rule change PE-RC07** (ADR-G supersedes ADR-0094, changing only its outcome clause and
-restating the rest, including durable completion intents; ADR-H supersedes ADR-0099, changing
-only its sealed-publisher clause and restating the rest, and records the PDF failure-reuse
-rule). ADR-G is scoped to recognition and PDF provider outcomes unless a concrete implementation finding warrants an explicitly recorded extension.
+**Rule change PE-RC07** (ADR-0126 supersedes ADR-0094, changing only its outcome clause and
+restating the rest, including durable completion intents; ADR-0127 supersedes ADR-0099, extending
+sealed contributor custody and restating the surviving native-only contracts, and records the PDF failure-reuse
+rule). ADR-0126 is scoped to recognition and PDF provider outcomes unless a concrete implementation finding warrants an explicitly recorded extension.
 
 **PE-S09.** An operation outcome is either terminal or an execution failure. A terminal outcome
 is a fact about the declared input under the recipe (success, empty, partial or capped, or a

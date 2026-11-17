@@ -83,7 +83,7 @@ and Alembic.
 The target does not lag the legacy design in how it moves data. Generic DDO products travel as
 one JSON document by design, with an explicit size refusal. Where bulk typed transfer is
 warranted, DDO already uses it: PDF records under a DDO claim go through Arrow binary COPY into
-authenticated staging ([ADR-0099](../adr/0099-runless-pdf-source-ownership.md)), and release
+authenticated staging ([ADR-0127](../adr/0127-pdf-publication-contributor-custody.md)), and release
 archives do the same ([ADR-0098](../adr/0098-typed-release-archive.md)). ADR-0098 also records
 why a second transport path is unwelcome. The draft of this review proposed a typed staged route
 for product members; it is [withdrawn](#considered-and-withdrawn-a-typed-staged-route-for-product-members).

@@ -208,9 +208,9 @@ governing facts once and stores derived identity headers without duplicate canon
 obsolete historical readers retire through faithful target-native import or regeneration. Checked
 subjects/enforcement/numerical contracts replace meaningful labels; descriptive slice-owned prose
 is outside semantic identity. ADR-0109 owns this accepted target; implementation remains open. The DDO coordinator owns implementation and
-scope; D1–D8 label the accepted target separately from older implemented mechanisms.
+scope; D1–D8 label the accepted target separately from older implemented mechanisms. Recognition/PDF execution failures stay with physical attempts; terminal input outcomes alone publish and reuse. PDF sealed receipts retain all contributing attempts separately from the sealing and later admission fences (Proposed accepted targets, 2026-11-17).
 
-> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0122](../adr/0122-set-wise-support-validity.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
+> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0122](../adr/0122-set-wise-support-validity.md), [ADR-0126](../adr/0126-terminal-outcomes-and-attempt-failures.md), [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0127](../adr/0127-pdf-publication-contributor-custody.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 ### Audit-closure contract qualification
 

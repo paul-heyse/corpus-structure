@@ -32,13 +32,16 @@ one transaction before immutable publication. Binary artifacts do not pass throu
 JSONB envelope. The existing durable archive representation and readers keep their meanings;
 runtime bindings retain their separate ownership.
 
-**Accepted target; integration Proposed · 2026-11-15.** PDF staging uses genuine DDO
-request/generation/claim/demand custody. Physical task/attempt/holder/lease and publisher receipts
-remain authentic execution fences. The retained legacy run branch is a retirement obligation, not
-a second target interface; no synthetic run supplies current custody.
-Raw original-asset support and existing-view support remain distinct authenticated reference
-branches. Sealed PDF publisher custody remains separate from a later current admission fence;
-the native completion envelope must retain both when adopting an already-published result.
+**Accepted target; integration/qualification Proposed · 2026-11-17.** PDF staging uses genuine
+DDO request/generation/claim/demand custody and one native-only implementation. Original assets
+and published-source support remain distinct authenticated branches. Every build/attempt/holder
+owns its mutable spool. Prior content can contribute only after authenticated file/manifest and
+premise checks plus proven physical producer retirement. A frozen equal-premise build finishes
+instead of reconverting; verified spools supply complete or partial resume. Sealed publication
+retains its sealing fence and every contributing attempt. Later admission keeps its own fence
+separate from those producer facts; completion binds the actual PDF receipt and publication proof.
+No fresh-GPU byte equivalence or synthetic legacy run is inferred. The DDO coordinator owns
+PE-S09/35/39 implementation and native/provider/whole-book qualification.
 
 **Accepted target; integration Proposed · 2026-11-13.** Current DDO request and product
 identities include one explicit qualified subject context: project, local subject, original source
@@ -66,7 +69,7 @@ Implementation/qualification is owned by the DDO coordinator.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
-> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
+> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0127](../adr/0127-pdf-publication-contributor-custody.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 ## Coherent characterization bounds and native demand anchors
 
