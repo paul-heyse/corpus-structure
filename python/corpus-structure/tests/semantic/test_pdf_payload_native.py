@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companion_batch,
+    adopt_pdf_companions,
     freeze_pdf_build,
     prepare_pdf_build,
     validate_pdf_build,
@@ -74,7 +74,7 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
     }
     logical = prepare_payload_family().logical_digest(value)
     with commit_writer_engine.begin() as conn:
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "native_metadata",

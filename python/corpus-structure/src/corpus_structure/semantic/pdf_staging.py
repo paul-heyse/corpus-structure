@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, fields
 from functools import cache
+from typing import TYPE_CHECKING
 
 import pyarrow as pa
 from sqlalchemy import Connection
@@ -15,6 +16,9 @@ from . import _pdf_native_calls as calls
 from .arrow_transfer import ArrowWriteProfile, copy_arrow_stream
 from .identifiers import ReleaseId, TaskAttempt, TaskId
 from .pdf_record_model import record_arrow_schema, record_write_profile
+
+if TYPE_CHECKING:
+    from .pdf_payloads import PreparedPayloadFamily
 
 STAGE_FAMILIES = {
     "header": "ops.pdf_stage_document",
@@ -51,6 +55,7 @@ class PdfBuildRef:
     recipe_digest: str
     schema_digest: str
     _write_profiles: Mapping[str, ArrowWriteProfile] = field(init=False, repr=False, compare=False)
+    _payload_family: PreparedPayloadFamily | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         from types import MappingProxyType

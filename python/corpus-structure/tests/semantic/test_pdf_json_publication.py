@@ -4,7 +4,6 @@ from copy import deepcopy
 
 import psycopg
 import pytest
-from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.native_objects import native_owner
@@ -73,40 +72,16 @@ def test_every_current_integrated_companion_is_closed_under_its_real_claim(
                             0,
                         )
                     )
+                    from semantic.pdf_companion_set_support import adopt_raw_companion_set
+
+                    def row():
+                        return dict(product_id=build.build_id, revision_id=build.build_id,
+                                    family=family, local_id=local, body=canonical_bytes(body).decode(), ordinal=0)
+
                     if label == "duplicate-occurrence":
-                        connection.execute(
-                            text(
-                                "SELECT ops.adopt_pdf_companion(:build,:task,:attempt,:holder,:family,:local,"
-                                "CAST(:body AS jsonb),:key,0,'{}'::jsonb)"
-                            ),
-                            dict(
-                                build=build.build_id,
-                                task=claim.task_id,
-                                attempt=claim.attempt,
-                                holder=holder,
-                                family=family,
-                                local=local,
-                                body=canonical_bytes(body).decode(),
-                                key="negative:first-occurrence",
-                            ),
-                        )
+                        adopt_raw_companion_set(connection, build, [row()], replay_key="negative:first-occurrence")
                         body["text"] = "changed companion duplicate"
-                    connection.execute(
-                        text(
-                            "SELECT ops.adopt_pdf_companion(:build,:task,:attempt,:holder,:family,:local,"
-                            "CAST(:body AS jsonb),:key,0,'{}'::jsonb)"
-                        ),
-                        dict(
-                            build=build.build_id,
-                            task=claim.task_id,
-                            attempt=claim.attempt,
-                            holder=holder,
-                            family=family,
-                            local=local,
-                            body=canonical_bytes(body).decode(),
-                            key="negative:" + label,
-                        ),
-                    )
+                    adopt_raw_companion_set(connection, build, [row()], replay_key="negative:" + label)
                 assert isinstance(error.value.orig, psycopg.Error)
                 assert (error.value.orig.sqlstate, error.value.orig.diag.message_primary) == (
                     "23514",

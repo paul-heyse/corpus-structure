@@ -38,6 +38,23 @@ COMPANION_BATCH_BYTES = 4 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
+class PdfCompanionRecord(Mapping[str, Any]):
+    """Decoded producer row with its already encoded UTF-8 byte length."""
+
+    body: Mapping[str, Any]
+    encoded_length: int
+
+    def __getitem__(self, key):
+        return self.body[key]
+
+    def __iter__(self):
+        return iter(self.body)
+
+    def __len__(self):
+        return len(self.body)
+
+
+@dataclass(frozen=True, slots=True)
 class FrozenPdfBuildRef:
     build: PdfBuildRef
     frozen_digest: str
@@ -162,7 +179,7 @@ def prepare_pdf_build(conn: Connection, frozen: FrozenPdfBuildRef) -> None:
     )
 
 
-def adopt_pdf_companion_batch(
+def adopt_pdf_companions(
     conn: Connection,
     build: PdfBuildRef,
     family: str,
@@ -172,70 +189,46 @@ def adopt_pdf_companion_batch(
     start_ordinal: int = 0,
     cancellation: BorrowerCancellation | None = None,
 ) -> None:
-    """Typed queryable bodies with fixed value fields in bounded segmented uploads."""
+    """COPY one typed companion set; its native adoption owns one build fence."""
     from hashlib import sha256
 
     from .identity import canonical_bytes
     from .pdf_record_identity import byte_root, emit_parts
-    from .pdf_staging import adopt_pdf_batch, stage_schema
+    from .arrow_transfer import copy_arrow_stream
+    from .pdf_record_model import record_arrow_schema, record_write_profile
+    from .pdf_records import _finite_json
+    from .pdf_staging import MAX_BATCH_BYTES, MAX_BATCH_ROWS
 
-    pending = []
-    streams = []
-    parts = []
+    targets = {
+        "companion": "ops.pdf_stage_companion", "field": "ops.pdf_stage_companion_field",
+        "stream": "ops.pdf_stage_artifact_stream", "part": "ops.pdf_stage_artifact_part",
+    }
+    profiles = {name: record_write_profile(target, release_id=build.release_id)
+                for name, target in targets.items()}
+    calls.prepare_pdf_companions(conn)
+    pending, streams, parts, descriptors = [], [], [], []
     byte_count = 0
-    chunk = 0
+
+    def copy(name, rows):
+        if rows:
+            batch = pa.RecordBatch.from_pylist(rows, schema=record_arrow_schema(targets[name]))
+            if batch.num_rows > MAX_BATCH_ROWS or batch.nbytes > MAX_BATCH_BYTES:
+                raise ValueError("companion COPY transfer exceeds bounded upload profile")
+            copy_arrow_stream(conn, profiles[name], target=("pg_temp", "pc_" + targets[name].split(".")[1]),
+                              batches=(batch,), cancellation=cancellation)
+            rows.clear()
 
     def flush() -> None:
-        nonlocal pending, streams, parts, byte_count, chunk
+        nonlocal byte_count
         if cancellation is not None:
             cancellation.check_active()
-        if streams:
-            adopt_pdf_batch(
-                conn,
-                build,
-                f"{replay_key}:fields:{chunk}",
-                {
-                    "artifact_stream": (
-                        pa.RecordBatch.from_pylist(streams, schema=stage_schema("artifact_stream")),
-                    ),
-                    "artifact_part": (
-                        pa.RecordBatch.from_pylist(parts, schema=stage_schema("artifact_part")),
-                    ),
-                },
-                cancellation=cancellation,
-            )
-        from .pdf_records import _finite_json
-
-        parameters = []
-        for ordinal, local, body, fields in pending:
-            _finite_json(body, "#/companion/body")
-            parameters.append(
-                calls.AdoptPdfCompanionParameters.model_validate(
-                    {
-                        "build_id": build.build_id,
-                        "task_id": build.task_id,
-                        "attempt": build.attempt,
-                        "holder": build.holder,
-                        "family": family,
-                        "local_id": local,
-                        "body": body,
-                        "fields": fields,
-                        "replay_key": f"{replay_key}:{ordinal}",
-                        "ordinal": ordinal,
-                    },
-                    strict=True,
-                )
-            )
-        if cancellation is not None:
-            cancellation.check_active()
-        calls.adopt_pdf_companion_batch(conn, requests=parameters)
-        pending = []
-        streams = []
-        parts = []
+        copy("companion", pending)
+        copy("field", descriptors)
+        copy("stream", streams)
+        copy("part", parts)
         byte_count = 0
-        chunk += 1
 
-    codec = None
+    codec = build._payload_family
     for ordinal, record in enumerate(records, start=start_ordinal):
         if cancellation is not None:
             cancellation.check_active()
@@ -274,6 +267,7 @@ def adopt_pdf_companion_batch(
 
                 if codec is None:
                     codec = prepare_payload_family(pdf_context_for_task(conn, build.task_id))
+                    object.__setattr__(build, "_payload_family", codec)
                 if isinstance(value, EncodedPagePayload):
                     batch = codec.read_batch(
                         value.content,
@@ -305,7 +299,8 @@ def adopt_pdf_companion_batch(
             and len(body["text"].encode("utf8")) > 32768
         ):
             payloads.append(("text", body.pop("text").encode("utf8"), "pdf-record-scalar-v1:s"))
-        if family == "relation" and len(canonical_bytes(body)) > 32768:
+        encoded_body = canonical_bytes(body) if family == "relation" else None
+        if family == "relation" and encoded_body is not None and len(encoded_body) > 32768:
             payloads.extend(
                 (
                     (
@@ -316,12 +311,15 @@ def adopt_pdf_companion_batch(
                     ("evidence", body.pop("evidence").encode("utf8"), "pdf-record-scalar-v1:s"),
                 )
             )
-        size = sum(len(payload) for _, payload, _ in payloads)
+            encoded_body = None
+        _finite_json(body, "#/companion/body")
+        if encoded_body is None:
+            encoded_body = canonical_bytes(body)
+        size = len(encoded_body) + sum(len(payload) for _, payload, _ in payloads)
         if pending and (
             len(pending) >= COMPANION_BATCH_ROWS or byte_count + size > COMPANION_BATCH_BYTES
         ):
             flush()
-        fields = {}
         for field, payload, profile in payloads:
             stream = (
                 "companion-field:" + sha256(canonical_bytes([family, local, field])).hexdigest()
@@ -342,20 +340,7 @@ def adopt_pdf_companion_batch(
                     }
                 )
                 if len(field_parts) == 64:
-                    adopt_pdf_batch(
-                        conn,
-                        build,
-                        stream + f":parts:{part.ordinal // 64}",
-                        {
-                            "artifact_part": (
-                                pa.RecordBatch.from_pylist(
-                                    field_parts, schema=stage_schema("artifact_part")
-                                ),
-                            )
-                        },
-                        cancellation=cancellation,
-                    )
-                    field_parts = []
+                    copy("part", field_parts)
             parts.extend(field_parts)
             streams.append(
                 {
@@ -366,13 +351,20 @@ def adopt_pdf_companion_batch(
                     "encoding_profile": profile,
                 }
             )
-            fields[field] = stream
-        pending.append((ordinal, local, body, fields))
+            descriptors.append({"product_id": build.build_id, "revision_id": build.build_id,
+                                "family": family, "local_id": local, "field_name": field,
+                                "stream_id": stream, "scalar_kind": "y" if field in {"value", "endpoints"} else "s"})
+        pending.append({"product_id": build.build_id, "revision_id": build.build_id,
+                        "family": family, "local_id": local, "body": encoded_body.decode("utf8"), "ordinal": ordinal})
         byte_count += size
         if byte_count > 4 * 1024 * 1024:
             flush()
-    if pending:
-        flush()
+    flush()
+    if cancellation is not None:
+        cancellation.check_active()
+    calls.adopt_pdf_companions(conn, build_id=build.build_id, task_id=TaskId(build.task_id),
+                              attempt=TaskAttempt(build.attempt), holder=build.holder,
+                              replay_key=replay_key)
 
 
 _CAPTURE_SCHEMA = pa.schema(

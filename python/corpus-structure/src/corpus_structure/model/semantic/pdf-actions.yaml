@@ -1502,9 +1502,23 @@ actions:
   - replay
   - conflict
 - calls:
-  - batch: true
-    cardinality: none
-    id: adopt_pdf_companion
+  - cardinality: none
+    id: prepare_pdf_companions
+    ordered: false
+    parameters: []
+    result_fields: []
+    result_mode: void
+    symbol: ops.prepare_pdf_companions
+  id: prepare_pdf_companions
+  implementation:
+    owner: semantic.pdf_publication
+    symbol: adopt_pdf_companions
+    version: '1'
+  outcomes:
+  - applied
+- calls:
+  - cardinality: none
+    id: adopt_pdf_companions
     ordered: false
     parameters:
     - name: build_id
@@ -1525,37 +1539,17 @@ actions:
       native_parameter: p_holder
       nullable: false
       source: model:PdfStageBuild.holder
-    - name: family
-      native_parameter: p_family
-      nullable: false
-      source: model:PdfRecordCompanion.family
-    - name: local_id
-      native_parameter: p_local
-      nullable: false
-      source: model:PdfRecordCompanion.local_id
-    - name: body
-      native_parameter: p_body
-      nullable: false
-      source: primitive:json_payload
     - name: replay_key
       native_parameter: p_key
       nullable: false
       source: model:PdfStageBuild.replay_key
-    - name: ordinal
-      native_parameter: p_ordinal
-      nullable: false
-      source: model:PdfRecordCompanion.ordinal
-    - name: fields
-      native_parameter: p_fields
-      nullable: false
-      source: primitive:json_payload
     result_fields: []
     result_mode: void
-    symbol: ops.adopt_pdf_companion
-  id: adopt_pdf_companion_batch
+    symbol: ops.adopt_pdf_companions
+  id: adopt_pdf_companions
   implementation:
     owner: semantic.pdf_publication
-    symbol: adopt_pdf_companion_batch
+    symbol: adopt_pdf_companions
     version: '1'
   outcomes:
   - applied

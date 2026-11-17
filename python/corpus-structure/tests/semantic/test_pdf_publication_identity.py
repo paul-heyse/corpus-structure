@@ -408,7 +408,7 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
     from pdf_acceptance_support import stage_complete_native
 
     from corpus_structure.semantic.pdf_publication import (
-        adopt_pdf_companion_batch,
+        adopt_pdf_companions,
         freeze_pdf_build,
         prepare_pdf_build,
         seal_pdf_build,
@@ -419,7 +419,7 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
         build = create_private_build(case=case)
         stage_complete_native(commit_writer_engine, build, tmp_path / key)
         with commit_writer_engine.begin() as conn:
-            adopt_pdf_companion_batch(
+            adopt_pdf_companions(
                 conn,
                 build,
                 "occurrence",
@@ -435,7 +435,7 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
                 "item",
             )
             if input_publication is not None:
-                adopt_pdf_companion_batch(
+                adopt_pdf_companions(
                     conn,
                     build,
                     "input",
@@ -449,7 +449,7 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
                     ],
                     "structural",
                 )
-                adopt_pdf_companion_batch(
+                adopt_pdf_companions(
                     conn,
                     build,
                     "relation",

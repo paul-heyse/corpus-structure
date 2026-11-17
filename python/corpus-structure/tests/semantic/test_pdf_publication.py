@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companion_batch,
+    adopt_pdf_companions,
     freeze_pdf_build,
     prepare_pdf_build,
     published_pdf_revision,
@@ -94,7 +94,7 @@ def test_freeze_prepare_validate_seal_and_replay(
             == 1
         )
     with pytest.raises(DBAPIError) as caught, commit_writer_engine.begin() as conn:
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "health",
@@ -323,7 +323,7 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
     original = canonical_bytes(value)
     assert len(original) > 65536
     with commit_writer_engine.begin() as conn:
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "native_metadata",
@@ -331,7 +331,7 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
             "large-metadata",
         )
         # Exact replay reuses parts and typed row; it must not append a second value.
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "native_metadata",
@@ -385,7 +385,7 @@ def test_metadata_parts_do_not_replace_semantic_schema_validation(
     from corpus_structure.semantic.pdf_payloads import PayloadContractError
 
     with pytest.raises(PayloadContractError), commit_writer_engine.begin() as conn:
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             private_build,
             "native_metadata",
@@ -398,7 +398,7 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
     create_private_build, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     from corpus_structure.core.db.lifetime import BorrowerCancellation
-    from corpus_structure.orchestrate.pdf_streaming import adopt_pdf_companions
+    from corpus_structure.orchestrate.pdf_streaming import adopt_pdf_companions as adopt_companion_rows
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
     from corpus_structure.semantic.product_reference import ProductReference
@@ -437,7 +437,7 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
     # The real producer commits bounded append transactions, allowing the claim
     # owner to renew between them. One 915-row transaction prevents that renewal.
     with create_private_build.maintained(build) as owner:
-        adopt_pdf_companions(
+        adopt_companion_rows(
             commit_writer_engine,
             build,
             "occurrence",
@@ -448,15 +448,8 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
         )
     with commit_writer_engine.begin() as conn:
         for _ in range(2):
-            adopt_pdf_companion_batch(conn, build, "relation", [relation], "wide")
+            adopt_pdf_companions(conn, build, "relation", [relation], "wide")
 
-        params = dict(
-            build=build.build_id,
-            task=build.task_id,
-            attempt=build.attempt,
-            holder=build.holder,
-            local=relation["relation_id"],
-        )
         header = {k: v for k, v in relation.items() if k not in {"endpoints", "evidence"}}
         streams = {
             name: "companion-field:"
@@ -476,15 +469,16 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
             ),
         ):
             with pytest.raises(DBAPIError, match=reason), conn.begin_nested():
-                conn.execute(
-                    text("""
-                        SELECT ops.adopt_pdf_companion(
-                            :build,:task,:attempt,:holder,'relation',:local,
-                            CAST(:body AS jsonb),'hostile',0,CAST(:fields AS jsonb)
-                        )
-                    """),
-                    params | {"body": json.dumps(body), "fields": json.dumps(fields)},
-                )
+                from semantic.pdf_companion_set_support import adopt_raw_companion_set
+
+                adopt_raw_companion_set(conn, build, [dict(
+                    product_id=build.build_id, revision_id=build.build_id, family="relation",
+                    local_id=relation["relation_id"], body=json.dumps(body), ordinal=0,
+                )], replay_key="hostile", field_rows=[dict(
+                    product_id=build.build_id, revision_id=build.build_id, family="relation",
+                    local_id=relation["relation_id"], field_name=field, stream_id=stream,
+                    scalar_kind="y" if field == "endpoints" else "s",
+                ) for field, stream in fields.items()])
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     validate_pdf_build(commit_writer_engine, frozen)
@@ -573,7 +567,7 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
                 assert create_private_build.renew(heartbeat, build)["state"] == "renewed"
             if concurrent_append:
                 with commit_writer_engine.begin() as appender:
-                    adopt_pdf_companion_batch(
+                    adopt_pdf_companions(
                         appender,
                         build,
                         "health",
@@ -685,7 +679,7 @@ def test_encoded_page_adoption_retains_original_ipc_bytes(
 
     monkeypatch.setattr(PreparedPayloadFamily, "encode", no_reencoding)
     with commit_writer_engine.begin() as conn:
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "native_metadata",

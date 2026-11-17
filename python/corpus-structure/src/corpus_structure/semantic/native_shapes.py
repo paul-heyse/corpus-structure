@@ -16,6 +16,7 @@ def _record_shape_guards(
     fields: Mapping[str, tuple[str, str]] | None = None,
     field_names: str | None = None,
     deferred_arrays: frozenset[str] = frozenset(),
+    predicate_only: bool = False,
 ) -> str:
     definitions = {definition.name: definition for definition in prepared.definitions}
     vocabularies = {
@@ -160,7 +161,14 @@ def _record_shape_guards(
             "USING ERRCODE='23514'; END IF;\n"
         )
 
+    if predicate_only:
+        return invalid_record(class_name, expression, root=True)
     return guards(class_name, expression)
+
+
+def record_shape_predicate(prepared: PreparedRelease, class_name: str, expression: str) -> str:
+    """The same exact typed invalid-record predicate for native set guards."""
+    return _record_shape_guards(prepared, class_name, expression, predicate_only=True)
 
 
 def record_shape_guards(prepared: PreparedRelease, class_name: str, expression: str) -> str:

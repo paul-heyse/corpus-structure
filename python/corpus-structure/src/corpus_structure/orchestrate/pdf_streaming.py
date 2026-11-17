@@ -69,13 +69,14 @@ def adopt_pdf_companions(
     Absolute offsets keep receipts stable across retry; individual content identities
     remain the native companion/field identities, independently of chunking.
     """
-    import json
+    from corpus_structure.semantic.identity import canonical_bytes
 
     from corpus_structure.semantic.pdf_payloads import EncodedPagePayload
     from corpus_structure.semantic.pdf_publication import (
         COMPANION_BATCH_BYTES,
         COMPANION_BATCH_ROWS,
-        adopt_pdf_companion_batch,
+        PdfCompanionRecord,
+        adopt_pdf_companions as adopt_companion_set,
     )
 
     pending: list[Mapping[str, Any]] = []
@@ -88,7 +89,7 @@ def adopt_pdf_companions(
             return
         check_active()
         with _pdf_transaction(engine, cancellation) as connection:
-            adopt_pdf_companion_batch(
+            adopt_companion_set(
                 connection,
                 build,
                 family,
@@ -104,11 +105,12 @@ def adopt_pdf_companions(
 
     for row in records:
         check_active()
-        row_size = (
-            len(row["value"].content) + 256
-            if isinstance(row.get("value"), EncodedPagePayload)
-            else len(json.dumps(dict(row), ensure_ascii=False, allow_nan=False).encode())
-        )
+        if isinstance(row, PdfCompanionRecord):
+            row_size = row.encoded_length
+        elif isinstance(row.get("value"), EncodedPagePayload):
+            row_size = len(row["value"].content) + len(canonical_bytes({key: value for key, value in row.items() if key != "value"}))
+        else:
+            row_size = len(canonical_bytes(dict(row)))
         if pending and (
             len(pending) >= COMPANION_BATCH_ROWS or size + row_size > COMPANION_BATCH_BYTES
         ):
@@ -456,8 +458,11 @@ def run_private_native_pdf_build(
                             batch = reader.get_batch(ordinal)
 
                             def occurrences(batch=batch):
+                                from corpus_structure.semantic.pdf_publication import PdfCompanionRecord
+
                                 for body in batch.column("body"):
-                                    yield json.loads(body.as_py())
+                                    encoded = body.as_py().encode("utf8")
+                                    yield PdfCompanionRecord(json.loads(encoded), len(encoded))
 
                             adopt_pdf_companions(
                                 engine,
@@ -576,10 +581,10 @@ def run_private_native_pdf_build(
                     "native_completion",
                 }:
                     adopt_replay(replay)
-            from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
+            from corpus_structure.semantic.pdf_publication import adopt_pdf_companions as adopt_companion_set
 
             with _pdf_transaction(engine, cancellation) as connection:
-                adopt_pdf_companion_batch(
+                adopt_companion_set(
                     connection,
                     build,
                     "native_metadata",
@@ -593,7 +598,7 @@ def run_private_native_pdf_build(
                     replay_key="native:runtime-report",
                     cancellation=cancellation,
                 )
-                adopt_pdf_companion_batch(
+                adopt_companion_set(
                     connection,
                     build,
                     "health",
@@ -629,15 +634,11 @@ def run_private_native_pdf_build(
                                 body["error"] = value["error"]
                             yield {"kind": "formula_outcomes", "ordinal": ordinal, "value": body}
 
-                adopt_pdf_companions(
-                    engine,
-                    build,
-                    "native_metadata",
-                    formula_outcomes(),
-                    "native:formulas",
-                    check_active=check_active,
-                    cancellation=cancellation,
-                )
+                with _pdf_transaction(engine, cancellation) as connection:
+                    adopt_companion_set(
+                        connection, build, "native_metadata", formula_outcomes(), "native:formulas",
+                        cancellation=cancellation,
+                    )
             check_active()
         finally:
             # Stop native borrowers before ending claim maintenance or source custody.

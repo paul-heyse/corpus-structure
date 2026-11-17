@@ -12,7 +12,7 @@ from docling_core.types.doc import (
 )
 
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
+from corpus_structure.semantic.pdf_publication import adopt_pdf_companions
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 
 
@@ -48,7 +48,7 @@ def stage_complete_native(engine, build, directory, *, cell_coverage="unknown", 
                         {replay.family: (reader.get_batch(index),)},
                     )
     with engine.begin() as conn:
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "health",

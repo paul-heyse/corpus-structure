@@ -395,6 +395,194 @@ def _published_validation_sql(*, target_metadata=None) -> str:
     )
 
 
+def _companion_adoption_sql(context, metadata) -> str:
+    """One protected COPY set, exact typed guards and one endpoint target join."""
+    from .native_shapes import record_shape_predicate
+    from .pdf_payload_validation import metadata_classes
+    from .pdf_payloads import FAMILY, PROFILE
+    from .pdf_staging_native import native_payload_size_sql
+
+    relations = [metadata.tables["ops.pdf_stage_" + name] for name in (
+        "companion", "companion_field", "artifact_stream", "artifact_part", "endpoint",
+    )]
+    sql = """
+CREATE OR REPLACE FUNCTION ops.prepare_pdf_companions() RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+"""
+    for relation in relations:
+        scratch = "pc_" + relation.name
+        sql += f"""
+ IF to_regclass('pg_temp.{scratch}') IS NULL THEN
+ CREATE TEMP TABLE {scratch} (LIKE {relation.fullname} INCLUDING CONSTRAINTS) ON COMMIT DROP;
+ ELSE PERFORM ops.require_pdf_stage_scratch('{scratch}','{relation.fullname}'::regclass); END IF;
+ TRUNCATE pg_temp.{scratch};
+"""
+        if relation.name != "pdf_stage_endpoint":
+            sql += f"GRANT SELECT,INSERT ON pg_temp.{scratch} TO corpus_sem_writer;\n"
+    sql += """
+END $$;
+CREATE OR REPLACE FUNCTION ops.adopt_pdf_companions(p_build text,p_task bigint,p_attempt bigint,
+ p_holder text,p_key text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+ SET search_path=pg_catalog,pg_temp AS $$
+DECLARE b ops.pdf_stage_build; n bigint; size_ bigint; total bigint:=0; total_bytes bigint:=0;
+BEGIN
+ b:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
+ PERFORM ops.require_pdf_operation(b.release_id,'adopt_pdf_companions');
+ IF p_key IS NULL OR p_key='' OR octet_length(p_key)>1024 THEN
+ RAISE EXCEPTION 'invalid companion replay key' USING ERRCODE='23514'; END IF;
+"""
+    quote = dialect().identifier_preparer.quote
+    for relation in relations:
+        scratch = "pg_temp.pc_" + relation.name
+        keys = ",".join(quote(c.name) for c in relation.primary_key)
+        sql += f"""
+ PERFORM ops.require_pdf_stage_scratch('pc_{relation.name}','{relation.fullname}'::regclass);
+ IF EXISTS(SELECT FROM {scratch} WHERE product_id IS DISTINCT FROM p_build OR revision_id IS DISTINCT FROM p_build)
+ OR EXISTS(SELECT FROM {scratch} GROUP BY {keys} HAVING count(*)>1) THEN
+ RAISE EXCEPTION 'companion upload ownership or duplicate key differs' USING ERRCODE='23514'; END IF;
+"""
+        if relation.name != "pdf_stage_artifact_part":
+            sql += f"""
+ SELECT count(*),COALESCE(sum({native_payload_size_sql(relation)}),0) INTO n,size_ FROM {scratch} s;
+ total:=total+n; total_bytes:=total_bytes+size_;
+ IF total>65536 OR total_bytes>67108864 THEN
+ RAISE EXCEPTION 'companion upload profile exceeded' USING ERRCODE='23514'; END IF;
+"""
+    sql += """
+ IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_endpoint) THEN
+ RAISE EXCEPTION 'companion endpoints must be derived natively' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion c WHERE c.local_id='' OR c.ordinal<0
+ OR jsonb_typeof(c.body) IS DISTINCT FROM 'object' OR octet_length(c.body::text)>65536
+ OR (c.family='occurrence' AND c.local_id IS DISTINCT FROM c.body->>'occurrence_id')
+ OR (c.family='relation' AND c.local_id IS DISTINCT FROM c.body->>'relation_id')
+ OR (c.family='coverage' AND c.local_id IS DISTINCT FROM c.body->>'coverage_id')
+ OR (c.family IN ('input','mapping_report') AND c.local_id IS DISTINCT FROM c.ordinal::text)
+ OR (c.family='native_metadata' AND c.local_id IS DISTINCT FROM (c.body->>'kind')||':'||(c.body->>'ordinal')))
+ OR EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion c GROUP BY family,
+ CASE WHEN family='native_metadata' THEN body->>'kind' ELSE '' END,ordinal HAVING count(*)>1)
+ OR EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion c JOIN ops.pdf_stage_companion old
+ ON old.product_id=p_build AND old.family=c.family AND old.ordinal=c.ordinal AND old.local_id<>c.local_id
+ AND (c.family<>'native_metadata' OR old.body->>'kind'=c.body->>'kind')) THEN
+ RAISE EXCEPTION 'companion identity/order differs from declared semantic row' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion_field f
+ LEFT JOIN pg_temp.pc_pdf_stage_companion c USING(product_id,revision_id,family,local_id)
+ WHERE c.local_id IS NULL OR c.body ? f.field_name
+ OR NOT ((f.family='native_metadata' AND f.field_name='value')
+ OR (f.family='occurrence' AND f.field_name='text')
+ OR (f.family='relation' AND f.field_name IN ('endpoints','evidence')))
+ OR f.scalar_kind IS DISTINCT FROM CASE WHEN f.field_name IN ('value','endpoints') THEN 'y' ELSE 's' END) THEN
+ RAISE EXCEPTION 'invalid companion external field' USING ERRCODE='23514'; END IF;
+"""
+    sql += """
+ IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_artifact_stream stream WHERE NOT EXISTS(
+ SELECT FROM pg_temp.pc_pdf_stage_companion_field f WHERE f.stream_id=stream.stream_id))
+ OR EXISTS(SELECT FROM pg_temp.pc_pdf_stage_artifact_part part WHERE NOT EXISTS(
+ SELECT FROM pg_temp.pc_pdf_stage_companion_field f WHERE f.stream_id=part.stream_id)) THEN
+ RAISE EXCEPTION 'companion artifact is outside its field inventory' USING ERRCODE='23514'; END IF;
+"""
+    # Artifact rows are adopted once as sets before the shared byte validator reads
+    # them. A later malformed row aborts this entire call/transaction, including parts.
+    def adopt(relation, message):
+        columns = ",".join(quote(c.name) for c in relation.columns)
+        left = ",".join("incoming." + quote(c.name) for c in relation.columns)
+        right = ",".join("retained." + quote(c.name) for c in relation.columns)
+        keys = " AND ".join("incoming." + quote(c.name) + "=retained." + quote(c.name)
+                            for c in relation.primary_key)
+        return (f"IF EXISTS(SELECT FROM pg_temp.pc_{relation.name} incoming JOIN {relation.fullname} retained ON {keys} "
+                f"WHERE ROW({left}) IS DISTINCT FROM ROW({right})) THEN RAISE EXCEPTION '{message}' USING ERRCODE='23514'; END IF;\n"
+                f"INSERT INTO {relation.fullname}({columns}) SELECT {columns} FROM pg_temp.pc_{relation.name} ON CONFLICT DO NOTHING;\n")
+
+    for relation in relations[2:4]:
+        sql += adopt(relation, "changed companion artifact duplicate")
+    sql += f"""
+ IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion_field f
+ JOIN pg_temp.pc_pdf_stage_companion c USING(product_id,revision_id,family,local_id)
+ LEFT JOIN ops.pdf_stage_artifact_stream stream ON stream.product_id=p_build AND stream.revision_id=p_build AND stream.stream_id=f.stream_id
+ WHERE stream.encoding_profile IS DISTINCT FROM CASE
+ WHEN f.field_name='value' AND c.body->>'kind'={_quote(FAMILY)} THEN {_quote(PROFILE)}
+ WHEN f.field_name IN ('value','endpoints') THEN 'pdf-companion-json-field-v1' ELSE 'pdf-record-scalar-v1:s' END) THEN
+ RAISE EXCEPTION 'companion field encoding differs' USING ERRCODE='23514'; END IF;
+ PERFORM sum(octet_length(ops.pdf_companion_field_bytes(p_build,p_build,f.stream_id,true)))
+ FROM pg_temp.pc_pdf_stage_companion_field f;
+"""
+    rows = """WITH rows_ AS (
+ SELECT c.*,c.body||COALESCE((SELECT jsonb_object_agg(f.field_name,
+ CASE WHEN f.field_name='endpoints' THEN convert_from(ops.pdf_companion_field_bytes(p_build,p_build,f.stream_id,true),'UTF8')::jsonb
+ ELSE to_jsonb(convert_from(ops.pdf_companion_field_bytes(p_build,p_build,f.stream_id,true),'UTF8')) END)
+ FROM pg_temp.pc_pdf_stage_companion_field f WHERE f.family=c.family AND f.local_id=c.local_id
+ AND f.field_name IN ('text','endpoints','evidence')),'{}'::jsonb) body_
+ FROM pg_temp.pc_pdf_stage_companion c) """
+    for family, cls in (
+        ("input", "PdfProductInput"), ("occurrence", "PdfProductOccurrence"),
+        ("relation", "PdfProductRelation"), ("coverage", "PdfProductCoverage"),
+        ("mapping_report", "PdfMappingDisposition"), ("request_outcome", "PdfRecognitionObservation"),
+    ):
+        invalid = record_shape_predicate(context.boundary, cls, "c.body_")
+        sql += f"IF EXISTS({rows} SELECT FROM rows_ c WHERE c.family={_quote(family)} AND ({invalid})) THEN RAISE EXCEPTION 'parsing record shape differs: {cls}' USING ERRCODE='23514'; END IF;\n"
+    for cls, where in (("PdfRecordNativeHealth", "c.body ? 'conversion'"), ("PdfProductHealth", "NOT c.body ? 'conversion'")):
+        invalid = record_shape_predicate(context.boundary, cls, "c.body")
+        sql += f"IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion c WHERE c.family='health' AND ({where}) AND ({invalid})) THEN RAISE EXCEPTION 'parsing record shape differs: {cls}' USING ERRCODE='23514'; END IF;\n"
+    classes = metadata_classes()
+    sql += f"""
+ IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion c WHERE c.family='native_metadata' AND (
+ c.body->>'kind' NOT IN ({','.join(_quote(kind) for kind in classes)})
+ OR c.body-(CASE WHEN c.body->>'kind'='formula_outcomes' THEN ARRAY['kind','ordinal','pointer','outcome','has_diagnostic']
+ WHEN c.body->>'kind'={_quote(FAMILY)} THEN ARRAY['kind','ordinal','pointer','page_no','payload_schema_digest','payload_codec','payload_logical_digest']
+ ELSE ARRAY['kind','ordinal','pointer'] END)<>'{{}}'::jsonb
+ OR jsonb_typeof(c.body->'ordinal') IS DISTINCT FROM 'number' OR COALESCE(c.body->>'ordinal','')!~'^[0-9]+$'
+ OR NOT EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion_field f WHERE f.family=c.family AND f.local_id=c.local_id AND f.field_name='value')
+ OR (c.body->>'kind'='formula_outcomes' AND (jsonb_typeof(c.body->'has_diagnostic') IS DISTINCT FROM 'boolean' OR jsonb_typeof(c.body->'outcome') IS DISTINCT FROM 'string'))
+ OR (c.body->>'kind'={_quote(FAMILY)} AND (c.body->>'payload_codec' IS DISTINCT FROM {_quote(PROFILE)}
+ OR jsonb_typeof(c.body->'page_no') IS DISTINCT FROM 'number' OR COALESCE(c.body->>'page_no','')!~'^[1-9][0-9]*$'
+ OR COALESCE(c.body->>'payload_schema_digest','')!~'^[0-9a-f]{{64}}$' OR COALESCE(c.body->>'payload_logical_digest','')!~'^[0-9a-f]{{64}}$')))) THEN
+ RAISE EXCEPTION 'invalid metadata envelope' USING ERRCODE='23514'; END IF;
+"""
+    properties, alternatives = {}, []
+    for property_ in ("pointer", "prose_pointer", "table_pointer"):
+        alternatives.append("jsonb_build_object('required',jsonb_build_array(" + _quote(property_) + "),'properties'," + _quote(json.dumps(properties)) + "::jsonb||jsonb_build_object(" + _quote(property_) + ",jsonb_build_object('type','string','const',c.body->'pointer')))")
+        properties[property_] = {"not": {"type": "string"}}
+    projection = "CASE WHEN c.body ? 'pointer' THEN jsonb_build_object('anyOf',jsonb_build_array(" + ",".join(alternatives) + ")) ELSE " + _quote(json.dumps({"properties": properties})) + "::jsonb END"
+    formula = "CASE WHEN c.body->>'kind'='formula_outcomes' THEN jsonb_build_object('required',jsonb_build_array('outcome'),'properties',jsonb_build_object('outcome',jsonb_build_object('const',c.body->'outcome')))||CASE WHEN c.body->'has_diagnostic'='true'::jsonb THEN jsonb_build_object('required',jsonb_build_array('outcome','error')) ELSE jsonb_build_object('not',jsonb_build_object('required',jsonb_build_array('error'))) END ELSE '{}'::jsonb END"
+    for kind, cls in classes.items():
+        if kind == FAMILY:
+            continue
+        schema = _quote(_schema_json(context.boundary.json_schema(cls)))
+        sql += f"""
+ IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion c JOIN pg_temp.pc_pdf_stage_companion_field f
+ USING(product_id,revision_id,family,local_id) WHERE c.family='native_metadata' AND c.body->>'kind'={_quote(kind)} AND f.field_name='value'
+ AND public.json_matches_schema(({schema}::jsonb||jsonb_build_object('allOf',jsonb_build_array(({projection}),({formula}))))::json,
+ convert_from(ops.pdf_companion_field_bytes(p_build,p_build,f.stream_id,true),'UTF8')::json) IS NOT TRUE) THEN
+ RAISE EXCEPTION 'metadata value/schema/projection differs: {cls}' USING ERRCODE='23514'; END IF;
+"""
+    sql += adopt(relations[0], "changed companion duplicate")
+    sql += adopt(relations[1], "changed companion field duplicate")
+    sql += """
+ IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion c WHERE
+ (SELECT count(*) FROM ops.pdf_stage_companion_field f WHERE f.product_id=p_build AND f.family=c.family AND f.local_id=c.local_id)
+ <>(SELECT count(*) FROM pg_temp.pc_pdf_stage_companion_field f WHERE f.family=c.family AND f.local_id=c.local_id)) THEN
+ RAISE EXCEPTION 'changed companion field inventory' USING ERRCODE='23514'; END IF;
+"""
+    sql += """INSERT INTO pg_temp.pc_pdf_stage_endpoint
+ """ + rows + """
+ SELECT p_build,p_build,c.local_id,(endpoint.ordinality-1)::bigint,
+ CASE WHEN endpoint.value ? 'input_index' THEN (input.body->>'task_id')::bigint ELSE 0 END,
+ CASE WHEN endpoint.value ? 'input_index' THEN input.body->>'product_key' ELSE '@self' END,
+ CASE WHEN endpoint.value ? 'input_index' THEN input.body->>'content_digest' ELSE '@self' END,
+ endpoint.value->>'occurrence_id',endpoint.value->>'role'
+ FROM rows_ c CROSS JOIN LATERAL jsonb_array_elements(c.body_->'endpoints') WITH ORDINALITY endpoint(value,ordinality)
+ LEFT JOIN ops.pdf_stage_companion input ON input.product_id=p_build AND input.family='input' AND input.local_id=endpoint.value->>'input_index'
+ WHERE c.family='relation';
+"""
+    sql += adopt(relations[4], "changed companion endpoint duplicate")
+    from .pdf_staging import stage_upload_profile
+
+    profile = stage_upload_profile()
+    return ((sql + "END $$;\n")
+            .replace("total>65536", "total>" + str(profile["max_rows"]))
+            .replace("total_bytes>67108864", "total_bytes>" + str(profile["max_native_bytes"])))
+
+
 def publication_sql(*, target_metadata=None) -> str:
     metadata = default_metadata if target_metadata is None else target_metadata
     from .pdf_record_reader_native import (
@@ -538,136 +726,7 @@ b.state='abandoned' THEN
  UPDATE ops.pdf_stage_build SET state='frozen' WHERE build_id=p_build;
  RETURN f;
 END $$;
-CREATE OR REPLACE FUNCTION ops.adopt_pdf_companion(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text,
- p_family text,p_local text,p_body jsonb,p_key text,p_ordinal bigint,p_fields jsonb DEFAULT \
-'{}'::jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
- SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; endpoint_ jsonb; index_ bigint:=0; input_ jsonb; field_ record; \
-body_ jsonb:=p_body; payload_ bytea; profile_ text; metadata_ json; projection_ jsonb; \
-alternatives_ jsonb; prior_ jsonb; property_ text; item_ jsonb;
-BEGIN
- b:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM ops.require_pdf_operation(b.release_id,'adopt_pdf_companion_batch');
- IF p_family IS NULL OR p_local IS NULL OR p_local='' OR jsonb_typeof(p_body)<>'object' OR
- octet_length(p_body::text)>65536 THEN RAISE EXCEPTION 'invalid typed PDF companion' USING \
-ERRCODE='23514'; END IF;
- IF p_ordinal IS NULL OR p_ordinal<0 OR
- (p_family='occurrence' AND p_local IS DISTINCT FROM p_body->>'occurrence_id') OR
- (p_family='relation' AND p_local IS DISTINCT FROM p_body->>'relation_id') OR
- (p_family='coverage' AND p_local IS DISTINCT FROM p_body->>'coverage_id') OR
- (p_family IN ('input','mapping_report') AND p_local IS DISTINCT FROM p_ordinal::text) OR
- (p_family='native_metadata' AND p_local IS DISTINCT FROM \
-(p_body->>'kind')||':'||(p_body->>'ordinal')) THEN
- RAISE EXCEPTION 'companion identity/order differs from declared semantic row' USING \
-ERRCODE='23514'; END IF;
- IF jsonb_typeof(p_fields)<>'object' THEN RAISE EXCEPTION 'companion fields must be fixed \
-mapping'; END IF;
- FOR field_ IN SELECT key,value#>>'{}' stream_id FROM jsonb_each(p_fields) LOOP
- IF NOT ((p_family='native_metadata' AND field_.key='value') OR (p_family='occurrence' AND \
-field_.key='text') OR (p_family='relation' AND field_.key IN ('endpoints','evidence')))
- OR p_body ? field_.key THEN RAISE EXCEPTION 'invalid companion external field'; END IF;
- SELECT encoding_profile INTO STRICT profile_ FROM ops.pdf_stage_artifact_stream
- WHERE product_id=p_build AND revision_id=p_build AND stream_id=field_.stream_id;
- IF profile_ IS DISTINCT FROM (CASE WHEN field_.key='value' AND \
-p_body->>'kind'='{pdf_payload_family}' THEN '{pdf_payload_profile}' \
-WHEN field_.key IN ('value','endpoints') THEN 'pdf-companion-json-field-v1' \
-ELSE 'pdf-record-scalar-v1:s' END) THEN
- RAISE EXCEPTION 'companion field encoding differs'; END IF;
- payload_:=ops.pdf_companion_field_bytes(p_build,p_build,field_.stream_id,true);
- IF field_.key='value' THEN
- IF profile_<>'{pdf_payload_profile}' THEN metadata_:=convert_from(payload_,'UTF8')::json; END IF;
- ELSIF field_.key='endpoints' THEN
- body_:=body_||jsonb_build_object(field_.key,convert_from(payload_,'UTF8')::jsonb);
- ELSE body_:=body_||jsonb_build_object(field_.key,to_jsonb(convert_from(payload_,'UTF8'))); END IF;
- END LOOP;
- IF p_family='native_metadata' AND (p_body->>'kind' NOT IN
- ({metadata_kinds})
- OR NOT p_body ? 'ordinal' OR NOT p_fields ? 'value') THEN RAISE EXCEPTION 'invalid native \
-metadata kind' USING ERRCODE='23514'; END IF;
- IF p_family='native_metadata' THEN
- IF p_body-(CASE WHEN p_body->>'kind'='formula_outcomes' THEN \
-ARRAY['kind','ordinal','pointer','outcome','has_diagnostic'] WHEN \
-p_body->>'kind'='{pdf_payload_family}' THEN ARRAY['kind','ordinal','pointer','page_no',\
-'payload_schema_digest','payload_codec','payload_logical_digest'] ELSE \
-ARRAY['kind','ordinal','pointer'] END)<>'{}'::jsonb
- OR jsonb_typeof(p_body->'ordinal') IS DISTINCT FROM 'number' OR (p_body->>'ordinal')!~'^[0-9]+$'
- THEN RAISE EXCEPTION 'invalid metadata envelope'; END IF;
- IF p_body->>'kind'='{pdf_payload_family}' AND (
- p_body->>'payload_codec' IS DISTINCT FROM '{pdf_payload_profile}' OR
- jsonb_typeof(p_body->'page_no') IS DISTINCT FROM 'number' OR
- COALESCE(p_body->>'page_no','') !~ '^[1-9][0-9]*$' OR
- COALESCE(p_body->>'payload_schema_digest','') !~ '^[0-9a-f]{64}$' OR
- COALESCE(p_body->>'payload_logical_digest','') !~ '^[0-9a-f]{64}$') THEN
- RAISE EXCEPTION 'invalid structured payload locator' USING ERRCODE='23514'; END IF;
- -- The native JSON-schema engine inspects actual values without PostgreSQL's
- -- JSON extraction functions, which reject NUL in any nested string.
- prior_:='{}'::jsonb; alternatives_:='[]'::jsonb;
- FOREACH property_ IN ARRAY ARRAY['pointer','prose_pointer','table_pointer'] LOOP
- IF p_body ? 'pointer' THEN
- item_:=jsonb_build_object('required',jsonb_build_array(property_),'properties',
- prior_||jsonb_build_object(property_,jsonb_build_object('type','string','const',p_body->'pointer\
-')));
- alternatives_:=alternatives_||jsonb_build_array(item_);
- END IF;
- prior_:=prior_||jsonb_build_object(property_,jsonb_build_object('not',jsonb_build_object('type',\
-'string')));
- END LOOP;
- projection_:=CASE WHEN p_body ? 'pointer' THEN jsonb_build_object('anyOf',alternatives_)
- ELSE jsonb_build_object('properties',prior_) END;
- IF p_body->>'kind'='formula_outcomes' THEN
- IF jsonb_typeof(p_body->'has_diagnostic') IS DISTINCT FROM 'boolean' OR \
-jsonb_typeof(p_body->'outcome') IS DISTINCT FROM 'string'
- THEN RAISE EXCEPTION 'invalid formula health projection'; END IF;
- projection_:=jsonb_build_object('allOf',jsonb_build_array(projection_,
- jsonb_build_object('required',jsonb_build_array('outcome'),'properties',jsonb_build_object('outc\
-ome',jsonb_build_object('const',p_body->'outcome'))),
- CASE WHEN p_body->'has_diagnostic'='true'::jsonb THEN \
-jsonb_build_object('required',jsonb_build_array('error'))
- ELSE jsonb_build_object('not',jsonb_build_object('required',jsonb_build_array('error'))) END));
- END IF;
- END IF;
- INSERT INTO ops.pdf_stage_companion VALUES(p_build,p_build,p_family,p_local,p_body,p_ordinal) \
-ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM ops.pdf_stage_companion WHERE product_id=p_build AND family=p_family \
-AND local_id=p_local AND body=p_body AND ordinal=p_ordinal) THEN
- RAISE EXCEPTION 'changed companion duplicate' USING ERRCODE='23514'; END IF;
- FOR field_ IN SELECT key,value#>>'{}' stream_id FROM jsonb_each(p_fields) LOOP
- INSERT INTO ops.pdf_stage_companion_field VALUES(p_build,p_build,p_family,p_local,field_.key,fie\
-ld_.stream_id,
- CASE WHEN field_.key IN ('value','endpoints') THEN 'y' ELSE 's' END) ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM ops.pdf_stage_companion_field WHERE product_id=p_build AND \
-family=p_family AND local_id=p_local
- AND field_name=field_.key AND stream_id=field_.stream_id) THEN RAISE EXCEPTION 'changed \
-companion field duplicate'; END IF;
- END LOOP;
- IF (SELECT count(*) FROM ops.pdf_stage_companion_field WHERE product_id=p_build AND \
-family=p_family AND local_id=p_local)
- <>(SELECT count(*) FROM jsonb_object_keys(p_fields)) THEN RAISE EXCEPTION 'changed companion \
-field inventory'; END IF;
- IF p_family='relation' THEN
- IF jsonb_typeof(body_->'endpoints') IS DISTINCT FROM 'array' OR
- jsonb_array_length(body_->'endpoints')=0 THEN
- RAISE EXCEPTION 'relation lacks independent endpoints' USING ERRCODE='23514'; END IF;
- FOR endpoint_ IN SELECT value FROM jsonb_array_elements(body_->'endpoints') LOOP
- IF endpoint_ ? 'input_index' THEN
- SELECT body INTO STRICT input_ FROM ops.pdf_stage_companion WHERE product_id=p_build
- AND family='input' AND local_id=endpoint_->>'input_index';
- ELSE input_:=jsonb_build_object('task_id',0,'product_key','@self','content_digest','@self'); \
-END IF;
- INSERT INTO ops.pdf_stage_endpoint VALUES(p_build,p_build,p_local,index_,(input_->>'task_id')::b\
-igint,
- input_->>'product_key',input_->>'content_digest',endpoint_->>'occurrence_id',endpoint_->>'role')\
- ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM ops.pdf_stage_endpoint WHERE product_id=p_build AND \
-relation_id=p_local AND ordinal=index_
- AND occurrence_id=endpoint_->>'occurrence_id' AND role=endpoint_->>'role'
- AND target_task_id=(input_->>'task_id')::bigint AND \
-target_content_digest=input_->>'content_digest') THEN
- RAISE EXCEPTION 'changed companion endpoint duplicate' USING ERRCODE='23514'; END IF;
- index_:=index_+1;
- END LOOP; END IF;
-END $$;
+__PDF_COMPANION_ADOPTION__
 CREATE OR REPLACE FUNCTION ops.pdf_reference_bytes_equal(p_product text,p_revision text,p_left \
 text,p_left_stream text,p_right text,p_right_stream text)
 RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -1290,7 +1349,7 @@ oduct_key',c.body->>'content_digest'
  RETURN NEXT prior;
 END $$;
 """
-    from .native_shapes import record_shape_guards
+    from .pdf_payloads import FAMILY, PROFILE
     from .pdf_contracts import integrated_metadata_policy, trusted_pdf_context
 
     context = trusted_pdf_context()
@@ -1326,60 +1385,7 @@ END $$;
         .replace("{pdf_projection_profile_digest}", policy_digest)
         .replace("{pdf_integrated_metadata_policy_digest}", metadata_policy_digest)
     )
-    companion_guards = []
-    for family, cls in [
-        ("input", "PdfProductInput"),
-        ("occurrence", "PdfProductOccurrence"),
-        ("relation", "PdfProductRelation"),
-        ("coverage", "PdfProductCoverage"),
-        ("mapping_report", "PdfMappingDisposition"),
-        ("request_outcome", "PdfRecognitionObservation"),
-    ]:
-        companion_guards.append(
-            "IF p_family='"
-            + family
-            + "' THEN\n"
-            + record_shape_guards(context.boundary, cls, "body_")
-            + "\nEND IF;"
-        )
-    from .pdf_payload_validation import metadata_classes
-    from .pdf_payloads import FAMILY, PROFILE
-
-    classes = metadata_classes()
-    sql = sql.replace("{metadata_kinds}", ",".join(_quote(kind) for kind in classes))
-    sql = sql.replace("'{pdf_payload_profile}'", _quote(PROFILE))
-    sql = sql.replace("'{pdf_payload_family}'", _quote(FAMILY))
-    for kind, cls in classes.items():
-        companion_guards.append(
-            "IF p_family='native_metadata' AND p_body->>'kind'='"
-            + kind
-            + "' AND p_body->>'kind'<>'{pdf_payload_family}' THEN\n"
-            + "IF public.json_matches_schema(("
-            + _quote(_schema_json(context.boundary.json_schema(cls)))
-            + "::jsonb || jsonb_build_object('allOf',jsonb_build_array(projection_)))::json,metad\
-ata_) IS NOT TRUE THEN "
-            + "RAISE EXCEPTION 'metadata value/schema/projection \
-differs: "
-            + cls
-            + "' USING ERRCODE='23514'; END IF;"
-            + "\nEND IF;"
-        )
-    native_health_guard = record_shape_guards(context.boundary, "PdfRecordNativeHealth", "p_body")
-    product_health_guard = record_shape_guards(context.boundary, "PdfProductHealth", "p_body")
-    companion_guards.append(
-        "IF p_family='health' THEN IF p_body ? 'conversion' THEN\n"
-        + native_health_guard
-        + "\n ELSE "
-        + product_health_guard
-        + "\n END IF; END IF;"
-    )
-    sql = sql.replace(
-        " INSERT INTO ops.pdf_stage_companion VALUES(p_build",
-        "\n"
-        + "\n".join(companion_guards)
-        + "\n INSERT INTO ops.pdf_stage_companion VALUES(p_build",
-        1,
-    )
+    sql = sql.replace("__PDF_COMPANION_ADOPTION__", _companion_adoption_sql(context, metadata))
     sql += (
         reader
         + "\n"
@@ -1572,7 +1578,8 @@ REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) 
         "lookup_pdf_published_build(text,bigint,bigint,text)",
         "require_pdf_frozen(text,bigint,bigint,text,text)",
         "freeze_pdf_build(text,bigint,bigint,text,text)",
-        "adopt_pdf_companion(text,bigint,bigint,text,text,text,jsonb,text,bigint,jsonb)",
+        "prepare_pdf_companions()",
+        "adopt_pdf_companions(text,bigint,bigint,text,text)",
         "prepare_pdf_build(text,bigint,bigint,text,text)",
         "read_pdf_frozen_rows(text,bigint,bigint,text,text,text,jsonb,integer,jsonb)",
         "adopt_pdf_access(text,bigint,bigint,text,text,text,jsonb)",

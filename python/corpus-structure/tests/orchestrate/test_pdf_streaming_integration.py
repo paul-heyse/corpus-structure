@@ -140,8 +140,8 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
     )
     monkeypatch.setattr(
         pdf_publication,
-        "adopt_pdf_companion_batch",
-        after_retirement(pdf_publication.adopt_pdf_companion_batch),
+        "adopt_pdf_companions",
+        after_retirement(pdf_publication.adopt_pdf_companions),
     )
     original_run = pdf_streaming.run_private_native_pdf_build
     adopted, private = [], []

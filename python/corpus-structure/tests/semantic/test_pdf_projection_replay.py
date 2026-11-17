@@ -16,7 +16,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companion_batch,
+    adopt_pdf_companions,
     freeze_pdf_build,
     prepare_pdf_build,
     validate_pdf_build,
@@ -63,7 +63,7 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
                         {replay.family: (reader.get_batch(index),)},
                     )
     with commit_writer_engine.begin() as conn:
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "health",

@@ -44,7 +44,7 @@ def test_companion_chunks_prepare_outside_transactions_and_commit_independently(
             raise RuntimeError("independent second chunk failure")
 
     monkeypatch.setattr(pdf_streaming, "_pdf_transaction", transaction)
-    monkeypatch.setattr(pdf_publication, "adopt_pdf_companion_batch", adopt)
+    monkeypatch.setattr(pdf_publication, "adopt_pdf_companions", adopt)
     from typing import Any, cast
 
     def run():

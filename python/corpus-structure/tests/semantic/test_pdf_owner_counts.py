@@ -17,7 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companion_batch,
+    adopt_pdf_companions,
     freeze_pdf_build,
     prepare_pdf_build,
 )
@@ -116,7 +116,7 @@ def test_native_owner_counts_refuse_missing_or_duplicate_membership(
                 "owner-control-" + family,
                 {family: [pa.RecordBatch.from_pylist(rows[family], schema=stage_schema(family))]},
             )
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "health",

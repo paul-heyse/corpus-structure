@@ -211,7 +211,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
             assert row["conversion"] == "success" and row["source_scope"] == "whole_document"
         adoptions.append(family)
 
-    monkeypatch.setattr(pdf_publication, "adopt_pdf_companion_batch", adopt_health)
+    monkeypatch.setattr(pdf_publication, "adopt_pdf_companions", adopt_health)
     from corpus_structure.ingest.pdf import PdfRecipe
 
     recipe = PdfRecipe(

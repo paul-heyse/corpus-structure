@@ -16,7 +16,7 @@ from corpus_structure.ingest.pdf_health import FormulaOutcome
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.semantic.execution_admission import verify_deployment_catalog
 from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companion_batch,
+    adopt_pdf_companions,
     freeze_pdf_build,
     prepare_pdf_build,
     seal_pdf_build,
@@ -153,7 +153,7 @@ def publish_selected(
                         {replay.family: (batches.get_batch(index),)},
                     )
     with engine.begin() as conn:
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "health",
@@ -168,7 +168,7 @@ def publish_selected(
             ],
             "health",
         )
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "native_metadata",
@@ -203,10 +203,10 @@ def publish_selected(
             "recognition",
         )
         if diagnostics:
-            adopt_pdf_companion_batch(
+            adopt_pdf_companions(
                 conn, build, "native_metadata", diagnostics, "selected-diagnostics"
             )
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "occurrence",
@@ -222,7 +222,7 @@ def publish_selected(
             ],
             "occurrence",
         )
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "relation",
@@ -242,7 +242,7 @@ def publish_selected(
             ],
             "relation",
         )
-        adopt_pdf_companion_batch(
+        adopt_pdf_companions(
             conn,
             build,
             "coverage",
@@ -332,9 +332,9 @@ def publish_native_record_fixture(
         for key in ("page_start", "page_end"):
             if key in values:
                 wrapper[key] = values[key]
-        adopt_pdf_companion_batch(conn, build, "health", (wrapper,), "fixture-health")
+        adopt_pdf_companions(conn, build, "health", (wrapper,), "fixture-health")
         if values.get("parent_task_id") is not None:
-            adopt_pdf_companion_batch(
+            adopt_pdf_companions(
                 conn,
                 build,
                 "input",
@@ -367,7 +367,7 @@ def publish_native_record_fixture(
                 dict(kind=kind, ordinal=index, value=value) for index, value in enumerate(records)
             )
         if metadata:
-            adopt_pdf_companion_batch(conn, build, "native_metadata", metadata, "fixture-metadata")
+            adopt_pdf_companions(conn, build, "native_metadata", metadata, "fixture-metadata")
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     validate_pdf_build(engine, frozen)
