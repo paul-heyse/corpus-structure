@@ -44,9 +44,27 @@ their branch is merged and removed, with originals held in root managed custody.
 
 Actual E5 setup found SI22 before inference. [ADR-0120](../adr/0120-explicit-nullable-fields.md)
 selects opt-in whole-field nullability, independent of presence, with compiler24/boundary ABI13.
-Complete the scoped contextual/core repair, pure controls and matching native successor before
-fresh actual provider/consumer cohorts and application capture. Preserve strict source pins,
-current-only archive interpretation and every failed original receipt.
+The scoped contextual/core repair is integrated `afc0e5d32`, with root fixture narrowing/formatting
+`6bb7dd708`. Independent read-only review found no remaining material issue at worker endpoint
+`1ff41cd33`; final integrated typing passed `f57c7ba0d9ce493589b151503a067071` and lint passed
+`2931bf53847e4636a133c9f5f0d78f3a`. Their initial typing failure `f85b018c2735442b903bbc7ad09ea05f`
+remains retained. Required facts now carry nullability explicitly; Python field projection separates
+presence/outer null/collection members, and nominal tagged meaning uses that same authority.
+Matching native successor and actual E5/provider/consumer execution remain open.
+
+**Managed-custody loss · 2026-11-16.** Root incorrectly let worktree removal follow a failed
+receipt-transfer precondition; the E5 worktree's ten original managed directories were deleted.
+Committed source survives, but these IDs are **unavailable** and supply no qualification credit:
+`f9d0c23e15774a6980cec63b1f5ab145`, `19e65ee75cdf49a58bfe8b52d4601c1a`,
+`8a20f662f01e4d438978acb745e0b323`, `dd595e955ae945cfb04b670614e9c0c2`,
+`cc9d21b136b64bcd9bad10ccc4da0cd2`, `07ae57e994684119b44196098a9303c4`,
+`bba41dee2b0444e986581c0fbca506f4`, `e1977761eb3d48d493c37d15db9065f2`,
+`b230413b41be48e992e36d31bbf2aaab`, `650c358ad97c47749513391af1ff2f6e`.
+The reported pre-E5 nullable refusal remains a documented observation only, with no recoverable
+original native traceback. No receipt is reconstructed or assigned an old ID. Fresh expanded pure
+verification **passed250** as `3d42f40a38ec4d44b2c49a2cdff46c97`; actual E5 remains required.
+Root native2 `78b33079196b4afa9252911f147afaa2`, retirement15 and finalized descriptor records
+are unaffected. Future cleanup is a separate action after completed, verified original transfer.
 
 ## Current execution boundary · 2026-11-16
 
@@ -316,7 +334,7 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-19 | A captured source-address operation's bare primitive aliases collide with composite domain kind aliases. | **Implemented**, `e859b748e`: name authoritative `primitive:integer`/`primitive:string` in the declaration, preserving the original typed callable and compiler equality check. Counterfailure `b217da205a06480181e369e9359e4d66`; actual composite/isolated recipe3 passed `8c657a449e3649fca136c60a012b930e`. |
 | DDO-SI-20 | PDF domain JSON projections are passed through strict Python validation, which rejects their nested JSON arrays against the compiled tuple types. | **Implemented; bounded native Tested2026-11-16**, `542b53744`: use strict JSON validation and exact numeric `json_bytes` at the three projection ingresses. Actual organization/enrichment/integration and exact-resume journey passed in held `78b33079196b4afa9252911f147afaa2` at compiler23/source99edcaec2. Physical receipt and native custody guards remain unchanged. This executor-only correction needs fresh application capture; later compiler24/native-context applicability remains an enclosing qualification obligation. |
 | DDO-SI-21 | The deliberately2MiB diagnostic fixture specifies a private budget for initial reading but omits it at publication's second support acquisition. | **Implemented; bounded native Tested2026-11-16**, `a2e770d3b`: existing page/max-byte options reach the second private support read; only this fixture requests1row/16MiB. Actual exact raw2MiB support equality, empty bounded public read and64KiB exact-support refusal passed in held `78b33079196b4afa9252911f147afaa2` at source99edcaec2. Ordinary defaults and public bounds remain unchanged. Later compiler24 context requires applicability assessment. |
-| DDO-SI-22 | Curated contextual targets are intentionally project-owned/source-free, but their compiled population contract rejects explicit null `original_source` in member contexts and bodies. | **Open owning-contract repair.** Actual E5 provider cohort `dd595e955ae945cfb04b670614e9c0c2` failed all3 setup phases at curated target validation, before primary publication or actual E5 inference. Correct the precise source-free declaration/producer contract while preserving source-owned pins, explicit-null meaning and strict validation. Real E5 evidence and all3 selected-context recipes remain required; collection/pure checks do not establish them. |
+| DDO-SI-22 | Curated contextual targets are intentionally project-owned/source-free, but their compiled population contract rejects explicit null `original_source` in member contexts and bodies. | **Implemented; current verification open**, ADR-0120/`afc0e5d32`. Explicit nullable properties remain independent of required presence; current archives require the fact, tagged nominal schemas and inferred Python projections preserve it, and source-owned pins remain strict. The observed original3 setup failures `dd595e955ae945cfb04b670614e9c0c2` preceded E5 inference; its original artifacts are unavailable after the custody loss above. Fresh pure/current native and real E5 all3 recipes remain required; no lost receipt supplies qualification. |
 
 
 

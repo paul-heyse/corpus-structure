@@ -17,7 +17,7 @@ source-interface and operation interpreters retire rather than imposing historic
 Native trust, effect fencing, source fidelity and evaluation independence remain required.
 Implementation/qualification is owned by the DDO coordinator.
 
-**Accepted target correction · 2026-11-16; implementation/qualification Proposed.** Effective
+**Implemented compiler correction; bounded Tested · 2026-11-16.** Effective
 properties declare `cs:nullable` explicitly and independently of required presence. Missing, null
 and a populated value remain distinct through property definitions, boundary/archive products,
 identity and native JSON Schema. Pydantic's native union handles an allowed whole-field null;
@@ -26,6 +26,9 @@ identity determinants do not follow from this declaration. The initial consumers
 project-owned contextual targets and scalar product addresses; source-owned pins remain strict.
 Compiler24/boundary ABI13 identify the changed interpretation without a historical reader fallback.
 The DDO coordinator owns SI22 repair, matching native capture and actual provider qualification.
+Current pure/compiler/archive/presence/parameter/context controls250 passed in
+`3d42f40a38ec4d44b2c49a2cdff46c97`; native/provider qualification remains open. This JSON boundary
+policy supplies no new RDF-null mapping or rule-engine null support.
 
 > Decision: [ADR-0120](../adr/0120-explicit-nullable-fields.md)
 
