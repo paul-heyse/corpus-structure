@@ -284,6 +284,15 @@ def validate_pdf_report_metadata(
             for item in value["items"]
         ):
             raise ValueError("complete formula coverage lacks attributable recognition")
+
+    def recognition_scope(pointer, membership):
+        node = resolve_native_pointer(document, pointer)
+        # The body is the existing residual source view. It never acquires
+        # descendant/global coverage merely because it contains section groups.
+        if pointer == "#/body":
+            return membership == "direct"
+        return node.get("label") in {"section", "chapter"}
+
     for universe, policy in (("inline", "candidate_policy"), ("cell", "cells_policy")):
         if health.get(universe + "_coverage") == "complete" and (
             not health.get(universe + "_scope")
@@ -295,7 +304,7 @@ def validate_pdf_report_metadata(
                 "candidate policy"
             )
         for pointer in health.get(universe + "_scope", ()):
-            if resolve_native_pointer(document, pointer).get("label") not in {"section", "chapter"}:
+            if not recognition_scope(pointer, health.get(universe + "_membership")):
                 raise ValueError("recognition coverage scope is not a native section")
     coverage = set()
     for row in value.get("recognition_coverage", ()):
@@ -303,11 +312,10 @@ def validate_pdf_report_metadata(
         if key in coverage:
             raise ValueError("duplicate scoped recognition coverage")
         coverage.add(key)
-        if resolve_native_pointer(document, row["section_pointer"]).get("label") not in {
-            "section",
-            "chapter",
-        }:
-            raise ValueError("recognition coverage row requires a native section")
+        if not recognition_scope(row["section_pointer"], row["membership"]):
+            raise ValueError(
+                "recognition coverage row requires a native section or direct body root"
+            )
     if coverage and any(
         health.get(universe + "_coverage") != "unknown" for universe in ("inline", "cell")
     ):
