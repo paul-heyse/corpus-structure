@@ -3,6 +3,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from corpus_structure.core.method import CoverageDraft
 from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.methods.m1_source import M1CandidateProduct, M1Config
@@ -646,7 +648,8 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
     assert partial.regions and all(region.outcome == "unsupported" for region in partial.regions)
 
 
-def test_related_m1_context_consumes_only_related_members_own_selected_span():
+@pytest.mark.parametrize("link_field", ["captions", "footnotes", "references"])
+def test_related_m1_context_consumes_only_related_members_own_selected_span(link_field):
     from corpus_structure.methods.source_preparation import ContextSelection, _widen_contexts
     from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
     from corpus_structure.semantic.m1_products import NativeCandidateData
@@ -670,7 +673,7 @@ def test_related_m1_context_consumes_only_related_members_own_selected_span():
                 label="text",
                 text="A",
                 orig="A",
-                captions=[{"$ref": "#/texts/1"}],
+                **{link_field: [{"$ref": "#/texts/1"}]},
             )
         ],
     )

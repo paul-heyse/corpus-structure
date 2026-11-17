@@ -520,3 +520,42 @@ def test_shared_native_working_dag_resolution_occurrences_and_delivery_stay_fact
     )
     with pytest.raises(ValueError, match="cycle"):
         _restore_reading(dict(syntax=cyclic, outcome="ok"), "x", context)
+
+
+def test_formal_descendant_selection_walks_frozen_native_parent_links():
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.formal_evidence import (
+        FormalIdentity,
+        _LayerBuilder,
+        extract_formal_facts,
+    )
+    from corpus_structure.semantic.native_source_view import freeze_native
+
+    text = "ordinary prose"
+    view = SimpleNamespace(
+        text=text,
+        pieces=freeze_native([
+            dict(kind="native_text", start=0, end=len(text), item_ref="#/texts/1"),
+        ]),
+        items=freeze_native([
+            dict(self_ref="#/groups/0", label="section"),
+            dict(self_ref="#/groups/1", label="section", parent={"$ref": "#/groups/0"}),
+            dict(self_ref="#/texts/1", label="text", parent={"$ref": "#/groups/1"}),
+        ]),
+        health={},
+    )
+    builder = _LayerBuilder(view, {}, FormalIdentity(b"{}", "projection:fixture", "view", True))
+    actual = extract_formal_facts(
+        builder,
+        [dict(native_pointer="#/groups/0")],
+        math_start="any_value",
+        parse_seconds=1,
+        max_forest_nodes=1024,
+        max_inline_chars=512,
+        check_active=lambda: None,
+    )
+    assert actual == [dict(
+        projection="projection:fixture", native_pointer="#/texts/1", start=0, end=14,
+    )]
+    assert builder.annotations

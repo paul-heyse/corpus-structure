@@ -8,7 +8,7 @@ Related native sources retain independent pins; recognition alternatives remain 
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from itertools import pairwise
@@ -1141,7 +1141,7 @@ def _widen_contexts(
                 dict.fromkeys(
                     link["$ref"]
                     for link in node.get(field, ())
-                    if isinstance(link, dict)
+                    if isinstance(link, Mapping)
                     and isinstance(link.get("$ref"), str)
                     and link["$ref"].startswith("#/")
                 )

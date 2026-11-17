@@ -419,9 +419,9 @@ class FormalSource(Protocol):
     @property
     def text(self) -> str: ...
     @property
-    def pieces(self) -> tuple[dict[str, Any], ...]: ...
+    def pieces(self) -> tuple[Mapping[str, Any], ...]: ...
     @property
-    def items(self) -> tuple[dict[str, Any], ...]: ...
+    def items(self) -> tuple[Mapping[str, Any], ...]: ...
     @property
     def health(self) -> dict[str, Any]: ...
 
@@ -1028,7 +1028,7 @@ def extract_formal_facts(
             while selected_pointer and pointer != selected_pointer and pointer not in seen:
                 seen.add(pointer)
                 parent = builder.items.get(pointer, {}).get("parent")
-                pointer = parent.get("$ref") if isinstance(parent, dict) else parent
+                pointer = parent.get("$ref") if isinstance(parent, Mapping) else parent
             if selected_pointer and pointer != selected_pointer:
                 return False
         if "page" in selector:
