@@ -13,9 +13,8 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitOriginalDocumentAssetRequest,
-    WireClaimDataRequestRequest,
+    WireClaimDataRequestsRequest,
     WirePublishDataDerivationRequest,
-    WireReadDemandResultRequest,
     WireRetainDataCompletionIntentRequest,
     WireRevokeDataSupportRequest,
 )
@@ -91,7 +90,9 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
             release=prepared.release_id,
             runtime=runtime.runtime_id,
         )
-        snapshot = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
+    with kernel.engine.begin() as connection:
+        storage = DataOperationStorage(connection)
+        snapshot = storage.read_demand_result({"demand_id": demand["demand_id"]})
         admissions = snapshot["original_source_admissions"]
         assert len(admissions) == 1
         admission = admissions[0]
@@ -100,6 +101,8 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
         assert admission["evidence"]["document_content_hash"] == acquired.reference.content_hash
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         assert connection.scalar(text("SELECT count(*) FROM ops.data_request")) == 0
+    with kernel.engine.begin() as connection:
+        storage = DataOperationStorage(connection)
         # Repeated authenticated admission neither invents an episode nor a new value.
         repeated = storage.admit_original_document_asset(
             typing_cast(
@@ -130,21 +133,12 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
         assert ready.resolved.roles[0].members[0].support_episodes == ()
         bad_reference = deepcopy(binding)
         bad_reference["support"][0]["source_reference"] = "original:never-admitted"
-        with pytest.raises(DBAPIError, match="original support"), connection.begin_nested():
-            connection.execute(
-                text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"),
-                {
-                    "payload": json.dumps(
-                        dict(
-                            obligation_id=ready.obligation,
-                            request_key=json.loads(ready.native)["request_id"],
-                            request_meaning=json.loads(ready.request),
-                            binding=bad_reference,
-                            replicate=None,
-                        )
-                    )
-                },
-            )
+        bad = dict(obligation_id=ready.obligation, request_key=json.loads(ready.native)["request_id"],
+                   request_meaning=json.loads(ready.request), binding=bad_reference, replicate=None)
+        refused = connection.scalar(text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"), {
+            "payload": json.dumps({"read_id": binding["read_id"], "items": [bad]}),
+        })["payload"]["items"][0]
+        assert refused["state"] == "refused" and "original support" in refused["reason"]
         source_role = next(
             role for role in model.operation(ready.operation).roles if role.direction == "input"
         )
@@ -158,24 +152,12 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
             altered = deepcopy(binding)
             altered["request_inputs"] = semantic_value(meaning["inputs"])
             before = connection.scalar(text("SELECT count(*) FROM ops.data_request"))
-            with (
-                pytest.raises(DBAPIError, match="original source identity differs"),
-                connection.begin_nested(),
-            ):
-                connection.execute(
-                    text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"),
-                    {
-                        "payload": json.dumps(
-                            dict(
-                                obligation_id=ready.obligation,
-                                request_key=forged.key,
-                                request_meaning=json.loads(forged.canonical_input),
-                                binding=altered,
-                                replicate=None,
-                            )
-                        )
-                    },
-                )
+            bad = dict(obligation_id=ready.obligation, request_key=forged.key,
+                       request_meaning=json.loads(forged.canonical_input), binding=altered, replicate=None)
+            refused = connection.scalar(text("SELECT ops.attach_data_requests(CAST(:payload AS jsonb))"), {
+                "payload": json.dumps({"read_id": binding["read_id"], "items": [bad]}),
+            })["payload"]["items"][0]
+            assert refused["state"] == "refused" and "original source identity differs" in refused["reason"]
             assert connection.scalar(text("SELECT count(*) FROM ops.data_request")) == before
         # An identical subject/source with a different selector scope cannot see this fact.
         wrong_scope = connection.execute(
@@ -197,17 +179,9 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
         ).scalar_one()
         assert wrong_scope == 0
         native = json.loads(ready.native)
-        claimed = storage.claim_data_request(
-            typing_cast(
-                WireClaimDataRequestRequest,
-                {
-                    "request_id": native["request_id"],
-                    "generation": native["generation"],
-                    "holder": "original-test",
-                    "lease_seconds": 30,
-                },
-            )
-        )
+        item_result = storage.claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {'holder': 'original-test', 'lease_seconds': 30, 'items': [{'request_id': native['request_id'], 'generation': native['generation']}]}))['items'][0]
+        assert item_result["state"] == "claimed", item_result
+        claimed = item_result["result"]
         assert claimed["state"] == "claimed"
         fence = {
             key: claimed[key]
@@ -279,12 +253,14 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
                 },
             )
         )
-        current = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
+        current = storage.read_demand_result({"demand_id": demand["demand_id"]})
         assert current["original_source_admissions"] == []
         assert current["uses"][0]["fate"] == "unavailable"
         # Committed content and truthful lineage remain historically readable.
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.original_source_admission")) == 1
+    with kernel.engine.begin() as connection:
+        storage = DataOperationStorage(connection)
         with connection.begin_nested() as savepoint:
             with pytest.raises(DBAPIError, match="revoked"):
                 storage.admit_original_document_asset(
@@ -337,7 +313,7 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
             release=prepared.release_id,
             runtime=runtime.runtime_id,
         )
-        snapshot = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
+        snapshot = storage.read_demand_result({"demand_id": demand["demand_id"]})
         assert len(snapshot["original_source_admissions"]) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         # Source-only selections must retain authentic bytes even before any inference
@@ -366,18 +342,13 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
             )["cut_id"]
             == manifest["cut_id"]
         )
+    with kernel.engine.begin() as connection:
+        storage = DataOperationStorage(connection)
+        planner = DemandPlanner(model, storage)
         (ready,) = planner.ready(snapshot, authorization=b"{}")
-        claim = storage.claim_data_request(
-            typing_cast(
-                WireClaimDataRequestRequest,
-                {
-                    "request_id": json.loads(ready.native)["request_id"],
-                    "generation": json.loads(ready.native)["generation"],
-                    "holder": "raw-pdf-owner",
-                    "lease_seconds": 30,
-                },
-            )
-        )
+        item_result = storage.claim_data_requests(typing_cast(WireClaimDataRequestsRequest, {'holder': 'raw-pdf-owner', 'lease_seconds': 30, 'items': [{'request_id': json.loads(ready.native)['request_id'], 'generation': json.loads(ready.native)['generation']}]}))['items'][0]
+        assert item_result["state"] == "claimed", item_result
+        claim = item_result["result"]
         assert claim["state"] == "claimed"
         original = connection.scalar(
             text("SELECT content FROM kb.source_artifact WHERE artifact_digest=:digest"),

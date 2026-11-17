@@ -51,6 +51,7 @@ def test_service_read_preserves_full_native_continuation(monkeypatch):
         "limit": 7,
         "max_bytes": 8388608,
         "view": "products",
+        "scope": {},
     }
     reply = {
         "demand_id": "demand:one",
@@ -69,6 +70,7 @@ def test_service_read_preserves_full_native_continuation(monkeypatch):
         "read_snapshot": "1:2:",
         "frontier_at": "2026-11-13T00:00:00Z",
         "view": "products",
+        "scope": {},
     }
     storage = WireCheckedStorage({"read_demand_result": reply})
     monkeypatch.setattr(service, "DataOperationStorage", lambda connection: storage)

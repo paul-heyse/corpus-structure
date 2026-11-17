@@ -240,9 +240,16 @@ def derive(value: int, fail_first: bool, prepared: PreparedRelease) -> int:
         executor._physical = physical
         physical.select_operations(("prepared",))
         assert executor.budget.used_bytes == capsule_size
+        initial_generation = physical.cpu
         assert executor.policy.max_claims == 2
         receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
-        assert executor.budget.used_bytes == capsule_size
+        # Admission may retire an idle CPU generation to release capsule
+        # pressure. A released charge must correspond to physical retirement.
+        assert executor.budget.used_bytes == physical.cpu.preparation_bytes
+        if executor.budget.used_bytes == 0:
+            assert initial_generation._physical_retired
+        else:
+            assert executor.budget.used_bytes == capsule_size
         assert len(receipts) == 3 - fail_first and len(failures) == fail_first
     assert [index for index, _ in observed.claims] == ["0", "1", "2"]
     assert all(
@@ -394,7 +401,10 @@ def test_cancel_before_admitted_plan_starts_releases_its_credit(monkeypatch, pre
         plan.close()
 
     monkeypatch.setattr(data_operations, "drive_prepared_work", cancel_after_admission)
-    executor._drive_sweep(({},), b"{}", Active())
+    with execution_resources(executor) as physical:
+        executor._physical = physical
+        physical.select_operations(("scalar",))
+        executor._drive_sweep(({},), b"{}", Active())
     assert not observed.claims and executor.budget.used_bytes == 0
 
 
