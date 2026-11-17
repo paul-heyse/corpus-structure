@@ -290,6 +290,7 @@ def execution_custody(selection):
 
 
 def operation_sources(selection):
+    from corpus_structure.semantic import identity
     from corpus_structure.semantic.primary_operations import combine_primary_sources
     from corpus_structure.semantic.python_operation_sources import (
         PythonSource,
@@ -301,7 +302,12 @@ def operation_sources(selection):
     return combine_primary_sources(
         decoder_sources(),
         PythonSourceCollection(
-            (PythonSource(MODULE, path.read_bytes(), str(path)),),
+            (
+                PythonSource(MODULE, path.read_bytes(), str(path)),
+                PythonSource(
+                    identity.__name__, Path(identity.__file__).read_bytes(), identity.__file__
+                ),
+            ),
             boundary_contracts=(assets(), profile_asset(selection), execution_custody(selection)),
         ),
     )
