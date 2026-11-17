@@ -301,7 +301,7 @@ def test_private_native_foundations_and_constraints(commit_db_engine):
                     conn.execute(insert(tables[relation]), values)
 
 
-def test_artifact_native_verifier_reads_actual_parts(commit_db_engine, private_build):
+def test_artifact_native_verifier_requires_actual_shared_fold_receipt(commit_db_engine, private_build):
     from pdf_acceptance_support import seed_pdf_shared_stream
 
     from corpus_structure.semantic.pdf_record_identity import byte_root
@@ -311,7 +311,7 @@ def test_artifact_native_verifier_reads_actual_parts(commit_db_engine, private_b
     root = byte_root((body,))[1].hex()
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-        verify = text("SELECT * FROM ops.pdf_identity_verify_artifact(:p,:p,:s,:admitted)")
+        verify = text("SELECT * FROM ops.pdf_identity_verify_artifact(:p,:p,:s)")
         for stream_id, fault in (
             ("valid", None),
             ("gap", "offset"),
@@ -338,37 +338,69 @@ def test_artifact_native_verifier_reads_actual_parts(commit_db_engine, private_b
                 build,
                 stream_id,
                 body,
-                profile="exact-bytes-" + stream_id,
+                profile="exact-bytes-valid" if fault == "root" else "exact-bytes-" + stream_id,
                 parts=parts,
                 declared_root="0" * 64 if fault == "root" else root,
                 verify=False,
             )
             if fault:
-                with pytest.raises(DBAPIError, match="shared stream actual"), conn.begin_nested():
+                with pytest.raises(DBAPIError, match="shared stream actual") as refused, conn.begin_nested():
                     conn.execute(
                         text("SELECT ops.pdf_verify_shared_stream(:p,:s,true)"),
                         {"p": build.build_id, "s": stream_id},
                     )
+                assert getattr(refused.value.orig, "sqlstate", None) == "23514"
                 # Pending malformed data never acquires admitted byte authority.
-                with pytest.raises(DBAPIError, match="actual fold receipt"), conn.begin_nested():
+                with pytest.raises(DBAPIError, match="actual fold receipt") as refused, conn.begin_nested():
                     conn.execute(
-                        verify, {"p": build.build_id, "s": stream_id, "admitted": None}
+                        verify, {"p": build.build_id, "s": stream_id}
                     ).one()
+                assert getattr(refused.value.orig, "sqlstate", None) == "23514"
             else:
                 conn.execute(
                     text("SELECT ops.pdf_verify_shared_stream(:p,:s,true)"),
                     {"p": build.build_id, "s": stream_id},
                 )
                 result = conn.execute(
-                    verify, {"p": build.build_id, "s": stream_id, "admitted": body}
+                    verify, {"p": build.build_id, "s": stream_id}
                 ).one()
                 assert result.actual_length == len(body)
                 assert bytes(result.actual_byte_root).hex() == root
-                assert result.retained_correspondence
-                with pytest.raises(DBAPIError, match="retained bytes"), conn.begin_nested():
-                    conn.execute(
-                        verify, {"p": build.build_id, "s": stream_id, "admitted": b"different"}
-                    ).one()
+                assert tuple(result._mapping) == ("actual_length", "actual_byte_root")
+                # A verified byte key does not prove correspondence with a
+                # separately supplied retained stream. Keep that Python consumer
+                # check on the actual shared rows, without a native bytea adapter.
+                from dataclasses import replace
+                from hashlib import sha256
+                from io import BytesIO
+
+                from corpus_structure.semantic.pdf_record_identity import (
+                    ArtifactPart, ArtifactPin, replay_artifact,
+                )
+
+                shared = conn.execute(text(
+                    "SELECT * FROM ops.pdf_artifact_parts(:p,:p,false,ARRAY[:s]) ORDER BY ordinal"
+                ), {"p": build.build_id, "s": stream_id}).mappings().all()
+                actual = tuple(ArtifactPart(stream_id, row["ordinal"], row["byte_offset"],
+                    row["byte_length"], bytes(row["body"]), row["sha256_digest"]) for row in shared)
+                pin = ArtifactPin(stream_id, build.release_id, build.source_digest,
+                                  len(body), sha256(body).hexdigest(), bytes.fromhex(root))
+                assert b"".join(replay_artifact(actual, pin, release_id=build.release_id,
+                    source_digest=build.source_digest, already_admitted=BytesIO(body))) == body
+                for retained in (b"different", body + b"suffix"):
+                    with pytest.raises(ValueError, match="retained bytes"):
+                        tuple(replay_artifact(actual, pin, release_id=build.release_id,
+                            source_digest=build.source_digest, already_admitted=BytesIO(retained)))
+                with pytest.raises(ValueError, match="exact SHA-256"):
+                    tuple(replay_artifact(actual, replace(pin, serialization_sha256="0" * 64),
+                        release_id=build.release_id, source_digest=build.source_digest))
+        # Equal bytes/root in another encoding profile still need their own receipt.
+        seed_pdf_shared_stream(conn, build, "unverified-profile", body,
+                               profile="exact-bytes-unverified-profile", verify=False)
+        with pytest.raises(DBAPIError, match="actual fold receipt") as refused, conn.begin_nested():
+            conn.execute(verify, {"p": build.build_id, "s": "unverified-profile"}).one()
+        assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+
 
 
 @pytest.mark.parametrize(
@@ -430,10 +462,11 @@ def test_table_return_inventory_and_model_owned_read_roles(monkeypatch):
         .joinpath("src/corpus_structure/semantic/sql/pdf_record_artifact_identity.sql")
         .read_text(),
     )
-    signature = "ops.pdf_identity_verify_artifact(text,text,text,bytea)"
+    signature = "ops.pdf_identity_verify_artifact(text,text,text)"
+    assert "ops.pdf_identity_verify_artifact(text,text,text,bytea)" not in functions
     assert functions[signature]["result"] == "pg_catalog.record"
     assert functions[signature]["setof"] is True
-    assert signature[:-1] + ",bigint,bytea,boolean)" not in functions
+    assert signature[:-1] + ",bigint,bytea)" not in functions
     relation = record_tables()["kb.pdf_record_reference"]
     assert relation_descriptor(relation)["read_roles"] == []
     monkeypatch.setitem(relation.info, "read_roles", ["corpus_sem_reader"])
