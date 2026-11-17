@@ -635,7 +635,7 @@ proposals below do not establish additional implemented profiles.
 
 **Accepted selected-page boundary (2026-11-01).** Payload locators select requested page numbers before decoding; owned Arrow batches support columnar candidate/OCR inventories. Native whole-document transformation and logical JSON exports remain explicit materialization/serialization operations, preserving one authority and qualified evidence. Current-realization rebuild replaces historical reader/layout compatibility obligations.
 
-> Decision: ADR-0045
+> Decision: ADR-0130
 
 
 
@@ -713,7 +713,7 @@ settlement, with no-replace semantics. A direct connection caller owns its trans
 Codec/profile refusals identify observed and released bindings and the existing rebuild/admission
 action. CLI/MCP registration defers heavy Arrow/ADBC imports until the operation needs them.
 
-> Decision: ADR-0045
+> Decision: ADR-0130
 
 
 **Accepted PDF target; Proposed implementation (2026-10-31).** Version source APIs and

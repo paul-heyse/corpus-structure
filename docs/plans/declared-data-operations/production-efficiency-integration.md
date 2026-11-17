@@ -1,6 +1,6 @@
 # Production-efficiency integration
 
-**Accepted scope · 2026-11-17; implementation Proposed.** Integrates the
+**Accepted scope · 2026-11-17; current implementation and qualification state belong to the coordinator.** Integrates the
 [production-efficiency review](../../design_review/reviews/design_review_production-efficiency_2026-11-17.md)
 as published at `2cc4e4d9d` (source baseline `fc73d2c8c`) into DDO-03–12. The
 [coordinator](../declared-data-operations_2026-11-12.md#production-efficiency-integration--2026-11-17)

@@ -388,7 +388,7 @@ Reclaim may bind a new legitimate attempt to the exact frozen inventory without 
 append. Native validation and seal share the model-bound immutable receipt; final seal keeps
 its task/build fences short. This does not increase lease timeouts or waive stale-owner checks.
 
-> Decision: ADR-0045
+> Decision: ADR-0130
 
 
 **Implemented PDF lifecycle; targeted controls Tested (2026-10-31).** Existing operation/task/attempt

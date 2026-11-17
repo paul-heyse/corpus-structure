@@ -701,7 +701,7 @@ content_digest pins retain their original meaning. A named bounded fold cannot i
 The PDF coordinator owns deployed revision and tested scope; foundations alone do not establish
 book-scale publication, complete streaming integration or adopted consumer qualification.
 
-> Decision: ADR-0045
+> Decision: ADR-0130
 
 **Accepted byte custody and current logical-meaning target (2026-11-16); logical-profile implementation pending.** New artifact streams require independently
 verified parts, lengths and canonical byte folds. Whole-stream serialization SHA is optional
@@ -714,14 +714,14 @@ occurrence/input meanings remain; unsupported older profiles refuse or regenerat
 > Decision: ADR-0119
 
 **Accepted structured-payload placement (2026-11-01).** The semantic release governs a page-scoped
-OCR/candidate Arrow IPC profile, its logical identity and required SQL projections. The finite
-frozen validator checks actual stored payloads and complete cross-field semantics; PostgreSQL
-checks custody, relational invariants, exact bytes and matching validation/projection contracts
-before publication. Other metadata retains native JSON Schema checks. Current-realization
+OCR/candidate Arrow IPC profile, its logical identity and required SQL projections. The producer checks its actual output and exact encoded payloads, including cross-field semantics,
+before staging. PostgreSQL checks frozen custody, relational invariants, exact bytes and matching
+validation/projection contracts before publication. Reconstruction is qualified per captured
+lowering identity/kind, with first-publication and explicit verification oracles. Other metadata retains native JSON Schema checks. Current-realization
 rebuilds preserve compatible evidence without mandatory historical reader/layout support.
 [D3](D3-database.md#native-pdf-metadata-validation) owns the mechanism and provisioning boundary.
 
-> Decision: ADR-0045
+> Decision: ADR-0130
 
 **Retained HTML implementation boundary.**
 
@@ -1102,7 +1102,7 @@ and frozen runtime semantic validation; other JSON families retain the native ex
 encoding nor evaluator is another schema authority. Envelope locators, diagnostic references,
 logical identity and validation placement are model-governed contracts.
 
-> Decision: ADR-0045
+> Decision: ADR-0130
 
 **Retained HTML implementation boundary.**
 

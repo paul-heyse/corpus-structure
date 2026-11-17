@@ -491,7 +491,7 @@ absence/empty policy retains neutral normalization. No frozen artifact or migrat
 
 **Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** The pinned native schema and effective LinkML record declarations govern lossless field mapping, generated Arrow/Core/boundary products and custom validation placement. Unsupported native fields refuse with a path; no independent handwritten type authority is added.
 
-> Decision: ADR-0045
+> Decision: ADR-0130
 
 
 **Accepted PDF target; Proposed implementation (2026-10-31).** Docling/core owns its native

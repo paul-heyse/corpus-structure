@@ -639,7 +639,7 @@ completed knowledge or operational adoption.
 [PDF-20/21](../plans/pdf-docling-pipeline/staged-publication-and-validation.md) own durable staging/seal;
 PDF-24/25 own shared consumer/export migration and operational handoff. The coordinator owns evidence.
 
-**Accepted target; implementation/qualification Proposed · 2026-11-17.** DDO PE-S36 moves
+**Implemented in source; native qualification open · 2026-11-17.** DDO PE-S36 moves
 complete output certification to the producer over its document and exact staged bytes. Native
 callbacks, payload/metadata checks, access/region projection and the Python logical fold precede
 freeze. PostgreSQL independently checks frozen stored-byte roots, structure, access correspondence,
@@ -691,8 +691,12 @@ canonical meaning so unfinished earlier receipts cannot bypass this enforcement.
 The application callback captures its actual native/scalar/report dependencies; independent SQL
 validation retains complete relationship and stream custody. Indexed report selectors, prepared
 per-kind validation and fused page-local checks avoid repeated page decode or whole-book payload
-maps. SQL aggregates ownership and membership once and verifies every immutable stream once per
-complete logical-identity operation. These choices establish no quantitative performance claim.
+maps. SQL aggregates ownership and membership once. The S40 source implementation verifies actual
+bytes once per project/profile/length/root key, then each publication checks the immutable fold
+receipt. Per-build descriptors retain their identity; both old part stores and the retained-bytea
+verifier overload are retired from the target. Upload-only parts use a captured temporary wire
+shape, never a durable prototype. The DDO coordinator owns native qualification and the bounded
+backfill-before-drop transition. These choices establish no quantitative performance claim.
 RC12 rebuilds current products from compatible retained evidence without mandatory old readers.
 The following paragraph records the earlier scoped JSON mechanism, which remains for JSON families.
 

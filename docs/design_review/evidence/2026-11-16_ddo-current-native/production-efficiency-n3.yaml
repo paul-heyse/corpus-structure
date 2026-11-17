@@ -1,0 +1,47 @@
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n2
+native_revision: semantic_ddo_pe_n3
+data_steps:
+  - name: ddo_n1_relower
+    parameters: {}
+  - name: pdf_s36_retire_validation
+    parameters: {}
+  - name: pdf_s40_shared_streams
+    parameters: {}
+retire:
+  - kind: function
+    schema: ops
+    name: pdf_identity_verify_artifact
+    arguments: [text, text, text, bytea]
+  - kind: function
+    schema: ops
+    name: adopt_pdf_companion
+    arguments: [text, bigint, bigint, text, text, text, jsonb, text, bigint, jsonb]
+  - kind: function
+    schema: ops
+    name: adopt_pdf_access
+    arguments: [text, bigint, bigint, text, text, text, jsonb]
+  - kind: function
+    schema: ops
+    name: adopt_pdf_access_batch
+    arguments: [text, bigint, bigint, text, text, jsonb]
+  - kind: function
+    schema: ops
+    name: record_pdf_native_validation
+    arguments: [text, bigint, bigint, text, text, boolean]
+  - kind: trigger
+    schema: ops
+    name: semantic_immutable
+    relation: pdf_artifact_part
+  - kind: trigger
+    schema: ops
+    name: semantic_immutable
+    relation: pdf_stage_artifact_part
+  - kind: function
+    schema: ops
+    name: pdf_record_logical_identity
+    arguments: [text, text, text]
+  - kind: trigger
+    schema: ops
+    name: semantic_immutable
+    relation: pdf_native_validation

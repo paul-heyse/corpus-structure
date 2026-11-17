@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The native-only target lifecycle and103-relation N2 deployment are integrated; the root and17successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; implementation and targeted acceptance are in progress.**
+**Status · 2026-11-17: operator closeout checkpoint; DDO-00–11 implementation remains incomplete. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The native-only target lifecycle and103-relation N2 deployment are integrated; the root and17successors are registered and installed on the owned stage. An earlier v9 application remains activated on the owned stage; matching current-source application recapture, consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; implementation and targeted acceptance are in progress.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -67,6 +67,30 @@ source credit for the overlapping earlier selections; failed originals remain re
 Independent review repairs are covered. No speedup or full DDO qualification is claimed.
 
 ### Cross-cutting implementation in progress · 2026-11-17
+
+**Operator-requested closeout · 2026-11-17.** All bounded worker tasks are concluded and their
+edits integrated on main; every worktree is removed after preserving actual LFS artifacts.
+No provider, test, model-authoring or migration operation remains running. The latest N3 preview
+07b9534410324ca5ba9ff448abbcfca1 **passed** at d67e8162d after the foreign-key staging repair.
+No candidate was executed from that preview before this closeout. Final documentation/maintenance
+commits supersede its HEAD binding, so next execution must reacquire a preview from the retained
+[N3 request](../design_review/evidence/2026-11-16_ddo-current-native/production-efficiency-n3.yaml).
+N3 registration/deployment and affected native journeys remain open. Independent maintenance
+reads on2026-11-17 confirm stage OID130661481 at semantic_ddo_pe_n2 and unchanged development
+OID25921445 at semantic_bep_located_v2. No deployment/adoption claim follows from source integration.
+Final `ci check --only types --json` **passed**,25bcfa43362a46e4ae89b32a32eb6a7b;
+`ci check --only lint --json` **passed**,506da15ed6514c36b0ace6de886fae17. The current S40-layout
+actual Docling recovery panel **passed1**,f29c707ae9d24f3ab6a82ad248ef0539, via the exact provider
+node. The full native/provider/fault/DDO-12 union is **not_run** at this operator closeout.
+`ci docs check --json` **passed**,f717b759610345d2a278f74bb194dd83 (1307pages, zero link errors);
+`ci adr lint --json` **passed**,42fec9f357d6439a9f705c67c5a8a72f (115records). Initial closeout
+checks3c7709b4…/e895b6e3… exposed stale ADR-0045 governing references. Current design references now
+name ADR-0130; obsolete superseded ADR-0041/42/44 records are retired with their surviving rules
+in ADR-0130/D3 and historical links routed through Git recovery. No plan or evidence was deleted.
+`just turn-end` passed, regenerating the ADR index with no Python formatting changes. Task edits
+are committed on main; the unrelated concurrent cachetools library draft remains untouched.
+
+
 
 **Remaining-scope execution resumed · 2026-11-17.** The missing named frozen DATA-step route
 is now implemented in ChangeRequest/preview/candidate authoring. The closed `ddo_n1_relower`
@@ -256,32 +280,26 @@ Actual certified three-page recovery **passed1**,d24fcbb6d1ec41e8a343559194a4e76
 scope and no native publication/whole-book credit. S40 shared storage/backfill is integrated (fd280dd71/fc8332140); both per-build part stores are
 removed from the target. The separately selected S36 reset stages required columns nullable,
 removes incomplete historical receipts under the exact immutable guard, then applies constraints.
-Read-only stage observation found7old validation receipts,15products and831parts in each old store;
-only actual byte folds are eligible for S40 transfer, never fabricated S36 evidence. Preview d23821de199e4d18b7c3045a3dca5ec9 **passed** on the acquired N2 stage. Its HEAD binding
-was superseded by the documentation checkpoint; root is reacquiring after the final retirement
-sweep. That sweep removes the unused retained-bytea verifier, leaving the exact shared-fold
-receipt verifier and independent useful Python byte controls. Native transition/acceptance remain open. Reacquired preview7c30cf21a1d346feac14d22e039a2266 **passed**, but rollback-only candidate
-c1e0e4bafb6942a5b3e5816c69c6a6df **failed** with cleanup established: the new region-copy SQL emitted
-reserved `left`/`right` column names without identifier quoting. The owning generator now uses
-SQLAlchemy's PostgreSQL identifier preparer for all copied fields/keys. The affected generated
-function compiled on actual PostgreSQL in an explicitly rolled-back transaction. Standalone
-pglast PL/pgSQL parsing could not resolve application composite namespaces and is not qualification.
-The corrected-source preview9728b0… passed; final intent additionally names the deleted
-callback table's immutable guard (nine exact retirements). Preview21afe805766d4db4a96a552aa4effc87
-passed; candidateeb7283093bb642cfa5649f689df14087 rolled back with24static-check context errors:
-missing new temporary COPY shapes and untyped dynamic upload records. The shared helper now
-binds typed descriptor/part variables, and rollback-only authoring creates the exact same
-model-derived temporary upload contract plus all stage/companion scratch shapes. No checker
-exemption or persistent prototype was added. Actual PostgreSQL confirmed all seven new temporary
-contexts exist inside, and disappear after, the context. Checker/target20 **passed**,
-af94470512e44590aab35e81c4161b45; Pyreflyfb43c3f4e1644ef0aaad6b253b564a53 and
-Ruff1b85fdbe13004789b4dd25f2e07eb09c **passed**. Preview982bfb2ee48f421aa3fe02c0ec02d16a passed; candidate542cb6e7b3d5478191dc98c8d560dfc1
-passed full static checking/exact retirement validation, then rolled back at nullable staging:
-S36's required oracle reference carries a foreign key. The bounded staging helper now uses
-SQLAlchemy's independent column clone, preserves that foreign key, and defers only NOT NULL.
-The genuine Alembic SQL-rendering control verifies the reference survives and the original column
-is not reparented; closed DATA15 **passed**,d26f30a9a5d1459d9d42fc3fb73d8121. Fresh capture remains due;
-old native head/data are unchanged.
+Read-only stage observation found7old validation receipts,15products and831parts in each old
+store. The named S40 step migrates only actual byte folds; the S36 step never fabricates producer
+or oracle evidence. Exact retirement covers both part-store guards, the removed callback-table
+guard, scalar companion/access/callback functions and predecessor identity/verifier overloads.
+The current request names nine predecessor identities.
+
+The failed rollback-only candidates remain held with established cleanup:
+
+| Candidate | Finding and integrated repair | Qualification limit |
+|---|---|---|
+| c1e0e4bafb6942a5b3e5816c69c6a6df | New region-copy SQL used unquoted reserved fields. The generator now uses SQLAlchemy PostgreSQL identifier quoting. | Actual rolled-back compilation passed for38generated functions; four required new-model context. Standalone pglast cannot resolve application composite namespaces. |
+| eb7283093bb642cfa5649f689df14087 | Static checking lacked temporary COPY shapes and inferred no shape for dynamic records. Exact model-derived temporary contexts and typed upload loops replace those gaps. | Actual temporary contexts are removed on rollback; checker/target20 passed af94470512e44590aab35e81c4161b45. No persistent prototype or checker exemption. |
+| 542cb6e7b3d5478191dc98c8d560dfc1 | Static checks and exact retirements passed; nullable staging refused the oracle foreign key. SQLAlchemy independently clones the column and retains its foreign key while only NOT NULL is deferred. | Closed DATA15 passed d26f30a9a5d1459d9d42fc3fb73d8121; actual migration after this repair remains not_run. |
+
+The final preview is recorded in the closeout above. Earlier passed previews d23821de…,
+7c30cf21…,9728b0…,21afe805… and982bfb2e… retain their original source/intent limits; none authorizes
+reuse after source or HEAD changes. Static inspection confirms actual candidate/deployment
+execution uses rendered Alembic source: the column renderer omits foreign keys and the separate
+owned FK operation emits the reference once. There is no duplicate-FK repair to schedule.
+The native head/data remain unchanged by these rolled-back attempts.
 Combined Pyrefly9a271db05654447c88cb7d0fb86daac4 and Ruffba8a32c84f8f461b84c55651501a34ef
 **passed**; shared upload-shape/omission and closed maintenance controls **passed5**,
 e752a326d56d4c7f83e5931202ece8d5. Independent static review found a stale generated typed part-table

@@ -56,8 +56,8 @@ verified byte parts, while envelope identifiers and lookup projections remain qu
 Native `pg_jsonschema`0.3.4 validates actual metadata JSON under the released class schema and
 projection constraints. Its raw-JSON interface avoids PostgreSQL's NUL-rejecting JSON traversal;
 there is no sanitization or client-only schema assertion. Exact Python reads/exports retain float
-bits, negative zero, explicit nulls and text. [ADR-0044](../../adr/0044-native-pdf-metadata-jsonschema.md)
-owns this mechanism; ADR-0119 owns verified byte folds versus optional serialization SHA.
+bits, negative zero, explicit nulls and text. [D3’s native metadata contract](../../design/D3-database.md#native-pdf-metadata-validation)
+owns this remaining JSON mechanism; ADR-0130 governs current validation placement; ADR-0119 owns verified byte folds versus optional serialization SHA.
 
 The installed extension has no compiled-schema handle API. Current admission validates each
 metadata row; existing bounded uploads and Psycopg executemany remain intact. PDF-27/28 and

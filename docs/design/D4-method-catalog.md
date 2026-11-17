@@ -342,9 +342,9 @@ realization** subsection directly; anything that changes a contract goes in a
 
 ## Parsing operations and versioned method adoption
 
-**Accepted frozen validation (2026-11-01).** The existing finite child validates actual persisted page/report payloads and complete metadata semantics against captured release contracts, alongside native callbacks. Derived access/region outputs and admitted validator dependencies bind the final publication result; native graph materialization remains explicit.
+**Accepted producer certification; source implemented, native qualification open (2026-11-17).** The producer validates its actual output and exact encoded page/report payloads before staging, including metadata semantics and native callbacks. Derived access/region rows enter the frozen inventory. PostgreSQL independently checks stored-byte custody and correspondence; the finite reconstruction child is the first-per-lowering/kind oracle and explicit verification route. Admitted validator dependencies bind publication; native graph materialization remains explicit.
 
-> Decision: ADR-0045
+> Decision: ADR-0130
 
 
 
@@ -365,7 +365,7 @@ the duration, repeated-expiry and late-return rules remain. This does not preven
 collection or reference-count finalizers, or preempt opaque native work; owned worker termination
 retains its separate containment responsibility.
 
-> Decision: ADR-0045
+> Decision: ADR-0130
 
 
 **Accepted PDF target; Proposed implementation (2026-10-31).** New ingestion accepts PDF only
@@ -450,6 +450,15 @@ Missing, ambiguous or unresolved binding cannot become a complete empty context.
 restrictions precede native cancellation. Timeouts retain failed attempt state
 and serialization does not retry the failed operation. [PP-05–PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
 own assembled consumer acceptance, independently from these implementation claims.
+
+**Implemented candidate; adoption gate open · 2026-11-17.** DDO PE-S33 shares the prose grammar's
+Lark dynamic-Earley analysis while each region owns its scanner and exact positioned terminals.
+Grammar file custody is rechecked on reuse; unsupported same-terminal/start alternatives refuse.
+The independent per-region regex compiler lives solely in test support. Bounded SPPF topology,
+sharing, reduction and interleaving controls pass, but adoption requires comparison over the
+actual book's retained lexical/sentence-clipped construction regions. The
+[DDO coordinator](../plans/declared-data-operations_2026-11-12.md#cross-cutting-implementation-in-progress--2026-11-17)
+owns that remaining gate; [the Lark hold](../pins.md) owns the private scanner-contract trigger.
 
 **Implemented; actual provider controls Tested (2026-10-31).** The selected `ingest.pdf_integrated` method composes StandardPdfPipeline with in-page RapidOCR, then the pinned public Nemotron3.5 `DocumentParser.parse_triple(..., triple_regions="union")`, then governed integration. Retained Standard inputs skip native inference; explicit retained integrated inputs skip recognition and selection. The isolated Python3.12/vLLM service preserves the full root Docling environment. Public Docling mapping and caption linking retain table/chart structure; policy selects keep/add/replace or unresolved alternatives without declaring recognized content true.
 

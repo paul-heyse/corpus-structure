@@ -2,22 +2,30 @@
 
 **In progress · updated 2026-11-17.** The [DDO coordinator](../../../plans/declared-data-operations_2026-11-12.md#current-execution-boundary--2026-11-16)
 owns readiness and disposition. [ADR-0118](../../../adr/0118-current-target-installation.md) selects
-the single current97-relation basis and normal native-only lifecycle. This folder retains its
+the single current native basis and normal native-only lifecycle. This folder retains its
 actual request, stage identity, reviewed artifacts and execution outcomes; it does not establish
 application/provider qualification by preparing or installing infrastructure.
 
 ## Current boundary
 
 The existing `corpus_structure_dev` remains PostgreSQL18.7 on dedicated5434, database OID25921445,
-system7701811359771751232, installed `semantic_bep_located_v2`; maintenance status reacquired this
-identity on2026-11-16. That development database has had no reset, rename, native deployment,
-activation or data conversion. The current root and fourteen successors through
-`semantic_ddo_selected_proofs` are registered and installed on the owned stage. Its v9/compiler24
-application admission is open. The earlier v8 application below was admitted, checked and activated
-generation2 under its prior native context; its bounded standard inference outcome remains scoped
-to that context. Historical frozen files remain
-unchanged and are not a selectable current install route. The unregistered
-[v10 preparation](../2026-11-15_ddo-v10-native/README.md) is superseded.
+system7701811359771751232, installed `semantic_bep_located_v2`; maintenance status reacquired both
+that database and the stage on2026-11-17. Development has had no reset, rename, native deployment,
+activation or data conversion. The current root and17successors through `semantic_ddo_pe_n2` are
+registered and installed on stage OID130661481, with103relations. N2 preview53394199…,
+candidateea52a6c8… (98native/privilege operations), registration977b4b64… and deployb141a546… passed.
+The stage application is still release2f794245…/runtimee2cfb482…, projectddo-current-pdf-bounded
+generation4; it predates the latest production-efficiency source. The coordinator owns exact
+receipts and current qualification; older outcomes below retain their original scope.
+
+The [current N3 request](production-efficiency-n3.yaml) captures the source-integrated S08/S34/S36/
+S40/S41/S42 transition, three explicit DATA owners and nine exact retirements. Final preview
+07b9534410324ca5ba9ff448abbcfca1 passed at d67e8162d; no candidate from it ran before the operator
+closeout. Documentation/maintenance commits supersede its HEAD binding. Reacquire a preview before
+candidate execution; N3 is not registered or deployed. Earlier failed candidatesc1e0e4ba…,
+eb728309… and542cb6e7… rolled back with cleanup established; their fixes and evidence limits
+remain in the coordinator. Original assets and prior generated record bytes remain unchanged.
+Historical frozen files stay immutable and are not a selectable current installation route.
 
 An explicitly owned empty `corpus_structure_ddo_stage` was created for current root authoring and
 readiness before development adoption. Creation-only installation preserves its actual
