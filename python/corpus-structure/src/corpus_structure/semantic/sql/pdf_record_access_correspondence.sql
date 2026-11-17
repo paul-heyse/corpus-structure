@@ -23,11 +23,11 @@ BEGIN
  SELECT * INTO STRICT stream_ FROM ops.pdf_artifact_stream WHERE product_id=p_build AND revision_id=p_build AND stream_id=p_stream;
  -- A per-item projection is admitted through the existing 8MiB access-upload
  -- profile. Only its own opaque/key value is decoded here, never a book envelope.
- SELECT COALESCE(sum(octet_length(body)),0) INTO actual_length_ FROM ops.pdf_artifact_part
+ SELECT COALESCE(sum(octet_length(body)),0) INTO actual_length_ FROM ops.pdf_artifact_parts(p_build,p_build,false,ARRAY[p_stream])
  WHERE product_id=p_build AND revision_id=p_build AND stream_id=p_stream;
  IF actual_length_>8388608 OR actual_length_<>stream_.byte_length THEN
   RAISE EXCEPTION 'native access scalar exceeds bounded projection or stream length' USING ERRCODE='23514'; END IF;
- SELECT COALESCE(string_agg(body,''::bytea ORDER BY ordinal),''::bytea) INTO payload_ FROM ops.pdf_artifact_part
+ SELECT COALESCE(string_agg(body,''::bytea ORDER BY ordinal),''::bytea) INTO payload_ FROM ops.pdf_artifact_parts(p_build,p_build,false,ARRAY[p_stream])
  WHERE product_id=p_build AND revision_id=p_build AND stream_id=p_stream;
  IF stream_.encoding_profile='pdf-record-native-json-v1' THEN RETURN convert_from(payload_,'UTF8')::jsonb;
  ELSIF stream_.encoding_profile='pdf-record-scalar-v1:s' THEN RETURN to_jsonb(convert_from(payload_,'UTF8'));

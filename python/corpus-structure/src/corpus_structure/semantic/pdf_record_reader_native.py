@@ -11,8 +11,8 @@ def pdf_record_reader_sql() -> str:
             ("parent_id", "field_name"),
         ),
         "reference": ("kb.pdf_record_reference", ("reference_id",), ("source_id", "target_id")),
-        "artifact_stream": ("ops.pdf_artifact_stream", ("stream_id",), ("stream_id",)),
-        "artifact_part": ("ops.pdf_artifact_part", ("stream_id", "ordinal"), ("stream_id",)),
+        "artifact_stream": ("ops.pdf_artifact_stream", ("stream_id",), ("stream_id", "stream_ids")),
+        "artifact_part": ("ops.pdf_artifact_parts(published.build_id,published.build_id,false,selected_stream_ids)", ("stream_id", "ordinal"), ("stream_id", "stream_ids")),
         "companion": (
             "kb.pdf_record_companion",
             ("family", "local_id"),
@@ -60,10 +60,12 @@ def pdf_record_reader_sql() -> str:
             " AND ".join(
                 "(NOT p_filters ? '" + name + "' OR r." + name + "=p_filters->>'" + name + "')"
                 for name in filters
-                if name not in {"kind", "pointer", "page_nos"}
+                if name not in {"kind", "pointer", "page_nos", "stream_ids"}
             )
             or "true"
         )
+        if family in {"artifact_stream", "artifact_part"}:
+            conditions += " AND (NOT p_filters ? 'stream_ids' OR r.stream_id IN (SELECT value FROM jsonb_array_elements_text(p_filters->'stream_ids')))"
         if family == "companion":
             conditions += (
                 " AND (NOT p_filters ? 'kind' OR "
@@ -87,6 +89,12 @@ def pdf_record_reader_sql() -> str:
         cases.append(f"""WHEN '{family}' THEN
  IF EXISTS(SELECT FROM jsonb_object_keys(p_filters) k WHERE NOT k=ANY({allowed})) THEN
  RAISE EXCEPTION 'unsupported published record filter' USING ERRCODE='22023'; END IF;
+ IF p_filters ? 'stream_ids' AND (jsonb_typeof(p_filters->'stream_ids') IS DISTINCT FROM 'array'
+ OR jsonb_array_length(p_filters->'stream_ids') NOT BETWEEN 1 AND 512
+ OR EXISTS(SELECT FROM jsonb_array_elements(p_filters->'stream_ids') value WHERE jsonb_typeof(value)<>'string')) THEN
+ RAISE EXCEPTION 'published stream set requires 1..512 exact IDs' USING ERRCODE='22023'; END IF;
+ selected_stream_ids:=CASE WHEN p_filters ? 'stream_id' THEN ARRAY[p_filters->>'stream_id']
+ WHEN p_filters ? 'stream_ids' THEN ARRAY(SELECT jsonb_array_elements_text(p_filters->'stream_ids')) ELSE NULL END;
  RETURN QUERY SELECT {output} FROM {relation} r
  WHERE r.product_id=published.build_id AND r.revision_id=published.build_id
  AND ({conditions}) AND (p_after IS NULL OR {seek})
@@ -96,7 +104,7 @@ def pdf_record_reader_sql() -> str:
 CREATE OR REPLACE FUNCTION ops.read_pdf_record_rows(p_task bigint,p_product text,p_digest text,
  p_family text,p_filters jsonb,p_after jsonb,p_limit integer)
 RETURNS SETOF jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $reader$
-DECLARE published ops.pdf_published_revision;
+DECLARE published ops.pdf_published_revision; selected_stream_ids text[];
 BEGIN
  IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 1000 OR p_filters IS NULL OR
  jsonb_typeof(p_filters)<>'object' OR (p_after IS NOT NULL AND jsonb_typeof(p_after)<>'array') THEN
@@ -320,7 +328,7 @@ def pdf_companion_export_sql() -> str:
         " UNION ALL\n"
         " SELECT f.row_ordinal,f.local_id,1,f.field_name,1,part.ordinal,js"
         "onb_build_object('kind','part','part',to_jsonb(part))\n"
-        " FROM fields f JOIN ops.pdf_artifact_part part "
+        " FROM fields f JOIN LATERAL ops.pdf_artifact_parts(f.product_id,f.revision_id,false,ARRAY[f.stream_id]) part "
         "USING(product_id,revision_id,stream_id)\n"
         " UNION ALL\n"
         " SELECT c.ordinal,c.local_id,2,''::text,0,0::bigint,jsonb_build_o"

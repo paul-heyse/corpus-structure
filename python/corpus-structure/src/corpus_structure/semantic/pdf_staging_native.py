@@ -3,7 +3,7 @@
 from sqlalchemy.dialects.postgresql import dialect
 
 from .metadata import metadata
-from .pdf_staging import STAGE_FAMILIES
+from .pdf_staging import UPLOAD_STAGE_FAMILIES
 
 
 def native_payload_size_sql(relation, *, alias="s") -> str:
@@ -279,15 +279,22 @@ BEGIN
 """
     )
     selected = metadata if target_metadata is None else target_metadata
-    relations = [selected.tables[name] for name in STAGE_FAMILIES.values()]
+    from .pdf_record_model import record_upload_table
+    from .pdf_shared_streams import part_template, part_wire_contract_sql, shared_streams_sql
+
+    sql = sql.replace("CREATE OR REPLACE FUNCTION ops.prepare_pdf_stage", part_wire_contract_sql(selected) + shared_streams_sql(selected) + "\nCREATE OR REPLACE FUNCTION ops.prepare_pdf_stage")
+    relations = [record_upload_table(name, selected) for name in UPLOAD_STAGE_FAMILIES.values()]
     pg = dialect()
     for relation in relations:
         scratch = "ps_" + relation.name
+        template = "pg_temp.pdf_part_wire_contract" if relation.name == "pdf_stage_artifact_part" else relation.fullname
+        if relation.name == "pdf_stage_artifact_part":
+            sql += "PERFORM ops.pdf_part_upload_contract();\n"
         sql += (
             f"IF to_regclass('pg_temp.{scratch}') IS NULL THEN CREATE TEMP TABLE {scratch} "
-            f"(LIKE {relation.fullname} INCLUDING CONSTRAINTS) ON COMMIT DROP; "
+            f"(LIKE {template} INCLUDING CONSTRAINTS) ON COMMIT DROP; "
             f"ELSE PERFORM ops.require_pdf_stage_scratch('{scratch}',"
-            f"'{relation.fullname}'::regclass); END IF; "
+            f"{part_template(relation)}); END IF; "
             f"TRUNCATE pg_temp.{scratch};\n"
         )
         # COPY is allowed only on the protected, exact session scratch.
@@ -312,7 +319,7 @@ BEGIN
         keys = ",".join(pg.identifier_preparer.quote(c.name) for c in relation.primary_key)
         columns = ",".join(pg.identifier_preparer.quote(c.name) for c in relation.columns)
         sql += f"""
- PERFORM ops.require_pdf_stage_scratch('ps_{relation.name}','{relation.fullname}'::regclass);
+ PERFORM ops.require_pdf_stage_scratch('ps_{relation.name}',{part_template(relation)});
  SELECT count(*),COALESCE(sum({native_payload_size_sql(relation)}),0) INTO n,bytes FROM {scratch} s;
  total:=total+n; total_bytes:=total_bytes+bytes;
  IF total>65536 OR total_bytes>67108864 THEN RAISE EXCEPTION
@@ -338,30 +345,32 @@ BEGIN
   IF receipt.content_digest IS DISTINCT FROM digest OR receipt.row_count IS DISTINCT FROM total THEN
    RAISE EXCEPTION 'private PDF batch replay differs' USING ERRCODE='23514'; END IF;
 """
-    for relation in relations:
-        columns = ",".join(pg.identifier_preparer.quote(c.name) for c in relation.columns)
-        scratch = "pg_temp.ps_" + relation.name
-        sql += (
-            f"IF EXISTS(SELECT {columns} FROM {scratch} "
-            f"EXCEPT SELECT {columns} FROM {relation.fullname}) THEN "
-            "RAISE EXCEPTION 'private PDF batch replay content differs' "
-            "USING ERRCODE='23514'; END IF;\n"
-        )
-    sql += "  RETURN NEXT receipt; RETURN;\n END IF;\n"
+    sql += " END IF;\n"
     for relation in relations:
         scratch = "pg_temp.ps_" + relation.name
+        if relation.name == "pdf_stage_artifact_part":
+            sql += f"PERFORM ops.pdf_adopt_shared_stream_parts(p_build,'{scratch}'::regclass);\n"
+            continue
         columns = ",".join(pg.identifier_preparer.quote(c.name) for c in relation.columns)
+        if relation.name == "pdf_stage_artifact_stream":
+            sql += f"PERFORM ops.pdf_adopt_shared_stream_descriptors(p_build,'{scratch}'::regclass);\n"
         sql += (
             f"INSERT INTO {relation.fullname}({columns}) SELECT {columns} "
             f"FROM {scratch} ON CONFLICT DO NOTHING;\n"
         )
+        retained = "ops.pdf_artifact_parts(p_build,p_build,true)" if relation.name == "pdf_stage_artifact_part" else relation.fullname
         sql += (
             f"IF EXISTS(SELECT {columns} FROM {scratch} "
-            f"EXCEPT SELECT {columns} FROM {relation.fullname}) THEN "
+            f"EXCEPT SELECT {columns} FROM {retained}) THEN "
             "RAISE EXCEPTION 'changed private record duplicate' USING ERRCODE='23514'; END IF;\n"
         )
     sql += """
+ PERFORM ops.pdf_verify_shared_stream(p_build,stream_id,false) FROM (
+ SELECT stream_id FROM pg_temp.ps_pdf_stage_artifact_stream
+ UNION SELECT stream_id FROM pg_temp.ps_pdf_stage_artifact_part) touched;
+ IF receipt.build_id IS NULL THEN
  INSERT INTO ops.pdf_stage_receipt VALUES(p_build,p_key,digest,total) RETURNING * INTO receipt;
+ END IF;
  RETURN NEXT receipt;
 END $stage$;
 CREATE OR REPLACE FUNCTION ops.inspect_pdf_progress(p_build text,p_task bigint,p_attempt bigint,
@@ -399,6 +408,7 @@ BEGIN
  build:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
  PERFORM ops.require_pdf_operation(build.release_id,'abandon_pdf_build');
  UPDATE ops.pdf_stage_build SET state='abandoned' WHERE build_id=p_build;
+ PERFORM ops.pdf_cleanup_pending_build(p_build);
 END $stage$;
 """
     for signature in (

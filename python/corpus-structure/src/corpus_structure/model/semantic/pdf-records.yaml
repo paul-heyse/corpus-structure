@@ -3,6 +3,7 @@ name: pdf_records
 prefixes:
   cp: https://corpus-structure.dev/companion-projections/
   pdr: https://corpus-structure.dev/pdf-records/
+  pds: https://corpus-structure.dev/pdf-staging/
   xsd: http://www.w3.org/2001/XMLSchema#
   ph: https://corpus-structure.org/physical/
 default_prefix: pdr
@@ -17,6 +18,7 @@ types:
     uri: xsd:string
     annotations: {ph:sql_type: jsonb}
   PdfRecordInteger: {base: int, uri: 'xsd:long'}
+  PdfRecordBoolean: {base: bool, uri: 'xsd:boolean'}
   PdfRecordBytes:
     base: str
     uri: xsd:string
@@ -99,6 +101,9 @@ classes:
       byte_root: {required: true}
       encoding_profile: {required: true}
   PdfArtifactPart:
+    annotations:
+      pds:upload_key: '["product_id","revision_id","stream_id","ordinal"]'
+      pds:upload_checks: '["byte_length = octet_length(body)", "byte_length > 0", "byte_length <= 65536", "sha256_digest = encode(sha256(body),''hex'')", "product_id = revision_id"]'
     description: Ordered bounded exact bytes; offsets and inventory are verified by the artifact codec.
     attributes:
       product_id: {required: true}

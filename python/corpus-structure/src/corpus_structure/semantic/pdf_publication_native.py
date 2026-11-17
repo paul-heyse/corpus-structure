@@ -16,7 +16,6 @@ _FINAL = {
     "native": "kb.pdf_record_native",
     "membership": "kb.pdf_record_membership",
     "reference": "kb.pdf_record_reference",
-    "artifact_part": "ops.pdf_artifact_part",
     "companion": "kb.pdf_record_companion",
     "endpoint": "kb.pdf_record_endpoint",
     "companion_field": "kb.pdf_record_companion_field",
@@ -130,11 +129,8 @@ RETURNS bytea LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE payload_ bytea;
 BEGIN
  -- Materialize only the explicitly requested semantic field, never a document envelope.
- IF p_stage THEN SELECT string_agg(body,''::bytea ORDER BY ordinal) INTO payload_ FROM \
-ops.pdf_stage_artifact_part
- WHERE product_id=p_product AND revision_id=p_revision AND stream_id=p_stream;
- ELSE SELECT string_agg(body,''::bytea ORDER BY ordinal) INTO payload_ FROM ops.pdf_artifact_part
- WHERE product_id=p_product AND revision_id=p_revision AND stream_id=p_stream; END IF;
+ SELECT string_agg(body,''::bytea ORDER BY ordinal) INTO payload_ FROM
+ ops.pdf_artifact_parts(p_product,p_revision,p_stage,ARRAY[p_stream]) WHERE stream_id=p_stream;
  RETURN COALESCE(payload_,''::bytea);
 END $$;
 REVOKE ALL ON FUNCTION ops.pdf_companion_field_bytes(text,text,text,boolean) FROM PUBLIC;
@@ -404,16 +400,12 @@ def _companion_adoption_sql(context, metadata) -> str:
     from .pdf_payloads import FAMILY, PROFILE
     from .pdf_staging_native import native_payload_size_sql
 
-    relations = [
-        metadata.tables["ops.pdf_stage_" + name]
-        for name in (
-            "companion",
-            "companion_field",
-            "artifact_stream",
-            "artifact_part",
-            "endpoint",
-        )
-    ]
+    from .pdf_record_model import record_upload_table
+    from .pdf_shared_streams import part_template
+
+    relations = [record_upload_table("ops.pdf_stage_" + name, metadata) for name in (
+        "companion", "companion_field", "artifact_stream", "artifact_part", "endpoint",
+    )]
     sql = """
 CREATE OR REPLACE FUNCTION ops.prepare_pdf_companions() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -421,10 +413,13 @@ BEGIN
 """
     for relation in relations:
         scratch = "pc_" + relation.name
+        template = "pg_temp.pdf_part_wire_contract" if relation.name == "pdf_stage_artifact_part" else relation.fullname
+        if relation.name == "pdf_stage_artifact_part":
+            sql += "PERFORM ops.pdf_part_upload_contract();\n"
         sql += f"""
  IF to_regclass('pg_temp.{scratch}') IS NULL THEN
- CREATE TEMP TABLE {scratch} (LIKE {relation.fullname} INCLUDING CONSTRAINTS) ON COMMIT DROP;
- ELSE PERFORM ops.require_pdf_stage_scratch('{scratch}','{relation.fullname}'::regclass); END IF;
+ CREATE TEMP TABLE {scratch} (LIKE {template} INCLUDING CONSTRAINTS) ON COMMIT DROP;
+ ELSE PERFORM ops.require_pdf_stage_scratch('{scratch}',{part_template(relation)}); END IF;
  TRUNCATE pg_temp.{scratch};
 """
         if relation.name != "pdf_stage_endpoint":
@@ -446,7 +441,7 @@ BEGIN
         scratch = "pg_temp.pc_" + relation.name
         keys = ",".join(quote(c.name) for c in relation.primary_key)
         sql += f"""
- PERFORM ops.require_pdf_stage_scratch('pc_{relation.name}','{relation.fullname}'::regclass);
+ PERFORM ops.require_pdf_stage_scratch('pc_{relation.name}',{part_template(relation)});
  IF EXISTS(SELECT FROM {scratch} WHERE product_id IS DISTINCT FROM p_build OR revision_id IS DISTINCT FROM p_build)
  OR EXISTS(SELECT FROM {scratch} GROUP BY {keys} HAVING count(*)>1) THEN
  RAISE EXCEPTION 'companion upload ownership or duplicate key differs' USING ERRCODE='23514'; END IF;
@@ -506,8 +501,10 @@ BEGIN
             f"INSERT INTO {relation.fullname}({columns}) SELECT {columns} FROM pg_temp.pc_{relation.name} ON CONFLICT DO NOTHING;\n"
         )
 
-    for relation in relations[2:4]:
-        sql += adopt(relation, "changed companion artifact duplicate")
+    sql += "PERFORM ops.pdf_adopt_shared_stream_descriptors(p_build,'pg_temp.pc_pdf_stage_artifact_stream'::regclass);\n"
+    sql += adopt(relations[2], "changed companion artifact duplicate")
+    sql += "PERFORM ops.pdf_adopt_shared_stream_parts(p_build,'pg_temp.pc_pdf_stage_artifact_part'::regclass);\n"
+    sql += "PERFORM ops.pdf_verify_shared_stream(p_build,stream_id) FROM pg_temp.pc_pdf_stage_artifact_stream;\n"
     sql += f"""
  IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion_field f
  JOIN pg_temp.pc_pdf_stage_companion c USING(product_id,revision_id,family,local_id)
@@ -727,6 +724,11 @@ b.state='abandoned' THEN
         "spool_contributor": "ops.pdf_spool_contributor",
         "producer_certification": "ops.pdf_producer_certification",
     }
+    sql += """
+ IF EXISTS(SELECT FROM ops.pdf_stage_artifact_stream stream WHERE stream.product_id=p_build
+ AND stream.revision_id=p_build AND NOT ops.pdf_shared_stream_ready(p_build,stream.encoding_profile,stream.byte_length,stream.byte_root)) THEN
+ RAISE EXCEPTION 'PDF freeze requires verified project-scoped stream bytes' USING ERRCODE='23514'; END IF;
+"""
     for family, relation in sorted(inventory_stage.items()):
         keys = ",".join(metadata.tables[relation].primary_key.columns.keys())
         owner_column = (
@@ -768,6 +770,11 @@ b.state='abandoned' THEN
  END IF;
  IF b.state<>'open' THEN
  RAISE EXCEPTION 'PDF freeze build is not open' USING ERRCODE='23514'; END IF;
+"""
+    sql += """
+ IF EXISTS(SELECT FROM ops.pdf_stage_artifact_stream stream WHERE stream.product_id=p_build
+ AND stream.revision_id=p_build AND NOT ops.pdf_shared_stream_ready(p_build,stream.encoding_profile,stream.byte_length,stream.byte_root)) THEN
+ RAISE EXCEPTION 'PDF freeze requires verified project-scoped stream bytes' USING ERRCODE='23514'; END IF;
 """
     for family, relation in sorted(inventory_stage.items()):
         owner_column = (
@@ -817,7 +824,6 @@ BEGIN b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
         "native",
         "membership",
         "reference",
-        "artifact_part",
         "companion",
         "endpoint",
         "companion_field",
@@ -1245,7 +1251,7 @@ BEGIN
                     WHERE product_id=p_build AND revision_id<>p_build)
     THEN reused_:=prior_;
     ELSE PERFORM ops.pdf_check_access_correspondence(p_build); END IF;
-   WHEN 'identity' THEN result_:=ops.pdf_record_logical_identity(p_build,p_build,prior_);
+   WHEN 'identity' THEN result_:=ops.pdf_record_logical_identity(p_build,p_build);
    WHEN 'projection' THEN
     IF prior_ IS NOT NULL AND {pdf_access_rows_equal} THEN
      SELECT v.contract_digest INTO STRICT result_ FROM ops.pdf_build_validation v
@@ -1649,7 +1655,6 @@ corpus_sem_reader,corpus_sem_evaluator;\n"
             "kb.pdf_record_native",
             "kb.pdf_record_membership",
             "ops.pdf_artifact_stream",
-            "ops.pdf_artifact_part",
             target_metadata=metadata,
         ),
     )

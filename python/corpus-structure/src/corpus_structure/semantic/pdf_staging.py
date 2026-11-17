@@ -26,8 +26,11 @@ STAGE_FAMILIES = {
     "membership": "ops.pdf_stage_membership",
     "reference": "ops.pdf_stage_reference",
     "artifact_stream": "ops.pdf_stage_artifact_stream",
-    "artifact_part": "ops.pdf_stage_artifact_part",
 }
+
+
+# Fixed incoming part packets have no persistent per-build relation.
+UPLOAD_STAGE_FAMILIES = {**STAGE_FAMILIES, "artifact_part": "ops.pdf_stage_artifact_part"}
 
 
 def stage_upload_profile() -> dict[str, int]:
@@ -68,7 +71,7 @@ class PdfBuildRef:
             MappingProxyType(
                 {
                     target: record_write_profile(target, release_id=self.release_id)
-                    for target in STAGE_FAMILIES.values()
+                    for target in UPLOAD_STAGE_FAMILIES.values()
                 }
             ),
         )
@@ -91,9 +94,9 @@ class PdfStageReceipt:
 
 
 def stage_relation(name: str) -> str:
-    if name in STAGE_FAMILIES:
-        return STAGE_FAMILIES[name]
-    if name in STAGE_FAMILIES.values():
+    if name in UPLOAD_STAGE_FAMILIES:
+        return UPLOAD_STAGE_FAMILIES[name]
+    if name in UPLOAD_STAGE_FAMILIES.values():
         return name
     originals = {
         "ops.pdf_record_document": "header",
@@ -101,10 +104,9 @@ def stage_relation(name: str) -> str:
         "kb.pdf_record_membership": "membership",
         "kb.pdf_record_reference": "reference",
         "ops.pdf_artifact_stream": "artifact_stream",
-        "ops.pdf_artifact_part": "artifact_part",
     }
     if name in originals:
-        return STAGE_FAMILIES[originals[name]]
+        return UPLOAD_STAGE_FAMILIES[originals[name]]
     raise ValueError(f"unknown private PDF stage family: {name}")
 
 
@@ -113,7 +115,7 @@ def stage_schema(name: str) -> pa.Schema:
 
 
 def stage_schemas() -> dict[str, pa.Schema]:
-    return {name: stage_schema(name) for name in STAGE_FAMILIES}
+    return {name: stage_schema(name) for name in UPLOAD_STAGE_FAMILIES}
 
 
 @cache

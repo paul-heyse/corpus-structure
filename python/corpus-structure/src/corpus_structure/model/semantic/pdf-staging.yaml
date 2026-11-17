@@ -439,3 +439,11 @@ classes:
       check_name: {required: true}
       result_digest: {required: true}
       predecessor_build_id: {}
+
+  PdfSharedStreamProbe:
+    attributes:
+      streams: {range: PdfRecordBytes, required: true}
+  PdfSharedStreamStatus:
+    attributes:
+      stream_id: {range: PdfRecordString, required: true}
+      verified: {range: PdfRecordBoolean, required: true}

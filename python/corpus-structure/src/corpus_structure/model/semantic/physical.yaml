@@ -1328,24 +1328,6 @@ classes:
         "byte_root ~ ''^[0-9a-f]{64}$''", "encoding_profile <> ''''"]'
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"}]'
       ph:read_roles: '[]'
-  pdf_artifact_part:
-    is_a: PdfArtifactPart
-    in_subset:
-    - ops
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - product_id
-        - revision_id
-        - stream_id
-        - ordinal
-    annotations:
-      ph:immutability: immutable
-      ph:checks: '["byte_length = octet_length(body)", "byte_length > 0", "byte_length
-        <= 65536", "sha256_digest = encode(sha256(body),''hex'')"]'
-      ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "stream_id"], "target":
-        "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
-      ph:read_roles: '[]'
   pdf_spool_producer:
     is_a: PdfSpoolProducer
     in_subset: [ops]
@@ -1493,23 +1475,6 @@ classes:
       ph:checks: '["stream_id <> ''''", "serialization_sha256 ~ ''^[0-9a-f]{64}$''",
         "byte_root ~ ''^[0-9a-f]{64}$''", "encoding_profile <> ''''", "product_id
         = revision_id"]'
-      ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
-      ph:read_roles: '[]'
-  pdf_stage_artifact_part:
-    is_a: PdfArtifactPart
-    in_subset:
-    - ops
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - product_id
-        - revision_id
-        - stream_id
-        - ordinal
-    annotations:
-      ph:immutability: immutable
-      ph:checks: '["byte_length = octet_length(body)", "byte_length > 0", "byte_length
-        <= 65536", "sha256_digest = encode(sha256(body),''hex'')", "product_id = revision_id"]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:read_roles: '[]'
   pdf_stage_access:
@@ -1825,3 +1790,57 @@ classes:
       ph:foreign_keys: '[{"columns":["population_id"],"target":"ops.pdf_source_search_population.population_id"}]'
       ph:checks: '["membership IN (''direct'',''descendants'')", "projection_digest ~ ''^[0-9a-f]{64}$''", "packet_digest ~ ''^[0-9a-f]{64}$''"]'
       ph:indexes: '[{"columns":["search_vector"],"using":"gin"}]'
+
+  pdf_shared_stream:
+    description: Project-scoped content key; no per-build byte copies.
+    in_subset: [ops]
+    attributes:
+      project_id: {range: string, required: true}
+      encoding_profile: {range: string, required: true}
+      byte_length: {range: integer, required: true}
+      byte_root: {range: string, required: true}
+      owner_build_id: {range: string, required: true}
+      owner_attempt: {range: integer, required: true}
+      owner_holder: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [project_id, encoding_profile, byte_length, byte_root]}
+    annotations:
+      ph:immutability: pending-content
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns":["owner_build_id"],"target":"ops.pdf_stage_build.build_id"}]'
+      ph:checks: '["byte_length >= 0", "encoding_profile <> ''''", "byte_root ~ ''^[0-9a-f]{64}$''", "owner_attempt > 0", "owner_holder <> ''''"]'
+  pdf_shared_stream_part:
+    in_subset: [ops]
+    attributes:
+      project_id: {range: string, required: true}
+      encoding_profile: {range: string, required: true}
+      stream_length: {range: integer, required: true}
+      byte_root: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      byte_offset: {range: integer, required: true}
+      byte_length: {range: integer, required: true}
+      body: {range: bytes, required: true}
+      sha256_digest: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [project_id, encoding_profile, stream_length, byte_root, ordinal]}
+    annotations:
+      ph:immutability: pending-content
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns":["project_id","encoding_profile","stream_length","byte_root"],"target":"ops.pdf_shared_stream.project_id,encoding_profile,byte_length,byte_root"}]'
+      ph:checks: '["ordinal >= 0", "byte_offset >= 0", "byte_length = octet_length(body)", "byte_length BETWEEN 1 AND 65536", "sha256_digest = encode(sha256(body),''hex'')"]'
+  pdf_shared_stream_verification:
+    description: One actual byte fold, reusable only under the same immutable project/content key.
+    in_subset: [ops]
+    attributes:
+      project_id: {range: string, required: true}
+      encoding_profile: {range: string, required: true}
+      byte_length: {range: integer, required: true}
+      byte_root: {range: string, required: true}
+      part_count: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [project_id, encoding_profile, byte_length, byte_root]}
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns":["project_id","encoding_profile","byte_length","byte_root"],"target":"ops.pdf_shared_stream.project_id,encoding_profile,byte_length,byte_root"}]'
+      ph:checks: '["part_count >= 0"]'

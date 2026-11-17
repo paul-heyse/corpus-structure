@@ -329,6 +329,18 @@ def target_native_definitions(connection, installation: TargetInstallation):
                     owner="corpus_sem_publisher",
                 )
             )
+        if relation.fullname in {"ops.pdf_shared_stream", "ops.pdf_shared_stream_part"}:
+            for events, level, name in (
+                ("INSERT OR UPDATE OR DELETE" if relation.name == "pdf_shared_stream_part" else "UPDATE OR DELETE", "ROW", "pdf_shared_content_mutation"),
+                ("TRUNCATE", "STATEMENT", "pdf_shared_content_truncate"),
+            ):
+                definitions.append(definition_from_sql(
+                    connection,
+                    f"CREATE TRIGGER {name} BEFORE {events} ON {quoted} "
+                    f"FOR EACH {level} EXECUTE FUNCTION ops.pdf_shared_stream_mutation_guard()",
+                    source="target-current:pending and verified PDF bytes",
+                    owner="corpus_sem_publisher",
+                ))
         if relation.info.get("archive_role") is not None:
             definitions.append(
                 definition_from_sql(

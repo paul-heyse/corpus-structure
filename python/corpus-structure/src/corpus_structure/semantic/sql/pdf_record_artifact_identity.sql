@@ -6,13 +6,17 @@ CREATE OR REPLACE FUNCTION ops.pdf_identity_verify_artifact(
  p_product text, p_revision text, p_stream text, p_admitted bytea DEFAULT NULL)
 RETURNS TABLE(actual_length bigint, actual_byte_root bytea, retained_correspondence boolean)
 LANGUAGE plpgsql STABLE SET search_path TO 'pg_catalog', 'pg_temp' AS $$
-DECLARE stream_ ops.pdf_artifact_stream%ROWTYPE; part_ ops.pdf_artifact_part%ROWTYPE;
- state_ bytea := ops.pdf_identity_fold_start('bytes'); pending_ bytea := ''::bytea;
+DECLARE stream_ ops.pdf_artifact_stream%ROWTYPE; part_ record;
+ state_ bytea; pending_ bytea := ''::bytea;
  next_ordinal bigint := 0; offset_ bigint := 0; block_ordinal bigint := 0; root_ bytea;
 BEGIN
  SELECT * INTO STRICT stream_ FROM ops.pdf_artifact_stream
  WHERE product_id=p_product AND revision_id=p_revision AND stream_id=p_stream;
- FOR part_ IN SELECT * FROM ops.pdf_artifact_part
+ IF NOT ops.pdf_shared_stream_ready(p_product,stream_.encoding_profile,stream_.byte_length,stream_.byte_root) THEN
+ RAISE EXCEPTION 'artifact lacks its project-scoped actual fold receipt' USING ERRCODE='23514'; END IF;
+ IF p_admitted IS NULL THEN RETURN QUERY SELECT stream_.byte_length,decode(stream_.byte_root,'hex'),false; RETURN; END IF;
+ state_:=ops.pdf_identity_fold_start('bytes');
+ FOR part_ IN SELECT * FROM ops.pdf_artifact_parts(p_product,p_revision,false,ARRAY[p_stream])
   WHERE product_id=p_product AND revision_id=p_revision AND stream_id=p_stream ORDER BY ordinal LOOP
   IF part_.ordinal<>next_ordinal OR part_.byte_offset<>offset_ OR
      part_.byte_length<>octet_length(part_.body) OR part_.byte_length NOT BETWEEN 1 AND 65536 OR

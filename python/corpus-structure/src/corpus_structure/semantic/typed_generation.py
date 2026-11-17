@@ -15,7 +15,6 @@ TYPED_RELATIONS = (
     "ops.pdf_stage_membership",
     "ops.pdf_stage_reference",
     "ops.pdf_stage_artifact_stream",
-    "ops.pdf_stage_artifact_part",
 )
 
 

@@ -175,7 +175,7 @@ def run_private_native_pdf_build(
     from corpus_structure.ingest.pdf_stream_types import OwnedPdfSource
     from corpus_structure.ingest.pdf_worker import PdfWorker
     from corpus_structure.semantic.pdf_staging import (
-        STAGE_FAMILIES,
+        UPLOAD_STAGE_FAMILIES,
         adopt_pdf_batch,
         begin_pdf_build,
     )
@@ -411,7 +411,7 @@ def run_private_native_pdf_build(
 
             def retain_replay(replay: PdfReplayRef) -> None:
                 if replay.family not in {
-                    *STAGE_FAMILIES,
+                    *UPLOAD_STAGE_FAMILIES,
                     "page",
                     "candidate_payload",
                     "native_preparation",
@@ -444,15 +444,20 @@ def run_private_native_pdf_build(
                     )
                 spool.append(replay)
 
+            from corpus_structure.semantic.pdf_shared_streams import PdfSharedStreamTransfer
+            shared_transfer = PdfSharedStreamTransfer()
+
             def adopt_replay(replay: PdfReplayRef) -> None:
                 check_active()
                 replay.verify()
-                if replay.family not in STAGE_FAMILIES:
+                if replay.family not in UPLOAD_STAGE_FAMILIES:
                     raise ValueError("unknown private PDF replay family")
                 batches = ipc_replay_batches([replay], check_active)
                 try:
                     for batch in batches:
                         with _pdf_transaction(engine, cancellation) as connection:
+                            if shared_transfer.omit_verified_parts(connection, build, batch.relations):
+                                continue
                             receipt = adopt_pdf_batch(
                                 connection,
                                 build,
@@ -754,12 +759,17 @@ def publish_pdf_record_draft(
             (),
         )
 
+        from corpus_structure.semantic.pdf_shared_streams import PdfSharedStreamTransfer
+        shared_transfer = PdfSharedStreamTransfer()
+
         def adopt(replay: PdfReplayRef) -> None:
             batches = ipc_replay_batches((replay,), check_active)
             try:
                 for batch in batches:
                     check_active()
                     with _pdf_transaction(engine, cancellation) as connection:
+                        if shared_transfer.omit_verified_parts(connection, build, batch.relations):
+                            continue
                         adopt_pdf_batch(
                             connection,
                             build,

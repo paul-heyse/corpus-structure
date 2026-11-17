@@ -18,7 +18,7 @@ from sqlalchemy import BigInteger, Boolean, Integer, MetaData, Numeric, Text
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 
 from .arrow_transfer import ArrowWriteProfile
-from .metadata import PHYSICAL_MODEL_ID, metadata
+from .metadata import metadata
 
 
 def _record_tables(model: MetaData | None, *, derived: bool | None):
@@ -65,8 +65,38 @@ def _types(column):
     raise ValueError(f"unsupported PDF record field {column}: {column.type}")
 
 
+@lru_cache(maxsize=32)
+def artifact_part_upload_table(model: MetaData | None = None):
+    """Compile the declared part wire shape without installing a part table."""
+    import yaml
+    from corpus_structure.schema.physical import compile_physical
+
+    selected = metadata if model is None else model
+    sources = dict(selected.info["physical_sources"])
+    root = yaml.safe_load(sources["physical.yaml"])
+    owner = yaml.safe_load(sources["pdf-records.yaml"])["classes"]["PdfArtifactPart"]["annotations"]
+    root["classes"]["pdf_stage_artifact_part"] = {
+        "is_a": "PdfArtifactPart", "in_subset": ["ops"],
+        "unique_keys": {"primary_key": {"unique_key_slots": json.loads(owner["pds:upload_key"])}},
+        "annotations": {"ph:checks": owner["pds:upload_checks"]},
+    }
+    sources["physical.yaml"] = yaml.safe_dump(root, sort_keys=False).encode()
+    overlay = compile_physical(sources, linkml_types=selected.info["physical_linkml_types"])
+    # The overlay is a compilation device, not another installed physical model.
+    # Its wire fields/checks derive from this exact supplied source population.
+    overlay.info.update(selected.info)
+    overlay.info["pdf_upload_only"] = True
+    return overlay.tables["ops.pdf_stage_artifact_part"]
+
+
+def record_upload_table(name: str, model: MetaData | None = None):
+    selected = metadata if model is None else model
+    return artifact_part_upload_table(selected) if name == "ops.pdf_stage_artifact_part" else selected.tables[name]
+
+
 def record_arrow_schema(name: str, *, model: MetaData | None = None) -> pa.Schema:
-    table = (metadata if model is None else model).tables[name]
+    selected = metadata if model is None else model
+    table = record_upload_table(name, selected)
     if table.info.get("pdf_record_boundary_role") == "derived_core":
         raise ValueError(f"derived PDF record projection {name} uses the SQLAlchemy Core boundary")
     return pa.schema(
@@ -82,12 +112,12 @@ def record_arrow_schema(name: str, *, model: MetaData | None = None) -> pa.Schem
             )
             for column in table.columns
         ],
-        metadata={"relation": name, "physical_model_id": PHYSICAL_MODEL_ID},
+        metadata={"relation": name, "physical_model_id": selected.info["physical_model_id"]},
     )
 
 
 def record_boundary_adapter(name: str, *, model: MetaData | None = None) -> TypeAdapter[Any]:
-    table = (metadata if model is None else model).tables[name]
+    table = record_upload_table(name, model)
     fields: dict[str, Any] = {}
     literal_factory: Any = Literal
     for column in table.columns:
@@ -128,8 +158,8 @@ def _default_write_profile(name: str, release_id: str) -> ArrowWriteProfile:
 def _write_profile(name: str, release_id: str, selected: MetaData) -> ArrowWriteProfile:
     return ArrowWriteProfile.prepare(
         release_id=release_id,
-        physical_id=PHYSICAL_MODEL_ID,
+        physical_id=selected.info["physical_model_id"],
         operation="private-pdf:" + name,
         schema=record_arrow_schema(name, model=selected),
-        wire_types=tuple(_types(c)[2].removesuffix(":utf8") for c in selected.tables[name].columns),
+        wire_types=tuple(_types(c)[2].removesuffix(":utf8") for c in record_upload_table(name, selected).columns),
     )

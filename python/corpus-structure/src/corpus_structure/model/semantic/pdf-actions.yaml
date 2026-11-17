@@ -1965,5 +1965,23 @@ actions:
     version: '1'
   outcomes: [ready, missing, refused]
 
+- calls:
+  - cardinality: many
+    id: probe_pdf_shared_streams
+    ordered: true
+    order_by: [stream_id]
+    parameters:
+    - {name: build_id, native_parameter: p_build, nullable: false, source: 'model:PdfStageBuild.build_id'}
+    - {name: task_id, native_parameter: p_task, nullable: false, semantic_type: TaskId, source: 'model:PdfStageBuild.task_id'}
+    - {name: attempt, native_parameter: p_attempt, nullable: false, semantic_type: TaskAttempt, source: 'model:PdfStageBuild.attempt'}
+    - {name: holder, native_parameter: p_holder, nullable: false, source: 'model:PdfStageBuild.holder'}
+    - {name: streams, native_parameter: p_streams, nullable: false, source: 'model:PdfSharedStreamProbe.streams'}
+    result_fields: []
+    result_source: model:PdfSharedStreamStatus
+    symbol: ops.probe_pdf_shared_streams
+  id: probe_pdf_shared_streams
+  implementation: {owner: semantic.pdf_shared_streams, symbol: verified_shared_stream_ids, version: '1'}
+  outcomes: [ready, missing, refused]
+
 diagnostics: []
 version: pdf-native-actions-v1

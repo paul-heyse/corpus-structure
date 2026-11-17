@@ -33,6 +33,8 @@ LOWERING_LIBRARIES = (
 LOWERING_FILES = (
     "semantic/pdf_lowering.py",
     "semantic/pdf_certification.py",
+    "semantic/pdf_shared_streams.py",
+    "semantic/sql/pdf_shared_streams.sql",
     "semantic/_pdf_native_calls.py",
     "semantic/_pdf_native_ids.py",
     "semantic/operation_value_types.py",
@@ -159,7 +161,7 @@ def _prepared_lowering_sources(boundary_sources):
     from .pdf_payloads import FAMILY, prepare_payload_schema, schema_dump
     from .pdf_publication import COMPANION_STAGE_TARGETS
     from .pdf_record_model import record_arrow_schema
-    from .pdf_staging import STAGE_FAMILIES
+    from .pdf_staging import UPLOAD_STAGE_FAMILIES
     from .prepare import prepare_release
 
     logical = {
@@ -217,7 +219,7 @@ def _prepared_lowering_sources(boundary_sources):
                 "pdf-domain/" + LOWERING_PREFIX + "codec/" + name + ".arrow",
                 record_arrow_schema(name, model=model).serialize().to_pybytes(),
             )
-            for name in sorted(set(STAGE_FAMILIES.values()) | set(COMPANION_STAGE_TARGETS.values()))
+            for name in sorted(set(UPLOAD_STAGE_FAMILIES.values()) | set(COMPANION_STAGE_TARGETS.values()))
         ),
     )
     contract = SourceArtifact(

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 class N1Parameters(BaseModel):
-    """N1 rederives admitted facts; it accepts no caller-supplied evidence."""
+    """Closed maintenance owners accept no caller-supplied evidence or SQL."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -33,14 +33,14 @@ class N1Parameters(BaseModel):
 class DataStepRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: Literal["ddo_n1_relower"]
+    name: Literal["ddo_n1_relower", "pdf_s40_shared_streams"]
     parameters: N1Parameters = Field(default_factory=N1Parameters)
 
 
 class FrozenDataStep(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: Literal["ddo_n1_relower"]
+    name: Literal["ddo_n1_relower", "pdf_s40_shared_streams"]
     owner: Literal["corpus_sem_publisher"] = "corpus_sem_publisher"
     implementation_sha256: str
     libraries: tuple[tuple[str, str], ...]
@@ -172,11 +172,24 @@ def _n1() -> FrozenDataStep:
     )
 
 
+_S40_RETIRED_PARTS = ("ops.pdf_artifact_part", "ops.pdf_stage_artifact_part")
+
+
+def _pdf_s40() -> FrozenDataStep:
+    source = Path(__file__).with_name("sql").joinpath("pdf_s40_shared_streams.sql").read_bytes()
+    identity = sha256(sha256(Path(__file__).read_bytes()).digest() + sha256(source).digest()).hexdigest()
+    return FrozenDataStep(
+        name="pdf_s40_shared_streams", implementation_sha256=identity,
+        libraries=tuple((name, version(name)) for name in ("sqlalchemy", "alembic")),
+        statements=(source.decode(),), deferred_columns=(), guarded_relations=(),
+    )
+
+
 def prepare_data_steps(requests: tuple[DataStepRequest, ...]) -> tuple[FrozenDataStep, ...]:
     if len({request.name for request in requests}) != len(requests):
         raise ValueError("duplicate revision data step")
     # The closed DTO and this finite map are the only builder selection surface.
-    builders = {"ddo_n1_relower": _n1}
+    builders = {"ddo_n1_relower": _n1, "pdf_s40_shared_streams": _pdf_s40}
     return tuple(builders[request.name]() for request in requests)
 
 
@@ -196,6 +209,8 @@ def order_data_steps(
         raise NativeAuthoringError("revision data steps differ from current closed builder custody")
     deferred = {entry for step in steps for entry in step.deferred_columns}
     final: list[MigrateOperation] = []
+    retired_parts = set(_S40_RETIRED_PARTS) if any(step.name == "pdf_s40_shared_streams" for step in steps) else set()
+    final_drops: list[MigrateOperation] = []
 
     def prepare(operation: MigrateOperation) -> MigrateOperation | None:
         if isinstance(operation, OwnedOperationsOp):
@@ -203,6 +218,9 @@ def order_data_steps(
                 staged for child in operation.ops if (staged := prepare(child)) is not None
             ]
             return operation if operation.ops else None
+        if isinstance(operation, ops.DropTableOp) and f"{operation.schema}.{operation.table_name}" in retired_parts:
+            final_drops.append(OwnedOperationsOp("corpus_sem_publisher", [operation]))
+            return None
         if isinstance(operation, ops.AddColumnOp):
             relation = f"{operation.schema}.{operation.table_name}"
             source = operation.column
@@ -285,5 +303,6 @@ def order_data_steps(
         )
         for step in steps
     )
+    upgrade_ops.ops.extend(final_drops)
     upgrade_ops.ops.extend(final)
     upgrade_ops.ops.extend(NativeTransitionOp(None, guards[name]) for name in sorted(guards))
