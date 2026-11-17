@@ -68,7 +68,10 @@ def test_validation_precedes_visibility_and_failure_never_seals(monkeypatch, tmp
         COMPANION_BATCH_BYTES=COMPANION_BATCH_BYTES,
         COMPANION_BATCH_ROWS=COMPANION_BATCH_ROWS,
         retain_pdf_stage_recipe=retain,
-        adopt_pdf_companions=companions,
+        adopt_prepared_pdf_companion_batches=companions,
+        prepared_pdf_companion_batches=lambda prepared: (batch for batch in ()),
+        stage_pdf_access_projection=lambda *a, **k: calls.append("access"),
+        record_pdf_producer_certification=lambda *a, **k: calls.append("attest"),
         inspect_pdf_build=lambda *a, **k: None,
         freeze_pdf_build=freeze,
         prepare_pdf_build=prepare,
@@ -86,6 +89,28 @@ def test_validation_precedes_visibility_and_failure_never_seals(monkeypatch, tmp
         return ()
 
     monkeypatch.setattr(StreamingPdfResult, "write_record_batches", write)
+    from corpus_structure.semantic import pdf_certification, pdf_contracts
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from corpus_structure.semantic.pdf_lowering import require_lowering_identity
+
+    context = trusted_pdf_context()
+    monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", lambda *a: context)
+    monkeypatch.setattr("corpus_structure.semantic.pdf_lowering.require_lowering_identity", lambda context: "a" * 64)
+    monkeypatch.setattr(pdf_certification, "write_pdf_companion_sets", lambda *a, **k:
+        (SimpleNamespace(replay_key="companion", replays=()),))
+
+    class Payloads:
+        def __init__(self, *args): pass
+        def add_replays(self, *args, **kwargs): pass
+        def add_companion_replays(self, *args, **kwargs): pass
+        def target_pins(self): return ()
+        def certify(self, document, projection, **kwargs):
+            calls.append("certify")
+            projection.write_bytes(b"")
+            return SimpleNamespace(to_bytes=lambda: b"{}")
+        def close(self): pass
+
+    monkeypatch.setattr(pdf_certification, "PdfProducerPayloads", Payloads)
     draft = PdfRecordPublicationDraft(
         {},
         "native",
@@ -108,7 +133,8 @@ def test_validation_precedes_visibility_and_failure_never_seals(monkeypatch, tmp
     else:
         assert run() == "published"
         assert calls.index("validate") < calls.index("seal")
-    assert calls.index("records") < calls.index("companions") < calls.index("freeze")
+    assert calls.index("records") < calls.index("certify") < calls.index("companions")
+    assert calls.index("companions") < calls.index("access") < calls.index("attest") < calls.index("freeze")
     assert calls.index("freeze") < calls.index("prepare") < calls.index("validate")
 
 

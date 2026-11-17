@@ -165,7 +165,7 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
             == after.logical_digest
         )
 
-    adopt = calls.adopt_pdf_access_batch
+    adopt = calls.stage_pdf_access_batch
 
     def integer_spelling(conn, *, rows, **scope):
         for row in rows:
@@ -173,7 +173,7 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
                 row["body"]["left"] = int(row["body"]["left"])
         adopt(conn, rows=rows, **scope)
 
-    monkeypatch.setattr(calls, "adopt_pdf_access_batch", integer_spelling)
+    monkeypatch.setattr(calls, "stage_pdf_access_batch", integer_spelling)
     respelled = create_private_build(case="integer-region-coordinates")
     lexical_delta, _ = publish_fixture(respelled, tmp_path / "respelled", "partial")
     assert lexical_delta.logical_digest == after.logical_digest
@@ -308,7 +308,6 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
     from corpus_structure.semantic.pdf_payloads import prepare_payload_family
 
     build = private_build
-    stage_complete_native(commit_writer_engine, build, tmp_path)
     candidate = dict(
         page_no=1,
         text="\u03b1" * 100 + "\x00",
@@ -322,6 +321,7 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
     value = dict(page_no=1, has_words=True, has_chars=True, candidates=[candidate] * 1000)
     original = canonical_bytes(value)
     assert len(original) > 65536
+    stage_complete_native(commit_writer_engine, build, tmp_path, companions={"native_metadata": [dict(kind="inline_candidate_pages", ordinal=0, value=value)]})
     with commit_writer_engine.begin() as conn:
         adopt_pdf_companions(
             conn,
@@ -365,7 +365,7 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
         actual = b"".join(
             conn.execute(
                 text(
-                    "SELECT body FROM ops.pdf_artifact_part WHERE product_id=:build AND "
+                    "SELECT body FROM ops.pdf_artifact_parts(:build,:build) WHERE "
                     "stream_id=:stream ORDER BY ordinal"
                 ),
                 dict(build=build.build_id, stream=stream),
@@ -406,7 +406,6 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
     from corpus_structure.semantic.product_reference import ProductReference
 
     build = create_private_build()
-    stage_complete_native(commit_writer_engine, build, tmp_path)
     occurrences = [
         dict(
             occurrence_id=f"observed-overlap-occurrence:{index:04d}",
@@ -428,6 +427,7 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
         ).decode(),
         endpoints=[dict(role="output", occurrence_id=row["occurrence_id"]) for row in occurrences],
     )
+    stage_complete_native(commit_writer_engine, build, tmp_path, companions={"occurrence": occurrences, "relation": [relation]})
     with commit_writer_engine.begin() as conn:
         assert (
             conn.scalar(
@@ -550,7 +550,7 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
     backend = []
     # The family list orders artifact parts first and references last. Blocking the
     # final read permits a committed append to an already captured earlier family.
-    relation = "ops.pdf_stage_reference" if concurrent_append else "ops.pdf_stage_artifact_part"
+    relation = "ops.pdf_stage_reference" if concurrent_append else "ops.pdf_stage_artifact_stream"
 
     def freeze():
         with commit_writer_engine.begin() as conn:
@@ -653,7 +653,9 @@ def test_freeze_count_witness_relies_on_protected_append_only_stage_rows(
         "ops.pdf_stage_membership",
         "ops.pdf_stage_reference",
         "ops.pdf_stage_artifact_stream",
-        "ops.pdf_stage_artifact_part",
+        "ops.pdf_shared_stream_part",
+        "ops.pdf_shared_stream",
+        "ops.pdf_shared_stream_verification",
         "ops.pdf_stage_companion",
         "ops.pdf_stage_endpoint",
         "ops.pdf_stage_companion_field",
@@ -689,7 +691,6 @@ def test_encoded_page_adoption_retains_original_ipc_bytes(
     )
 
     build = private_build
-    stage_complete_native(commit_writer_engine, build, tmp_path)
     codec = prepare_payload_family()
     value = dict(page_no=1, has_words=False, has_chars=False)
     payload = codec.encode(value, compression="zstd")
@@ -699,6 +700,7 @@ def test_encoded_page_adoption_retains_original_ipc_bytes(
         raise AssertionError("already encoded payload must retain its original bytes")
 
     monkeypatch.setattr(PreparedPayloadFamily, "encode", no_reencoding)
+    stage_complete_native(commit_writer_engine, build, tmp_path, companions={"native_metadata": [dict(kind="inline_candidate_pages", ordinal=0, value=encoded)]})
     with commit_writer_engine.begin() as conn:
         adopt_pdf_companions(
             conn,
@@ -714,7 +716,7 @@ def test_encoded_page_adoption_retains_original_ipc_bytes(
             conn.execute(
                 text("""
             SELECT p.body FROM ops.pdf_artifact_stream s
-            JOIN ops.pdf_artifact_part p USING(product_id,revision_id,stream_id)
+            JOIN LATERAL ops.pdf_artifact_parts(s.product_id,s.revision_id) p USING(product_id,revision_id,stream_id)
             WHERE s.product_id=:build
             AND s.encoding_profile='pdf-ocr-candidate-ipc-v1'
             ORDER BY p.ordinal

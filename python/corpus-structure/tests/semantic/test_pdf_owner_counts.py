@@ -1,4 +1,4 @@
-"""Server ownership closure rejects invalid membership despite a callback success."""
+"""Server ownership closure independently rejects deliberately tampered membership."""
 
 import json
 from hashlib import sha256
@@ -32,7 +32,7 @@ from semantic.pdf_staging_support import private_build as private_build
     ["orphan", "repeated-owner", "disconnected-cycle", "root-cycle", "scalar-gap", "empty-scalar"],
 )
 def test_native_owner_counts_refuse_missing_or_duplicate_membership(
-    private_build, commit_writer_engine, commit_db_engine, defect
+    private_build, commit_writer_engine, commit_db_engine, tmp_path, defect
 ):
     build = private_build
     document = DoclingDocument(name="independent ownership control")
@@ -108,71 +108,33 @@ def test_native_owner_counts_refuse_missing_or_duplicate_membership(
                     ),
                 )
             )
+    from pdf_acceptance_support import stage_pdf_document
+
+    stage_pdf_document(commit_writer_engine, build, tmp_path, document)
     with commit_writer_engine.begin() as conn:
-        for family in ("header", "native", "membership", "reference"):
-            adopt_pdf_batch(
-                conn,
-                build,
-                "owner-control-" + family,
-                {family: [pa.RecordBatch.from_pylist(rows[family], schema=stage_schema(family))]},
-            )
-        adopt_pdf_companions(
-            conn,
-            build,
-            "health",
-            [
-                {
-                    "conversion": "success",
-                    "source_scope": "whole_document",
-                    "display_coverage": "unknown",
-                    "inline_coverage": "unknown",
-                    "cell_coverage": "unknown",
-                }
-            ],
-            "owner-health",
-        )
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
-        # Challenge the independent SQL invariant, rather than letting the native
-        # callback reject this fixture before the server's ownership check runs.
-        conn.execute(
-            text(
-                "SELECT ops.record_pdf_native_validation(:build,:task,:attempt,:holder,"
-                ":frozen,true)"
-            ),
-            dict(
-                build=build.build_id,
-                task=build.task_id,
-                attempt=build.attempt,
-                holder=build.holder,
-                frozen=frozen.frozen_digest,
-            ),
-        )
-    # Install only the current owned function in this disposable test database;
-    # source authoring intentionally waits for the coordinator's integrated freeze.
-    sql = publication_sql()
-    start = sql.index("CREATE OR REPLACE FUNCTION ops.validate_pdf_build(")
-    stop = sql.index("CREATE OR REPLACE FUNCTION ops.seal_pdf_build(", start)
+    # Tamper with the prepared database representation under fixture authority.
+    # The genuine producer certified its valid original document; these invalid
+    # rows challenge SQL ownership directly and never claim a passed oracle.
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-        conn.exec_driver_sql(sql[start:stop], execution_options={"no_parameters": True})
+        relations = {"header": "ops.pdf_record_document", "native": "kb.pdf_record_native",
+                     "membership": "kb.pdf_record_membership", "reference": "kb.pdf_record_reference"}
+        for family in ("reference", "membership", "header", "native"):
+            conn.execute(text(f"DELETE FROM {relations[family]} WHERE product_id=:build"), {"build": build.build_id})
+        for family in ("header", "native", "membership", "reference"):
+            for value in rows.get(family, ()):
+                value = {key: json.loads(item) if key.endswith("_json") and isinstance(item, str) else item
+                         for key, item in value.items()}
+                conn.execute(text(f"INSERT INTO {relations[family]} SELECT (jsonb_populate_record("
+                    f"NULL::{relations[family]}, CAST(:body AS jsonb))).*"), {"body": json.dumps(value)})
     with (
-        pytest.raises(
-            DBAPIError,
-            match=(
-                r"native (orphan or repeated containment owner|"
-                r"containment cycle or unreachable record|ordered membership incomplete)"
-            ),
-        ),
-        commit_writer_engine.begin() as conn,
+        pytest.raises(DBAPIError, match=(r"native (orphan or repeated containment owner|"
+                    r"containment cycle or unreachable record|ordered membership incomplete)")),
+        commit_db_engine.begin() as conn,
     ):
-        conn.execute(
-            text("SELECT * FROM ops.validate_pdf_build(:build,:task,:attempt,:holder,:frozen)"),
-            dict(
-                build=build.build_id,
-                task=build.task_id,
-                attempt=build.attempt,
-                holder=build.holder,
-                frozen=frozen.frozen_digest,
-            ),
-        )
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        conn.execute(text("SELECT ops.pdf_check_build_inventory(:build,:source,"
+            "(SELECT project_id FROM ops.pdf_task_context(:task)))"),
+            dict(build=build.build_id, source=build.source_digest, task=build.task_id))

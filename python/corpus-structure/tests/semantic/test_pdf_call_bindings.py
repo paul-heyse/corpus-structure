@@ -204,7 +204,7 @@ def test_projected_requiredness_refines_nullable_source_without_losing_native_di
     )
 
 
-def test_published_validation_reader_preserves_original_six_field_receipt():
+def test_published_validation_reader_preserves_producer_and_oracle_receipt():
     statement = calls.prepare_read_pdf_published_validation(
         task_id=calls.TaskId(10),
         product_key=calls.ProductKey("integrated"),
@@ -226,6 +226,7 @@ def test_published_validation_reader_preserves_original_six_field_receipt():
             "projection-contract",
             True,
             "original-v4-native-contract",
+            "round-trip-verified", "released-lowering", "attested-logical", "original-document", "actual-oracle",
         )
     )
     assert result.model_dump() == {
@@ -235,10 +236,16 @@ def test_published_validation_reader_preserves_original_six_field_receipt():
         "contract_digest": "projection-contract",
         "native_callbacks": True,
         "native_contract_digest": "original-v4-native-contract",
+        "certification_basis": "round-trip-verified",
+        "lowering_identity": "released-lowering",
+        "attested_logical_digest": "attested-logical",
+        "native_document_digest": "original-document",
+        "oracle_receipt_id": "actual-oracle",
     }
     materialize = vars(calls)["materialize_read_pdf_published_validation"]
     with pytest.raises(NativeResultViolation) as refused:
-        materialize(("b", "f", "l", "contract", "true", "original-native"))
+        materialize(("b", "f", "l", "contract", "true", "original-native",
+            "round-trip-verified", "lowering", "logical", "native", "oracle"))
     assert refused.value.locations == (("native_callbacks",),)
 
 

@@ -11,6 +11,7 @@ from corpus_structure.semantic.pdf_publication_native import pdf_record_logical_
 from corpus_structure.semantic.pdf_record_identity import canonical_scalar
 from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.pdf_staging_support import private_build as private_build
+from pdf_acceptance_support import seed_pdf_shared_stream
 
 
 def test_publication_inline_and_key_spelling(commit_db_engine):
@@ -214,29 +215,11 @@ def test_actual_record_cursor_matches_independent_logical_fields(
                     sha=sha256(payload).hexdigest(),
                     kind=kind,
                 )
-                execute(
-                    "INSERT INTO ops.pdf_artifact_stream VALUES "
-                    "('p','r',%(name)s,%(size)s,NULL,%(root)s,%(profile)s)",
-                    params,
-                )
-                execute(
-                    "INSERT INTO ops.pdf_artifact_part VALUES "
-                    "('p','r',%(name)s,0,0,%(size)s,%(body)s,%(sha)s)",
-                    params,
-                )
+                seed_pdf_shared_stream(conn, private_build, name, payload, profile=profile)
             payload = map_key.encode()
             size, root = byte_root((payload,))
             params = dict(size=size, root=root.hex(), body=payload, sha=sha256(payload).hexdigest())
-            execute(
-                "INSERT INTO ops.pdf_artifact_stream VALUES "
-                "('p','r','map-key',%(size)s,%(sha)s,%(root)s,'pdf-record-scalar-v1:s')",
-                params,
-            )
-            execute(
-                "INSERT INTO ops.pdf_artifact_part VALUES "
-                "('p','r','map-key',0,0,%(size)s,%(body)s,%(sha)s)",
-                params,
-            )
+            seed_pdf_shared_stream(conn, private_build, "map-key", payload)
         execute(
             "INSERT INTO kb.pdf_record_membership(product_id,revision_id,parent_id,"
             "field_name,ordinal,member_key,member_key_stream_id,value_kind,scalar_json) "
@@ -315,90 +298,28 @@ def test_complete_identity_verifies_shared_and_unreferenced_streams(
             text("INSERT INTO ops.pdf_frozen_build VALUES (:p,:digest,'native')"),
             params | {"digest": "0" * 64},
         )
-        predecessor = "prior-" + build.build_id
-        for product in (build.build_id, predecessor):
-            conn.execute(
-                text(
-                    "INSERT INTO ops.pdf_record_document VALUES (:p,:p,:release,:source,"
-                    "'pdf-native-records-v1','pdf-native-records-v1',:schema,'root')"
-                ),
-                params | {"p": product},
-            )
-        conn.execute(
-            text(
-                "INSERT INTO kb.pdf_record_native(product_id,revision_id,record_id,"
-                "native_type,family,native_address,scalars_json,structure_json) VALUES "
-                "(:p,:p,'root','TextItem','node','#','{}',CAST(:structure AS jsonb))"
-            ),
-            params
-            | {
-                "structure": json.dumps(
-                    {
-                        "fields": {
-                            field: {"kind": "parts", "stream_id": "shared"} for field in ("a", "b")
-                        }
-                    }
-                )
-            },
-        )
+        conn.execute(text("INSERT INTO ops.pdf_record_document VALUES (:p,:p,:release,:source,"
+            "'pdf-native-records-v1','pdf-native-records-v1',:schema,'root')"), params)
+        conn.execute(text("INSERT INTO kb.pdf_record_native(product_id,revision_id,record_id,"
+            "native_type,family,native_address,scalars_json,structure_json) VALUES "
+            "(:p,:p,'root','TextItem','node','#','{}',CAST(:structure AS jsonb))"), params | {
+                "structure": json.dumps({"fields": {field: {"kind": "parts", "stream_id": "shared"}
+                    for field in ("a", "b")}})})
         for stream, content in (("shared", shared), ("unused", unused)):
-            size, stream_root = byte_root((content,))
-            body = (
-                b"broken scalar"
-                if defect == "referenced-bytes" and stream == "shared"
-                else b"spare byte!"
-                if defect == "unused-bytes" and stream == "unused"
-                else content
-            )
-            for product, original in ((build.build_id, False), (predecessor, True)):
-                conn.execute(
-                    text(
-                        "INSERT INTO ops.pdf_artifact_stream VALUES "
-                        "(:p,:p,:stream,:size,:sha,:root,'pdf-record-scalar-v1:s')"
-                    ),
-                    dict(
-                        p=product,
-                        stream=stream,
-                        size=size,
-                        sha=sha256(content).hexdigest(),
-                        root=stream_root.hex(),
-                    ),
-                )
-                if not original and defect == "unused-missing" and stream == "unused":
-                    continue
-                part = content if original else body
-                conn.execute(
-                    text(
-                        "INSERT INTO ops.pdf_artifact_part VALUES "
-                        "(:p,:p,:stream,:ordinal,0,:size,:body,:sha)"
-                    ),
-                    dict(
-                        p=product,
-                        stream=stream,
-                        ordinal=int(
-                            not original and defect == "unused-order" and stream == "unused"
-                        ),
-                        size=size,
-                        body=part,
-                        sha=sha256(part).hexdigest(),
-                    ),
-                )
-        for arguments in (":p,:p", ":p,:p,:prior"):
-            statement = text(f"SELECT ops.pdf_record_logical_identity({arguments})")
-            with conn.begin_nested() as savepoint:
-                if defect is not None:
-                    with pytest.raises(
-                        DBAPIError,
-                        match=(
-                            r"artifact (actual bytes/ordinal/offset/length/digest|"
-                            r"verified inventory/root) differs"
-                        ),
-                    ):
-                        conn.execute(statement, params | {"prior": predecessor})
-                    savepoint.rollback()
-                else:
-                    actual = conn.execute(statement, params | {"prior": predecessor}).scalar_one()
-                    assert actual == expected.pin().logical_digest
+            bad = (stream == "shared" and defect == "referenced-bytes") or (stream == "unused" and defect is not None and defect.startswith("unused-"))
+            body = b"broken scalar" if defect == "referenced-bytes" and stream == "shared" else b"spare byte!" if defect == "unused-bytes" and stream == "unused" else content
+            parts = [] if defect == "unused-missing" and stream == "unused" else [dict(
+                ordinal=int(defect == "unused-order" and stream == "unused"), byte_offset=0, body=body)]
+            seed_pdf_shared_stream(conn, build, stream, content, parts=parts, verify=not bad)
+            if bad:
+                with pytest.raises(DBAPIError, match="shared stream actual"), conn.begin_nested():
+                    conn.execute(text("SELECT ops.pdf_verify_shared_stream(:p,:stream,true)"), params | {"stream": stream})
+        statement = text("SELECT ops.pdf_record_logical_identity(:p,:p)")
+        if defect is not None:
+            with pytest.raises(DBAPIError, match="actual fold receipt"), conn.begin_nested():
+                conn.execute(statement, params)
+        else:
+            assert conn.execute(statement, params).scalar_one() == expected.pin().logical_digest
 
 
 def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
@@ -417,58 +338,18 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
 
     def publish(case, key, input_publication=None):
         build = create_private_build(case=case)
-        stage_complete_native(commit_writer_engine, build, tmp_path / key)
+        companions = {"occurrence": [{"occurrence_id": "item", "kind": "text",
+            "address_space": "native_item", "precision": "item", "pointer": "#/texts/0"}]}
+        if input_publication is not None:
+            companions["input"] = [{"role": "structural", "task_id": input_publication.task_id,
+                "product_key": input_publication.product_key, "content_digest": input_publication.logical_digest}]
+            companions["relation"] = [{"relation_id": "selection", "kind": "decision", "outcome": "selected",
+                "comparison": "text", "policy": "controlled-exact-source-v1",
+                "evidence": "same retained text in distinct authentic publications",
+                "endpoints": [{"input_index": 0, "occurrence_id": "item", "role": "input"},
+                              {"occurrence_id": "item", "role": "output"}]}]
+        stage_complete_native(commit_writer_engine, build, tmp_path / key, companions=companions)
         with commit_writer_engine.begin() as conn:
-            adopt_pdf_companions(
-                conn,
-                build,
-                "occurrence",
-                [
-                    {
-                        "occurrence_id": "item",
-                        "kind": "text",
-                        "address_space": "native_item",
-                        "precision": "item",
-                        "pointer": "#/texts/0",
-                    }
-                ],
-                "item",
-            )
-            if input_publication is not None:
-                adopt_pdf_companions(
-                    conn,
-                    build,
-                    "input",
-                    [
-                        {
-                            "role": "structural",
-                            "task_id": input_publication.task_id,
-                            "product_key": input_publication.product_key,
-                            "content_digest": input_publication.logical_digest,
-                        }
-                    ],
-                    "structural",
-                )
-                adopt_pdf_companions(
-                    conn,
-                    build,
-                    "relation",
-                    [
-                        {
-                            "relation_id": "selection",
-                            "kind": "decision",
-                            "outcome": "selected",
-                            "comparison": "text",
-                            "policy": "controlled-exact-source-v1",
-                            "evidence": "same retained text in distinct authentic publications",
-                            "endpoints": [
-                                {"input_index": 0, "occurrence_id": "item", "role": "input"},
-                                {"occurrence_id": "item", "role": "output"},
-                            ],
-                        }
-                    ],
-                    "selection",
-                )
             frozen = freeze_pdf_build(conn, build, kind="native")
             prepare_pdf_build(conn, frozen)
         validate_pdf_build(commit_writer_engine, frozen)

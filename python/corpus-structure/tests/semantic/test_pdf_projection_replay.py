@@ -43,44 +43,9 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
                 charspan=(0, 8),
             )
         )
-    result = StreamingPdfResult(
-        document, PdfStreamSpool(tmp_path / "pages"), "success", (), b"{}", ()
-    )
-    for replay in result.write_record_batches(
-        tmp_path / "records",
-        build_id=build.build_id,
-        release_id=build.release_id,
-        source_digest=build.source_digest,
-    ):
-        with pa.memory_map(str(replay.path), "r") as source:
-            reader = pa.ipc.open_file(source)
-            for index in range(reader.num_record_batches):
-                with commit_writer_engine.begin() as conn:
-                    adopt_pdf_batch(
-                        conn,
-                        build,
-                        f"{replay.family}:{index}",
-                        {replay.family: (reader.get_batch(index),)},
-                    )
-    with commit_writer_engine.begin() as conn:
-        adopt_pdf_companions(
-            conn,
-            build,
-            "health",
-            [
-                {
-                    "conversion": "success",
-                    "source_scope": "whole_document",
-                    "display_coverage": "unknown",
-                    "inline_coverage": "unknown",
-                    "cell_coverage": "unknown",
-                }
-            ],
-            "health",
-        )
-        frozen = freeze_pdf_build(conn, build, kind="native")
-        prepare_pdf_build(conn, frozen)
-    validate_pdf_build(commit_writer_engine, frozen)
+    from pdf_acceptance_support import stage_pdf_document
+
+    stage_pdf_document(commit_writer_engine, build, tmp_path, document)
     bodies = {}
     with commit_db_engine.connect() as conn:
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
@@ -89,7 +54,7 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
                 conn.execute(
                     text(
                         "SELECT to_jsonb(r)-'product_id'-'revision_id' "
-                        f"FROM kb.pdf_record_{family} r "
+                        f"FROM ops.pdf_stage_{family} r "
                         "WHERE product_id=:build AND revision_id=:build"
                     ),
                     {"build": build.build_id},
@@ -109,27 +74,32 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
         task=build.task_id,
         attempt=build.attempt,
         holder=build.holder,
-        frozen=frozen.frozen_digest,
     )
     statement = text(
-        "SELECT ops.adopt_pdf_access(:build,:task,:attempt,:holder,:frozen,:family,"
-        "CAST(:body AS jsonb))"
+        "SELECT ops.stage_pdf_access_batch(:build,:task,:attempt,:holder,"
+        "jsonb_build_array(jsonb_build_object('family',:family,'body',CAST(:body AS jsonb))))"
     )
     for family, rows in bodies.items():
         for row in rows:
             with commit_writer_engine.begin() as conn:
                 conn.execute(statement, params | {"family": family, "body": json.dumps(row)})
         row = rows[0]
-        changes = (
-            ({"left": row["left"] + 1}, {"region_index": 99})
-            if family == "region"
-            else ({"text": "changed"}, {"pointer": "#/unpublished"})
-        )
+        changes = ({"left": row["left"] + 1},) if family == "region" else ({"text": "changed"},)
         for change in changes:
             with (
-                pytest.raises(DBAPIError, match="projection membership is immutable"),
+                pytest.raises(DBAPIError, match=f"changed {family} projection"),
                 commit_writer_engine.begin() as conn,
             ):
                 conn.execute(
                     statement, params | {"family": family, "body": json.dumps(row | change)}
                 )
+
+    with commit_writer_engine.begin() as conn:
+        frozen = freeze_pdf_build(conn, build, kind="native")
+        prepare_pdf_build(conn, frozen)
+    validate_pdf_build(commit_writer_engine, frozen)
+    # Projection membership now freezes with its certified producer, before the
+    # reconstruction oracle or final validation can run. Even exact late writes refuse.
+    for family, rows in bodies.items():
+        with pytest.raises(DBAPIError, match="not owned/open"), commit_writer_engine.begin() as conn:
+            conn.execute(statement, params | {"family": family, "body": json.dumps(rows[0])})

@@ -78,8 +78,8 @@ def access_database(semantic_bare_engine, request):
                 "text,encoding_profile text)"
             ),
             (
-                "CREATE TABLE ops.pdf_artifact_part(product_id text,revision_id "
-                "text,stream_id text,ordinal bigint,body bytea)"
+                'CREATE TABLE ops.fixture_pdf_part(product_id text,revision_id text,stream_id text,ordinal bigint,body bytea);'
+                'CREATE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,p_stage boolean DEFAULT false) RETURNS SETOF ops.fixture_pdf_part LANGUAGE sql STABLE AS $$ SELECT * FROM ops.fixture_pdf_part WHERE product_id=p_product AND revision_id=p_revision $$'
             ),
             (
                 "CREATE TABLE kb.pdf_record_access(product_id text,revision_id "
@@ -152,7 +152,7 @@ def access_database(semantic_bare_engine, request):
             for part in emit_parts(stream, chunks):
                 conn.execute(
                     text(
-                        "INSERT INTO ops.pdf_artifact_part VALUES('b','b',:stream,:ordinal,:body)"
+                        "INSERT INTO ops.fixture_pdf_part VALUES('b','b',:stream,:ordinal,:body)"
                     ),
                     dict(stream=stream, ordinal=part.ordinal, body=part.body),
                 )

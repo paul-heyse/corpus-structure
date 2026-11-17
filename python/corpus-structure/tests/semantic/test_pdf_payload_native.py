@@ -54,7 +54,6 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
     from corpus_structure.semantic.pdf_payloads import PROFILE, prepare_payload_family
 
     build = private_build
-    stage_complete_native(commit_writer_engine, build, tmp_path)
     value = {
         "page_no": 1,
         "has_words": True,
@@ -72,6 +71,7 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
             }
         ],
     }
+    stage_complete_native(commit_writer_engine, build, tmp_path, companions={"native_metadata": [dict(kind="inline_candidate_pages", ordinal=0, value=value)]})
     logical = prepare_payload_family().logical_digest(value)
     with commit_writer_engine.begin() as conn:
         adopt_pdf_companions(
@@ -182,25 +182,10 @@ def test_final_validation_freezes_projection_membership(
         ).scalar_one_or_none()
         assert old_single_source is None
         assert recorded != sha256(single_source).hexdigest()
-    with commit_writer_engine.begin() as conn:
-        conn.execute(
-            text(
-                "SELECT ops.adopt_pdf_access(:build,:task,:attempt,:holder,:frozen,'access',"
-                "CAST(:body AS jsonb))"
-            ),
-            params | {"body": json.dumps(projection)},
-        )
-    with (
-        pytest.raises(DBAPIError, match="projection membership is immutable"),
-        commit_writer_engine.begin() as conn,
-    ):
-        conn.execute(
-            text(
-                "SELECT ops.adopt_pdf_access(:build,:task,:attempt,:holder,:frozen,'access',"
-                "CAST(:body AS jsonb))"
-            ),
-            params | {"body": json.dumps(projection | {"pointer": "#/unexpected"})},
-        )
+    with pytest.raises(DBAPIError, match="not owned/open"), commit_writer_engine.begin() as conn:
+        conn.execute(text("SELECT ops.stage_pdf_access_batch(:build,:task,:attempt,:holder,"
+            "jsonb_build_array(jsonb_build_object('family','access','body',CAST(:body AS jsonb))))"),
+            params | {"body": json.dumps(projection)})
 
 
 def test_projection_finalization_serializes_on_build_without_blocking_heartbeat(
@@ -224,11 +209,9 @@ def test_projection_finalization_serializes_on_build_without_blocking_heartbeat(
             text("SELECT 1 FROM ops.pdf_stage_build WHERE build_id=:build FOR NO KEY UPDATE"),
             params,
         )
-        # All three mutations contend on the same build row before observing validation
+        # Both final mutations contend on the same build row before observing validation
         # membership/state; validation cannot finalize between an append's check and write.
         for statement in (
-            "SELECT ops.adopt_pdf_access(:build,:task,:attempt,:holder,:frozen,'access',"
-            "'{}'::jsonb)",
             "SELECT ops.validate_pdf_build(:build,:task,:attempt,:holder,:frozen)",
             "SELECT ops.seal_pdf_build(:build,:task,:attempt,:holder,:frozen,'native')",
         ):

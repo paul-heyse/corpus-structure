@@ -34,10 +34,7 @@ def test_projection_write_requires_fresh_validation_snapshot(
     lookup = text(
         "SELECT count(*) FROM ops.lookup_pdf_validation(:build,:task,:attempt,:holder,:frozen)"
     )
-    adopt = text(
-        "SELECT ops.adopt_pdf_access(:build,:task,:attempt,:holder,:frozen,'access',"
-        "CAST(:body AS jsonb))"
-    )
+    finalize = text("SELECT * FROM ops.validate_pdf_build(:build,:task,:attempt,:holder,:frozen)")
     with (
         commit_writer_engine.connect().execution_options(isolation_level=isolation) as conn,
         conn.begin(),
@@ -45,16 +42,6 @@ def test_projection_write_requires_fresh_validation_snapshot(
         # Establish the reader snapshot before the independent validator commits.
         assert conn.execute(lookup, params).scalar_one() == 0
         validate_pdf_build(commit_writer_engine, frozen)
-        with commit_db_engine.begin() as owner:
-            owner.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-            body = owner.execute(
-                text(
-                    "SELECT to_jsonb(r)-'product_id'-'revision_id' "
-                    "FROM kb.pdf_record_access r WHERE product_id=:build "
-                    "AND revision_id=:build AND pointer='#/texts/0'"
-                ),
-                params,
-            ).scalar_one()
         if isolation == "REPEATABLE READ":
             # The original race precondition is real: a finalized witness is
             # committed, while this transaction continues to miss that row.
@@ -70,17 +57,12 @@ def test_projection_write_requires_fresh_validation_snapshot(
                 ).one()
                 conn.exec_driver_sql("SET LOCAL lock_timeout='100ms'")
                 with pytest.raises(DBAPIError) as refused, conn.begin_nested():
-                    conn.execute(adopt, params | {"body": json.dumps(body)})
+                    conn.execute(finalize, params)
                 # An isolation refusal must happen before acquiring the fence;
                 # a late guard would block here and report lock timeout 55P03.
                 assert getattr(refused.value.orig, "sqlstate", None) == "25000"
             return
-        # READ COMMITTED observes the newly finalized witness and preserves
-        # both exact replay and refusal of new post-validation membership.
+        # READ COMMITTED sees the finalized certified witness and safely replays
+        # finalization; it never appends new projection membership after freeze.
         assert conn.execute(lookup, params).scalar_one() == 1
-        conn.execute(adopt, params | {"body": json.dumps(body)})
-        with (
-            pytest.raises(DBAPIError, match="projection membership is immutable"),
-            conn.begin_nested(),
-        ):
-            conn.execute(adopt, params | {"body": json.dumps(body | {"pointer": "#/late"})})
+        assert conn.execute(finalize, params).fetchone() is not None

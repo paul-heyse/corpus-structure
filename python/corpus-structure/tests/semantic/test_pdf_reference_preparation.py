@@ -25,6 +25,9 @@ def test_prepared_reference_resolves_exact_target_or_refuses_ambiguity(
 ):
     build = private_build
     stage_complete_native(commit_writer_engine, build, tmp_path)
+    # Deliberate synthetic rows below exercise only SQL target preparation.
+    # They are appended after a genuine original producer certification, and
+    # never proceed to validation or claim a publishable certified document.
     common = dict(product_id=build.product_id, revision_id=build.revision_id)
     pointer = "#/texts/synthetic"
     target_stream = case in {"inline_stream", "stream_stream"}

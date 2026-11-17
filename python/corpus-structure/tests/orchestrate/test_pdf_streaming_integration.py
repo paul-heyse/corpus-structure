@@ -140,8 +140,8 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
     )
     monkeypatch.setattr(
         pdf_publication,
-        "adopt_pdf_companions",
-        after_retirement(pdf_publication.adopt_pdf_companions),
+        "adopt_prepared_pdf_companion_batches",
+        after_retirement(pdf_publication.adopt_prepared_pdf_companion_batches),
     )
     original_run = pdf_streaming.run_private_native_pdf_build
     adopted, private = [], []
@@ -165,9 +165,7 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
         persisted_receipts = {receipt.replay_key: receipt for receipt in receipts}
         assert len(callback_receipts) == len(adopted), "each producer batch acknowledged once"
         assert {key: persisted_receipts[key] for key in callback_receipts} == callback_receipts
-        assert persisted_receipts.keys() - callback_receipts.keys() == {
-            "native:runtime-report:fields:0"
-        }
+        assert all(key.startswith("companion:") for key in persisted_receipts.keys() - callback_receipts.keys())
         assert sum(receipt.row_count for receipt in receipts) > 10
         assert not any(receipt.replay_key.startswith("page:") for receipt in receipts)
         manifests = list(directory.glob("*/attempt-*/manifest.jsonl"))
@@ -188,7 +186,7 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
             selected, _page = source.publication(connection)
             acquired = acquire_selected_pdf_source(connection, selected)
             assert acquired.receipt.publication.task_id == build.task_id
-            for relation in ("ops.pdf_stage_native", "ops.pdf_stage_artifact_part"):
+            for relation in ("ops.pdf_stage_native", "ops.pdf_shared_stream_part"):
                 with pytest.raises(DBAPIError), connection.begin_nested():
                     connection.execute(text(f"SELECT * FROM {relation}"))
 

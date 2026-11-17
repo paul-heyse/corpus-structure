@@ -20,6 +20,7 @@ from corpus_structure.semantic.pdf_record_model import (
     record_upload_tables,
 )
 from semantic.releases_support import stage
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def header_binding(engine):
@@ -300,89 +301,42 @@ def test_private_native_foundations_and_constraints(commit_db_engine):
                     conn.execute(insert(tables[relation]), values)
 
 
-def test_artifact_native_verifier_reads_actual_parts(commit_db_engine):
-    from hashlib import sha256
-
+def test_artifact_native_verifier_reads_actual_parts(commit_db_engine, private_build):
+    from pdf_acceptance_support import seed_pdf_shared_stream
     from corpus_structure.semantic.pdf_record_identity import byte_root
 
-    tables = record_tables()
-    binding = header_binding(commit_db_engine)
+    build = private_build
     body = b"exact retained bytes\x00" * 5000
     root = byte_root((body,))[1].hex()
     with commit_db_engine.begin() as conn:
-        conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
-        conn.execute(
-            insert(tables["ops.pdf_record_document"]),
-            dict(
-                product_id="artifact",
-                revision_id="r",
-                contract_version="pdf-native-records-v1",
-                native_schema_digest="b" * 64,
-                root_id="root",
-                **binding,
-            ),
-        )
-        stream_table, part_table = (
-            tables["ops.pdf_artifact_stream"],
-            tables["ops.pdf_artifact_part"],
-        )
-        verify = text("SELECT * FROM ops.pdf_identity_verify_artifact(:p,'r',:s,:admitted)")
-        # Deliberately use a transport boundary that differs from canonical 64 KiB blocks.
-        for stream_id, fault in (
-            ("valid", None),
-            ("gap", "offset"),
-            ("changed", "bytes"),
-            ("missing", "missing"),
-            ("root", "root"),
-        ):
-            conn.execute(
-                insert(stream_table),
-                dict(
-                    product_id="artifact",
-                    revision_id="r",
-                    stream_id=stream_id,
-                    byte_length=len(body),
-                    serialization_sha256=sha256(body).hexdigest(),
-                    byte_root=("0" * 64 if fault == "root" else root),
-                    encoding_profile="exact-bytes-1",
-                ),
-            )
-            offset = 0
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        verify = text("SELECT * FROM ops.pdf_identity_verify_artifact(:p,:p,:s,:admitted)")
+        for stream_id, fault in (("valid", None), ("gap", "offset"), ("changed", "bytes"),
+                                 ("missing", "missing"), ("root", "root")):
+            parts = []
             for ordinal, start in enumerate(range(0, len(body), 10000)):
-                part = body[start : start + 10000]
+                part = body[start:start + 10000]
                 if fault == "missing" and ordinal == 1:
-                    offset += len(part)
                     continue
                 if fault == "bytes" and ordinal == 1:
                     part = b"x" + part[1:]
-                conn.execute(
-                    insert(part_table),
-                    dict(
-                        product_id="artifact",
-                        revision_id="r",
-                        stream_id=stream_id,
-                        ordinal=ordinal,
-                        byte_offset=offset + (1 if fault == "offset" and ordinal == 1 else 0),
-                        byte_length=len(part),
-                        body=part,
-                        sha256_digest=sha256(part).hexdigest(),
-                    ),
-                )
-                offset += len(part)
+                parts.append(dict(ordinal=ordinal, byte_offset=start + (1 if fault == "offset" and ordinal == 1 else 0), body=part))
+            seed_pdf_shared_stream(conn, build, stream_id, body, profile="exact-bytes-" + stream_id,
+                parts=parts, declared_root="0" * 64 if fault == "root" else root, verify=False)
             if fault:
-                with pytest.raises(DBAPIError, match="artifact"), conn.begin_nested():
-                    conn.execute(verify, {"p": "artifact", "s": stream_id, "admitted": None}).one()
+                with pytest.raises(DBAPIError, match="shared stream actual"), conn.begin_nested():
+                    conn.execute(text("SELECT ops.pdf_verify_shared_stream(:p,:s,true)"), {"p": build.build_id, "s": stream_id})
+                # Pending malformed data never acquires admitted byte authority.
+                with pytest.raises(DBAPIError, match="actual fold receipt"), conn.begin_nested():
+                    conn.execute(verify, {"p": build.build_id, "s": stream_id, "admitted": None}).one()
             else:
-                result = conn.execute(
-                    verify, {"p": "artifact", "s": stream_id, "admitted": body}
-                ).one()
+                conn.execute(text("SELECT ops.pdf_verify_shared_stream(:p,:s,true)"), {"p": build.build_id, "s": stream_id})
+                result = conn.execute(verify, {"p": build.build_id, "s": stream_id, "admitted": body}).one()
                 assert result.actual_length == len(body)
                 assert bytes(result.actual_byte_root).hex() == root
                 assert result.retained_correspondence
                 with pytest.raises(DBAPIError, match="retained bytes"), conn.begin_nested():
-                    conn.execute(
-                        verify, {"p": "artifact", "s": stream_id, "admitted": b"different"}
-                    ).one()
+                    conn.execute(verify, {"p": build.build_id, "s": stream_id, "admitted": b"different"}).one()
 
 
 @pytest.mark.parametrize(

@@ -19,6 +19,7 @@ def claim():
     return SimpleNamespace(
         task_id=1,
         release_id="r",
+        runtime_id="runtime",
         attempt=1,
         holder="owner",
         deadline=datetime.now(UTC) + timedelta(minutes=10),
@@ -140,9 +141,20 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
             assert schema_load(kwargs["payload_schema"]) == payload_family.json_schema
             if failure is not None:
                 raise failure("native stopped")
-            return pdf_stream_types.PdfStreamReply(
-                "success", (), b"{}", (), (), effective_options=b'{"fixture":"prepared-native"}'
-            )
+            from corpus_structure.ingest.pdf_streaming import _ref
+            from corpus_structure.semantic.pdf_certification import PdfProducerCertification
+
+            certificate = kwargs["record_root"].parent / "controlled-certificate.json"
+            access = kwargs["record_root"].parent / "controlled-access.jsonl"
+            certificate.write_bytes(PdfProducerCertification("d" * 64, "native", "e" * 64,
+                "f" * 64, "1" * 64, build.source_digest, build.recipe_digest, build.schema_digest).to_bytes())
+            access.write_bytes(b"")
+            kwargs["on_replay"](_ref(certificate, "producer_certification"))
+            kwargs["on_replay"](_ref(access, "producer_access"))
+            return pdf_stream_types.PdfStreamReply("success", (), b"{}", (), (),
+                effective_options=b'{"fixture":"prepared-native"}',
+                certification=_ref(certificate, "producer_certification"), access_replay=_ref(access, "producer_access"))
+
 
         def close(self):
             assert active[0]
@@ -183,35 +195,37 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
         assert connection is engine and engine.active == 1 and active[0]
         assert task_id == 1
 
-        def json_schema(name):
-            assert name == "PdfInlineCandidatePage"
-            return payload_family.json_schema
-
-        return SimpleNamespace(boundary=SimpleNamespace(json_schema=json_schema))
+        # A labelled pure ownership control borrows real captured schema shapes;
+        # these test doubles never publish a passed native/provider result.
+        return pdf_contracts.trusted_pdf_context()
 
     monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", task_context)
     from corpus_structure.semantic import pdf_publication
 
     adoptions = []
 
-    def adopt_health(connection, actual, family, records, *, replay_key, cancellation):
-        assert engine.active == 1 and actual is build
+    def stage_access(actual_engine, actual, path, *, cancellation, check_active):
+        assert actual_engine is engine and actual is build and engine.active == 0
         assert not sleeping[0]
-        assert cancellation._driver is engine.driver
-        row = next(iter(records))
-        if family == "native_metadata":
-            assert replay_key == "native:runtime-report"
-            assert row == {
-                "kind": "runtime_report",
-                "ordinal": 0,
-                "value": {"effective_options": '{"fixture":"prepared-native"}'},
-            }
-        else:
-            assert family == "health" and replay_key == "native:health"
-            assert row["conversion"] == "success" and row["source_scope"] == "whole_document"
-        adoptions.append(family)
+        check_active()
+        adoptions.append("access")
 
-    monkeypatch.setattr(pdf_publication, "adopt_pdf_companions", adopt_health)
+    def attest(connection, actual, certificate):
+        assert connection is engine and actual is build and engine.active == 1
+        assert not sleeping[0]
+        assert certificate.kind == "native" and certificate.lowering_identity == "d" * 64
+        adoptions.append("certified")
+
+    monkeypatch.setattr(pdf_publication, "stage_pdf_access_projection", stage_access)
+    monkeypatch.setattr(pdf_publication, "record_pdf_producer_certification", attest)
+    monkeypatch.setattr("corpus_structure.semantic.pdf_lowering.require_lowering_identity", lambda context: "d" * 64)
+    from corpus_structure.semantic import _pdf_native_calls as calls
+    basis = dict(request_id="request", generation=1, release_id="r", operation="source.pdf/capture",
+        definition="definition", recipe="recipe", implementation="implementation", execution_profile="profile",
+        runtime_id="runtime", runtime_manifest_digest="a" * 64, pdf_domain_digest="b" * 64)
+    monkeypatch.setattr(calls, "read_pdf_producer_basis", lambda *a, **k: SimpleNamespace(model_dump=lambda **options: basis))
+    monkeypatch.setattr(calls, "register_pdf_spool_producer", lambda *a, **k: "controlled-producer")
+    monkeypatch.setattr(calls, "register_pdf_spool_contributor", lambda *a, **k: None)
     from corpus_structure.ingest.pdf import PdfRecipe
 
     recipe = PdfRecipe(
@@ -242,7 +256,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
 
     if failure is None:
         assert run() is build
-        assert adoptions == ["native_metadata", "health"]
+        assert adoptions == ["access", "certified"]
     else:
         with pytest.raises(failure, match="native stopped"):
             run()

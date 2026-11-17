@@ -5,7 +5,7 @@ from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.pdf_publication import freeze_pdf_build, prepare_pdf_build
+from corpus_structure.semantic.pdf_publication import freeze_pdf_build, prepare_pdf_build, validate_pdf_build
 from semantic.pdf_staging_support import private_build as private_build
 
 
@@ -30,8 +30,11 @@ def test_stale_final_validation_requires_fresh_derivation(
         logical="1" * 64,
         projection="2" * 64,
     )
-    # Install an independently invalid receipt using trusted fixture authority.
+    # First establish a real producer/oracle/final witness, then independently
+    # corrupt only its policy binding under trusted fixture authority.
     # Application roles cannot manufacture or update these protected witnesses.
+    validated = validate_pdf_build(commit_writer_engine, frozen)
+    params.update(logical=validated.logical_digest, projection=validated.contract_digest)
     with commit_db_engine.begin() as owner:
         owner.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         assert (
@@ -40,23 +43,7 @@ def test_stale_final_validation_requires_fresh_derivation(
             ).scalar_one()
             != params["stale"]
         )
-        owner.execute(
-            text(
-                "INSERT INTO ops.pdf_native_validation"
-                "(build_id,frozen_digest,contract_digest,passed) "
-                "VALUES(:build,:frozen,:stale,true)"
-            ),
-            params,
-        )
-        owner.execute(
-            text(
-                "INSERT INTO ops.pdf_build_validation"
-                "(build_id,frozen_digest,logical_digest,contract_digest,"
-                "native_callbacks,native_contract_digest) "
-                "VALUES(:build,:frozen,:logical,:projection,true,:stale)"
-            ),
-            params,
-        )
+        owner.execute(text("UPDATE ops.pdf_build_validation SET native_contract_digest=:stale WHERE build_id=:build"), params)
     suffix = ", 'native'" if operation == "seal_pdf_build" else ""
     with (
         pytest.raises(DBAPIError, match=r"fresh.*rebuild|rebuild.*fresh"),
