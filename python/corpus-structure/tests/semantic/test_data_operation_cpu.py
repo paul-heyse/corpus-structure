@@ -156,7 +156,7 @@ def test_parent_and_child_refuse_changed_captured_source(tmp_path, monkeypatch):
         assert admission is not None
         handle = cpu.submit_closed_python(admission, packet)
         handle.future.result(timeout=60)
-        with pytest.raises(RuntimeError, match="source differs"):
+        with pytest.raises(RuntimeError, match="source digest differs from acquired parent"):
             handle.collect()
         assert handle.retire()
     finally:

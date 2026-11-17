@@ -163,6 +163,10 @@ class _CapturedLoader(SourceFileLoader):
 
 class _CustodyFinder:
     def find_spec(self, fullname, path=None, target=None):
+        # Previously captured promises retain import custody even outside the
+        # request context that first admitted their lazy module.
+        if any(vars(module).get("__name__") == fullname for module in _EXECUTED):
+            raise SourceCustodyError("query-helper reload is unsupported; restart the process")
         expected = _EXPECTED.get() or {}
         if fullname not in _NAMES and not expected:
             return None
