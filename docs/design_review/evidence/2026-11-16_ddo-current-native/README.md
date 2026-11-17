@@ -1,6 +1,6 @@
 # DDO current native root and development adoption
 
-**In progress · 2026-11-16.** The [DDO coordinator](../../../plans/declared-data-operations_2026-11-12.md#current-execution-boundary--2026-11-16)
+**In progress · updated 2026-11-17.** The [DDO coordinator](../../../plans/declared-data-operations_2026-11-12.md#current-execution-boundary--2026-11-16)
 owns readiness and disposition. [ADR-0118](../../../adr/0118-current-target-installation.md) selects
 the single current97-relation basis and normal native-only lifecycle. This folder retains its
 actual request, stage identity, reviewed artifacts and execution outcomes; it does not establish
@@ -11,7 +11,10 @@ application/provider qualification by preparing or installing infrastructure.
 The existing `corpus_structure_dev` remains PostgreSQL18.7 on dedicated5434, database OID25921445,
 system7701811359771751232, installed `semantic_bep_located_v2`; maintenance status reacquired this
 identity on2026-11-16. That development database has had no reset, rename, native deployment,
-activation or data conversion. The current root and twelve successors are registered and installed on the owned stage. The compiler24 application below is admitted and checked there; no application activation or inference follows from admission alone. Historical frozen files remain
+activation or data conversion. The current root and thirteen successors through
+`semantic_ddo_binding_reuse` are registered and installed on the owned stage. The current v8/compiler24
+application below is admitted, checked and activated generation2 for the bounded stage-only project;
+this establishes no inference. ADR-0121's v9 selected-support correction is not installed. Historical frozen files remain
 unchanged and are not a selectable current install route. The unregistered
 [v10 preparation](../2026-11-15_ddo-v10-native/README.md) is superseded.
 
@@ -22,6 +25,39 @@ rollback-only candidate, inspection, registration and deployment mechanisms supp
 No application release, capsule or admission claim is fabricated for native-only installation.
 The native request captures shared source integration; later native source changes require a
 fresh reviewed successor. Actual commands and outcomes are recorded below as they settle.
+
+## Execution-fit successor and current application · 2026-11-17
+
+**passed:** `ci model change` preview `f20ad7b8909547c49ea11368f3ffeebd`, exact apply
+`b8efe4d54ac5468098023893b2b81158`, rollback-only candidate
+`a734faa0618a41ef95d73764f361f668`, registration `dfc02b31546f405288dbab5a40a2ed99` and
+deployment `22828f9e06094beca9878fa05809b027`. The [request](binding-reuse-successor.yaml)
+binds predecessor `semantic_ddo_nullable_fields`. Commitb9d49b45b registers
+`semantic_ddo_binding_reuse`. Complete root and independent inspection covered510identities with
+9body-only changes, zero ordinary operations and unchanged owner/ACL/search-path/security/layout.
+The stage remains OID130661481/system7701811359771751232, revision=head; native digest is
+`9b072cd815f5cb238a18d506d2c51519a6eaaff4142e7fec20e1e769ca5d34a3` and physical identity remains
+`physical:712bb15e4d66153ca86e006bfa383aa8233d34b02f81162b755912293cc4a2e2`.
+All five original managed receipts are held.
+
+The [maintained application request](statistics-application.yaml) preview
+`1b59634cb05a468e8151714131aec7a2`, exact apply `dbd5888c2ffc41ad897f02e5f70fb4b5`, candidate
+`a4be10a3c8f34cc29627159fc0b9d5be` and deployment `ec59afcd3db04cdcabf54322e219326b` **passed**,
+with zero native/physical patches. Sourceb9d49b45b captures effectivev8/compiler24/boundary13,
+release `release:4080c29de3c6cc7562a62368124687d237b30b7117d8db0abc59048de10dca2f`, runtime
+`runtime:8b7ce09b3d6370e9e461330f349fa403f9f5de6da47b4afe26dde1bc3c8fb253`, archive SHA256
+`0125922df0c4fcaf1262eb599b9290bc660f99005dd9c0c81cd05747e413f6d8`. Separate normal
+`ci db check --release … --json` and `ci release check --release … --json` **passed** with model
+digest `b3c4b61885b626a9b7e0e9e0aa884495052b5a880976ea9f08b1c2f88e7731fc`. All four originals are held.
+
+Normal writer registration and separate committed ordinary-reader verification retain exact3-page
+original `doc:c24d8ea5e9f13d4e4ef13a28367beaea`, SHA256
+`f0a608ddf2662f82eea981854e4bd809ea3d7ddd81969441e42c3288ec9591c5`, project
+`ddo-current-pdf-bounded`. Normal activation of the current release with expected generation1
+reached generation2, independently read through `activation_token` on2026-11-17; it was not repeated
+after its output was unavailable at compaction. Bounded actual PDF modes are executing separately.
+No development adoption or activation has occurred; all29 original descriptors remain prepared
+inputs, not a completed current import.
 
 ## Empty authoring stage · 2026-11-16
 

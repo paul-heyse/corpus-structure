@@ -50,7 +50,8 @@ The scoped contextual/core repair is integrated `afc0e5d32`, with root fixture n
 `2931bf53847e4636a133c9f5f0d78f3a`. Their initial typing failure `f85b018c2735442b903bbc7ad09ea05f`
 remains retained. Required facts now carry nullability explicitly; Python field projection separates
 presence/outer null/collection members, and nominal tagged meaning uses that same authority.
-Matching native successor and actual E5/provider/consumer execution remain open.
+Matching nullable and execution-fit native successors are registered/deployed on the owned stage;
+actual E5/provider/consumer qualification remains open, with current evidence below.
 
 **Managed-custody loss · 2026-11-16.** Root incorrectly let worktree removal follow a failed
 receipt-transfer precondition; the E5 worktree's ten original managed directories were deleted.
@@ -68,7 +69,8 @@ are unaffected. Future cleanup is a separate action after completed, verified or
 
 ## Execution-fit increment · 2026-11-16
 
-**Operator-authorized within remaining execution; implementation in progress.** Review actual test
+**Operator-authorized within remaining execution; SI23–25 implemented, consumer qualification
+incomplete · updated 2026-11-17.** Review actual test
 and production work. Keep the finite fitting population: four originals, disjoint two-origin feature
 and calibration groups, eight events per partition, real fitting/authorization and all privacy,
 tamper and revocation criteria. Original native7 `a9dfcd84274740b48d962c9184603624` hit900s in
@@ -76,12 +78,11 @@ late empty-carrier grading; reporting is incomplete/native `no_claim`, six sibli
 The original is held and custody drained. Short changing database operations and CPU progress
 showed no sampled lock blocker; no runtime cause or nontermination is established.
 
-The independent empty-carrier block is separated verbatim (`e2b2b7780`). Current grade2 CPU
-verification is `dd0147a7b8f2467ca7552347bd206fb8`; event/artifact/claim6 GPU verification is
-`90727fbd2ccb4ed3be0b437dbe6545cd`. Actual CPU E5 wiring verification is
-`27d13b2715814dc48c7537a605e19c92`; earlier root failures `57f398e4a67d46e59b19c56ad43b3fc9`
-and `8f6c7f78642b4c2f8283419e7adea225` are held. Envelope and current-demand producer/source
-wiring corrections affect only the E5 test. Live attempts supply no settled passing qualification.
+The independent empty-carrier block is separated verbatim (`e2b2b7780`). Pre-efficiency grade2
+`dd0147a7b8f2467ca7552347bd206fb8` and event/artifact/claim6
+`90727fbd2ccb4ed3be0b437dbe6545cd` also hit the900s watchdog; reporting is incomplete and
+unreached siblings supply no credit. All owned processes/private hosts are drained. SI26 repairs
+the grade cohort's explicit cleanup recovery without editing its original failed receipt.
 
 Integrate three clear source-level opportunities before final qualification:
 
@@ -96,13 +97,56 @@ Integrate three clear source-level opportunities before final qualification:
 - **DDO-SI-25 / DDO-12:** use one source for the empty-carrier fixture, preserving four for fitting
   and calibration. Keep real source publication/read/grade and all no-output/source/product checks.
 
-The execution/evaluation companions own these mechanism contracts. Implement in an isolated
-worktree while current cohorts settle, then independently review, integrate, recapture affected
-native/application sources and qualify actual consumers. Existing archive/purpose-engine caches
+The execution/evaluation companions own these mechanism contracts. Implementation is merged
+`48599df9f`, formatted `309689b16`, independently reviewed after the zero-row scalar-check correction
+`9d8ce2c1e`. A check with zero or multiple rows still refuses; it is not converted to scalar NULL.
+Root pure43 passed `40bf89f72dc44cd99f0d8163d363c098`, whole typing passed
+`f171308bc3db4823930db60a734ea1dc`, lint passed `1ac2457608db4bc9ac609974b67d7b14`, docs1303
+passed `8598db50250e41679c810420eb22a005`. Native binding/production-claim65 passed
+`ab9d18f7347148c48d7f589ebfcfaa00` at sourceb9d49b45b, complete reporting/native/custody.
+The actual one-source empty-carrier case passed within `88b69d7384984e1eb5fba40c20c1d524`;
+its positive grade/fitter sibling failed later at the fitted-body substitution observation guard,
+after fitting and copied-grade controls, before revocation. That failure remains open.
+
+The registered `semantic_ddo_binding_reuse` successor and fresh application release4080c29de3c6…
+are deployed/checked on the unchanged stage. Sourceb9d49b45b/effectivev8/compiler24/boundary13
+remain the current captured basis; ADR-0121's v9 correction below is not installed. Existing archive/purpose-engine caches
 already supply reuse; repeated compilation is not established. Repeated-work reduction is supported
 statically; elapsed-time benefit remains unmeasured. Reassess a scoped integration-test timeout if
 the correct workflow needs longer;900s is not an acceptance requirement. Add no benchmark framework,
 cost model or weakened criterion.
+
+**Discovered selected-proof prerequisite · 2026-11-17, DDO-SI-12/27.** GPU event/artifact5
+`42cd4f8b8e9247168655cd7c1d28a616` failed all5, with complete reporting and settled/drained custody.
+The event setups selected two report values and two source values, but four episode-qualified source
+rows. Live metadata confirmed two real producing episodes for each source member: PDF discovery
+and retained-view discovery. This is genuine provenance, not join fanout. Both artifact calls stopped
+at source-selection cardinality before policy/witness controls. Preserve all exact guards.
+
+[ADR-0121](../adr/0121-selected-support-acquisition.md) accepts separate selected-support acquisition
+alongside semantic addresses. Implement grouped exact cuts, selected anchor-use and actual producing
+use/episode/output occurrences, including emitting versus projected member distinction. Reuse existing
+cut/support/native selected-read owners; authenticate exact use-node reachability, current authority,
+direct output and qualified context. Filter role-locally before cardinality and narrow dependency seeds.
+Carry proof through bound headers, CPU basis and native attachment/live revalidation. Semantic entries
+alone remain request parameters; declared episode identity requirements remain authoritative. Explicit
+all-admissible acquisition retains genuine ambiguity, with no omitted-field fallback or body deduplication.
+Use demand-intent-v2/CPU-input-basis-3/effective modelv9; compiler24/boundary13 unchanged.
+
+Migrate current consumer/structural/contextual helpers, event/artifact/E5 fixtures, record source/grade
+choices and protected feature/calibration callers. Two genuine producers, explicit selection of either,
+role-local choices, forged/mismatched/revoked/wrong-purpose proofs, direct versus ancestor support,
+whole versus member output and multiplicity are focused controls. Reacquire matching native/application
+captures before actual consumers; do not migrate historical generated results or retain old interpreters.
+
+E5 actual provider qualification remains open. Held failures `57f398e4a67d46e59b19c56ad43b3fc9`,
+`8f6c7f78642b4c2f8283419e7adea225`, `27d13b2715814dc48c7537a605e19c92`,
+`0b86a715a55a462483a0fc2f76cb906c` and `63a21fe2faaf496a981471f64858eb0a` retain their exact
+test-wiring boundaries. The latest frame-only attempt refuses its finite producer's scalar source role;
+persisted pending input count0 does not establish the SQL candidate count. Selected-proof ambiguity
+is a candidate explanation, also for the grade fixture after its intentional copied-body producer;
+neither cause is yet confirmed. Stop ad hoc fixture rewiring, implement the shared contract and then
+qualify all3 actual configured E5 recipes and exact grade/event/artifact consumers.
 
 ## Current execution boundary · 2026-11-16
 
@@ -362,7 +406,7 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-09 | Native hydration supplies tuple populations to strict callables declaring list containers, blocking current rich admission. Assemble the admitted outer collection type at selected-value ingress while preserving strict direct Python ingress and member validation. | **Closed at Python boundary**, `4d23c515f`, pure100 passed `7184a200d85e4796a7e6cf2254bff370`, independent review. Acquired finite container assembly preserves order/multiplicity/strict members and refuses lazy/lossy outputs. Actual rich native retry remains open. |
 | DDO-SI-10 | Record premise graph construction silently creates undeclared role nodes for literal fields. Validate every premise endpoint against the record's actual released field population before graph construction. | **Source repaired, pure qualification passed.** Correctly reidentified counterexamples `43cfe9ec45dd434ca8602108939e392c` failed2 with DID NOT RAISE; shared endpoint validation now passes in47 `2ab4971774ee4312b39aeedf5492ac11`, independently reviewed. Actual rich semantic-tamper retry remains open. Initial new fixtures `4c04b266a3ee45299ff808c73bab88b1` hit stale identity, not the intended guard; retained with that limit. |
 | DDO-SI-11 | A malformed physical PDF input pin leaks internal no-data SQLSTATE instead of the declared constraint refusal. Keep the native pin check, with an explicit missing-pin constraint error. | **Captured source repair, native retry open** after PDF exact retry `41fc3c9fba8f4072b5c3c9db04040946`. The raw-request guard now clears; expected holder/attempt fences remain unchanged. |
-| DDO-SI-12 | Actual event-fit frame preparation rejects its bound population against the exact output-first question. Determine missing/extra/duplicate report/source membership without weakening exact input authority. | **Open investigation**, actual event journey setup in `ea79102385c141d5a0dd05887b82bcd1`. Bounded counts/equality diagnostics preserve the exact guard without protected labels/IDs; actual mismatch remains undetermined. Fitter/issuer/scorer execution is not established by the refusal. |
+| DDO-SI-12 | Actual event-fit frame preparation rejects its bound population against the exact output-first question. | **Cause established; repair/qualification open**, `42cd4f8b8e9247168655cd7c1d28a616`,2026-11-17: two actual producers per source yield4episode-qualified rows for2selected source values. SI27/ADR-0121 preserve the selected proof; no population guard is weakened. Fitter/issuer/scorer execution is not established by setup refusal. |
 | DDO-SI-13 | Rich admission is a native publication command but request attachment falls through to the external execution gate. | **Implemented, native confirmation open**, `6d7b0cb03`: one exact private operation/profile/factory/full-effect eligibility owner, writer-purpose attach and unchanged completion custody. Pure2 passed `ef83ff9ba1e4466eadc5315cceef758d`; independent source review closed. No generic command permission or evaluator expansion. |
 | DDO-SI-14 | Accepted multi-coordinate literals can reverse equal text pieces without detection. | **Implemented, bounded Python qualification**, `bc68c0789`: compare global selected-projection bounds or explicit native field origins from the verified source bridge. Unknown cross-coordinate order refuses; discovery order and pointer sorting confer no authority. Two native fixture emitters migrated `a673eb5d3`. Pure121 had120passed/1missing-origin fixture; fixture repair43 passed `dc6f0bf4726f4ea195c3535fcb956206`, integrated recipe/helpers3 passed `c5c0ef6b340445199e01c55c3310cf3f`. Independent review closed the original discovery-order defect before acceptance. Actual tamper retry remains open. |
 | DDO-SI-15 | A copied grade with output role `copy` reaches a role-specific STRICT receipt lookup before the intended implementation-authority refusal. | **Implemented, native confirmation open**, `553e167ca`: authenticate the protected implementation first, after unchanged trusted producer fences. No SQLSTATE weakening; source review closed. |
@@ -373,9 +417,11 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-20 | PDF domain JSON projections are passed through strict Python validation, which rejects their nested JSON arrays against the compiled tuple types. | **Implemented; bounded native Tested2026-11-16**, `542b53744`: use strict JSON validation and exact numeric `json_bytes` at the three projection ingresses. Actual organization/enrichment/integration and exact-resume journey passed in held `78b33079196b4afa9252911f147afaa2` at compiler23/source99edcaec2. Physical receipt and native custody guards remain unchanged. This executor-only correction needs fresh application capture; later compiler24/native-context applicability remains an enclosing qualification obligation. |
 | DDO-SI-21 | The deliberately2MiB diagnostic fixture specifies a private budget for initial reading but omits it at publication's second support acquisition. | **Implemented; bounded native Tested2026-11-16**, `a2e770d3b`: existing page/max-byte options reach the second private support read; only this fixture requests1row/16MiB. Actual exact raw2MiB support equality, empty bounded public read and64KiB exact-support refusal passed in held `78b33079196b4afa9252911f147afaa2` at source99edcaec2. Ordinary defaults and public bounds remain unchanged. Later compiler24 context requires applicability assessment. |
 | DDO-SI-22 | Curated contextual targets are intentionally project-owned/source-free, but their compiled population contract rejects explicit null `original_source` in member contexts and bodies. | **Implemented; current verification open**, ADR-0120/`afc0e5d32`. Explicit nullable properties remain independent of required presence; current archives require the fact, tagged nominal schemas and inferred Python projections preserve it, and source-owned pins remain strict. The observed original3 setup failures `dd595e955ae945cfb04b670614e9c0c2` preceded E5 inference; its original artifacts are unavailable after the custody loss above. Fresh pure/current native and real E5 all3 recipes remain required; no lost receipt supplies qualification. |
-| DDO-SI-23 | Role queries/checks repeatedly evaluate admitted native rows and peer selections. | **In progress**, execution-fit increment and DDO-03–06. Statement-local materialized CTEs/typed union preserve all predicates, checks, types and live attachment fences. Runtime contribution remains unmeasured. |
-| DDO-SI-24 | A/B/C reference authoring repeatedly reacquires one exact source cut in the same invocation. | **In progress**, execution-fit increment and DDO-10. Share one authenticated cut within a pinned transaction while checking every reference independently. |
-| DDO-SI-25 | Empty-carrier verification captures four originals although its scope uses one. | **In progress**, DDO-12. Reduce only that fixture population; preserve the fitting/calibration populations and independent criteria. |
+| DDO-SI-23 | Role queries/checks repeatedly evaluate admitted native rows and peer selections. | **Implemented; bounded Tested2026-11-17**, merged48599df9f. Statement-local materialized CTEs/typed union preserve predicates, checks, types and live attachment fences; native binding/claim65 passed `ab9d18f7347148c48d7f589ebfcfaa00`. Broader consumers remain open. Elapsed-time improvement unmeasured. |
+| DDO-SI-24 | A/B/C reference authoring repeatedly reacquires one exact source cut in the same invocation. | **Implemented; bounded Tested**, merged48599df9f, pure43 `40bf89f72dc44cd99f0d8163d363c098`. One authenticated cut per pinned authoring invocation; every reference independently checked. Actual grade sibling later failed its fitted-body substitution observation, not a passing full journey. |
+| DDO-SI-25 | Empty-carrier verification captures four originals although its scope uses one. | **Implemented; bounded native Tested2026-11-17**, empty-carrier passed in `88b69d7384984e1eb5fba40c20c1d524`. Fitting/calibration retain4originals and their independent criteria. |
+| DDO-SI-26 | Explicit recovery cannot remove the owned selected-read SQLite scratch left by a watchdog interruption. | **Implemented; bounded Tested**, af7978555/628c34944, recovery38 passed `be12c03a33ee4539aa20540357b81cc1`, integrated pure43 passed. After proven process drain, recognize only exact owned scratch files; refuse unknown/symlink/foreign/hardlinked paths. Actual recovery of dd0147… established cleanup; original failure remains held. |
+| DDO-SI-27 | Frozen semantic source entries discard the selected producing proof, admitting unrelated genuine producers and their dependencies. | **Accepted repair in progress**, ADR-0121/effective modelv9/demand-intent-v2/CPU-input-basis-3. Group exact cuts; preserve anchor and actual producing-use/output/member facts, narrow role-local candidates and support seeds, migrate current selected consumers and retain attachment live checks. Current stage remains capturedv8; fresh capture and focused/native/actual-provider qualification required. No historical decoder or fallback. |
 
 
 

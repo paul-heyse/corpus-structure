@@ -227,6 +227,14 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Accepted selected-support target; implementation/qualification Proposed · 2026-11-17.**
+A semantic product/member address does not choose a producing proof. Explicit acquisition retains
+the selected cut, anchor use, actual producing use/episode and emitting occurrence without adding
+incidental read identities to semantic request determinants. D2 owns interpreted binding and CPU
+correspondence; the DDO coordinator owns migration and qualification.
+
+> Decision: [ADR-0121](../adr/0121-selected-support-acquisition.md)
+
 **Implemented compiler contract; native qualification remains scoped · 2026-11-16.** Missing,
 explicit null and populated values retain distinct canonical meanings. Opt-in whole-field nullability
 does not weaken identity determinants or source-owned pins; required presence remains independent.
@@ -474,6 +482,13 @@ legacy wait barrier rather than implying that every old option is supported.
 <a id="section-b4"></a>
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
+
+**Accepted selected-support target; implementation/qualification Proposed · 2026-11-17.**
+Native acquisition validates exact selected proof and current authority per consuming role before
+cardinality. Attachment retains its separate locks and live revalidation. D2 owns the v9 interpreted
+binding, demand-intent-v2 and CPU-input-basis-3 contracts; source identity remains unchanged.
+
+> Decision: [ADR-0121](../adr/0121-selected-support-acquisition.md)
 
 **Accepted target correction; implementation/qualification Proposed · 2026-11-16.** Effective
 field contracts distinguish required presence from explicit whole-field nullability. Current

@@ -226,6 +226,26 @@ retain scope equality. Binding and selected-support validation consume the same 
 association. Genuine semantic SourceSets pin actual products/members/contexts, while external
 references retain their original reference meaning; neither becomes a fake execution root.
 
+**Selected-support acquisition, accepted target · 2026-11-17 (ADR-0121).** A semantic source entry
+does not choose between genuine producers. Every frozen source set explicitly declares selected
+support or all-admissible support. Selected acquisition groups exact cuts once and associates each
+entry with its selected frontier anchor, actual producing admission-use/derivation and emitting
+output role/position/multiplicity/member. Keep the projected selected member separate from the
+emitting output member. Authenticate the actual use node's reachability, direct producing-output
+correspondence, exact member/context, purpose, visibility and current trust. An ancestor producer
+can differ from the selected frontier anchor. Existing whole-output acquisition retains its contract;
+the generic member-aware path composes the same native authority.
+
+Filter per consuming role before cardinality and seed only the selected proof's support. Retain
+the occurrence through bound headers, input manifests, CPU basis and native attachment; preserve
+subsequent separate statements, locks and live revalidation. Do not deduplicate genuine episodes
+by body or choose an arbitrary visible producer. Unqualified scalar acquisition remains ambiguous
+when its declared requirements distinguish multiple proofs. Only semantic entries enter source-set
+request parameters; read/cut IDs remain acquisition metadata. Existing identity requirements govern
+episode determinants. Demand-intent-v2/CPU-input-basis-3/effective model v9 replace their predecessors
+without compatibility decoders; compiler24/boundary13 remain unchanged. The coordinator's SI12/27
+own current consumer migration, matching captures and qualification.
+
 Original-source support has exact source/admission identity and no computation episode. An absent
 computation-episode projection matches the independently selected empty episode set; actual
 computational support still requires its exact nonempty episode list. Physical ledger slots may

@@ -17,6 +17,21 @@ source-interface and operation interpreters retire rather than imposing historic
 Native trust, effect fencing, source fidelity and evaluation independence remain required.
 Implementation/qualification is owned by the DDO coordinator.
 
+**Accepted selected-support correction; implementation/qualification Proposed · 2026-11-17.**
+Qualified semantic source addresses and acquisition proof are distinct. Frozen source sets explicitly
+select exact cuts, frontier anchor uses, actual producing uses/episodes and emitting occurrences,
+or explicitly request all admissible support. A selected member remains distinct from the emitting
+output member. Native acquisition authenticates the exact producing use within the selected closure,
+current purpose/trust, output/member/context and role-local selection before cardinality; support
+seeds and later native/CPU correspondence retain that proof. No visible-producer preference or body
+deduplication supplies authority. Shared cut envelopes avoid repeating cut bytes per source entry.
+Semantic entries alone enter source-set request parameters; declared identity requirements still
+govern selected episode determinants. Demand-intent-v2, CPU-input-basis-3 and effective model v9
+version the changed frozen/bound-role interpretation, while compiler24/boundary13 remain unchanged.
+The DDO coordinator owns SI12/27, consumer migration, current capture and qualification.
+
+> Decision: [ADR-0121](../adr/0121-selected-support-acquisition.md)
+
 **Implemented compiler correction; bounded Tested · 2026-11-16.** Effective
 properties declare `cs:nullable` explicitly and independently of required presence. Missing, null
 and a populated value remain distinct through property definitions, boundary/archive products,

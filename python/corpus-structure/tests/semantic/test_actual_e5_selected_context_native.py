@@ -309,7 +309,10 @@ def assert_operation_fulfilled(kernel, result, operation, *, allow_reuse=False):
                     for reason in row["selection"].get("reasons", [])[:8]
                 ],
                 "products": [
-                    {key: value[key] for key in ("role", "product_id", "member_id", "kind_contract")}
+                    {
+                        key: value[key]
+                        for key in ("role", "product_id", "member_id", "kind_contract")
+                    }
                     for value in row["products"][:8]
                 ],
             }
@@ -318,7 +321,9 @@ def assert_operation_fulfilled(kernel, result, operation, *, allow_reuse=False):
     }
     receipts_valid = result.receipt_count in (0, 1) if allow_reuse else result.receipt_count >= 1
     if (
-        not receipts_valid or len(uses) != 1 or uses[0]["fate"] != "fulfilled"
+        not receipts_valid
+        or len(uses) != 1
+        or uses[0]["fate"] != "fulfilled"
         or uses[0]["completion_state"] != "success"
         or not uses[0]["products"]
     ):
