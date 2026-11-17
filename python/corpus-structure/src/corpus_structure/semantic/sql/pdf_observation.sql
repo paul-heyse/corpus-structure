@@ -19,7 +19,8 @@ BEGIN
  AND value->>'contract'='pdf-recognition/policy-v1'
  AND value->>'role'='recognition-models-and-recovery-policy';
  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT profile FROM sem.input
- WHERE release_id=p_release AND input_kind='dependency' AND input_name=asset->>'contract'
+ WHERE release_id=p_release AND input_kind='dependency'
+ AND input_name='data-operations/contracts/'||(asset->>'contract')
  AND content_digest=asset->>'content_digest' AND encode(sha256(content),'hex')=content_digest;
  PERFORM ops.ddo_fields(profile,ARRAY['version','base_recipe_digest','recipes','recovery_policy','source_recovery']);
  IF profile->>'version' IS DISTINCT FROM 'pdf-recognition-profile-1' THEN

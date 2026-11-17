@@ -294,11 +294,6 @@ BEGIN
  IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
  (episode.producer_task_id,episode.producer_attempt,episode.runtime_id) THEN
  RAISE EXCEPTION 'feature fit frame differs from original producer fences' USING ERRCODE='23514'; END IF;
- SELECT receipt.id INTO STRICT receipt_id FROM ops.data_publication_receipt receipt
- JOIN ops.data_derivation_output output ON output.derivation_id=receipt.derivation_id
- WHERE receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
- AND output.product_id=p_product AND output.member_id IS NULL AND output.role=expected_role
- AND output.position=0 AND output.multiplicity=1;
  IF definition.operation_id IS DISTINCT FROM expected_operation
  OR definition.profile IS DISTINCT FROM 'derivation'
  OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
@@ -309,6 +304,11 @@ BEGIN
  OR jsonb_array_length(coalesce(intent.payload->'execution_evidence'->'cpu_receipts','[]'))<>1
  OR episode.recipe IS DISTINCT FROM definition.recipe THEN
  RAISE EXCEPTION 'feature fit requires the actual admitted protected grade implementation' USING ERRCODE='23514'; END IF;
+ SELECT receipt.id INTO STRICT receipt_id FROM ops.data_publication_receipt receipt
+ JOIN ops.data_derivation_output output ON output.derivation_id=receipt.derivation_id
+ WHERE receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
+ AND output.product_id=p_product AND output.member_id IS NULL AND output.role=expected_role
+ AND output.position=0 AND output.multiplicity=1;
  IF NOT EXISTS(SELECT FROM kb.data_product product JOIN sem.data_kind_contract kind
  ON kind.kind_contract=product.kind_contract WHERE product.id=p_product AND product.project_id=d.project_id
  AND kind.kind=expected_kind AND kind.universe='evaluator') THEN
