@@ -206,6 +206,16 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
         if row.get("component", {}).get("kind") == "predicate_frame"
     }
 
+    readings_by_frame = {}
+    qualifiers_by_frame = {}
+    for row in contributions:
+        component = row.get("component", {})
+        if component.get("kind") == "predicate_reading":
+            readings_by_frame.setdefault(component["frame"], []).append(component)
+        elif component.get("kind") == "predicate_qualifier":
+            qualifiers_by_frame.setdefault(component["host_contribution_id"], []).append(component)
+    passage_regions = tuple((passage.start, passage.end) for passage in passages) if passages is not None else None
+
     def exact(member, local):
         if member.get("outcome") != "complete" or len(member["extents"]) != 1:
             return ()
@@ -220,8 +230,8 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
             member for member in frame["frame_members"] if member["role"] == "predicate"
         )
         local = (
-            tuple((passage.start, passage.end) for passage in passages)
-            if passages is not None
+            passage_regions
+            if passage_regions is not None
             else tuple(
                 (extent["start"], extent["end"])
                 for member in frame["frame_members"]
@@ -230,12 +240,7 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
             )
         )
         action = exact(predicate[0], local) if len(predicate) == 1 else ()
-        readings = tuple(
-            row["component"]
-            for row in contributions
-            if row.get("component", {}).get("kind") == "predicate_reading"
-            and row["component"]["frame"] == identifier
-        )
+        readings = readings_by_frame.get(identifier, ())
         if len(action) != 1 or len(readings) != 1:
             continue
         (reading,) = readings
@@ -250,13 +255,7 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
         }
         qualifiers = {name: [] for name in ("modality", "conditions", "exceptions")}
         orders = []
-        for row in contributions:
-            relation = row.get("component", {})
-            if (
-                relation.get("kind") != "predicate_qualifier"
-                or relation["host_contribution_id"] != identifier
-            ):
-                continue
+        for relation in qualifiers_by_frame.get(identifier, ()):
             cue = by_id[relation["qualifier_contribution_id"]]["component"]
             if cue.get("host_state") != "located" or len(cue["extents"]) != 1:
                 continue

@@ -281,6 +281,26 @@ def _requested_regions(source: FrozenNativeSource):
     return tuple(result), tuple(unknown)
 
 
+def _clip_sentence_regions(regions, boundaries):
+    """Join open intervals in one sweep, then restore region/sentence order."""
+    events = []
+    for population, rows in enumerate((regions, tuple((row["start"], row["end"]) for row in boundaries))):
+        for ordinal, (start, end) in enumerate(rows):
+            if start < end:
+                events.extend(((start, 1, population, ordinal, end), (end, 0, population, ordinal, start)))
+    active = ({}, {})
+    clipped = []
+    for position, opening, population, ordinal, other in sorted(events):
+        if not opening:
+            active[population].pop(ordinal)
+            continue
+        for counterpart, (start, end) in active[1 - population].items():
+            region, sentence = (ordinal, counterpart) if population == 0 else (counterpart, ordinal)
+            clipped.append((region, sentence, (max(position, start), min(other, end))))
+        active[population][ordinal] = position, other
+    return [interval for _region, _sentence, interval in sorted(clipped)]
+
+
 def construction_product_values(
     source: FrozenNativeSource,
     formal: tuple[CharacterizationSnapshot, ...],
@@ -342,12 +362,7 @@ def construction_product_values(
             for row in source_annotation_member_values(native_body)
             if row["record_type"] == "sentence"
         ]
-        regions = [
-            (max(a, row["start"]), min(b, row["end"]))
-            for a, b in regions
-            for row in boundaries
-            if max(a, row["start"]) < min(b, row["end"])
-        ]
+        regions = _clip_sentence_regions(regions, boundaries)
         sentence_coverage = [
             row for row in native_body["coverage"] if row["family"] == "spacy.sentences"
         ]

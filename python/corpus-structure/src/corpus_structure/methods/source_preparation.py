@@ -837,17 +837,16 @@ def _formula_windows(
         ),
         key=lambda a: (a.block_start, a.block_end, a.block_id),
     )
+    from corpus_structure.semantic.positioned_rows import PositionedRows
+
+    block_index = PositionedRows.build(enumerate(blocks), lambda row: (row[1].block_start, row[1].block_end))
     output = list(selections)
     variants = {}
     for original_index, selection in enumerate(selections):
         check_active()
         if selection.families != ("formula_context",):
             continue
-        centers = [
-            (index, block)
-            for index, block in enumerate(blocks)
-            if block.block_start <= selection.start < selection.end <= block.block_end
-        ]
+        centers = block_index.containing(selection.start, selection.end)
         if not centers:
             output[original_index] = replace(
                 selection,
@@ -869,7 +868,7 @@ def _formula_windows(
             if piece.source_key != frame.source_key:
                 external.append(piece)
                 continue
-            owners = [b for b in blocks if b.block_start <= piece.start < piece.end <= b.block_end]
+            owners = tuple(block for _index, block in block_index.containing(piece.start, piece.end))
             if not owners:
                 unclosed = True
                 break

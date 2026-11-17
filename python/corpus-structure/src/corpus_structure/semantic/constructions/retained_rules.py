@@ -7,6 +7,7 @@ consumers project retained primary nodes; they do not rerun these recognizers.
 from __future__ import annotations
 
 import json
+from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -33,6 +34,29 @@ def interpretation_recipe():
     return json.loads(files(__package__).joinpath("retained_rules.json").read_text())
 
 
+class SourceLayoutIndex:
+    """One structural heading index for all blocks of a pinned source view."""
+
+    def __init__(self, pieces, items):
+        self.pieces, self.items = pieces, items
+        self.ends = tuple(piece["end"] for piece in pieces)
+        headings = defaultdict(list)
+        for piece in pieces:
+            item = items.get(piece.get("item_ref"), {})
+            if item.get("label") in {"title", "section_header"}:
+                headings[item.get("parent")].append(piece)
+        self.headings = {parent: tuple(rows) for parent, rows in headings.items()}
+        self.heading_ends = {parent: tuple(row["end"] for row in rows) for parent, rows in self.headings.items()}
+
+    def preceding(self, start):
+        ordinal = bisect_right(self.ends, start)
+        piece = self.pieces[ordinal] if ordinal < len(self.pieces) else {}
+        item = self.items.get(piece.get("item_ref"), {}) if piece.get("start", start + 1) <= start else {}
+        parent = item.get("parent")
+        index = bisect_right(self.heading_ends.get(parent, ()), start) - 1
+        return self.headings[parent][index] if index >= 0 else None
+
+
 def source_layout(
     product: AnnotationProduct,
     text: str,
@@ -40,29 +64,13 @@ def source_layout(
     items: Mapping[str, Mapping[str, Any]],
     *,
     with_context=False,
+    index: SourceLayoutIndex | None = None,
 ):
     """Use only the preceding native heading in the same local structural group."""
-    item = next(
-        (
-            items[piece["item_ref"]]
-            for piece in pieces
-            if piece.get("item_ref") in items
-            and piece["start"] <= product.block_start < piece["end"]
-        ),
-        {},
-    )
-    parent = item.get("parent")
+    piece = (index or SourceLayoutIndex(pieces, items)).preceding(product.block_start)
     examined_heading = None
-    for piece in reversed(pieces):
-        if piece["end"] > product.block_start:
-            continue
+    if piece is not None:
         pointer = piece.get("item_ref")
-        candidate = items.get(pointer, {}) if isinstance(pointer, str) else {}
-        if candidate.get("parent") != parent or candidate.get("label") not in {
-            "title",
-            "section_header",
-        }:
-            continue
         examined_heading = dict(
             projection=(
                 product.source.values()["projection_digest"]
@@ -79,7 +87,6 @@ def source_layout(
         for layout in ("example", "policy", "instruction"):
             if first in headings[layout]:
                 return (layout, examined_heading) if with_context else layout
-        break
     return ("prose", examined_heading) if with_context else "prose"
 
 
@@ -1912,6 +1919,7 @@ def _populate_source_readings(
     family = PRIMARY_RULE_FAMILY
     results, frame_ids, cue_ids = [], {}, {}
     layout_contexts = {}
+    layout_headings = {}
 
     def located(product, span, label):
         key = identity("source-role", [native_pin.values(), product.block_id, span.tokens, label])
@@ -1945,14 +1953,7 @@ def _populate_source_readings(
             external_premises=block_references[product.block_id],
             context=layout_contexts[product.block_id],
         )
-        heading = next(
-            (
-                selector
-                for selector in layout_contexts[product.block_id]["examined"]
-                if selector.get("native_pointer")
-            ),
-            None,
-        )
+        heading = layout_headings[product.block_id]
         if heading is not None:
             layer.annotations[annotation]["premises"] = [
                 layer.occurrence(view, heading["start"], heading["end"])
@@ -2053,15 +2054,19 @@ def _populate_source_readings(
         cue_ids[key] = (product, candidate)
         return key
 
+    layout_items = {node["self_ref"]: node for node in view.items}
+    layout_index = SourceLayoutIndex(view.pieces, layout_items)
     for product in products:
         check_active()
         layout, heading = source_layout(
             product,
             view.text,
             view.pieces,
-            {node["self_ref"]: node for node in view.items},
+            layout_items,
             with_context=True,
+            index=layout_index,
         )
+        layout_headings[product.block_id] = heading
         focal = dict(projection=projection, start=product.block_start, end=product.block_end)
         layout_contexts[product.block_id] = dict(
             focal=[focal], examined=[heading, focal] if heading is not None else [focal], gaps=[]

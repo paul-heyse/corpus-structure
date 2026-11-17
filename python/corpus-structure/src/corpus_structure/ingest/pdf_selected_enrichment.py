@@ -27,20 +27,25 @@ def enrich_selected_pdf(
         for pointer, membership in specs
     ):
         raise ValueError("PDF enrichment requires exact retained section selections")
+    selected_scopes = set(specs)
     for section, _ in tuple(specs):
         current = nodes[section]
         while current.parent is not None:
             pointer = current.parent.cref
             current = nodes[pointer]
-            if str(current.label) in {"section", "chapter"} and (pointer, "direct") not in specs:
+            if str(current.label) in {"section", "chapter"} and (pointer, "direct") not in selected_scopes:
                 specs.append((pointer, "direct"))
+                selected_scopes.add((pointer, "direct"))
     section_refs = frozenset(
         pointer for pointer, node in nodes.items() if str(node.label) in {"section", "chapter"}
     )
+    scope_members = {
+        scope: tuple(_member_order(nodes, section_refs, *scope)) for scope in specs
+    }
     required_pages_by_scope = {
         (section, membership): {
             prov.page_no
-            for pointer in _member_order(nodes, section_refs, section, membership)
+            for pointer in scope_members[(section, membership)]
             if str(nodes[pointer].label) in {"text", "list_item", "caption", "footnote"}
             and not nodes[pointer].children
             and nodes[pointer].text.strip()
@@ -48,9 +53,7 @@ def enrich_selected_pdf(
         }
         for section, membership in specs
     }
-    selected = set().union(
-        *(_member_order(nodes, section_refs, section, membership) for section, membership in specs)
-    )
+    selected = set().union(*scope_members.values())
     computed = worker.enrich(
         PdfEnrichmentRequest(
             conversion,
@@ -102,6 +105,10 @@ def enrich_selected_pdf(
         as_candidate_source(conversion.inline_candidates),
         set().union(*required_pages_by_scope.values()),
     )
+    reports_by_table = {}
+    for report in reports:
+        reports_by_table.setdefault(report["table_pointer"], []).append(report)
+    alignment_pointers = frozenset(pointer for report in computed.alignment_reports for pointer in report.item_pointers)
     coverage = []
     for section, membership in specs:
         pointers = _member_order(nodes, section_refs, section, membership)
@@ -119,7 +126,7 @@ def enrich_selected_pdf(
             if nodes[pointer].parent is None
             or str(nodes[nodes[pointer].parent.cref].label) not in {"inline", "table"}
         ]
-        cell_rows = [row for row in reports if row["table_pointer"] in pointers]
+        cell_rows = [row for pointer in pointers for row in reports_by_table.get(pointer, ())]
         required_pages = required_pages_by_scope[(section, membership)]
         discovery_complete = all(
             number in candidate_pages
@@ -130,11 +137,7 @@ def enrich_selected_pdf(
         states = {
             "display": all(outcomes.get(pointer) == "succeeded" for pointer in display_refs),
             "inline": discovery_complete
-            and not any(
-                pointer in scope_pointers
-                for report in computed.alignment_reports
-                for pointer in report.item_pointers
-            )
+            and scope_pointers.isdisjoint(alignment_pointers)
             and all(outcomes.get(pointer) == "succeeded" for pointer in inline_refs),
             "cell": all(
                 row["classification"] == "prose" or row["outcome"] == "succeeded"

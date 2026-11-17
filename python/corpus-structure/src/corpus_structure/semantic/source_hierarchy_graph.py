@@ -11,14 +11,10 @@ from .graph_runtime import nx
 
 def source_hierarchy_snapshot(prepared, model, cut, index):
     specification = model.projection_definition("source-hierarchy")
+    source_kinds = {kind.semantic_id for kind in model.kinds if kind.name == "DdoSelectedNativeSource"}
     contracts = {
-        identity.key
-        for identity in model.identities
-        if identity.domain == "kind"
-        and any(
-            kind.semantic_id == identity.owner and kind.name == "DdoSelectedNativeSource"
-            for kind in model.kinds
-        )
+        identity.key for identity in model.identities
+        if identity.domain == "kind" and identity.owner in source_kinds
     }
     nodes, edges, unknowns = {}, [], []
 
@@ -60,6 +56,12 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
             if pointer in atoms and atoms[pointer] != atom:
                 raise ValueError("captured source repeats a pointer with different facts")
             atoms[pointer] = atom
+        child_orders = {}
+        for pointer, atom in atoms.items():
+            children = tuple(reference(child) for child in atom.get("children", ()))
+            if len(set(children)) != len(children):
+                raise ValueError("captured source repeats an original containment child")
+            child_orders[pointer] = {child: ordinal for ordinal, child in enumerate(children)}
         graph = nx.DiGraph(backend="networkx")
         graph.add_nodes_from(atoms)
         for pointer, atom in atoms.items():
@@ -76,8 +78,7 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
             parent = reference(atom.get("parent"))
             if parent in atoms:
                 graph.add_edge(parent, pointer)
-                siblings = [reference(child) for child in atoms[parent].get("children", ())]
-                position = siblings.index(pointer) if pointer in siblings else None
+                position = child_orders[parent].get(pointer)
                 edges.append(
                     GraphOccurrence(
                         identity="source-containment:"
@@ -91,10 +92,7 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
             elif parent is not None:
                 unknowns.append(identity + ": parent outside captured source scope: " + parent)
         for pointer, atom in atoms.items():
-            children = tuple(reference(child) for child in atom.get("children", ()))
-            if len(set(children)) != len(children):
-                raise ValueError("captured source repeats an original containment child")
-            for child in children:
+            for child in child_orders[pointer]:
                 if child not in atoms:
                     unknowns.append(
                         address

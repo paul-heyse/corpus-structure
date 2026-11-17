@@ -511,6 +511,9 @@ def match_named_source_links(
         and items.get(p["item_ref"], {}).get("content_layer") == "body"
         and items[p["item_ref"]].get("label") in {"text", "paragraph", "list_item"}
     ]
+    from ..positioned_rows import PositionedRows
+
+    passage_index = PositionedRows.build(passages or (), lambda passage: (passage.start, passage.end))
     products = tuple(product for product in annotations if isinstance(product, AnnotationProduct))
     by_block = {product.block_id: product for product in products}
     # Older releases keyed the projection and retained annotation on the same pointer.
@@ -525,7 +528,7 @@ def match_named_source_links(
     incomplete = bool(annotation_errors) and not strict_coverage
     for piece in physical_pieces if piece_version else by_pointer.values():
         pointer = piece["item_ref"]
-        selected = [p for p in passages or () if p.start < piece["end"] and piece["start"] < p.end]
+        selected = passage_index.overlapping(piece["start"], piece["end"])
         if not selected:
             continue
         piece_index = None
@@ -870,6 +873,13 @@ def _populate_navigation(
         p for p in view.pieces if p["kind"] == "native_text" and admitted(p["start"], p["end"])
     ]
     incomplete = False
+    product_regions = defaultdict(list)
+    piece_regions = defaultdict(list)
+    for product in products:
+        product_regions[product.block_id].append((product.block_start, product.block_end))
+    for piece in pieces:
+        piece_regions[piece["item_ref"]].append((piece["start"], piece["end"]))
+    literal_by_pointer = defaultdict(list)
 
     def emit(
         kind, pointer, roles, *, native_tokens=(), status="complete", source_labels=(), **values
@@ -904,15 +914,11 @@ def _populate_navigation(
         if labels:
             navigation["source_labels"] = labels
         key = identity("navigation", [source_key, navigation])
-        regions = [
-            (product.block_start, product.block_end)
-            for product in products
-            if product.block_id == values.get("block")
-        ]
+        regions = product_regions.get(values.get("block"), ())
         if not regions:
-            regions = [(p["start"], p["end"]) for p in pieces if p["item_ref"] == pointer]
+            regions = piece_regions.get(pointer, ())
         if not regions:
-            regions = [(a, b) for a, b, target in literal_regions if target == pointer]
+            regions = literal_by_pointer.get(pointer, ())
         focal = [
             dict(projection=projection, start=e["start"], end=e["end"])
             for role in bound
@@ -952,6 +958,8 @@ def _populate_navigation(
         children = [child for child in children if child is not None]
         if all(left["end"] == right["start"] for left, right in pairwise(children)):
             literal_regions.add((children[0]["start"], children[-1]["end"], pointer))
+    for start, end, pointer in literal_regions:
+        literal_by_pointer[pointer].append((start, end))
     for start, end, pointer in sorted(literal_regions):
         literal = view.text[start:end]
         binding = DECLARATION.match(literal.translate(_LINE_SPACING))
