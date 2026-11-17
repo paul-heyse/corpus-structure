@@ -113,6 +113,10 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
     model = bound_data_operation_model(prepared)
     operation = model.operation("retrieve.contextual_query/declared")
     assert operation.capabilities.prepared_factory is not None
+    for name in ("retrieve.contextual_query/declared", "retrieve.contextual_query/selected-context", "retrieve.contextual_target_vector/declared"):
+        actual = model.operation(name)
+        assert actual.capabilities.forms == ("batch",)
+        assert set(actual.outcomes) == {"success", "failed"}
     assert operation.result_fields == (("query", "query"), ("vector", "vector"))
     selected = model.operation("retrieve.contextual_query/selected-context")
     assert selected.capabilities.prepared_factory is not None
@@ -175,7 +179,7 @@ def test_encoder_numerical_policy_changes_space_without_approximate_product_equa
     policy = embeddings.ENCODER_NUMERICS
     assert (
         profile.semantic_configuration["numerical_policy"]["nondeterminism"]
-        == "backend-dependent-result-bits"
+        == "cohort-and-order-dependent-native-float32"
     )
     assert (
         profile.semantic_configuration["numerical_policy"]["result_equality"]

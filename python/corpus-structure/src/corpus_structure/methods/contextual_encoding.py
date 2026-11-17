@@ -110,7 +110,7 @@ class ContextualEncodingOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
-            "forms": ["scalar"],
+            "forms": ["batch"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
             "cancellation": "cooperative",
@@ -256,7 +256,7 @@ class ContextualEncodingOperation:
     def __init__(self, execute):
         self.execute = execute
 
-    def run(self, source: dict, occurrence: dict) -> dict[str, dict]:
+    def run(self, source: tuple[dict, ...], occurrence: tuple[dict, ...]) -> tuple[dict[str, dict], ...]:
         return execute_contextual_encoder_profile(self, source, occurrence)
 
     @staticmethod
@@ -403,7 +403,7 @@ class SelectedContextEncodingOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
-            "forms": ["scalar"],
+            "forms": ["batch"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
             "cancellation": "cooperative",
@@ -541,11 +541,11 @@ class SelectedContextEncodingOperation:
 
     def run(
         self,
-        source: dict,
-        occurrence: dict,
-        primary: tuple[dict, ...],
-        context_selection: dict,
-    ) -> dict[str, dict]:
+        source: tuple[dict, ...],
+        occurrence: tuple[dict, ...],
+        primary: tuple[tuple[dict, ...], ...],
+        context_selection: tuple[dict, ...],
+    ) -> tuple[dict[str, dict], ...]:
         return execute_selected_context_encoder_profile(
             self, source, occurrence, primary, context_selection
         )
@@ -617,12 +617,12 @@ class ContextualTargetEncodingOperation:
             "result_owners": [{"kind": "implementation", "reference": "self"}],
             "description": "exact-selected-target-population",
         },
-        "outcomes": ["success"],
+        "outcomes": ["success", "failed"],
         "precision_description": None,
         "dependencies": ["retrieve.contextual_target/declared"],
         "effects": [],
         "capabilities": {
-            "forms": ["scalar"],
+            "forms": ["batch"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
             "cancellation": "cooperative",
@@ -656,7 +656,7 @@ class ContextualTargetEncodingOperation:
     def __init__(self, execute):
         self.execute = execute
 
-    def run(self, target: dict) -> dict:
+    def run(self, target: tuple[dict, ...]) -> tuple[dict, ...]:
         from corpus_structure.semantic.contextual_encoder import execute_target_encoder_profile
 
         return execute_target_encoder_profile(self, target)

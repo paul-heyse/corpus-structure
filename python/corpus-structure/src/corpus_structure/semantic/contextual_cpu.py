@@ -1,4 +1,4 @@
-"""Contextual scalar authority replies on the existing owned CPU execution path."""
+"""Shared contextual source correspondence and existing scalar projection kernels."""
 
 from __future__ import annotations
 
@@ -7,12 +7,17 @@ from .data_operation_cpu_basis import cpu_authority_reply, cpu_basis_values
 
 def checked_frame_source(frame_record, source):
     """One exact actual source header/body projection for contextual CPU consumers."""
+    from .declared_record_sources import DeclaredNativeFrameSource
+
+    return checked_native_frame(DeclaredNativeFrameSource(**frame_record), source)
+
+
+def checked_native_frame(frame, source):
+    """Check the already prepared immutable view without decoding it again."""
     from .data_operation_identity import semantic_value
     from .data_operation_model import json_context_meaning
-    from .declared_record_sources import DeclaredNativeFrameSource
     from .identity import canonical_bytes
 
-    frame = DeclaredNativeFrameSource(**frame_record)
     pin, context = frame.pin.values(), source.context
     if (
         pin["source"] != canonical_bytes([source.product_id, source.member_id]).decode()

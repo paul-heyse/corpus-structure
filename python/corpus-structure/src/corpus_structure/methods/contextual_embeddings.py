@@ -11,7 +11,7 @@ import json
 import math
 import struct
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
@@ -47,7 +47,7 @@ class EncoderNumericalPolicy(BaseModel):
     """Vector admission tolerance never changes exact canonical value equality."""
 
     model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
-    version: Literal["cpu-encoder-numerics-v1"] = "cpu-encoder-numerics-v1"
+    version: Literal["cpu-encoder-numerics-v2"] = "cpu-encoder-numerics-v2"
     device: Literal["cpu"] = "cpu"
     dtype: Literal["float32"] = "float32"
     backend: Literal["torch-sentence-transformers"] = "torch-sentence-transformers"
@@ -56,7 +56,9 @@ class EncoderNumericalPolicy(BaseModel):
     relative_tolerance: FiniteFloat = Field(default=1e-9, ge=0)
     nonfinite: Literal["reject"] = "reject"
     result_equality: Literal["exact-canonical-value"] = "exact-canonical-value"
-    nondeterminism: Literal["backend-dependent-result-bits"] = "backend-dependent-result-bits"
+    nondeterminism: Literal["cohort-and-order-dependent-native-float32"] = "cohort-and-order-dependent-native-float32"
+    cohort_semantics: Literal["authentic-native-observations"] = "authentic-native-observations"
+    vector_identity: Literal["cohort-independent"] = "cohort-independent"
 
 
 ENCODER_NUMERICS = EncoderNumericalPolicy()
@@ -80,6 +82,7 @@ class EncoderProfile:
     transformers_version: str = "5.22.1"
     torch_version: str = "2.15.0+cu132"
     tokenizers_version: str = "0.23.3"
+    artifact_hashes: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self):
         if len(self.revision) != 40 or any(c not in "0123456789abcdef" for c in self.revision):
@@ -97,12 +100,31 @@ class EncoderProfile:
             raise ValueError("encoder timeout must be positive and finite")
         if not self.model or self.pooling not in {"mean", "lasttoken"}:
             raise ValueError("encoder requires a model and declared pooling")
+        artifacts = tuple(sorted(tuple(value) for value in self.artifact_hashes))
+        if len({name for name, _ in artifacts}) != len(artifacts) or any(
+            not name or Path(name).is_absolute() or ".." in Path(name).parts
+            or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest)
+            for name, digest in artifacts
+        ):
+            raise ValueError("encoder requires an exact immutable artifact manifest")
+        object.__setattr__(self, "artifact_hashes", artifacts)
+
+    def bind_artifacts(self, artifacts):
+        artifacts = tuple(sorted(tuple(value) for value in artifacts))
+        if self.artifact_hashes and self.artifact_hashes != artifacts:
+            raise ValueError("encoder profile differs from its acquired artifact population")
+        return replace(self, artifact_hashes=artifacts)
+
+    @property
+    def padding_side(self) -> Literal["left", "right"]:
+        return "left" if self.pooling == "lasttoken" else "right"
 
     @property
     def semantic_configuration(self):
         meaning = asdict(self)
         for key in ("max_items", "max_input_bytes", "timeout_seconds"):
             del meaning[key]
+        meaning["padding_side"] = self.padding_side
         meaning["numerical_policy"] = ENCODER_NUMERICS.model_dump(mode="json")
         return meaning
 
@@ -300,12 +322,22 @@ def validate_vector(values: Sequence[float], dimension: int) -> tuple[float, ...
 
 
 @dataclass(frozen=True)
+class EncoderMemberFailure:
+    position: int
+    object_id: str
+    code: Literal["token-core-limit", "invalid-vector"]
+    detail: str
+
+
+@dataclass(frozen=True)
 class EncoderResult:
     profile_id: str
     inputs: tuple[RenderedInput, ...]
     vectors: tuple[EncodedVector, ...]
     implementation: tuple[tuple[str, str], ...]
     limited_query_ids: tuple[str, ...] = ()
+    member_positions: tuple[int, ...] = ()
+    member_failures: tuple[EncoderMemberFailure, ...] = ()
 
 
 class EncoderCancelled(RuntimeError):
@@ -322,7 +354,11 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
     content = json.loads(profile_content)
     if content.pop("numerical_policy") != ENCODER_NUMERICS.model_dump(mode="json"):
         raise ValueError("encoder numerical policy differs from the selected implementation")
+    padding_side = content.pop("padding_side")
+    content["artifact_hashes"] = tuple(tuple(item) for item in content["artifact_hashes"])
     profile = EncoderProfile(**content)
+    if padding_side != profile.padding_side:
+        raise ValueError("encoder padding side differs from its selected profile")
     root = Path(model_path)
     observations = ()
     if artifact_hashes:
@@ -353,7 +389,7 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
     )
     model.float()
     model.max_seq_length = profile.max_tokens
-    model.tokenizer.padding_side = "left" if profile.pooling == "lasttoken" else "right"
+    model.tokenizer.padding_side = profile.padding_side
     poolings = [module for module in model if isinstance(module, Pooling)]
     if len(poolings) != 1 or poolings[0].get_config_dict().get("pooling_mode") != profile.pooling:
         raise ValueError("loaded model pooling differs from declared profile")
@@ -371,14 +407,14 @@ def _verify_cpu_artifacts(model_path, observations):
         record.check()
 
 
-def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_active):
+def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_active, isolate_members=False):
     model, implementation, observations = _owned_cpu_encoder(
         canonical_bytes(profile.semantic_configuration), model_path, artifact_hashes
     )
     _verify_cpu_artifacts(model_path, observations)
     check_active()
-    rendered, limited_queries = [], []
-    for item in items:
+    rendered, rendered_positions, limited_queries, failures = [], [], [], []
+    for position, item in enumerate(items):
         check_active()
         try:
             rendered.append(
@@ -388,8 +424,11 @@ def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_acti
                     lambda text: len(model.tokenizer.encode(text, truncation=False)),
                 )
             )
-        except ContextCoreLimited:
-            if item.query_context is None:
+            rendered_positions.append(position)
+        except ContextCoreLimited as error:
+            if isolate_members:
+                failures.append(EncoderMemberFailure(position, item.object_id, "token-core-limit", str(error)))
+            elif item.query_context is None:
                 raise
             limited_queries.append(item.object_id)
     vectors = []
@@ -410,7 +449,13 @@ def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_acti
         )
         for i, value in zip(positions, values, strict=True):
             item = rendered[i]
-            vector = validate_vector(value, profile.dimension)
+            try:
+                vector = validate_vector(value, profile.dimension)
+            except ValueError as error:
+                if not isolate_members:
+                    raise
+                failures.append(EncoderMemberFailure(rendered_positions[i], item.object_id, "invalid-vector", str(error)))
+                continue
             vector_id = identity(
                 "context-vector",
                 [
@@ -437,14 +482,23 @@ def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_acti
             )
     result = EncoderResult(
         profile.profile_id,
-        tuple(rendered),
+        tuple(rendered[index] for index, _ in sorted(vectors)),
         tuple(value for _, value in sorted(vectors)),
         implementation,
         tuple(limited_queries),
+        tuple(rendered_positions[index] for index, _ in sorted(vectors)),
+        tuple(sorted(failures, key=lambda value: value.position)),
     )
     check_active()
     _verify_cpu_artifacts(model_path, observations)
     return result
+
+
+def encoder_input_bytes(items) -> int:
+    return len(canonical_bytes([
+        {key: value for key, value in asdict(item).items() if key != "query_context" or value is not None}
+        for item in items
+    ]))
 
 
 def encode_contexts(
@@ -456,6 +510,7 @@ def encode_contexts(
     check_active: Callable[[], None] | None = None,
     model_path: str | None = None,
     artifact_hashes: tuple[tuple[str, str], ...] = (),
+    isolate_members: bool = False,
 ) -> EncoderResult:
     """Run original CPU inference under the caller's existing physical process owner.
 
@@ -463,25 +518,13 @@ def encode_contexts(
     executor or provider lifecycle is created here.
     """
     items = tuple(items)
+    artifact_hashes = tuple(artifact_hashes or profile.artifact_hashes)
+    profile = profile.bind_artifacts(artifact_hashes)
     if not items or len(items) > profile.max_items:
         raise EncoderLimited("encoder item bound exceeded or empty request")
-    if (
-        len(
-            canonical_bytes(
-                [
-                    {
-                        key: value
-                        for key, value in asdict(item).items()
-                        if key != "query_context" or value is not None
-                    }
-                    for item in items
-                ]
-            )
-        )
-        > profile.max_input_bytes
-    ):
+    if encoder_input_bytes(items) > profile.max_input_bytes:
         raise EncoderLimited("encoder request byte bound exceeded")
-    if len({item.object_id for item in items}) != len(items):
+    if not isolate_members and len({item.object_id for item in items}) != len(items):
         raise ValueError("duplicate encoded object identity")
     if cancel is not None and cancel.is_set():
         raise EncoderCancelled("encoding cancelled before model allocation")
@@ -505,4 +548,5 @@ def encode_contexts(
         model_path=profile.model if model_path is None else model_path,
         artifact_hashes=artifact_hashes,
         check_active=active,
+        isolate_members=isolate_members,
     )

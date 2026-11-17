@@ -1,4 +1,4 @@
-"""Original prepared scalar calls using shared admission, wire and physical owners."""
+"""Original prepared calls using shared admission, wire and physical owners."""
 
 from __future__ import annotations
 
@@ -63,6 +63,11 @@ class PreparedOriginalCallPort:
     requires_prepared_schema: bool = False
     completion_type: Any = None
     retain_cpu_reply: bool = False
+    batch_result_adapter: Callable[[Any], PreparedCallResult] | None = None
+    batch_max_items: int | None = None
+    batch_max_input_bytes: int | None = None
+    batch_input_bytes: Callable[..., int] | None = None
+    batch_order_key: Callable[..., tuple] | None = None
     _port: ResolvedPythonPort = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -82,6 +87,15 @@ class PreparedOriginalCallPort:
         if self.operation.capabilities.preparation == "none":
             raise PortRefusal("prepared original-call adapter requires declared preparation")
         batch = self.operation.capabilities.forms == ("batch",)
+        if not batch and any(value is not None for value in (
+            self.batch_result_adapter, self.batch_max_items, self.batch_max_input_bytes,
+            self.batch_input_bytes, self.batch_order_key,
+        )):
+            raise PortRefusal("prepared batch hooks require an explicit batch operation")
+        if any(value is not None and (type(value) is not int or value < 1) for value in (self.batch_max_items, self.batch_max_input_bytes)):
+            raise PortRefusal("prepared batch limits require positive physical bounds")
+        if (self.batch_max_input_bytes is None) != (self.batch_input_bytes is None):
+            raise PortRefusal("prepared batch byte bound requires its exact input-size owner")
         if batch and (self.operation.effects or not self.retain_cpu_reply):
             raise PortRefusal(
                 "prepared batch requires effect-free computation and its original whole CPU authority reply"
@@ -149,6 +163,11 @@ class PreparedOriginalCallPort:
                 "physical_plan",
                 "functions",
                 "required_sources",
+                "batch_result_adapter",
+                "batch_max_items",
+                "batch_max_input_bytes",
+                "batch_input_bytes",
+                "batch_order_key",
             )
         )
         self._verify()
@@ -289,20 +308,10 @@ class PreparedOriginalCallPort:
             result, self.completion_type or self._port.signature.return_annotation
         )
 
-    def plan_batch_python(self, members, *, check_active=lambda: None, execution_owner):
+    def batch_expected_members(self, members):
         import json
+        from .data_operation_cpu_basis import cpu_input_basis_from_binding
 
-        from .data_operation_cpu_basis import (
-            cpu_authority_batch_values,
-            cpu_input_basis_from_binding,
-        )
-
-        if self.operation.capabilities.forms != ("batch",):
-            raise PortRefusal("prepared scalar cannot accept a batch invocation")
-        members = tuple(members)
-        if not members or len({member.member for member in members}) != len(members):
-            raise PortRefusal("prepared batch requires distinct ordered logical members")
-        self._verify()
         expected = []
         roles = {role.name: role for role in self.operation.roles if role.direction == "input"}
         for member in members:
@@ -331,6 +340,18 @@ class PreparedOriginalCallPort:
                     ),
                 )
             )
+        return tuple(expected)
+
+    def plan_batch_python(self, members, *, check_active=lambda: None, execution_owner):
+        from .data_operation_cpu_basis import cpu_authority_batch_values
+
+        if self.operation.capabilities.forms != ("batch",):
+            raise PortRefusal("prepared scalar cannot accept a batch invocation")
+        members = tuple(members)
+        if not members or len({member.member for member in members}) != len(members):
+            raise PortRefusal("prepared batch requires distinct ordered logical members")
+        self._verify()
+        expected = self.batch_expected_members(members)
         result = yield from self.physical_plan(
             tuple(expected), check_active=check_active, execution_owner=execution_owner
         )
@@ -339,18 +360,20 @@ class PreparedOriginalCallPort:
         values = cpu_authority_batch_values(result.content, expected_members=expected)
         check_active()
         self._verify()
-        return BatchPortCompletion(
-            tuple(
-                (
-                    member.member,
-                    replace(
-                        self._port._complete(
-                            value, self.completion_type or self.logical_signature.return_annotation
-                        ),
-                        cpu_execution_evidence=result.cpu_execution_evidence,
-                        cpu_execution_reply=result.content,
-                    ),
-                )
-                for member, value in zip(members, values, strict=True)
-            )
-        )
+        completions = []
+        for member, value in zip(members, values, strict=True):
+            adapted = PreparedCallResult(value) if self.batch_result_adapter is None else self.batch_result_adapter(value)
+            if not isinstance(adapted, PreparedCallResult):
+                raise PortRefusal("prepared batch adapter lacks its explicit member outcome")
+            if adapted.outcome in {"failed", "empty"}:
+                if adapted.outcome not in self.operation.outcomes or adapted.value is not None:
+                    raise PortRefusal("terminal batch member differs from its declared output policy")
+                completion = PortCompletion(self.operation.semantic_id, (), outcome=adapted.outcome)
+            else:
+                completion = self._port._complete(adapted.value, self.completion_type or self.logical_signature.return_annotation)
+                if adapted.outcome is not None and adapted.outcome != completion.outcome:
+                    raise PortRefusal("successful batch member differs from its declared output policy")
+            completions.append((member.member, replace(
+                completion, cpu_execution_evidence=result.cpu_execution_evidence, cpu_execution_reply=result.content,
+            )))
+        return BatchPortCompletion(tuple(completions))

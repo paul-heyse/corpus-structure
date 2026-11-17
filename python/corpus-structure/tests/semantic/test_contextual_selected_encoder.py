@@ -1,7 +1,7 @@
 """Controlled encoder integration exercises real query12 projection without provider inference."""
 
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from types import SimpleNamespace
 
 import pytest
@@ -12,7 +12,6 @@ from corpus_structure.semantic.contextual_encoder import (
     prepare_selected_query_context,
 )
 from corpus_structure.semantic.data_operation_json import json_loads
-from corpus_structure.semantic.data_operation_model import ResolvedRoleBinding
 from semantic.selected_context_support import case
 
 
@@ -106,64 +105,29 @@ def test_requested_context_refuses_wrong_member_source_dependency_and_missing_po
 
 
 @pytest.mark.parametrize("failure", ["missing", "empty"])
-def test_named_context_failure_precedes_cpu_dispatch_and_model_allocation(
-    failure, monkeypatch, tmp_path
-):
-    from corpus_structure.semantic import data_operation_cpu
-    from corpus_structure.semantic.contextual_encoder import (
-        ContextualEncoderPlan,
-        ContextualEncoderSelection,
-    )
-    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+def test_named_context_failure_is_typed_before_model_allocation(failure, monkeypatch):
+    from corpus_structure.semantic import contextual_encoder_batch as batch
+    from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
+    from semantic.test_contextual_encoder_batch import _query_members
 
-    frame, occurrence, primary, binding, evidence, _ = case("located-frame-2")
-    if failure == "empty":
-        primary = deepcopy(primary)
-        next(row["body"] for row in primary[0]["members"] if row["member_id"] == "predicate")[
-            "occurrences"
-        ] = []
+    members, _ = _query_members(selected=True)
+    for member in members:
+        basis = decode_semantic_value(member["input_basis"])
+        if failure == "missing":
+            basis["roles"] = [role for role in basis["roles"] if role["role"] != "primary"]
+        else:
+            primary = next(role["body"] for role in basis["roles"] if role["role"] == "primary")
+            next(row["body"] for row in primary["members"] if row["member_id"] == "predicate")["occurrences"] = []
+        member["input_basis"] = semantic_value(basis)
 
-    def refuse(*a, **k):
-        raise AssertionError("unavailable requested context reached execution")
+    def refuse(*args, **kwargs):
+        raise AssertionError("unavailable requested context reached model allocation")
 
-    monkeypatch.setattr(data_operation_cpu, "plan_cpu_call", refuse)
     monkeypatch.setattr(embeddings, "_owned_cpu_encoder", refuse)
-    monkeypatch.setattr(
-        DeclaredNativeFrameSource, "acquire", classmethod(lambda cls, *a, **k: frame)
-    )
-
-    class Prepared:
-        def validate_json(self, kind, content):
-            return SimpleNamespace(model_dump=lambda **k: json_loads(content))
-
-    source_member = replace(
-        binding.roles[0].members[0],
-        product="product:source",
-        member="member:source",
-        kind_contract="kind:source",
-    )
-    binding.roles = (*binding.roles, ResolvedRoleBinding("source", "present", (source_member,)))
-    arguments = SimpleNamespace(
-        arguments=dict(
-            source=frame.value,
-            occurrence=occurrence,
-            inventory={},
-            primary=() if failure == "missing" else primary,
-            context_selection=dict(recipe="located-frame-2", evidence=evidence.values()),
-        )
-    )
-    profile = embeddings.EncoderProfile(
-        "controlled-query12", "a" * 40, 2, "query: ", "document: ", "mean"
-    )
-    plan = ContextualEncoderPlan(
-        Prepared(), ContextualEncoderSelection(profile, tmp_path, ()), selected_context=True
-    )
-    with pytest.raises(ValueError, match="binding" if failure == "missing" else "lexical fallback"):
-        next(
-            plan.plan(
-                arguments, binding=binding, check_active=lambda: None, execution_owner=object()
-            )
-        )
+    packet = batch.encoder_packet(members, "retrieve.contextual_query/selected-context")
+    prepared, failures = batch.prepare_encoder_members(packet, batch.unpack_encoder_packet(packet))
+    assert prepared == () and set(failures) == {0, 1}
+    assert all(value["encoder_member_failure"]["code"] == "selected-context-unavailable" for value in failures.values())
 
 
 def test_retrieval_refuses_query_vector_from_another_context_before_relation_allocation():

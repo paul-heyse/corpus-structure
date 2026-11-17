@@ -358,7 +358,7 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
     assert query_vector.body["vector"]["representation_digest"] == context["representation_digest"]
     assert expected_context in query_vector.body["rendered"]["text"]
     for product in (query_vector, *targets):
-        assert source_python(product.body["profile"]) == asdict(encoder.profile)
+        assert source_python(product.body["profile"]) == json.loads(json.dumps(asdict(encoder.profile)))
         vector = product.body["vector"]
         assert vector["profile_id"] == encoder.profile.profile_id
         assert len(vector["values"]) == 384 and all(

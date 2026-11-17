@@ -69,4 +69,4 @@ def test_current_contextual_fixture_captures_actual_source_and_complete_scalar_c
         assert prepared.model.operation(operation).capabilities.prepared_factory is not None
     assert prepared.model.operation(
         "retrieve.contextual_target_vector/declared"
-    ).capabilities.forms == ("scalar",)
+    ).capabilities.forms == ("batch",)
