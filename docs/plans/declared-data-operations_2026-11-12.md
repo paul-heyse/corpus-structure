@@ -275,7 +275,13 @@ model-derived temporary upload contract plus all stage/companion scratch shapes.
 exemption or persistent prototype was added. Actual PostgreSQL confirmed all seven new temporary
 contexts exist inside, and disappear after, the context. Checker/target20 **passed**,
 af94470512e44590aab35e81c4161b45; Pyreflyfb43c3f4e1644ef0aaad6b253b564a53 and
-Ruff1b85fdbe13004789b4dd25f2e07eb09c **passed**. Capture remains due; old native head/data are unchanged.
+Ruff1b85fdbe13004789b4dd25f2e07eb09c **passed**. Preview982bfb2ee48f421aa3fe02c0ec02d16a passed; candidate542cb6e7b3d5478191dc98c8d560dfc1
+passed full static checking/exact retirement validation, then rolled back at nullable staging:
+S36's required oracle reference carries a foreign key. The bounded staging helper now uses
+SQLAlchemy's independent column clone, preserves that foreign key, and defers only NOT NULL.
+The genuine Alembic SQL-rendering control verifies the reference survives and the original column
+is not reparented; closed DATA15 **passed**,d26f30a9a5d1459d9d42fc3fb73d8121. Fresh capture remains due;
+old native head/data are unchanged.
 Combined Pyrefly9a271db05654447c88cb7d0fb86daac4 and Ruffba8a32c84f8f461b84c55651501a34ef
 **passed**; shared upload-shape/omission and closed maintenance controls **passed5**,
 e752a326d56d4c7f83e5931202ece8d5. Independent static review found a stale generated typed part-table

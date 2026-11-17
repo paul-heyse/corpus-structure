@@ -278,19 +278,13 @@ def order_data_steps(
             relation = f"{operation.schema}.{operation.table_name}"
             source = operation.column
             if (relation, source.name) in deferred and not source.nullable:
-                if (
-                    source.primary_key
-                    or source.constraints
-                    or source.foreign_keys
-                    or source.identity
-                    or source.computed
-                ):
+                if source.primary_key or source.constraints or source.identity or source.computed:
                     raise NativeAuthoringError(
-                        "data-step nullable staging requires a plain added column"
+                        f"data-step nullable staging requires a plain added column: {relation}.{source.name}"
                     )
-                # A shallow copy changes only nullable and preserves all authored
-                # column facets without mutating the target metadata's column.
-                staged = copy(source)
+                # SQLAlchemy clones and rebinds foreign keys independently. A
+                # shallow copy would share their parent with the target column.
+                staged = source._copy()
                 staged.nullable = True
                 operation = copy(operation)
                 operation.column = staged

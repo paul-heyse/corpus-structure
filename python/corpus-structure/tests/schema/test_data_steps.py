@@ -1,12 +1,14 @@
 """Closed DATA authoring and its frozen upgrade boundary."""
 
 from contextlib import nullcontext
+from io import StringIO
 
 import pytest
-from alembic.operations import ops
+from alembic.operations import Operations, ops
+from alembic.runtime.migration import MigrationContext
 from model_change_support import model_checkout as model_checkout
 from pydantic import ValidationError
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, ForeignKey, Text
 
 from corpus_structure.schema import data_steps, model
 from corpus_structure.schema.model_change import ChangeRequest, check_preview, prepare_preview
@@ -130,6 +132,56 @@ def test_nullable_ddl_precedes_native_data_and_final_guards():
         assert item.before is None
         restored.add(item.after)
     assert restored == set(authoring.desired)
+
+
+def test_receipt_oracle_foreign_key_survives_nullable_staging_without_reparenting():
+    (step,) = data_steps.prepare_data_steps(
+        (data_steps.DataStepRequest(name="pdf_s36_retire_validation"),)
+    )
+    source = Column(
+        "oracle_receipt_id",
+        Text,
+        ForeignKey("ops.pdf_roundtrip_oracle.oracle_receipt_id"),
+        nullable=False,
+    )
+    original_key = next(iter(source.foreign_keys))
+    upgrade = ops.UpgradeOps(
+        [
+            OwnedOperationsOp(
+                "corpus_sem_publisher",
+                [ops.AddColumnOp("pdf_build_validation", source, schema="ops")],
+            )
+        ]
+    )
+    data_steps.order_data_steps(upgrade, (step,), guarded_authoring(step))
+    first = upgrade.ops[0]
+    assert isinstance(first, OwnedOperationsOp)
+    staged = first.ops[0]
+    assert isinstance(staged, ops.AddColumnOp)
+    assert source.nullable is False and staged.column.nullable is True
+    assert next(iter(staged.column.foreign_keys)) is not original_key
+    output = StringIO()
+    context = MigrationContext.configure(
+        dialect_name="postgresql", opts={"as_sql": True, "output_buffer": output}
+    )
+    Operations(context).invoke(staged)
+    ddl = output.getvalue()
+    assert (
+        "FOREIGN KEY(oracle_receipt_id) REFERENCES ops.pdf_roundtrip_oracle (oracle_receipt_id)"
+        in ddl
+    )
+    assert "NOT NULL" not in ddl
+    assert original_key.parent is source and source.table is None
+    assert any(
+        isinstance(operation, OwnedOperationsOp)
+        and any(
+            isinstance(child, ops.AlterColumnOp)
+            and child.column_name == "oracle_receipt_id"
+            and child.modify_nullable is False
+            for child in operation.ops
+        )
+        for operation in upgrade.ops
+    )
 
 
 def test_only_not_null_is_deferred_when_a_column_also_changes_type():
