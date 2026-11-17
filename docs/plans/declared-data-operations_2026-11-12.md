@@ -276,6 +276,9 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-17 | Current retained consumers choose a PDF discovery operation absent from their declared primary model; retained-view discovery lacks a named set for cross-demand acquisition. | **Implemented**, `3a7cda88b`: retained discovery declares `selected-source-views`; consumers freeze actual qualified member pins and choose the retained producer. Fresh capture remains separate. Pure14 passed `92d9c64e077b4d8aaadf1b598ae9a587`; actual provider/native retries remain open. No recapture or unpinned project-wide import substitutes for retained custody. |
 | DDO-SI-18 | The actual literal-provider fixture omits the imported canonical helper from its acquired source collection. | **Implemented**, `64973fc93`: capture the actual helper module bytes explicitly, preserving the prepared callable source guard. Current pure recipe3 passed below; actual provider retry remains open. |
 | DDO-SI-19 | A captured source-address operation's bare primitive aliases collide with composite domain kind aliases. | **Implemented**, `e859b748e`: name authoritative `primitive:integer`/`primitive:string` in the declaration, preserving the original typed callable and compiler equality check. Counterfailure `b217da205a06480181e369e9359e4d66`; actual composite/isolated recipe3 passed `8c657a449e3649fca136c60a012b930e`. |
+| DDO-SI-20 | PDF domain JSON projections are passed through strict Python validation, which rejects their nested JSON arrays against the compiled tuple types. | **Implemented**, `542b53744`: use the existing strict JSON boundary and exact numeric `json_bytes` codec at the three projection ingresses. Physical receipt models and native source/body/purpose guards are unchanged; no native SQL successor is needed for this executor-only correction. Worker pure module10 passed `24dbf502bef1448580bb65e3d32c1933`; final-source controls and actual native retry are separately accounted below. Fresh PDF application capture remains required. |
+| DDO-SI-21 | The deliberately2MiB diagnostic fixture specifies a private budget for initial reading but omits it at publication's second support acquisition. | **Implemented fixture repair**, `a2e770d3b`: thread existing page/max-byte options through `publish_readings`; only this fixture requests1row/16MiB. Default100rows/8MiB, full raw diagnostic equality, public64KiB bounds and refusal expectations remain unchanged. Syntax and exact-node collection1 passed `7d32aee3b59845bb81fad803fdecb542`; functional execution **not_run** after the repair. |
+
 
 
 
@@ -310,6 +313,38 @@ Source typing/lint passed `657583a4ddb243c69e2d3cb2372fef9b` /
 `1735ae3bba4c4ec4a8b55aabbabb3cd5`. All worker edits are merged; managed results were
 inode-preserving transferred/root-held, and fully merged worktrees removed. No native/public/provider
 retry or development adoption is established by registration. Actual qualification remains the next boundary.
+
+**Current-turn closeout · 2026-11-16.** The operator requested conclusion of active work,
+integration/worktree removal, clean Pyrefly/Ruff and documentation before ending the turn.
+Root stopped the remaining native qualification queue with a normal verified-owner SIGINT;
+held `4fa983beb9f54a29aa98b1062ce61549` is **interrupted**,10selected/3passed/2failed/
+1incomplete/4not_run at frozen `dbd40b84f`. Both record-publication controls and selected-source
+context/offline preparation passed their observed phases. PDF JSON projection and the second private
+support budget failed, exposing SI20/21 above. Grade/fit is incomplete; event, both artifact variants
+and claim-source are not_run. Reporting is incomplete due interruption, so these observed passes do
+not establish final native qualification. Managed custody settled; authenticated supervisor/private
+bootstrap/pytest groups drained, private PostgreSQL/temp files removed, no test GPU process left.
+
+Both final repair branches are merged; originals were inode-preserving transferred/root-held and
+all worktrees removed. Whole-source `ci check --only types` **passed**
+`cd3d780207e3436e90dca197d5c44e6b` with zero diagnostics; Ruff **passed**
+`b033ab2dc6c94a1a833a069e5625bbcf`. Final-source PDF projection controls **passed4**,
+`1d71749fda9549478a2689f382015670`. Documentation publication **passed**,1300 canonical
+pages/zero link errors, held `7ebf322d4a654b439169bfbec9ab4a50`.
+The earlier worker module10 pass retains its exact source bounds: a typing-only test refinement
+occurred during launch, so the final-source control supplies that subsequent verification boundary.
+No native/provider retry, development adoption or whole-book campaign was started for closeout.
+Remaining acceptance stays in the same plan; this is not DDO completion or a new authorization gate.
+
+Current-source application preparation preview `5b57cafeece84e8a93976146459d09d1`, apply
+`d671274531c042a3884b0d82892ca1f9` and candidate `b5af2903d9a74f399a97ef82d7dfe5a6`
+passed at `dbd40b84f`, release `release:63bff7df8e83c0ca069de26df7bf514855baf1a01bc589f328d4e0ef2df58dd3`
+/runtime `runtime:2027f36eb40fde65e7bacf0abda6088271ea4fb60ab98e6dcb3f80321d5dee22`.
+The subsequent PDF executor repair supersedes this capture before persistent admission/deployment;
+no activation or development effect occurred. Next execution must reacquire current application
+inputs, retry affected native/provider scope serially, then complete recovery/fencing/adoption,
+retained whole-book interruption/resume and the final DDO-12 union.
+
 
 
 
@@ -1250,7 +1285,7 @@ coherent integrated native source; prior previews establish only their recorded 
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
 | DDO-09 | Source currentness/impact and graph foundations implemented within bounded receipts | I03 deliberate fate partition; I05 full rich cut/policy/standing/contracts and reuse consumers; copied-task/twin/stale-cut retirement; CA-11/12 Python repairs have scoped controls; actual native journeys remain. |
 | DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection within focused receipts | I06 literals/typed artifact reader/variant association; rich named-query/reference/grading callers; target model difference distinct from source drift/currentness; old reader retirement; CA-12 selected graph pin repair has scoped controls; native continuation remains to qualify. |
-| DDO-11 | Current root and eight exact successors through stable_read_renewal registered and installed on owned stage; persistent development remains located_v2, no adoption | I09 selected current-root route; classify useful import/regeneration, verify recovery, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
+| DDO-11 | Current root and eleven exact successors through rich_refusals registered and installed on owned stage; persistent development remains located_v2, no adoption | I09 selected current-root route; classify useful import/regeneration, verify recovery, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
 First settle decision records and shared I01/I03 contracts; operation classification and shared-port
@@ -2398,9 +2433,9 @@ in main; named dependent receipts are held. Complete series qualification remain
 The [PostgreSQL amendment](#postgresql-domain-alignment-amendment--accepted-2026-11-14)
 adds open scoped extensions to these packages; earlier foundation completion is not completion of
 those extensions. Read its readiness/question table alongside this queue before resuming. The
-operator's implementation/test stop remains in force.
+current-turn closeout ends new campaigns after repair integration and diagnostics; the latest consumer findings above own the next executable work.
 
-DDO-00 is **complete at its scoped preparation boundary**; DDO-01/02 retain their dated foundation receipts; current checked-subject identity completion is open under CA-10. DDO-03/04 CA-08/09 repairs and immediate SQLA/Alembic alignment are **implemented; scoped Tested, 2026-11-14**. Explicit discovery input association under ADR-0104 is implemented and scoped native Tested across DDO-03/04/05. DDO-05 retains the delivered resolver and consumes the repaired native premises; actual selected-view child-binding integration now passes. The current finding account above owns disposition; the foundation receipt retains source/context-qualified evidence. DDO-06–12 remain **open**. The previous DDO-06–08 increment ended at the operator's closeout boundary; its full/provider qualification stays cancelled. The authorized focused foundation checks are concluded; complete final-head/family/provider qualification remains with DDO-12.
+DDO-00 is **complete at its scoped preparation boundary**. DDO-01–11 retain the source and bounded evidence recorded in the current package table and consumer findings; no scoped foundation pass or accepted decision establishes enclosing completion. The operator authorized all remaining DDO scope on2026-11-16 and subsequently requested this turn's closeout. Earlier dated campaign cancellations retain their original bounds rather than cancelling the later accepted scope. Current native/public/provider retries, recovery and development adoption remain open; DDO-12 owns final-source qualification. Resume from the current consumer findings, not superseded v10 or legacy installation instructions.
 
 The [current package table](#current-state-and-execution-order) owns readiness; companion contracts supply technical detail.
 

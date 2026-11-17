@@ -595,3 +595,30 @@ and runtime `runtime:e22cc8bea886b3406a3645d54b5930231cb54c6be295618a702ae09a228
 separate `ci db check` and `ci release check` passed at that source/native basis, with no activation.
 That retained capture is inert against the new kernel and is not current application qualification.
 A fresh current application acquisition remains required before execution/adoption.
+
+
+## Current-turn closeout · 2026-11-16
+
+The operator requested conclusion and cleanup. Held native cohort
+`4fa983beb9f54a29aa98b1062ce61549` was normally interrupted on frozen `dbd40b84f`:
+10selected,3observed passes,2failures,1incomplete,4not_run. Native head
+`cs_sem_head_f283f2c8bfd024ec`, key
+`f283f2c8bfd024ec48e54e832bdd526d63eb34f96c2a98068920dc27062f4a8c`, was observed;
+reporting is incomplete, so this is not complete native qualification. Custody settled and exact
+owned process groups drained; private PostgreSQL54099/system7708954116596206366 exited,
+temporary files were removed, and no test GPU process remains. The coordinator SI20/21 owns
+both discovered failures and their merged source/fixture repairs. Native retries remain not_run.
+All worker receipts were transferred by rename, root-held, and worktrees removed.
+
+Application-only preview/apply/candidate `5b57cafeece84e8a93976146459d09d1` /
+`d671274531c042a3884b0d82892ca1f9` / `b5af2903d9a74f399a97ef82d7dfe5a6` passed at that
+frozen source. Release `release:63bff7df8e83c0ca069de26df7bf514855baf1a01bc589f328d4e0ef2df58dd3`
+and runtime `runtime:2027f36eb40fde65e7bacf0abda6088271ea4fb60ab98e6dcb3f80321d5dee22`
+are prepared, not persistently admitted or deployed. The subsequent executor repair supersedes
+this capture; reacquire the current PDF application before execution/adoption. No development
+rename/reset/import/activation occurred.
+
+Read-only readiness checks: `uv pip check --python services/nemotron-parse/.venv/bin/python`
+passed203 installed distributions. The existing controlled launcher's `verify_export` read225 files
+and matched the declared model/tokenizer SHA256 pins. These checks start no server and establish
+no provider execution or model-quality result; controlled startup re-verifies the export before use.
