@@ -94,6 +94,7 @@ def scoring_recipe(directory):
 def test_native_whole_block_questions_keep_exact_custody_and_missing_populations(
     current_pdf_source_factory,
     tmp_path,
+    monkeypatch,
 ):
     with current_pdf_source_factory((("text", TEXT, TEXT, None),)) as source:
         kernel = admit_current_target(
@@ -234,7 +235,19 @@ def test_native_whole_block_questions_keep_exact_custody_and_missing_populations
                     basis="the exact same independently selected original block",
                 ),
             )
+            from corpus_structure.semantic import sentence_products
+
+            validations = []
+            original_validate = sentence_products.validate_source_annotations
+
+            def count_validation(*args, **kwargs):
+                validations.append(1)
+                return original_validate(*args, **kwargs)
+
+            monkeypatch.setattr(sentence_products, "validate_source_annotations", count_validation)
             report = cast(dict[str, Any], evaluate_selected_references(connection, comparison))
+            assert validations == [1]
+
             cases = {case["case_id"]: case["native"] for case in report["cases"]}
             assert cases["tokens"]["scores"]["token_f"] == 1.0
             assert cases["tokens"]["coverage"]["reference"]["eligible"] == 3
