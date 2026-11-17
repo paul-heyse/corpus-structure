@@ -1536,6 +1536,33 @@ def test_managed_pytest_forwarding_rejects_policy_overrides(args: list[str]) -> 
         validate_pytest_args(args)
 
 
+@pytest.mark.parametrize("limit", [["--maxfail=1"], ["--maxfail", "1"], ["--maxfail=0"]])
+def test_managed_fail_fast_preserves_the_required_selection(tmp_path: Path, limit) -> None:
+    from test_receipts import _managed_pytest_args, validate_pytest_args
+
+    nodes = [
+        "tests/scripts/test_example.py::test_first",
+        "tests/scripts/test_example.py::test_second",
+    ]
+    args, _ = _managed_pytest_args(
+        [*limit, *nodes], lane="ordinary", directory=tmp_path, selection_file=None, workers=1
+    )
+    assert args[-len(nodes) :] == nodes
+    assert all(value in args for value in limit)
+    assert not validate_pytest_args(limit)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [["--maxfail"], ["--maxfail="], ["--maxfail=-1"], ["--maxfail", "-p"], ["--maxfail=1.5"]],
+)
+def test_managed_fail_fast_rejects_invalid_limits(args) -> None:
+    from test_receipts import validate_pytest_args
+
+    with pytest.raises(ValueError, match="nonnegative integer"):
+        validate_pytest_args(args)
+
+
 def test_managed_fault_retry_keeps_only_owned_selection(tmp_path: Path) -> None:
     from test_receipts import _managed_pytest_args
 

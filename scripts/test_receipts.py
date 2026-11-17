@@ -2134,6 +2134,14 @@ def validate_pytest_args(args: list[str]) -> bool:
             if index == len(args) or not args[index].strip() or args[index].startswith(("-", "@")):
                 raise ValueError("-k requires a keyword expression")
             has_selector = True
+        elif arg == "--maxfail" or arg.startswith("--maxfail="):
+            if arg == "--maxfail":
+                index += 1
+                value = args[index] if index < len(args) else ""
+            else:
+                value = arg.split("=", 1)[1]
+            if not re.fullmatch(r"[0-9]+", value):
+                raise ValueError("--maxfail requires a nonnegative integer")
         elif arg not in {"-q", "-qq", "-v", "-vv", "--quiet", "--verbose"}:
             if not _forwardable_selector(arg):
                 raise ValueError(f"unsupported managed pytest argument: {arg!r}")
