@@ -49,11 +49,14 @@ class AssertionDecoder(ControlledDecoder):
         self.groups = groups
 
     def extract(self, pack, inputs, *, threshold, check_active):
-        (report,) = super().extract(pack, inputs, threshold=threshold, check_active=check_active)
-        (item,) = inputs
-        if "assertion" in report.raw and item.text == self.text:
-            report = replace(report, raw_json=json.dumps({"assertion": self.groups}))
-        return (report,)
+        reports = super().extract(pack, inputs, threshold=threshold, check_active=check_active)
+        assert isinstance(reports, tuple)
+        return tuple(
+            replace(report, raw_json=json.dumps({"assertion": self.groups}))
+            if "assertion" in report.raw and item.text == self.text
+            else report
+            for report, item in zip(reports, inputs, strict=True)
+        )
 
 
 def produce(monkeypatch, text, groups, *, heading=None):

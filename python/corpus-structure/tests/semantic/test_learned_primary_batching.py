@@ -176,7 +176,9 @@ def test_gliner_multi_input_refusal_preserves_admitted_blocks_and_original_membe
         lambda prepared: model_observation.installed_policy()[0],
     )
     plan = profile.run(source, binding=binding, execution_owner=owner, check_active=lambda: None)
-    (request,) = next(plan)
+    first = next(plan)
+    assert isinstance(first, tuple)
+    (request,) = first
     assert len(questions) == 1 and len(request.inputs) == 3
     assert [member.member for member in request.logical_members] == [
         block.block_id for block in blocks
@@ -306,7 +308,7 @@ def test_d1_children_keep_stage_priors_local_when_blocks_advance_out_of_order(
         members = [model_observation.pm2_member_digest(payload) for payload in payloads]
         native = []
         for index, payload in enumerate(payloads):
-            value = d1_reply(SimpleNamespace(payload=payload), {})
+            value: dict[str, object] = dict(d1_reply(SimpleNamespace(payload=payload), {}))
             value["batch_receipt"] = dict(
                 version=2,
                 header=header,

@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import replace
+from hashlib import sha256
 from pathlib import Path
 
 from corpus_structure.ingest.sentences import SentenceConfig
@@ -29,7 +30,7 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
             NativeProfile(
                 "spacy",
                 {"controlled": "runtime"},
-                {},
+                {"files": {}},
                 config.model_dump(mode="json"),
                 "float32",
                 "cupy",
@@ -42,6 +43,15 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
     from corpus_structure.methods.gliner import CUDA_WHITESPACE_PROFILE
 
     gliner = replace(gliner_profile().profile, snapshot=tmp_path, version=CUDA_WHITESPACE_PROFILE)
+    artifacts = []
+    for name, _ in gliner.artifact_hashes:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        content = ("controlled profile custody: " + name).encode()
+        path.write_bytes(content)
+        artifacts.append((name, sha256(content).hexdigest()))
+    gliner = replace(gliner, artifact_hashes=tuple(artifacts))
+
     selected = {
         provider: pm2_selection(provider, tmp_path, {"controlled": "runtime"}, {})
         for provider in ("maverick", "dipo", "d1")
