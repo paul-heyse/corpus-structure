@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager, nullcontext
+from functools import cached_property
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -82,9 +83,17 @@ class CutSelection:
         ):
             raise ValueError("cut selection requires every explicit native interpretation pin")
 
+    @cached_property
+    def _record(self):
+        from .native_source_view import freeze_native
+
+        return freeze_native(wire_json_loads(self.content))
+
     @property
     def record(self) -> dict[str, Any]:
-        return wire_json_loads(self.content)
+        from .native_source_view import thaw_native
+
+        return thaw_native(self._record)
 
     @property
     def identity(self) -> str:
@@ -102,11 +111,19 @@ class DemandResult:
     content: bytes
     request: bytes = b"{}"
 
-    @property
-    def record(self) -> dict[str, Any]:
-        return wire_json_loads(self.content)
+    @cached_property
+    def _record(self):
+        from .native_source_view import freeze_native
+
+        return freeze_native(wire_json_loads(self.content))
 
     @property
+    def record(self) -> dict[str, Any]:
+        from .native_source_view import thaw_native
+
+        return thaw_native(self._record)
+
+    @cached_property
     def cut(self) -> CutSelection:
         return CutSelection.from_native(self.record)
 

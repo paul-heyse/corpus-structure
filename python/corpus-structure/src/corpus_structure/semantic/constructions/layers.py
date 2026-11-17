@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any
 
 from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.identity import canonical_bytes
 
 from ..data_product_reference import member_reference
+from ..native_source_view import NativeSourceView, thaw_native
 from .declarations import DECLARATIONS, FAMILIES, GRAMMAR_FAMILIES, MODAL_FORCES, REVISION
 from .forest import ProtectedAtom, identity, recognize
 from .lexical import PositionedTerminal
@@ -26,29 +28,33 @@ class ConstructionSource:
     def from_native(cls, source):
         return cls(canonical_bytes(source.value))
 
+    @cached_property
+    def view(self):
+        return NativeSourceView(json.loads(self.content))
+
     @property
     def value(self):
-        return json.loads(self.content)
+        return thaw_native(self.view.value)
 
     @property
     def text(self):
-        return self.value["text"]
+        return self.view.text
 
     @property
     def pieces(self):
-        return tuple(self.value["pieces"])
+        return self.view.pieces
 
     @property
     def items(self):
-        return tuple(self.value["items"])
+        return self.view.items
 
     @property
     def ancestors(self):
-        return tuple(self.value.get("ancestors", ()))
+        return self.view.ancestors
 
     @property
     def projection(self):
-        return self.value["source"]["projection"]
+        return self.view.projection
 
     @property
     def key(self):
@@ -84,7 +90,7 @@ class ConstructionLayer:
         if not 0 <= start <= end <= len(view.text):
             raise ValueError("construction extent lies outside its source projection")
         extents: list[dict[str, Any]] = []
-        for piece in view.pieces:
+        for piece in view.view.selected_pieces(start, end):
             a, b = max(start, piece["start"]), min(end, piece["end"])
             if a < b or (start == end and piece["start"] <= start <= piece["end"]):
                 pointer = piece.get("item_ref")

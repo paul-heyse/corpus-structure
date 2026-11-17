@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from functools import cached_property
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -423,6 +424,14 @@ class FrozenNativeSource:
             rows.append(restored)
         return tuple(rows)
 
+    @cached_property
+    def _value(self):
+        from .native_source_view import freeze_native
+
+        return freeze_native(json.loads(self.content))
+
     @property
     def value(self) -> dict[str, Any]:
-        return json.loads(self.content)
+        from .native_source_view import thaw_native
+
+        return thaw_native(self._value)

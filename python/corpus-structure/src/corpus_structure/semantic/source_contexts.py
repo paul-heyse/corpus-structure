@@ -239,13 +239,21 @@ class PreparedNativeSource:
     _items: Mapping[str, Mapping[str, Any]] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
-        context = _source_context(self.source)
+        from .declared_proposal_frames import DeclaredProposalFrame
+
+        if not isinstance(self.source, DeclaredNativeFrameSource):
+            raise ContextRefused("source context requires a current original-relative frame")
+        if isinstance(self.source, DeclaredProposalFrame) and self.source.context_sources:
+            raise ContextRefused("context sources must be supplied explicitly as related sources")
+        try:
+            view = self.source.view
+        except ValueError as exc:
+            raise ContextRefused(str(exc)) from exc
+        context = view.columns
         object.__setattr__(
             self,
             "_items",
-            MappingProxyType(
-                {item.get("self_ref", item.get("pointer")): item for item in context["items"]}
-            ),
+            view.items_by_ref,
         )
         object.__setattr__(self, "pin", self.source.pin)
         object.__setattr__(
@@ -256,9 +264,9 @@ class PreparedNativeSource:
                 for item in (*context["items"], *context["ancestors"])
             ),
         )
-        pieces = tuple(MappingProxyType(dict(piece)) for piece in context["pieces"])
+        pieces = view.pieces
         object.__setattr__(self, "pieces", pieces)
-        object.__setattr__(self, "ends", tuple(piece["end"] for piece in pieces))
+        object.__setattr__(self, "ends", view.ends)
         object.__setattr__(
             self,
             "item_locators",
@@ -605,52 +613,6 @@ def _require_digest(value: str) -> None:
     if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
         raise ContextRefused("context dependency requires a SHA-256 digest")
 
-
-def _source_context(source: DeclaredNativeFrameSource) -> dict:
-    from .declared_proposal_frames import DeclaredProposalFrame
-
-    if not isinstance(source, DeclaredNativeFrameSource):
-        raise ContextRefused("source context requires a current original-relative frame")
-    if isinstance(source, DeclaredProposalFrame) and source.context_sources:
-        raise ContextRefused("context sources must be supplied explicitly as related sources")
-    context = json.loads(source.native_context)
-    items = [item.get("self_ref", item.get("pointer")) for item in context["items"]]
-    ancestors = [item.get("self_ref", item.get("pointer")) for item in context["ancestors"]]
-    if any(
-        not isinstance(pointer, str) or not pointer.startswith("#/")
-        for pointer in (*items, *ancestors)
-    ):
-        raise ContextRefused("source context has unsupported native pointers")
-    from .source_products import native_projection_identity
-
-    value = source.value
-    projection = native_projection_identity(
-        source.text,
-        value["pieces"],
-        value["items"],
-        value.get("recognition", ()),
-        value.get("ancestors", ()),
-    )
-    if projection != source.projection_digest:
-        raise ContextRefused("declared native projection differs from its selected source")
-    position = 0
-    for piece in context["pieces"]:
-        if (
-            type(piece.get("start")) is not int
-            or type(piece.get("end")) is not int
-            or piece["start"] != position
-            or not position < piece["end"] <= len(source.text)
-        ):
-            raise ContextRefused("source pieces must partition the pinned projection")
-        if piece.get("kind") == "native_text":
-            if piece.get("item_ref") not in items:
-                raise ContextRefused("source piece has no retained native item")
-        elif piece.get("kind") != "synthetic_separator":
-            raise ContextRefused("unsupported or lossy native projection piece")
-        position = piece["end"]
-    if position != len(source.text):
-        raise ContextRefused("source pieces do not cover the pinned projection")
-    return context
 
 
 def record_source_pin(source: DeclaredNativeFrameSource) -> dict[str, Any]:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
@@ -160,7 +159,7 @@ class DeclaredNativeFrameSource:
     _coordinate: tuple[str, str, str] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
-        value = self.value
+        value = self._source_value
         coordinate = value["source"]
         pin = self.pin.values()
         if (
@@ -212,11 +211,17 @@ class DeclaredNativeFrameSource:
         address = DeclaredRecordSource.from_bound(source, member, project=project)
         return cls(source.content.decode(), canonical_bytes(address.pin()).decode())
 
-    @property
-    def value(self):
+    @cached_property
+    def _source_value(self):
         import json
 
         return json.loads(self.source_content)
+
+    @property
+    def value(self):
+        from .native_source_view import thaw_native
+
+        return thaw_native(self.view.value)
 
     @property
     def pin(self):
@@ -259,23 +264,25 @@ class DeclaredNativeFrameSource:
         return self._context
 
     @cached_property
-    def _native_columns(self):
+    def view(self):
         import json
 
-        return json.loads(self._context)
+        from .native_source_view import NativeSourceView
+
+        return NativeSourceView(self._source_value, json.loads(self._context))
 
     @property
     def pieces(self):
         """Owned native column tuples; caller edits cannot change source custody."""
-        return tuple(deepcopy(self._native_columns["pieces"]))
+        return self.view.pieces
 
     @property
     def items(self):
-        return tuple(deepcopy(self._native_columns["items"]))
+        return self.view.items
 
     @property
     def ancestors(self):
-        return tuple(deepcopy(self._native_columns["ancestors"]))
+        return self.view.ancestors
 
     @cached_property
     def selected_ranges(self):

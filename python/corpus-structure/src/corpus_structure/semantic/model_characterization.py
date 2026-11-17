@@ -105,10 +105,10 @@ def prepare_model_scope(
         version=2,
         preparation=preparation,
     )
-    formulas = {item["self_ref"] for item in view.value["items"] if item.get("label") == "formula"}
+    formulas = {item["self_ref"] for item in view.view.items if item.get("label") == "formula"}
     atoms = tuple(
         (piece["start"] - a, piece["end"] - a)
-        for piece in view.value["pieces"]
+        for piece in view.view.selected_pieces(a, b)
         if piece.get("item_ref") in formulas and piece["start"] < b and a < piece["end"]
     )
     if any(start < 0 or end > b - a for start, end in atoms):

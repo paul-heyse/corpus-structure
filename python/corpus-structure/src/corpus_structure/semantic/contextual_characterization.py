@@ -151,7 +151,6 @@ class ContextualLayer:
         self.covered: dict[str, list[tuple[dict[str, Any], str, str | None]]] = {
             family: [] for family in self.families
         }
-        self._source_maps: dict[Any, Any] = {}
         self.context = context
         self.terms: list[dict[str, Any]] = []
         self.choices: list[dict[str, Any]] = []
@@ -221,16 +220,9 @@ class ContextualLayer:
             raise ValueError("native extent is outside its source projection")
         extents = []
         position = start
-        if source_identity(view) not in self._source_maps:
-            real = [p for p in view.pieces if p["kind"] == "native_text"]
-            items = {node["self_ref"]: node for node in getattr(view, "items", ())}
-            self._source_maps[source_identity(view)] = (
-                [p["end"] for p in view.pieces],
-                real,
-                [p["end"] for p in real],
-                items,
-            )
-        piece_ends, real, real_ends, items = self._source_maps[source_identity(view)]
+        native = view.view
+        real, real_ends, items = native.native_pieces, native.native_ends, native.items_by_ref
+        piece_ends = native.ends
         first = bisect_right(piece_ends, start)
         for piece in view.pieces[first:]:
             if piece["start"] >= end:
@@ -597,7 +589,25 @@ class ContextualLayer:
                     protected.extend(
                         e for oid in annotation["occurrences"] for e in occurrences[oid]["extents"]
                     )
+        protected_by_projection = {}
+        for extent in protected:
+            if extent.get("start", 0) < extent.get("end", 0):
+                protected_by_projection.setdefault(extent["projection"], []).append(
+                    (extent.get("start", 0), extent.get("end", 0))
+                )
+        protected_intervals = {}
+        for projection, intervals in protected_by_projection.items():
+            merged = []
+            for start, end in sorted(intervals):
+                if merged and start <= merged[-1][1]:
+                    merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+                else:
+                    merged.append((start, end))
+            protected_intervals[projection] = (
+                tuple(start for start, _ in merged), tuple(end for _, end in merged)
+            )
         for part in self.context.parts:
+            starts, ends = protected_intervals.get(source_projection(part.view), ((), ()))
             stack = []
             for position in range(part.start, part.end):
                 character = part.view.text[position]
@@ -605,11 +615,8 @@ class ContextualLayer:
                     position > part.start and part.view.text[position - 1] == "\\"
                 ):
                     continue
-                if any(
-                    e["projection"] == source_projection(part.view)
-                    and e.get("start", 0) <= position < e.get("end", 0)
-                    for e in protected
-                ):
+                protected_index = bisect_right(starts, position) - 1
+                if protected_index >= 0 and position < ends[protected_index]:
                     continue
                 if (
                     character in {'"', "”"}
@@ -649,14 +656,14 @@ class ContextualLayer:
         selected = {}
         self.quotations()
         for part in self.context.parts:
-            by_pointer = {item["self_ref"]: item for item in getattr(part.view, "items", ())}
-            for pointer, item in by_pointer.items():
+            native = part.view.view
+            by_pointer = native.selected_items(part.start, part.end)
+            for pointer, item in by_pointer:
                 pieces = [
-                    p
-                    for p in part.view.pieces
-                    if p.get("item_ref") == pointer
-                    and p["start"] < part.end
-                    and part.start < p["end"]
+                    native.pieces[index]
+                    for index in native.piece_indices_by_item[pointer]
+                    if native.pieces[index]["start"] < part.end
+                    and part.start < native.pieces[index]["end"]
                 ]
                 if not pieces:
                     continue

@@ -539,3 +539,40 @@ def test_current_recognition_outcome_is_retained_in_the_source_projection_identi
         context(second, (DeclaredSourceSlice(A, 2, 3),)).dependency_digest
         != result.dependency_digest
     )
+
+
+def test_prepared_source_view_is_shared_recursively_immutable_and_ordered():
+    from corpus_structure.semantic.constructions.layers import ConstructionSource
+
+    primary = source(1, "abc def", pieces=[
+        dict(kind="native_text", item_ref="#/texts/1", start=0, end=3),
+        dict(kind="synthetic_separator", start=3, end=4),
+        dict(kind="native_text", item_ref="#/texts/2", start=4, end=7),
+    ])
+    assert primary.pieces is primary.pieces
+    assert primary.items is primary.items
+    assert primary.view.ends == (3, 4, 7)
+    assert [piece["start"] for piece in primary.view.selected_pieces(3, 5)] == [3, 4]
+    assert [pointer for pointer, _ in primary.view.selected_items(2, 5)] == [
+        "#/texts/1", "#/texts/2",
+    ]
+    with pytest.raises(TypeError):
+        primary.items[0]["label"] = "changed"
+    constructed = ConstructionSource.from_native(primary)
+    assert constructed.pieces is constructed.pieces
+    detached = constructed.value
+    detached["pieces"][0]["end"] = 100
+    assert constructed.pieces[0]["end"] == 3
+
+
+@pytest.mark.parametrize("pieces", [
+    [dict(kind="native_text", item_ref="#/texts/1", start=0, end=2),
+     dict(kind="native_text", item_ref="#/texts/1", start=1, end=3)],
+    [dict(kind="native_text", item_ref="#/texts/1", start=1, end=3)],
+])
+def test_prepared_view_refuses_nonpartitioned_source_pieces(pieces):
+    # The fixture independently authenticates these actual bytes, so this exercises
+    # ordering/partition admission rather than only a stale projection digest.
+    primary = source(1, "abc", pieces=pieces)
+    with pytest.raises(ValueError, match="partition"):
+        _ = primary.pieces
