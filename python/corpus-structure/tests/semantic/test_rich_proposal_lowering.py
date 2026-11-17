@@ -122,7 +122,7 @@ classes:
     raw["claims"][0].update(
         predicate="urn:source-rich-example:value", object={"kind": "number", "number": Decimal("1")}
     )
-    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:1"
+    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:2"
     raw["identity_exclusions"] = [
         dict(
             id="separate",

@@ -1,5 +1,6 @@
 """Rich declared extraction preserves native placement and independent authored semantics."""
 
+import json
 from copy import deepcopy
 from pathlib import Path
 
@@ -74,26 +75,31 @@ def rich_model(rich_bundle):
 def frame():
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
     from corpus_structure.semantic.original_documents import original_document_subject
+    from corpus_structure.semantic.source_products import native_projection_identity
 
     text = "Alice is here. Alice is here."
     value = {
         "source": {
             "document": "document:one",
             "document_subject": original_document_subject("document:one"),
-            "projection": "a" * 64,
+            "projection": "pending",
             "section_pointer": "#/groups/0",
             "membership": "descendants",
         },
         "text": text,
         "pieces": [
-            {"kind": "native_text", "item_ref": "#/texts/0", "start": 0, "end": 14},
-            {"kind": "native_text", "item_ref": "#/texts/1", "start": 15, "end": 29},
+            {"kind": "native_text", "item_ref": "#/texts/0", "source_field": "text", "start": 0, "end": 14},
+            {"kind": "synthetic_separator", "start": 14, "end": 15},
+            {"kind": "native_text", "item_ref": "#/texts/1", "source_field": "text", "start": 15, "end": 29},
         ],
         "items": [{"self_ref": "#/texts/0"}, {"self_ref": "#/texts/1"}],
         "ancestors": [],
         "recognition": [],
-        "selectors": [{"projection": "a" * 64}],
+        "selectors": [],
     }
+    projection = native_projection_identity(text, value["pieces"], value["items"], value["recognition"], value["ancestors"])
+    value["source"]["projection"] = projection
+    value["selectors"] = [{"projection": projection}]
     pin = {
         "format": "declared-native-source-v1",
         "source": '["product:source",null]',
@@ -107,7 +113,7 @@ def frame():
             semantic_value(dict(source=value["source"], selectors=value["selectors"]))
         ).decode(),
         "document": "document:one",
-        "projection_digest": "a" * 64,
+        "projection_digest": projection,
         "section_pointer": "#/groups/0",
         "membership": "descendants",
     }
@@ -116,7 +122,7 @@ def frame():
         ProposalSentence(
             "native_evidence:" + str(index), native_address(base, start=start, end=end), start, end
         )
-        for index, (start, end) in enumerate(((0, 14), (15, 29)))
+        for index, start, end in ((0, 0, 14), (2, 15, 29))
     )
     return DeclaredProposalFrame(base.source_content, base.pin_content, sentence_values=sentences)
 
@@ -172,7 +178,7 @@ def test_declared_rich_placement_picks_exact_repeated_native_piece_and_retains_f
     raw = batch()
     raw["unit_ref"] = actual.unit_ref
     raw["statements"][0]["anchor"] = actual.unit_ref
-    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:1"
+    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:2"
     raw["claims"].append({**deepcopy(raw["claims"][0]), "id": "c2"})
     raw["alternatives"] = [
         {
@@ -232,7 +238,7 @@ def test_declared_rich_prompt_uses_real_member_coordinates_and_refuses_wrong_uni
 ):
     presented = external_extraction_prompt(packet())
     assert presented["native_evidence"][1]["text"] == "Alice is here."
-    assert presented["native_evidence"][1]["handle"] == "native_evidence:1"
+    assert presented["native_evidence"][1]["handle"] == "native_evidence:2"
     assert presented["known_classes"] == {} and presented["known_reference_standing"] == "authored"
     assert presented["scope_standing"] == "explicitly-none"
     raw = batch()
@@ -255,7 +261,7 @@ def test_private_rich_member_collection_refuses_promoted_or_inconsistent_values(
     raw = batch()
     raw["unit_ref"] = actual.unit_ref
     raw["statements"][0]["anchor"] = actual.unit_ref
-    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:1"
+    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:2"
     result = locate_external_extraction(
         rich_prepared,
         packet(),
@@ -273,3 +279,19 @@ def test_private_rich_member_collection_refuses_promoted_or_inconsistent_values(
         changed["coverage"][0]["count"] += 1
     with pytest.raises(ValueError):
         read_rich_proposals(rich_prepared, changed)
+
+
+def test_declared_frame_refuses_counterfeit_projection_even_when_pin_agrees():
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+
+    actual = frame()
+    assert actual.view.projection == actual.projection_digest
+    value, pin = json.loads(actual.source_content), json.loads(actual.pin_content)
+    counterfeit = "f" * 64
+    value["source"]["projection"] = pin["projection_digest"] = counterfeit
+    value["selectors"] = [{"projection": counterfeit}]
+    pin["analyzed_scope_meaning"] = canonical_bytes(
+        semantic_value(dict(source=value["source"], selectors=value["selectors"]))
+    ).decode()
+    with pytest.raises(ValueError, match="declared native projection differs"):
+        DeclaredNativeFrameSource(canonical_bytes(value).decode(), canonical_bytes(pin).decode()).view
