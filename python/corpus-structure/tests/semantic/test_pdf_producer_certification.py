@@ -122,10 +122,30 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
                     for ordinal, body in payloads.db.execute("SELECT ordinal,body FROM part WHERE stream=? ORDER BY ordinal", (stream,)):
                         yield {"stream_id": stream, "ordinal": ordinal, "body": body}
         capture = tmp_path / "oracle.arrow"
-        write_pdf_oracle_capture(capture, context=trusted_pdf_context(), kind="native", rows=rows, check_active=lambda: None)
+        write_pdf_oracle_capture(capture, context=trusted_pdf_context(), kind="native", rows=rows, json_fields="text", check_active=lambda: None)
         with pytest.raises(ValueError, match="differs from the certified producer document"):
             verify_pdf_oracle_capture(capture, tmp_path / "oracle-access.jsonl", release_id="release",
                 lowering_identity=certification.lowering_identity, kind="native", logical_digest=certification.logical_digest,
                 native_document_digest=certification.native_document_digest, check_active=lambda: None)
     finally:
         payloads.close()
+
+
+@pytest.mark.parametrize("representation,value", [("decoded", "null"), ("text", '\"null\"')])
+def test_oracle_capture_preserves_json_looking_native_strings(tmp_path, representation, value):
+    import pyarrow as pa
+    from corpus_structure.semantic.pdf_publication import write_pdf_oracle_capture
+
+    def rows(family, filters):
+        if family == "membership":
+            yield {"value_kind": "scalar", "scalar_json": value}
+    path = tmp_path / "literal.arrow"
+    write_pdf_oracle_capture(path, context=trusted_pdf_context(), kind="native", rows=rows,
+        json_fields=representation, check_active=lambda: None)
+    with pa.memory_map(str(path), "r") as source:
+        reader = pa.ipc.open_file(source)
+        actual = [json.loads(body) for index in range(reader.num_record_batches)
+                  for family, body in zip(reader.get_batch(index).column("family").to_pylist(),
+                                          reader.get_batch(index).column("body").to_pylist(), strict=True)
+                  if family == "membership"]
+    assert actual == [{"value_kind": "scalar", "scalar_json": "null"}]

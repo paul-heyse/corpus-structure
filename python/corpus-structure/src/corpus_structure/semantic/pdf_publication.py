@@ -835,7 +835,7 @@ def validate_pdf_build(
                                 raise ValueError("frozen PDF oracle row must be an object")
                             after = value.pop("_cursor")
                             yield value
-                write_pdf_oracle_capture(capture, context=context, kind=frozen.kind, rows=rows, check_active=check_active)
+                write_pdf_oracle_capture(capture, context=context, kind=frozen.kind, rows=rows, json_fields="decoded", check_active=check_active)
                 outcome = verify_pdf_oracle_capture(capture, projection,
                     release_id=frozen.build.release_id, lowering_identity=requirement.lowering_identity,
                     kind=frozen.kind, logical_digest=requirement.logical_digest,
@@ -1027,7 +1027,7 @@ class PdfRoundtripVerification:
 
 
 def write_pdf_oracle_capture(destination: Path, *, context, kind: str, rows,
-                             check_active: Callable[[], None]) -> None:
+                             json_fields: Literal["text", "decoded"], check_active: Callable[[], None]) -> None:
     """Capture exact callback dependencies through one authenticated row owner."""
     from .pdf_contracts import integrated_metadata_policy
     from .pdf_payload_validation import metadata_classes
@@ -1042,7 +1042,7 @@ def write_pdf_oracle_capture(destination: Path, *, context, kind: str, rows,
             for value in values:
                 value = dict(value)
                 for name in ("scalars_json", "structure_json", "scalar_json"):
-                    if isinstance(value.get(name), str):
+                    if json_fields == "text" and isinstance(value.get(name), str):
                         value[name] = json.loads(value[name])
                 if family == "artifact_part" and isinstance(value["body"], bytes):
                     value["body"] = "\\x" + value["body"].hex()
@@ -1135,7 +1135,7 @@ def capture_published_pdf_oracle(reader: PublishedPdfReader, *, context: Prepare
         raise FileExistsError("PDF oracle capture requires its own new output files")
     def rows(family, filters):
         yield from reader.iter_rows(family, filters, batch_size=64 if family == "artifact_part" else 1000)
-    write_pdf_oracle_capture(capture, context=context, kind=reader.product_kind(), rows=rows, check_active=check_active)
+    write_pdf_oracle_capture(capture, context=context, kind=reader.product_kind(), rows=rows, json_fields="text", check_active=check_active)
     capture.chmod(0o400)
     return PdfPublishedOracleCapture(_ref(capture, "pdf_oracle_capture"), projection,
         context.release_id, identity, reader.product_kind(), reader.reference.content_digest,
