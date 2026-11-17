@@ -34,7 +34,7 @@ class ConstructionSource:
         return NativeSourceView(json.loads(self.content))
 
     @property
-    def value(self):
+    def value(self) -> dict[str, Any]:
         return thaw_native(self.view.value)
 
     @property

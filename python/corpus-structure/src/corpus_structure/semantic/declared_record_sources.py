@@ -218,7 +218,7 @@ class DeclaredNativeFrameSource:
         return json.loads(self.source_content)
 
     @property
-    def value(self):
+    def value(self) -> dict[str, Any]:
         from .native_source_view import thaw_native
 
         return thaw_native(self.view.value)

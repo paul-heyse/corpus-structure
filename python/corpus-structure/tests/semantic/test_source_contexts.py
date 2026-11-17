@@ -558,7 +558,7 @@ def test_prepared_source_view_is_shared_recursively_immutable_and_ordered():
         "#/texts/1", "#/texts/2",
     ]
     with pytest.raises(TypeError):
-        primary.items[0]["label"] = "changed"
+        cast(dict, primary.items[0])["label"] = "changed"
     constructed = ConstructionSource.from_native(primary)
     assert constructed.pieces is constructed.pieces
     detached = constructed.value

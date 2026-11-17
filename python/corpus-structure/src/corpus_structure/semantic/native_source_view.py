@@ -3,14 +3,26 @@
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from functools import cached_property
 from types import MappingProxyType
-from typing import Any
+from typing import Any, overload
 
 
-def freeze_native(value):
+@overload
+def freeze_native(value: Mapping[str, Any]) -> Mapping[str, Any]: ...
+
+
+@overload
+def freeze_native(value: list[Any] | tuple[Any, ...]) -> tuple[Any, ...]: ...
+
+
+@overload
+def freeze_native(value: Any) -> Any: ...
+
+
+def freeze_native(value: Any) -> Any:
     if isinstance(value, Mapping):
         return MappingProxyType({key: freeze_native(item) for key, item in value.items()})
     if isinstance(value, (list, tuple)):
@@ -18,7 +30,19 @@ def freeze_native(value):
     return value
 
 
-def thaw_native(value):
+@overload
+def thaw_native(value: Mapping[str, Any]) -> dict[str, Any]: ...
+
+
+@overload
+def thaw_native(value: tuple[Any, ...]) -> list[Any]: ...
+
+
+@overload
+def thaw_native(value: Any) -> Any: ...
+
+
+def thaw_native(value: Any) -> Any:
     """Explicit detached JSON representation for serializers and public mapping APIs."""
     if isinstance(value, Mapping):
         return {key: thaw_native(item) for key, item in value.items()}
@@ -55,8 +79,9 @@ class NativeSourceView:
             position = piece["end"]
         if position != len(value["text"]):
             raise ValueError("source pieces do not cover the pinned projection")
-        object.__setattr__(self, "value", freeze_native(value))
-        object.__setattr__(self, "columns", freeze_native(self.columns or value))
+        frozen = freeze_native(value)
+        object.__setattr__(self, "value", frozen)
+        object.__setattr__(self, "columns", freeze_native(self.columns) if self.columns else frozen)
         pointers = (*self.items_by_ref, *(
             item.get("self_ref", item.get("pointer")) for item in self.ancestors
         ))
@@ -70,54 +95,54 @@ class NativeSourceView:
                 raise ValueError("unsupported or lossy native projection piece")
 
     @property
-    def text(self):
+    def text(self) -> str:
         return self.value["text"]
 
     @property
-    def projection(self):
+    def projection(self) -> str:
         return self.value["source"]["projection"]
 
     @property
-    def pieces(self):
+    def pieces(self) -> tuple[Mapping[str, Any], ...]:
         return self.columns["pieces"]
 
     @property
-    def items(self):
+    def items(self) -> tuple[Mapping[str, Any], ...]:
         return self.columns["items"]
 
     @property
-    def ancestors(self):
+    def ancestors(self) -> tuple[Mapping[str, Any], ...]:
         return self.columns.get("ancestors", ())
 
     @cached_property
-    def starts(self):
+    def starts(self) -> tuple[int, ...]:
         return tuple(piece["start"] for piece in self.pieces)
 
     @cached_property
-    def ends(self):
+    def ends(self) -> tuple[int, ...]:
         return tuple(piece["end"] for piece in self.pieces)
 
     @cached_property
-    def native_pieces(self):
+    def native_pieces(self) -> tuple[Mapping[str, Any], ...]:
         return tuple(piece for piece in self.pieces if piece["kind"] == "native_text")
 
     @cached_property
-    def native_ends(self):
+    def native_ends(self) -> tuple[int, ...]:
         return tuple(piece["end"] for piece in self.native_pieces)
 
     @cached_property
-    def items_by_ref(self):
+    def items_by_ref(self) -> Mapping[str, Mapping[str, Any]]:
         return MappingProxyType({item.get("self_ref", item.get("pointer")): item for item in self.items})
 
     @cached_property
-    def piece_indices_by_item(self):
-        indices = {}
+    def piece_indices_by_item(self) -> Mapping[str, tuple[int, ...]]:
+        indices: dict[str, list[int]] = {}
         for index, piece in enumerate(self.pieces):
             if (pointer := piece.get("item_ref")) is not None:
                 indices.setdefault(pointer, []).append(index)
         return MappingProxyType({key: tuple(value) for key, value in indices.items()})
 
-    def selected_pieces(self, start, end):
+    def selected_pieces(self, start: int, end: int) -> Iterator[Mapping[str, Any]]:
         # Zero-width construction anchors choose the left piece at a shared boundary.
         index = bisect_left(self.ends, start) if start == end else bisect_right(self.ends, start)
         while index < len(self.pieces):
@@ -128,10 +153,10 @@ class NativeSourceView:
             index += 1
 
     @cached_property
-    def item_ordinals(self):
+    def item_ordinals(self) -> Mapping[str, int]:
         return MappingProxyType({pointer: index for index, pointer in enumerate(self.items_by_ref)})
 
-    def selected_items(self, start, end):
+    def selected_items(self, start: int, end: int) -> tuple[tuple[str, Mapping[str, Any]], ...]:
         selected = {
             piece["item_ref"] for piece in self.selected_pieces(start, end)
             if piece.get("item_ref") in self.items_by_ref
