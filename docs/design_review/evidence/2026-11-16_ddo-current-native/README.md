@@ -11,7 +11,7 @@ application/provider qualification by preparing or installing infrastructure.
 The existing `corpus_structure_dev` remains PostgreSQL18.7 on dedicated5434, database OID25921445,
 system7701811359771751232, installed `semantic_bep_located_v2`; maintenance status reacquired this
 identity on2026-11-16. That development database has had no reset, rename, native deployment,
-activation or data conversion. The current root and nine successors are registered and installed on the owned stage. An application release/runtime is admitted there at source40b104a88; no activation occurred. The subsequent PDF executor repair requires new application capture for current execution. Historical frozen files remain
+activation or data conversion. The current root and ten successors are registered and installed on the owned stage. An application release/runtime is admitted there at source40b104a88; no activation occurred. The subsequent PDF executor repair requires new application capture for current execution. Historical frozen files remain
 unchanged and are not a selectable current install route. The unregistered
 [v10 preparation](../2026-11-15_ddo-v10-native/README.md) is superseded.
 
@@ -469,15 +469,31 @@ are archived/admitted/verified on the stage. Separate `ci db check --release …
 repaired PDF producer is not qualified by that older application capture. Development remains
 unchanged; current application acquisition at adoption remains required.
 
-## Consumer repair packet awaiting native capture · 2026-11-16
+## Registered selected-source and refusal successor · 2026-11-16
 
-The [selected-source/refusal request](selected-source-refusals-successor.yaml) is prepared for the
-normal successor of `semantic_ddo_support_reference`; it has not been previewed, registered or
-deployed yet. Selected-source composition now supplies its acquired physical product key to the
+The [selected-source/refusal request](selected-source-refusals-successor.yaml) completed normal
+preview `abf2b28ce7ce4f569010b8a2550348b1`, exact apply `0493b2d042bd4df9958ed53df7656921`,
+rollback-only candidate `5d16f6dcc88744eba882fa7475311a95`, registration
+`2dafc7d1d7b34fe582f7ad88799fd9b5` and deployment `b740ed77e76d44f5b91701694cb0d184`:
+all **passed**. Four exact frozen files are registered `99d860722` over source packet `b137b516f`.
+Separate maintenance status reacquired the same stage OID130661481/system7701811359771751232 at
+revision=head `semantic_ddo_selected_source`. Development status independently remains unchanged
+OID25921445/revision `semantic_bep_located_v2`; no adoption/activation occurred.
+
+Hash-verified full candidate review and managed operations/ordinary views show11body-only native
+transitions: the two intended PDF operations, seven guards changing only the native digest and two
+descriptor refreshes. All509desired identities/nonfunction entries and101privileges are unchanged;
+ordinary operations0. Owners, ACLs, configured search paths and security/volatility flags are
+unchanged. Candidate hashes are `5707e2824390cf1d3068b25e5bea1380a2dedd6c37cf8a9ea0d7bf1dae122dbb`
+(Python), `f6efa8887b506d64884b7a20fa0c8c8e5b36523d8c819ace3d18e40fcc787986` (operations),
+`dfd1d3e469bf0d0f9621fa57ccdf463bb27c9c6077033a4dec849a49c5230310` (admission).
+Current native digest is `d81e351c100e5a8417fa7b7dd7d7712a584e95faff6a8ca9cba6a1d5e1d1121b`;
+physical identity remains `physical:712bb15e4d66153ca86e006bfa383aa8233d34b02f81162b755912293cc4a2e2`.
+The prior computed-column warning analysis remains applicable: no column operation was emitted. Selected-source composition now supplies its acquired physical product key to the
 shared native event CTE instead of reusing the semantic product argument. The ordinary complete
 export constructor remains unchanged. Missing user input pins explicitly raise23514; uniqueness
 preserves at-most-one selection and trusted STRICT/attempt/holder checks remain unchanged.
-These native changes require capture; no frozen bytes were edited.
+These native changes are captured; no predecessor frozen bytes were edited.
 
 Application/source repairs also validate all record premise endpoints before NetworkX construction
 and add bounded count/equality diagnostics to the still-unresolved event-frame guard. Independent
@@ -486,7 +502,7 @@ premise counterexamples failed2 `43cfe9ec45dd434ca8602108939e392c`; the earlier 
 `4c04b266a3ee45299ff808c73bab88b1` hit stale interpretation identity and is not endpoint evidence.
 Record/rich-reading/PDF profile47 **passed** `2ab4971774ee4312b39aeedf5492ac11`; initial
 `2134648b7e8a4c5e99a318723a16bb3f` failed collection on an obsolete filename. PDF fixed-call
-generation through its existing module emitted unchanged bytes. Current kernel/application capture
+generation through its existing module emitted unchanged bytes. Current kernel capture is complete; fresh application capture
 and actual native qualification remain required, with **DDO-SI-07–12** owned by the coordinator.
 
 The independent current container repair `4d23c515f` uses authenticated acquired callable annotations
