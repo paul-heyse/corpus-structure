@@ -331,7 +331,7 @@ def test_capped_repetition_recovery_is_explicit_bounded_and_failed_receipts_repl
         values, source.original, recipe.to_bytes(), artifacts=artifacts
     )
     assert product.values()["coverage"][0]["outcome"] == "capped"
-    replay = next(worker.recognize_pages(source, recipe, [1], reuse_failures=True))
+    replay = next(worker.recognize_pages(source, recipe, [1]))
     assert replay.reused and not replay.succeeded and len(requests) == 1
     alternate = repetition_recovery_recipe(recipe)
     assert alternate.digest != recipe.digest and alternate.repetition_penalty == 1.3

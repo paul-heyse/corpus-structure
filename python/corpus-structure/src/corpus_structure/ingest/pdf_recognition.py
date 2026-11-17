@@ -311,6 +311,13 @@ def render_recognition_page(
         page.close()
 
 
+def terminal_recognition_result(result: Mapping[str, Any]) -> bool:
+    """Historical unclassified failures are attempts; completed successes remain readable."""
+    return result.get("outcome_class") == "terminal" or (
+        result.get("outcome") == "succeeded" and result.get("outcome_class") != "execution"
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class RecognitionPage:
     page_no: int
@@ -322,6 +329,14 @@ class RecognitionPage:
     @property
     def succeeded(self) -> bool:
         return self.result.get("outcome") == "succeeded"
+
+    @property
+    def terminal_outcome(self) -> bool:
+        return terminal_recognition_result(self.result)
+
+    @property
+    def execution_failed(self) -> bool:
+        return not self.terminal_outcome
 
     def requests(
         self, *, verify_retained: bool = False, expected_requests: tuple[bytes, ...] | None = None
@@ -458,7 +473,6 @@ class RecognitionWorker:
         concurrency: int,
         check_active: Callable[[], None] | None,
         reuse: bool,
-        reuse_failures: bool,
     ) -> Generator[RecognitionPage]:
         cancelled = Event()
         pages = iter(page_numbers)
@@ -484,7 +498,6 @@ class RecognitionWorker:
                     check_active=active,
                     reuse=reuse,
                     concurrency=1,
-                    reuse_failures=reuse_failures,
                 )
             ) as results:
                 return next(results)
@@ -559,7 +572,6 @@ class RecognitionWorker:
         check_active: Callable[[], None] | None = None,
         reuse: bool = True,
         concurrency: int = 1,
-        reuse_failures: bool = False,
     ) -> Generator[RecognitionPage]:
         with pdf_gpu_slot(check_active):
             yield from self._recognize_pages(
@@ -569,7 +581,6 @@ class RecognitionWorker:
                 check_active=check_active,
                 reuse=reuse,
                 concurrency=concurrency,
-                reuse_failures=reuse_failures,
             )
 
     def replay_completed_pages(
@@ -642,7 +653,6 @@ class RecognitionWorker:
         check_active: Callable[[], None] | None,
         reuse: bool,
         concurrency: int,
-        reuse_failures: bool,
     ) -> Generator[RecognitionPage]:
         import pypdfium2
 
@@ -660,7 +670,6 @@ class RecognitionWorker:
                 concurrency=concurrency,
                 check_active=check_active,
                 reuse=reuse,
-                reuse_failures=reuse_failures,
             )
             return
         service_binding = admit_service_generation(self.endpoint, recipe)
@@ -682,12 +691,10 @@ class RecognitionWorker:
                     (
                         path
                         for path in previous
-                        if json.loads(path.read_bytes()).get("outcome") == "succeeded"
+                        if terminal_recognition_result(json.loads(path.read_bytes()))
                     ),
                     None,
                 )
-                if reused is None and reuse_failures and previous:
-                    reused = previous[0]
                 if reuse and reused is not None:
                     self.last_page = RecognitionPage(
                         page_no,
@@ -748,7 +755,7 @@ class RecognitionWorker:
                         json.loads(path.read_bytes())
                         if path.exists()
                         else {
-                            "outcome": "failed",
+                            "outcome": "failed", "outcome_class": "execution",
                             "diagnostic": f"worker exited {self._process.returncode}",
                         }
                     )
@@ -756,7 +763,7 @@ class RecognitionWorker:
                 except BaseException:
                     self._stop()
                     result = {
-                        "outcome": "failed",
+                        "outcome": "failed", "outcome_class": "execution",
                         "diagnostic": "owned operation cancelled or lease lost",
                     }
                     (directory / "interrupted.json").write_bytes(canonical_bytes(result))
@@ -773,7 +780,7 @@ class RecognitionWorker:
 
 def repetitive_capped_page(page: RecognitionPage, *, minimum_run: int) -> bool:
     """Observed cap plus a declared repeated-character run, never an inferred success."""
-    if page.succeeded:
+    if page.succeeded or page.execution_failed:
         return False
     for row, raw, _ in page.requests():
         if row.get("finish_reason") != "length":
@@ -800,6 +807,8 @@ def recognition_observation_values(
     recipe: NemotronRecipe,
 ) -> dict[str, Any]:
     """Build PDF-13 primitives; parent admits/publishes with its archived task context."""
+    if page.execution_failed:
+        raise RuntimeError("recognition execution failure cannot become an operation result")
     stage = row["stage"]
     transform = dict(page.transform)
     if row.get("crop") is not None:
@@ -833,6 +842,7 @@ def recognition_observation_values(
                     "response_model": row.get("response_model"),
                     "identity_assurance": row.get("identity_assurance", "provider_reported"),
                     "service_generation": row.get("service_generation"),
+                    "outcome_class": row.get("outcome_class", "terminal" if outcome == "succeeded" else "execution"),
                     "configured_weights_digest": recipe.weights_digest,
                     "configured_tokenizer_digest": recipe.tokenizer_digest,
                     "mtp": recipe.mtp,

@@ -30,6 +30,14 @@ def encode(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
+class TerminalInputRefusal(ValueError):
+    """The admitted provider refused this input; never an adapter retry signal."""
+
+
+class ServiceGenerationChanged(RuntimeError):
+    """The response cannot be attributed to the generation that admitted the request."""
+
+
 class RecordingBackend:
     """Record actual submitted PNG and complete HTTP body before parser validation/merging."""
 
@@ -62,6 +70,7 @@ class RecordingBackend:
         }
         row = {
             "ordinal": ordinal, "stage": stage, "prompt": prompt,
+            "outcome_class": "execution",
             "requested_model": self.request["model"],
             "identity_assurance": "provider_reported",
             "service_generation": None if self.binding is None else self.binding["generation"],
@@ -85,11 +94,14 @@ class RecordingBackend:
             save(self.directory / row["http_response"], reply.content)
             row["response_generation"] = reply.headers.get("x-corpus-generation")
             save(self.directory / (prefix + ".json"), encode(row))
-            reply.raise_for_status()
             if self.binding is not None:
                 if row["response_generation"] != self.binding["generation"]:
-                    raise ValueError("request crossed a service generation boundary")
+                    raise ServiceGenerationChanged("request crossed a service generation boundary")
                 row["identity_assurance"] = "trusted_managed_service"
+            if reply.status_code in {400, 413, 422}:
+                row["outcome_class"] = "terminal"
+                raise TerminalInputRefusal(f"provider refused input: HTTP {reply.status_code}")
+            reply.raise_for_status()
             body = reply.json()
             choice = body["choices"][0]
             raw = choice["message"].get("content") or ""
@@ -98,6 +110,7 @@ class RecordingBackend:
                 usage=body.get("usage"), raw_response=prefix + ".raw.txt",
                 raw_digest=save(self.directory / (prefix + ".raw.txt"), raw.encode()),
             )
+            row["outcome_class"] = "terminal"
             row["outcome"] = (
                 "succeeded" if row["finish_reason"] in {"stop", "eos"} and raw.strip()
                 else "partial"
@@ -153,7 +166,7 @@ def run(request: dict[str, Any], directory: Path) -> dict[str, Any]:
     # retain upstream decisions unchanged; the isolated process is serial and DB-free.
     inference.geometry.crop_bbox_pixels = crop
     inference.select_union_regions = select
-    result: dict[str, Any] = {"outcome": "failed"}
+    result: dict[str, Any] = {"outcome": "failed", "outcome_class": "execution"}
     try:
         parser = DocumentParser(
             backend=backend, model=request["model"], max_regions=request["max_regions"],
@@ -164,9 +177,15 @@ def run(request: dict[str, Any], directory: Path) -> dict[str, Any]:
         )
         document = parser.parse_triple(image, triple_regions="union")
         save(directory / "provider-document.json", encode(document))
-        result.update(outcome="succeeded", document="provider-document.json")
+        result.update(outcome="succeeded", outcome_class="terminal", document="provider-document.json")
     except BaseException as error:
         result["diagnostic"] = f"{type(error).__name__}: {error}"
+        # Completed response/cap/empty parsing is an input outcome. A request
+        # without a finalized response, configuration or physical failure is not.
+        if isinstance(error, Exception) and backend.rows and all(
+            row.get("outcome_class") == "terminal" for row in backend.rows
+        ):
+            result["outcome_class"] = "terminal"
     finally:
         inference.geometry.crop_bbox_pixels = crop_original
         inference.select_union_regions = select_original
@@ -183,6 +202,7 @@ if __name__ == "__main__":
         run(json.loads(request_path.read_text()), request_path.parent)
     except BaseException as error:
         save(request_path.parent / "result.json", encode({
-            "outcome": "failed", "diagnostic": f"{type(error).__name__}: {error}",
+            "outcome": "failed", "outcome_class": "execution",
+            "diagnostic": f"{type(error).__name__}: {error}",
         }))
         raise

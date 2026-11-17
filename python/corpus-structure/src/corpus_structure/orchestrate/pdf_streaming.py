@@ -440,6 +440,59 @@ def run_private_native_pdf_build(
     return build
 
 
+
+def finish_existing_pdf_product(
+    engine: Engine,
+    claim: OwnedClaim,
+    holder: str,
+    *,
+    product_key: str,
+    kind: Literal["native", "integrated"],
+    source_digest: str,
+    recipe_bytes: bytes,
+    schema_digest: str,
+    check_active: Callable[[], None],
+    cancellation: BorrowerCancellation | None = None,
+) -> PublishedPdfDocumentRef | None:
+    """Finish matching immutable progress before invoking any producer computation."""
+    from dataclasses import replace
+    from hashlib import sha256
+
+    from corpus_structure.semantic.pdf_publication import inspect_pdf_build, retain_pdf_stage_recipe
+    from corpus_structure.semantic.pdf_staging import resume_pdf_build
+
+    cancellation = cancellation or BorrowerCancellation()
+    check_active()
+    frozen = None
+    with _pdf_transaction(engine, cancellation) as connection:
+        existing = inspect_pdf_build(
+            connection, task_id=claim.task_id, attempt=claim.attempt,
+            holder=holder, replay_key="product:" + product_key,
+        )
+        if existing is not None:
+            _check_pdf_build_premises(
+                existing, claim, source_digest, sha256(recipe_bytes).hexdigest(), schema_digest, kind
+            )
+            if existing.published is not None:
+                return existing.published
+            if existing.state not in {"open", "frozen"}:
+                raise ValueError("abandoned PDF production requires a successor task")
+            resumed = existing.build
+            if resumed.attempt != claim.attempt or resumed.holder != holder:
+                resumed = resume_pdf_build(connection, resumed, attempt=claim.attempt, holder=holder)
+            if existing.frozen is not None:
+                frozen = replace(existing.frozen, build=resumed)
+        retain_pdf_stage_recipe(
+            connection, task_id=claim.task_id, attempt=claim.attempt,
+            holder=holder, recipe_bytes=recipe_bytes,
+        )
+    if frozen is not None:
+        return _finish_frozen_pdf(
+            engine, frozen, product_key, check_active, cancellation=cancellation
+        )
+    return None
+
+
 def publish_pdf_record_draft(
     engine: Engine,
     claim: OwnedClaim,
@@ -461,16 +514,13 @@ def publish_pdf_record_draft(
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
     from corpus_structure.semantic.pdf_publication import (
         freeze_pdf_build,
-        inspect_pdf_build,
         prepare_pdf_build,
-        retain_pdf_stage_recipe,
         seal_pdf_build,
         validate_pdf_build,
     )
     from corpus_structure.semantic.pdf_staging import (
         adopt_pdf_batch,
         begin_pdf_build,
-        resume_pdf_build,
     )
 
     cancellation = cancellation or BorrowerCancellation()
@@ -484,41 +534,19 @@ def publish_pdf_record_draft(
     source_digest = sha256(draft.original).hexdigest()
     recipe_digest = sha256(draft.recipe_bytes).hexdigest()
     schema_digest = sha256(draft.schema_bytes).hexdigest()
+    completed = finish_existing_pdf_product(
+        engine, claim, holder, product_key=draft.product_key, kind=draft.kind,
+        source_digest=source_digest, recipe_bytes=draft.recipe_bytes, schema_digest=schema_digest,
+        check_active=check_active, cancellation=cancellation,
+    )
+    if completed is not None:
+        return completed
     with _pdf_transaction(engine, cancellation) as connection:
-        retain_pdf_stage_recipe(
-            connection,
-            task_id=claim.task_id,
-            attempt=claim.attempt,
-            holder=holder,
-            recipe_bytes=draft.recipe_bytes,
-        )
-        existing = inspect_pdf_build(
-            connection,
-            task_id=claim.task_id,
-            attempt=claim.attempt,
-            holder=holder,
+        build = begin_pdf_build(
+            connection, task_id=claim.task_id, attempt=claim.attempt, holder=holder,
+            source_digest=source_digest, recipe_digest=recipe_digest, schema_digest=schema_digest,
             replay_key="product:" + draft.product_key,
         )
-        if existing is not None:
-            _check_pdf_build_premises(
-                existing, claim, source_digest, recipe_digest, schema_digest, draft.kind
-            )
-            if existing.state != "open":
-                raise ValueError("identified PDF draft cannot replace frozen/published content")
-            build = existing.build
-            if build.attempt != claim.attempt or build.holder != holder:
-                build = resume_pdf_build(connection, build, attempt=claim.attempt, holder=holder)
-        else:
-            build = begin_pdf_build(
-                connection,
-                task_id=claim.task_id,
-                attempt=claim.attempt,
-                holder=holder,
-                source_digest=source_digest,
-                recipe_digest=recipe_digest,
-                schema_digest=schema_digest,
-                replay_key="product:" + draft.product_key,
-            )
     from corpus_structure.ingest.pdf_build_spool import PdfBuildSpool
 
     draft_spool = PdfBuildSpool(
@@ -649,18 +677,14 @@ def produce_published_pdf_records(
     cancellation: BorrowerCancellation | None = None,
 ) -> PublishedPdfDocumentRef:
     """Actual finite page producer followed by frozen publication, never graph IPC."""
-    from dataclasses import replace
     from hashlib import sha256
 
     from corpus_structure.semantic.pdf_publication import (
         freeze_pdf_build,
-        inspect_pdf_build,
         prepare_pdf_build,
-        retain_pdf_stage_recipe,
         seal_pdf_build,
         validate_pdf_build,
     )
-    from corpus_structure.semantic.pdf_staging import resume_pdf_build
 
     cancellation = cancellation or BorrowerCancellation()
     authority_check = check_active
@@ -670,42 +694,14 @@ def produce_published_pdf_records(
         authority_check()
 
     source_digest = sha256(request.original).hexdigest()
-    recipe_digest = request.recipe.digest
     schema_digest = sha256(request.schema_bytes).hexdigest()
-    frozen = None
-    check_active()
-    with _pdf_transaction(engine, cancellation) as connection:
-        existing = inspect_pdf_build(
-            connection,
-            task_id=claim.task_id,
-            attempt=claim.attempt,
-            holder=holder,
-            replay_key="product:native",
-        )
-        if existing is not None:
-            _check_pdf_build_premises(
-                existing, claim, source_digest, recipe_digest, schema_digest, "native"
-            )
-            if existing.published is not None:
-                return existing.published
-            if existing.state not in {"open", "frozen"}:
-                raise ValueError("abandoned native production requires a successor task")
-            resumed = existing.build
-            if resumed.attempt != claim.attempt or resumed.holder != holder:
-                resumed = resume_pdf_build(
-                    connection, resumed, attempt=claim.attempt, holder=holder
-                )
-            if existing.frozen is not None:
-                frozen = replace(existing.frozen, build=resumed)
-        retain_pdf_stage_recipe(
-            connection,
-            task_id=claim.task_id,
-            attempt=claim.attempt,
-            holder=holder,
-            recipe_bytes=request.recipe.to_bytes(),
-        )
-    if frozen is not None:
-        return _finish_frozen_pdf(engine, frozen, "native", check_active, cancellation=cancellation)
+    completed = finish_existing_pdf_product(
+        engine, claim, holder, product_key="native", kind="native", source_digest=source_digest,
+        recipe_bytes=request.recipe.to_bytes(), schema_digest=schema_digest,
+        check_active=check_active, cancellation=cancellation,
+    )
+    if completed is not None:
+        return completed
     directory.mkdir(parents=True, exist_ok=True)
     original = directory / f"submitted-{claim.task_id}-{claim.attempt}.pdf"
     with original.open("xb") as stream:

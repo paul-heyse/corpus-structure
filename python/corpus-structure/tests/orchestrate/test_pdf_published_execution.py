@@ -173,25 +173,37 @@ def test_native_producer_reuses_qualified_publication_before_copy_or_inference(
 
 
 @pytest.mark.parametrize("state_name", ["frozen", "published"])
-def test_computed_draft_never_silently_replaces_frozen_or_published_content(
+def test_draft_finishes_matching_immutable_content_without_lowering(
     monkeypatch, tmp_path, state_name
 ):
     from hashlib import sha256
 
+    from corpus_structure.orchestrate import pdf_streaming
+    from corpus_structure.semantic.pdf_publication import FrozenPdfBuildRef
+
     original, schema, recipe = b"%PDF-1.7", b"{}", b"{}"
     build = SimpleNamespace(
-        task_id=12,
+        task_id=12, attempt=2, holder="holder",
         release_id="release",
         source_digest=sha256(original).hexdigest(),
         recipe_digest=sha256(recipe).hexdigest(),
         schema_digest=sha256(schema).hexdigest(),
     )
+    published = SimpleNamespace(kind="native")
     state = SimpleNamespace(
         build=build,
         state=state_name,
-        published=SimpleNamespace(kind="native") if state_name == "published" else None,
-        frozen=SimpleNamespace(kind="native") if state_name == "frozen" else None,
+        published=published if state_name == "published" else None,
+        frozen=FrozenPdfBuildRef(build, "f" * 64, "native") if state_name == "frozen" else None,
     )
+    finished = []
+
+    def finish(engine, frozen, product_key, check_active, **kwargs):
+        finished.append(frozen)
+        assert frozen.build is build and product_key == "native"
+        return published
+
+    monkeypatch.setattr(pdf_streaming, "_finish_frozen_pdf", finish)
     publication = ModuleType("corpus_structure.semantic.pdf_publication")
 
     def forbidden(*args, **kwargs):
@@ -219,7 +231,15 @@ def test_computed_draft_never_silently_replaces_frozen_or_published_content(
     draft = PdfRecordPublicationDraft(
         {"changed": "native value"}, "native", original, schema, recipe, {"conversion": "success"}
     )
-    with pytest.raises(ValueError, match="cannot replace frozen/published content"):
+    assert publish_pdf_record_draft(
+        engine, claim, "holder", draft, directory=tmp_path / "not-created", check_active=lambda: None
+    ) is published
+    assert bool(finished) is (state_name == "frozen")
+    assert not (tmp_path / "not-created").exists()
+    draft = PdfRecordPublicationDraft(
+        {}, "native", original, b"different schema", recipe, {"conversion": "success"}
+    )
+    with pytest.raises(ValueError, match="source/release/recipe/schema differs"):
         publish_pdf_record_draft(
-            engine, claim, "holder", draft, directory=tmp_path, check_active=lambda: None
+            engine, claim, "holder", draft, directory=tmp_path / "not-created", check_active=lambda: None
         )

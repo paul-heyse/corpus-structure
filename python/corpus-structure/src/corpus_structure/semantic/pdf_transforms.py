@@ -783,7 +783,7 @@ class PreparedPdfTransform:
         sections=(),
         membership: Literal["direct", "descendants"] = "direct",
     ):
-        from corpus_structure.orchestrate.pdf_streaming import publish_pdf_record_draft
+        from corpus_structure.orchestrate.pdf_streaming import finish_existing_pdf_product, publish_pdf_record_draft
 
         from .pdf_capture import PdfCaptureProduct, pdf_publication_value
         from .pdf_publication import inspect_pdf_execution_receipt
@@ -803,33 +803,42 @@ class PreparedPdfTransform:
         ) as (selected, recipe_bytes, owner, directory):
             if not isinstance(selected, SelectedPdfInput):
                 raise ValueError("PDF transformation requires the complete selected product")
-            if self.mode == "organized":
-                publication_scope = nullcontext(
-                    self._organize(selected, recipe_bytes, check_active)
-                )
-            elif self.mode == "enriched":
-                publication_scope = nullcontext(self._enrich(selected, recipe_bytes, check_active))
-            elif self.mode == "integrated" and observations is not None:
-                publication_scope = contextmanager(self._integrate)(
-                    selected,
-                    recipe_bytes,
-                    observations,
-                    binding,
-                    execution_owner,
-                    directory,
-                    check_active,
-                )
-            else:
-                raise ValueError("PDF integration requires its selected retained observation set")
-            with publication_scope as draft:
-                publication = publish_pdf_record_draft(
-                    execution_owner.engine,
-                    claim,
-                    claim.holder,
-                    draft,
-                    directory=owner,
-                    check_active=check_active,
-                )
+            product_key = {"organized": "organized", "enriched": "math-enriched", "integrated": "integrated"}[self.mode]
+            publication = finish_existing_pdf_product(
+                execution_owner.engine, claim, claim.holder,
+                product_key=product_key, kind="integrated" if self.mode == "integrated" else "native",
+                source_digest=sha256(selected.product.original).hexdigest(),
+                recipe_bytes=recipe_bytes, schema_digest=sha256(selected.product.schema_bytes).hexdigest(),
+                check_active=check_active,
+            )
+            if publication is None:
+                if self.mode == "organized":
+                    publication_scope = nullcontext(
+                        self._organize(selected, recipe_bytes, check_active)
+                    )
+                elif self.mode == "enriched":
+                    publication_scope = nullcontext(self._enrich(selected, recipe_bytes, check_active))
+                elif self.mode == "integrated" and observations is not None:
+                    publication_scope = contextmanager(self._integrate)(
+                        selected,
+                        recipe_bytes,
+                        observations,
+                        binding,
+                        execution_owner,
+                        directory,
+                        check_active,
+                    )
+                else:
+                    raise ValueError("PDF integration requires its selected retained observation set")
+                with publication_scope as draft:
+                    publication = publish_pdf_record_draft(
+                        execution_owner.engine,
+                        claim,
+                        claim.holder,
+                        draft,
+                        directory=owner,
+                        check_active=check_active,
+                    )
             with execution_owner.engine.connect() as connection:
                 receipt = inspect_pdf_execution_receipt(
                     connection,
@@ -1009,11 +1018,14 @@ class PreparedPdfTransform:
                     requested,
                     check_active=check_active,
                     concurrency=4,
-                    reuse_failures=True,
                 )
             )
+            execution_failures = []
             try:
                 for page in stream:
+                    if page.execution_failed:
+                        execution_failures.append(page.page_no)
+                        continue
                     retain(page, recipe)
                     if (
                         not page.succeeded
@@ -1030,10 +1042,13 @@ class PreparedPdfTransform:
                             alternate,
                             [page.page_no],
                             check_active=check_active,
-                            reuse_failures=True,
                         )
                         try:
-                            retain(next(recovery), alternate)
+                            recovered = next(recovery)
+                            if recovered.execution_failed:
+                                execution_failures.append(recovered.page_no)
+                            else:
+                                retain(recovered, alternate)
                             if next(recovery, None) is not None:
                                 raise ValueError("recovery emitted an unrequested physical page")
                         finally:
@@ -1042,6 +1057,11 @@ class PreparedPdfTransform:
                 # The existing generator owns worker/process and PDF retirement,
                 # including settling its bounded parallel children on close.
                 stream.close()
+            if execution_failures:
+                raise RuntimeError(
+                    "recognition attempt has execution-failed physical pages: "
+                    + str(sorted(set(execution_failures)))
+                )
             # Completion order is physical scheduling, not semantic page order.
             order = sorted(
                 range(len(receipts)), key=lambda index: requested.index(receipts[index].page_no)
