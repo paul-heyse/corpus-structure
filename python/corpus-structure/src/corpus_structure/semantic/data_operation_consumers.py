@@ -75,6 +75,7 @@ class SelectedConsumerValue:
 class HydratedConsumerSelection:
     selection: BoundConsumerSelection
     values: tuple[tuple[str, tuple[SelectedConsumerValue, ...]], ...]
+    measured_bytes: int = 0
 
     def __post_init__(self):
         if tuple(name for name, _ in self.values) != tuple(
@@ -254,6 +255,7 @@ def hydrate_consumer_selection(
             )
             for role_ordinal, role in enumerate(binding.roles)
         ),
+        measured_bytes=used,
     )
 
 

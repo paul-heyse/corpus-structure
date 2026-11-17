@@ -95,6 +95,20 @@ class OwnedByteReservation:
             self._state["leases"] += 1
             return OwnedByteReservation(self.budget, self.size, state=self._state)
 
+    def reduce_to(self, size: int) -> None:
+        """Return excess stage-A credit while this is its sole physical owner."""
+        if type(size) is not int or size < 0:
+            raise ValueError("owned byte reservation must be nonnegative")
+        with self._state["lock"]:
+            if self._released:
+                raise RuntimeError("owned byte reservation has retired")
+            if self._state["leases"] != 1:
+                raise RuntimeError("shared owned byte reservation cannot be reduced")
+            if size > self.size:
+                raise ValueError("owned byte reservation cannot grow")
+            self.budget.release(self.size - size)
+            self.size = size
+
     def release(self) -> None:
         with self._state["lock"]:
             if self._released:
@@ -777,7 +791,12 @@ class CPUExecutionScope:
         check_active: Callable[[], None] = lambda: None,
         *,
         reservation: OwnedByteReservation | None = None,
+        packet_bytes: int | None = None,
     ) -> _InputAdmission | None:
+        if packet_bytes is None:
+            packet_bytes = self.policy.max_packet_bytes
+        if type(packet_bytes) is not int or not 0 <= packet_bytes <= self.policy.max_packet_bytes:
+            raise CapacityExceeded("CPU input exceeds admitted packet byte capacity")
         check_active()
         for handle in tuple(self._handles):
             if handle._cancelled:
@@ -788,7 +807,7 @@ class CPUExecutionScope:
             if not self._free:
                 return None
             self._executor()
-            size = self.policy.max_packet_bytes + self.policy.max_reply_bytes
+            size = packet_bytes + self.policy.max_reply_bytes
             if size + self._capsule_bytes > self.policy.max_owned_bytes:
                 raise CapacityExceeded(
                     "CPU policy cannot hold preparation and one complete request"
@@ -872,7 +891,8 @@ class CPUExecutionScope:
         check_active()
         if admission.owner is not self or not admission.active or admission.submitted:
             raise ValueError("CPU input admission is not active for this invocation")
-        if len(content) > self.policy.max_packet_bytes:
+        if (len(content) > self.policy.max_packet_bytes
+            or len(content) + self.policy.max_reply_bytes > admission.reserved):
             self.release_admission(admission)
             raise CapacityExceeded("CPU input exceeds admitted packet byte capacity")
         packet = _SealedPacket.seal(content)

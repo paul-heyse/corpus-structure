@@ -871,25 +871,28 @@ class PreparedFormalEvidencePort:
             raise ValueError("formal CPU owner has another acquired schema")
         check_active()
 
+        packet = canonical_bytes(
+            dict(
+                profile="formal-source-native",
+                release_id=self.profile.prepared.release_id,
+                member_contracts=formal_member_contracts(
+                    self.profile.prepared, self.profile.model
+                ),
+                source=source.content.decode(),
+                options=FormalEvidenceOptions().model_dump_json(),
+                grammar=self.profile.grammar,
+                assets=formal_profile_assets().digest,
+            )
+        )
+
         def submit():
             self._verify()
-            admission = cpu.try_admit(check_active, reservation=execution_owner.reservation)
+            admission = cpu.try_admit(
+                check_active, reservation=execution_owner.reservation, packet_bytes=len(packet)
+            )
             if admission is None:
                 return None
             try:
-                packet = canonical_bytes(
-                    dict(
-                        profile="formal-source-native",
-                        release_id=self.profile.prepared.release_id,
-                        member_contracts=formal_member_contracts(
-                            self.profile.prepared, self.profile.model
-                        ),
-                        source=source.content.decode(),
-                        options=FormalEvidenceOptions().model_dump_json(),
-                        grammar=self.profile.grammar,
-                        assets=formal_profile_assets().digest,
-                    )
-                )
                 return cpu.submit_formal(admission, packet, check_active)
             except BaseException:
                 if not admission.submitted:

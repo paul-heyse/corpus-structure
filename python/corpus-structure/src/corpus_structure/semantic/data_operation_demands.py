@@ -646,6 +646,12 @@ class DemandPlanner:
         ready = []
         selected = {item["operation"]: item for item in snapshot["intent"]["operations"]}
         obligations = {item["obligation_id"]: item for item in snapshot["obligations"]}
+        rebindings = {}
+        for use in snapshot.get("uses", ()):
+            if use.get("rebind_derivation"):
+                rebindings.setdefault(
+                    (use.get("obligation_id"), use.get("request_id")), use["rebind_derivation"]
+                )
         for bound in self.bound_requests(
             snapshot, authorization=authorization, excluded_requests=excluded_requests
         ):
@@ -654,16 +660,7 @@ class DemandPlanner:
             wire_binding = wire_json_loads(bound.binding)
             # The pinned native view names a directly trusted historical producer.
             # The hint is not authority: attachment revalidates it under trust locks.
-            rebind = next(
-                (
-                    use["rebind_derivation"]
-                    for use in snapshot.get("uses", ())
-                    if use.get("obligation_id") == obligation["obligation_id"]
-                    and use.get("request_id") == bound.request_id
-                    and use.get("rebind_derivation")
-                ),
-                None,
-            )
+            rebind = rebindings.get((obligation["obligation_id"], bound.request_id))
             native = self.storage.attach_data_request(
                 cast(
                     WireAttachDataRequestRequest,

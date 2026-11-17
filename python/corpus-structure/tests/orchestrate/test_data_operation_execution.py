@@ -253,8 +253,8 @@ def test_six_native_contexts_claim_only_the_bounded_window_and_preserve_settled_
     policy = replace(CharacterizationExecutionPolicy(), max_claims=2)
 
     class ObservedExecutor(NativeDemandExecutor):
-        def _claim(self, ready, owner):
-            answer = super()._claim(ready, owner)
+        def _claim(self, ready, owner, *, physical=None):
+            answer = super()._claim(ready, owner, physical=physical)
             claim, _native = answer
             if claim is not None:
                 claimed.append((ready.obligation, claim.task_id, claim.attempt))

@@ -120,11 +120,13 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
     monkeypatch.setattr(data_operations, "DataOperationStorage", lambda _: None)
     observed = SimpleNamespace(claims=[], receipts=[], failures=[], live=set(), windows=[])
 
-    def claim(item, owner):
+    def claim(item, owner, *, physical=None):
         index = item.obligation
         observed.claims.append((index, executor.budget.used_bytes))
         observed.live.add(index)
         observed.windows.append(len(observed.live))
+        if physical is not None:
+            physical.hydrated_inputs = executor._hydrate(item, physical)
         return SimpleNamespace(
             request_id=index,
             generation=1,
@@ -151,7 +153,11 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
         observed.live.remove(claim.request_id)
 
     executor._claim = claim
-    executor._hydrate = lambda item, _, **_kwargs: int(item.obligation)
+    def hydrate(item, physical, **_kwargs):
+        physical.hydrated_sizes[item.obligation] = len(item.obligation)
+        return int(item.obligation)
+
+    executor._hydrate = hydrate
     executor._retain_answer = lambda _item, _claim, answer, *_args, **_kw: answer
     executor._publish = publish
     executor._known_failure = failed
@@ -219,12 +225,16 @@ def derive(value: int, fail_first: bool, prepared: PreparedRelease) -> int:
         executor._physical = physical
         physical.select_operations(("prepared",))
         assert executor.budget.used_bytes == capsule_size
-        assert executor.capacity == 1
-        receipts, _, _, failures = executor._drive_page({}, b"{}", Active())
+        assert executor.policy.max_claims == 2
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
         assert executor.budget.used_bytes == capsule_size
         assert len(receipts) == 3 - fail_first and len(failures) == fail_first
     assert [index for index, _ in observed.claims] == ["0", "1", "2"]
-    assert {used for _, used in observed.claims} == {capsule_size + executor.reservation}
+    assert all(
+        capsule_size + executor.reservation <= used <= policy.max_owned_bytes
+        for _, used in observed.claims
+    )
+    assert max(observed.windows) <= policy.max_claims
     assert observed.receipts == (
         [("1", 8), ("2", 9)] if fail_first else [("0", 7), ("1", 8), ("2", 9)]
     )
@@ -265,7 +275,7 @@ def test_batch_chunks_and_scalar_sibling_share_claim_and_byte_bounds(monkeypatch
     with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
         executor._physical = physical
         physical.select_operations(ports)
-        receipts, _, _, failures = executor._drive_page({}, b"{}", Active())
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
     assert len(receipts) == 6 and not failures, (receipts, failures)
     assert sum(batches) == 5 and max(batches) <= 2 and len(batches) >= 3
     assert max(observed.windows) <= 2
@@ -286,10 +296,10 @@ def test_preparation_that_cannot_hold_one_request_refuses_before_claim(monkeypat
     assert not observed.claims and executor.budget.used_bytes == 0
 
 
-def test_frontier_defers_until_logically_complete_borrower_physically_retires(
+def test_reduced_credit_allows_progress_while_an_old_physical_share_retires(
     monkeypatch, prepared
 ):
-    saturated = Event()
+    third_started = Event()
     retired = Future()
 
     class RetiringWork:
@@ -319,10 +329,10 @@ def test_frontier_defers_until_logically_complete_borrower_physically_retires(
     def plan(value, *, execution_owner, **_):
         def compute():
             if value == 1:
-                assert saturated.wait(5), "frontier never deferred the still-owned credit"
+                assert third_started.wait(5), "reduced credit never admitted the next request"
                 retired.set_result(None)
             if value == 2:
-                assert retired.done(), "deferred request started before physical retirement"
+                third_started.set()
             return value
 
         (result,) = yield (
@@ -343,20 +353,11 @@ def test_frontier_defers_until_logically_complete_borrower_physically_retires(
         ("scalar",) * 3,
         {"scalar": SimpleNamespace(native_selections=(), plan_python=plan)},
     )
-    try_admit = executor.budget.try_admit
-
-    def observe(size):
-        reservation = try_admit(size)
-        if reservation is None:
-            saturated.set()
-        return reservation
-
-    monkeypatch.setattr(executor.budget, "try_admit", observe)
     with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
         executor._physical = physical
         physical.select_operations(("scalar",))
-        receipts, _, _, failures = executor._drive_page({}, b"{}", Active())
-    assert len(receipts) == 3 and not failures and saturated.is_set()
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
+    assert len(receipts) == 3 and not failures and third_started.is_set()
     assert [index for index, _ in observed.claims] == ["0", "1", "2"]
     assert executor.budget.used_bytes == 0
 
@@ -378,7 +379,7 @@ def test_cancel_before_admitted_plan_starts_releases_its_credit(monkeypatch, pre
         plan.close()
 
     monkeypatch.setattr(data_operations, "drive_prepared_work", cancel_after_admission)
-    executor._drive_page({}, b"{}", Active())
+    executor._drive_sweep(({},), b"{}", Active())
     assert not observed.claims and executor.budget.used_bytes == 0
 
 
@@ -396,3 +397,110 @@ def test_atomic_budget_defers_until_last_physical_share_retires():
     with pytest.raises(CapacityExceeded, match="complete request"):
         budget.try_admit(21)
     assert budget.used_bytes == 0
+
+
+def test_stage_b_reduces_only_the_single_owned_charge():
+    budget = OwnedByteBudget(100)
+    reservation = budget.admit(100)
+    reservation.reduce_to(35)
+    assert reservation.size == budget.used_bytes == 35
+    with pytest.raises(ValueError, match="cannot grow"):
+        reservation.reduce_to(36)
+    borrower = reservation.share()
+    with pytest.raises(RuntimeError, match="shared"):
+        reservation.reduce_to(20)
+    reservation.release()
+    assert budget.used_bytes == 35
+    borrower.release()
+    assert budget.used_bytes == 0
+    with pytest.raises(RuntimeError, match="retired"):
+        reservation.reduce_to(0)
+
+
+def test_measured_batch_boundary_rehydrates_without_reclaiming(monkeypatch, prepared):
+    import weakref
+
+    batches, hydrations, references = [], [], {}
+
+    class Body:
+        def __init__(self, identifier):
+            self.identifier = identifier
+
+    def batch(members, *, execution_owner, **_):
+        identifiers = tuple(member.values.identifier for member in members)
+        batches.append(identifiers)
+        if identifiers == ("0",):
+            # The overflowing member's decoded bodies have been discarded before
+            # stage B and the current physical call; only its native claim stays.
+            assert references["1"][0]() is None
+            assert "1" not in execution_owner.consumer_inputs
+        if False:
+            yield
+        return SimpleNamespace(members=tuple((member.member, member.values.identifier) for member in members))
+
+    executor, observed = controlled_executor(
+        monkeypatch, prepared, policy_for(prepared, max_claims=3, credits=2),
+        ("batch",) * 3, {"batch": SimpleNamespace(native_selections=(), plan_batch_python=batch)},
+    )
+
+    def hydrate(item, physical, **_):
+        hydrations.append(item.obligation)
+        body = Body(item.obligation)
+        references.setdefault(item.obligation, []).append(weakref.ref(body))
+        physical.hydrated_sizes[item.obligation] = executor.policy.max_packet_bytes // 2 + 1
+        physical.consumer_inputs[item.obligation] = body
+        physical.consumer_results[item.obligation] = body
+        physical.binding_rows[item.obligation] = body
+        return body
+
+    executor._hydrate = hydrate
+    with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
+        executor._physical = physical
+        physical.select_operations(("batch",))
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
+    assert not failures and len(receipts) == 3
+    assert [identifier for identifier, _ in observed.claims] == ["0", "1", "2"]
+    assert hydrations == ["0", "1", "1", "2", "2"]
+    assert batches == [("0",), ("1",), ("2",)]
+    assert max(observed.windows) <= executor.policy.max_claims
+    assert executor.budget.used_bytes == 0 and not observed.live
+
+
+def test_one_frontier_replenishes_multiple_logical_pages(monkeypatch, prepared):
+    prepared_pages, driver_calls = [], []
+
+    def scalar(value, **_):
+        if False:
+            yield
+        return value
+
+    executor, observed = controlled_executor(
+        monkeypatch, prepared, policy_for(prepared), ("scalar",) * 6,
+        {"scalar": SimpleNamespace(native_selections=(), plan_python=scalar)},
+    )
+
+    def page(index, _authorization):
+        prepared_pages.append(index)
+        return [
+            SimpleNamespace(
+                operation="scalar", obligation=str(identifier), binding_result=None,
+                native=json.dumps({"request_id": str(identifier), "generation": 1}).encode(),
+            )
+            for identifier in range(2 * index, 2 * index + 2)
+        ], (), (), ()
+
+    executor._prepare_page = page
+    driver = data_operations.drive_prepared_work
+
+    def drive(plan, owner):
+        driver_calls.append(1)
+        return driver(plan, owner)
+
+    monkeypatch.setattr(data_operations, "drive_prepared_work", drive)
+    with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
+        executor._physical = physical
+        physical.select_operations(("scalar",))
+        receipts, _, _, failures = executor._drive_sweep(range(3), b"{}", Active())
+    assert prepared_pages == [0, 1, 2] and driver_calls == [1]
+    assert len(receipts) == 6 and not failures
+    assert max(observed.windows) <= 2 and executor.budget.used_bytes == 0

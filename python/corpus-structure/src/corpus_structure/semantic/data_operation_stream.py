@@ -153,7 +153,9 @@ def plan_cpu_stream(descriptor, bound, signature, *, verify, execution_owner, ch
         nonlocal stream
         verify()
         check_active()
-        admission = cpu.try_admit(check_active, reservation=execution_owner.reservation)
+        admission = cpu.try_admit(
+            check_active, reservation=execution_owner.reservation, packet_bytes=len(packet)
+        )
         if admission is None:
             return None
         try:
@@ -253,7 +255,9 @@ def plan_cpu_coroutine(
         nonlocal stream
         verify()
         check_active()
-        admission = cpu.try_admit(check_active, reservation=execution_owner.reservation)
+        admission = cpu.try_admit(
+            check_active, reservation=execution_owner.reservation, packet_bytes=len(packet)
+        )
         if admission is None:
             return None
         try:

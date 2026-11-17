@@ -48,7 +48,8 @@ def test_provider_residents_follow_frozen_demand_not_all_available_factories():
         model=SimpleNamespace(
             operation=lambda _: SimpleNamespace(capabilities=SimpleNamespace(prepared_factory=None))
         ),
-        capacity=1,
+        policy=SimpleNamespace(max_owned_bytes=100),
+        reservation=1,
     )
     scope.executor._target_context = SimpleNamespace(
         model=scope.executor.model, cpu=None, prepared_schema=False

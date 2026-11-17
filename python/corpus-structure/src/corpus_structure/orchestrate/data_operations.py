@@ -8,9 +8,10 @@ transactions; provider/prepared capabilities use their separately admitted owner
 from __future__ import annotations
 
 import json
+from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -167,6 +168,14 @@ class NativeDemandExecutionError(ExceptionGroup):
 class _ExecutionResult:
     receipts: tuple[bytes, ...] = ()
     failures: tuple[Exception, ...] = ()
+    deferred: tuple[Any, ...] = ()
+
+
+@dataclass(frozen=True)
+class _ClaimedReady:
+    ready: ReadyDataRequest
+    claim: NativeRequestClaim
+    native: WireClaimDataRequestResultVariant2
 
 
 class _OwnedPythonPool:
@@ -278,6 +287,9 @@ class _RequestExecution:
         self.consumer_inputs = {}
         self.consumer_results = {}
         self.binding_rows = {}
+        self.hydrated_sizes = {}
+        self.hydrated_inputs = None
+        self.hydration_error = None
         self.uncertain_submission = False
 
     def submit_python(self, callback):
@@ -410,7 +422,7 @@ class _InvocationExecution:
             context.cpu = self.cpu
         self.cpu.prepare()
         self.executor._preparation_bytes = self.cpu.preparation_bytes
-        if self.executor.capacity < 1:
+        if self.executor.policy.max_owned_bytes - self.executor._preparation_bytes < self.executor.reservation:
             raise CapacityExceeded(
                 "native preparation and one complete request exceed owned capacity"
             )
@@ -766,7 +778,9 @@ class NativeDemandExecutor:
         if result["state"] == "lost":
             raise ClaimFenceLost(claim, result["reason"])
 
-    def _hydrate(self, ready: ReadyDataRequest, execution_owner=None, *, context=None):
+    def _hydrate(
+        self, ready: ReadyDataRequest, execution_owner=None, *, context=None, connection=None
+    ):
         context = self._target_context if context is None else context
         from corpus_structure.semantic.data_operation_consumers import (
             BoundConsumerSelection,
@@ -774,7 +788,7 @@ class NativeDemandExecutor:
         )
 
         pins = wire_json_loads(ready.resolved.trust_evidence)
-        with self.engine.begin() as connection:
+        with self.engine.begin() if connection is None else nullcontext(connection) as connection:
             selected = hydrate_consumer_selection(
                 connection,
                 context.model,
@@ -791,6 +805,7 @@ class NativeDemandExecutor:
             if execution_owner is not None:
                 execution_owner.consumer_results[ready.obligation] = result
         if execution_owner is not None:
+            execution_owner.hydrated_sizes[ready.obligation] = selected.measured_bytes
             execution_owner.consumer_inputs[ready.obligation] = selected
             execution_owner.binding_rows[ready.obligation] = {
                 role: tuple(
@@ -933,49 +948,56 @@ class NativeDemandExecutor:
         return owner.retain(claim, retain)["intent_id"]
 
     def _claim(
-        self, ready, owner
+        self, ready, owner, *, physical=None
     ) -> (
         tuple[NativeRequestClaim, WireClaimDataRequestResultVariant2]
         | tuple[None, WireClaimDataRequestResult]
     ):
+        native = wire_json_loads(ready.native)
+        mismatch = None
         with self.engine.begin() as connection:
             claimed = DataOperationStorage(connection).claim_data_request(
                 {
-                    "request_id": json.loads(ready.native)["request_id"],
-                    "generation": json.loads(ready.native)["generation"],
+                    "request_id": native["request_id"],
+                    "generation": native["generation"],
                     "holder": self.holder,
                     "lease_seconds": 300,
                 }
             )
-        if claimed["state"] != "claimed":
-            return None, claimed
-        claim = NativeRequestClaim(
-            claimed["request_id"],
-            claimed["generation"],
-            claimed["task_id"],
-            claimed["attempt"],
-            claimed["holder"],
-            claimed["release_id"],
-            datetime.fromisoformat(claimed["lease_until"].replace("Z", "+00:00")),
-            runtime_id=claimed["runtime_id"],
-        )
-        owner.add_claim(claim)
-        native = wire_json_loads(ready.native)
-        if any(
-            claimed[field] != native[field]
-            for field in (
-                "request_id",
-                "generation",
-                "release_id",
-                "runtime_id",
-                "binding",
-                "binding_demand_id",
-                "binding_obligation_id",
+            if claimed["state"] != "claimed":
+                return None, claimed
+            claim = NativeRequestClaim(
+                claimed["request_id"], claimed["generation"], claimed["task_id"],
+                claimed["attempt"], claimed["holder"], claimed["release_id"],
+                datetime.fromisoformat(claimed["lease_until"].replace("Z", "+00:00")),
+                runtime_id=claimed["runtime_id"],
             )
-        ):
-            error = PortRefusal("native claim differs from its prepared immutable generation basis")
-            self._known_failure(claim, owner, error, phase="native claim correspondence")
-            raise error
+            if any(
+                claimed[field] != native[field]
+                for field in (
+                    "request_id", "generation", "release_id", "runtime_id", "binding",
+                    "binding_demand_id", "binding_obligation_id",
+                )
+            ):
+                mismatch = PortRefusal("native claim differs from its prepared immutable generation basis")
+            elif physical is not None and claimed["action"] != "reconcile":
+                context = self._execution_context(claim)
+                if context.model.operation(ready.operation).external is None:
+                    try:
+                        # A refused hydration rolls back only its native reads.
+                        # The outer transaction commits the claim before the
+                        # existing known-failure path releases that exact attempt.
+                        with connection.begin_nested():
+                            physical.hydrated_inputs = self._hydrate(
+                                ready, physical, context=context, connection=connection
+                            )
+                    except Exception as error:
+                        physical.hydration_error = error
+        # Renewal and settlement must never observe a claim before its commit.
+        owner.add_claim(claim)
+        if mismatch is not None:
+            self._known_failure(claim, owner, mismatch, phase="native claim correspondence")
+            raise mismatch
         return claim, claimed
 
     def _publish(self, claim, retained, owner):
@@ -1048,10 +1070,13 @@ class NativeDemandExecutor:
         physical = _RequestExecution(self._physical, reservation)
         claim, phase = None, "claim"
         try:
-            claim, claimed = self._claim(ready, owner)
+            claim, claimed = self._claim(ready, owner, physical=physical)
             if claim is None:
                 return _ExecutionResult()
             physical.claim = claim
+            if physical.hydration_error is not None:
+                phase = "hydration"
+                raise physical.hydration_error
             phase = "reconciliation"
             if claimed["state"] != "claimed":
                 raise ValueError("native claim state differs from active claim")
@@ -1080,7 +1105,10 @@ class NativeDemandExecutor:
                 context = self._execution_context(claim)
                 physical.cpu = context.cpu or self._physical.cpu
                 port = self._port(ready.operation, context)
-                inputs = self._hydrate(ready, physical, context=context)
+                inputs = physical.hydrated_inputs
+                reservation.reduce_to(
+                    2 * physical.hydrated_sizes[ready.obligation] + 3 * self.policy.max_reply_bytes
+                )
                 answer = yield from physical.relay(
                     port.plan_python(
                         inputs,
@@ -1109,18 +1137,31 @@ class NativeDemandExecutor:
         finally:
             reservation.release()
 
-    def _execute_batch(self, ready, owner, reservation):
+    def _execute_batch(self, ready, owner, reservation, *, retain_claim=lambda item: None):
         physical = _RequestExecution(self._physical, reservation)
-        pending, receipts, failures = [], [], []
+        pending, receipts, failures, deferred = [], [], [], []
+        hydrated_bytes = 0
         try:
-            for item in ready:
+            for index, queued in enumerate(ready):
+                item = queued.ready if isinstance(queued, _ClaimedReady) else queued
                 claim, phase = None, "claim"
                 try:
-                    claim, claimed = self._claim(item, owner)
+                    physical.hydrated_inputs, physical.hydration_error = None, None
+                    if isinstance(queued, _ClaimedReady):
+                        claim, claimed = queued.claim, queued.native
+                        owner.check_claim(claim)
+                        physical.hydrated_inputs = self._hydrate(
+                            item, physical, context=self._execution_context(claim)
+                        )
+                    else:
+                        claim, claimed = self._claim(item, owner, physical=physical)
                     if claim is None:
                         continue
                     if claimed["state"] != "claimed":
                         raise ValueError("native claim state differs from active claim")
+                    if physical.hydration_error is not None:
+                        phase = "hydration"
+                        raise physical.hydration_error
                     if claimed["action"] == "reconcile":
                         phase = "reconciliation"
                         receipts.append(
@@ -1131,7 +1172,22 @@ class NativeDemandExecutor:
                         context = self._execution_context(claim)
                         physical.cpu = context.cpu or self._physical.cpu
                         port = self._port(item.operation, context)
-                        inputs = self._hydrate(item, physical, context=context)
+                        inputs = physical.hydrated_inputs
+                        size = physical.hydrated_sizes[item.obligation]
+                        if pending and hydrated_bytes + size > self.policy.max_packet_bytes:
+                            # One boundary lookahead fits stage A's second input
+                            # allowance. Drop every hydrated reference before
+                            # reducing this call; keep only its renewed claim and
+                            # same pinned binding for the next physical call.
+                            physical.hydrated_inputs = inputs = None
+                            for retained in (physical.consumer_inputs, physical.consumer_results,
+                                             physical.binding_rows, physical.hydrated_sizes):
+                                retained.pop(item.obligation, None)
+                            boundary = _ClaimedReady(item, claim, claimed)
+                            retain_claim(boundary)
+                            deferred.extend((boundary, *ready[index + 1:]))
+                            break
+                        hydrated_bytes += size
                         member = f"{claim.request_id}:{claim.generation}:{claim.attempt}"
                         if item.obligation in physical.consumer_inputs:
                             physical.consumer_inputs[member] = physical.consumer_inputs[
@@ -1157,6 +1213,8 @@ class NativeDemandExecutor:
                     error.add_note("native obligation: " + item.obligation)
                     failures.append(error)
             if pending:
+                physical.hydrated_inputs = None
+                reservation.reduce_to(2 * hydrated_bytes + 3 * self.policy.max_reply_bytes)
                 active, rejected = [], []
                 for row in pending:
                     try:
@@ -1227,109 +1285,147 @@ class NativeDemandExecutor:
                             self._failed_requests.add((claim.request_id, claim.generation))
                             error.add_note("native obligation: " + item.obligation)
                             failures.append(error)
-            return _ExecutionResult(tuple(receipts), tuple(failures))
+            return _ExecutionResult(tuple(receipts), tuple(failures), tuple(deferred))
         finally:
             reservation.release()
 
-    def _drive_page(self, snapshot, authorization, owner):
+    def _prepare_page(self, snapshot, authorization):
         with self.engine.begin() as connection:
             planner = DemandPlanner(self.model, DataOperationStorage(connection))
-            ready = tuple(
-                item
-                for item in planner.ready(
-                    snapshot,
-                    authorization=authorization,
-                    excluded_requests=frozenset(self._failed_requests),
-                )
-                if (
-                    json.loads(item.native)["request_id"],
-                    json.loads(item.native).get("generation"),
-                )
-                not in self._failed_requests
+            ready = planner.ready(
+                snapshot, authorization=authorization,
+                excluded_requests=frozenset(self._failed_requests),
             )
             selected = tuple(getattr(planner, "selected_population_ids", ()))
             fulfilled = planner.fulfilled_request_ids
-        receipts, failures, prepared = [], [], []
+        prepared, failures = [], []
         for item in ready:
+            native = wire_json_loads(item.native)
+            if (native["request_id"], native.get("generation")) in self._failed_requests:
+                continue
             try:
                 prepared.append(self._prepare_ready(item, authorization))
             except Exception as error:
-                self._failed_requests.add(
-                    (
-                        json.loads(item.native)["request_id"],
-                        json.loads(item.native).get("generation"),
-                    )
-                )
+                self._failed_requests.add((native["request_id"], native.get("generation")))
                 error.add_note("native obligation: " + item.obligation)
                 failures.append(error)
-        if not prepared:
-            return (), selected, fulfilled, tuple(failures)
+        return prepared, selected, fulfilled, failures
+
+    def _drive_sweep(self, pages, authorization, owner):
+        """One frontier binds bounded compact pages between physical-work ticks."""
+        pages = iter(pages)
+        pending = deque()
+        receipts, failures, selected, fulfilled = [], [], [], []
+        exhausted = False
 
         def plan():
-            groups = {}
-            pending: list[tuple[bool, tuple[ReadyDataRequest, ...]]] = []
-            for item in prepared:
-                context = self._ready_context(item)
-                if context.model.operation(item.operation).capabilities.forms == ("batch",):
-                    groups.setdefault((context.basis.key, item.operation), []).append(item)
-                else:
-                    pending.append((False, (item,)))
-            pending.extend((True, tuple(items)) for items in groups.values())
-            reservations = []
+            nonlocal exhausted
+            reservations = set()
+            held_claims = {}
             active_requests = 0
 
             def execute(batch, items, reservation):
                 nonlocal active_requests
+                deferred = ()
                 try:
                     result = yield from (
-                        self._execute_batch(items, owner, reservation)
+                        self._execute_batch(
+                            items, owner, reservation,
+                            retain_claim=lambda item: held_claims.__setitem__(item.claim.request_id, item),
+                        )
                         if batch
                         else self._execute(items[0], owner, reservation)
                     )
                     receipts.extend(result.receipts)
                     failures.extend(result.failures)
+                    deferred = result.deferred
+                    for item in items:
+                        if isinstance(item, _ClaimedReady):
+                            held_claims.pop(item.claim.request_id, None)
+                    for item in deferred:
+                        if isinstance(item, _ClaimedReady):
+                            held_claims[item.claim.request_id] = item
+                    pending.extendleft(reversed(deferred))
                 finally:
-                    active_requests -= len(items)
+                    active_requests -= len(items) - sum(
+                        isinstance(item, _ClaimedReady) for item in deferred
+                    )
+                    reservations.discard(reservation)
+
+            def refill():
+                nonlocal exhausted
+                # One page plus at most a claim window stays compact. Bodies
+                # only exist after stage-A admission, inside an active child.
+                while not exhausted and len(pending) < self.policy.max_claims:
+                    try:
+                        snapshot = next(pages)
+                    except StopIteration:
+                        exhausted = True
+                        break
+                    ready, populations, done, errors = self._prepare_page(snapshot, authorization)
+                    groups = {}
+                    for index, item in enumerate(ready):
+                        context = self._ready_context(item)
+                        batch = context.model.operation(item.operation).capabilities.forms == ("batch",)
+                        key = (context.basis.key, item.operation) if batch else ("scalar", index)
+                        groups.setdefault(key, []).append(item)
+                    pending.extend(item for group in groups.values() for item in group)
+                    selected.extend(populations)
+                    fulfilled.extend(done)
+                    failures.extend(errors)
 
             def admit():
                 nonlocal active_requests
+                refill()
                 if not pending:
                     return None
-                batch, items = pending[0]
-                # A batch is a physical grouping, not an exemption from the
-                # same request-count and retained-byte admission bounds.
-                count = min(len(items), self.capacity - active_requests)
-                while count:
-                    reservation = self.budget.try_admit(count * self.reservation)
-                    if reservation is not None:
-                        reservations.append(reservation)
-                        active_requests += count
-                        if count == len(items):
-                            pending.pop(0)
-                        else:
-                            pending[0] = (batch, items[count:])
-                        return execute(batch, items[:count], reservation)
-                    count -= 1
-                return None
+                first = pending[0]
+                ready = first.ready if isinstance(first, _ClaimedReady) else first
+                context = self._ready_context(ready)
+                batch = context.model.operation(ready.operation).capabilities.forms == ("batch",)
+                items, fresh = [], 0
+                for queued in pending:
+                    item = queued.ready if isinstance(queued, _ClaimedReady) else queued
+                    if items and (not batch or item.operation != ready.operation
+                                  or self._ready_context(item).basis.key != context.basis.key):
+                        break
+                    is_fresh = not isinstance(queued, _ClaimedReady)
+                    if len(items) == self.policy.max_claims or active_requests + fresh + is_fresh > self.policy.max_claims:
+                        break
+                    items.append(queued)
+                    fresh += is_fresh
+                if not items:
+                    return None
+                # Each physical call, including a batch, has one stage-A charge.
+                reservation = self.budget.try_admit(self.reservation)
+                if reservation is None:
+                    return None
+                reservations.add(reservation)
+                active_requests += fresh
+                for _ in items:
+                    pending.popleft()
+                return execute(batch, tuple(items), reservation)
 
             try:
-                yield ReadyFrontier(admit, lambda: not pending, max_active=self.capacity)
+                yield ReadyFrontier(
+                    admit, lambda: exhausted and not pending, max_active=self.policy.max_claims
+                )
             finally:
-                # Cancellation can close an admitted generator before its
-                # first tick. Its byte lease still belongs to this page.
-                # Submitted physical borrowers retain their own shared leases.
                 for reservation in reservations:
                     reservation.release()
+                # Lookahead claims have no submitted work. Cancellation must
+                # release them through the normal confirmed-failure owner.
+                for item in held_claims.values():
+                    self._known_failure(
+                        item.claim, owner, RuntimeError("ready frontier ended before execution"),
+                        phase="batch boundary rehydration",
+                    )
+                close = getattr(pages, "close", None)
+                if close is not None:
+                    close()
 
         drive_prepared_work(plan(), owner)
-        return tuple(receipts), selected, fulfilled, tuple(failures)
-
-    @property
-    def capacity(self):
-        return min(
-            self.policy.max_claims,
-            (self.policy.max_owned_bytes - self._preparation_bytes) // self.reservation,
-        )
+        return tuple(receipts), tuple(selected), tuple(fulfilled), tuple(failures)
 
     def advance(self, demand: str, *, authorization: bytes = b"{}", limit: int = 100):
         """Advance one complete bounded-page sweep, including later independent work."""
@@ -1390,81 +1486,82 @@ class NativeDemandExecutor:
                 self._physical = physical
                 for _ in range(max_rounds):
                     progress = False
-                    continuation = None
-                    while True:
-                        with self.engine.begin() as connection:
-                            planner = DemandPlanner(self.model, DataOperationStorage(connection))
-                            page = planner.resume(
-                                demand,
-                                limit=min(limit, self.capacity),
-                                selection=dict(continuation["selection"]) if continuation else None,
-                                after=continuation["after"] if continuation else None,
-                                trust_snapshot=continuation["trust_snapshot"]
-                                if continuation
-                                else None,
-                                read_id=continuation["read_id"] if continuation else None,
-                            )
-                            if (page["release_id"], page["runtime_id"]) != (
-                                self.prepared.release_id,
-                                self.runtime.runtime_id,
-                            ):
-                                raise PortRefusal(
-                                    "execution context differs from native demand custody"
+                    def pages():
+                        nonlocal progress
+                        continuation = None
+                        while True:
+                            with self.engine.begin() as connection:
+                                planner = DemandPlanner(self.model, DataOperationStorage(connection))
+                                page = planner.resume(
+                                    demand,
+                                    limit=limit,
+                                    selection=dict(continuation["selection"]) if continuation else None,
+                                    after=continuation["after"] if continuation else None,
+                                    trust_snapshot=continuation["trust_snapshot"]
+                                    if continuation
+                                    else None,
+                                    read_id=continuation["read_id"] if continuation else None,
                                 )
-                            self._last_snapshot = json_bytes(page)
-                            if page.get("state") == "cancelled":
-                                return self._result(demand, self._last_snapshot)
-                        with self.engine.begin() as connection:
-                            planner = DemandPlanner(self.model, DataOperationStorage(connection))
-                            for use in page["uses"]:
-                                if use["fate"] != "fulfilled":
-                                    continue
-                                obligation = next(
-                                    item
-                                    for item in page["obligations"]
-                                    if item["obligation_id"] == use["obligation_id"]
-                                )
-                                for relation in page["intent"]["discovery"]:
-                                    if relation["producer"] != obligation["operation_id"]:
+                                if (page["release_id"], page["runtime_id"]) != (
+                                    self.prepared.release_id,
+                                    self.runtime.runtime_id,
+                                ):
+                                    raise PortRefusal(
+                                        "execution context differs from native demand custody"
+                                    )
+                                self._last_snapshot = json_bytes(page)
+                                if page.get("state") == "cancelled":
+                                    return
+                            with self.engine.begin() as connection:
+                                planner = DemandPlanner(self.model, DataOperationStorage(connection))
+                                obligations = {item["obligation_id"]: item for item in page["obligations"]}
+                                for use in page["uses"]:
+                                    if use["fate"] != "fulfilled":
                                         continue
-                                    for product in use["products"]:
-                                        if product["role"] != relation["output_role"]:
+                                    obligation = obligations[use["obligation_id"]]
+                                    for relation in page["intent"]["discovery"]:
+                                        if relation["producer"] != obligation["operation_id"]:
                                             continue
-                                        identity = (
-                                            relation["population"],
-                                            product["product_id"],
-                                            use["derivation_id"],
-                                        )
-                                        if identity[2] is None:
-                                            raise ValueError(
-                                                "discovery product lacks a producing episode"
+                                        for product in use["products"]:
+                                            if product["role"] != relation["output_role"]:
+                                                continue
+                                            identity = (
+                                                relation["population"],
+                                                product["product_id"],
+                                                use["derivation_id"],
                                             )
-                                        if identity not in seen_discovered:
-                                            planner.expand_discovery(
-                                                page,
-                                                population=identity[0],
-                                                product=identity[1],
-                                                derivation=identity[2],
-                                            )
-                                            seen_discovered.add(identity)
-                                            progress = True
-                        physical.declare_target_operations(
-                            item["operation"] for item in page["selection"]["operations"]
-                        )
-                        settled, selected, fulfilled, errors = self._drive_page(
-                            page, authorization, owner
-                        )
-                        self._member_failures.extend(errors)
-                        progress = (
-                            progress
-                            or bool(settled)
-                            or bool(selected)
-                            or bool(set(fulfilled) - seen_fulfilled)
-                        )
-                        seen_fulfilled.update(fulfilled)
-                        continuation = page.get("continuation")
-                        if continuation is None:
-                            break
+                                            if identity[2] is None:
+                                                raise ValueError(
+                                                    "discovery product lacks a producing episode"
+                                                )
+                                            if identity not in seen_discovered:
+                                                planner.expand_discovery(
+                                                    page,
+                                                    population=identity[0],
+                                                    product=identity[1],
+                                                    derivation=identity[2],
+                                                )
+                                                seen_discovered.add(identity)
+                                                progress = True
+                            physical.select_operations(
+                                item["operation"] for item in page["selection"]["operations"]
+                            )
+                            yield page
+                            continuation = page.get("continuation")
+                            if continuation is None:
+                                return
+
+                    settled, selected, fulfilled, errors = self._drive_sweep(
+                        pages(), authorization, owner
+                    )
+                    self._member_failures.extend(errors)
+                    if self._last_snapshot and wire_json_loads(self._last_snapshot).get("state") == "cancelled":
+                        return self._result(demand, self._last_snapshot)
+                    progress = (
+                        progress or bool(settled) or bool(selected)
+                        or bool(set(fulfilled) - seen_fulfilled)
+                    )
+                    seen_fulfilled.update(fulfilled)
                     if not progress:
                         break
             with self.engine.begin() as connection:

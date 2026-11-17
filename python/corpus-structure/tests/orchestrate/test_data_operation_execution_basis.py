@@ -172,7 +172,7 @@ def test_batches_never_mix_distinct_execution_bases(monkeypatch, prepared):
 
     with _OwnedPythonPool(2) as pool, _InvocationExecution(executor, pool) as physical:
         executor._physical = physical
-        receipts, _, _, failures = executor._drive_page({}, b"{}", Active())
+        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
     assert len(receipts) == 4 and not failures
     assert sorted(batches) == [(0, 2), (1, 3)]
     assert executor.budget.used_bytes == 0 and not observed.live
@@ -325,3 +325,77 @@ def test_shared_capsule_descriptor_rejects_changed_archive_digest(prepared):
     finally:
         scope.close()
     assert scope.budget.used_bytes == 0
+
+
+@pytest.mark.parametrize("refuse", [False, True])
+def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(monkeypatch, refuse):
+    from contextlib import contextmanager
+
+    events = []
+    metadata = attached_basis()
+    claimed = dict(
+        metadata, state="claimed", task_id=13, attempt=2, holder="owner",
+        lease_until="2026-11-17T00:00:00Z", trust_snapshot={},
+    )
+
+    class Connection:
+        @contextmanager
+        def begin_nested(self):
+            events.append("savepoint")
+            try:
+                yield
+            except Exception:
+                events.append("rollback hydration")
+                raise
+            else:
+                events.append("release savepoint")
+
+    connection = Connection()
+
+    @contextmanager
+    def transaction():
+        events.append("begin claim")
+        yield connection
+        events.append("commit claim")
+
+    executor = object.__new__(NativeDemandExecutor)
+    executor.engine = SimpleNamespace(begin=transaction)
+    executor.holder = "owner"
+    executor._execution_context = lambda _: SimpleNamespace(
+        model=SimpleNamespace(operation=lambda _: SimpleNamespace(external=None))
+    )
+
+    def native_claim(_payload):
+        events.append("claim")
+        return claimed
+
+    monkeypatch.setattr(data_operations, "DataOperationStorage", lambda conn: SimpleNamespace(
+        claim_data_request=native_claim if conn is connection else None
+    ))
+
+    def hydrate(_ready, _physical, *, connection, **_):
+        assert connection is not None
+        events.append("hydrate")
+        if refuse:
+            raise ValueError("controlled hydration refusal")
+        return ("selected input",)
+
+    executor._hydrate = hydrate
+    physical = SimpleNamespace(hydrated_inputs=None, hydration_error=None)
+    ready = SimpleNamespace(native=canonical_bytes(metadata), operation="operation")
+    claim, result = executor._claim(
+        ready, SimpleNamespace(add_claim=lambda _: events.append("renew committed claim")),
+        physical=physical,
+    )
+    assert claim is not None and result == claimed
+    assert events == [
+        "begin claim", "claim", "savepoint", "hydrate",
+        "rollback hydration" if refuse else "release savepoint",
+        "commit claim", "renew committed claim",
+    ]
+    if refuse:
+        assert isinstance(physical.hydration_error, ValueError)
+        assert physical.hydrated_inputs is None
+    else:
+        assert physical.hydrated_inputs == ("selected input",)
+        assert physical.hydration_error is None
