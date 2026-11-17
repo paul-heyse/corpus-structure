@@ -252,6 +252,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
 
         def current_metadata():
             return dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
+
         metadata_provider = current_metadata
         entry, remaining = bounded_rows(source(), metadata_provider)
         if entry is not None:

@@ -115,6 +115,14 @@ class WireOriginalDocumentRef(TypedDict):
     project_id: Required[ProjectId]
 
 
+class WirePdfPublicationCertification(TypedDict):
+    attested_logical_digest: Required[str]
+    basis: Required[Literal["producer-certified", "round-trip-verified"]]
+    lowering_identity: Required[str]
+    native_document_digest: Required[str]
+    oracle_receipt_id: Required[str]
+
+
 class WirePdfSpoolContributorReceipt(TypedDict):
     adopter_attempt: Required[int]
     adopter_holder: Required[str]
@@ -142,6 +150,7 @@ class WirePublishedPdfDocumentRef(TypedDict):
 
 
 class WirePdfExecutionReceipt(TypedDict):
+    certification: Required[WirePdfPublicationCertification]
     contributors: Required[list[WirePdfSpoolContributorReceipt]]
     publication: Required[WirePublishedPdfDocumentRef]
     publisher_attempt: Required[int]

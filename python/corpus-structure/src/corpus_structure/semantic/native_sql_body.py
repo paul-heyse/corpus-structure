@@ -134,19 +134,34 @@ def published_validation_statement(*, target_metadata=None):
                     validation.c.contract_digest == product.c.contract_digest,
                 ),
             )
-            .join(producer, and_(producer.c.build_id == validation.c.build_id,
-                producer.c.lowering_identity == validation.c.lowering_identity,
-                producer.c.logical_digest == validation.c.attested_logical_digest,
-                producer.c.logical_digest == published.c.logical_digest,
-                producer.c.native_document_digest == validation.c.native_document_digest,
-                producer.c.kind == published.c.kind))
-            .join(oracle, and_(oracle.c.oracle_receipt_id == validation.c.oracle_receipt_id,
-                oracle.c.lowering_identity == validation.c.lowering_identity,
-                oracle.c.kind == published.c.kind))
-            .outerjoin(oracle_publication, and_(oracle_publication.c.build_id == oracle.c.build_id,
-                oracle_publication.c.frozen_digest == oracle.c.frozen_digest,
-                oracle_publication.c.logical_digest == oracle.c.logical_digest,
-                oracle_publication.c.kind == oracle.c.kind))
+            .join(
+                producer,
+                and_(
+                    producer.c.build_id == validation.c.build_id,
+                    producer.c.lowering_identity == validation.c.lowering_identity,
+                    producer.c.logical_digest == validation.c.attested_logical_digest,
+                    producer.c.logical_digest == published.c.logical_digest,
+                    producer.c.native_document_digest == validation.c.native_document_digest,
+                    producer.c.kind == published.c.kind,
+                ),
+            )
+            .join(
+                oracle,
+                and_(
+                    oracle.c.oracle_receipt_id == validation.c.oracle_receipt_id,
+                    oracle.c.lowering_identity == validation.c.lowering_identity,
+                    oracle.c.kind == published.c.kind,
+                ),
+            )
+            .outerjoin(
+                oracle_publication,
+                and_(
+                    oracle_publication.c.build_id == oracle.c.build_id,
+                    oracle_publication.c.frozen_digest == oracle.c.frozen_digest,
+                    oracle_publication.c.logical_digest == oracle.c.logical_digest,
+                    oracle_publication.c.kind == oracle.c.kind,
+                ),
+            )
         )
         .where(
             published.c.task_id == literal_column("p_task", type_=published.c.task_id.type),
@@ -157,12 +172,18 @@ def published_validation_statement(*, target_metadata=None):
             validation.c.native_callbacks.is_(True),
             oracle.c.state == "passed",
             oracle.c.actual_native_digest == oracle.c.native_document_digest,
-            or_(and_(validation.c.certification_basis == "round-trip-verified",
-                     oracle.c.build_id == published.c.build_id,
-                     oracle.c.frozen_digest == published.c.frozen_digest,
-                     oracle.c.native_document_digest == producer.c.native_document_digest),
-                and_(validation.c.certification_basis == "producer-certified",
-                     oracle_publication.c.build_id.is_not(None))),
+            or_(
+                and_(
+                    validation.c.certification_basis == "round-trip-verified",
+                    oracle.c.build_id == published.c.build_id,
+                    oracle.c.frozen_digest == published.c.frozen_digest,
+                    oracle.c.native_document_digest == producer.c.native_document_digest,
+                ),
+                and_(
+                    validation.c.certification_basis == "producer-certified",
+                    oracle_publication.c.build_id.is_not(None),
+                ),
+            ),
         )
     )
 

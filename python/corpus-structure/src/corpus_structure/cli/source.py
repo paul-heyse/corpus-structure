@@ -13,6 +13,7 @@ from corpus_structure.cli.output import JsonOpt, emit, report_fields, state
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.visual_evidence import VisualEvidenceKind, VisualEvidencePin
 from corpus_structure.serve.native_source import NativeExportFormat, NativeSourceRequest
+from corpus_structure.serve.source_verification import PdfSourceVerification
 
 app = typer.Typer(help="Inspect pinned PDF sources and integration custody.", no_args_is_help=True)
 
@@ -24,6 +25,11 @@ class SourceCoverageReport(BaseModel):
     page_outcomes: dict[str, int]
     page_rows: int | None
     next_cursor: str | None
+
+
+class SourceVerificationReport(BaseModel):
+    invocation_id: str
+    verification: PdfSourceVerification
 
 
 @app.command("find")
@@ -41,7 +47,7 @@ def find(
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.output import read_request_bytes, write_report_text
     from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-    from corpus_structure.semantic.demand_results import selected_read_snapshot
+    from corpus_structure.semantic.pdf_source_search import search_source_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.source_search import SourceSearchRequest, search_source
 
@@ -51,13 +57,69 @@ def find(
             open_runtime_engine(
                 state(ctx).settings(), application_name="ci-source-find", purpose="read"
             ) as engine,
-            selected_read_snapshot(engine) as connection,
+            search_source_snapshot(engine) as connection,
         ):
             response = search_source(connection, selected)
     if json:
         write_report_text(json_bytes(response.model_dump(mode="python")).decode() + "\n")
     else:
         emit(response, json=False)
+
+
+@app.command("verify")
+def verify(
+    ctx: typer.Context,
+    demand: Annotated[str, typer.Option()],
+    project: Annotated[str, typer.Option()],
+    read: Annotated[str, typer.Option()],
+    use: Annotated[str, typer.Option()],
+    product: Annotated[str, typer.Option()],
+    derivation: Annotated[str, typer.Option()],
+    json: JsonOpt = False,
+):
+    """Reconstruct and independently verify one exact selected PDF publication."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.managed import result_boundary, result_store
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
+    from corpus_structure.serve.source_verification import verify_selected_pdf_source
+
+    selection = SelectedPdfSourceReference(
+        project_id=project,
+        demand_id=demand,
+        read_id=read,
+        use_id=use,
+        product_id=product,
+        derivation_id=derivation,
+    )
+    cancellation = BorrowerCancellation()
+    with (
+        result_boundary(json),
+        result_store(ctx).operation(
+            "source.verify",
+            scope=selection.model_dump(mode="python"),
+            account=True,
+            observations=True,
+        ) as invocation,
+        failure_boundary(json, expected=(ValueError, OSError), operation=invocation),
+    ):
+        invocation.stage("capture and verify selected PDF")
+        with open_runtime_engine(
+            state(ctx).settings(), application_name="ci-source-verify", purpose="read"
+        ) as engine:
+            verification = verify_selected_pdf_source(
+                engine,
+                selection,
+                directory=invocation.directory / "oracle",
+                cancellation=cancellation,
+            )
+        report = SourceVerificationReport(invocation_id=invocation.id, verification=verification)
+        path = invocation.directory / "verification.json"
+        path.write_bytes(json_bytes(report.model_dump(mode="python")))
+        invocation.publish("verification", path)
+        invocation.settle("passed")
+        emit(report, json=json)
 
 
 @app.command("inspect")

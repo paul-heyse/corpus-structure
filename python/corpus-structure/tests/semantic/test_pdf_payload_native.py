@@ -71,7 +71,14 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
             }
         ],
     }
-    stage_complete_native(commit_writer_engine, build, tmp_path, companions={"native_metadata": [dict(kind="inline_candidate_pages", ordinal=0, value=value)]})
+    stage_complete_native(
+        commit_writer_engine,
+        build,
+        tmp_path,
+        companions={
+            "native_metadata": [dict(kind="inline_candidate_pages", ordinal=0, value=value)]
+        },
+    )
     logical = prepare_payload_family().logical_digest(value)
     with commit_writer_engine.begin() as conn:
         adopt_pdf_companions(
@@ -183,9 +190,13 @@ def test_final_validation_freezes_projection_membership(
         assert old_single_source is None
         assert recorded != sha256(single_source).hexdigest()
     with pytest.raises(DBAPIError, match="not owned/open"), commit_writer_engine.begin() as conn:
-        conn.execute(text("SELECT ops.stage_pdf_access_batch(:build,:task,:attempt,:holder,"
-            "jsonb_build_array(jsonb_build_object('family','access','body',CAST(:body AS jsonb))))"),
-            params | {"body": json.dumps(projection)})
+        conn.execute(
+            text(
+                "SELECT ops.stage_pdf_access_batch(:build,:task,:attempt,:holder,"
+                "jsonb_build_array(jsonb_build_object('family','access','body',CAST(:body AS jsonb))))"
+            ),
+            params | {"body": json.dumps(projection)},
+        )
 
 
 def test_projection_finalization_serializes_on_build_without_blocking_heartbeat(

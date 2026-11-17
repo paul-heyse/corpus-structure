@@ -38,7 +38,11 @@ def _recoveries(replays):
 
 def _records(reply):
     result = defaultdict(list)
-    for replay in reply.record_replays:
+    replays = (
+        *reply.record_replays,
+        *(replay for group in reply.companion_sets for replay in group.replays),
+    )
+    for replay in replays:
         replay.verify()
         with pa.memory_map(str(replay.path), "r") as source:
             reader = pa.ipc.open_file(source)
@@ -58,7 +62,16 @@ def _records(reply):
 
 
 def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
+    from corpus_structure.semantic.pdf_certification import prepare_pdf_producer_contract
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+
     recipe, assets = prepared_pdf_resume_assets()
+    contract = prepare_pdf_producer_contract(trusted_pdf_context(), kind="native")
+    bindings = dict(
+        validation_contract=contract.validation_contract,
+        lowering_identity=contract.lowering_identity,
+        payload_schema=contract.payload_schema,
+    )
     interrupted = []
 
     def stop_after_page(replay):
@@ -79,6 +92,7 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
                 release_id="controlled-release",
                 on_replay=stop_after_page,
                 page_range=PAGE_RANGE,
+                **bindings,
             )
         first = _recoveries(interrupted)
         assert len(first) == 1
@@ -93,6 +107,7 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
                 on_replay=resumed_replays.append,
                 page_range=PAGE_RANGE,
                 recovery_pages=first,
+                **bindings,
             )
         expected = set(range(PAGE_RANGE[0], PAGE_RANGE[1] + 1))
         computed = {item.page_no for item in resumed_replays if item.family == "page"}
@@ -110,6 +125,7 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
                 on_replay=replayed.append,
                 page_range=PAGE_RANGE,
                 recovery_pages=all_pages,
+                **bindings,
             )
         assert not any(item.family in {"page", "candidate_payload"} for item in replayed)
         assert rebuilt.conversion_status == resumed.conversion_status == "success"

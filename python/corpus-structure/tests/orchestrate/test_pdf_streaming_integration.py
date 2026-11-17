@@ -165,7 +165,10 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
         persisted_receipts = {receipt.replay_key: receipt for receipt in receipts}
         assert len(callback_receipts) == len(adopted), "each producer batch acknowledged once"
         assert {key: persisted_receipts[key] for key in callback_receipts} == callback_receipts
-        assert all(key.startswith("companion:") for key in persisted_receipts.keys() - callback_receipts.keys())
+        assert all(
+            key.startswith("companion:")
+            for key in persisted_receipts.keys() - callback_receipts.keys()
+        )
         assert sum(receipt.row_count for receipt in receipts) > 10
         assert not any(receipt.replay_key.startswith("page:") for receipt in receipts)
         manifests = list(directory.glob("*/attempt-*/manifest.jsonl"))

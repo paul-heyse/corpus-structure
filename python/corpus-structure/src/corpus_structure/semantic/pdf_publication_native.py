@@ -20,7 +20,8 @@ _FINAL = {
     "companion": "kb.pdf_record_companion",
     "endpoint": "kb.pdf_record_endpoint",
     "companion_field": "kb.pdf_record_companion_field",
-    "access": "kb.pdf_record_access", "region": "kb.pdf_record_region",
+    "access": "kb.pdf_record_access",
+    "region": "kb.pdf_record_region",
 }
 
 
@@ -717,13 +718,22 @@ b.state='abandoned' THEN
         "companion": "ops.pdf_stage_companion",
         "endpoint": "ops.pdf_stage_endpoint",
         "companion_field": "ops.pdf_stage_companion_field",
-        "access": "ops.pdf_stage_access", "region": "ops.pdf_stage_region",
+        "access": "ops.pdf_stage_access",
+        "region": "ops.pdf_stage_region",
     }
-    inventory_stage = {**stage, "spool_producer": "ops.pdf_spool_producer", "spool_contributor": "ops.pdf_spool_contributor",
-        "producer_certification": "ops.pdf_producer_certification"}
+    inventory_stage = {
+        **stage,
+        "spool_producer": "ops.pdf_spool_producer",
+        "spool_contributor": "ops.pdf_spool_contributor",
+        "producer_certification": "ops.pdf_producer_certification",
+    }
     for family, relation in sorted(inventory_stage.items()):
         keys = ",".join(metadata.tables[relation].primary_key.columns.keys())
-        owner_column = "build_id" if family.startswith("spool_") or family == "producer_certification" else "product_id"
+        owner_column = (
+            "build_id"
+            if family.startswith("spool_") or family == "producer_certification"
+            else "product_id"
+        )
         sql += f"""
  family_count_:=0;
  FOR row_ IN SELECT to_jsonb(t) body FROM {relation} t WHERE {owner_column}=p_build ORDER BY {keys} LOOP
@@ -760,7 +770,11 @@ b.state='abandoned' THEN
  RAISE EXCEPTION 'PDF freeze build is not open' USING ERRCODE='23514'; END IF;
 """
     for family, relation in sorted(inventory_stage.items()):
-        owner_column = "build_id" if family.startswith("spool_") or family == "producer_certification" else "product_id"
+        owner_column = (
+            "build_id"
+            if family.startswith("spool_") or family == "producer_certification"
+            else "product_id"
+        )
         sql += f"""
  SELECT count(*) INTO family_count_ FROM {relation} WHERE {owner_column}=p_build;
  IF family_count_ IS DISTINCT FROM (inventory_->>'{family}')::bigint THEN
@@ -806,7 +820,9 @@ BEGIN b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
         "artifact_part",
         "companion",
         "endpoint",
-        "companion_field", "access", "region",
+        "companion_field",
+        "access",
+        "region",
     ):
         target = _FINAL[family]
         source = stage[family]

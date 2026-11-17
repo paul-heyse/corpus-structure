@@ -6,7 +6,11 @@ import pytest
 from pydantic import TypeAdapter
 from sqlalchemy import text
 
-from corpus_structure.semantic.pdf_publication import PdfExecutionReceipt, PdfPublicationCertification, PublishedPdfDocumentRef
+from corpus_structure.semantic.pdf_publication import (
+    PdfExecutionReceipt,
+    PdfPublicationCertification,
+    PublishedPdfDocumentRef,
+)
 from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.pdf_staging_support import private_build as private_build
 
@@ -24,12 +28,20 @@ def test_pdf_sealed_publisher_receipt_retains_original_physical_custody():
         "e" * 64,
         "native",
     )
-    certification = PdfPublicationCertification("producer-certified", "f" * 64, "a" * 64, "0" * 64, "oracle:one")
+    certification = PdfPublicationCertification(
+        "producer-certified", "f" * 64, "a" * 64, "0" * 64, "oracle:one"
+    )
     receipt = PdfExecutionReceipt(publication, 2, "sealed-publisher", (), certification)
     adapter = TypeAdapter(PdfExecutionReceipt)
     assert adapter.validate_json(adapter.dump_json(receipt), strict=True) == receipt
     assert asdict(receipt)["publication"]["task_id"] == 123
-    assert set(asdict(receipt)) == {"publication", "publisher_attempt", "publisher_holder", "contributors", "certification"}
+    assert set(asdict(receipt)) == {
+        "publication",
+        "publisher_attempt",
+        "publisher_holder",
+        "contributors",
+        "certification",
+    }
     for attempt, holder in ((0, "owner"), (True, "owner"), (1, "")):
         with pytest.raises(ValueError, match="sealed publisher fence"):
             PdfExecutionReceipt(publication, attempt, holder, (), certification)

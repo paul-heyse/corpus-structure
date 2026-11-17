@@ -5,7 +5,11 @@ from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.pdf_publication import freeze_pdf_build, prepare_pdf_build, validate_pdf_build
+from corpus_structure.semantic.pdf_publication import (
+    freeze_pdf_build,
+    prepare_pdf_build,
+    validate_pdf_build,
+)
 from semantic.pdf_staging_support import private_build as private_build
 
 
@@ -43,7 +47,12 @@ def test_stale_final_validation_requires_fresh_derivation(
             ).scalar_one()
             != params["stale"]
         )
-        owner.execute(text("UPDATE ops.pdf_build_validation SET native_contract_digest=:stale WHERE build_id=:build"), params)
+        owner.execute(
+            text(
+                "UPDATE ops.pdf_build_validation SET native_contract_digest=:stale WHERE build_id=:build"
+            ),
+            params,
+        )
     suffix = ", 'native'" if operation == "seal_pdf_build" else ""
     with (
         pytest.raises(DBAPIError, match=r"fresh.*rebuild|rebuild.*fresh"),

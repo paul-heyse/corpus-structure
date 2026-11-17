@@ -34,7 +34,17 @@ from corpus_structure.semantic.identifiers import RuntimeId as RuntimeId
 from corpus_structure.semantic.identifiers import TaskAttempt as TaskAttempt
 from corpus_structure.semantic.identifiers import TaskId as TaskId
 
+from ._pdf_native_ids import (
+    PdfBuildValidationCertificationBasis as PdfBuildValidationCertificationBasis,
+)
+from ._pdf_native_ids import (
+    PdfCertificationRequirementCertificationBasis as PdfCertificationRequirementCertificationBasis,
+)
+from ._pdf_native_ids import PdfCertificationRequirementKind as PdfCertificationRequirementKind
 from ._pdf_native_ids import PdfFrozenBuildKind as PdfFrozenBuildKind
+from ._pdf_native_ids import (
+    PdfProducerCertificationRecordKind as PdfProducerCertificationRecordKind,
+)
 from ._pdf_native_ids import PdfPublishedRevisionKind as PdfPublishedRevisionKind
 from ._pdf_native_ids import (
     PdfSourceViewPublicationMembership as PdfSourceViewPublicationMembership,
@@ -3758,7 +3768,7 @@ def read_pdf_materialization_bound(
 
 
 READ_PDF_PUBLISHED_VALIDATION_CONTRACT_DIGEST = (
-    "a965204071c1a8672beddb3fc02abc48f327f71b97aa67c9c0f2f6f2e33aedb3"
+    "39c994edb32338f4a8cb8c00561b693840842bb109096a0144a1a8888e0af3e4"
 )
 
 
@@ -3769,6 +3779,11 @@ class PdfBuildValidation(NativeRowResult):
     contract_digest: str
     native_callbacks: bool
     native_contract_digest: str
+    certification_basis: PdfBuildValidationCertificationBasis
+    lowering_identity: str
+    attested_logical_digest: str
+    native_document_digest: str
+    oracle_receipt_id: str
 
 
 class _read_pdf_published_validationRequest(OperationResult):
@@ -3790,6 +3805,11 @@ _read_pdf_published_validation_function = func.ops.read_pdf_published_validation
     column("contract_digest", Text()),
     column("native_callbacks", Boolean()),
     column("native_contract_digest", Text()),
+    column("certification_basis", Text()),
+    column("lowering_identity", Text()),
+    column("attested_logical_digest", Text()),
+    column("native_document_digest", Text()),
+    column("oracle_receipt_id", Text()),
 )
 
 
@@ -3800,6 +3820,11 @@ class _read_pdf_published_validationColumns(Protocol):
     contract_digest: Column[str]
     native_callbacks: Column[bool]
     native_contract_digest: Column[str]
+    certification_basis: Column[PdfBuildValidationCertificationBasis]
+    lowering_identity: Column[str]
+    attested_logical_digest: Column[str]
+    native_document_digest: Column[str]
+    oracle_receipt_id: Column[str]
 
 
 _read_pdf_published_validation_columns = cast(
@@ -3812,11 +3837,16 @@ _read_pdf_published_validation_statement = select(
     _read_pdf_published_validation_columns.contract_digest,
     _read_pdf_published_validation_columns.native_callbacks,
     _read_pdf_published_validation_columns.native_contract_digest,
+    _read_pdf_published_validation_columns.certification_basis,
+    _read_pdf_published_validation_columns.lowering_identity,
+    _read_pdf_published_validation_columns.attested_logical_digest,
+    _read_pdf_published_validation_columns.native_document_digest,
+    _read_pdf_published_validation_columns.oracle_receipt_id,
 )
 
 
 def _read_pdf_published_validation_result(
-    row: tuple[str, str, str, str, bool, str],
+    row: tuple[str, str, str, str, bool, str, str, str, str, str, str],
 ) -> PdfBuildValidation:
     with native_result_scope("read_pdf_product", "PdfBuildValidation"):
         return PdfBuildValidation(
@@ -3826,6 +3856,11 @@ def _read_pdf_published_validation_result(
             contract_digest=row[3],
             native_callbacks=row[4],
             native_contract_digest=row[5],
+            certification_basis=cast(PdfBuildValidationCertificationBasis, row[6]),
+            lowering_identity=row[7],
+            attested_logical_digest=row[8],
+            native_document_digest=row[9],
+            oracle_receipt_id=row[10],
         )
 
 
@@ -3835,7 +3870,9 @@ def prepare_read_pdf_published_validation(
     product_key: ProductKey,
     content_digest: ContentDigest,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, str, str, str, bool, str]:
+) -> Select[
+    str, str, str, str, bool, str, PdfBuildValidationCertificationBasis, str, str, str, str
+]:
     _request = _read_pdf_published_validationRequest(
         task_id=task_id,
         product_key=product_key,
@@ -3848,12 +3885,17 @@ def prepare_read_pdf_published_validation(
             "read_pdf_published_validation",
             READ_PDF_PUBLISHED_VALIDATION_CONTRACT_DIGEST,
         )
-    return _read_pdf_published_validation_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "product_key": _request.product_key,
-            "content_digest": _request.content_digest,
-        }
+    return cast(
+        Select[
+            str, str, str, str, bool, str, PdfBuildValidationCertificationBasis, str, str, str, str
+        ],
+        _read_pdf_published_validation_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+            }
+        ),
     )
 
 
@@ -4859,8 +4901,660 @@ def seal_pdf_build(
         return _seal_pdf_build_result(_native_result.one())
 
 
+RECORD_PDF_PRODUCER_CERTIFICATION_CONTRACT_DIGEST = (
+    "6ffaed1daea24911ac871ecced506217e1cbf815299630a13ea2f607f8c9f600"
+)
+
+
+class _record_pdf_producer_certificationRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    lowering_identity: str
+    kind: PdfProducerCertificationRecordKind
+    logical_digest: str
+    native_document_digest: str
+    stream_inventory_digest: str
+
+
+_record_pdf_producer_certification_function = func.ops.record_pdf_producer_certification(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("lowering_identity", type_=Text()),
+    bindparam("kind", type_=Text()),
+    bindparam("logical_digest", type_=Text()),
+    bindparam("native_document_digest", type_=Text()),
+    bindparam("stream_inventory_digest", type_=Text()),
+)
+_record_pdf_producer_certification_statement = select(_record_pdf_producer_certification_function)
+
+
+def prepare_record_pdf_producer_certification(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    lowering_identity: str,
+    kind: PdfProducerCertificationRecordKind,
+    logical_digest: str,
+    native_document_digest: str,
+    stream_inventory_digest: str,
+    projection_context: PreparedRelease | None = None,
+) -> Select[None]:
+    _request = _record_pdf_producer_certificationRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        lowering_identity=lowering_identity,
+        kind=kind,
+        logical_digest=logical_digest,
+        native_document_digest=native_document_digest,
+        stream_inventory_digest=stream_inventory_digest,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "validate_pdf_build",
+            "record_pdf_producer_certification",
+            RECORD_PDF_PRODUCER_CERTIFICATION_CONTRACT_DIGEST,
+        )
+    return _record_pdf_producer_certification_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "lowering_identity": _request.lowering_identity,
+            "kind": _request.kind,
+            "logical_digest": _request.logical_digest,
+            "native_document_digest": _request.native_document_digest,
+            "stream_inventory_digest": _request.stream_inventory_digest,
+        }
+    )
+
+
+def record_pdf_producer_certification(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    lowering_identity: str,
+    kind: PdfProducerCertificationRecordKind,
+    logical_digest: str,
+    native_document_digest: str,
+    stream_inventory_digest: str,
+    projection_context: PreparedRelease | None = None,
+) -> None:
+    _statement = prepare_record_pdf_producer_certification(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        lowering_identity=lowering_identity,
+        kind=kind,
+        logical_digest=logical_digest,
+        native_document_digest=native_document_digest,
+        stream_inventory_digest=stream_inventory_digest,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("validate_pdf_build", "record_pdf_producer_certification"):
+        _native_result.scalar_one()
+    return None
+
+
+STAGE_PDF_ACCESS_BATCH_CONTRACT_DIGEST = (
+    "1cb728135ac27c26674348c89695f4c23594ca836a59e575a76d95bc5931535d"
+)
+
+
+class _stage_pdf_access_batchRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    rows: JsonValue
+
+
+_stage_pdf_access_batch_function = func.ops.stage_pdf_access_batch(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("rows", type_=JSONB()),
+)
+_stage_pdf_access_batch_statement = select(_stage_pdf_access_batch_function)
+
+
+def prepare_stage_pdf_access_batch(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    rows: JsonValue,
+    projection_context: PreparedRelease | None = None,
+) -> Select[None]:
+    _request = _stage_pdf_access_batchRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        rows=rows,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "validate_pdf_build",
+            "stage_pdf_access_batch",
+            STAGE_PDF_ACCESS_BATCH_CONTRACT_DIGEST,
+        )
+    return _stage_pdf_access_batch_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "rows": _request.rows,
+        }
+    )
+
+
+def stage_pdf_access_batch(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    rows: JsonValue,
+    projection_context: PreparedRelease | None = None,
+) -> None:
+    _statement = prepare_stage_pdf_access_batch(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        rows=rows,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("validate_pdf_build", "stage_pdf_access_batch"):
+        _native_result.scalar_one()
+    return None
+
+
+READ_PDF_CERTIFICATION_REQUIREMENT_CONTRACT_DIGEST = (
+    "ba74ada8d46dce168a656d5379cff45cfdc1afbbdcd84ea9128d99c6d18e3d8e"
+)
+
+
+class PdfCertificationRequirement(NativeRowResult):
+    lowering_identity: str
+    kind: PdfCertificationRequirementKind
+    logical_digest: str
+    native_document_digest: str
+    oracle_receipt_id: str | None
+    certification_basis: PdfCertificationRequirementCertificationBasis
+
+
+class _read_pdf_certification_requirementRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    frozen_digest: str
+
+
+_read_pdf_certification_requirement_function = func.ops.read_pdf_certification_requirement(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("frozen_digest", type_=Text()),
+).table_valued(
+    column("lowering_identity", Text()),
+    column("kind", Text()),
+    column("logical_digest", Text()),
+    column("native_document_digest", Text()),
+    column("oracle_receipt_id", Text()),
+    column("certification_basis", Text()),
+)
+
+
+class _read_pdf_certification_requirementColumns(Protocol):
+    lowering_identity: Column[str]
+    kind: Column[PdfCertificationRequirementKind]
+    logical_digest: Column[str]
+    native_document_digest: Column[str]
+    oracle_receipt_id: Column[str | None]
+    certification_basis: Column[PdfCertificationRequirementCertificationBasis]
+
+
+_read_pdf_certification_requirement_columns = cast(
+    _read_pdf_certification_requirementColumns, _read_pdf_certification_requirement_function.c
+)
+_read_pdf_certification_requirement_statement = select(
+    _read_pdf_certification_requirement_columns.lowering_identity,
+    _read_pdf_certification_requirement_columns.kind,
+    _read_pdf_certification_requirement_columns.logical_digest,
+    _read_pdf_certification_requirement_columns.native_document_digest,
+    _read_pdf_certification_requirement_columns.oracle_receipt_id,
+    _read_pdf_certification_requirement_columns.certification_basis,
+)
+
+
+def _read_pdf_certification_requirement_result(
+    row: tuple[str, str, str, str, str | None, str],
+) -> PdfCertificationRequirement:
+    with native_result_scope("validate_pdf_build", "PdfCertificationRequirement"):
+        return PdfCertificationRequirement(
+            lowering_identity=row[0],
+            kind=cast(PdfCertificationRequirementKind, row[1]),
+            logical_digest=row[2],
+            native_document_digest=row[3],
+            oracle_receipt_id=row[4],
+            certification_basis=cast(PdfCertificationRequirementCertificationBasis, row[5]),
+        )
+
+
+def prepare_read_pdf_certification_requirement(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    frozen_digest: str,
+    projection_context: PreparedRelease | None = None,
+) -> Select[
+    str,
+    PdfCertificationRequirementKind,
+    str,
+    str,
+    str | None,
+    PdfCertificationRequirementCertificationBasis,
+]:
+    _request = _read_pdf_certification_requirementRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        frozen_digest=frozen_digest,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "validate_pdf_build",
+            "read_pdf_certification_requirement",
+            READ_PDF_CERTIFICATION_REQUIREMENT_CONTRACT_DIGEST,
+        )
+    return _read_pdf_certification_requirement_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "frozen_digest": _request.frozen_digest,
+        }
+    )
+
+
+materialize_read_pdf_certification_requirement = _read_pdf_certification_requirement_result
+
+
+def read_pdf_certification_requirement(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    frozen_digest: str,
+    projection_context: PreparedRelease | None = None,
+) -> PdfCertificationRequirement:
+    _statement = prepare_read_pdf_certification_requirement(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        frozen_digest=frozen_digest,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("validate_pdf_build", "PdfCertificationRequirement"):
+        return _read_pdf_certification_requirement_result(_native_result.one())
+
+
+BEGIN_PDF_ROUNDTRIP_ORACLE_CONTRACT_DIGEST = (
+    "9c195e99c50997ab4cad312d3e3ac8ddcb81947e29facf7df9ffbb7c74058fdb"
+)
+
+
+class _begin_pdf_roundtrip_oracleRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    frozen_digest: str
+
+
+_begin_pdf_roundtrip_oracle_function = func.ops.begin_pdf_roundtrip_oracle(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("frozen_digest", type_=Text()),
+    type_=Text(),
+)
+_begin_pdf_roundtrip_oracle_statement = select(_begin_pdf_roundtrip_oracle_function)
+
+
+def prepare_begin_pdf_roundtrip_oracle(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    frozen_digest: str,
+    projection_context: PreparedRelease | None = None,
+) -> Select[str]:
+    _request = _begin_pdf_roundtrip_oracleRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        frozen_digest=frozen_digest,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "validate_pdf_build",
+            "begin_pdf_roundtrip_oracle",
+            BEGIN_PDF_ROUNDTRIP_ORACLE_CONTRACT_DIGEST,
+        )
+    return _begin_pdf_roundtrip_oracle_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "frozen_digest": _request.frozen_digest,
+        }
+    )
+
+
+_begin_pdf_roundtrip_oracle_adapter = TypeAdapter(str)
+
+
+def materialize_begin_pdf_roundtrip_oracle(row: tuple[str]) -> str:
+    with native_result_scope("validate_pdf_build", "begin_pdf_roundtrip_oracle", "value"):
+        checked = _begin_pdf_roundtrip_oracle_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def begin_pdf_roundtrip_oracle(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    frozen_digest: str,
+    projection_context: PreparedRelease | None = None,
+) -> str:
+    _statement = prepare_begin_pdf_roundtrip_oracle(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        frozen_digest=frozen_digest,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("validate_pdf_build", "begin_pdf_roundtrip_oracle"):
+        row = _native_result.one()
+        return materialize_begin_pdf_roundtrip_oracle(row)
+
+
+FINISH_PDF_ROUNDTRIP_ORACLE_CONTRACT_DIGEST = (
+    "001dd478bb996975557356ac0825e0cac5ad5264202d8e8f93d4c03716b39cfa"
+)
+
+
+class _finish_pdf_roundtrip_oracleRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    frozen_digest: str
+    oracle_receipt_id: str
+    state: str
+    actual_native_digest: str | None
+    error_message: str | None
+
+
+_finish_pdf_roundtrip_oracle_function = func.ops.finish_pdf_roundtrip_oracle(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("frozen_digest", type_=Text()),
+    bindparam("oracle_receipt_id", type_=Text()),
+    bindparam("state", type_=Text()),
+    bindparam("actual_native_digest", type_=Text()),
+    bindparam("error_message", type_=Text()),
+)
+_finish_pdf_roundtrip_oracle_statement = select(_finish_pdf_roundtrip_oracle_function)
+
+
+def prepare_finish_pdf_roundtrip_oracle(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    frozen_digest: str,
+    oracle_receipt_id: str,
+    state: str,
+    actual_native_digest: str | None,
+    error_message: str | None,
+    projection_context: PreparedRelease | None = None,
+) -> Select[None]:
+    _request = _finish_pdf_roundtrip_oracleRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        frozen_digest=frozen_digest,
+        oracle_receipt_id=oracle_receipt_id,
+        state=state,
+        actual_native_digest=actual_native_digest,
+        error_message=error_message,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "validate_pdf_build",
+            "finish_pdf_roundtrip_oracle",
+            FINISH_PDF_ROUNDTRIP_ORACLE_CONTRACT_DIGEST,
+        )
+    return _finish_pdf_roundtrip_oracle_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "frozen_digest": _request.frozen_digest,
+            "oracle_receipt_id": _request.oracle_receipt_id,
+            "state": _request.state,
+            "actual_native_digest": _request.actual_native_digest,
+            "error_message": _request.error_message,
+        }
+    )
+
+
+def finish_pdf_roundtrip_oracle(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    frozen_digest: str,
+    oracle_receipt_id: str,
+    state: str,
+    actual_native_digest: str | None,
+    error_message: str | None,
+    projection_context: PreparedRelease | None = None,
+) -> None:
+    _statement = prepare_finish_pdf_roundtrip_oracle(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        frozen_digest=frozen_digest,
+        oracle_receipt_id=oracle_receipt_id,
+        state=state,
+        actual_native_digest=actual_native_digest,
+        error_message=error_message,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("validate_pdf_build", "finish_pdf_roundtrip_oracle"):
+        _native_result.scalar_one()
+    return None
+
+
+READ_PDF_CERTIFICATION_TARGETS_CONTRACT_DIGEST = (
+    "6506a15a3df12f5b40a856c5b57446dda65e73fcb5af5f681cd05c4fb42a83da"
+)
+
+
+class _read_pdf_certification_targetsRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    targets: JsonValue
+
+
+_read_pdf_certification_targets_function = func.ops.read_pdf_certification_targets(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("targets", type_=JSONB()),
+    type_=BYTEA(),
+)
+_read_pdf_certification_targets_statement = select(_read_pdf_certification_targets_function)
+
+
+def prepare_read_pdf_certification_targets(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    targets: JsonValue,
+    projection_context: PreparedRelease | None = None,
+) -> Select[bytes]:
+    _request = _read_pdf_certification_targetsRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        targets=targets,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "validate_pdf_build",
+            "read_pdf_certification_targets",
+            READ_PDF_CERTIFICATION_TARGETS_CONTRACT_DIGEST,
+        )
+    return _read_pdf_certification_targets_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "targets": _request.targets,
+        }
+    )
+
+
+_read_pdf_certification_targets_adapter = TypeAdapter(bytes)
+
+
+def materialize_read_pdf_certification_targets(row: tuple[bytes]) -> bytes:
+    with native_result_scope("validate_pdf_build", "read_pdf_certification_targets", "value"):
+        checked = _read_pdf_certification_targets_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def read_pdf_certification_targets(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    targets: JsonValue,
+    projection_context: PreparedRelease | None = None,
+) -> bytes:
+    _statement = prepare_read_pdf_certification_targets(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        targets=targets,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("validate_pdf_build", "read_pdf_certification_targets"):
+        row = _native_result.one()
+        return materialize_read_pdf_certification_targets(row)
+
+
 LOOKUP_PDF_VALIDATION_CONTRACT_DIGEST = (
-    "8b62eb10ca7fa46776bba198a896b9607188ba8494a11af45fb2d6541b7fdd5a"
+    "241c15ffef60e4d36a9fc8c57cde7bde6e8d01c2ccd86594e64738215c2b5744"
 )
 
 
@@ -4890,6 +5584,11 @@ _lookup_pdf_validation_function = func.ops.lookup_pdf_validation(
     column("contract_digest", Text()),
     column("native_callbacks", Boolean()),
     column("native_contract_digest", Text()),
+    column("certification_basis", Text()),
+    column("lowering_identity", Text()),
+    column("attested_logical_digest", Text()),
+    column("native_document_digest", Text()),
+    column("oracle_receipt_id", Text()),
 )
 
 
@@ -4900,6 +5599,11 @@ class _lookup_pdf_validationColumns(Protocol):
     contract_digest: Column[str]
     native_callbacks: Column[bool]
     native_contract_digest: Column[str]
+    certification_basis: Column[PdfBuildValidationCertificationBasis]
+    lowering_identity: Column[str]
+    attested_logical_digest: Column[str]
+    native_document_digest: Column[str]
+    oracle_receipt_id: Column[str]
 
 
 _lookup_pdf_validation_columns = cast(
@@ -4912,10 +5616,17 @@ _lookup_pdf_validation_statement = select(
     _lookup_pdf_validation_columns.contract_digest,
     _lookup_pdf_validation_columns.native_callbacks,
     _lookup_pdf_validation_columns.native_contract_digest,
+    _lookup_pdf_validation_columns.certification_basis,
+    _lookup_pdf_validation_columns.lowering_identity,
+    _lookup_pdf_validation_columns.attested_logical_digest,
+    _lookup_pdf_validation_columns.native_document_digest,
+    _lookup_pdf_validation_columns.oracle_receipt_id,
 )
 
 
-def _lookup_pdf_validation_result(row: tuple[str, str, str, str, bool, str]) -> PdfBuildValidation:
+def _lookup_pdf_validation_result(
+    row: tuple[str, str, str, str, bool, str, str, str, str, str, str],
+) -> PdfBuildValidation:
     with native_result_scope("validate_pdf_build", "PdfBuildValidation"):
         return PdfBuildValidation(
             build_id=row[0],
@@ -4924,6 +5635,11 @@ def _lookup_pdf_validation_result(row: tuple[str, str, str, str, bool, str]) -> 
             contract_digest=row[3],
             native_callbacks=row[4],
             native_contract_digest=row[5],
+            certification_basis=cast(PdfBuildValidationCertificationBasis, row[6]),
+            lowering_identity=row[7],
+            attested_logical_digest=row[8],
+            native_document_digest=row[9],
+            oracle_receipt_id=row[10],
         )
 
 
@@ -4935,7 +5651,9 @@ def prepare_lookup_pdf_validation(
     holder: str,
     frozen_digest: str,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, str, str, str, bool, str]:
+) -> Select[
+    str, str, str, str, bool, str, PdfBuildValidationCertificationBasis, str, str, str, str
+]:
     _request = _lookup_pdf_validationRequest(
         build_id=build_id,
         task_id=task_id,
@@ -4950,14 +5668,19 @@ def prepare_lookup_pdf_validation(
             "lookup_pdf_validation",
             LOOKUP_PDF_VALIDATION_CONTRACT_DIGEST,
         )
-    return _lookup_pdf_validation_statement.params(
-        **{
-            "build_id": _request.build_id,
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-            "frozen_digest": _request.frozen_digest,
-        }
+    return cast(
+        Select[
+            str, str, str, str, bool, str, PdfBuildValidationCertificationBasis, str, str, str, str
+        ],
+        _lookup_pdf_validation_statement.params(
+            **{
+                "build_id": _request.build_id,
+                "task_id": _request.task_id,
+                "attempt": _request.attempt,
+                "holder": _request.holder,
+                "frozen_digest": _request.frozen_digest,
+            }
+        ),
     )
 
 
@@ -4986,99 +5709,6 @@ def lookup_pdf_validation(
     with native_result_scope("validate_pdf_build", "PdfBuildValidation"):
         row = _native_result.one_or_none()
         return None if row is None else _lookup_pdf_validation_result(row)
-
-
-RECORD_PDF_NATIVE_VALIDATION_CONTRACT_DIGEST = (
-    "2009fb8250b7cdec9f3e5b287af201f70cb9eda3c6bf50230dcdd37ad673a4ee"
-)
-
-
-class _record_pdf_native_validationRequest(OperationResult):
-    build_id: str
-    task_id: Annotated[
-        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
-    ]
-    attempt: Annotated[
-        TaskAttempt,
-        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
-    ]
-    holder: str
-    frozen_digest: str
-    passed: bool
-
-
-_record_pdf_native_validation_function = func.ops.record_pdf_native_validation(
-    bindparam("build_id", type_=Text()),
-    bindparam("task_id", type_=BigInteger()),
-    bindparam("attempt", type_=BigInteger()),
-    bindparam("holder", type_=Text()),
-    bindparam("frozen_digest", type_=Text()),
-    bindparam("passed", type_=Boolean()),
-)
-_record_pdf_native_validation_statement = select(_record_pdf_native_validation_function)
-
-
-def prepare_record_pdf_native_validation(
-    *,
-    build_id: str,
-    task_id: TaskId,
-    attempt: TaskAttempt,
-    holder: str,
-    frozen_digest: str,
-    passed: bool,
-    projection_context: PreparedRelease | None = None,
-) -> Select[None]:
-    _request = _record_pdf_native_validationRequest(
-        build_id=build_id,
-        task_id=task_id,
-        attempt=attempt,
-        holder=holder,
-        frozen_digest=frozen_digest,
-        passed=passed,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "validate_pdf_build",
-            "record_pdf_native_validation",
-            RECORD_PDF_NATIVE_VALIDATION_CONTRACT_DIGEST,
-        )
-    return _record_pdf_native_validation_statement.params(
-        **{
-            "build_id": _request.build_id,
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-            "frozen_digest": _request.frozen_digest,
-            "passed": _request.passed,
-        }
-    )
-
-
-def record_pdf_native_validation(
-    conn: Connection,
-    *,
-    build_id: str,
-    task_id: TaskId,
-    attempt: TaskAttempt,
-    holder: str,
-    frozen_digest: str,
-    passed: bool,
-    projection_context: PreparedRelease | None = None,
-) -> None:
-    _statement = prepare_record_pdf_native_validation(
-        build_id=build_id,
-        task_id=task_id,
-        attempt=attempt,
-        holder=holder,
-        frozen_digest=frozen_digest,
-        passed=passed,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("validate_pdf_build", "record_pdf_native_validation"):
-        _native_result.scalar_one()
-    return None
 
 
 CHECK_PDF_BUILD_CONTRACT_DIGEST = "125613de099a96cc50e321baba7748871fab2231e64d5e85c70f2a654091984e"
@@ -5172,101 +5802,8 @@ def check_pdf_build(
     return None
 
 
-ADOPT_PDF_ACCESS_BATCH_CONTRACT_DIGEST = (
-    "696d034d7ef13ef09df31dac74ada812977b5782f263855934e2e16a27e2befd"
-)
-
-
-class _adopt_pdf_access_batchRequest(OperationResult):
-    build_id: str
-    task_id: Annotated[
-        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
-    ]
-    attempt: Annotated[
-        TaskAttempt,
-        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
-    ]
-    holder: str
-    frozen_digest: str
-    rows: JsonValue
-
-
-_adopt_pdf_access_batch_function = func.ops.adopt_pdf_access_batch(
-    bindparam("build_id", type_=Text()),
-    bindparam("task_id", type_=BigInteger()),
-    bindparam("attempt", type_=BigInteger()),
-    bindparam("holder", type_=Text()),
-    bindparam("frozen_digest", type_=Text()),
-    bindparam("rows", type_=JSONB()),
-)
-_adopt_pdf_access_batch_statement = select(_adopt_pdf_access_batch_function)
-
-
-def prepare_adopt_pdf_access_batch(
-    *,
-    build_id: str,
-    task_id: TaskId,
-    attempt: TaskAttempt,
-    holder: str,
-    frozen_digest: str,
-    rows: JsonValue,
-    projection_context: PreparedRelease | None = None,
-) -> Select[None]:
-    _request = _adopt_pdf_access_batchRequest(
-        build_id=build_id,
-        task_id=task_id,
-        attempt=attempt,
-        holder=holder,
-        frozen_digest=frozen_digest,
-        rows=rows,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "validate_pdf_build",
-            "adopt_pdf_access_batch",
-            ADOPT_PDF_ACCESS_BATCH_CONTRACT_DIGEST,
-        )
-    return _adopt_pdf_access_batch_statement.params(
-        **{
-            "build_id": _request.build_id,
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-            "frozen_digest": _request.frozen_digest,
-            "rows": _request.rows,
-        }
-    )
-
-
-def adopt_pdf_access_batch(
-    conn: Connection,
-    *,
-    build_id: str,
-    task_id: TaskId,
-    attempt: TaskAttempt,
-    holder: str,
-    frozen_digest: str,
-    rows: JsonValue,
-    projection_context: PreparedRelease | None = None,
-) -> None:
-    _statement = prepare_adopt_pdf_access_batch(
-        build_id=build_id,
-        task_id=task_id,
-        attempt=attempt,
-        holder=holder,
-        frozen_digest=frozen_digest,
-        rows=rows,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("validate_pdf_build", "adopt_pdf_access_batch"):
-        _native_result.scalar_one()
-    return None
-
-
 VALIDATE_PDF_BUILD_CONTRACT_DIGEST = (
-    "59630c6609e3af593496d68de83ec05814326c0a8149a62fbf45a9bfd0810819"
+    "54ce767b23401b32a084b8abb1db8cf64b4c4bbd292011646899b25d057c6030"
 )
 
 
@@ -5296,6 +5833,11 @@ _validate_pdf_build_function = func.ops.validate_pdf_build(
     column("contract_digest", Text()),
     column("native_callbacks", Boolean()),
     column("native_contract_digest", Text()),
+    column("certification_basis", Text()),
+    column("lowering_identity", Text()),
+    column("attested_logical_digest", Text()),
+    column("native_document_digest", Text()),
+    column("oracle_receipt_id", Text()),
 )
 
 
@@ -5306,6 +5848,11 @@ class _validate_pdf_buildColumns(Protocol):
     contract_digest: Column[str]
     native_callbacks: Column[bool]
     native_contract_digest: Column[str]
+    certification_basis: Column[PdfBuildValidationCertificationBasis]
+    lowering_identity: Column[str]
+    attested_logical_digest: Column[str]
+    native_document_digest: Column[str]
+    oracle_receipt_id: Column[str]
 
 
 _validate_pdf_build_columns = cast(_validate_pdf_buildColumns, _validate_pdf_build_function.c)
@@ -5316,10 +5863,17 @@ _validate_pdf_build_statement = select(
     _validate_pdf_build_columns.contract_digest,
     _validate_pdf_build_columns.native_callbacks,
     _validate_pdf_build_columns.native_contract_digest,
+    _validate_pdf_build_columns.certification_basis,
+    _validate_pdf_build_columns.lowering_identity,
+    _validate_pdf_build_columns.attested_logical_digest,
+    _validate_pdf_build_columns.native_document_digest,
+    _validate_pdf_build_columns.oracle_receipt_id,
 )
 
 
-def _validate_pdf_build_result(row: tuple[str, str, str, str, bool, str]) -> PdfBuildValidation:
+def _validate_pdf_build_result(
+    row: tuple[str, str, str, str, bool, str, str, str, str, str, str],
+) -> PdfBuildValidation:
     with native_result_scope("validate_pdf_build", "PdfBuildValidation"):
         return PdfBuildValidation(
             build_id=row[0],
@@ -5328,6 +5882,11 @@ def _validate_pdf_build_result(row: tuple[str, str, str, str, bool, str]) -> Pdf
             contract_digest=row[3],
             native_callbacks=row[4],
             native_contract_digest=row[5],
+            certification_basis=cast(PdfBuildValidationCertificationBasis, row[6]),
+            lowering_identity=row[7],
+            attested_logical_digest=row[8],
+            native_document_digest=row[9],
+            oracle_receipt_id=row[10],
         )
 
 
@@ -5339,7 +5898,9 @@ def prepare_validate_pdf_build(
     holder: str,
     frozen_digest: str,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, str, str, str, bool, str]:
+) -> Select[
+    str, str, str, str, bool, str, PdfBuildValidationCertificationBasis, str, str, str, str
+]:
     _request = _validate_pdf_buildRequest(
         build_id=build_id,
         task_id=task_id,
@@ -5354,14 +5915,19 @@ def prepare_validate_pdf_build(
             "validate_pdf_build",
             VALIDATE_PDF_BUILD_CONTRACT_DIGEST,
         )
-    return _validate_pdf_build_statement.params(
-        **{
-            "build_id": _request.build_id,
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-            "frozen_digest": _request.frozen_digest,
-        }
+    return cast(
+        Select[
+            str, str, str, str, bool, str, PdfBuildValidationCertificationBasis, str, str, str, str
+        ],
+        _validate_pdf_build_statement.params(
+            **{
+                "build_id": _request.build_id,
+                "task_id": _request.task_id,
+                "attempt": _request.attempt,
+                "holder": _request.holder,
+                "frozen_digest": _request.frozen_digest,
+            }
+        ),
     )
 
 
@@ -5514,4 +6080,4 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "7fa224ae963acfa7ea4b2a103262c5aa33e274bde4b12e64335d956a86d85041"
+CALL_CONTRACT_DIGEST = "66ccdd96a053bb7c05f8e17f77b5ae9ae3c2846d7c7c92cf5c90177f51c9a89e"

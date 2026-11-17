@@ -144,7 +144,7 @@ def pdf_domain_sources(
 
     sources = (
         *action_sources,
-        *lowering_sources(),
+        *lowering_sources(action_sources),
         SourceArtifact(ANALYSIS_RUNTIME, canonical_bytes(dict(analysis_runtime()))),
         SourceArtifact(
             PREFIX + "schema/pdf_products", root.joinpath("pdf-products.yaml").read_bytes()

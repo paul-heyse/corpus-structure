@@ -2,7 +2,13 @@
 
 from typing import Literal
 
+type PdfBuildValidationCertificationBasis = Literal["producer-certified", "round-trip-verified"]
+type PdfCertificationRequirementCertificationBasis = Literal[
+    "producer-certified", "round-trip-verified"
+]
+type PdfCertificationRequirementKind = Literal["integrated", "native"]
 type PdfFrozenBuildKind = Literal["integrated", "native"]
+type PdfProducerCertificationRecordKind = Literal["integrated", "native"]
 type PdfPublishedRevisionKind = Literal["integrated", "native"]
 type PdfSourceViewPublicationMembership = Literal["descendants", "direct"]
 type PdfStageBuildState = Literal["abandoned", "frozen", "open", "published"]

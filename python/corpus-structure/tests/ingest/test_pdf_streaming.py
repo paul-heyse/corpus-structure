@@ -29,8 +29,10 @@ from corpus_structure.ingest.pdf_streaming import (
 
 def explicit_producer_contract():
     from dataclasses import asdict
+
     from corpus_structure.semantic.pdf_certification import prepare_pdf_producer_contract
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+
     return asdict(prepare_pdf_producer_contract(trusted_pdf_context(), kind="native"))
 
 

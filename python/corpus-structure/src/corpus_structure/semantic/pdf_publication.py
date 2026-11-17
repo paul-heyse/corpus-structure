@@ -10,12 +10,12 @@ from __future__ import annotations
 import json
 import multiprocessing
 import tempfile
-from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterable, Mapping
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 import pyarrow as pa
 from sqlalchemy import Connection, Engine
@@ -34,12 +34,21 @@ from .identifiers import ContentDigest, ProductKey, TaskAttempt, TaskId
 from .pdf_staging import PdfBuildRef
 
 if TYPE_CHECKING:
+    from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+
     from .pdf_contracts import PreparedPdfContext
     from .pdf_record_reader import PublishedPdfReader
-    from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 
 COMPANION_BATCH_ROWS = 64
 COMPANION_BATCH_BYTES = 4 * 1024 * 1024
+
+
+class _PdfFrozenScope(TypedDict):
+    build_id: str
+    task_id: TaskId
+    attempt: TaskAttempt
+    holder: str
+    frozen_digest: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,20 +212,27 @@ class PdfCompanionEncodingBasis:
 
 
 COMPANION_STAGE_TARGETS = {
-    "companion": "ops.pdf_stage_companion", "field": "ops.pdf_stage_companion_field",
-    "stream": "ops.pdf_stage_artifact_stream", "part": "ops.pdf_stage_artifact_part",
+    "companion": "ops.pdf_stage_companion",
+    "field": "ops.pdf_stage_companion_field",
+    "stream": "ops.pdf_stage_artifact_stream",
+    "part": "ops.pdf_stage_artifact_part",
 }
 
 
 def prepare_pdf_companion_batches(
-    build: PdfCompanionEncodingBasis | PdfBuildRef, family: str, records: Iterable[Mapping[str, Any]], *,
-    on_batch: Callable[[str, pa.RecordBatch], None], payload_family, payload_family_factory=None,
-    start_ordinal: int = 0, check_active: Callable[[], None] = lambda: None,
+    build: PdfCompanionEncodingBasis | PdfBuildRef,
+    family: str,
+    records: Iterable[Mapping[str, Any]],
+    *,
+    on_batch: Callable[[str, pa.RecordBatch], None],
+    payload_family,
+    payload_family_factory=None,
+    start_ordinal: int = 0,
+    check_active: Callable[[], None] = lambda: None,
 ) -> None:
     """Encode exact bounded companion bytes once, before certification or COPY."""
     from hashlib import sha256
 
-    from .arrow_transfer import copy_arrow_stream
     from .identity import canonical_bytes
     from .pdf_record_identity import byte_root, emit_parts
     from .pdf_record_model import record_arrow_schema
@@ -281,7 +297,9 @@ def prepare_pdf_companion_batches(
 
                 if codec is None:
                     if payload_family_factory is None:
-                        raise ValueError("PDF companion preparation requires the captured payload codec")
+                        raise ValueError(
+                            "PDF companion preparation requires the captured payload codec"
+                        )
                     codec = payload_family_factory()
                 if isinstance(value, EncodedPagePayload):
                     batch = codec.read_batch(
@@ -395,8 +413,11 @@ def prepare_pdf_companion_batches(
 
 
 def adopt_prepared_pdf_companion_batches(
-    conn: Connection, build: PdfBuildRef,
-    batches: Iterable[tuple[str, pa.RecordBatch]], replay_key: str, *,
+    conn: Connection,
+    build: PdfBuildRef,
+    batches: Iterable[tuple[str, pa.RecordBatch]],
+    replay_key: str,
+    *,
     cancellation: BorrowerCancellation | None = None,
 ) -> None:
     """Adopt already certified fixed-family bytes through the existing set operation."""
@@ -404,26 +425,43 @@ def adopt_prepared_pdf_companion_batches(
     from .pdf_record_model import record_write_profile
 
     calls.prepare_pdf_companions(conn)
-    profiles = {name: record_write_profile(target, release_id=build.release_id)
-                for name, target in COMPANION_STAGE_TARGETS.items()}
+    profiles = {
+        name: record_write_profile(target, release_id=build.release_id)
+        for name, target in COMPANION_STAGE_TARGETS.items()
+    }
     for name, batch in batches:
         target = COMPANION_STAGE_TARGETS[name]
-        copy_arrow_stream(conn, profiles[name], target=("pg_temp", "pc_" + target.split(".")[1]),
-                          batches=(batch,), cancellation=cancellation)
-    calls.adopt_pdf_companions(conn, build_id=build.build_id, task_id=TaskId(build.task_id),
-                              attempt=TaskAttempt(build.attempt), holder=build.holder,
-                              replay_key=replay_key)
+        copy_arrow_stream(
+            conn,
+            profiles[name],
+            target=("pg_temp", "pc_" + target.split(".")[1]),
+            batches=(batch,),
+            cancellation=cancellation,
+        )
+    calls.adopt_pdf_companions(
+        conn,
+        build_id=build.build_id,
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(build.attempt),
+        holder=build.holder,
+        replay_key=replay_key,
+    )
 
 
 def adopt_pdf_companions(
-    conn: Connection, build: PdfBuildRef, family: str,
-    records: Iterable[Mapping[str, Any]], replay_key: str, *, start_ordinal: int = 0,
+    conn: Connection,
+    build: PdfBuildRef,
+    family: str,
+    records: Iterable[Mapping[str, Any]],
+    replay_key: str,
+    *,
+    start_ordinal: int = 0,
     cancellation: BorrowerCancellation | None = None,
 ) -> None:
     """COPY one typed companion set; its native adoption owns one build fence."""
+    from .arrow_transfer import copy_arrow_stream
     from .pdf_contracts import pdf_context_for_task
     from .pdf_payloads import prepare_payload_family
-    from .arrow_transfer import copy_arrow_stream
     from .pdf_record_model import record_write_profile
 
     def captured_codec():
@@ -432,20 +470,41 @@ def adopt_pdf_companions(
             codec = prepare_payload_family(pdf_context_for_task(conn, build.task_id))
             object.__setattr__(build, "_payload_family", codec)
         return codec
+
     calls.prepare_pdf_companions(conn)
-    profiles = {name: record_write_profile(target, release_id=build.release_id)
-                for name, target in COMPANION_STAGE_TARGETS.items()}
+    profiles = {
+        name: record_write_profile(target, release_id=build.release_id)
+        for name, target in COMPANION_STAGE_TARGETS.items()
+    }
 
     def copy(name, batch):
         target = COMPANION_STAGE_TARGETS[name]
-        copy_arrow_stream(conn, profiles[name], target=("pg_temp", "pc_" + target.split(".")[1]),
-                          batches=(batch,), cancellation=cancellation)
+        copy_arrow_stream(
+            conn,
+            profiles[name],
+            target=("pg_temp", "pc_" + target.split(".")[1]),
+            batches=(batch,),
+            cancellation=cancellation,
+        )
 
-    prepare_pdf_companion_batches(build, family, records, on_batch=copy, payload_family=build._payload_family, payload_family_factory=captured_codec,
-        start_ordinal=start_ordinal, check_active=cancellation.check_active if cancellation else lambda: None)
-    calls.adopt_pdf_companions(conn, build_id=build.build_id, task_id=TaskId(build.task_id),
-                              attempt=TaskAttempt(build.attempt), holder=build.holder,
-                              replay_key=replay_key)
+    prepare_pdf_companion_batches(
+        build,
+        family,
+        records,
+        on_batch=copy,
+        payload_family=build._payload_family,
+        payload_family_factory=captured_codec,
+        start_ordinal=start_ordinal,
+        check_active=cancellation.check_active if cancellation else lambda: None,
+    )
+    calls.adopt_pdf_companions(
+        conn,
+        build_id=build.build_id,
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(build.attempt),
+        holder=build.holder,
+        replay_key=replay_key,
+    )
 
 
 _CAPTURE_SCHEMA = pa.schema(
@@ -550,9 +609,7 @@ def write_pdf_access_projection(document: Mapping[str, Any], projection: Path) -
                 native_json=node,
             )
             out.write(
-                json.dumps(
-                    {"family": "access", "body": row}, ensure_ascii=False, allow_nan=False
-                )
+                json.dumps({"family": "access", "body": row}, ensure_ascii=False, allow_nan=False)
                 + "\n"
             )
             for index, prov in enumerate(node.get("prov", [])):
@@ -624,11 +681,16 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
         write_pdf_access_projection(document, Path(projection))
         store.validate(document, Path(projection))
         from hashlib import sha256
-        from .identity import canonical_bytes
+
         from corpus_structure.ingest.pdf_streaming import _atomic_bytes
 
-        _atomic_bytes(Path(projection).with_suffix(".native-sha256"),
-                      sha256(canonical_bytes(document)).hexdigest().encode(), "oracle_native_digest")
+        from .identity import canonical_bytes
+
+        _atomic_bytes(
+            Path(projection).with_suffix(".native-sha256"),
+            sha256(canonical_bytes(document)).hexdigest().encode(),
+            "oracle_native_digest",
+        )
     except BaseException as error:
         outcome = (False, f"{type(error).__name__}: {error}")
     finally:
@@ -802,15 +864,26 @@ def validate_pdf_build(
             frozen_digest=frozen.frozen_digest,
         )
     with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
-        requirement = calls.read_pdf_certification_requirement(conn,
-            build_id=frozen.build.build_id, task_id=TaskId(frozen.build.task_id),
-            attempt=TaskAttempt(frozen.build.attempt), holder=frozen.build.holder,
-            frozen_digest=frozen.frozen_digest)
+        requirement = calls.read_pdf_certification_requirement(
+            conn,
+            build_id=frozen.build.build_id,
+            task_id=TaskId(frozen.build.task_id),
+            attempt=TaskAttempt(frozen.build.attempt),
+            holder=frozen.build.holder,
+            frozen_digest=frozen.frozen_digest,
+        )
     if existing is not None and not force_oracle:
-        return PdfValidationOutcome(existing.frozen_digest, existing.logical_digest, existing.contract_digest)
+        return PdfValidationOutcome(
+            existing.frozen_digest, existing.logical_digest, existing.contract_digest
+        )
     if force_oracle or requirement.oracle_receipt_id is None:
-        scope = dict(build_id=frozen.build.build_id, task_id=TaskId(frozen.build.task_id),
-            attempt=TaskAttempt(frozen.build.attempt), holder=frozen.build.holder, frozen_digest=frozen.frozen_digest)
+        scope: _PdfFrozenScope = dict(
+            build_id=frozen.build.build_id,
+            task_id=TaskId(frozen.build.task_id),
+            attempt=TaskAttempt(frozen.build.attempt),
+            holder=frozen.build.holder,
+            frozen_digest=frozen.frozen_digest,
+        )
         with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
             oracle = calls.begin_pdf_roundtrip_oracle(conn, **scope)
         try:
@@ -818,15 +891,26 @@ def validate_pdf_build(
                 capture = Path(directory) / "frozen.arrow"
                 projection = Path(directory) / "access.jsonl"
                 from .pdf_contracts import pdf_context_for_task
+
                 with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
                     context = pdf_context_for_task(conn, frozen.build.task_id)
+
                 def rows(family, filters):
                     after = None
                     while True:
-                        with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
-                            encoded = calls.read_pdf_frozen_rows(conn, **scope, family=family,
-                                after=after, limit=64 if family == "artifact_part" else 1000, filters=filters)
+                        with _validation_transaction(
+                            engine, frozen, cancellation, check_active
+                        ) as conn:
+                            encoded = calls.read_pdf_frozen_rows(
+                                conn,
+                                **scope,
+                                family=family,
+                                after=after,
+                                limit=64 if family == "artifact_part" else 1000,
+                                filters=filters,
+                            )
                             from .operation_value_types import decode_json_text
+
                             values = [decode_json_text(value) for value in encoded]
                         if not values:
                             return
@@ -835,26 +919,56 @@ def validate_pdf_build(
                                 raise ValueError("frozen PDF oracle row must be an object")
                             after = value.pop("_cursor")
                             yield value
-                write_pdf_oracle_capture(capture, context=context, kind=frozen.kind, rows=rows, json_fields="decoded", check_active=check_active)
-                outcome = verify_pdf_oracle_capture(capture, projection,
-                    release_id=frozen.build.release_id, lowering_identity=requirement.lowering_identity,
-                    kind=frozen.kind, logical_digest=requirement.logical_digest,
-                    native_document_digest=requirement.native_document_digest, check_active=check_active)
+
+                write_pdf_oracle_capture(
+                    capture,
+                    context=context,
+                    kind=frozen.kind,
+                    rows=rows,
+                    json_fields="decoded",
+                    check_active=check_active,
+                )
+                outcome = verify_pdf_oracle_capture(
+                    capture,
+                    projection,
+                    release_id=frozen.build.release_id,
+                    lowering_identity=requirement.lowering_identity,
+                    kind=frozen.kind,
+                    logical_digest=requirement.logical_digest,
+                    native_document_digest=requirement.native_document_digest,
+                    check_active=check_active,
+                )
             with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
-                calls.finish_pdf_roundtrip_oracle(conn, **scope, oracle_receipt_id=oracle,
-                    state="passed", actual_native_digest=outcome.reconstructed_native_digest, error_message=None)
+                calls.finish_pdf_roundtrip_oracle(
+                    conn,
+                    **scope,
+                    oracle_receipt_id=oracle,
+                    state="passed",
+                    actual_native_digest=outcome.reconstructed_native_digest,
+                    error_message=None,
+                )
         except BaseException as error:
             try:
                 cleanup = BorrowerCancellation(timeout=cancellation.timeout)
                 with _validation_transaction(engine, frozen, cleanup, lambda: None) as conn:
-                    calls.finish_pdf_roundtrip_oracle(conn, **scope, oracle_receipt_id=oracle,
-                        state="interrupted" if cancellation.requested or isinstance(error, (KeyboardInterrupt, SystemExit)) else "failed",
-                        actual_native_digest=None, error_message=f"{type(error).__name__}: {error}")
+                    calls.finish_pdf_roundtrip_oracle(
+                        conn,
+                        **scope,
+                        oracle_receipt_id=oracle,
+                        state="interrupted"
+                        if cancellation.requested
+                        or isinstance(error, (KeyboardInterrupt, SystemExit))
+                        else "failed",
+                        actual_native_digest=None,
+                        error_message=f"{type(error).__name__}: {error}",
+                    )
             except BaseException as settlement:
                 error.add_note("PDF oracle outcome settlement also failed: " + repr(settlement))
             raise
     if existing is not None:
-        return PdfValidationOutcome(existing.frozen_digest, existing.logical_digest, existing.contract_digest)
+        return PdfValidationOutcome(
+            existing.frozen_digest, existing.logical_digest, existing.contract_digest
+        )
     build = frozen.build
     scope = dict(
         build_id=build.build_id,
@@ -1001,19 +1115,34 @@ def inspect_pdf_execution_receipt(
     )
     if state is None or state.published != publication:
         raise ValueError("PDF execution receipt differs from authenticated sealed build")
-    contributors = tuple(PdfSpoolContributorReceipt(**row.model_dump(mode="python"))
-                         for row in calls.read_pdf_spool_contributors(
-                             conn, build_id=publication.build_id, task_id=TaskId(publication.task_id),
-                             attempt=TaskAttempt(attempt), holder=holder,
-                         ))
-    validation = calls.read_pdf_published_validation(conn, task_id=TaskId(publication.task_id),
-        product_key=ProductKey(publication.product_key), content_digest=ContentDigest(publication.logical_digest))
+    contributors = tuple(
+        PdfSpoolContributorReceipt(**row.model_dump(mode="python"))
+        for row in calls.read_pdf_spool_contributors(
+            conn,
+            build_id=publication.build_id,
+            task_id=TaskId(publication.task_id),
+            attempt=TaskAttempt(attempt),
+            holder=holder,
+        )
+    )
+    validation = calls.read_pdf_published_validation(
+        conn,
+        task_id=TaskId(publication.task_id),
+        product_key=ProductKey(publication.product_key),
+        content_digest=ContentDigest(publication.logical_digest),
+    )
     if validation is None:
         raise ValueError("PDF execution receipt has no sealed producer certification")
-    certification = PdfPublicationCertification(validation.certification_basis,
-        validation.lowering_identity, validation.attested_logical_digest,
-        validation.native_document_digest, validation.oracle_receipt_id)
-    return PdfExecutionReceipt(publication, state.build.attempt, state.build.holder, contributors, certification)
+    certification = PdfPublicationCertification(
+        validation.certification_basis,
+        validation.lowering_identity,
+        validation.attested_logical_digest,
+        validation.native_document_digest,
+        validation.oracle_receipt_id,
+    )
+    return PdfExecutionReceipt(
+        publication, state.build.attempt, state.build.holder, contributors, certification
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1026,15 +1155,26 @@ class PdfRoundtripVerification:
     reconstructed_native_digest: str
 
 
-def write_pdf_oracle_capture(destination: Path, *, context, kind: str, rows,
-                             json_fields: Literal["text", "decoded"], check_active: Callable[[], None]) -> None:
+def write_pdf_oracle_capture(
+    destination: Path,
+    *,
+    context,
+    kind: str,
+    rows,
+    json_fields: Literal["text", "decoded"],
+    check_active: Callable[[], None],
+) -> None:
     """Capture exact callback dependencies through one authenticated row owner."""
     from .pdf_contracts import integrated_metadata_policy
     from .pdf_payload_validation import metadata_classes
     from .pdf_payloads import schema_dump
 
     required_streams = set()
-    with pa.OSFile(str(destination), "wb") as sink, pa.ipc.new_file(sink, _CAPTURE_SCHEMA) as writer:
+    with (
+        pa.OSFile(str(destination), "wb") as sink,
+        pa.ipc.new_file(sink, _CAPTURE_SCHEMA) as writer,
+    ):
+
         def write(family, values):
             if not values:
                 return
@@ -1048,15 +1188,37 @@ def write_pdf_oracle_capture(destination: Path, *, context, kind: str, rows,
                     value["body"] = "\\x" + value["body"].hex()
                 required_streams.update(_native_validation_streams(family, value))
                 prepared.append(value)
-            writer.write_batch(pa.RecordBatch.from_arrays([
-                pa.array([family] * len(prepared)),
-                pa.array([json.dumps(value, ensure_ascii=False) for value in prepared], type=pa.large_string()),
-            ], schema=_CAPTURE_SCHEMA))
-        contract = {"schemas": {key: context.boundary.json_schema(cls) for key, cls in metadata_classes().items()},
-                    "publication_kind": kind,
-                    "integrated_metadata_policy": integrated_metadata_policy(context) if kind == "integrated" else None}
-        writer.write_batch(pa.RecordBatch.from_arrays([pa.array(["validation_contract"]),
-            pa.array([schema_dump(contract).decode()], type=pa.large_string())], schema=_CAPTURE_SCHEMA))
+            writer.write_batch(
+                pa.RecordBatch.from_arrays(
+                    [
+                        pa.array([family] * len(prepared)),
+                        pa.array(
+                            [json.dumps(value, ensure_ascii=False) for value in prepared],
+                            type=pa.large_string(),
+                        ),
+                    ],
+                    schema=_CAPTURE_SCHEMA,
+                )
+            )
+
+        contract = {
+            "schemas": {
+                key: context.boundary.json_schema(cls) for key, cls in metadata_classes().items()
+            },
+            "publication_kind": kind,
+            "integrated_metadata_policy": integrated_metadata_policy(context)
+            if kind == "integrated"
+            else None,
+        }
+        writer.write_batch(
+            pa.RecordBatch.from_arrays(
+                [
+                    pa.array(["validation_contract"]),
+                    pa.array([schema_dump(contract).decode()], type=pa.large_string()),
+                ],
+                schema=_CAPTURE_SCHEMA,
+            )
+        )
 
         def capture(family, filters=None):
             pending = []
@@ -1070,39 +1232,67 @@ def write_pdf_oracle_capture(destination: Path, *, context, kind: str, rows,
 
         for family in ("header", "native", "membership"):
             capture(family)
-        for companion_family in ("health", "input", "native_metadata", "occurrence", "relation", "coverage", "mapping_report"):
+        for companion_family in (
+            "health",
+            "input",
+            "native_metadata",
+            "occurrence",
+            "relation",
+            "coverage",
+            "mapping_report",
+        ):
             pending = []
             fields = []
             for row in rows("companion", {"family": companion_family}):
                 check_active()
                 row = dict(row)
                 descriptors = row.pop("_fields", [])
-                fields.extend({"product_id": row["product_id"], "revision_id": row["revision_id"],
-                    "family": row["family"], "local_id": row["local_id"], **descriptor} for descriptor in descriptors)
+                fields.extend(
+                    {
+                        "product_id": row["product_id"],
+                        "revision_id": row["revision_id"],
+                        "family": row["family"],
+                        "local_id": row["local_id"],
+                        **descriptor,
+                    }
+                    for descriptor in descriptors
+                )
                 pending.append(row)
                 if len(pending) >= 1000:
                     write("companion", pending)
                     write("companion_field", fields)
-                    pending.clear(); fields.clear()
+                    pending.clear()
+                    fields.clear()
             write("companion", pending)
             write("companion_field", fields)
         streams = sorted(required_streams)
         for offset in range(0, len(streams), 512):
-            filters = {"stream_ids": streams[offset:offset + 512]}
+            filters = {"stream_ids": streams[offset : offset + 512]}
             capture("artifact_stream", filters)
             capture("artifact_part", filters)
 
 
-def verify_pdf_oracle_capture(capture: Path, projection: Path, *, release_id: str,
-    lowering_identity: str, kind: str, logical_digest: str, native_document_digest: str,
-    check_active: Callable[[], None]) -> PdfRoundtripVerification:
+def verify_pdf_oracle_capture(
+    capture: Path,
+    projection: Path,
+    *,
+    release_id: str,
+    lowering_identity: str,
+    kind: str,
+    logical_digest: str,
+    native_document_digest: str,
+    check_active: Callable[[], None],
+) -> PdfRoundtripVerification:
     """Independent reconstruction with equality to the actual producer's native output."""
     _run_native_validation(capture, projection, check_active)
     reconstructed = projection.with_suffix(".native-sha256").read_text()
     if reconstructed != native_document_digest:
-        raise ValueError("round-trip PDF reconstruction differs from the certified producer document")
-    return PdfRoundtripVerification(release_id, lowering_identity, kind, logical_digest,
-                                     native_document_digest, reconstructed)
+        raise ValueError(
+            "round-trip PDF reconstruction differs from the certified producer document"
+        )
+    return PdfRoundtripVerification(
+        release_id, lowering_identity, kind, logical_digest, native_document_digest, reconstructed
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1116,51 +1306,96 @@ class PdfPublishedOracleCapture:
     native_document_digest: str
 
 
-def capture_published_pdf_oracle(reader: PublishedPdfReader, *, context: PreparedPdfContext,
-    directory: Path, check_active: Callable[[], None]) -> PdfPublishedOracleCapture:
+def capture_published_pdf_oracle(
+    reader: PublishedPdfReader,
+    *,
+    context: PreparedPdfContext,
+    directory: Path,
+    check_active: Callable[[], None],
+) -> PdfPublishedOracleCapture:
     """Capture an authorized exact pin inside its read transaction; no producer fence."""
-    from .pdf_lowering import require_lowering_identity
     from corpus_structure.ingest.pdf_streaming import _ref
+
+    from .pdf_lowering import require_lowering_identity
 
     reader._check_active()
     receipt = reader.validation_receipt()
-    if receipt is None or context.release_id is None or context.release_id != reader.revision["release_id"]:
-        raise ValueError("published PDF oracle requires its admitted release and sealed certification")
+    if (
+        receipt is None
+        or context.release_id is None
+        or context.release_id != reader.revision["release_id"]
+    ):
+        raise ValueError(
+            "published PDF oracle requires its admitted release and sealed certification"
+        )
     identity = require_lowering_identity(context)
-    if receipt.lowering_identity != identity or receipt.attested_logical_digest != reader.reference.content_digest:
+    if (
+        receipt.lowering_identity != identity
+        or receipt.attested_logical_digest != reader.reference.content_digest
+    ):
         raise ValueError("published PDF oracle differs from its released producer certification")
     directory.mkdir(parents=True, exist_ok=True)
-    capture, projection = directory / "published-oracle.arrow", directory / "published-oracle-access.jsonl"
+    capture, projection = (
+        directory / "published-oracle.arrow",
+        directory / "published-oracle-access.jsonl",
+    )
     if capture.exists() or projection.exists():
         raise FileExistsError("PDF oracle capture requires its own new output files")
+
     def rows(family, filters):
-        yield from reader.iter_rows(family, filters, batch_size=64 if family == "artifact_part" else 1000)
-    write_pdf_oracle_capture(capture, context=context, kind=reader.product_kind(), rows=rows, json_fields="text", check_active=check_active)
+        yield from reader.iter_rows(
+            family, filters, batch_size=64 if family == "artifact_part" else 1000
+        )
+
+    write_pdf_oracle_capture(
+        capture,
+        context=context,
+        kind=reader.product_kind(),
+        rows=rows,
+        json_fields="text",
+        check_active=check_active,
+    )
     capture.chmod(0o400)
-    return PdfPublishedOracleCapture(_ref(capture, "pdf_oracle_capture"), projection,
-        context.release_id, identity, reader.product_kind(), reader.reference.content_digest,
-        receipt.native_document_digest)
+    return PdfPublishedOracleCapture(
+        _ref(capture, "pdf_oracle_capture"),
+        projection,
+        context.release_id,
+        identity,
+        reader.product_kind(),
+        reader.reference.content_digest,
+        receipt.native_document_digest,
+    )
 
 
-def verify_published_pdf_oracle(capture: PdfPublishedOracleCapture, *,
-                               check_active: Callable[[], None]) -> PdfRoundtripVerification:
+def verify_published_pdf_oracle(
+    capture: PdfPublishedOracleCapture, *, check_active: Callable[[], None]
+) -> PdfRoundtripVerification:
     """Run the DB-free oracle after selected read transactions have settled."""
     capture.replay.verify()
-    return verify_pdf_oracle_capture(capture.replay.path, capture.projection,
-        release_id=capture.release_id, lowering_identity=capture.lowering_identity,
-        kind=capture.kind, logical_digest=capture.logical_digest,
-        native_document_digest=capture.native_document_digest, check_active=check_active)
+    return verify_pdf_oracle_capture(
+        capture.replay.path,
+        capture.projection,
+        release_id=capture.release_id,
+        lowering_identity=capture.lowering_identity,
+        kind=capture.kind,
+        logical_digest=capture.logical_digest,
+        native_document_digest=capture.native_document_digest,
+        check_active=check_active,
+    )
 
 
 def prepared_pdf_companion_batches(prepared):
     """Borrow certified companion IPC files through their last COPY batch."""
     from .pdf_record_model import record_arrow_schema
+
     for replay in prepared.replays:
         replay.verify()
         name = replay.family.removeprefix("prepared_companion:")
         with pa.memory_map(str(replay.path), "r") as source:
             reader = pa.ipc.open_file(source)
-            if not reader.schema.equals(record_arrow_schema(COMPANION_STAGE_TARGETS[name]), check_metadata=True):
+            if not reader.schema.equals(
+                record_arrow_schema(COMPANION_STAGE_TARGETS[name]), check_metadata=True
+            ):
                 raise ValueError("certified companion IPC schema differs")
             for index in range(reader.num_record_batches):
                 yield name, reader.get_batch(index)
@@ -1168,29 +1403,53 @@ def prepared_pdf_companion_batches(prepared):
 
 def record_pdf_producer_certification(conn: Connection, build: PdfBuildRef, certification) -> None:
     if (certification.source_digest, certification.recipe_digest, certification.schema_digest) != (
-        build.source_digest, build.recipe_digest, build.schema_digest):
+        build.source_digest,
+        build.recipe_digest,
+        build.schema_digest,
+    ):
         raise ValueError("PDF producer certification differs from its exact build premises")
-    calls.record_pdf_producer_certification(conn, build_id=build.build_id,
-        task_id=TaskId(build.task_id), attempt=TaskAttempt(build.attempt), holder=build.holder,
-        lowering_identity=certification.lowering_identity, kind=certification.kind,
-        logical_digest=certification.logical_digest, native_document_digest=certification.native_document_digest,
-        stream_inventory_digest=certification.stream_inventory_digest)
+    calls.record_pdf_producer_certification(
+        conn,
+        build_id=build.build_id,
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(build.attempt),
+        holder=build.holder,
+        lowering_identity=certification.lowering_identity,
+        kind=certification.kind,
+        logical_digest=certification.logical_digest,
+        native_document_digest=certification.native_document_digest,
+        stream_inventory_digest=certification.stream_inventory_digest,
+    )
 
 
-def stage_pdf_access_projection(engine: Engine, build: PdfBuildRef, path: Path, *,
-    cancellation: BorrowerCancellation, check_active: Callable[[], None]) -> None:
+def stage_pdf_access_projection(
+    engine: Engine,
+    build: PdfBuildRef,
+    path: Path,
+    *,
+    cancellation: BorrowerCancellation,
+    check_active: Callable[[], None],
+) -> None:
     pending, size = [], 0
+
     def flush():
         nonlocal size
         if not pending:
             return
         check_active()
         with engine.connect() as conn, cancellation.borrow(conn), conn.begin():
-            calls.stage_pdf_access_batch(conn, build_id=build.build_id, task_id=TaskId(build.task_id),
-                attempt=TaskAttempt(build.attempt), holder=build.holder, rows=pending)
+            calls.stage_pdf_access_batch(
+                conn,
+                build_id=build.build_id,
+                task_id=TaskId(build.task_id),
+                attempt=TaskAttempt(build.attempt),
+                holder=build.holder,
+                rows=pending,
+            )
             check_active()
         pending.clear()
         size = 0
+
     with path.open() as source:
         for line in source:
             check_active()

@@ -192,16 +192,27 @@ def test_reconciliation_companions_use_current_prepared_set_bytes(native_source,
 
     document = DoclingDocument.model_validate(native_source.payload["document"])
     with reconcile_pdf_stream(
-        document, pin(1, "native", "0" * 64, "structural"), iter(()),
-        native_source.payload["artifact_digest"], directory=tmp_path,
+        document,
+        pin(1, "native", "0" * 64, "structural"),
+        iter(()),
+        native_source.payload["artifact_digest"],
+        directory=tmp_path,
     ) as result:
         families = ("input", "occurrence", "relation", "mapping_report", "coverage", "health")
-        companions = {family: (result.health,) if family == "health" else result.journal.collection(family)
-                      for family in families}
+        companions = {
+            family: (result.health,) if family == "health" else result.journal.collection(family)
+            for family in families
+        }
         expected = {family: list(rows) for family, rows in companions.items()}
         admitted = []
-        sets = write_pdf_companion_sets(tmp_path / "companions", PdfCompanionEncodingBasis("build", "release"),
-            companions, payload_family=None, check_active=lambda: None, on_replay=admitted.append)
+        sets = write_pdf_companion_sets(
+            tmp_path / "companions",
+            PdfCompanionEncodingBasis("build", "release"),
+            companions,
+            payload_family=None,
+            check_active=lambda: None,
+            on_replay=admitted.append,
+        )
         assert [replay for prepared in sets for replay in prepared.replays] == admitted
         actual = {family: [] for family in families}
         for replay in admitted:

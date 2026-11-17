@@ -19,8 +19,8 @@ from corpus_structure.semantic.pdf_record_model import (
     record_tables,
     record_upload_tables,
 )
-from semantic.releases_support import stage
 from semantic.pdf_staging_support import private_build as private_build
+from semantic.releases_support import stage
 
 
 def header_binding(engine):
@@ -303,6 +303,7 @@ def test_private_native_foundations_and_constraints(commit_db_engine):
 
 def test_artifact_native_verifier_reads_actual_parts(commit_db_engine, private_build):
     from pdf_acceptance_support import seed_pdf_shared_stream
+
     from corpus_structure.semantic.pdf_record_identity import byte_root
 
     build = private_build
@@ -311,32 +312,63 @@ def test_artifact_native_verifier_reads_actual_parts(commit_db_engine, private_b
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         verify = text("SELECT * FROM ops.pdf_identity_verify_artifact(:p,:p,:s,:admitted)")
-        for stream_id, fault in (("valid", None), ("gap", "offset"), ("changed", "bytes"),
-                                 ("missing", "missing"), ("root", "root")):
+        for stream_id, fault in (
+            ("valid", None),
+            ("gap", "offset"),
+            ("changed", "bytes"),
+            ("missing", "missing"),
+            ("root", "root"),
+        ):
             parts = []
             for ordinal, start in enumerate(range(0, len(body), 10000)):
-                part = body[start:start + 10000]
+                part = body[start : start + 10000]
                 if fault == "missing" and ordinal == 1:
                     continue
                 if fault == "bytes" and ordinal == 1:
                     part = b"x" + part[1:]
-                parts.append(dict(ordinal=ordinal, byte_offset=start + (1 if fault == "offset" and ordinal == 1 else 0), body=part))
-            seed_pdf_shared_stream(conn, build, stream_id, body, profile="exact-bytes-" + stream_id,
-                parts=parts, declared_root="0" * 64 if fault == "root" else root, verify=False)
+                parts.append(
+                    dict(
+                        ordinal=ordinal,
+                        byte_offset=start + (1 if fault == "offset" and ordinal == 1 else 0),
+                        body=part,
+                    )
+                )
+            seed_pdf_shared_stream(
+                conn,
+                build,
+                stream_id,
+                body,
+                profile="exact-bytes-" + stream_id,
+                parts=parts,
+                declared_root="0" * 64 if fault == "root" else root,
+                verify=False,
+            )
             if fault:
                 with pytest.raises(DBAPIError, match="shared stream actual"), conn.begin_nested():
-                    conn.execute(text("SELECT ops.pdf_verify_shared_stream(:p,:s,true)"), {"p": build.build_id, "s": stream_id})
+                    conn.execute(
+                        text("SELECT ops.pdf_verify_shared_stream(:p,:s,true)"),
+                        {"p": build.build_id, "s": stream_id},
+                    )
                 # Pending malformed data never acquires admitted byte authority.
                 with pytest.raises(DBAPIError, match="actual fold receipt"), conn.begin_nested():
-                    conn.execute(verify, {"p": build.build_id, "s": stream_id, "admitted": None}).one()
+                    conn.execute(
+                        verify, {"p": build.build_id, "s": stream_id, "admitted": None}
+                    ).one()
             else:
-                conn.execute(text("SELECT ops.pdf_verify_shared_stream(:p,:s,true)"), {"p": build.build_id, "s": stream_id})
-                result = conn.execute(verify, {"p": build.build_id, "s": stream_id, "admitted": body}).one()
+                conn.execute(
+                    text("SELECT ops.pdf_verify_shared_stream(:p,:s,true)"),
+                    {"p": build.build_id, "s": stream_id},
+                )
+                result = conn.execute(
+                    verify, {"p": build.build_id, "s": stream_id, "admitted": body}
+                ).one()
                 assert result.actual_length == len(body)
                 assert bytes(result.actual_byte_root).hex() == root
                 assert result.retained_correspondence
                 with pytest.raises(DBAPIError, match="retained bytes"), conn.begin_nested():
-                    conn.execute(verify, {"p": build.build_id, "s": stream_id, "admitted": b"different"}).one()
+                    conn.execute(
+                        verify, {"p": build.build_id, "s": stream_id, "admitted": b"different"}
+                    ).one()
 
 
 @pytest.mark.parametrize(

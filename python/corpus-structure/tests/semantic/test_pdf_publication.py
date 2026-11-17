@@ -321,7 +321,14 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
     value = dict(page_no=1, has_words=True, has_chars=True, candidates=[candidate] * 1000)
     original = canonical_bytes(value)
     assert len(original) > 65536
-    stage_complete_native(commit_writer_engine, build, tmp_path, companions={"native_metadata": [dict(kind="inline_candidate_pages", ordinal=0, value=value)]})
+    stage_complete_native(
+        commit_writer_engine,
+        build,
+        tmp_path,
+        companions={
+            "native_metadata": [dict(kind="inline_candidate_pages", ordinal=0, value=value)]
+        },
+    )
     with commit_writer_engine.begin() as conn:
         adopt_pdf_companions(
             conn,
@@ -427,7 +434,12 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
         ).decode(),
         endpoints=[dict(role="output", occurrence_id=row["occurrence_id"]) for row in occurrences],
     )
-    stage_complete_native(commit_writer_engine, build, tmp_path, companions={"occurrence": occurrences, "relation": [relation]})
+    stage_complete_native(
+        commit_writer_engine,
+        build,
+        tmp_path,
+        companions={"occurrence": occurrences, "relation": [relation]},
+    )
     with commit_writer_engine.begin() as conn:
         assert (
             conn.scalar(
@@ -700,7 +712,14 @@ def test_encoded_page_adoption_retains_original_ipc_bytes(
         raise AssertionError("already encoded payload must retain its original bytes")
 
     monkeypatch.setattr(PreparedPayloadFamily, "encode", no_reencoding)
-    stage_complete_native(commit_writer_engine, build, tmp_path, companions={"native_metadata": [dict(kind="inline_candidate_pages", ordinal=0, value=encoded)]})
+    stage_complete_native(
+        commit_writer_engine,
+        build,
+        tmp_path,
+        companions={
+            "native_metadata": [dict(kind="inline_candidate_pages", ordinal=0, value=encoded)]
+        },
+    )
     with commit_writer_engine.begin() as conn:
         adopt_pdf_companions(
             conn,

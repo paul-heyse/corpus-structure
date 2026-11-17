@@ -3,7 +3,6 @@
 import json
 from hashlib import sha256
 
-import pyarrow as pa
 import pytest
 from docling_core.types.doc import (
     BoundingBox,
@@ -17,13 +16,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companions,
     freeze_pdf_build,
     prepare_pdf_build,
 )
-from corpus_structure.semantic.pdf_publication_native import publication_sql
 from corpus_structure.semantic.pdf_records import iter_native_records
-from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
 from semantic.pdf_staging_support import private_build as private_build
 
 
@@ -119,22 +115,47 @@ def test_native_owner_counts_refuse_missing_or_duplicate_membership(
     # rows challenge SQL ownership directly and never claim a passed oracle.
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-        relations = {"header": "ops.pdf_record_document", "native": "kb.pdf_record_native",
-                     "membership": "kb.pdf_record_membership", "reference": "kb.pdf_record_reference"}
+        relations = {
+            "header": "ops.pdf_record_document",
+            "native": "kb.pdf_record_native",
+            "membership": "kb.pdf_record_membership",
+            "reference": "kb.pdf_record_reference",
+        }
         for family in ("reference", "membership", "header", "native"):
-            conn.execute(text(f"DELETE FROM {relations[family]} WHERE product_id=:build"), {"build": build.build_id})
+            conn.execute(
+                text(f"DELETE FROM {relations[family]} WHERE product_id=:build"),
+                {"build": build.build_id},
+            )
         for family in ("header", "native", "membership", "reference"):
             for value in rows.get(family, ()):
-                value = {key: json.loads(item) if key.endswith("_json") and isinstance(item, str) else item
-                         for key, item in value.items()}
-                conn.execute(text(f"INSERT INTO {relations[family]} SELECT (jsonb_populate_record("
-                    f"NULL::{relations[family]}, CAST(:body AS jsonb))).*"), {"body": json.dumps(value)})
+                value = {
+                    key: json.loads(item)
+                    if key.endswith("_json") and isinstance(item, str)
+                    else item
+                    for key, item in value.items()
+                }
+                conn.execute(
+                    text(
+                        f"INSERT INTO {relations[family]} SELECT (jsonb_populate_record("
+                        f"NULL::{relations[family]}, CAST(:body AS jsonb))).*"
+                    ),
+                    {"body": json.dumps(value)},
+                )
     with (
-        pytest.raises(DBAPIError, match=(r"native (orphan or repeated containment owner|"
-                    r"containment cycle or unreachable record|ordered membership incomplete)")),
+        pytest.raises(
+            DBAPIError,
+            match=(
+                r"native (orphan or repeated containment owner|"
+                r"containment cycle or unreachable record|ordered membership incomplete)"
+            ),
+        ),
         commit_db_engine.begin() as conn,
     ):
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-        conn.execute(text("SELECT ops.pdf_check_build_inventory(:build,:source,"
-            "(SELECT project_id FROM ops.pdf_task_context(:task)))"),
-            dict(build=build.build_id, source=build.source_digest, task=build.task_id))
+        conn.execute(
+            text(
+                "SELECT ops.pdf_check_build_inventory(:build,:source,"
+                "(SELECT project_id FROM ops.pdf_task_context(:task)))"
+            ),
+            dict(build=build.build_id, source=build.source_digest, task=build.task_id),
+        )

@@ -30,5 +30,6 @@ def generated_enums() -> str:
 
 
 if __name__ == "__main__":
-    Path(__file__).with_name("_pdf_native_calls.py").write_text(generated_source())
-    Path(__file__).with_name("_pdf_native_ids.py").write_text(generated_enums())
+    source, enums = generated_source(), generated_enums()
+    Path(__file__).with_name("_pdf_native_calls.py").write_text(source)
+    Path(__file__).with_name("_pdf_native_ids.py").write_text(enums)

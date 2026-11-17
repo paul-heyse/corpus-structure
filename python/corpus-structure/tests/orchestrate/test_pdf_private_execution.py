@@ -146,15 +146,31 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
 
             certificate = kwargs["record_root"].parent / "controlled-certificate.json"
             access = kwargs["record_root"].parent / "controlled-access.jsonl"
-            certificate.write_bytes(PdfProducerCertification("d" * 64, "native", "e" * 64,
-                "f" * 64, "1" * 64, build.source_digest, build.recipe_digest, build.schema_digest).to_bytes())
+            certificate.write_bytes(
+                PdfProducerCertification(
+                    "d" * 64,
+                    "native",
+                    "e" * 64,
+                    "f" * 64,
+                    "1" * 64,
+                    build.source_digest,
+                    build.recipe_digest,
+                    build.schema_digest,
+                ).to_bytes()
+            )
             access.write_bytes(b"")
             kwargs["on_replay"](_ref(certificate, "producer_certification"))
             kwargs["on_replay"](_ref(access, "producer_access"))
-            return pdf_stream_types.PdfStreamReply("success", (), b"{}", (), (),
+            return pdf_stream_types.PdfStreamReply(
+                "success",
+                (),
+                b"{}",
+                (),
+                (),
                 effective_options=b'{"fixture":"prepared-native"}',
-                certification=_ref(certificate, "producer_certification"), access_replay=_ref(access, "producer_access"))
-
+                certification=_ref(certificate, "producer_certification"),
+                access_replay=_ref(access, "producer_access"),
+            )
 
         def close(self):
             assert active[0]
@@ -218,12 +234,29 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
 
     monkeypatch.setattr(pdf_publication, "stage_pdf_access_projection", stage_access)
     monkeypatch.setattr(pdf_publication, "record_pdf_producer_certification", attest)
-    monkeypatch.setattr("corpus_structure.semantic.pdf_lowering.require_lowering_identity", lambda context: "d" * 64)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.pdf_lowering.require_lowering_identity", lambda context: "d" * 64
+    )
     from corpus_structure.semantic import _pdf_native_calls as calls
-    basis = dict(request_id="request", generation=1, release_id="r", operation="source.pdf/capture",
-        definition="definition", recipe="recipe", implementation="implementation", execution_profile="profile",
-        runtime_id="runtime", runtime_manifest_digest="a" * 64, pdf_domain_digest="b" * 64)
-    monkeypatch.setattr(calls, "read_pdf_producer_basis", lambda *a, **k: SimpleNamespace(model_dump=lambda **options: basis))
+
+    basis = dict(
+        request_id="request",
+        generation=1,
+        release_id="r",
+        operation="source.pdf/capture",
+        definition="definition",
+        recipe="recipe",
+        implementation="implementation",
+        execution_profile="profile",
+        runtime_id="runtime",
+        runtime_manifest_digest="a" * 64,
+        pdf_domain_digest="b" * 64,
+    )
+    monkeypatch.setattr(
+        calls,
+        "read_pdf_producer_basis",
+        lambda *a, **k: SimpleNamespace(model_dump=lambda **options: basis),
+    )
     monkeypatch.setattr(calls, "register_pdf_spool_producer", lambda *a, **k: "controlled-producer")
     monkeypatch.setattr(calls, "register_pdf_spool_contributor", lambda *a, **k: None)
     from corpus_structure.ingest.pdf import PdfRecipe

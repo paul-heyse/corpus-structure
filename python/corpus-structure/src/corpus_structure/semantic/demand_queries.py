@@ -100,13 +100,11 @@ def _selected_query_rows(page, request):
             (not request.containers_only or row.get("member_id") is None)
             and (
                 request.record_type is None
-                or (isinstance(body, Mapping)
-                and body.get("record_type") == request.record_type)
+                or (isinstance(body, Mapping) and body.get("record_type") == request.record_type)
             )
             and (
                 request.family is None
-                or (isinstance(body, Mapping)
-                and body.get("family") == request.family)
+                or (isinstance(body, Mapping) and body.get("family") == request.family)
             )
             and all(value is None or row.get(key) == value for key, value in filters.items())
         ):

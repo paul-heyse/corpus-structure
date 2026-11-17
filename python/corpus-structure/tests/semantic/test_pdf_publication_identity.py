@@ -4,6 +4,7 @@ import json
 import struct
 
 import pytest
+from pdf_acceptance_support import seed_pdf_shared_stream
 from pydantic import JsonValue
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -12,7 +13,6 @@ from corpus_structure.semantic.pdf_publication_native import pdf_record_logical_
 from corpus_structure.semantic.pdf_record_identity import canonical_scalar
 from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.pdf_staging_support import private_build as private_build
-from pdf_acceptance_support import seed_pdf_shared_stream
 
 
 def test_publication_inline_and_key_spelling(commit_db_engine):
@@ -283,22 +283,59 @@ def test_complete_identity_verifies_shared_and_unreferenced_streams(
             text("INSERT INTO ops.pdf_frozen_build VALUES (:p,:digest,'native')"),
             params | {"digest": "0" * 64},
         )
-        conn.execute(text("INSERT INTO ops.pdf_record_document VALUES (:p,:p,:release,:source,"
-            "'pdf-native-records-v1','pdf-native-records-v1',:schema,'root')"), params)
-        conn.execute(text("INSERT INTO kb.pdf_record_native(product_id,revision_id,record_id,"
-            "native_type,family,native_address,scalars_json,structure_json) VALUES "
-            "(:p,:p,'root','TextItem','node','#','{}',CAST(:structure AS jsonb))"), params | {
-                "structure": json.dumps({"fields": {field: {"kind": "parts", "stream_id": "shared"}
-                    for field in ("a", "b")}})})
+        conn.execute(
+            text(
+                "INSERT INTO ops.pdf_record_document VALUES (:p,:p,:release,:source,"
+                "'pdf-native-records-v1','pdf-native-records-v1',:schema,'root')"
+            ),
+            params,
+        )
+        conn.execute(
+            text(
+                "INSERT INTO kb.pdf_record_native(product_id,revision_id,record_id,"
+                "native_type,family,native_address,scalars_json,structure_json) VALUES "
+                "(:p,:p,'root','TextItem','node','#','{}',CAST(:structure AS jsonb))"
+            ),
+            params
+            | {
+                "structure": json.dumps(
+                    {
+                        "fields": {
+                            field: {"kind": "parts", "stream_id": "shared"} for field in ("a", "b")
+                        }
+                    }
+                )
+            },
+        )
         for stream, content in (("shared", shared), ("unused", unused)):
-            bad = (stream == "shared" and defect == "referenced-bytes") or (stream == "unused" and defect is not None and defect.startswith("unused-"))
-            body = b"broken scalar" if defect == "referenced-bytes" and stream == "shared" else b"spare byte!" if defect == "unused-bytes" and stream == "unused" else content
-            parts = [] if defect == "unused-missing" and stream == "unused" else [dict(
-                ordinal=int(defect == "unused-order" and stream == "unused"), byte_offset=0, body=body)]
+            bad = (stream == "shared" and defect == "referenced-bytes") or (
+                stream == "unused" and defect is not None and defect.startswith("unused-")
+            )
+            body = (
+                b"broken scalar"
+                if defect == "referenced-bytes" and stream == "shared"
+                else b"spare byte!"
+                if defect == "unused-bytes" and stream == "unused"
+                else content
+            )
+            parts = (
+                []
+                if defect == "unused-missing" and stream == "unused"
+                else [
+                    dict(
+                        ordinal=int(defect == "unused-order" and stream == "unused"),
+                        byte_offset=0,
+                        body=body,
+                    )
+                ]
+            )
             seed_pdf_shared_stream(conn, build, stream, content, parts=parts, verify=not bad)
             if bad:
                 with pytest.raises(DBAPIError, match="shared stream actual"), conn.begin_nested():
-                    conn.execute(text("SELECT ops.pdf_verify_shared_stream(:p,:stream,true)"), params | {"stream": stream})
+                    conn.execute(
+                        text("SELECT ops.pdf_verify_shared_stream(:p,:stream,true)"),
+                        params | {"stream": stream},
+                    )
         statement = text("SELECT ops.pdf_record_logical_identity(:p,:p)")
         if defect is not None:
             with pytest.raises(DBAPIError, match="actual fold receipt"), conn.begin_nested():
@@ -314,7 +351,6 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
     from pdf_acceptance_support import stage_complete_native
 
     from corpus_structure.semantic.pdf_publication import (
-        adopt_pdf_companions,
         freeze_pdf_build,
         prepare_pdf_build,
         seal_pdf_build,
@@ -323,16 +359,40 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
 
     def publish(case, key, input_publication=None):
         build = create_private_build(case=case)
-        companions: dict[str, list[dict[str, JsonValue]]] = {"occurrence": [{"occurrence_id": "item", "kind": "text",
-            "address_space": "native_item", "precision": "item", "pointer": "#/texts/0"}]}
+        companions: dict[str, list[dict[str, JsonValue]]] = {
+            "occurrence": [
+                {
+                    "occurrence_id": "item",
+                    "kind": "text",
+                    "address_space": "native_item",
+                    "precision": "item",
+                    "pointer": "#/texts/0",
+                }
+            ]
+        }
         if input_publication is not None:
-            companions["input"] = [{"role": "structural", "task_id": input_publication.task_id,
-                "product_key": input_publication.product_key, "content_digest": input_publication.logical_digest}]
-            companions["relation"] = [{"relation_id": "selection", "kind": "decision", "outcome": "selected",
-                "comparison": "text", "policy": "controlled-exact-source-v1",
-                "evidence": "same retained text in distinct authentic publications",
-                "endpoints": [{"input_index": 0, "occurrence_id": "item", "role": "input"},
-                              {"occurrence_id": "item", "role": "output"}]}]
+            companions["input"] = [
+                {
+                    "role": "structural",
+                    "task_id": input_publication.task_id,
+                    "product_key": input_publication.product_key,
+                    "content_digest": input_publication.logical_digest,
+                }
+            ]
+            companions["relation"] = [
+                {
+                    "relation_id": "selection",
+                    "kind": "decision",
+                    "outcome": "selected",
+                    "comparison": "text",
+                    "policy": "controlled-exact-source-v1",
+                    "evidence": "same retained text in distinct authentic publications",
+                    "endpoints": [
+                        {"input_index": 0, "occurrence_id": "item", "role": "input"},
+                        {"occurrence_id": "item", "role": "output"},
+                    ],
+                }
+            ]
         stage_complete_native(commit_writer_engine, build, tmp_path / key, companions=companions)
         with commit_writer_engine.begin() as conn:
             frozen = freeze_pdf_build(conn, build, kind="native")

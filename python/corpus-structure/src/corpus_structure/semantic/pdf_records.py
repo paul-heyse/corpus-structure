@@ -134,7 +134,9 @@ class NativeSchemaMapping:
                 continue
             choices = schema.get("oneOf", schema.get("anyOf"))
             if choices is not None:
-                match = next((s for s in choices if self.validator.evolve(schema=s).is_valid(value)), None)
+                match = next(
+                    (s for s in choices if self.validator.evolve(schema=s).is_valid(value)), None
+                )
                 if match is None:
                     raise NativeMappingError(path, "no supported native union member")
                 # anyOf RichTableCell precedes TableCell: rich cells retain their ref.

@@ -37,8 +37,8 @@ def context_database(semantic_bare_engine):
                 "text,stream_id text,scalar_kind text)"
             ),
             (
-                'CREATE TABLE ops.fixture_pdf_part(product_id text,revision_id text,stream_id text,ordinal bigint,body bytea);'
-                'CREATE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,p_stage boolean DEFAULT false) RETURNS SETOF ops.fixture_pdf_part LANGUAGE sql STABLE AS $$ SELECT * FROM ops.fixture_pdf_part WHERE product_id=p_product AND revision_id=p_revision $$'
+                "CREATE TABLE ops.fixture_pdf_part(product_id text,revision_id text,stream_id text,ordinal bigint,body bytea);"
+                "CREATE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,p_stage boolean DEFAULT false) RETURNS SETOF ops.fixture_pdf_part LANGUAGE sql STABLE AS $$ SELECT * FROM ops.fixture_pdf_part WHERE product_id=p_product AND revision_id=p_revision $$"
             ),
             (
                 "CREATE TABLE kb.pdf_record_endpoint(product_id text,revision_id "

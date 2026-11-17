@@ -94,20 +94,35 @@ def test_validation_precedes_visibility_and_failure_never_seals(monkeypatch, tmp
 
     context = trusted_pdf_context()
     monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", lambda *a: context)
-    monkeypatch.setattr("corpus_structure.semantic.pdf_lowering.require_lowering_identity", lambda context: "a" * 64)
-    monkeypatch.setattr(pdf_certification, "write_pdf_companion_sets", lambda *a, **k:
-        (SimpleNamespace(replay_key="companion", replays=()),))
+    monkeypatch.setattr(
+        "corpus_structure.semantic.pdf_lowering.require_lowering_identity", lambda context: "a" * 64
+    )
+    monkeypatch.setattr(
+        pdf_certification,
+        "write_pdf_companion_sets",
+        lambda *a, **k: (SimpleNamespace(replay_key="companion", replays=()),),
+    )
 
     class Payloads:
-        def __init__(self, *args): pass
-        def add_replays(self, *args, **kwargs): pass
-        def add_companion_replays(self, *args, **kwargs): pass
-        def target_pins(self): return ()
+        def __init__(self, *args):
+            pass
+
+        def add_replays(self, *args, **kwargs):
+            pass
+
+        def add_companion_replays(self, *args, **kwargs):
+            pass
+
+        def target_pins(self):
+            return ()
+
         def certify(self, document, projection, **kwargs):
             calls.append("certify")
             projection.write_bytes(b"")
             return SimpleNamespace(to_bytes=lambda: b"{}")
-        def close(self): pass
+
+        def close(self):
+            pass
 
     monkeypatch.setattr(pdf_certification, "PdfProducerPayloads", Payloads)
     draft = PdfRecordPublicationDraft(
@@ -133,7 +148,12 @@ def test_validation_precedes_visibility_and_failure_never_seals(monkeypatch, tmp
         assert run() == "published"
         assert calls.index("validate") < calls.index("seal")
     assert calls.index("records") < calls.index("certify") < calls.index("companions")
-    assert calls.index("companions") < calls.index("access") < calls.index("attest") < calls.index("freeze")
+    assert (
+        calls.index("companions")
+        < calls.index("access")
+        < calls.index("attest")
+        < calls.index("freeze")
+    )
     assert calls.index("freeze") < calls.index("prepare") < calls.index("validate")
 
 

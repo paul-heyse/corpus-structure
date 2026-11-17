@@ -102,28 +102,33 @@ def _native_child(
                     streamed = StreamingPdfProducer(recipe, assets=assets).run(
                         request.source, spool, page_range=request.page_range
                     )
-                    records = (
-                        streamed.write_record_batches(
-                            request.record_root,
-                            build_id=request.build_id,
-                            release_id=request.release_id,
-                            source_digest=request.source.digest,
-                            on_batch=acknowledged,
-                        )
+                    records = streamed.write_record_batches(
+                        request.record_root,
+                        build_id=request.build_id,
+                        release_id=request.release_id,
+                        source_digest=request.source.digest,
+                        on_batch=acknowledged,
                     )
                     from .pdf_streaming import _ref
 
-                    acknowledged(_ref(request.record_root / "completion.jsonl", "native_completion"))
+                    acknowledged(
+                        _ref(request.record_root / "completion.jsonl", "native_completion")
+                    )
                     from corpus_structure.semantic.pdf_certification import certify_native_stream
+
                     certified_sets, certification, access_replay = certify_native_stream(
-                        streamed, request, records, on_replay=acknowledged)
+                        streamed, request, records, on_replay=acknowledged
+                    )
                     result = PdfStreamReply(
                         streamed.conversion_status,
                         streamed.errors,
                         streamed.recipe,
                         tuple(spool.pages[n] for n in sorted(spool.pages)),
                         records,
-                        streamed.effective_options, certified_sets, certification, access_replay,
+                        streamed.effective_options,
+                        certified_sets,
+                        certification,
+                        access_replay,
                     )
                     del streamed
                 elif isinstance(request, PdfEnrichmentRequest):
@@ -285,13 +290,21 @@ class PdfWorker:
         check_active: Callable[[], None] | None = None,
         payload_schema: bytes,
         recovery_pages: tuple[PdfPageRecovery, ...] = (),
-        validation_contract: bytes, lowering_identity: str,
+        validation_contract: bytes,
+        lowering_identity: str,
     ) -> PdfStreamReply:
         value = self._exchange(
-            PdfStreamRequest(source=source, spool_root=spool_root, record_root=record_root,
-                build_id=build_id, release_id=release_id, page_range=page_range,
-                payload_schema=payload_schema, recovery_pages=recovery_pages,
-                validation_contract=validation_contract, lowering_identity=lowering_identity,
+            PdfStreamRequest(
+                source=source,
+                spool_root=spool_root,
+                record_root=record_root,
+                build_id=build_id,
+                release_id=release_id,
+                page_range=page_range,
+                payload_schema=payload_schema,
+                recovery_pages=recovery_pages,
+                validation_contract=validation_contract,
+                lowering_identity=lowering_identity,
             ),
             check_active,
             on_replay,

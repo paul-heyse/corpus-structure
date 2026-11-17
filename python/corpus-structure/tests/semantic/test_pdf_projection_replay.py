@@ -14,21 +14,17 @@ from docling_core.types.doc import (
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companions,
     freeze_pdf_build,
     prepare_pdf_build,
     validate_pdf_build,
 )
-from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 from semantic.pdf_staging_support import private_build as private_build
 
 
 def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
     private_build, commit_db_engine, commit_writer_engine, tmp_path
 ):
-    import pyarrow as pa
 
     build = private_build
     document = DoclingDocument(name="two-region projection")
@@ -101,5 +97,8 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
     # Projection membership now freezes with its certified producer, before the
     # reconstruction oracle or final validation can run. Even exact late writes refuse.
     for family, rows in bodies.items():
-        with pytest.raises(DBAPIError, match="not owned/open"), commit_writer_engine.begin() as conn:
+        with (
+            pytest.raises(DBAPIError, match="not owned/open"),
+            commit_writer_engine.begin() as conn,
+        ):
             conn.execute(statement, params | {"family": family, "body": json.dumps(rows[0])})
