@@ -874,7 +874,7 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
             )
             if "%" not in literal
         }
-        if primary in declared_refusals and len(primary) <= 512:
+        if isinstance(primary, str) and primary in declared_refusals and len(primary) <= 512:
             context["declared_refusal"] = primary
         if sites:
             line = sites[-1]
