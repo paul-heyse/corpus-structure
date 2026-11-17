@@ -141,7 +141,7 @@ def test_native_selected_source_basis_preserves_two_producers_and_refuses_forged
                 {
                     "project_id": "ddo-test",
                     "original_source": "source:B",
-                    "selector_kind": "episode",
+                    "selector_kind": "derivation",
                     "selector": first["derivation_id"],
                     "reason": "selected-proof-revocation-control",
                 },
@@ -448,16 +448,21 @@ def test_native_source_acquisition_preserves_emitting_member_distinction(ddo_ker
         fence = claim(ddo_kernel, attached)
 
         def completion(value, selected_member=output_member):
-            output = value["outputs"][0]
-            output["product"] = {
-                "kind_contract": contract("Population"),
-                "body": semantic_value({"complete": True, "members": [packet]}),
-                "members": [{**packet, "body": semantic_value(packet["body"])}],
+            output = {
+                "role": "result",
+                "position": 0,
+                "multiplicity": 1,
+                "product": {
+                    "kind_contract": contract("Population"),
+                    "body": semantic_value({"complete": True, "members": [packet]}),
+                    "members": [{**packet, "body": semantic_value(packet["body"])}],
+                },
             }
             if selected_member is not None:
                 output["member_id"] = selected_member
+            value["outputs"] = [output]
 
-        publish(ddo_kernel, fence, retain(ddo_kernel, fence, outputs=({},), mutate=completion))
+        publish(ddo_kernel, fence, retain(ddo_kernel, fence, outputs=(), mutate=completion))
         choices.append(selected(ddo_kernel, demand, member_id="m15"))
     whole, member = choices
     assert whole.entry == member.entry
