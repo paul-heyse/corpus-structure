@@ -16,7 +16,23 @@ from enum import Enum
 from itertools import pairwise
 from typing import Any, Literal, cast
 
-from sqlalchemy import and_, false, func, literal, not_, or_, select, true
+from sqlalchemy import (
+    Boolean,
+    Integer,
+    Text,
+    and_,
+    false,
+    func,
+    literal,
+    not_,
+    null,
+    or_,
+    select,
+    true,
+    type_coerce,
+    union_all,
+)
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import ColumnElement, FromClause, Select
 from sqlalchemy.sql.visitors import replacement_traverse
@@ -38,7 +54,7 @@ from .data_operation_model import (
     validate_subject_context,
     validate_subject_source,
 )
-from .data_operation_projections import member_columns
+from .data_operation_projections import binding_row_contract, member_columns
 from .data_operation_source_sets import (
     FrozenSourceSet,
     source_sets_record,
@@ -1016,10 +1032,14 @@ def compile_binding(
                 .where(condition.is_(True), alias.c.product.is_not(None))
                 .distinct()
             )
+        selected = query.cte("selected_" + name).prefix_with(
+            "MATERIALIZED", dialect="postgresql"
+        )
+        selected_relations[name] = selected
+        query = select(*selected.c)
         if roles[name].collection == "sequence":
-            query = query.order_by(alias.c.position)
+            query = query.order_by(selected.c.position)
         queries.append((name, query))
-        selected_relations[name] = query.order_by(None).subquery("selected_" + name)
     checks = []
     null_query = select(
         select(literal(1))
@@ -1536,8 +1556,98 @@ def decode_binding_rows(
     )
 
 
+def binding_statement(compiled: CompiledBinding) -> Select | None:
+    """Transport selected members and every check through one typed SQL result.
+
+    Predicate/body columns stay in the materialized role selections. Only member
+    facts and the role's subject association cross the result boundary. Context
+    values remain native JSONB through UNION and receive exact decoding once,
+    at the outermost SELECT.
+    """
+    native_types = {
+        column.name: column.type
+        for column in binding_row_contract().selected_columns
+        if column.name in _MEMBER_COLUMNS
+    }
+    associations = dict(compiled.subject_columns)
+    arms = []
+    for ordinal, (name, query) in enumerate(compiled.queries):
+        selected = query.order_by(None).subquery()
+        arms.append(
+            select(
+                literal("row", type_=Text()).label("binding_kind"),
+                literal(ordinal, type_=Integer()).label("binding_ordinal"),
+                sql_cast(null(), Boolean()).label("binding_valid"),
+                (
+                    type_coerce(selected.c[associations[name]], Text())
+                    if name in associations
+                    else sql_cast(null(), Text())
+                ).label("binding_subject"),
+                *(
+                    type_coerce(selected.c[column], kind).label(column)
+                    for column, kind in native_types.items()
+                ),
+            )
+        )
+    for ordinal, check in enumerate(compiled.checks):
+        # Preserve the check's row cardinality. A scalar subquery would turn a
+        # missing row into NULL, conflating malformed output with unknown.
+        result = check.query.subquery("binding_check_" + str(ordinal))
+        value = next(iter(result.c))
+        arms.append(
+            select(
+                literal("check", type_=Text()).label("binding_kind"),
+                literal(ordinal, type_=Integer()).label("binding_ordinal"),
+                sql_cast(value, Boolean()).label("binding_valid"),
+                sql_cast(null(), Text()).label("binding_subject"),
+                *(sql_cast(null(), kind).label(column) for column, kind in native_types.items()),
+            )
+        )
+    if not arms:
+        return None
+    transported = union_all(*arms).subquery("binding_output")
+    return select(
+        *(
+            type_coerce(column, ContextJSONB()).label(column.name)
+            if column.name in {"analyzed_scope", "support_evidence"}
+            else column
+            for column in transported.c
+        )
+    ).order_by(
+        transported.c.binding_kind,
+        transported.c.binding_ordinal,
+        transported.c.position.asc().nulls_last(),
+    )
+
+
 def execute_binding(connection, compiled: CompiledBinding) -> BindingResult:
-    """Read all SQL selections/checks in the caller's pinned native transaction."""
-    rows = {name: tuple(connection.execute(query).mappings()) for name, query in compiled.queries}
-    checks = tuple(connection.execute(check.query).scalar_one() for check in compiled.checks)
-    return decode_binding_rows(compiled, rows, checks)
+    """Read all SQL selections/checks in one caller-pinned native statement."""
+    statement = binding_statement(compiled)
+    rows: dict[str, list[Mapping[str, Any]]] = {name: [] for name, _ in compiled.queries}
+    checks: list[bool | None] = [None] * len(compiled.checks)
+    seen_checks: set[int] = set()
+    associations = dict(compiled.subject_columns)
+    if statement is not None:
+        for result in connection.execute(statement).mappings():
+            ordinal = result["binding_ordinal"]
+            if result["binding_kind"] == "check":
+                if ordinal in seen_checks or not 0 <= ordinal < len(checks):
+                    raise ValueError("duplicate or unexpected SQL binding check")
+                seen_checks.add(ordinal)
+                checks[ordinal] = result["binding_valid"]
+            elif result["binding_kind"] == "row":
+                if not 0 <= ordinal < len(compiled.queries):
+                    raise ValueError("unexpected SQL binding role")
+                name = compiled.queries[ordinal][0]
+                row = {column: result[column] for column in _MEMBER_COLUMNS}
+                association = associations.get(name)
+                if association is not None:
+                    row[association] = result["binding_subject"]
+                rows[name].append(row)
+            else:
+                raise ValueError("unexpected SQL binding result discriminator")
+    if len(seen_checks) != len(checks):
+        raise ValueError("incomplete SQL binding checks")
+    return decode_binding_rows(
+        compiled, {name: tuple(values) for name, values in rows.items()}, tuple(checks)
+    )
