@@ -1,39 +1,3 @@
--- Build descriptors name project-scoped immutable content. No build owns a part copy.
-CREATE OR REPLACE FUNCTION ops.pdf_stream_project(p_build text) RETURNS text
-LANGUAGE sql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
- SELECT request.project_id FROM ops.pdf_stage_build build
- JOIN ops.task job ON job.id=build.task_id
- JOIN ops.data_request request ON request.id=job.data_request_id WHERE build.build_id=p_build
-$$;
-REVOKE ALL ON FUNCTION ops.pdf_stream_project(text) FROM PUBLIC;
-
--- Invoker-only, fully qualified and inlinable: protected outer readers own
--- authorization/search_path and can push their bounded keyset page into this join.
-CREATE OR REPLACE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,p_stage boolean DEFAULT false,p_streams text[] DEFAULT NULL)
-RETURNS TABLE(__PART_COLUMNS__)
-LANGUAGE sql STABLE AS $$
- WITH descriptors AS (
- SELECT descriptor.* FROM ops.pdf_stage_artifact_stream descriptor WHERE p_stage AND descriptor.product_id=p_product AND descriptor.revision_id=p_revision
- UNION ALL SELECT descriptor.* FROM ops.pdf_artifact_stream descriptor WHERE NOT p_stage AND descriptor.product_id=p_product AND descriptor.revision_id=p_revision
- ) SELECT stream.product_id,stream.revision_id,stream.stream_id,stored.ordinal,stored.byte_offset,
- stored.byte_length,stored.body,stored.sha256_digest
- FROM descriptors stream JOIN ops.pdf_shared_stream_part stored
- ON stored.project_id=ops.pdf_stream_project(p_product)
- AND stored.encoding_profile=stream.encoding_profile AND stored.stream_length=stream.byte_length
- AND stored.byte_root=stream.byte_root WHERE p_streams IS NULL OR stream.stream_id=ANY(p_streams)
-$$;
-REVOKE ALL ON FUNCTION ops.pdf_artifact_parts(text,text,boolean,text[]) FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION ops.pdf_shared_stream_ready(p_build text,p_profile text,p_length bigint,p_root text)
-RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
- SELECT EXISTS(SELECT FROM ops.pdf_shared_stream content
- JOIN ops.pdf_shared_stream_verification verified USING(project_id,encoding_profile,byte_length,byte_root)
- WHERE content.project_id=ops.pdf_stream_project(p_build) AND content.encoding_profile=p_profile
- AND content.byte_length=p_length AND content.byte_root=p_root
-)
-$$;
-REVOKE ALL ON FUNCTION ops.pdf_shared_stream_ready(text,text,bigint,text) FROM PUBLIC;
-
 CREATE OR REPLACE FUNCTION ops.probe_pdf_shared_streams(p_build text,p_task bigint,p_attempt bigint,p_holder text,p_streams bytea)
 RETURNS TABLE(stream_id text,verified boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -68,19 +32,6 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.probe_pdf_shared_streams(text,bigint,bigint,text,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.probe_pdf_shared_streams(text,bigint,bigint,text,bytea) TO corpus_sem_writer;
-
--- Pending content is attempt-owned upload work, not admitted immutable bytes.
-CREATE OR REPLACE FUNCTION ops.pdf_pending_stream_owner_dead(content ops.pdf_shared_stream) RETURNS boolean
-LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
- SELECT NOT EXISTS(SELECT FROM ops.pdf_stage_build build JOIN ops.task job ON job.id=build.task_id
- JOIN ops.data_request request ON request.id=job.data_request_id
- WHERE build.build_id=content.owner_build_id AND build.state='open'
- AND build.attempt=content.owner_attempt AND build.holder=content.owner_holder
- AND job.attempt=content.owner_attempt AND job.claimed_by=content.owner_holder
- AND job.status='running' AND job.lease_until>clock_timestamp()
- AND request.live_task_id=job.id AND request.generation=job.data_generation)
-$$;
-REVOKE ALL ON FUNCTION ops.pdf_pending_stream_owner_dead(ops.pdf_shared_stream) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.pdf_reclaim_pending_stream(p_project text,p_profile text,p_length bigint,p_root text)
 RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
