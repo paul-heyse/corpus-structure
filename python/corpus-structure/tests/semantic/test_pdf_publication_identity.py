@@ -73,9 +73,7 @@ def test_publication_inline_refuses_non_scalar(commit_db_engine):
 def test_actual_record_cursor_matches_independent_logical_fields(
     commit_db_engine, private_build, segmented
 ):
-    from hashlib import sha256
-
-    from corpus_structure.semantic.pdf_record_identity import LogicalIdentity, byte_root
+    from corpus_structure.semantic.pdf_record_identity import LogicalIdentity
 
     binding = dict(release_id=private_build.release_id, source_digest=private_build.source_digest)
     schema = "f" * 64
@@ -204,21 +202,9 @@ def test_actual_record_cursor_matches_independent_logical_fields(
                 ),
                 ("evidence", "s", "pdf-record-scalar-v1:s", evidence.encode()),
             )
-            for name, kind, profile, payload in fields:
-                size, root = byte_root((payload,))
-                params = dict(
-                    name=name,
-                    size=size,
-                    root=root.hex(),
-                    profile=profile,
-                    body=payload,
-                    sha=sha256(payload).hexdigest(),
-                    kind=kind,
-                )
+            for name, _, profile, payload in fields:
                 seed_pdf_shared_stream(conn, private_build, name, payload, profile=profile)
             payload = map_key.encode()
-            size, root = byte_root((payload,))
-            params = dict(size=size, root=root.hex(), body=payload, sha=sha256(payload).hexdigest())
             seed_pdf_shared_stream(conn, private_build, "map-key", payload)
         execute(
             "INSERT INTO kb.pdf_record_membership(product_id,revision_id,parent_id,"
@@ -254,8 +240,6 @@ def test_actual_record_cursor_matches_independent_logical_fields(
 def test_complete_identity_verifies_shared_and_unreferenced_streams(
     commit_db_engine, private_build, defect
 ):
-    from hashlib import sha256
-
     from corpus_structure.semantic.pdf_record_identity import (
         LogicalIdentity,
         ScalarDescriptor,

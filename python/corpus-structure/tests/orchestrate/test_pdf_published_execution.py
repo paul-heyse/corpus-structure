@@ -91,7 +91,6 @@ def test_validation_precedes_visibility_and_failure_never_seals(monkeypatch, tmp
     monkeypatch.setattr(StreamingPdfResult, "write_record_batches", write)
     from corpus_structure.semantic import pdf_certification, pdf_contracts
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
-    from corpus_structure.semantic.pdf_lowering import require_lowering_identity
 
     context = trusted_pdf_context()
     monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", lambda *a: context)
