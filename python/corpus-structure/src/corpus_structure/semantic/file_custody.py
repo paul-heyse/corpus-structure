@@ -62,11 +62,13 @@ class FileCustody:
         """Child-side metadata handoff of an authenticated parent observation."""
         path, digest, identity, racily_clean = receipt
         record = cls(Path(path), digest, tuple(identity), racily_clean)
-        if stat_identity(record.path) != record.identity:
-            raise FileCustodyError(f"file changed during worker handoff: {path}; restart required")
-        # A timestamp-granularity race cannot confer established status.
-        if record.racily_clean:
-            return cls.acquire(record.path, record.digest)
+        # Metadata invalidates the observation; equal bytes can establish a fresh
+        # observation, while a changed file cannot inherit parent custody.
+        if stat_identity(record.path) != record.identity or record.racily_clean:
+            try:
+                return cls.acquire(record.path, record.digest)
+            except (FileCustodyError, OSError) as error:
+                raise FileCustodyError(f"file changed during worker handoff: {path}; restart required") from error
         return record
 
 

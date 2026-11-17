@@ -181,3 +181,12 @@ def test_pdf_model_handoff_reuses_parent_and_checks_after_load(acquired, monkeyp
     path.write_bytes(b"other")
     with pytest.raises(FileCustodyError, match="restart"):
         child.verify()
+
+
+def test_worker_handoff_refreshes_equal_bytes_after_metadata_change(acquired):
+    path, record = acquired
+    receipt = record.receipt()
+    os.utime(path, ns=(path.stat().st_atime_ns, path.stat().st_mtime_ns + 1_000_000))
+    child = FileCustody.accept(receipt)
+    assert child.digest == record.digest
+    assert child.identity != record.identity
