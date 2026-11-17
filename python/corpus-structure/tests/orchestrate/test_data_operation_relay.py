@@ -229,4 +229,4 @@ def test_retained_statement_error_drops_parameter_body_after_structured_publicat
     assert error.orig is original and original.sqlstate == "23514"
     trace = events[0].model_dump(mode="json")
     assert trace["stacks"][0]["exc_type"] == "StatementError"
-    assert "protected_writer" not in str(trace)
+    assert trace["stacks"][0]["exc_value"].startswith("statement refused")

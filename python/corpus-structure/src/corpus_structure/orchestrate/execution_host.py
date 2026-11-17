@@ -244,7 +244,9 @@ class ProcessExecutionHost:
             )
             while required > self.budget.limit - self.budget.used_bytes:
                 if self._live_requests():
-                    raise ExecutionPreparationDeferred("execution basis preparation awaits current request credit retirement")
+                    raise ExecutionPreparationDeferred(
+                        "execution basis preparation awaits current request credit retirement"
+                    )
                 idle = next((key for key, item in self._bases.items() if not item.references), None)
                 if idle is None:
                     raise CapacityExceeded(
@@ -374,8 +376,7 @@ class ProcessExecutionHost:
         if resources is None or resources.cpu is None:
             return
         if (
-            (self._execution is not None
-            and self._execution.has_live_requests())
+            (self._execution is not None and self._execution.has_live_requests())
             or resources.cpu._admissions
             or resources.cpu._submissions
             or resources.cpu._stream_transports

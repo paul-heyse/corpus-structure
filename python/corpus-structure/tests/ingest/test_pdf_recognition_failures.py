@@ -53,7 +53,16 @@ def test_http_failure_class_requires_input_status_and_admitted_generation(
         max_tokens: int = 1
 
     try:
-        with Image.new("RGB", (2, 2)) as image, pytest.raises((httpx.HTTPStatusError, RuntimeError)):
+        with (
+            Image.new("RGB", (2, 2)) as image,
+            pytest.raises(
+                (
+                    httpx.HTTPStatusError,
+                    worker_module.TerminalInputRefusal,
+                    worker_module.ServiceGenerationChanged,
+                )
+            ),
+        ):
             backend(image, prompt="input", stage="fullpage", settings=Settings())
     finally:
         backend.client.close()

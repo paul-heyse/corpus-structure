@@ -15,33 +15,53 @@ def test_process_scope_shares_one_owner_and_rejects_concurrent_runs():
     with execution_host_scope() as host:
         with execution_host_scope() as nested:
             assert nested is host
-            with host.run(CharacterizationExecutionPolicy()):
-                with pytest.raises(RuntimeError, match="active run"):
-                    with nested.run(CharacterizationExecutionPolicy()):
-                        pytest.fail("a second run entered")
+            with (
+                host.run(CharacterizationExecutionPolicy()),
+                pytest.raises(RuntimeError, match="active run"),
+                nested.run(CharacterizationExecutionPolicy()),
+            ):
+                pytest.fail("a second run entered")
         assert not host._closed
     assert host._closed
 
 
 def controlled_archive(monkeypatch):
-    from corpus_structure.semantic import archive_reader, cpu_execution, data_operation_service, determinants
+    from corpus_structure.semantic import (
+        archive_reader,
+        cpu_execution,
+        data_operation_service,
+        determinants,
+    )
 
     Header = namedtuple("Header", "release_id profile content_digest finalized_digest marker")
-    state = SimpleNamespace(marker="original", runtime_marker="original", acquisitions=[],
-                            runtime_manifest=b"runtime-manifest", runtime_archive=b"runtime-archive")
-    monkeypatch.setattr(archive_reader, "_archive_header", lambda _, release: Header(
-        release, "test", release, release, state.marker
-    ))
+    state = SimpleNamespace(
+        marker="original",
+        runtime_marker="original",
+        acquisitions=[],
+        runtime_manifest=b"runtime-manifest",
+        runtime_archive=b"runtime-archive",
+    )
+    monkeypatch.setattr(
+        archive_reader,
+        "_archive_header",
+        lambda _, release: Header(release, "test", release, release, state.marker),
+    )
     monkeypatch.setattr(determinants, "determinant_version", lambda _: "selected")
 
     def acquire(_connection, release, runtime, *, source_root):
         state.acquisitions.append((release, runtime, source_root))
-        return SimpleNamespace(prepared=SimpleNamespace(release_id=release),
-                               runtime=SimpleNamespace(manifest=state.runtime_manifest, archive=state.runtime_archive))
+        return SimpleNamespace(
+            prepared=SimpleNamespace(release_id=release),
+            runtime=SimpleNamespace(manifest=state.runtime_manifest, archive=state.runtime_archive),
+        )
 
     monkeypatch.setattr(data_operation_service, "acquire_data_execution_basis", acquire)
-    monkeypatch.setattr(cpu_execution, "release_capsule", lambda prepared: prepared.release_id.encode())
-    connection = SimpleNamespace(execute=lambda _: SimpleNamespace(one=lambda: (state.runtime_marker,)))
+    monkeypatch.setattr(
+        cpu_execution, "release_capsule", lambda prepared: prepared.release_id.encode()
+    )
+    connection = SimpleNamespace(
+        execute=lambda _: SimpleNamespace(one=lambda: (state.runtime_marker,))
+    )
     return state, connection
 
 
@@ -52,19 +72,54 @@ def test_verified_basis_reuses_only_exact_engine_header_runtime_and_root(monkeyp
     policy = CharacterizationExecutionPolicy()
     try:
         with host.run(policy) as token:
-            first = host.acquire_basis(first_engine, connection, "release:first", "runtime", source_root=tmp_path, token=token)
+            first = host.acquire_basis(
+                first_engine,
+                connection,
+                "release:first",
+                "runtime",
+                source_root=tmp_path,
+                token=token,
+            )
             assert host._borrowed[0].references == 1
-        assert host.budget.used_bytes == len(b"release:first") + len(state.runtime_manifest) + len(state.runtime_archive)
+        assert host.budget.used_bytes == len(b"release:first") + len(state.runtime_manifest) + len(
+            state.runtime_archive
+        )
         with host.run(policy) as token:
-            assert host.acquire_basis(first_engine, connection, "release:first", "runtime", source_root=tmp_path, token=token) is first
+            assert (
+                host.acquire_basis(
+                    first_engine,
+                    connection,
+                    "release:first",
+                    "runtime",
+                    source_root=tmp_path,
+                    token=token,
+                )
+                is first
+            )
         assert len(state.acquisitions) == 1
         with host.run(policy) as token:
-            host.acquire_basis(second_engine, connection, "release:first", "runtime", source_root=tmp_path, token=token)
+            host.acquire_basis(
+                second_engine,
+                connection,
+                "release:first",
+                "runtime",
+                source_root=tmp_path,
+                token=token,
+            )
         assert len(state.acquisitions) == 2
         state.marker = "administratively changed"
-        with host.run(policy) as token:
-            with pytest.raises(SemanticRefusal, match="archive/runtime changed"):
-                host.acquire_basis(first_engine, connection, "release:first", "runtime", source_root=tmp_path, token=token)
+        with (
+            host.run(policy) as token,
+            pytest.raises(SemanticRefusal, match="archive/runtime changed"),
+        ):
+            host.acquire_basis(
+                first_engine,
+                connection,
+                "release:first",
+                "runtime",
+                source_root=tmp_path,
+                token=token,
+            )
     finally:
         host.close()
     assert host.budget.used_bytes == 0
@@ -78,24 +133,36 @@ def test_runtime_rewrite_refuses_and_idle_lru_releases_real_credit(monkeypatch):
     try:
         for release in ("old", "new"):
             with host.run(policy) as token:
-                host.acquire_basis(engine, connection, release, "runtime", source_root=None, token=token)
+                host.acquire_basis(
+                    engine, connection, release, "runtime", source_root=None, token=token
+                )
         assert [key[1] for key in host._bases] == ["new"]
-        assert host.budget.used_bytes == len(b"new") + len(state.runtime_manifest) + len(state.runtime_archive)
+        assert host.budget.used_bytes == len(b"new") + len(state.runtime_manifest) + len(
+            state.runtime_archive
+        )
         state.runtime_marker = "rewritten"
-        with host.run(policy) as token:
-            with pytest.raises(SemanticRefusal, match="archive/runtime changed"):
-                host.acquire_basis(engine, connection, "new", "runtime", source_root=None, token=token)
+        with (
+            host.run(policy) as token,
+            pytest.raises(SemanticRefusal, match="archive/runtime changed"),
+        ):
+            host.acquire_basis(engine, connection, "new", "runtime", source_root=None, token=token)
     finally:
         host.close()
 
 
-def test_two_runs_reuse_worker_and_capsule_with_actual_spawned_calls(monkeypatch, tmp_path, prepared):
+def test_two_runs_reuse_worker_and_capsule_with_actual_spawned_calls(
+    monkeypatch, tmp_path, prepared
+):
     import importlib
     import inspect
     import json
     from dataclasses import replace
 
-    from orchestrate.test_data_operation_byte_admission import Active, controlled_executor, policy_for
+    from orchestrate.test_data_operation_byte_admission import (
+        Active,
+        controlled_executor,
+        policy_for,
+    )
 
     from corpus_structure.semantic.data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
 
@@ -112,38 +179,52 @@ def derive(value: int, prepared: PreparedRelease) -> int:
     function = importlib.import_module(module).derive
     signature = inspect.signature(function)
     descriptor = PythonCPUDescriptor(
-        ((module, str(path), source.encode()),), module + ".derive", (),
-        verification="prepared-kernel", prepared_parameter="prepared",
+        ((module, str(path), source.encode()),),
+        module + ".derive",
+        (),
+        verification="prepared-kernel",
+        prepared_parameter="prepared",
         prepared_release_id=prepared.release_id,
     )
     pids = []
 
     def scalar(value, *, execution_owner, check_active, **_):
         reply = yield from plan_cpu_call(
-            descriptor, signature.bind(value, prepared), signature, verify=lambda: None,
-            execution_owner=execution_owner, check_active=check_active,
+            descriptor,
+            signature.bind(value, prepared),
+            signature,
+            verify=lambda: None,
+            execution_owner=execution_owner,
+            check_active=check_active,
         )
         pids.append(reply.pid)
         return json.loads(reply.content)
 
     executor, observed = controlled_executor(
-        monkeypatch, prepared, replace(policy_for(prepared), workers=1, max_submissions=1),
+        monkeypatch,
+        prepared,
+        replace(policy_for(prepared), workers=1, max_submissions=1),
         ("prepared",),
-        {"prepared": SimpleNamespace(native_selections=(), requires_prepared_schema=True, plan_python=scalar)},
+        {
+            "prepared": SimpleNamespace(
+                native_selections=(), requires_prepared_schema=True, plan_python=scalar
+            )
+        },
     )
     host = ProcessExecutionHost()
     generations, capsule_names, baselines = [], [], []
     try:
         for _ in range(2):
-            with host.run(executor.policy) as token:
-                with host.execution(executor, token) as physical:
-                    executor._physical = physical
-                    physical.select_operations(("prepared",))
-                    generations.append(physical.cpu)
-                    capsule_names.append(physical.cpu._release_capsules[prepared.release_id].reference.name)
-                    baselines.append(host.budget.used_bytes)
-                    receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
-                    assert receipts == (b"0",) and not failures
+            with host.run(executor.policy) as token, host.execution(executor, token) as physical:
+                executor._physical = physical
+                physical.select_operations(("prepared",))
+                generations.append(physical.cpu)
+                capsule_names.append(
+                    physical.cpu._release_capsules[prepared.release_id].reference.name
+                )
+                baselines.append(host.budget.used_bytes)
+                receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
+                assert receipts == (b"0",) and not failures
         assert generations[0] is generations[1]
         assert len(pids) == 2 and pids[0] == pids[1]
         assert capsule_names[0] == capsule_names[1]
@@ -161,37 +242,40 @@ def test_idle_cpu_generation_can_retire_inside_same_logical_run(monkeypatch, pre
     _, connection = controlled_archive(monkeypatch)
     engine = object()
     executor, _ = controlled_executor(
-        monkeypatch, prepared, policy_for(prepared), (), {},
+        monkeypatch,
+        prepared,
+        policy_for(prepared),
+        (),
+        {},
     )
     host = ProcessExecutionHost()
     try:
         with host.run(executor.policy) as token:
             host.acquire_basis(engine, connection, "old", "runtime", source_root=None, token=token)
         old_key = next(iter(host._bases))
-        with host.run(executor.policy) as token:
-            with host.execution(executor, token) as physical:
-                previous_cpu = physical.cpu
-                credit = host.budget.admit(executor.reservation)
-                physical.pending_reservations.add(credit)
-                try:
-                    assert not physical.requests
-                    with pytest.raises(ExecutionPreparationDeferred):
-                        host._evict(old_key)
-                    assert old_key in host._bases and physical.cpu is previous_cpu
-                finally:
-                    physical.pending_reservations.remove(credit)
-                    credit.release()
-                request = SimpleNamespace(running=True, retired=lambda: True)
-                request.release_retired_inputs = lambda: not request.running and request.retired()
-                physical.requests.append(request)
+        with host.run(executor.policy) as token, host.execution(executor, token) as physical:
+            previous_cpu = physical.cpu
+            credit = host.budget.admit(executor.reservation)
+            physical.pending_reservations.add(credit)
+            try:
+                assert not physical.requests
                 with pytest.raises(ExecutionPreparationDeferred):
                     host._evict(old_key)
                 assert old_key in host._bases and physical.cpu is previous_cpu
-                request.running = False
+            finally:
+                physical.pending_reservations.remove(credit)
+                credit.release()
+            request = SimpleNamespace(running=True, retired=lambda: True)
+            request.release_retired_inputs = lambda: not request.running and request.retired()
+            physical.requests.append(request)
+            with pytest.raises(ExecutionPreparationDeferred):
                 host._evict(old_key)
-                assert old_key not in host._bases
-                assert previous_cpu._physical_retired
-                assert physical.cpu is host.resources.cpu and physical.cpu is not previous_cpu
+            assert old_key in host._bases and physical.cpu is previous_cpu
+            request.running = False
+            host._evict(old_key)
+            assert old_key not in host._bases
+            assert previous_cpu._physical_retired
+            assert physical.cpu is host.resources.cpu and physical.cpu is not previous_cpu
     finally:
         host.close()
     assert host.budget.used_bytes == 0
@@ -237,16 +321,23 @@ def test_large_runtime_bodies_participate_in_idle_limit_and_total_admission(monk
     policy = CharacterizationExecutionPolicy(max_idle_capsule_bytes=100)
     try:
         with host.run(policy) as token:
-            host.acquire_basis(object(), connection, "tiny", "runtime", source_root=None, token=token)
+            host.acquire_basis(
+                object(), connection, "tiny", "runtime", source_root=None, token=token
+            )
             assert host.budget.used_bytes == 10004
         assert not host._bases and host.budget.used_bytes == 0
         small = CharacterizationExecutionPolicy(
-            max_owned_bytes=100, max_packet_bytes=1, max_reply_bytes=1,
-            max_native_request_bytes=1, max_native_reply_bytes=1,
+            max_owned_bytes=100,
+            max_packet_bytes=1,
+            max_reply_bytes=1,
+            max_native_request_bytes=1,
+            max_native_reply_bytes=1,
         )
         with host.run(small) as token:
             with pytest.raises(CapacityExceeded, match="one complete request"):
-                host.acquire_basis(object(), connection, "tiny", "runtime", source_root=None, token=token)
+                host.acquire_basis(
+                    object(), connection, "tiny", "runtime", source_root=None, token=token
+                )
             assert not host._bases and host.budget.used_bytes == 0
     finally:
         host.close()
@@ -260,7 +351,9 @@ def test_shared_immutable_runtime_buffers_are_charged_once_until_last_basis_evic
     try:
         for engine in (object(), object()):
             with host.run(CharacterizationExecutionPolicy()) as token:
-                host.acquire_basis(engine, connection, "tiny", "runtime", source_root=None, token=token)
+                host.acquire_basis(
+                    engine, connection, "tiny", "runtime", source_root=None, token=token
+                )
         # The two independently encoded capsules are separate owned buffers;
         # both runtime fields and both cached bases share exactly one byte object.
         assert host.budget.used_bytes == len(shared) + 2 * len(b"tiny")
@@ -279,41 +372,43 @@ def test_unstarted_stage_a_credit_defers_preparation_without_evicting_cpu(prepar
     from corpus_structure.semantic.cpu_execution import release_capsule
 
     executor, _ = controlled_executor(
-        monkeypatch, prepared, policy_for(prepared), (),
+        monkeypatch,
+        prepared,
+        policy_for(prepared),
+        (),
         {"prepared": SimpleNamespace(native_selections=(), requires_prepared_schema=True)},
     )
     host = ProcessExecutionHost()
     try:
-        with host.run(executor.policy) as token:
-            with host.execution(executor, token) as physical:
-                executor._physical = physical
-                physical.select_operations(("prepared",))
-                generation = physical.cpu
-                capsule = generation._release_capsules[prepared.release_id]
-                capsule_bytes = len(release_capsule(prepared))
-                assert host.budget.used_bytes == capsule_bytes
-                reservation = host.budget.admit(executor.reservation)
-                physical.pending_reservations.add(reservation)
-                try:
-                    assert not physical.requests  # The reserved child has not started.
-                    assert physical.has_live_requests()
-                    assert host.budget.limit - host.budget.used_bytes < executor.reservation
-                    host.ensure_request_room(executor.reservation)
-                    with pytest.raises(ExecutionPreparationDeferred):
-                        host.cpu_for_release(prepared, executor.reservation)
-                    with pytest.raises(ExecutionPreparationDeferred):
-                        host.retire_cpu()
-                    assert physical.cpu is generation and not generation._physical_retired
-                    assert generation._release_capsules[prepared.release_id] is capsule
-                    assert host.budget.used_bytes == capsule_bytes + executor.reservation
-                finally:
-                    physical.pending_reservations.remove(reservation)
-                    reservation.release()
-                # Abandoning that unstarted child makes preparation possible
-                # under exactly the same policy, generation and retained capsule.
-                view = host.cpu_for_release(prepared, executor.reservation)
-                assert view.scope is generation and view.capsule is capsule.reference
-                assert host.budget.used_bytes == capsule_bytes <= host.budget.limit
+        with host.run(executor.policy) as token, host.execution(executor, token) as physical:
+            executor._physical = physical
+            physical.select_operations(("prepared",))
+            generation = physical.cpu
+            capsule = generation._release_capsules[prepared.release_id]
+            capsule_bytes = len(release_capsule(prepared))
+            assert host.budget.used_bytes == capsule_bytes
+            reservation = host.budget.admit(executor.reservation)
+            physical.pending_reservations.add(reservation)
+            try:
+                assert not physical.requests  # The reserved child has not started.
+                assert physical.has_live_requests()
+                assert host.budget.limit - host.budget.used_bytes < executor.reservation
+                host.ensure_request_room(executor.reservation)
+                with pytest.raises(ExecutionPreparationDeferred):
+                    host.cpu_for_release(prepared, executor.reservation)
+                with pytest.raises(ExecutionPreparationDeferred):
+                    host.retire_cpu()
+                assert physical.cpu is generation and not generation._physical_retired
+                assert generation._release_capsules[prepared.release_id] is capsule
+                assert host.budget.used_bytes == capsule_bytes + executor.reservation
+            finally:
+                physical.pending_reservations.remove(reservation)
+                reservation.release()
+            # Abandoning that unstarted child makes preparation possible
+            # under exactly the same policy, generation and retained capsule.
+            view = host.cpu_for_release(prepared, executor.reservation)
+            assert view.scope is generation and view.capsule is capsule.reference
+            assert host.budget.used_bytes == capsule_bytes <= host.budget.limit
     finally:
         host.close()
     assert host.budget.used_bytes == 0

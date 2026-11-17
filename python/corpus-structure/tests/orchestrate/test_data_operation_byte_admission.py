@@ -102,6 +102,7 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
     executor._contexts = {context.basis.key: context}
     executor._execution_context = lambda _: context
     executor._ready_context = lambda _: context
+
     def prepare_ready(item, _authorization):
         # Replace native correspondence only: preparation still belongs to the
         # actual host and must run again after an idle generation is retired.
@@ -748,7 +749,10 @@ def test_closing_frontier_releases_reserved_work_that_never_started(monkeypatch,
     from corpus_structure.core.work import ReadyFrontier
 
     executor, observed = controlled_executor(
-        monkeypatch, prepared, policy_for(prepared), ("scalar",),
+        monkeypatch,
+        prepared,
+        policy_for(prepared),
+        ("scalar",),
         {"scalar": SimpleNamespace(native_selections=())},
     )
 
