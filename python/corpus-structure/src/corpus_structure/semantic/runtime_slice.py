@@ -9,7 +9,7 @@ from functools import cached_property
 import sys
 from collections.abc import Callable
 from types import FunctionType, ModuleType
-from typing import Any
+from typing import Any, cast
 
 from .file_custody import FileCustody
 
@@ -110,7 +110,8 @@ class AuthenticatedSlice:
                 # deepcopy/pickle lazily cache this standard class fact. Prepare
                 # it before fixing the class dictionary, then protect the cache
                 # together with the already authenticated generated behavior.
-                copyreg._slotnames(value)
+                slotnames = cast(Callable[[type], list[str]], getattr(copyreg, "_slotnames"))
+                slotnames(value)
             self._checks.append((lambda value=value: tuple(vars(value)), _state(tuple(vars(value)))))
             for name in ("__name__", "__qualname__", "__module__"):
                 remember(lambda value=value, name=name: getattr(value, name))
