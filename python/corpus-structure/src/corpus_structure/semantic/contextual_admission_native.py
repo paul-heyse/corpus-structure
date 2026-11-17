@@ -171,7 +171,7 @@ BEGIN
  IF r.operation_id='retrieve.contextual_scores/declared' THEN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
  actual:=ops.ddo_contextual_score_meaning(ops.ddo_contextual_native_scores(values_->'query',values_->'inventory',
- values_->'vectors',values_->'policy',definition.support_contract->'numerical_policy'->'body'));
+ values_->'vectors',values_->'policy',definition.support_contract->'numerical_policy'->'body'->'json'));
  ELSE actual:=ops.ddo_cpu_reply_output(r,completion); END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(completion->'outputs') LOOP
  expected:=CASE WHEN r.operation_id IN ('retrieve.contextual_query/declared','retrieve.contextual_query/selected-context')

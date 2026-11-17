@@ -183,6 +183,63 @@ def test_current_contextual_native_positive_ranking_source_scope_and_private_sta
             )
 
 
+def test_current_native_score_completion_projects_only_governed_numerical_policy_json(
+    current_contextual_case,
+):
+    """Replay an admitted completion through its actual guard and policy contract."""
+    case = current_contextual_case
+    demand, _ = run_intent(case.kernel, retrieval_intent(case.kernel, case.selection, budget=18))
+    (scores,) = retained_products(case.kernel, demand, "DdoContextualNativeScores")
+    episode = {"episode": scores.row["derivation_id"]}
+    contract_query = text(
+        "SELECT definition.support_contract->'numerical_policy' "
+        "FROM ops.data_derivation d "
+        "JOIN ops.data_request r ON r.id=d.request_id "
+        "JOIN sem.data_operation_definition definition "
+        "ON definition.release_id=d.release_id AND definition.operation_id=r.operation_id "
+        "WHERE d.id=:episode"
+    )
+    replay = text(
+        "SELECT ops.ddo_require_contextual_completion(r,i.payload) "
+        "FROM ops.data_derivation d "
+        "JOIN ops.data_request r ON r.id=d.request_id "
+        "JOIN ops.data_completion_intent i ON i.id=d.intent_id "
+        "WHERE d.id=:episode"
+    )
+    with case.kernel.engine.connect() as connection:
+        contract = connection.scalar(contract_query, episode)
+        assert contract["kind"] == "urn:corpus:kind:contextual-retrieval:NumericalPolicy"
+        numerical_body = contract["body"]["json"]
+        assert numerical_body["target_collation"] == "C"
+        assert numerical_body["score_transport"] == "postgres-float8"
+        connection.execute(replay, episode)
+
+        for invalid_body in ({}, {"json": []}, numerical_body):
+            # Tamper only this isolated test clone inside a rolled-back savepoint.
+            # The flat legacy body must not act as an alternative policy route.
+            with connection.begin_nested() as tampered:
+                connection.exec_driver_sql("SET LOCAL session_replication_role=replica")
+                connection.execute(
+                    text(
+                        "UPDATE sem.data_operation_definition definition "
+                        "SET support_contract=jsonb_set(support_contract, "
+                        "'{numerical_policy,body}',CAST(:body AS jsonb)) "
+                        "FROM ops.data_derivation d JOIN ops.data_request r ON r.id=d.request_id "
+                        "WHERE d.id=:episode AND definition.release_id=d.release_id "
+                        "AND definition.operation_id=r.operation_id"
+                    ),
+                    {**episode, "body": json_bytes(invalid_body).decode()},
+                )
+                with (
+                    pytest.raises(DBAPIError, match="exact declared policy"),
+                    connection.begin_nested(),
+                ):
+                    connection.execute(replay, episode)
+                tampered.rollback()
+        assert connection.scalar(contract_query, episode) == contract
+        connection.execute(replay, episode)
+
+
 def test_native_score_currentness_detects_known_linguistic_change_without_replacing_observations(
     current_contextual_case,
 ):
