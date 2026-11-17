@@ -456,7 +456,9 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
     with pytest.raises(ValueError, match=r"lacks.*source set"):
         freeze(compiled)
     frozen = freeze(compiled, source_sets=(scope,))
-    assert frozen.record["source_sets"]["inputs"]["entries"][0]["original_source"] == "source:foreign"
+    assert (
+        frozen.record["source_sets"]["inputs"]["entries"][0]["original_source"] == "source:foreign"
+    )
     assert frozen.record["roots"] == [
         {
             "subject": "document:one",
@@ -536,7 +538,9 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
     }
     arguments = {
         "source_set": "originals",
-        "source_sets": {"originals": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}},
+        "source_sets": {
+            "originals": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}
+        },
         "project": "project:one",
     }
     assert _population_context_matches(base, obligation, **arguments)
@@ -553,7 +557,12 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
             obligation,
             **{
                 **arguments,
-                "source_sets": {"originals": {"entries": [{**entry, field: replacement}], "acquisition": {"kind": "all-admissible-support-v1"}}},
+                "source_sets": {
+                    "originals": {
+                        "entries": [{**entry, field: replacement}],
+                        "acquisition": {"kind": "all-admissible-support-v1"},
+                    }
+                },
             },
         )
     assert not _population_context_matches(

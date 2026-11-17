@@ -170,7 +170,13 @@ def actual_e5_native_case(scenario_seeds, tmp_path_factory):
         retained_request = current_consumer_request(source, kernel, (), discover=True).model_copy(
             update={
                 "inference": INFERENCE,
-                "source_sets": source_sets_record((FrozenSourceSet.from_selected("selected-source-views", (source_entry(capture_row),)),)),
+                "source_sets": source_sets_record(
+                    (
+                        FrozenSourceSet.from_selected(
+                            "selected-source-views", (source_entry(capture_row),)
+                        ),
+                    )
+                ),
             }
         )
         retained, result = execute(kernel, retained_request)
@@ -243,7 +249,9 @@ def query_request(kernel, retained_request, original, primary, *, recipe, member
         **retained_request.source_sets,
         **source_sets_record(
             (
-                FrozenSourceSet.from_selected("fixture-selected-context-source", (original.entry(),)),
+                FrozenSourceSet.from_selected(
+                    "fixture-selected-context-source", (original.entry(),)
+                ),
                 FrozenSourceSet.from_selected("query-context-primary", (primary.entry(),)),
             )
         ),
@@ -344,7 +352,11 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
             kernel,
             (OPERATION,),
             original.context,
-            source_sets=(FrozenSourceSet.from_selected("fixture-selected-context-source", (original.entry(),)),),
+            source_sets=(
+                FrozenSourceSet.from_selected(
+                    "fixture-selected-context-source", (original.entry(),)
+                ),
+            ),
             selections=(
                 DemandOperationSelection(operation=OPERATION, parameters={"recipe": recipe}),
             ),

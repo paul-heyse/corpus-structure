@@ -297,7 +297,8 @@ def checked_primary_query_rows(primary, *, binding):
         or len(roles[0].members) != len(primary)
     ):
         raise ValueError("query context lacks its actual complete primary binding")
-    entries = json_loads(binding.source_sets).get("query-context-primary", ())
+    scope = json_loads(binding.source_sets).get("query-context-primary")
+    entries = () if scope is None else scope["entries"]
     wanted = {(row["product"], row["member"]) for row in entries}
     actual = {(row.product, row.member) for row in roles[0].members}
     if (

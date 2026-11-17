@@ -1,0 +1,5 @@
+# ADR-0121: current-only selected acquisition, bound occurrences and CPU basis3.
+# Preview only after integrated source maintenance and exact predecessor review.
+baseline: HEAD
+native_revision: semantic_ddo_selected_proofs
+native_predecessor: semantic_ddo_binding_reuse

@@ -17,7 +17,6 @@ from corpus_structure.semantic.declared_structural_references import (
     DeclaredProductRef,
     DeclaredStructuralSource,
 )
-from corpus_structure.semantic.selected_support import SelectedReadReference
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operation_policy import (
     ATTACHMENT_EVENT_VERSION,
@@ -28,6 +27,7 @@ from corpus_structure.semantic.operation_policy import (
     defining_text_feature_values,
 )
 from corpus_structure.semantic.record_policy import Digest, FrozenContract, Nonempty
+from corpus_structure.semantic.selected_support import SelectedReadReference
 from corpus_structure.semantic.source_products import FrozenNativeSource
 from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsReport
 
@@ -48,6 +48,7 @@ DefinitionProducer = Literal[
 
 
 SelectedEventRead = SelectedReadReference
+
 
 class SelectedDefinitionEvent(FrozenContract):
     """One real component selector inside a whole native report, never a fictitious member."""

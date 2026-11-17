@@ -22,8 +22,6 @@ from evaluate.declared_record_native_support import (
 )
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 
-from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.types import ResolvedDependencies
 
 NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
@@ -163,8 +161,12 @@ def run_rich_admission(
             )
         ),
         FrozenSourceSet.from_selected("rich-records", tuple(selected_entry(row) for row, _ in raw)),
-        FrozenSourceSet.from_selected("rich-readings", tuple(selected_entry(row) for row, _ in resolved)),
-        FrozenSourceSet.from_selected("rich-policy-authorizations", (selected_entry(authorization),)),
+        FrozenSourceSet.from_selected(
+            "rich-readings", tuple(selected_entry(row) for row, _ in resolved)
+        ),
+        FrozenSourceSet.from_selected(
+            "rich-policy-authorizations", (selected_entry(authorization),)
+        ),
     )
     pending = request(
         journey,

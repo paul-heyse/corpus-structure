@@ -87,7 +87,8 @@ def authored_inputs(scientific, values):
             context,
             _untrusted_value(authored),
             support,
-         producer_output=None),
+            producer_output=None,
+        ),
         CPUInputRole(
             "policy",
             None,
@@ -98,7 +99,8 @@ def authored_inputs(scientific, values):
             context,
             _untrusted_value(rich_policy_value(prepared, model)),
             support,
-         producer_output=None),
+            producer_output=None,
+        ),
     )
     recipe = next(
         item.key

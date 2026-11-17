@@ -269,7 +269,10 @@ def selected_product_entries(index, read, product_id, member_id=None):
         for use in index.frontier_rows("uses")
         if use["fate"] == "fulfilled"
         for selected in selected_source_entries(
-            index, read, product_id=product_id, member_id=member_id,
+            index,
+            read,
+            product_id=product_id,
+            member_id=member_id,
             anchor_use_id=use["use_id"],
             support=ComputationalSupportReference(
                 derivation_id=use["derivation_id"], admission_use_id=use["use_id"]
@@ -315,7 +318,15 @@ class CurrentRecordPolicyJourney:
             for row in index.rows("kb.data_product"):
                 if row["kind_contract"] in contracts:
                     _, body = _selected_body(index, row["id"])
-                    products.append((dict(row, _selected_entries=selected_product_entries(index, read, row["id"])), body))
+                    products.append(
+                        (
+                            dict(
+                                row,
+                                _selected_entries=selected_product_entries(index, read, row["id"]),
+                            ),
+                            body,
+                        )
+                    )
             uses = tuple(index.frontier_rows("uses"))
             episodes = tuple(index.rows("ops.data_derivation"))
             outputs = tuple(index.rows("ops.data_derivation_output"))
@@ -336,12 +347,12 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.demand_results import selected_record_index
-    from corpus_structure.semantic.selected_support import SelectedReadReference
     from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
     from corpus_structure.semantic.original_documents import (
         acquire_original_document_selection,
         register_original_document,
     )
+    from corpus_structure.semantic.selected_support import SelectedReadReference
 
     monkeypatch.setattr(pdf_worker.PdfWorker, "stream", controlled_table_stream)
     with scenario_seeds.commit_clone(recipe) as clone:
@@ -413,7 +424,9 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
         selected = []
         with (
             kernel.purpose("evaluate").begin() as connection,
-            selected_record_index(connection, demand, project_id=PROJECT, scope={}, capture_frontier=True) as (
+            selected_record_index(
+                connection, demand, project_id=PROJECT, scope={}, capture_frontier=True
+            ) as (
                 source_cut,
                 index,
             ),
@@ -443,7 +456,9 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
                     ).decode(),
                     kind_contract=row["kind_contract"],
                 )
-                (selected_entry,) = selected_product_entries(index, source_read, row["product_id"], row["member_id"])
+                (selected_entry,) = selected_product_entries(
+                    index, source_read, row["product_id"], row["member_id"]
+                )
                 selected.append(
                     SourceChoice(
                         pin,
@@ -947,7 +962,8 @@ class SelectedGrade:
 
     def entry(self):
         (entry,) = tuple(
-            entry for entry in self.product["_selected_entries"]
+            entry
+            for entry in self.product["_selected_entries"]
             if entry.proof.support.admission_use_id == self.selection.use_id
             and entry.proof.support.derivation_id == self.selection.derivation_id
         )
@@ -970,10 +986,8 @@ def run_grade(
         DdoRecordGradeSelection,
         author_record_policy_inputs,
     )
-    from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_service import execute_data_demand
-    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
-    from corpus_structure.semantic.data_product_reference import DataProductReference
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 
     entries = []
     for row, _ in predictions:
@@ -1156,7 +1170,9 @@ def complete_policy_fit(journey):
         originals=(fact,),
         source_sets=(
             FrozenSourceSet.from_selected("record-policy-feature-grades", (feature.entry(),)),
-            FrozenSourceSet.from_selected("record-policy-calibration-grades", (calibration.entry(),)),
+            FrozenSourceSet.from_selected(
+                "record-policy-calibration-grades", (calibration.entry(),)
+            ),
         ),
         inference="genuine-protected-fit-and-native-authorization",
     )
@@ -1220,7 +1236,9 @@ def copy_grade(journey, selected_grade):
         journey,
         ("fixture.protected_grade_copy",),
         (context,),
-        source_sets=(FrozenSourceSet.from_selected("fixture-copy-grade", (selected_grade.entry(),)),),
+        source_sets=(
+            FrozenSourceSet.from_selected("fixture-copy-grade", (selected_grade.entry(),)),
+        ),
         inference="actual-captured-protected-copy",
     )
     with journey.kernel.purpose("evaluate").begin() as connection:
@@ -1309,8 +1327,12 @@ def refuse_exchanged_fitted_body(fitted, monkeypatch):
         (context,),
         originals=(fact,),
         source_sets=(
-            FrozenSourceSet.from_selected("record-policy-feature-grades", (fitted.feature.entry(),)),
-            FrozenSourceSet.from_selected("record-policy-calibration-grades", (fitted.calibration.entry(),)),
+            FrozenSourceSet.from_selected(
+                "record-policy-feature-grades", (fitted.feature.entry(),)
+            ),
+            FrozenSourceSet.from_selected(
+                "record-policy-calibration-grades", (fitted.calibration.entry(),)
+            ),
         ),
         inference="actual-different-fit-request-copied-conclusion-refusal",
     )

@@ -1,7 +1,5 @@
 """Independent authored-binding semantics; these controlled facts are unadmitted."""
 
-from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
-
 from copy import deepcopy
 from dataclasses import replace
 
@@ -21,6 +19,7 @@ from corpus_structure.semantic.data_operation_support import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from semantic.test_contextual_selected_encoder import case
 from semantic.test_declared_contextual_operations import inputs
 
@@ -40,8 +39,21 @@ def witness_case():
 
     def role(name, product, body, *, member=None, selected=context, evidence=support, position=0):
         return CPUInputRole(
-            name, position, 1, product, member, "unadmitted:" + name, selected, body, evidence
-        , producer_output=ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1) if any(isinstance(ref, ComputationalSupportReference) for ref in evidence) else None)
+            name,
+            position,
+            1,
+            product,
+            member,
+            "unadmitted:" + name,
+            selected,
+            body,
+            evidence,
+            producer_output=ProducerOutputOccurrence(
+                member_id=None, role="result", position=0, multiplicity=1
+            )
+            if any(isinstance(ref, ComputationalSupportReference) for ref in evidence)
+            else None,
+        )
 
     carrier = role(
         "cues", "unadmitted:report", occurrence, member="subject", selected=source_context
@@ -248,12 +260,13 @@ def test_acquisition_pins_original_query_cut_and_refuses_missing_cues(
 ):
     """A controlled selected-index unit test, with no native or admission claim."""
     from contextlib import contextmanager
-    from types import SimpleNamespace
 
     from corpus_structure.semantic import contextual_selection as owner
     from corpus_structure.semantic.data_operation_json import json_loads
-    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SelectedSourceSetEntry
-    from corpus_structure.semantic.data_product_reference import DataProductReference
+    from corpus_structure.semantic.data_operation_source_sets import (
+        FrozenSourceSet,
+        SelectedSourceSetEntry,
+    )
 
     _frame, context, roles, other = witness_case()
     query_role = roles[1]
@@ -261,24 +274,37 @@ def test_acquisition_pins_original_query_cut_and_refuses_missing_cues(
     from semantic.test_demand_results import _page
 
     page = _page()
-    page.update(project_id=context.project_id, demand_id="unadmitted:query-demand", read_id="unadmitted:original-query-read")
+    page.update(
+        project_id=context.project_id,
+        demand_id="unadmitted:query-demand",
+        read_id="unadmitted:original-query-read",
+    )
     cut = CutSelection.from_native(page)
 
     def selected_entry(product_id, member_id, selected_context):
-        return SelectedSourceSetEntry.from_selected_header(dict(
-            product_id=product_id, member_id=member_id,
-            subject=selected_context.subject,
-            subject_definition=selected_context.subject_definition,
-            original_source=selected_context.original_source,
-            analyzed_scope=json_loads(selected_context.analyzed_scope),
-            use_id="unadmitted:query-use", derivation_id="unadmitted:query-episode",
-            output_member_id=None, role="result", position=0, multiplicity=1,
-        ), cut)
+        return SelectedSourceSetEntry.from_selected_header(
+            dict(
+                product_id=product_id,
+                member_id=member_id,
+                subject=selected_context.subject,
+                subject_definition=selected_context.subject_definition,
+                original_source=selected_context.original_source,
+                analyzed_scope=json_loads(selected_context.analyzed_scope),
+                use_id="unadmitted:query-use",
+                derivation_id="unadmitted:query-episode",
+                output_member_id=None,
+                role="result",
+                position=0,
+                multiplicity=1,
+            ),
+            cut,
+        )
 
     query_entry = selected_entry(query_role.product_id, query_role.member_id, context)
     selected = owner.ContextualVectorSelection(
         (FrozenSourceSet.from_selected("contextual-query", (query_entry,)),), (), context
     )
+
     def selected_query(connection, requested, **kwargs):
         assert requested.read_id == cut.record["read_id"]
         assert requested.expected_cut == cut.identity

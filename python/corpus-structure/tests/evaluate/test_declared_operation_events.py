@@ -291,7 +291,8 @@ def test_actual_current_cpu_kernels_bind_frame_fit_and_ordered_score_values(nomi
             selected_context,
             body,
             (),
-         producer_output=None)
+            producer_output=None,
+        )
 
     roles = [
         role(

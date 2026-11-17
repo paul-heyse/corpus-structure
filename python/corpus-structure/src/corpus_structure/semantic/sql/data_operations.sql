@@ -1881,7 +1881,8 @@ BEGIN
  IF ops.ddo_binding_subject(roledef,jsonb_build_object('subject',row_value->>'subject','meaning_body',row_value->'body'),p->>'subject',obligation.original_source) IS NULL THEN RAISE EXCEPTION 'population subject relationship is unknown'; END IF;
  IF NOT ops.ddo_binding_subject(roledef,jsonb_build_object('subject',row_value->>'subject','meaning_body',row_value->'body'),p->>'subject',obligation.original_source) THEN CONTINUE; END IF;
  BEGIN
- SELECT value INTO STRICT row_value FROM jsonb_array_elements(universe) value WHERE value->>'member'=expected->>'member_id';
+ SELECT value INTO STRICT row_value FROM jsonb_array_elements(universe) value WHERE value->>'member'=expected->>'member_id'
+ AND ops.ddo_binding_source(roledef,value,obligation.original_source,coalesce(demand.selection->'source_sets','{}'));
  EXCEPTION WHEN too_many_rows THEN RAISE EXCEPTION 'parent population member has ambiguous producing occurrences';
  WHEN no_data_found THEN RAISE EXCEPTION 'parent population member facts unavailable in pinned read'; END;
  IF row_value IS NULL THEN RAISE EXCEPTION 'parent population member facts unavailable in pinned read'; END IF;

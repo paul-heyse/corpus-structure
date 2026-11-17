@@ -59,7 +59,9 @@ def component_request(kernel, original, purpose):
         kernel,
         (COMPONENTS,),
         original.context,
-        source_sets=(FrozenSourceSet.from_selected("fixture-contextual-source", (original.entry(),)),),
+        source_sets=(
+            FrozenSourceSet.from_selected("fixture-contextual-source", (original.entry(),)),
+        ),
         selections=(
             DemandOperationSelection(operation=COMPONENTS, parameters={"purpose": purpose}),
         ),
@@ -156,7 +158,9 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
             kernel,
             (CUES,),
             original.context,
-            source_sets=(FrozenSourceSet.from_selected("fixture-contextual-source", (original.entry(),)),),
+            source_sets=(
+                FrozenSourceSet.from_selected("fixture-contextual-source", (original.entry(),)),
+            ),
             inference="actual-finite-count-source-role-inspection",
         )
         cue_retained, _ = execute(kernel, cues_pending)
@@ -215,7 +219,9 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
             inference="exact-finite-definition-target",
             execution_profile=kernel.recipe.execution_profile,
             source_sets=(
-                FrozenSourceSet.from_selected("contextual-definition-components", (components.entry(),)),
+                FrozenSourceSet.from_selected(
+                    "contextual-definition-components", (components.entry(),)
+                ),
             ),
         )
         target_demand, _ = run_intent(kernel, target_intent)

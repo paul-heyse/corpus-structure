@@ -18,6 +18,7 @@ from corpus_structure.semantic.data_operation_source_sets import (
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.record_contracts import anchor_identity
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from corpus_structure.semantic.source_contexts import record_source_pin
 
 
@@ -173,6 +174,9 @@ def case(recipe, *, frame=None):
         position=0,
         support_references=tuple(
             ComputationalSupportReference(derivation_id=episode) for episode in ("episode:primary",)
+        ),
+        producer_output=ProducerOutputOccurrence(
+            member_id=None, role="result", position=0, multiplicity=1
         ),
     )
     sources = source_sets_record(

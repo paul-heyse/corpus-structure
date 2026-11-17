@@ -1,7 +1,5 @@
 """Source proposal lowerer consumes actual located packets and source-scoped contexts."""
 
-from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
-
 from copy import deepcopy
 from dataclasses import replace
 from decimal import Decimal
@@ -44,6 +42,7 @@ from corpus_structure.semantic.rich_knowledge_sources import (
     rich_knowledge_inputs,
 )
 from corpus_structure.semantic.rich_policy_binding import rich_policy_value
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from corpus_structure.semantic.types import ResolvedDependencies
 from semantic.proposals_support import batch
 from semantic.record_contracts_support import release_inputs
@@ -170,8 +169,21 @@ classes:
             )
         )
         return CPUInputRole(
-            name, None, 1, "product:" + name, None, ids[ns + kind], header, body, support
-        , producer_output=None if name == "policy" else ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1))
+            name,
+            None,
+            1,
+            "product:" + name,
+            None,
+            ids[ns + kind],
+            header,
+            body,
+            support,
+            producer_output=None
+            if name == "policy"
+            else ProducerOutputOccurrence(
+                member_id=None, role="result", position=0, multiplicity=1
+            ),
+        )
 
     roles = (
         role(

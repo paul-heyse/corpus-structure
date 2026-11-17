@@ -761,10 +761,19 @@ def test_explicit_no_source_is_not_a_source_role_wildcard(binding_native_connect
         for key, value in entry.items()
         if key not in {"project_id", "source_reference", "reference"}
     }
-    assert matches(row, {"support": {"source_set": "chosen"}}, {"chosen": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}}) is True
     assert (
         matches(
-            dict(row, product="other"), {"support": {"source_set": "chosen"}}, {"chosen": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}}
+            row,
+            {"support": {"source_set": "chosen"}},
+            {"chosen": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}},
+        )
+        is True
+    )
+    assert (
+        matches(
+            dict(row, product="other"),
+            {"support": {"source_set": "chosen"}},
+            {"chosen": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}},
         )
         is False
     )
@@ -776,13 +785,13 @@ def test_native_explicit_empty_source_set_is_valid_and_never_matches_a_row(
     connection = binding_native_connection
     connection.execute(
         text(
-            "SELECT ops.ddo_validate_source_sets('{\"selected\":{\"entries\":[],\"acquisition\":{\"kind\":\"selected-support-v1\",\"reads\":[]}}}'::jsonb,'project','{}'::jsonb)"
+            'SELECT ops.ddo_validate_source_sets(\'{"selected":{"entries":[],"acquisition":{"kind":"selected-support-v1","reads":[]}}}\'::jsonb,\'project\',\'{}\'::jsonb)'
         )
     )
     assert (
         connection.scalar(
             text(
-                "SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),NULL,'{\"selected\":{\"entries\":[],\"acquisition\":{\"kind\":\"selected-support-v1\",\"reads\":[]}}}'::jsonb)"
+                'SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),NULL,\'{"selected":{"entries":[],"acquisition":{"kind":"selected-support-v1","reads":[]}}}\'::jsonb)'
             ),
             {
                 "role": json.dumps({"support": {"source_set": "selected"}}),
@@ -802,5 +811,7 @@ def test_native_explicit_empty_source_set_is_valid_and_never_matches_a_row(
     )
     with pytest.raises(DBAPIError, match="explicit name"):
         connection.execute(
-            text("SELECT ops.ddo_validate_source_sets('{\"\":{\"entries\":[],\"acquisition\":{\"kind\":\"selected-support-v1\",\"reads\":[]}}}'::jsonb,'project','{}'::jsonb)")
+            text(
+                'SELECT ops.ddo_validate_source_sets(\'{"":{"entries":[],"acquisition":{"kind":"selected-support-v1","reads":[]}}}\'::jsonb,\'project\',\'{}\'::jsonb)'
+            )
         )

@@ -47,9 +47,10 @@ class SelectedReadReference(_SelectedValue):
             return cut
         record = cut.record
         return cls(
-            **{name: record[name] for name in (
-                "project_id", "demand_id", "read_id", "release_id", "runtime_id"
-            )},
+            **{
+                name: record[name]
+                for name in ("project_id", "demand_id", "read_id", "release_id", "runtime_id")
+            },
             cut_id=cut.identity,
             cut_canonical_json=cut.content.decode(),
         )

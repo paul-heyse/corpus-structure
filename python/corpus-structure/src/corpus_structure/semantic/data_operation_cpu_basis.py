@@ -92,7 +92,8 @@ def cpu_input_basis(
                 "body": role.body,
                 "support": [support[key] for key in sorted(support)],
                 "producer_output": (
-                    None if role.producer_output is None
+                    None
+                    if role.producer_output is None
                     else role.producer_output.model_dump(mode="python")
                 ),
             }
@@ -289,7 +290,8 @@ def cpu_basis_values(
                 row["body"],
                 read_support_references(row["support"]),
                 producer_output=(
-                    None if row["producer_output"] is None
+                    None
+                    if row["producer_output"] is None
                     else ProducerOutputOccurrence.model_validate(row["producer_output"])
                 ),
             )

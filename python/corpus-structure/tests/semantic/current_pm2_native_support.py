@@ -84,7 +84,10 @@ def table_source(scenario_seeds, tmp_path, monkeypatch):
 
 
 def projection_request(kernel, row, *, mode="mixed", operation=OPERATION):
-    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, source_sets_record
+    from corpus_structure.semantic.data_operation_source_sets import (
+        FrozenSourceSet,
+        source_sets_record,
+    )
 
     return NativeDemandRequest(
         project_id=PROJECT,
@@ -99,7 +102,9 @@ def projection_request(kernel, row, *, mode="mixed", operation=OPERATION):
         ),
         targets=(operation,),
         selections=(DemandOperationSelection(operation=operation, parameters={"mode": mode}),),
-        source_sets=source_sets_record((FrozenSourceSet.from_selected("pm2-test-source", (source_entry(row),)),)),
+        source_sets=source_sets_record(
+            (FrozenSourceSet.from_selected("pm2-test-source", (source_entry(row),)),)
+        ),
         inference="controlled-pm2-projection",
         execution_profile="source-native",
     )

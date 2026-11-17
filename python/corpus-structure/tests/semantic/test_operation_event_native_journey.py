@@ -200,7 +200,9 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
             ("operation_event.fit", "operation_event.authorize"),
             project_context(kernel),
             originals=(specification,),
-            source_sets=(FrozenSourceSet.from_selected("operation-event-frames", (frame_product.entry(),)),),
+            source_sets=(
+                FrozenSourceSet.from_selected("operation-event-frames", (frame_product.entry(),)),
+            ),
             inference="actual-current-event-fit-and-issuer",
         )
         fitted, execution = execute(kernel, pending, authored=True)

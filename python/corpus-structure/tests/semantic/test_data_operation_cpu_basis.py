@@ -188,7 +188,10 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
                 "body": body,
                 "support": [{"kind": "computation", "derivation_id": episode}],
                 "producer_output": {
-                    "member_id": None, "role": "result", "position": 0, "multiplicity": 1,
+                    "member_id": None,
+                    "role": "result",
+                    "position": 0,
+                    "multiplicity": 1,
                 },
             }
         )
@@ -207,7 +210,11 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
             **{
                 key: row[key]
                 for key in (
-                    "role", "position", "multiplicity", "product_id", "member_id",
+                    "role",
+                    "position",
+                    "multiplicity",
+                    "product_id",
+                    "member_id",
                     "producer_output",
                 )
             },
@@ -291,22 +298,41 @@ def test_cpu_basis_preserves_emitting_occurrence_for_projected_members():
     from corpus_structure.semantic.data_operation_json import json_bytes
 
     context = SubjectContext(
-        "project:controlled", "source:selected", None, b"{}",
+        "project:controlled",
+        "source:selected",
+        None,
+        b"{}",
         subject_definition="subject:controlled",
     )
     role = CPUInputRole(
-        "selected", None, 1, "product:controlled", "member:selected", "kind:controlled",
-        context, {"value": 7},
-        (ComputationalSupportReference(derivation_id="episode:chosen", admission_use_id="use:chosen"),),
+        "selected",
+        None,
+        1,
+        "product:controlled",
+        "member:selected",
+        "kind:controlled",
+        context,
+        {"value": 7},
+        (
+            ComputationalSupportReference(
+                derivation_id="episode:chosen", admission_use_id="use:chosen"
+            ),
+        ),
         producer_output=ProducerOutputOccurrence(
-            member_id=None, role="emitted", position=7, multiplicity=2,
+            member_id=None,
+            role="emitted",
+            position=7,
+            multiplicity=2,
         ),
     )
 
     def basis(value):
         return cpu_input_basis(
-            "recipe:controlled", context, (value,),
-            parameters=json_bytes(semantic_value({})), replicate=None,
+            "recipe:controlled",
+            context,
+            (value,),
+            parameters=json_bytes(semantic_value({})),
+            replicate=None,
         )
 
     actual = basis(role)
@@ -316,7 +342,10 @@ def test_cpu_basis_preserves_emitting_occurrence_for_projected_members():
     assert meaning["roles"][0]["position"] is None
     assert meaning["roles"][0]["multiplicity"] == 1
     assert meaning["roles"][0]["producer_output"] == {
-        "member_id": None, "role": "emitted", "position": 7, "multiplicity": 2,
+        "member_id": None,
+        "role": "emitted",
+        "position": 7,
+        "multiplicity": 2,
     }
     values, observed_context = cpu_basis_values(actual, scalar_roles=("selected",), set_roles=())
     assert observed_context == context
@@ -325,7 +354,9 @@ def test_cpu_basis_preserves_emitting_occurrence_for_projected_members():
     # Equal values/support do not make emitting output slots interchangeable.
     reply = json_bytes(cpu_authority_reply(actual, {"accepted": True}))
     for changed in (
-        ProducerOutputOccurrence(member_id="member:selected", role="emitted", position=7, multiplicity=2),
+        ProducerOutputOccurrence(
+            member_id="member:selected", role="emitted", position=7, multiplicity=2
+        ),
         ProducerOutputOccurrence(member_id=None, role="other", position=7, multiplicity=2),
         ProducerOutputOccurrence(member_id=None, role="emitted", position=8, multiplicity=2),
         ProducerOutputOccurrence(member_id=None, role="emitted", position=7, multiplicity=1),
@@ -342,22 +373,45 @@ def test_cpu_basis_preserves_emitting_occurrence_for_projected_members():
 
 def test_cpu_computational_headers_require_corresponding_output():
     context = SubjectContext(
-        "project:controlled", "source:selected", None, b"{}",
+        "project:controlled",
+        "source:selected",
+        None,
+        b"{}",
         subject_definition="subject:controlled",
     )
     base = (
-        "selected", None, 1, "product:controlled", "member:selected", "kind:controlled",
-        context, {"value": 7},
+        "selected",
+        None,
+        1,
+        "product:controlled",
+        "member:selected",
+        "kind:controlled",
+        context,
+        {"value": 7},
     )
     support = (ComputationalSupportReference(derivation_id="episode:chosen"),)
     with pytest.raises(ValueError, match="exact emitting occurrence"):
         CPUInputRole(*base, support, producer_output=None)
     with pytest.raises(ValueError, match="selected member"):
-        CPUInputRole(*base, support, producer_output=ProducerOutputOccurrence(
-            member_id="member:sibling", role="result", position=0, multiplicity=1,
-        ))
+        CPUInputRole(
+            *base,
+            support,
+            producer_output=ProducerOutputOccurrence(
+                member_id="member:sibling",
+                role="result",
+                position=0,
+                multiplicity=1,
+            ),
+        )
     with pytest.raises(ValueError, match="exact emitting occurrence"):
-        CPUInputRole(*base, (), producer_output=ProducerOutputOccurrence(
-            member_id=None, role="result", position=0, multiplicity=1,
-        ))
+        CPUInputRole(
+            *base,
+            (),
+            producer_output=ProducerOutputOccurrence(
+                member_id=None,
+                role="result",
+                position=0,
+                multiplicity=1,
+            ),
+        )
     assert CPUInputRole(*base, (), producer_output=None).producer_output is None

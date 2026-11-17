@@ -471,7 +471,17 @@ def selected_current_sources(source):
             read = SelectedReadReference.from_cut(page.cut)
             for row in page.members():
                 if row["kind_contract"] in kinds:
-                    selected.append((dict(row, _selected_entry=SelectedSourceSetEntry.from_selected_header(row, read)), row["body"]))
+                    selected.append(
+                        (
+                            dict(
+                                row,
+                                _selected_entry=SelectedSourceSetEntry.from_selected_header(
+                                    row, read
+                                ),
+                            ),
+                            row["body"],
+                        )
+                    )
         return tuple(selected)
 
 
@@ -503,11 +513,19 @@ def current_consumer_request(source, kernel, targets, *, discover=False):
         selections[producer] = DemandOperationSelection(
             operation=producer, parameters={"complete": True}
         )
-        from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, source_sets_record
+        from corpus_structure.semantic.data_operation_source_sets import (
+            FrozenSourceSet,
+            source_sets_record,
+        )
 
-        source_sets = source_sets_record((FrozenSourceSet.from_selected(
-            "selected-source-views", tuple(source_entry(row) for row, _ in selected_current_sources(source))
-        ),))
+        source_sets = source_sets_record(
+            (
+                FrozenSourceSet.from_selected(
+                    "selected-source-views",
+                    tuple(source_entry(row) for row, _ in selected_current_sources(source)),
+                ),
+            )
+        )
         graph = kernel.model.projection_graph(
             "selected-dependencies",
             selected_dependencies=tuple(

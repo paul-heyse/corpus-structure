@@ -126,7 +126,9 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
             (ARTIFACT,),
             first.context,
             source_sets=(
-                FrozenSourceSet.from_selected("artifact-sources", tuple(value.entry() for value in originals)),
+                FrozenSourceSet.from_selected(
+                    "artifact-sources", tuple(value.entry() for value in originals)
+                ),
                 FrozenSourceSet.from_selected(
                     "artifact-constructions", tuple(value.entry() for value in constructions)
                 ),

@@ -350,7 +350,9 @@ def publish_readings(
                     "rich-known-universe",
                 )
             ),
-            FrozenSourceSet.from_selected("rich-records", tuple(selected_entry(row) for row in raw)),
+            FrozenSourceSet.from_selected(
+                "rich-records", tuple(selected_entry(row) for row in raw)
+            ),
             FrozenSourceSet.from_selected(
                 "rich-readings",
                 tuple(selected_entry(row) for row in resolved) if include_resolution else (),

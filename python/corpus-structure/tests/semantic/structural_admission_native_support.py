@@ -141,7 +141,9 @@ def selected(kernel, demand, *, kind, purpose="read"):
         page = read_demand_result(connection, demand, project_id=PROJECT, limit=1000)
     read = SelectedReadReference.from_cut(page.cut)
     return tuple(
-        Product(row, row["body"], read) for row in page.members() if row["kind_contract"] == contract
+        Product(row, row["body"], read)
+        for row in page.members()
+        if row["kind_contract"] == contract
     )
 
 
@@ -173,7 +175,9 @@ def request(
             raise ValueError("structural issuer fixture requires the actual selected report")
         source_sets = (
             *source_sets,
-            FrozenSourceSet.from_selected("structural-admission-report", (admission_report.entry(),)),
+            FrozenSourceSet.from_selected(
+                "structural-admission-report", (admission_report.entry(),)
+            ),
         )
         selections = (
             *selections,
@@ -374,7 +378,9 @@ def build_inventory(kernel, original):
         kernel,
         (OPERATION,),
         original.context,
-        source_sets=(FrozenSourceSet.from_selected("fixture-structural-source", (original.entry(),)),),
+        source_sets=(
+            FrozenSourceSet.from_selected("fixture-structural-source", (original.entry(),)),
+        ),
         inference="actual-controlled-source-inventory:" + original.row["member_id"],
     )
     retained, result = execute(kernel, pending)
@@ -438,7 +444,11 @@ def comparison_sources(originals, predicates):
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 
     return (
-        FrozenSourceSet.from_selected("structural-sources", tuple(item.entry() for item in originals)),
-        FrozenSourceSet.from_selected("structural-reports", tuple(item.entry() for item in predicates)),
+        FrozenSourceSet.from_selected(
+            "structural-sources", tuple(item.entry() for item in originals)
+        ),
+        FrozenSourceSet.from_selected(
+            "structural-reports", tuple(item.entry() for item in predicates)
+        ),
         FrozenSourceSet.from_selected("structural-formal", ()),
     )

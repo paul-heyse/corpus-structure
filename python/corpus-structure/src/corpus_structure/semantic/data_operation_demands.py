@@ -465,7 +465,8 @@ def _population_context_matches(
         and proof["support"]["derivation_id"] == evidence.get("derivation_id")
         and proof["support"]["admission_use_id"] == evidence.get("admission_use_id")
         and proof["output"]["role"] == evidence.get("member_role")
-        for read in scope["acquisition"]["reads"] for proof in read["proofs"]
+        for read in scope["acquisition"]["reads"]
+        for proof in read["proofs"]
     ):
         return False
     members = {member["member_id"]: member for member in row["members"]}
@@ -1039,8 +1040,11 @@ class DemandPlanner:
                             "product_id": member.product,
                             "member_id": member.member,
                             "support_derivation_ids": sorted(member.support_episodes),
-                            "producer_output": (member.producer_output.model_dump(mode="python")
-                                                if member.producer_output is not None else None),
+                            "producer_output": (
+                                member.producer_output.model_dump(mode="python")
+                                if member.producer_output is not None
+                                else None
+                            ),
                         }
                     )
             wire_binding = {

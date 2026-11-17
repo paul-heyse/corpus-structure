@@ -22,6 +22,7 @@ class StructuralScope(SelectedContributionScope):
 
 SelectedStructuralRoot = SelectedOutputRoot
 
+
 class StructuralReadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     demand_id: str = Field(min_length=1)

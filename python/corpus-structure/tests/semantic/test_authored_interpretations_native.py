@@ -165,7 +165,9 @@ def test_actual_authored_measurement_terminology_admission_and_grouped_private_r
             ("fixture.record_candidates",),
             (source.context,),
             originals=selections,
-            source_sets=(FrozenSourceSet.from_selected("fixture-record-sources", (source.entry(),)),),
+            source_sets=(
+                FrozenSourceSet.from_selected("fixture-record-sources", (source.entry(),)),
+            ),
             inference=suffix,
         )
         return author_interpretations(

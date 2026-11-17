@@ -1,7 +1,5 @@
 """Exact actual CPU role reconstruction, without parallel body/header copies."""
 
-from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
-
 from decimal import Decimal
 
 import pytest
@@ -13,6 +11,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.rich_cpu_inputs import RichKernelInputs
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 
 
 def test_actual_child_inputs_reconstruct_exact_scope_typed_body_and_support_after_cpu_json():
@@ -45,7 +44,10 @@ def test_actual_child_inputs_reconstruct_exact_scope_typed_body_and_support_afte
         source,
         {"signed": -0.0, "fraction": Decimal("1e-300")},
         supports,
-     producer_output=ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1))
+        producer_output=ProducerOutputOccurrence(
+            member_id=None, role="result", position=0, multiplicity=1
+        ),
+    )
     meaning = cpu_input_basis(
         "recipe:actual", context, (role,), parameters=b'["mapping",[]]', replicate=None
     )

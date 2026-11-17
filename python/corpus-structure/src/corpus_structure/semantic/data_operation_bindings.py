@@ -630,7 +630,11 @@ def compile_binding(
             from .data_operation_source_sets import source_entry_predicate, source_proof_predicate
 
             scope = selected_source_sets[support.source_set]
-            return and_(association, source_entry_predicate(scope, alias), source_proof_predicate(scope, alias))
+            return and_(
+                association,
+                source_entry_predicate(scope, alias),
+                source_proof_predicate(scope, alias),
+            )
         return (
             and_(association, alias.c.original_source.is_not_distinct_from(original_source))
             if original_source is not _UNQUALIFIED_SOURCE
@@ -1334,12 +1338,16 @@ def decode_binding_rows(
             computational = any(reference.kind == "computation" for reference in references)
             output = None
             try:
-                supplied_output = (row["support_evidence"].get("producer_output")
-                                   if isinstance(row["support_evidence"], Mapping) else None)
+                supplied_output = (
+                    row["support_evidence"].get("producer_output")
+                    if isinstance(row["support_evidence"], Mapping)
+                    else None
+                )
                 if supplied_output is not None:
                     output = ProducerOutputOccurrence.model_validate(supplied_output)
                 if computational != (output is not None) or (
-                    output is not None and output.member_id is not None
+                    output is not None
+                    and output.member_id is not None
                     and output.member_id != row["member"]
                 ):
                     raw_invalid = True

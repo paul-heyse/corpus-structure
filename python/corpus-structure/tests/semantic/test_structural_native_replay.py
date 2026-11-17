@@ -424,7 +424,9 @@ def test_current_native_comparison_consumes_actual_predicate_and_formal_source_p
                     FrozenSourceSet.from_selected(
                         "structural-reports", tuple(value.entry() for value in reports)
                     ),
-                    FrozenSourceSet.from_selected("structural-formal", tuple(value.entry() for value in formal)),
+                    FrozenSourceSet.from_selected(
+                        "structural-formal", tuple(value.entry() for value in formal)
+                    ),
                 ),
                 inference="current-real-source-comparison:" + actor_outcome,
             ),

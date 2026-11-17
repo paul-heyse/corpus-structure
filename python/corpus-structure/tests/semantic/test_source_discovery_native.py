@@ -21,8 +21,8 @@ from corpus_structure.semantic.original_documents import acquire_original_docume
 from semantic.current_pdf_source_support import (
     PROJECT,
     ROOT,
-    source_entry,
     selected_current_sources,
+    source_entry,
 )
 from semantic.current_pdf_source_support import (
     current_pdf_source as current_pdf_source,

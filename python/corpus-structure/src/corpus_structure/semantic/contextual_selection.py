@@ -108,7 +108,10 @@ def _selected_product(connection, selection, *, project_id, kind_name):
             for use in index.frontier_rows("uses")
             if use["fate"] == "fulfilled"
             for entry in selected_source_entries(
-                index, read, product_id=selection.product_id, member_id=None,
+                index,
+                read,
+                product_id=selection.product_id,
+                member_id=None,
                 anchor_use_id=use["use_id"],
                 support=ComputationalSupportReference(
                     derivation_id=use["derivation_id"], admission_use_id=use["use_id"]
@@ -116,7 +119,9 @@ def _selected_product(connection, selection, *, project_id, kind_name):
             )
         )
         if len(candidates) != 1:
-            raise ValueError("contextual selection requires one exact selected fulfilled output proof")
+            raise ValueError(
+                "contextual selection requires one exact selected fulfilled output proof"
+            )
         (selected_entry,) = candidates
         product = index.mapping("kb.data_product", ("id",))[selection.product_id]
         contracts = index.mapping("sem.data_kind_contract", ("kind_contract",))
@@ -206,7 +211,9 @@ def acquire_contextual_vector_selection(
             FrozenSourceSet.from_selected("contextual-inventory", (inventory_entry,)),
             FrozenSourceSet.from_selected("contextual-query", (query_entry,)),
             FrozenSourceSet.from_selected("contextual-query-vector", (vector_entry,)),
-            FrozenSourceSet.from_selected("contextual-target-vectors", tuple(entry for _, entry, _ in selected)),
+            FrozenSourceSet.from_selected(
+                "contextual-target-vectors", tuple(entry for _, entry, _ in selected)
+            ),
         ),
         (inventory_cut, query_cut, vector_cut, *(cut for _, _, cut in selected)),
         context,
@@ -257,8 +264,10 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
     ):
         raise ValueError("witness acquisition differs from the previously selected query read")
     body, query_entry, cut = _selected_product(
-        connection, replace(query, read_id=pin.read_id, expected_cut=pin.cut_id),
-        project_id=project_id, kind_name="DdoContextualQuery"
+        connection,
+        replace(query, read_id=pin.read_id, expected_cut=pin.cut_id),
+        project_id=project_id,
+        kind_name="DdoContextualQuery",
     )
     if selected_query != FrozenSourceSet.from_selected("contextual-query", (query_entry,)):
         raise ValueError("witness acquisition requires the exact previously selected query")
@@ -330,7 +339,10 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
             ):
                 raise ValueError("witness cue differs from its selected body/source")
             candidates = selected_source_entries(
-                index, query_entry.read, product_id=ref.product_id, member_id=ref.member_id,
+                index,
+                query_entry.read,
+                product_id=ref.product_id,
+                member_id=ref.member_id,
                 anchor_use_id=query_entry.proof.anchor_use_id,
             )
             if len(candidates) != 1:

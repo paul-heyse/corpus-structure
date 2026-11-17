@@ -25,7 +25,6 @@ from semantic.structural_admission_native_support import (
     DOSSIER,
     ISSUER,
     PROJECT,
-    Product,
     authored,
     build_inventory,
     compare_selection,
@@ -43,6 +42,8 @@ from semantic.structural_native_fixture import TEXT
 def test_controlled_structural_fixture_has_complete_checked_source_and_independent_expectation(
     tmp_path,
 ):
+    from types import SimpleNamespace
+
     from corpus_structure.methods.structural_products import produce_structural_comparison
     from corpus_structure.semantic.data_operation_model import BoundRoleMember
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
@@ -127,7 +128,7 @@ def test_controlled_structural_fixture_has_complete_checked_source_and_independe
             analyzed_scope_meaning=frame.pin.values()["analyzed_scope_meaning"],
         )
         refs.append(reference)
-        predicates.append(Product({}, report))
+        predicates.append(SimpleNamespace(body=report))
         from corpus_structure.semantic.declared_candidate_products import candidate_member_values
 
         retained.append(
@@ -451,7 +452,9 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         ),
     )
     sources = (
-        FrozenSourceSet.from_selected("dossier-sources", tuple(value.entry() for value in case["originals"])),
+        FrozenSourceSet.from_selected(
+            "dossier-sources", tuple(value.entry() for value in case["originals"])
+        ),
         FrozenSourceSet.from_selected("dossier-components", (component.entry(),)),
         FrozenSourceSet.from_selected("dossier-definitions", ()),
         FrozenSourceSet.from_selected("dossier-comparisons", (comparison.entry(),)),

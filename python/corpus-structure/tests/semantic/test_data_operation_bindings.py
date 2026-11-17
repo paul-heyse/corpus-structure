@@ -186,7 +186,15 @@ def storage(native_rollback):
                 support_references=[
                     {"kind": "computation", "derivation_id": f"ep{value}", "admission_use_id": None}
                 ],
-                support_evidence={"trust": "pinned", "producer_output": {"member_id": None, "role": "result", "position": 0, "multiplicity": 1}},
+                support_evidence={
+                    "trust": "pinned",
+                    "producer_output": {
+                        "member_id": None,
+                        "role": "result",
+                        "position": 0,
+                        "multiplicity": 1,
+                    },
+                },
                 position=3 - value,
                 multiplicity=1,
                 value=value,
@@ -306,7 +314,18 @@ def test_sql_range_membership_defaults_and_exact_identity(storage):
         ("original_source", "second-original"),
         ("analyzed_scope", {"page": 9}),
         ("support_episodes", ["selected-episode"]),
-        ("support_evidence", {"witness": "selected-witness", "producer_output": {"member_id": None, "role": "result", "position": 0, "multiplicity": 1}}),
+        (
+            "support_evidence",
+            {
+                "witness": "selected-witness",
+                "producer_output": {
+                    "member_id": None,
+                    "role": "result",
+                    "position": 0,
+                    "multiplicity": 1,
+                },
+            },
+        ),
     ],
 )
 def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet, value):
@@ -352,7 +371,9 @@ def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet,
             ),
         ),
         subject_definition="document",
-        producer_output=ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1),
+        producer_output=ProducerOutputOccurrence(
+            member_id=None, role="result", position=0, multiplicity=1
+        ),
     )
     assert actual == BindingResult(
         operation="urn:op",
@@ -1938,7 +1959,9 @@ def test_explicit_empty_source_set_is_closed_absence_and_never_an_unbounded_scan
 
     connection, _table, projection = storage
     sources = (FrozenSourceSet.unqualified("selected", ()),)
-    assert source_sets_record(sources) == {"selected": {"entries": [], "acquisition": {"kind": "all-admissible-support-v1"}}}
+    assert source_sets_record(sources) == {
+        "selected": {"entries": [], "acquisition": {"kind": "all-admissible-support-v1"}}
+    }
     assert read_source_sets(source_sets_record(sources)) == sources
     base = model(BindingExpression("scan", roles=("items",)), minimum=0, presence="optional")
     original = base.operations[0].roles[0]
@@ -1991,7 +2014,20 @@ def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage
             "UPDATE admitted SET analyzed_scope = CAST(:scope AS jsonb), "
             "support_evidence = CAST(:support AS jsonb)"
         ),
-        {"scope": '{"fraction":' + str(exact) + "}", "support": json_bytes({"fraction": exact, "producer_output": {"member_id": None, "role": "result", "position": 0, "multiplicity": 1}}).decode()},
+        {
+            "scope": '{"fraction":' + str(exact) + "}",
+            "support": json_bytes(
+                {
+                    "fraction": exact,
+                    "producer_output": {
+                        "member_id": None,
+                        "role": "result",
+                        "position": 0,
+                        "multiplicity": 1,
+                    },
+                }
+            ).decode(),
+        },
     )
     target = model(
         BindingExpression("scan", roles=("items", "empty")),
@@ -2045,7 +2081,15 @@ def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage
     assert [member.product for member in result.roles[0].members] == ["p3", "p2", "p1"]
     for member in result.roles[0].members:
         assert json_loads(member.analyzed_scope) == {"fraction": exact}
-        assert json_loads(member.support_evidence) == {"fraction": exact, "producer_output": {"member_id": None, "role": "result", "position": 0, "multiplicity": 1}}
+        assert json_loads(member.support_evidence) == {
+            "fraction": exact,
+            "producer_output": {
+                "member_id": None,
+                "role": "result",
+                "position": 0,
+                "multiplicity": 1,
+            },
+        }
 
 
 @pytest.mark.parametrize("values", [(), (True, False), (None, None)])
@@ -2083,11 +2127,27 @@ def test_binding_transport_refuses_missing_or_duplicate_check_rows(storage, valu
 
 def test_binding_decoder_refuses_missing_or_forged_emitting_occurrence(storage):
     connection, relation, projection = storage
-    compiled = compile_binding(model(BindingExpression("scan", roles=("items",))), "urn:op", (projection,), subject="doc")
+    compiled = compile_binding(
+        model(BindingExpression("scan", roles=("items",))), "urn:op", (projection,), subject="doc"
+    )
     for evidence in (
         {"trust": "pinned"},
-        {"producer_output": {"member_id": "foreign", "role": "result", "position": 0, "multiplicity": 1}},
-        {"producer_output": {"member_id": None, "role": "result", "position": -1, "multiplicity": 1}},
+        {
+            "producer_output": {
+                "member_id": "foreign",
+                "role": "result",
+                "position": 0,
+                "multiplicity": 1,
+            }
+        },
+        {
+            "producer_output": {
+                "member_id": None,
+                "role": "result",
+                "position": -1,
+                "multiplicity": 1,
+            }
+        },
     ):
         connection.execute(relation.update().values(support_evidence=evidence))
         assert execute_binding(connection, compiled).status == "invalid"

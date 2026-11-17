@@ -164,10 +164,24 @@ def test_actual_package_kernel_inputs_preserve_read_only_source_custody(monkeypa
     page = _page()
     page.update(project_id=current_sources.PROJECT)
     cut = CutSelection.from_native(page)
-    rows = tuple(dict(row, _selected_entry=SelectedSourceSetEntry.from_selected_header(
-        dict(row, use_id="unadmitted:source-use", derivation_id="unadmitted:source-episode",
-             output_member_id=None, role="result", position=0, multiplicity=1), cut
-    )) for row in rows)
+    rows = tuple(
+        dict(
+            row,
+            _selected_entry=SelectedSourceSetEntry.from_selected_header(
+                dict(
+                    row,
+                    use_id="unadmitted:source-use",
+                    derivation_id="unadmitted:source-episode",
+                    output_member_id=None,
+                    role="result",
+                    position=0,
+                    multiplicity=1,
+                ),
+                cut,
+            ),
+        )
+        for row in rows
+    )
     monkeypatch.setattr(
         current_sources, "selected_current_sources", lambda source: tuple((row, {}) for row in rows)
     )
@@ -191,15 +205,26 @@ def test_actual_package_kernel_inputs_preserve_read_only_source_custody(monkeypa
     ]
     assert set(request.source_sets) == {"selected-source-views"}
     (scope,) = request.source_sets.values()
+    assert isinstance(scope, dict)
     entries = scope["entries"]
-    assert scope["acquisition"]["kind"] == "selected-support-v1"
-    assert len(scope["acquisition"]["reads"]) == 1
-    assert [entry["reference"] for entry in entries] == [
+    acquisition = scope["acquisition"]
+    assert isinstance(acquisition, dict)
+    assert acquisition["kind"] == "selected-support-v1"
+    reads = acquisition["reads"]
+    assert isinstance(reads, list) and len(reads) == 1
+    assert isinstance(entries, list)
+    references, scopes, originals = [], [], []
+    for entry in entries:
+        assert isinstance(entry, dict)
+        references.append(entry["reference"])
+        scopes.append(entry["analyzed_scope"])
+        originals.append(entry["original_source"])
+    assert references == [
         {"product_id": "product:retained-native", "member_id": "first"},
         {"product_id": "product:retained-native", "member_id": "second"},
     ]
-    assert [entry["analyzed_scope"] for entry in entries] == [row["analyzed_scope"] for row in rows]
-    assert {entry["original_source"] for entry in entries} == {original.reference.document_key}
+    assert scopes == [row["analyzed_scope"] for row in rows]
+    assert originals == [original.reference.document_key] * len(entries)
     freeze_native_demand(actual.prepared, request)
     with pytest.raises(ValueError, match="lacks its explicit frozen source set"):
         freeze_native_demand(actual.prepared, request.model_copy(update={"source_sets": {}}))
