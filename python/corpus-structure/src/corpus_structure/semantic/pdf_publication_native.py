@@ -637,6 +637,7 @@ BEGIN
 
 def publication_sql(*, target_metadata=None) -> str:
     metadata = default_metadata if target_metadata is None else target_metadata
+    identifier = dialect().identifier_preparer.quote
     from .pdf_record_reader_native import (
         pdf_companion_export_sql,
         pdf_native_export_sql,
@@ -740,7 +741,9 @@ b.state='abandoned' THEN
  RAISE EXCEPTION 'PDF freeze requires verified project-scoped stream bytes' USING ERRCODE='23514'; END IF;
 """
     for family, relation in sorted(inventory_stage.items()):
-        keys = ",".join(metadata.tables[relation].primary_key.columns.keys())
+        keys = ",".join(
+            identifier(column.name) for column in metadata.tables[relation].primary_key.columns
+        )
         owner_column = (
             "build_id"
             if family.startswith("spool_") or family == "producer_certification"
@@ -842,7 +845,7 @@ BEGIN b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
     ):
         target = _FINAL[family]
         source = stage[family]
-        columns = ",".join(metadata.tables[target].columns.keys())
+        columns = ",".join(identifier(column.name) for column in metadata.tables[target].columns)
         selects = columns
         preparation = ""
         if family == "reference":
@@ -883,7 +886,7 @@ BEGIN b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
  AND ops.pdf_reference_bytes_equal(p_build,p_build,n.native_address,n.native_address_stream_id,
  s.native_pointer,s.native_pointer_stream_id)) END)"""
             selects = ",".join(
-                reference_target if c == "target_id" else "s." + c
+                reference_target if c == "target_id" else "s." + identifier(c)
                 for c in (column.key for column in metadata.tables[target].columns)
             )
         sql += (

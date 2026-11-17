@@ -19,7 +19,7 @@ _Updated 2026-11-17. DDO/production-efficiency implementation continues; full sc
 
 ## Native, application and data
 
-- Owned stage corpus_structure_ddo_stage/OID130661481/system7701811359771751232 is root+17/headsemantic_ddo_pe_n2,103relations. Use explicit stage routing; default still names development. S08/S34/S36/S40/S41/S42 successor previewd23821de… is running; migration/deployment acceptance remains due.
+- Owned stage corpus_structure_ddo_stage/OID130661481/system7701811359771751232 is root+17/headsemantic_ddo_pe_n2,103relations. Use explicit stage routing; default still names development. S08/S34/S36/S40/S41/S42 successor preview7c30cf21… passed; candidatec1e0e4ba… refused unquoted new region fields and rolled back. Generator fixed; recapture/native acceptance due.
 - Authenticated DATA re-lowering has zero missing definition/profile/context facts. Historical48read kernels/11intent seals/11receipt validator identities stayNULL; none were manufactured.
 - Stage application previewab68e37…/candidate701815…/deployc7bf757…; release2f794245…/runtimee2cfb482…; projectddo-current-pdf-bounded generation4. Current-source application capture/activation is due.
 - Development corpus_structure_dev/OID25921445/revisionsemantic_bep_located_v2 remains unchanged. Original assets preserved. Whole-bookdoc38d5d93379c3320aa88457511d38fc25 has518pages; same-demand interruption/resume/repeat not_run.

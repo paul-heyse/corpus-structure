@@ -260,7 +260,14 @@ Read-only stage observation found7old validation receipts,15products and831parts
 only actual byte folds are eligible for S40 transfer, never fabricated S36 evidence. Preview d23821de199e4d18b7c3045a3dca5ec9 **passed** on the acquired N2 stage. Its HEAD binding
 was superseded by the documentation checkpoint; root is reacquiring after the final retirement
 sweep. That sweep removes the unused retained-bytea verifier, leaving the exact shared-fold
-receipt verifier and independent useful Python byte controls. Native transition/acceptance remain open. Combined Pyrefly9a271db05654447c88cb7d0fb86daac4 and Ruffba8a32c84f8f461b84c55651501a34ef
+receipt verifier and independent useful Python byte controls. Native transition/acceptance remain open. Reacquired preview7c30cf21a1d346feac14d22e039a2266 **passed**, but rollback-only candidate
+c1e0e4bafb6942a5b3e5816c69c6a6df **failed** with cleanup established: the new region-copy SQL emitted
+reserved `left`/`right` column names without identifier quoting. The owning generator now uses
+SQLAlchemy's PostgreSQL identifier preparer for all copied fields/keys. The affected generated
+function compiled on actual PostgreSQL in an explicitly rolled-back transaction. Standalone
+pglast PL/pgSQL parsing could not resolve application composite namespaces and is not qualification.
+Fresh capture remains due; the old native head and data are unchanged.
+Combined Pyrefly9a271db05654447c88cb7d0fb86daac4 and Ruffba8a32c84f8f461b84c55651501a34ef
 **passed**; shared upload-shape/omission and closed maintenance controls **passed5**,
 e752a326d56d4c7f83e5931202ece8d5. Independent static review found a stale generated typed part-table
 reference; regeneration removed it. No further material defect was found in its bounded static
