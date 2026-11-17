@@ -285,7 +285,10 @@ def native_protocol_sources(
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
-        SourceArtifact("native/contextual-neighborhood.sql", _SQL.with_name("contextual_neighborhood.sql").read_bytes()),
+        SourceArtifact(
+            "native/contextual-neighborhood.sql",
+            _SQL.with_name("contextual_neighborhood.sql").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-external.sql",
             _SQL.with_name("data_operation_external.sql").read_bytes(),
@@ -1631,19 +1634,30 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
             )
         )
     for name in (
-        "data_obligation", "data_request", "data_request_generation", "demand_use",
-        "data_population", "data_derivation", "data_derivation_input", "data_derivation_output",
-        "data_derivation_support", "data_derivation_original_support", "original_source_admission",
+        "data_obligation",
+        "data_request",
+        "data_request_generation",
+        "demand_use",
+        "data_population",
+        "data_derivation",
+        "data_derivation_input",
+        "data_derivation_output",
+        "data_derivation_support",
+        "data_derivation_original_support",
+        "original_source_admission",
         "data_demand_cancellation",
     ):
         relation = target_metadata.tables["ops." + name]
-        definitions.append(definition_from_sql(
-            connection,
-            "CREATE TRIGGER ddo_read_frontier_guard BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON "
-            + connection.dialect.identifier_preparer.format_table(relation)
-            + " FOR EACH STATEMENT EXECUTE FUNCTION ops.ddo_refuse_post_acquisition_graph_write()",
-            source="data-operation pinned frontier:forward", owner="corpus_sem_publisher",
-        ))
+        definitions.append(
+            definition_from_sql(
+                connection,
+                "CREATE TRIGGER ddo_read_frontier_guard BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON "
+                + connection.dialect.identifier_preparer.format_table(relation)
+                + " FOR EACH STATEMENT EXECUTE FUNCTION ops.ddo_refuse_post_acquisition_graph_write()",
+                source="data-operation pinned frontier:forward",
+                owner="corpus_sem_publisher",
+            )
+        )
     from .data_operation_binding_native import binding_native_definitions
     from .data_operation_source_native import source_native_definitions
     from .data_operation_wire_native import wire_native_definitions

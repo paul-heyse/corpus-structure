@@ -6,7 +6,11 @@ from hashlib import sha256
 import pytest
 
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.inspection_capsule import make_capsule, open_capsule, open_capsule_inputs
+from corpus_structure.semantic.inspection_capsule import (
+    make_capsule,
+    open_capsule,
+    open_capsule_inputs,
+)
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.releases import ReleaseConflict
 from corpus_structure.semantic.types import (
@@ -56,7 +60,9 @@ classes:
         )
 
     inputs = open_capsule_inputs(
-        content, digest=sha256(content).hexdigest(), release_id=prepared.release_id,
+        content,
+        digest=sha256(content).hexdigest(),
+        release_id=prepared.release_id,
         manifest_digest=sha256(prepared.manifest).hexdigest(),
         artifacts_digest=prepared.artifacts_sha256,
     )

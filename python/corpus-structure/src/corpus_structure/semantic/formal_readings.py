@@ -81,7 +81,9 @@ class _IntervalRows:
             eligible = (row for row in self.rows[first:last] if row[2]["end"] > start)
         else:
             first, last = bisect_left(self.starts, start), bisect_left(self.starts, end)
-            eligible = (row for row in self.rows[first:last] if row[2]["start"] < row[2]["end"] <= end)
+            eligible = (
+                row for row in self.rows[first:last] if row[2]["start"] < row[2]["end"] <= end
+            )
         return tuple((node, part) for _, node, part in sorted(eligible, key=lambda row: row[0]))
 
 
@@ -113,19 +115,28 @@ class _RetainedReadings:
 
     @cached_property
     def parts(self):
-        return {key: _extent(node, self.occurrences, self.source) for key, node in self.annotations.items()}
+        return {
+            key: _extent(node, self.occurrences, self.source)
+            for key, node in self.annotations.items()
+        }
 
     @cached_property
     def intervals(self):
         result = {}
         for ordinal, node in enumerate(self.annotations.values()):
-            target = node.get("formal", {}).get("input_id") if node["kind"] == "formal.rule" else node["local_id"]
+            target = (
+                node.get("formal", {}).get("input_id")
+                if node["kind"] == "formal.rule"
+                else node["local_id"]
+            )
             part = self.parts.get(target)
             if part is None:
                 continue
             result.setdefault((node["kind"], node["family"]), []).append((ordinal, node, part))
             if "formal_input" in node:
-                result.setdefault(("formal_input", node["family"]), []).append((ordinal, node, part))
+                result.setdefault(("formal_input", node["family"]), []).append(
+                    (ordinal, node, part)
+                )
         return {key: _IntervalRows.build(rows) for key, rows in result.items()}
 
     @cached_property
@@ -133,14 +144,27 @@ class _RetainedReadings:
         return {key: index for index, key in enumerate(self.annotations)}
 
     def selected(self, kind, family, start, end, *, overlapping=False):
-        groups = (self.intervals.get((kind, family)),) if family is not None else tuple(
-            value for (candidate, _), value in self.intervals.items() if candidate == kind
+        groups = (
+            (self.intervals.get((kind, family)),)
+            if family is not None
+            else tuple(
+                value for (candidate, _), value in self.intervals.items() if candidate == kind
+            )
         )
         # A kind is currently owned by one family. Keep original annotation order
         # even if a future declared kind is shared by more than one family.
         ordinal = self.ordinals if family is None else None
-        rows = [row for group in groups if group is not None for row in group.selected(start, end, overlapping=overlapping)]
-        return tuple(sorted(rows, key=lambda row: ordinal[row[0]["local_id"]])) if ordinal is not None else tuple(rows)
+        rows = [
+            row
+            for group in groups
+            if group is not None
+            for row in group.selected(start, end, overlapping=overlapping)
+        ]
+        return (
+            tuple(sorted(rows, key=lambda row: ordinal[row[0]["local_id"]]))
+            if ordinal is not None
+            else tuple(rows)
+        )
 
     def covered(self, family, start, end):
         return _covered(self.coverage.get(family), self.source, start, end)

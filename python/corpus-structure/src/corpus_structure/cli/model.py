@@ -1674,13 +1674,18 @@ def preview(
                         for path, content in migration.after.items()
                     }
                     fingerprint = compilation_fingerprint(
-                        root, staged.request, proposed=proposed,
-                        native_base=staged.native_base, deployment_base=staged.deployment_base,
+                        root,
+                        staged.request,
+                        proposed=proposed,
+                        native_base=staged.native_base,
+                        deployment_base=staged.deployment_base,
                     )
-                    staged = staged.model_copy(update={
-                        "inspection_sha256": sha256(capsule).hexdigest(),
-                        "preparation_fingerprint": fingerprint,
-                    })
+                    staged = staged.model_copy(
+                        update={
+                            "inspection_sha256": sha256(capsule).hexdigest(),
+                            "preparation_fingerprint": fingerprint,
+                        }
+                    )
                 artifact = result.directory / "preview.json"
                 artifact.write_text(staged.model_dump_json(), encoding="utf-8")
                 patch = result.directory / "model.patch"
@@ -1908,21 +1913,34 @@ def candidate(
                         from corpus_structure.schema.model_change import compilation_fingerprint
                         from corpus_structure.semantic.inspection_capsule import open_capsule_inputs
 
-                        if staged.inspection_sha256 is None or staged.preparation_fingerprint is None:
-                            raise ModelError(["preview lacks retained preparation; prepare a fresh preview"])
-                        if compilation_fingerprint(
-                            root, staged.request, native_base=staged.native_base,
-                            deployment_base=staged.deployment_base,
-                        ) != staged.preparation_fingerprint:
-                            raise ModelError(["preview compilation inputs changed; prepare a fresh preview"])
+                        if (
+                            staged.inspection_sha256 is None
+                            or staged.preparation_fingerprint is None
+                        ):
+                            raise ModelError(
+                                ["preview lacks retained preparation; prepare a fresh preview"]
+                            )
+                        if (
+                            compilation_fingerprint(
+                                root,
+                                staged.request,
+                                native_base=staged.native_base,
+                                deployment_base=staged.deployment_base,
+                            )
+                            != staged.preparation_fingerprint
+                        ):
+                            raise ModelError(
+                                ["preview compilation inputs changed; prepare a fresh preview"]
+                            )
                         capsule = store.read_artifact(change, "inspection")
                         release_inputs = open_capsule_inputs(
-                            capsule, digest=staged.inspection_sha256,
+                            capsule,
+                            digest=staged.inspection_sha256,
                             release_id=staged.local_release,
                             manifest_digest=staged.release_manifest_sha256,
                             artifacts_digest=staged.release_artifacts_sha256,
                         )
-                        bundle, dependencies, profile, prepared = release_inputs
+                        _bundle, dependencies, _profile, prepared = release_inputs
                         staged.verify_release(prepared)
                         _retain_authored_sql(sql_holder, dependencies, preserve=True)
                         sql_inputs = prepare_release_sql(prepared, dependencies)
@@ -2149,7 +2167,9 @@ def deploy(
                 deployment = None
                 if binding.release is not None:
                     if binding.inspection_sha256 is None:
-                        raise ModelError(["candidate lacks retained preparation; prepare a fresh preview"])
+                        raise ModelError(
+                            ["candidate lacks retained preparation; prepare a fresh preview"]
+                        )
                     deployment = open_capsule_inputs(
                         store.read_artifact(candidate, "inspection"),
                         digest=binding.inspection_sha256,

@@ -8,9 +8,9 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
-from types import MappingProxyType
 from itertools import pairwise
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal
 
 from corpus_structure.ingest.annotation_views import annotation_view
@@ -145,9 +145,14 @@ def named_source_links(text, pieces, items, passages):
     from ..positioned_rows import PositionedRows
 
     selected_pieces = PositionedRows.build(
-        (piece for piece in pieces if piece.get("kind") == "native_text"
-         and piece.get("source_field", "text") == "text" and "cell_index" not in piece
-         and items.get(piece["item_ref"], {}).get("content_layer") == "body"),
+        (
+            piece
+            for piece in pieces
+            if piece.get("kind") == "native_text"
+            and piece.get("source_field", "text") == "text"
+            and "cell_index" not in piece
+            and items.get(piece["item_ref"], {}).get("content_layer") == "body"
+        ),
         lambda piece: (piece["start"], piece["end"]),
     )
     for passage in passages or ():
@@ -517,7 +522,9 @@ def match_named_source_links(
     ]
     from ..positioned_rows import PositionedRows
 
-    passage_index = PositionedRows.build(passages or (), lambda passage: (passage.start, passage.end))
+    passage_index = PositionedRows.build(
+        passages or (), lambda passage: (passage.start, passage.end)
+    )
     products = tuple(product for product in annotations if isinstance(product, AnnotationProduct))
     by_block = {product.block_id: product for product in products}
     # Older releases keyed the projection and retained annotation on the same pointer.
@@ -570,9 +577,13 @@ def match_named_source_links(
                 incomplete = True
                 continue
             caution_heads = frozenset(
-                token.head for token in annotation.tokens
+                token.head
+                for token in annotation.tokens
                 if (token.dependency == "mark" and token.lemma.lower() in {"if", "unless"})
-                or (token.dependency == "aux" and token.lemma.lower() in {"may", "might", "could", "would"})
+                or (
+                    token.dependency == "aux"
+                    and token.lemma.lower() in {"may", "might", "could", "would"}
+                )
             )
             matched_blocks[annotation.block_id] = view, prepared.match(view), caution_heads
         view, result, caution_heads = matched_blocks[annotation.block_id]
@@ -1297,13 +1308,17 @@ class NavigationRecord:
     reference: Any
     payload: Mapping[str, Any]
     occurrences: Mapping[str, Any]
-    _roles: Mapping[str, tuple[Mapping[str, Any], ...]] = field(init=False, repr=False, compare=False)
+    _roles: Mapping[str, tuple[Mapping[str, Any], ...]] = field(
+        init=False, repr=False, compare=False
+    )
 
     def __post_init__(self):
         roles = defaultdict(list)
         for row in self.payload["roles"]:
             roles[row["role"]].append(row)
-        object.__setattr__(self, "_roles", MappingProxyType({name: tuple(rows) for name, rows in roles.items()}))
+        object.__setattr__(
+            self, "_roles", MappingProxyType({name: tuple(rows) for name, rows in roles.items()})
+        )
 
     def fragments(self, role):
         found = self._roles.get(role, ())
@@ -1402,7 +1417,11 @@ class NativeNavigationIndex:
         )
 
     def select(self, kind, pointer=None):
-        return self._by_kind.get(kind, ()) if pointer is None else self._by_pointer.get((kind, pointer), ())
+        return (
+            self._by_kind.get(kind, ())
+            if pointer is None
+            else self._by_pointer.get((kind, pointer), ())
+        )
 
     def require(self):
         if not self.complete:

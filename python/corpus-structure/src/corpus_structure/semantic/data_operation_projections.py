@@ -93,16 +93,22 @@ def _validity_rows(seed_uses, seed_episodes=None, *, name="validity", boundary=N
     from sqlalchemy.dialects.postgresql import ARRAY
 
     empty = cast(literal("{}"), ARRAY(Text))
-    rows = func.ops.ddo_valid_closure(
-        seed_uses,
-        empty if seed_episodes is None else seed_episodes,
-        literal_column("boundary") if boundary is None else boundary,
-    ).table_valued(column("kind", Text), column("id", Text), column("valid", Boolean)).alias(name + "_rows")
+    rows = (
+        func.ops.ddo_valid_closure(
+            seed_uses,
+            empty if seed_episodes is None else seed_episodes,
+            literal_column("boundary") if boundary is None else boundary,
+        )
+        .table_valued(column("kind", Text), column("id", Text), column("valid", Boolean))
+        .alias(name + "_rows")
+    )
     return select(rows).cte(name).prefix_with("MATERIALIZED")
 
 
 def _set_valid(rows, kind, identity):
-    return exists(select(1).select_from(rows).where(rows.c.kind == kind, rows.c.id == identity, rows.c.valid))
+    return exists(
+        select(1).select_from(rows).where(rows.c.kind == kind, rows.c.id == identity, rows.c.valid)
+    )
 
 
 def _reference_node(reference):
@@ -231,7 +237,9 @@ def _support_walk(metadata, seed, *, public=False):
     )
 
 
-def _scope_projection(metadata, nodes, project, direct_sources, *, domain_dependencies=True, domain_only=False):
+def _scope_projection(
+    metadata, nodes, project, direct_sources, *, domain_dependencies=True, domain_only=False
+):
     episodes = metadata.tables["ops.data_derivation"]
     requests = metadata.tables["ops.data_request"]
     admissions = metadata.tables["ops.original_source_admission"]
@@ -362,7 +370,15 @@ def read_scope_rows(metadata):
         select(ordinary.c.scope, literal(True).label("ordinary"), literal(False).label("domain")),
         select(domain.c.scope, literal(False).label("ordinary"), literal(True).label("domain")),
     ).subquery("read_scope_origins")
-    return select(origins.c.scope, func.bool_or(origins.c.ordinary).label("ordinary"), func.bool_or(origins.c.domain).label("domain")).group_by(origins.c.scope).order_by(origins.c.scope)
+    return (
+        select(
+            origins.c.scope,
+            func.bool_or(origins.c.ordinary).label("ordinary"),
+            func.bool_or(origins.c.domain).label("domain"),
+        )
+        .group_by(origins.c.scope)
+        .order_by(origins.c.scope)
+    )
 
 
 def read_access_universes(metadata):
@@ -372,20 +388,39 @@ def read_access_universes(metadata):
     admissions = metadata.tables["ops.original_source_admission"]
     kinds = metadata.tables["sem.data_kind_contract"]
     reached = union(
-        select(outputs.c.product_id).select_from(nodes.join(outputs, and_(nodes.c.kind == "episode", nodes.c.id == outputs.c.derivation_id))),
-        select(admissions.c.product_id).select_from(nodes.join(admissions, and_(nodes.c.kind == "original", nodes.c.id == admissions.c.id))),
+        select(outputs.c.product_id).select_from(
+            nodes.join(
+                outputs, and_(nodes.c.kind == "episode", nodes.c.id == outputs.c.derivation_id)
+            )
+        ),
+        select(admissions.c.product_id).select_from(
+            nodes.join(admissions, and_(nodes.c.kind == "original", nodes.c.id == admissions.c.id))
+        ),
     ).cte("access_products")
-    nested = func.ops.ddo_body_kind_contracts(products.c.kind_contract, products.c.canonical_body).table_valued(column("kind_contract", Text)).render_derived(name="nested_access_kind")
+    nested = (
+        func.ops.ddo_body_kind_contracts(products.c.kind_contract, products.c.canonical_body)
+        .table_valued(column("kind_contract", Text))
+        .render_derived(name="nested_access_kind")
+    )
     observed = select(kinds.c.universe).select_from(
-        reached.join(products, products.c.id == reached.c.product_id).join(nested, literal(True)).join(kinds, kinds.c.kind_contract == nested.c.kind_contract)
+        reached.join(products, products.c.id == reached.c.product_id)
+        .join(nested, literal(True))
+        .join(kinds, kinds.c.kind_contract == nested.c.kind_contract)
     )
     definitions = metadata.tables["sem.data_operation_definition"]
     selected = _items(_var("d.selection", JSONB)["operations"], "access_operation")
     roles = _items(definitions.c.input_roles.op("||")(definitions.c.output_roles), "access_role")
-    declared = select(kinds.c.universe).select_from(
-        definitions.join(selected, selected.c.value["operation"].astext == definitions.c.operation_id)
-        .join(roles, literal(True)).join(kinds, kinds.c.kind_contract == roles.c.value["kind_contract"].astext)
-    ).where(definitions.c.release_id == _var("d.release_id", Text))
+    declared = (
+        select(kinds.c.universe)
+        .select_from(
+            definitions.join(
+                selected, selected.c.value["operation"].astext == definitions.c.operation_id
+            )
+            .join(roles, literal(True))
+            .join(kinds, kinds.c.kind_contract == roles.c.value["kind_contract"].astext)
+        )
+        .where(definitions.c.release_id == _var("d.release_id", Text))
+    )
     universes = union(observed, declared).subquery("acquired_access_universes")
     return select(func.coalesce(func.jsonb_agg(universes.c.universe), _json([])))
 
@@ -760,7 +795,11 @@ def binding_branches(metadata):
         .prefix_with("MATERIALIZED")
     )
     candidate_validity = _validity_rows(
-        select(func.coalesce(func.array_agg(candidates.c.use_id.distinct()), cast(literal("{}"), ARRAY(Text)))).scalar_subquery(),
+        select(
+            func.coalesce(
+                func.array_agg(candidates.c.use_id.distinct()), cast(literal("{}"), ARRAY(Text))
+            )
+        ).scalar_subquery(),
         name="candidate_validity",
     )
     coverage = metadata.tables["kb.data_member_coverage"].alias("coverage_row")
@@ -1482,9 +1521,10 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
     selected = (
         select(latest).select_from(obligations.join(latest, literal(True))).cte("selected_uses")
     )
-    boundary = literal_column("boundary")
     selected_validity = _validity_rows(
-        select(func.array_agg(selected.c.id)).where(selected.c.fate == "fulfilled").scalar_subquery(),
+        select(func.array_agg(selected.c.id))
+        .where(selected.c.fate == "fulfilled")
+        .scalar_subquery(),
         name="selected_output_validity",
     )
     seed = (

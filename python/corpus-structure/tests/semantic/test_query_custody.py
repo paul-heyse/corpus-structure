@@ -51,10 +51,12 @@ def test_unchanged_imported_source_uses_metadata_without_reading(promised, monke
     load(promised)
     _, path, captured = promised
     original = Path.open
+
     def forbid_target(self, *args, **kwargs):
         if self == path:
             raise AssertionError("established serving source was reread")
         return original(self, *args, **kwargs)
+
     monkeypatch.setattr(Path, "open", forbid_target)
     assert custody.capture_sources((path,)) == captured
     with custody.query_sources(captured):
@@ -81,17 +83,15 @@ def test_changed_bytes_with_restored_mtime_refuse_instead_of_relabelling(promise
     os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
     with pytest.raises(custody.SourceCustodyError, match="restart"):
         custody.capture_sources((path,))
-    with pytest.raises(custody.SourceCustodyError, match="restart"):
-        with custody.query_sources(captured):
-            pass
+    with pytest.raises(custody.SourceCustodyError, match="restart"), custody.query_sources(captured):
+        pass
 
 
 def test_lazy_import_must_match_its_promised_bytes(promised):
     name, path, captured = promised
-    with pytest.raises(custody.SourceCustodyError, match="restart"):
-        with custody.query_sources(captured):
-            path.write_text("VALUE = 9\n")
-            importlib.import_module(name)
+    with pytest.raises(custody.SourceCustodyError, match="restart"), custody.query_sources(captured):
+        path.write_text("VALUE = 9\n")
+        importlib.import_module(name)
     assert name not in sys.modules
 
 
@@ -100,10 +100,9 @@ def test_evicted_import_cannot_be_reloaded_or_hide_retained_module_objects(promi
     name, _, captured = promised
     sys.modules.pop(name)
     try:
-        with pytest.raises(custody.SourceCustodyError, match="restart"):
-            with custody.query_sources(captured):
-                pass
-        with pytest.raises(custody.SourceCustodyError, match="reload.*restart"):
+        with pytest.raises(custody.SourceCustodyError, match="restart"), custody.query_sources(captured):
+            pass
+        with pytest.raises(custody.SourceCustodyError, match=r"reload.*restart"):
             importlib.import_module(name)
     finally:
         sys.modules[name] = module
@@ -124,26 +123,36 @@ def test_serving_basis_prepares_contract_and_library_versions_once(monkeypatch):
 
     schemas, versions = [], []
     original_schema = Contract.model_json_schema
+
     def schema(*args, **kwargs):
         schemas.append(True)
         return original_schema(*args, **kwargs)
+
     original_version = service.version
+
     def version(name):
         if name == "custody-test-library":
             versions.append(name)
             return "1.0"
         return original_version(name)
+
     monkeypatch.setattr(Contract, "model_json_schema", schema)
     monkeypatch.setattr(service, "version", version)
     clock = file_custody.time_ns()
     monkeypatch.setattr(file_custody, "time_ns", lambda: clock + 10_000_000_000)
     sources = ("_query_custody.py", "semantic/file_custody.py", "serve/rich_queries.py")
-    with service.installed_read_implementation(Contract, sources=sources, profile="custody-test", extra_libraries=("custody-test-library",)) as first:
+    with service.installed_read_implementation(
+        Contract, sources=sources, profile="custody-test", extra_libraries=("custody-test-library",)
+    ) as first:
         pass
+
     def no_rehash(*args, **kwargs):
         raise AssertionError("cached serving basis rehashed source bytes")
+
     monkeypatch.setattr(file_custody, "file_digest", no_rehash)
-    with service.installed_read_implementation(Contract, sources=sources, profile="custody-test", extra_libraries=("custody-test-library",)) as second:
+    with service.installed_read_implementation(
+        Contract, sources=sources, profile="custody-test", extra_libraries=("custody-test-library",)
+    ) as second:
         pass
     assert first == second
     assert schemas == [True]

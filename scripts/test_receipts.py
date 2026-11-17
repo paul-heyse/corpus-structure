@@ -51,12 +51,18 @@ def _receipt_basis(directory: Path) -> dict[str, Any]:
             continue
         info = path.lstat()
         inputs[path.name] = [
-            info.st_dev, info.st_ino, info.st_mode, info.st_size,
-            info.st_mtime_ns, info.st_ctime_ns,
+            info.st_dev,
+            info.st_ino,
+            info.st_mode,
+            info.st_size,
+            info.st_mtime_ns,
+            info.st_ctime_ns,
         ]
     return {
-        "version": 1, "classifier": CLASSIFIER_IDENTITY,
-        "owner": [owner.st_dev, owner.st_ino], "inputs": inputs,
+        "version": 1,
+        "classifier": CLASSIFIER_IDENTITY,
+        "owner": [owner.st_dev, owner.st_ino],
+        "inputs": inputs,
     }
 
 
@@ -80,7 +86,7 @@ def _settled_classification(directory: Path) -> dict[str, Any] | None:
             return None
         result["receipts"][0]["directory"] = str(directory)
         return result
-    except (OSError, ValueError, KeyError, TypeError):
+    except OSError, ValueError, KeyError, TypeError:
         return None
 
 
@@ -1223,6 +1229,7 @@ def classify(
             else:
                 manifests.extend(_required_manifests([path]))
         return manifests
+
     required: set[str] = set()
     native_required: set[str] = set()
     required_evidence: dict[str, str] = {}
@@ -1287,6 +1294,7 @@ def classify(
         for node in sorted(required)
     }
     missing = [node for node, states in union.items() if "passed" not in states]
+
     def rust_receipt(path):
         saved = cached[path]
         return saved["rust"][0] if saved is not None and saved.get("rust") else classify_rust(path)
@@ -2387,7 +2395,9 @@ def main(argv: list[str] | None = None) -> int:
             for name, path in args.required_lane_from:
                 lanes[name].append(Path(path))
             result = classify(
-                args.receipt_dir, args.required_from, required_lanes=lanes,
+                args.receipt_dir,
+                args.required_from,
+                required_lanes=lanes,
                 settled=args.settled_receipts,
             )
             for receipt in result["receipts"]:
@@ -2400,7 +2410,11 @@ def main(argv: list[str] | None = None) -> int:
                         raise ValueError("retained manifest and receipt disagree on " + key)
             if args.write_unresolved is not None and (
                 not args.if_retryable
-                or (_retryable(result) and result["required_unresolved"] and not result["custody_unsettled"])
+                or (
+                    _retryable(result)
+                    and result["required_unresolved"]
+                    and not result["custody_unsettled"]
+                )
             ):
                 result["unresolved_selection"] = write_unresolved(
                     result,
@@ -2455,11 +2469,15 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("--workers requires the managed ordinary lane")
         except (OSError, ValueError) as error:
             if args.managed_lane:
-                print(json.dumps({
-                    "version": "managed-test-preflight-1",
-                    "preflight_refusal": str(error),
-                    "custody_unsettled": False,
-                }))
+                print(
+                    json.dumps(
+                        {
+                            "version": "managed-test-preflight-1",
+                            "preflight_refusal": str(error),
+                            "custody_unsettled": False,
+                        }
+                    )
+                )
                 raise SystemExit(2) from error
             parser.error(str(error))
         directory.mkdir(parents=not args.managed_lane, exist_ok=False, mode=0o700)

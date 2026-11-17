@@ -129,6 +129,11 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
             input_roles=[],
             output_roles=[],
             support_contract={},
+            binding_expression={"operator": "all", "children": []},
+            definition_identity="definition:controlled",
+            eligibility_identity="eligibility:controlled",
+            quantified=False,
+            dependencies=[],
         )
     )
     rows: list[_Role] = []

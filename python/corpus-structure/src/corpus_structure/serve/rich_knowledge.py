@@ -16,8 +16,8 @@ from corpus_structure.semantic.data_operation_support import ComputationalSuppor
 from corpus_structure.semantic.demand_results import CutSelection, read_demand_result
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.rich_graph_validation import (
-    RichWholeInput,
     RichGraphState,
+    RichWholeInput,
     read_retained_rich_graph,
 )
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember

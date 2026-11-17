@@ -2717,25 +2717,40 @@ def test_native_set_validity_deduplicates_and_refuses_cyclic_support(ddo_kernel)
     receipt = publish(ddo_kernel, fence, retain(ddo_kernel, fence))
     episode = receipt["derivation_id"]
     with ddo_kernel["engine"].begin() as connection:
-        rows = connection.execute(text(
-            "SELECT kind,id,valid FROM ops.ddo_valid_closure('{}',ARRAY[:episode,:episode])"
-        ), {"episode": episode}).all()
+        rows = connection.execute(
+            text("SELECT kind,id,valid FROM ops.ddo_valid_closure('{}',ARRAY[:episode,:episode])"),
+            {"episode": episode},
+        ).all()
         assert len(rows) == len({(row.kind, row.id) for row in rows})
         assert next(row.valid for row in rows if row.kind == "episode" and row.id == episode)
-        connection.execute(text(
-            "INSERT INTO ops.data_derivation_support "
-            "SELECT :episode,'deliberate-cycle',0,:episode,ops.ddo_scope('ddo-test','source:test'),0,NULL,999999"
-        ), {"episode": episode})
-        assert connection.scalar(text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": episode}) is False
+        connection.execute(
+            text(
+                "INSERT INTO ops.data_derivation_support "
+                "SELECT :episode,'deliberate-cycle',0,:episode,ops.ddo_scope('ddo-test','source:test'),0,NULL,999999"
+            ),
+            {"episode": episode},
+        )
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": episode}
+            )
+            is False
+        )
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
 def test_native_read_acquisition_forbids_later_frontier_writes(ddo_kernel):
     demand, _, _, _ = attach(ddo_kernel)
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
+        DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, demand)
+        )
         with pytest.raises(DBAPIError, match="fresh transaction"):
-            connection.execute(text("INSERT INTO ops.data_obligation SELECT * FROM ops.data_obligation LIMIT 1 ON CONFLICT DO NOTHING"))
+            connection.execute(
+                text(
+                    "INSERT INTO ops.data_obligation SELECT * FROM ops.data_obligation LIMIT 1 ON CONFLICT DO NOTHING"
+                )
+            )
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
@@ -2744,15 +2759,23 @@ def test_native_completion_receipt_records_actual_validator_not_release_expectat
     fence = claim(ddo_kernel, attached)
     intent = retain(ddo_kernel, fence)
     with ddo_kernel["engine"].begin() as connection:
-        seal = connection.scalar(text("SELECT validation_seal FROM ops.data_completion_intent WHERE id=:id"), {"id": intent["intent_id"]})
+        seal = connection.scalar(
+            text("SELECT validation_seal FROM ops.data_completion_intent WHERE id=:id"),
+            {"id": intent["intent_id"]},
+        )
         assert seal["request"] == fence["request_id"]
         assert seal["generation"] == fence["generation"]
         assert seal["runtime"] == ddo_kernel["runtime"]
         assert seal["trust"] and all(epoch == 0 for epoch in seal["trust"].values())
-        assert seal["kernel"] == connection.scalar(text("SELECT sem.data_operation_native_descriptor()->>'source_digest'"))
+        assert seal["kernel"] == connection.scalar(
+            text("SELECT sem.data_operation_native_descriptor()->>'source_digest'")
+        )
     receipt = publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
-        actual = connection.scalar(text("SELECT validating_kernel_digest FROM ops.data_publication_receipt WHERE id=:id"), {"id": receipt["receipt_id"]})
+        actual = connection.scalar(
+            text("SELECT validating_kernel_digest FROM ops.data_publication_receipt WHERE id=:id"),
+            {"id": receipt["receipt_id"]},
+        )
         assert actual == seal["kernel"]
 
 
@@ -2760,21 +2783,37 @@ def test_native_completion_receipt_records_actual_validator_not_release_expectat
 def test_native_read_records_zero_epochs_and_refuses_unrecorded_old_reads(ddo_kernel):
     demand, _, _, _ = attach(ddo_kernel)
     with ddo_kernel["engine"].begin() as connection:
-        read = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
-        scopes = connection.execute(text(
-            "SELECT scope,epoch,ordinary,domain FROM ops.data_demand_read_scope WHERE read_id=:read ORDER BY scope"
-        ), {"read": read["read_id"]}).all()
+        read = DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, demand)
+        )
+        scopes = connection.execute(
+            text(
+                "SELECT scope,epoch,ordinary,domain FROM ops.data_demand_read_scope WHERE read_id=:read ORDER BY scope"
+            ),
+            {"read": read["read_id"]},
+        ).all()
         assert scopes and {row.scope: row.epoch for row in scopes} == read["trust_snapshot"]
         assert all(row.epoch == 0 and row.ordinary and not row.domain for row in scopes)
-        eligibility = connection.execute(text(
-            "SELECT grade_census_eligible,fit_census_eligible FROM ops.data_demand_read WHERE id=:read"
-        ), {"read": read["read_id"]}).one()
+        eligibility = connection.execute(
+            text(
+                "SELECT grade_census_eligible,fit_census_eligible FROM ops.data_demand_read WHERE id=:read"
+            ),
+            {"read": read["read_id"]},
+        ).one()
         assert eligibility.grade_census_eligible and eligibility.fit_census_eligible
     with ddo_kernel["engine"].begin() as connection:
         old_id = read["read_id"] + ":unrecorded"
-        connection.execute(text(
-            "INSERT INTO ops.data_demand_read(id,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope) "
-            "SELECT :old,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope FROM ops.data_demand_read WHERE id=:read"
-        ), {"old": old_id, "read": read["read_id"]})
-    with ddo_kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="reacquisition"):
-        DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {**demand, "read_id": old_id}))
+        connection.execute(
+            text(
+                "INSERT INTO ops.data_demand_read(id,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope) "
+                "SELECT :old,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope FROM ops.data_demand_read WHERE id=:read"
+            ),
+            {"old": old_id, "read": read["read_id"]},
+        )
+    with (
+        ddo_kernel["engine"].begin() as connection,
+        pytest.raises(DBAPIError, match="reacquisition"),
+    ):
+        DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {**demand, "read_id": old_id})
+        )

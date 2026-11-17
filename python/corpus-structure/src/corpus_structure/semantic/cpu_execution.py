@@ -899,9 +899,7 @@ class CPUExecutionScope:
                 capsule,
             )
             with self._lock:
-                handle = CPUHandle(
-                    self, admission, future, packet.digest, check_active
-                )
+                handle = CPUHandle(self, admission, future, packet.digest, check_active)
                 handle._cancelled = self._closed
                 self._handles.add(handle)
                 closed = self._closed

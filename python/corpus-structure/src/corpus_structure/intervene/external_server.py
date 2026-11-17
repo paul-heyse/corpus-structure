@@ -54,6 +54,7 @@ def build_external_server(
                         from corpus_structure.semantic.data_operation_external import (
                             ExternalDataSession,
                         )
+
                         engine = engines.engine("write")
                         active = ExternalDataSession(
                             engine,

@@ -137,7 +137,11 @@ class SourceCustodyError(RuntimeError):
 
 class _CapturedLoader(SourceFileLoader):
     def exec_module(self, module: ModuleType) -> None:
-        if module in _EXECUTED or any(vars(previous).get("__name__") == self.name for previous in _EXECUTED) or any(not key.startswith("__") for key in module.__dict__):
+        if (
+            module in _EXECUTED
+            or any(vars(previous).get("__name__") == self.name for previous in _EXECUTED)
+            or any(not key.startswith("__") for key in module.__dict__)
+        ):
             raise SourceCustodyError("query-helper reload is unsupported; restart the process")
         source = self.get_data(self.path)
         digest = sha256(source).hexdigest()
@@ -145,19 +149,26 @@ class _CapturedLoader(SourceFileLoader):
         expected = _EXPECTED.get()
         required = expected.get(path) if expected is not None else None
         if required is not None and required != digest:
-            raise SourceCustodyError("query-helper bytes changed before import; restart the process")
+            raise SourceCustodyError(
+                "query-helper bytes changed before import; restart the process"
+            )
         # Compile the actual captured installed bytes, without stale timestamp pyc.
         exec(compile(source, self.path, "exec", dont_inherit=True), module.__dict__)
         # Compile only the captured bytes. Shared custody then confirms those
         # bytes against a stable file observation before the import can finish.
         # file_custody itself reaches this point after defining its primitives.
         from corpus_structure.semantic.file_custody import observed_file
+
         try:
             record = observed_file(Path(path))
             if record.digest != digest:
-                raise SourceCustodyError("query-helper bytes changed during import; restart the process")
+                raise SourceCustodyError(
+                    "query-helper bytes changed during import; restart the process"
+                )
         except (ValueError, OSError) as error:
-            raise SourceCustodyError("query-helper source custody changed; restart the process") from error
+            raise SourceCustodyError(
+                "query-helper source custody changed; restart the process"
+            ) from error
         _EXECUTED[module] = (path, digest)
 
 
@@ -189,6 +200,7 @@ def install(bootstrap_source: bytes) -> None:
     if not any(isinstance(finder, _CustodyFinder) for finder in sys.meta_path):
         sys.meta_path.insert(0, _CustodyFinder())
     from corpus_structure.semantic.file_custody import verified_file
+
     verified_file(Path(__file__).resolve(), sha256(bootstrap_source).hexdigest())
 
 
@@ -211,7 +223,9 @@ def _check_loaded(expected: dict[str, str]) -> None:
         known_paths.add(path)
         module = sys.modules.get(name)
         if module is not None and _EXECUTED.get(module) != (path, expected[path]):
-            raise SourceCustodyError("query helper was loaded without matching source custody; restart the process")
+            raise SourceCustodyError(
+                "query helper was loaded without matching source custody; restart the process"
+            )
     # Explicit owner-promised paths can also be outside the finite installed set.
     # Only that unusual route needs to locate previously loaded unknown modules.
     unknown = set(expected) - known_paths
@@ -224,7 +238,9 @@ def _check_loaded(expected: dict[str, str]) -> None:
                 continue
             path = str(Path(origin).resolve())
             if path in unknown and _EXECUTED.get(module) != (path, expected[path]):
-                raise SourceCustodyError("query helper was loaded without matching source custody; restart the process")
+                raise SourceCustodyError(
+                    "query helper was loaded without matching source custody; restart the process"
+                )
 
 
 def _check_files(expected: dict[str, str]) -> None:
@@ -234,7 +250,9 @@ def _check_files(expected: dict[str, str]) -> None:
         for path, digest in expected.items():
             verified_file(Path(path), digest)
     except (ValueError, OSError) as error:
-        raise SourceCustodyError("query-helper source custody changed; restart the process") from error
+        raise SourceCustodyError(
+            "query-helper source custody changed; restart the process"
+        ) from error
 
 
 def capture_sources(paths) -> dict[str, str]:
@@ -244,11 +262,14 @@ def capture_sources(paths) -> dict[str, str]:
     imported = {path: digest for path, digest in _EXECUTED.values()}
     try:
         captured = {
-            str(Path(path).resolve()): imported.get(str(Path(path).resolve())) or observed_file(Path(path).resolve()).digest
+            str(Path(path).resolve()): imported.get(str(Path(path).resolve()))
+            or observed_file(Path(path).resolve()).digest
             for path in paths
         }
     except (ValueError, OSError) as error:
-        raise SourceCustodyError("query-helper source custody changed; restart the process") from error
+        raise SourceCustodyError(
+            "query-helper source custody changed; restart the process"
+        ) from error
     _check_loaded(captured)
     _check_files(captured)
     return captured

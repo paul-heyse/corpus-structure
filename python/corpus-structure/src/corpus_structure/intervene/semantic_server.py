@@ -64,6 +64,7 @@ def build_retained_reader_server(
     @contextmanager
     def reader_snapshot(ctx: Context) -> Generator[Connection]:
         from corpus_structure.semantic.read_snapshot import read_snapshot
+
         with read_snapshot(engines.engine("read")) as connection:
             yield connection
 
@@ -73,6 +74,7 @@ def build_retained_reader_server(
     @contextmanager
     def selected_source_snapshot(ctx: Context, project_id: str) -> Generator[Connection]:
         from corpus_structure.semantic.demand_results import selected_read_snapshot
+
         if project_id != reader_project(ctx):
             raise ProposalRefused("selected source belongs to another reader project")
         with selected_read_snapshot(engines.engine("read")) as connection:

@@ -80,7 +80,11 @@ def test_retained_reader_tools_share_one_engine_and_take_separate_snapshots(monk
 
     monkeypatch.setattr(runtime, "open_runtime_engine", opened)
     monkeypatch.setattr(read_snapshot, "read_snapshot", snapshot)
-    monkeypatch.setattr(releases, "open_release", lambda connection, identity: SimpleNamespace(release_id=identity, artifacts=()))
+    monkeypatch.setattr(
+        releases,
+        "open_release",
+        lambda connection, identity: SimpleNamespace(release_id=identity, artifacts=()),
+    )
     monkeypatch.setattr(operation_reporting, "compare_semantic_releases", lambda *args: Report())
     server = build_retained_reader_server(settings=Settings())
 
@@ -88,9 +92,17 @@ def test_retained_reader_tools_share_one_engine_and_take_separate_snapshots(monk
         async with Client(server) as client:
             assert events == []
             for _ in range(2):
-                reply = await client.call_tool("compare_semantic_releases", {"before": "release:A", "after": "release:B"})
+                reply = await client.call_tool(
+                    "compare_semantic_releases", {"before": "release:A", "after": "release:B"}
+                )
                 assert reply.structured_content == {"compared": True}
-            assert events == ["engine-open", "snapshot-open", "snapshot-close", "snapshot-open", "snapshot-close"]
+            assert events == [
+                "engine-open",
+                "snapshot-open",
+                "snapshot-close",
+                "snapshot-open",
+                "snapshot-close",
+            ]
         assert events[-1] == "engine-close"
 
     anyio.run(exercise)

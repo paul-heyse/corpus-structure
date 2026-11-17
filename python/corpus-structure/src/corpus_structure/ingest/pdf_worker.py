@@ -207,7 +207,11 @@ class PdfWorker:
         parent, child = context.Pipe(duplex=True)
         process = context.Process(
             target=self._child_target,
-            args=(child, self.recipe, self.assets.with_custody() if self.assets is not None else None),
+            args=(
+                child,
+                self.recipe,
+                self.assets.with_custody() if self.assets is not None else None,
+            ),
             name="native-pdf",
             daemon=True,
         )

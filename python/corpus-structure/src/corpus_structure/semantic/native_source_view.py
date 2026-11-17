@@ -149,7 +149,12 @@ class NativeSourceView:
 
     @cached_property
     def context_items_by_ref(self) -> Mapping[str, Mapping[str, Any]]:
-        return MappingProxyType({item.get("self_ref", item.get("pointer")): item for item in (*self.items, *self.ancestors)})
+        return MappingProxyType(
+            {
+                item.get("self_ref", item.get("pointer")): item
+                for item in (*self.items, *self.ancestors)
+            }
+        )
 
     @cached_property
     def piece_indices_by_item(self) -> Mapping[str, tuple[int, ...]]:
@@ -161,14 +166,25 @@ class NativeSourceView:
 
     @cached_property
     def pieces_by_item(self) -> Mapping[str, tuple[Mapping[str, Any], ...]]:
-        return MappingProxyType({
-            pointer: tuple(self.pieces[index] for index in indices if self.pieces[index]["kind"] == "native_text")
-            for pointer, indices in self.piece_indices_by_item.items()
-        })
+        return MappingProxyType(
+            {
+                pointer: tuple(
+                    self.pieces[index]
+                    for index in indices
+                    if self.pieces[index]["kind"] == "native_text"
+                )
+                for pointer, indices in self.piece_indices_by_item.items()
+            }
+        )
 
     @cached_property
     def item_piece_ends(self) -> Mapping[str, tuple[int, ...]]:
-        return MappingProxyType({pointer: tuple(piece["end"] for piece in pieces) for pointer, pieces in self.pieces_by_item.items()})
+        return MappingProxyType(
+            {
+                pointer: tuple(piece["end"] for piece in pieces)
+                for pointer, pieces in self.pieces_by_item.items()
+            }
+        )
 
     def containing_piece(self, pointer: str, start: int, end: int) -> Mapping[str, Any] | None:
         """Exact native-item containment, including zero-width construction anchors."""

@@ -1234,8 +1234,10 @@ def grade_complete_record_values(
                 "independent reference contains a record outside its declared family"
             )
         reference_stages[kind] = prepare_reference_alignment(
-            RecordSide(reference_frame, rows), reference_prepared,
-            model=reference_model, coordinate_texts=coordinates,
+            RecordSide(reference_frame, rows),
+            reference_prepared,
+            model=reference_model,
+            coordinate_texts=coordinates,
         )
         reference_rows[kind] = rows
     if predictions is not None and predictions["source_pin"] != question.source.model_dump(
@@ -1284,7 +1286,8 @@ def grade_complete_record_values(
                 "scored record requires its actual prediction carrier and producing episode"
             )
         correct = reference_stages["C"].whole_reading_correct(
-            row, prediction_prepared=prediction_prepared,
+            row,
+            prediction_prepared=prediction_prepared,
             prediction_model=prediction_model,
             prediction_frame=prediction_frame,
             prediction_coordinate_texts=predictions["coordinate_texts"],
@@ -1402,7 +1405,9 @@ def _selected_body(index, product, member=None):
     return row, decode_semantic_value(row["canonical_body" if member is None else "body"])
 
 
-def _check_source_coordinates(prepared, source_values, coordinates, anchors=(), *, source_cache=None):
+def _check_source_coordinates(
+    prepared, source_values, coordinates, anchors=(), *, source_cache=None
+):
     """Authenticate actual retained native coordinates, refusing missing recognition custody."""
     import re
 
@@ -1463,10 +1468,17 @@ def _check_source_coordinates(prepared, source_values, coordinates, anchors=(), 
             r"(#/tables/(?:0|[1-9][0-9]*))/data/table_cells/(0|[1-9][0-9]*)", anchor["pointer"]
         )
         pointer, cell_index = (cell[1], int(cell[2])) if cell else (anchor["pointer"], None)
-        piece = None if view is None else view.containing_piece(pointer, anchor["start"], anchor["end"])
-        if piece is None or not anchor["start"] < anchor["end"] or not (
-            piece.get("source_field") == "cell_text" and piece.get("cell_index") == cell_index
-            if cell_index is not None else piece.get("source_field") in {"text", "orig"}
+        piece = (
+            None if view is None else view.containing_piece(pointer, anchor["start"], anchor["end"])
+        )
+        if (
+            piece is None
+            or not anchor["start"] < anchor["end"]
+            or not (
+                piece.get("source_field") == "cell_text" and piece.get("cell_index") == cell_index
+                if cell_index is not None
+                else piece.get("source_field") in {"text", "orig"}
+            )
         ):
             raise SemanticRefusal(
                 "selected projection grading extent crosses synthetic or another source item"
@@ -1537,7 +1549,9 @@ def _authenticate_question_sources(connection, prepared, questions, *, source_ca
     for question, pins in zip(questions, question_pins, strict=True):
         values = tuple(by_pin[canonical_bytes(pin)] for pin in pins)
         _check_source_coordinates(
-            prepared, values, _canonical_json_value(question.coordinate_texts_canonical_json),
+            prepared,
+            values,
+            _canonical_json_value(question.coordinate_texts_canonical_json),
             source_cache=source_cache,
         )
         result.append(values)
@@ -1982,10 +1996,13 @@ class RecordPolicyGradePlan:
                     episode = index.mapping("ops.data_derivation", ("id",)).get(
                         selection.derivation_id
                     )
-                    outputs = tuple(index.rows_for(
-                        "ops.data_derivation_output", derivation_id=selection.derivation_id,
-                        product_id=selection.product_id,
-                    ))
+                    outputs = tuple(
+                        index.rows_for(
+                            "ops.data_derivation_output",
+                            derivation_id=selection.derivation_id,
+                            product_id=selection.product_id,
+                        )
+                    )
                     if (
                         episode is None
                         or not outputs

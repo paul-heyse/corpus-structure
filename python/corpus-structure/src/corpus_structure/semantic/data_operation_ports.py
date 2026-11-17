@@ -190,7 +190,9 @@ def _hydrated_container(annotation):
     return None
 
 
-def _validated_hydrated_collection(annotation, population, container, *, collection, role, adapters=None):
+def _validated_hydrated_collection(
+    annotation, population, container, *, collection, role, adapters=None
+):
     """Assemble one finite population, preserving its admitted order and count."""
     if container is None or type(population) is not tuple:
         raise PortRefusal("native collection lacks an acquired finite container: " + role)
@@ -468,7 +470,11 @@ class PortAdapters:
                 elif get_args(annotation):
                     item_type = get_args(annotation)[0]
                     self._stream_sequences[id(annotation)] = TypeAdapter(tuple[item_type, ...])
-                for item in get_args(annotation) if get_origin(annotation) in (Generator, Iterator, tuple, list, dict) else ():
+                for item in (
+                    get_args(annotation)
+                    if get_origin(annotation) in (Generator, Iterator, tuple, list, dict)
+                    else ()
+                ):
                     if item not in (Ellipsis, None, type(None)) and item is not Any:
                         self.get(item)
 
@@ -509,7 +515,9 @@ class ResolvedPythonPort:
     def __post_init__(self):
         signature = self.logical_signature or self.signature
         if self._adapters is None:
-            object.__setattr__(self, "_adapters", PortAdapters(self.signature, self.logical_signature))
+            object.__setattr__(
+                self, "_adapters", PortAdapters(self.signature, self.logical_signature)
+            )
         containers = {}
         for role in self.operation.roles:
             if role.direction != "input" or role.collection == "scalar" or role.parameter is None:
@@ -737,7 +745,9 @@ class ResolvedPythonPort:
                         if not isinstance(raw, dict) or set(raw) - fields:
                             raise PortRefusal("dataclass JSON ingress contains undeclared fields")
                         checked = _validated_python_input(
-                            annotation, adapter.validate_json(value.content, strict=True), adapters=self.adapters
+                            annotation,
+                            adapter.validate_json(value.content, strict=True),
+                            adapters=self.adapters,
                         )
                     else:
                         checked = adapter.validate_json(value.content, strict=True)
@@ -753,7 +763,9 @@ class ResolvedPythonPort:
                             adapters=self.adapters,
                         )
                     else:
-                        checked = _validated_python_input(annotation, value.value, adapters=self.adapters)
+                        checked = _validated_python_input(
+                            annotation, value.value, adapters=self.adapters
+                        )
             elif parameter.default is not inspect.Parameter.empty:
                 checked = self.adapters.get(annotation).validate_python(
                     _untrusted_value(parameter.default), strict=True
@@ -949,7 +961,9 @@ def _validated_python_input(annotation: Any, value: Any, *, adapters=None) -> An
         annotations = adapters.dataclass_annotations(annotation)
         for field in fields:
             checked = _validated_python_input(
-                annotations[field.name], object.__getattribute__(value, field.name), adapters=adapters
+                annotations[field.name],
+                object.__getattribute__(value, field.name),
+                adapters=adapters,
             )
             object.__setattr__(result, field.name, copy.deepcopy(checked))
         return result
@@ -1247,7 +1261,9 @@ def resolve_python_port(
     if tuple(signature.parameters) != expected_parameters:
         raise PortRefusal("runtime callable signature differs from compiled declaration")
 
-    runtime, adapters = _authenticate_runtime_sources(model, selected, sources, modules, paths, (signature, logical_signature))
+    runtime, adapters = _authenticate_runtime_sources(
+        model, selected, sources, modules, paths, (signature, logical_signature)
+    )
 
     def verify_runtime() -> None:
         try:
@@ -1345,42 +1361,66 @@ def _stream_annotation_references():
 
 
 def _authenticate_runtime_sources(model, operation, sources, modules, paths, signatures):
-    implementation = next(s for s in model.implementation_slices if s.root == operation.implementation_root)
-    expected = {n.id.removeprefix("python:") for n in implementation.nodes if n.id.startswith("python:")}
+    implementation = next(
+        s for s in model.implementation_slices if s.root == operation.implementation_root
+    )
+    expected = {
+        n.id.removeprefix("python:") for n in implementation.nodes if n.id.startswith("python:")
+    }
     references: dict[str, object] = {}
     if operation.capabilities.forms == ("stream",):
         references.update(_stream_annotation_references())
     if "unpack-typeddict-runtime" in sources.generated_interfaces:
-        references.update({"typing." + name: getattr(typing, name) for name in ("TypedDict", "Unpack", "NotRequired", "Required")})
+        references.update(
+            {
+                "typing." + name: getattr(typing, name)
+                for name in ("TypedDict", "Unpack", "NotRequired", "Required")
+            }
+        )
     if "dataclasses-runtime" in sources.generated_interfaces:
-        references.update({"dataclasses.dataclass": dataclasses.dataclass, "dataclasses.field": dataclasses.field})
-    _verify_closed_runtime_sources(sources, modules, paths, expected, standard_references=references)
+        references.update(
+            {"dataclasses.dataclass": dataclasses.dataclass, "dataclasses.field": dataclasses.field}
+        )
+    _verify_closed_runtime_sources(
+        sources, modules, paths, expected, standard_references=references
+    )
     # Authenticate mutable generated fields before asking Pydantic to prepare
     # their schemas, then retain the prepared class state for subsequent calls.
     adapters = PortAdapters(*signatures)
-    return _authenticated_closed_slice(sources, modules, paths, expected, standard_references=references), adapters
+    return _authenticated_closed_slice(
+        sources, modules, paths, expected, standard_references=references
+    ), adapters
 
 
-def _authenticated_closed_slice(sources, modules, paths, expected_nodes, *, standard_references=None):
+def _authenticated_closed_slice(
+    sources, modules, paths, expected_nodes, *, standard_references=None
+):
     from .file_custody import verified_file
     from .runtime_slice import AuthenticatedSlice
 
-    globals = _verify_consumed_globals(sources, modules, expected_nodes, standard_references=standard_references)
+    globals = _verify_consumed_globals(
+        sources, modules, expected_nodes, standard_references=standard_references
+    )
     members = []
     for source in sources.sources:
         module = modules[source.module]
         tree = ast.parse(source.content)
         code = compile(source.content, str(paths[source.module]), "exec", dont_inherit=True)
-        for path, node, value, expected in _runtime_members(tree.body, module, code, source.module):
+        for path, _node, value, _expected in _runtime_members(tree.body, module, code, source.module):
             if path in expected_nodes:
                 components = path.removeprefix(source.module + ".").split(".")
+
                 def getter(module=module, components=components):
                     value = module
                     for component in components:
                         value = inspect.getattr_static(value, component)
                     return value
+
                 members.append(getter)
-    files = tuple(verified_file(paths[source.module], sha256(source.content).hexdigest()) for source in sources.sources)
+    files = tuple(
+        verified_file(paths[source.module], sha256(source.content).hexdigest())
+        for source in sources.sources
+    )
     return AuthenticatedSlice(files, modules, members, globals)
 
 

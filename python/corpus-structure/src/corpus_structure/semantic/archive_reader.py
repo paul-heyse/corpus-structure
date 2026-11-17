@@ -29,7 +29,12 @@ from .types import (
 
 # Engine lifetime bounds database authority; keys bind observed immutable archive headers
 # and the actual validation runtime. Mutable selection, authorization and facts never enter it.
-_OPEN_CACHE: WeakKeyDictionary[Any, OrderedDict[tuple, tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]]] = WeakKeyDictionary()
+_OPEN_CACHE: WeakKeyDictionary[
+    Any,
+    OrderedDict[
+        tuple, tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]
+    ],
+] = WeakKeyDictionary()
 _CACHE_LOCK = RLock()
 
 _PRIMITIVES: dict[str, Any] = {
@@ -339,9 +344,16 @@ def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artif
             or _archive_bytes(bundle, ResolvedDependencies(dependencies), prepared) != archive_bytes
         ):
             raise ReleaseConflict("archived products differ")
-        return bundle, ResolvedDependencies(
-            dependencies, supplied, tuple(json.loads(source["ontology_sources", "ontology_sources"]))
-        ), profile, prepared
+        return (
+            bundle,
+            ResolvedDependencies(
+                dependencies,
+                supplied,
+                tuple(json.loads(source["ontology_sources", "ontology_sources"])),
+            ),
+            profile,
+            prepared,
+        )
     except ReleaseConflict:
         raise
     except (

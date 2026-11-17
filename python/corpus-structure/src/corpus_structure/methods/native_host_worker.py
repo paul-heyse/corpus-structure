@@ -338,6 +338,7 @@ if __name__ == "__main__":
                 )
                 if provider in {"d1", "hanlp", "maverick", "dipo"}:
                     from corpus_structure.semantic.file_custody import verified_file
+
                     result["asset_custody"] = tuple(
                         verified_file(assets / group / name, identity["sha256"]).receipt()
                         for group, manifest in result["assets"].items()

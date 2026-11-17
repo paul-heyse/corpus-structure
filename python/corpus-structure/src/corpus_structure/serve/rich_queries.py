@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import unicodedata
 from contextlib import contextmanager
-from functools import lru_cache
+from functools import cache, lru_cache
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
@@ -58,7 +58,7 @@ def rich_query_implementation(query):
         yield identity
 
 
-@lru_cache(maxsize=None)
+@cache
 def _library_version(name):
     return version(name)
 
@@ -104,7 +104,9 @@ def installed_read_implementation(contract, *, sources, profile, extra_libraries
     """Name authenticated imported code; detect unsupported source/module drift."""
     from corpus_structure._query_custody import query_sources
 
-    identity, captured = _installed_read_basis(contract, tuple(sources), profile, tuple(extra_libraries))
+    identity, captured = _installed_read_basis(
+        contract, tuple(sources), profile, tuple(extra_libraries)
+    )
     with query_sources(captured):
         yield identity
 

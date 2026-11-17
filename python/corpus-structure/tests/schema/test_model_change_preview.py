@@ -88,11 +88,13 @@ def test_release_candidate_must_match_the_reviewed_release(model_checkout):
     with pytest.raises(model.ModelError, match="lacks complete preparation custody"):
         check_candidate_files(root, accepted)
     request = ChangeRequest()
-    reusable = accepted.model_copy(update={
-        "preparation_request": request,
-        "preparation_fingerprint": compilation_fingerprint(root, request),
-        "files": {},
-    })
+    reusable = accepted.model_copy(
+        update={
+            "preparation_request": request,
+            "preparation_fingerprint": compilation_fingerprint(root, request),
+            "files": {},
+        }
+    )
     check_candidate_files(root, reusable)
     helper = root / preparation.PACKAGE_PATH / "semantic/changed_preparation.py"
     helper.parent.mkdir(parents=True, exist_ok=True)
@@ -570,7 +572,12 @@ def test_compilation_fingerprint_keeps_captured_generated_source_bytes(model_che
 
     from corpus_structure.schema.model_change import compilation_fingerprint
     from corpus_structure.semantic import data_operation_preparation
-    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies, SourceArtifact, SourceBundle
+    from corpus_structure.semantic.types import (
+        PreparationProfile,
+        ResolvedDependencies,
+        SourceArtifact,
+        SourceBundle,
+    )
 
     root, _ = model_checkout
     relative = (preparation.PACKAGE_PATH / "core/vocab.py").as_posix()
@@ -585,8 +592,11 @@ def test_compilation_fingerprint_keeps_captured_generated_source_bytes(model_che
         content = proposed.get(relative, output.read_bytes())
         return SimpleNamespace(
             bundle=SourceBundle("captured", (SourceArtifact("captured", content),)),
-            dependencies=ResolvedDependencies(), profile=PreparationProfile(),
-            files=tuple((name, proposed.get(name, (root / name).read_bytes())) for name in selected),
+            dependencies=ResolvedDependencies(),
+            profile=PreparationProfile(),
+            files=tuple(
+                (name, proposed.get(name, (root / name).read_bytes())) for name in selected
+            ),
         )
 
     monkeypatch.setattr(data_operation_preparation, "acquire_data_operation_inputs", acquire)

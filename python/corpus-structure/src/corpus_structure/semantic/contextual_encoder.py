@@ -53,15 +53,19 @@ class ContextualEncoderSelection:
         for path in sorted(root.rglob("*")):
             if path.is_file():
                 from .file_custody import observed_file
+
                 artifacts.append((path.relative_to(root).as_posix(), observed_file(path).digest))
         if not artifacts or not {"config.json", "modules.json"} <= {name for name, _ in artifacts}:
             raise ValueError("contextual encoder snapshot lacks actual model/module configuration")
         return cls(profile, root, tuple(artifacts))
 
-
     def asset_custody(self):
         from .file_custody import verified_file
-        return tuple(verified_file(self.model_path / name, digest).receipt() for name, digest in self.artifacts)
+
+        return tuple(
+            verified_file(self.model_path / name, digest).receipt()
+            for name, digest in self.artifacts
+        )
 
 
 def contextual_encoder_assets(selection):

@@ -322,8 +322,13 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
     graph = builder.graph()
     policy = prepared_rich_rule_policy(prepared)
     index = index_rich_assembly(
-        prepared, model, context=inputs.context, graph=graph, inputs=builder.references,
-        whole_inputs=builder.wholes, retained_states=tuple(builder.retained_states),
+        prepared,
+        model,
+        context=inputs.context,
+        graph=graph,
+        inputs=builder.references,
+        whole_inputs=builder.wholes,
+        retained_states=tuple(builder.retained_states),
     )
     scientific = assess_rich_scientific(
         prepared,
@@ -389,8 +394,13 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
         )
     graph = builder.graph()
     index = index_rich_assembly(
-        prepared, model, context=inputs.context, graph=graph, inputs=builder.references,
-        whole_inputs=builder.wholes, retained_states=tuple(builder.retained_states),
+        prepared,
+        model,
+        context=inputs.context,
+        graph=graph,
+        inputs=builder.references,
+        whole_inputs=builder.wholes,
+        retained_states=tuple(builder.retained_states),
     )
     with RichRelationKernel(
         property_ids=frozenset(

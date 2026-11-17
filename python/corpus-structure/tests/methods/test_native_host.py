@@ -1,9 +1,9 @@
 """Pure controls for the unselected host checkpoint; no model/provider/GPU launches."""
 
 import json
-from hashlib import sha256
 from concurrent.futures import Future
 from contextlib import contextmanager
+from hashlib import sha256
 from pathlib import Path
 from threading import BoundedSemaphore, Lock
 from typing import Any
@@ -144,7 +144,9 @@ def test_profile_nested_aliases_and_returned_declarations_cannot_change_identity
     path = tmp_path / "checkpoint" / "weights"
     path.parent.mkdir()
     path.write_bytes(b"original")
-    artifacts = {"checkpoint": {"files": {"weights": {"sha256": sha256(b"original").hexdigest(), "size": 8}}}}
+    artifacts = {
+        "checkpoint": {"files": {"weights": {"sha256": sha256(b"original").hexdigest(), "size": 8}}}
+    }
     parameters = {"decoder": {"thresholds": [0.5]}}
     selected = selection(runtime_identity=runtime, artifacts=artifacts, parameters=parameters)
     selected = NativeSelection(selected.native, tmp_path)
@@ -160,7 +162,10 @@ def test_profile_nested_aliases_and_returned_declarations_cannot_change_identity
     assert selected.profile == content and selected.identity == identity
     assert selected.declaration() == declaration
     assert json.loads(selected.runtime) == {"versions": [{"torch": "selected"}]}
-    assert json.loads(selected.artifacts)["checkpoint"]["files"]["weights"]["sha256"] == sha256(b"original").hexdigest()
+    assert (
+        json.loads(selected.artifacts)["checkpoint"]["files"]["weights"]["sha256"]
+        == sha256(b"original").hexdigest()
+    )
 
 
 def test_partial_constructor_remains_owned_when_cleanup_is_unproven(monkeypatch):
@@ -243,6 +248,7 @@ def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(
     digest = sha256(b"selected model").hexdigest()
     artifacts = {"checkpoint": {"files": {"weights": {"sha256": digest}}}}
     from corpus_structure.semantic.file_custody import verified_file
+
     custody = (verified_file(weights, digest).receipt(),)
 
     def loader(assets, device):
@@ -284,7 +290,9 @@ def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(
     assert infer({"ordered": [2, 1]}) == {"native": {"ordered": [2, 1]}}
     profile["runtime_identity"] = {"lock": "foreign"}
     with pytest.raises(ValueError, match="runtime differs"):
-        native_host_adapters.load({"profile": profile, "assets": str(tmp_path), "asset_custody": custody}, object())
+        native_host_adapters.load(
+            {"profile": profile, "assets": str(tmp_path), "asset_custody": custody}, object()
+        )
     assert len(calls) == 1
 
 

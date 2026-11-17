@@ -697,9 +697,7 @@ def _validate(args: tuple[str, ...]) -> bool:
         elif arg.startswith("--maxfail="):
             if not arg.partition("=")[2].isdecimal():
                 return True
-        elif arg in {
-            "-q", "-qq", "-v", "-vv", "--quiet", "--verbose"
-        }:
+        elif arg in {"-q", "-qq", "-v", "-vv", "--quiet", "--verbose"}:
             continue
         else:
             return True
@@ -1671,11 +1669,19 @@ def retry(
                     selection = result.directory / f"{current}-selection.txt"
                     flags = ["--receipt-dir", str(path), *_manifest_paths([path])]
                     report = _supervisor(
-                        "classify", "--summary", *flags,
-                        "--write-unresolved", str(selection), "--if-retryable",
-                        "--selection-lane", current, "--managed-selection",
-                        "--expected-evidence-selection", manifest.scope.get("evidence_selection", "ordinary"),
-                        "--expected-native-host", manifest.scope.get("native_host", "shared"),
+                        "classify",
+                        "--summary",
+                        *flags,
+                        "--write-unresolved",
+                        str(selection),
+                        "--if-retryable",
+                        "--selection-lane",
+                        current,
+                        "--managed-selection",
+                        "--expected-evidence-selection",
+                        manifest.scope.get("evidence_selection", "ordinary"),
+                        "--expected-native-host",
+                        manifest.scope.get("native_host", "shared"),
                         opened={path: fd},
                     )
                     if report["custody_unsettled"]:

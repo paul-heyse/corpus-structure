@@ -5,9 +5,9 @@ from __future__ import annotations
 import copyreg
 import dataclasses
 import inspect
-from functools import cached_property
 import sys
 from collections.abc import Callable
+from functools import cached_property
 from types import FunctionType, ModuleType
 from typing import Any, cast
 
@@ -82,17 +82,28 @@ class AuthenticatedSlice:
                 return
             seen.add(id(value))
             for name in (
-                "__code__", "__globals__", "__builtins__", "__defaults__", "__kwdefaults__",
-                "__annotations__", "__dict__", "__name__", "__qualname__", "__module__",
+                "__code__",
+                "__globals__",
+                "__builtins__",
+                "__defaults__",
+                "__kwdefaults__",
+                "__annotations__",
+                "__dict__",
+                "__name__",
+                "__qualname__",
+                "__module__",
             ):
                 if name in {"__globals__", "__builtins__"}:
-                    getter = lambda value=value, name=name: _Identity(getattr(value, name))
+                    def getter(value=value, name=name):
+                        return _Identity(getattr(value, name))
                     self._checks.append((getter, getter()))
                 else:
                     remember(lambda value=value, name=name: getattr(value, name))
             from .data_operation_ports import _code_globals
+
             for name in _code_globals(value.__code__):
-                getter = lambda value=value, name=name: value.__globals__.get(name, value.__builtins__.get(name))
+                def getter(value=value, name=name):
+                    return value.__globals__.get(name, value.__builtins__.get(name))
                 self._checks.append((getter, _state(getter())))
             cells = tuple(value.__closure__ or ())
             self._checks.append((lambda value=value: tuple(value.__closure__ or ()), _state(cells)))
@@ -110,9 +121,11 @@ class AuthenticatedSlice:
                 # deepcopy/pickle lazily cache this standard class fact. Prepare
                 # it before fixing the class dictionary, then protect the cache
                 # together with the already authenticated generated behavior.
-                slotnames = cast(Callable[[type], list[str]], getattr(copyreg, "_slotnames"))
+                slotnames = cast(Callable[[type], list[str]], copyreg._slotnames)
                 slotnames(value)
-            self._checks.append((lambda value=value: tuple(vars(value)), _state(tuple(vars(value)))))
+            self._checks.append(
+                (lambda value=value: tuple(vars(value)), _state(tuple(vars(value))))
+            )
             for name in ("__name__", "__qualname__", "__module__"):
                 remember(lambda value=value, name=name: getattr(value, name))
             remember(lambda value=value: value.__bases__)
@@ -131,7 +144,9 @@ class AuthenticatedSlice:
         for getter in members:
             remember(getter)
         for module, name, fallback in globals:
-            remember(lambda module=module, name=name, fallback=fallback: vars(module).get(name, fallback))
+            remember(
+                lambda module=module, name=name, fallback=fallback: vars(module).get(name, fallback)
+            )
 
     def check(self):
         for record in self.files:

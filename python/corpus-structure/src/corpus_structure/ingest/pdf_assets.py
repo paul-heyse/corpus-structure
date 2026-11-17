@@ -29,9 +29,13 @@ class PreparedPdfAssets:
 
     def verify(self) -> None:
         from corpus_structure.semantic.file_custody import accept_file_receipt, verified_file
+
         receipts = {receipt[0]: receipt for receipt in self.custody}
         expected_population = {(str(self.root / name), digest) for name, digest in self.files}
-        if self.custody and (len(self.custody) != len(expected_population) or {(receipt[0], receipt[1]) for receipt in self.custody} != expected_population):
+        if self.custody and (
+            len(self.custody) != len(expected_population)
+            or {(receipt[0], receipt[1]) for receipt in self.custody} != expected_population
+        ):
             raise ValueError("PDF asset custody differs from prepared file population")
         for name, expected in self.files:
             path = self.root / name
@@ -41,8 +45,14 @@ class PreparedPdfAssets:
 
     def with_custody(self):
         from corpus_structure.semantic.file_custody import verified_file
+
         self.verify()
-        return replace(self, custody=tuple(verified_file(self.root / name, digest).receipt() for name, digest in self.files))
+        return replace(
+            self,
+            custody=tuple(
+                verified_file(self.root / name, digest).receipt() for name, digest in self.files
+            ),
+        )
 
 
 def _hash(path: Path) -> str:

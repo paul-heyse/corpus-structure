@@ -60,6 +60,7 @@ def _verify_assets(root: Path, provider: str) -> ArtifactTable:
             if snapshot is not None and (snapshot / name).resolve() != path.resolve():
                 raise ValueError(f"offline backbone file differs for {group}/{name}")
             from corpus_structure.semantic.file_custody import verified_file
+
             verified_file(path, identity["sha256"])
         selected[group] = manifest
     return selected

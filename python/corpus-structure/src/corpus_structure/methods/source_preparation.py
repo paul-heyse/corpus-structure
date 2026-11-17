@@ -839,7 +839,9 @@ def _formula_windows(
     )
     from corpus_structure.semantic.positioned_rows import PositionedRows
 
-    block_index = PositionedRows.build(enumerate(blocks), lambda row: (row[1].block_start, row[1].block_end))
+    block_index = PositionedRows.build(
+        enumerate(blocks), lambda row: (row[1].block_start, row[1].block_end)
+    )
     output = list(selections)
     variants = {}
     for original_index, selection in enumerate(selections):
@@ -868,7 +870,9 @@ def _formula_windows(
             if piece.source_key != frame.source_key:
                 external.append(piece)
                 continue
-            owners = tuple(block for _index, block in block_index.containing(piece.start, piece.end))
+            owners = tuple(
+                block for _index, block in block_index.containing(piece.start, piece.end)
+            )
             if not owners:
                 unclosed = True
                 break

@@ -431,7 +431,9 @@ class PreparedReferenceAlignment:
     frame: Mapping[str, Any]
     contexts: tuple[Mapping[str, Any], ...]
     records: Mapping[str, Mapping[str, Any]]
-    _target_contracts: dict[int, tuple[PreparedRelease, dict[str, Any]]] = field(default_factory=dict, repr=False, compare=False)
+    _target_contracts: dict[int, tuple[PreparedRelease, dict[str, Any]]] = field(
+        default_factory=dict, repr=False, compare=False
+    )
 
     def target_contract(self, target):
         if target is self.prepared:
@@ -445,46 +447,83 @@ class PreparedReferenceAlignment:
     def contract(self):
         return reference_contract(self.prepared)
 
-    def align(self, prediction: RecordSide, *, prediction_model, prediction_prepared=None,
-              prediction_coordinate_texts=None, correspondence=None):
+    def align(
+        self,
+        prediction: RecordSide,
+        *,
+        prediction_model,
+        prediction_prepared=None,
+        prediction_coordinate_texts=None,
+        correspondence=None,
+    ):
         return _align_prepared_records(
-            self, prediction, prediction_model=prediction_model,
+            self,
+            prediction,
+            prediction_model=prediction_model,
             prediction_prepared=prediction_prepared,
-            prediction_coordinate_texts=prediction_coordinate_texts, correspondence=correspondence,
+            prediction_coordinate_texts=prediction_coordinate_texts,
+            correspondence=correspondence,
         )
 
-    def whole_reading_correct(self, candidate, *, prediction_model, prediction_prepared=None,
-                              prediction_frame=None, prediction_coordinate_texts=None, correspondence=None):
+    def whole_reading_correct(
+        self,
+        candidate,
+        *,
+        prediction_model,
+        prediction_prepared=None,
+        prediction_frame=None,
+        prediction_coordinate_texts=None,
+        correspondence=None,
+    ):
         frame = prediction_frame or self.reference.frame
         options = dict(
-            prediction_model=prediction_model, prediction_prepared=prediction_prepared,
-            prediction_coordinate_texts=prediction_coordinate_texts, correspondence=correspondence,
+            prediction_model=prediction_model,
+            prediction_prepared=prediction_prepared,
+            prediction_coordinate_texts=prediction_coordinate_texts,
+            correspondence=correspondence,
         )
         # Invalid candidates refuse, even if accepted-standing requirements would fail.
         self.align(RecordSide(frame, (candidate,)), **options)
         try:
-            aligned = self.align(RecordSide(frame, (dict(candidate, standing="accepted"),)), **options)
+            aligned = self.align(
+                RecordSide(frame, (dict(candidate, standing="accepted"),)), **options
+            )
         except ValueError:
             return False
         if correspondence is not None:
-            return any(value["prediction_record_id"] == candidate["record_id"] and "full" in value["tiers"]
-                       for value in aligned.match_bindings)
+            return any(
+                value["prediction_record_id"] == candidate["record_id"] and "full" in value["tiers"]
+                for value in aligned.match_bindings
+            )
         return candidate["record_id"] in aligned.matches["full"]
 
 
-def prepare_reference_alignment(reference: RecordSide, prepared: PreparedRelease, *,
-                                model: EffectiveDataOperationModel,
-                                coordinate_texts: Sequence[Mapping[str, Any]] = ()) -> PreparedReferenceAlignment:
+def prepare_reference_alignment(
+    reference: RecordSide,
+    prepared: PreparedRelease,
+    *,
+    model: EffectiveDataOperationModel,
+    coordinate_texts: Sequence[Mapping[str, Any]] = (),
+) -> PreparedReferenceAlignment:
     contracts = _contracts(prepared)
     frame = _frame(prepared, reference.frame)
-    contexts = tuple(prepared.validate_python("RecordCoordinateText", raw).model_dump(mode="python")
-                     for raw in coordinate_texts)
+    contexts = tuple(
+        prepared.validate_python("RecordCoordinateText", raw).model_dump(mode="python")
+        for raw in coordinate_texts
+    )
     pins = {canonical_bytes(value) for value in (frame["pin"], *frame["related_pins"])}
     if any(canonical_bytes(context["pin"]) not in pins for context in contexts):
         raise ValueError("coordinate text has a stale or mismatched source pin")
     records, _ = _records(prepared, model, reference, frame, contexts, contracts, reference=True)
-    return PreparedReferenceAlignment(reference, prepared, model, MappingProxyType(contracts),
-                                      MappingProxyType(frame), contexts, MappingProxyType(records))
+    return PreparedReferenceAlignment(
+        reference,
+        prepared,
+        model,
+        MappingProxyType(contracts),
+        MappingProxyType(frame),
+        contexts,
+        MappingProxyType(records),
+    )
 
 
 def align_records(
@@ -514,18 +553,27 @@ def align_records(
     """
     if comparison_policy != COMPARISON_POLICY:
         raise ValueError("unsupported record comparison policy version")
-    reference_stage = prepare_reference_alignment(reference, prepared, model=model, coordinate_texts=coordinate_texts)
+    reference_stage = prepare_reference_alignment(
+        reference, prepared, model=model, coordinate_texts=coordinate_texts
+    )
     return reference_stage.align(
-        prediction, prediction_model=prediction_model, prediction_prepared=prediction_prepared,
-        prediction_coordinate_texts=prediction_coordinate_texts, correspondence=correspondence,
+        prediction,
+        prediction_model=prediction_model,
+        prediction_prepared=prediction_prepared,
+        prediction_coordinate_texts=prediction_coordinate_texts,
+        correspondence=correspondence,
     )
 
 
-def _align_prepared_records(reference_stage: PreparedReferenceAlignment, prediction: RecordSide, *,
-                            prediction_model: EffectiveDataOperationModel,
-                            prediction_prepared: PreparedRelease | None = None,
-                            prediction_coordinate_texts: Sequence[Mapping[str, Any]] | None = None,
-                            correspondence: Sequence[Mapping[str, Any]] | None = None) -> RecordAlignment:
+def _align_prepared_records(
+    reference_stage: PreparedReferenceAlignment,
+    prediction: RecordSide,
+    *,
+    prediction_model: EffectiveDataOperationModel,
+    prediction_prepared: PreparedRelease | None = None,
+    prediction_coordinate_texts: Sequence[Mapping[str, Any]] | None = None,
+    correspondence: Sequence[Mapping[str, Any]] | None = None,
+) -> RecordAlignment:
     reference, prepared = reference_stage.reference, reference_stage.prepared
     target = prediction_prepared or prepared
     contracts = reference_stage.contracts
@@ -717,12 +765,17 @@ def whole_reading_correct(
     does not enter a producer result, public projection or admission decision.
     """
     reference_stage = prepare_reference_alignment(
-        RecordSide(frame, reference_records), reference_prepared or prepared,
-        model=reference_model, coordinate_texts=coordinate_texts,
+        RecordSide(frame, reference_records),
+        reference_prepared or prepared,
+        model=reference_model,
+        coordinate_texts=coordinate_texts,
     )
     return reference_stage.whole_reading_correct(
-        candidate, prediction_model=prediction_model, prediction_prepared=prepared,
-        prediction_frame=prediction_frame, prediction_coordinate_texts=prediction_coordinate_texts,
+        candidate,
+        prediction_model=prediction_model,
+        prediction_prepared=prepared,
+        prediction_frame=prediction_frame,
+        prediction_coordinate_texts=prediction_coordinate_texts,
         correspondence=correspondence,
     )
 

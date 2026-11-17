@@ -21,7 +21,6 @@ def build_server(
     read_engine=None,
 ) -> FastMCP:
     from .external_server import build_external_server
-
     from .runtime_engines import McpRuntimeEngines
 
     selected_settings = settings or Settings()

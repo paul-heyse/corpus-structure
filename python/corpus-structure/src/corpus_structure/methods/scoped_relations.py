@@ -210,7 +210,9 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
 
     frames_by_predicate = {}
     for frame in frames.values():
-        frames_by_predicate.setdefault((frame["annotation"], frame["block"], frame["predicate_token"]), []).append(frame)
+        frames_by_predicate.setdefault(
+            (frame["annotation"], frame["block"], frame["predicate_token"]), []
+        ).append(frame)
     readings_by_frame = {}
     qualifiers_by_frame = {}
     for row in contributions:
@@ -219,7 +221,11 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
             readings_by_frame.setdefault(component["frame"], []).append(component)
         elif component.get("kind") == "predicate_qualifier":
             qualifiers_by_frame.setdefault(component["host_contribution_id"], []).append(component)
-    passage_regions = PositionedRows.build(passages, lambda passage: (passage.start, passage.end)) if passages is not None else None
+    passage_regions = (
+        PositionedRows.build(passages, lambda passage: (passage.start, passage.end))
+        if passages is not None
+        else None
+    )
 
     def exact(member, local):
         if member.get("outcome") != "complete" or len(member["extents"]) != 1:
@@ -238,7 +244,12 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
             passage_regions
             if passage_regions is not None
             else PositionedRows.build(
-                (extent for member in frame["frame_members"] if member["role"] == "focus" for extent in member["extents"]),
+                (
+                    extent
+                    for member in frame["frame_members"]
+                    if member["role"] == "focus"
+                    for extent in member["extents"]
+                ),
                 lambda extent: (extent["start"], extent["end"]),
             )
         )
@@ -274,7 +285,9 @@ def retained_procedure_readings(contributions, passages) -> Iterable[ScalarProce
             if name is not None:
                 qualifiers[name].append(span)
             if relation["qualifier_kind"] == "order" and cue.get("subordinate_token") is not None:
-                subordinate = frames_by_predicate.get((frame["annotation"], frame["block"], cue["subordinate_token"]), ())
+                subordinate = frames_by_predicate.get(
+                    (frame["annotation"], frame["block"], cue["subordinate_token"]), ()
+                )
                 positions = tuple(
                     position
                     for other in subordinate

@@ -112,18 +112,23 @@ def stage_schemas() -> dict[str, pa.Schema]:
 @cache
 def _profile_definitions():
     import json
-    from importlib.resources import files
     from hashlib import sha256
+    from importlib.resources import files
     from pathlib import Path
 
     import yaml
+
     from .file_custody import FileCustody
 
     path = Path(str(files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml")))
     source = path.read_bytes()
     custody = FileCustody.acquire(path, sha256(source).hexdigest())
     annotations = yaml.safe_load(source)["annotations"]
-    return custody, json.loads(annotations["pds:artifact_profiles"]), json.loads(annotations["pds:companion_profile"])
+    return (
+        custody,
+        json.loads(annotations["pds:artifact_profiles"]),
+        json.loads(annotations["pds:companion_profile"]),
+    )
 
 
 def artifact_profile(kind: str) -> str:

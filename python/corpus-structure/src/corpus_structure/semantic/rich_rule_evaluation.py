@@ -28,7 +28,12 @@ from .identity import canonical_bytes
 from .math_context import AnalysisContextProfile, prepare_interpretation_context
 from .refusals import SemanticReason, SemanticRefusal, semantic_reason_identity
 from .rich_decisions import OccurrenceStatus, RuleOutcome, RuleSeverity
-from .rich_graph_validation import RichWholeInput, RichGraphState, checked_stage_index, read_rich_graph
+from .rich_graph_validation import (
+    RichGraphState,
+    RichWholeInput,
+    checked_stage_index,
+    read_rich_graph,
+)
 from .rich_knowledge_contracts import (
     DdoRichAlternative,
     DdoRichAssessment,
@@ -348,9 +353,18 @@ def evaluate_rich_rules(
     policy_digest = rich_eligibility_policy_digest(checked_policy, model)
     state = (
         read_rich_graph(
-            prepared, model, context=context, graph=graph, inputs=inputs,
-            whole_inputs=whole_inputs, retained_graphs=retained_graphs,
-        ) if _index is None else checked_stage_index(_index, prepared, model, context, graph, inputs, whole_inputs, retained_graphs)
+            prepared,
+            model,
+            context=context,
+            graph=graph,
+            inputs=inputs,
+            whole_inputs=whole_inputs,
+            retained_graphs=retained_graphs,
+        )
+        if _index is None
+        else checked_stage_index(
+            _index, prepared, model, context, graph, inputs, whole_inputs, retained_graphs
+        )
     )
     for retained in state.retained_admissions:
         if retained.eligibility_policy_digest != policy_digest:
@@ -509,12 +523,20 @@ def evaluate_rich_rules(
     occurrences_by_fact = defaultdict(list)
     for occurrence in predicate_occurrences.values():
         occurrences_by_fact[occurrence.fact_id].append(occurrence)
-    occurrence_ordinals = {identifier: ordinal for ordinal, identifier in enumerate(predicate_occurrences)}
+    occurrence_ordinals = {
+        identifier: ordinal for ordinal, identifier in enumerate(predicate_occurrences)
+    }
     alternative_occurrences = {
-        identifier: tuple(sorted(
-            (occurrence for fact_id in set(alternative.fact_ids) for occurrence in occurrences_by_fact.get(fact_id, ())),
-            key=lambda occurrence: occurrence_ordinals[occurrence.occurrence_id],
-        ))
+        identifier: tuple(
+            sorted(
+                (
+                    occurrence
+                    for fact_id in set(alternative.fact_ids)
+                    for occurrence in occurrences_by_fact.get(fact_id, ())
+                ),
+                key=lambda occurrence: occurrence_ordinals[occurrence.occurrence_id],
+            )
+        )
         for identifier, alternative in alternatives.items()
     }
     exclusive_symbols = defaultdict(set)

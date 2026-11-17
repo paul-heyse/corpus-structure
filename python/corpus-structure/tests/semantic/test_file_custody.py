@@ -1,8 +1,8 @@
 """Independent metadata, content and callable-premise controls."""
 
-from hashlib import sha256
 import os
 import sys
+from hashlib import sha256
 from types import ModuleType
 
 import pytest
@@ -24,8 +24,10 @@ def acquired(tmp_path, monkeypatch):
 def test_unchanged_file_uses_metadata_without_reading(acquired, monkeypatch):
     path, record = acquired
     assert not record.racily_clean
+
     def forbidden(*args, **kwargs):
         raise AssertionError("unchanged established file was rehashed")
+
     monkeypatch.setattr(type(path), "open", forbidden)
     record.check()
 
@@ -61,13 +63,15 @@ def test_atomic_replacement_is_confirmed_by_content(acquired):
 
 
 def test_racy_clean_rechecks_even_identical_stat(acquired, monkeypatch):
-    path, record = acquired
+    _path, record = acquired
     record.racily_clean = True
     original = file_custody.file_digest
     calls = []
+
     def observed(*args, **kwargs):
         calls.append(True)
         return original(*args, **kwargs)
+
     monkeypatch.setattr(file_custody, "file_digest", observed)
     record.check()
     assert calls == [True]
@@ -85,22 +89,26 @@ def test_worker_handoff_refuses_changed_metadata(acquired):
 def test_authenticated_runtime_refuses_changed_callable_premises(acquired, monkeypatch, mutation):
     _, record = acquired
     module = ModuleType("custody_test_fixture")
-    exec("TOKEN = 2\ndef original(value: int = 1) -> int:\n    return value + TOKEN\n", vars(module))
+    exec(
+        "TOKEN = 2\ndef original(value: int = 1) -> int:\n    return value + TOKEN\n", vars(module)
+    )
     monkeypatch.setitem(sys.modules, module.__name__, module)
     runtime = AuthenticatedSlice(
-        (record,), {module.__name__: module},
-        (lambda: getattr(module, "original"),), ((module, "TOKEN", None),),
+        (record,),
+        {module.__name__: module},
+        (lambda: module.original,),
+        ((module, "TOKEN", None),),
     )
     runtime.check()
     function = vars(module)["original"]
     if mutation == "function":
-        setattr(module, "original", lambda value=1: value)
+        module.original = lambda value=1: value
     elif mutation == "code":
         function.__code__ = (lambda value=1: value).__code__
     elif mutation == "default":
         function.__defaults__ = (3,)
     elif mutation == "global":
-        setattr(module, "TOKEN", 3)
+        module.TOKEN = 3
     else:
         function.__annotations__["return"] = str
     with pytest.raises(ValueError, match="restart"):
@@ -111,8 +119,10 @@ def test_child_adopts_parent_receipt_without_reading_established_bytes(acquired,
     path, record = acquired
     receipt = record.receipt()
     monkeypatch.setattr(file_custody, "_records", {})
+
     def forbidden(*args, **kwargs):
         raise AssertionError("child rehashed established parent file")
+
     monkeypatch.setattr(type(path), "open", forbidden)
     adopted = file_custody.accept_file_receipt(receipt, path=path, expected=record.digest)
     assert adopted.identity == record.identity
@@ -123,7 +133,9 @@ def test_child_receipt_cannot_authorize_a_different_file(acquired, monkeypatch):
     path, record = acquired
     monkeypatch.setattr(file_custody, "_records", {})
     with pytest.raises(FileCustodyError, match="manifest"):
-        file_custody.accept_file_receipt(record.receipt(), path=path.with_name("foreign"), expected=record.digest)
+        file_custody.accept_file_receipt(
+            record.receipt(), path=path.with_name("foreign"), expected=record.digest
+        )
     with pytest.raises(FileCustodyError, match="manifest"):
         file_custody.accept_file_receipt(record.receipt(), path=path, expected="0" * 64)
 
@@ -173,8 +185,10 @@ def test_pdf_model_handoff_reuses_parent_and_checks_after_load(acquired, monkeyp
     child = prepared.with_custody()
     monkeypatch.setattr(file_custody, "_records", {})
     original = type(path).open
+
     def forbidden(*args, **kwargs):
         raise AssertionError("child rehashed established model")
+
     monkeypatch.setattr(type(path), "open", forbidden)
     child.verify()
     monkeypatch.setattr(type(path), "open", original)

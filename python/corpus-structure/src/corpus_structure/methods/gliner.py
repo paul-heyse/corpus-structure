@@ -192,6 +192,7 @@ class GlinerProfile:
             if not path.is_file():
                 raise GlinerRefused(f"missing snapshot artifact: {name}")
             from corpus_structure.semantic.file_custody import verified_file
+
             try:
                 verified_file(path, expected)
             except ValueError as error:

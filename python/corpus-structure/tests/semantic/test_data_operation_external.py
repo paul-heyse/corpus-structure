@@ -117,7 +117,13 @@ def test_server_packet_cache_is_fence_bound_detached_and_byte_bounded(monkeypatc
     storage = Storage()
     session = ExternalDataSession(cast(Any, object()), "project:A", max_packet_bytes=200)
     monkeypatch.setattr(session, "_invoke", lambda action: action(storage))
-    claim = {"request_id": "request:A", "generation": 1, "task_id": 1, "attempt": 1, "holder": "owner"}
+    claim = {
+        "request_id": "request:A",
+        "generation": 1,
+        "task_id": 1,
+        "attempt": 1,
+        "holder": "owner",
+    }
     first = session.read("packet:A", claim)
     first["packet"]["project_id"] = "caller-modified"
     assert session._packet_for_submit("packet:A", claim)["packet"]["project_id"] == "project:A"

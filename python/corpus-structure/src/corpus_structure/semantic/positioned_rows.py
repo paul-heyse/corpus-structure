@@ -13,10 +13,12 @@ class PositionedRows[T]:
 
     @classmethod
     def build(cls, rows: Iterable[T], bounds: Callable[[T], tuple[int, int]]) -> PositionedRows[T]:
-        positioned = tuple(sorted(
-            ((*bounds(row), ordinal, row) for ordinal, row in enumerate(rows)),
-            key=lambda row: (row[0], row[2]),
-        ))
+        positioned = tuple(
+            sorted(
+                ((*bounds(row), ordinal, row) for ordinal, row in enumerate(rows)),
+                key=lambda row: (row[0], row[2]),
+            )
+        )
         maximum, ends = -1, []
         for _start, end, _ordinal, _row in positioned:
             maximum = max(maximum, end)

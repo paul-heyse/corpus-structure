@@ -248,10 +248,14 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     success(run("register", authored))
     from corpus_structure.semantic.inspection_capsule import open_capsule_inputs
 
-    assert store.read_artifact(staged["result_id"], "inspection") == store.read_artifact(authored, "inspection")
+    assert store.read_artifact(staged["result_id"], "inspection") == store.read_artifact(
+        authored, "inspection"
+    )
     prepared = open_capsule_inputs(
-        store.read_artifact(authored, "inspection"), digest=binding.inspection_sha256,
-        release_id=binding.release, manifest_digest=binding.release_manifest_sha256,
+        store.read_artifact(authored, "inspection"),
+        digest=binding.inspection_sha256,
+        release_id=binding.release,
+        manifest_digest=binding.release_manifest_sha256,
         artifacts_digest=binding.release_artifacts_sha256,
     )
     runtime = commands._read_runtime(store, authored, binding.runtime, prepared[3])

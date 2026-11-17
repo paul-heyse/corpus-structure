@@ -11,9 +11,12 @@ from .graph_runtime import nx
 
 def source_hierarchy_snapshot(prepared, model, cut, index):
     specification = model.projection_definition("source-hierarchy")
-    source_kinds = {kind.semantic_id for kind in model.kinds if kind.name == "DdoSelectedNativeSource"}
+    source_kinds = {
+        kind.semantic_id for kind in model.kinds if kind.name == "DdoSelectedNativeSource"
+    }
     contracts = {
-        identity.key for identity in model.identities
+        identity.key
+        for identity in model.identities
         if identity.domain == "kind" and identity.owner in source_kinds
     }
     nodes, edges, unknowns = {}, [], []
@@ -91,7 +94,7 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
                 )
             elif parent is not None:
                 unknowns.append(identity + ": parent outside captured source scope: " + parent)
-        for pointer, atom in atoms.items():
+        for pointer in atoms:
             for child in child_orders[pointer]:
                 if child not in atoms:
                     unknowns.append(

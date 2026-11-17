@@ -105,10 +105,21 @@ class PreparedOriginalCallPort:
         ):
             raise PortRefusal("prepared original call differs from its fixed typed signature")
         from .data_operation_prepared_products import authenticated_prepared_product
-        functions = ((self.identity.declaration, self.original), (self.plan_owner, self.physical_plan), *self.functions)
+
+        functions = (
+            (self.identity.declaration, self.original),
+            (self.plan_owner, self.physical_plan),
+            *self.functions,
+        )
         verify_prepared_product(
-            self.identity, self.model, self.operation, self.sources, self.custody,
-            assets=self.assets, functions=functions, authorize=self.authorize,
+            self.identity,
+            self.model,
+            self.operation,
+            self.sources,
+            self.custody,
+            assets=self.assets,
+            functions=functions,
+            authorize=self.authorize,
             required_sources=self.required_sources,
         )
         self._port = ResolvedPythonPort(
@@ -125,7 +136,21 @@ class PreparedOriginalCallPort:
             logical_batch_signature(signature) if batch else None,
         )
         self._verification = authenticated_prepared_product(self.sources, functions)
-        self._basis = tuple((name, getattr(self, name)) for name in ("identity", "model", "operation", "sources", "custody", "assets", "original", "physical_plan", "functions", "required_sources"))
+        self._basis = tuple(
+            (name, getattr(self, name))
+            for name in (
+                "identity",
+                "model",
+                "operation",
+                "sources",
+                "custody",
+                "assets",
+                "original",
+                "physical_plan",
+                "functions",
+                "required_sources",
+            )
+        )
         self._verify()
 
     @property

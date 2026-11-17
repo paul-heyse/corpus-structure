@@ -30,7 +30,9 @@ class ExactSelectedResult(BaseModel):
     resource: str | None = None
 
 
-def register_demand_read_tools(server, *, settings, read_engine=None, engine_provider=None, project=None, demand=None):
+def register_demand_read_tools(
+    server, *, settings, read_engine=None, engine_provider=None, project=None, demand=None
+):
     from corpus_structure.intervene.mcp_results import bounded_mcp_result
     from corpus_structure.semantic.refusals import tool_refusals
 

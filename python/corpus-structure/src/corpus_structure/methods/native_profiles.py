@@ -439,6 +439,7 @@ class NativeSelection:
 
     def declaration(self):
         from corpus_structure.semantic.file_custody import verified_file
+
         assets = self.assets.resolve()
         return dict(
             profile=self.native.wire,
@@ -456,7 +457,11 @@ def native_asset_files(profile, root):
     root = Path(root).absolute()
     provider, artifacts = profile["provider"], profile["artifacts"]
     if provider in {"d1", "hanlp", "maverick", "dipo"}:
-        return tuple((root / group / name, identity["sha256"]) for group, manifest in artifacts.items() for name, identity in manifest["files"].items())
+        return tuple(
+            (root / group / name, identity["sha256"])
+            for group, manifest in artifacts.items()
+            for name, identity in manifest["files"].items()
+        )
     if provider == "gliner":
         return tuple((root / name, digest) for name, digest in artifacts.items())
     if provider == "spacy":
@@ -520,9 +525,16 @@ def preflight_native_runtime(provider, assets):
         assets=assets,
     )
     from corpus_structure.semantic.file_custody import accept_file_receipt
-    expected = {(str(Path(assets).absolute() / group / name), identity["sha256"]) for group, manifest in result["assets"].items() for name, identity in manifest["files"].items()}
+
+    expected = {
+        (str(Path(assets).absolute() / group / name), identity["sha256"])
+        for group, manifest in result["assets"].items()
+        for name, identity in manifest["files"].items()
+    }
     receipts = result.get("asset_custody", ())
-    if {(receipt[0], receipt[1]) for receipt in receipts} != expected or len(receipts) != len(expected):
+    if {(receipt[0], receipt[1]) for receipt in receipts} != expected or len(receipts) != len(
+        expected
+    ):
         raise ValueError("preflight asset custody differs from authenticated manifest")
     for receipt in receipts:
         accept_file_receipt(receipt, path=Path(receipt[0]), expected=receipt[1])

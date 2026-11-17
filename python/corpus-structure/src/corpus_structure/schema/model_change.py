@@ -300,7 +300,10 @@ def generator_fingerprint(root: Path) -> str:
 
 
 def compilation_fingerprint(
-    root: Path, request: ChangeRequest, *, proposed: dict[str, bytes] | None = None,
+    root: Path,
+    request: ChangeRequest,
+    *,
+    proposed: dict[str, bytes] | None = None,
     native_base: NativeMigrationBase | None = None,
     deployment_base: NativeMigrationBase | None = None,
 ) -> str:
@@ -312,7 +315,10 @@ def compilation_fingerprint(
     """
     from corpus_structure.schema.generate import generated_output_paths
     from corpus_structure.semantic.determinants import (
-        ANALYSIS_LIBRARIES, BYTE_LIBRARIES, DEPLOYMENT_LIBRARIES, determinant_version,
+        ANALYSIS_LIBRARIES,
+        BYTE_LIBRARIES,
+        DEPLOYMENT_LIBRARIES,
+        determinant_version,
     )
     from corpus_structure.semantic.identity import canonical_bytes
 
@@ -320,18 +326,26 @@ def compilation_fingerprint(
     acquired = None
     acquired_files = ()
     if request.data_operations:
-        from corpus_structure.semantic.data_operation_preparation import acquire_data_operation_inputs
+        from corpus_structure.semantic.data_operation_preparation import (
+            acquire_data_operation_inputs,
+        )
 
         try:
             inputs = acquire_data_operation_inputs(root, request.data_operations, proposed=proposed)
         except ValueError as error:
-            raise model.ModelError([f"compilation inputs changed; prepare a fresh preview: {error}"]) from error
+            raise model.ModelError(
+                [f"compilation inputs changed; prepare a fresh preview: {error}"]
+            ) from error
         acquired = (inputs.bundle, inputs.dependencies, inputs.profile)
-        acquired_files = tuple((name, sha256(content).hexdigest()) for name, content in inputs.files)
+        acquired_files = tuple(
+            (name, sha256(content).hexdigest()) for name, content in inputs.files
+        )
     elif request.packs:
         from corpus_structure.semantic.regeneration import acquire_packs
 
-        if any(not name or name in {".", ".."} or Path(name).name != name for name in request.packs):
+        if any(
+            not name or name in {".", ".."} or Path(name).name != name for name in request.packs
+        ):
             raise model.ModelError(["select declared domain pack names"])
         acquired = acquire_packs(
             tuple(root / "domains" / name for name in request.packs), physical_sources=physical
@@ -355,7 +369,8 @@ def compilation_fingerprint(
         paths = {
             path.relative_to(directory).as_posix(): path
             for path in directory.rglob("*")
-            if path.is_file() and path.suffix in {".py", ".sql", ".yaml", ".json", ".lark", ".jinja", ".j2"}
+            if path.is_file()
+            and path.suffix in {".py", ".sql", ".yaml", ".json", ".lark", ".jinja", ".j2"}
             and "__pycache__" not in path.parts
         }
         if directory == selected_package and proposed:
@@ -375,21 +390,39 @@ def compilation_fingerprint(
             implementation.append((label, relative, sha256(content).hexdigest()))
     # These are production compiler, Python-source extraction, projection-analysis
     # and native authoring dependencies, rather than unrelated environment tools.
-    libraries = set(BYTE_LIBRARIES) | set(ANALYSIS_LIBRARIES) | set(DEPLOYMENT_LIBRARIES) | {
-        "ruff", "pyyaml", "networkx", "astroid", "griffe", "libcst", "ast-grep-py", "ty",
-    }
+    libraries = (
+        set(BYTE_LIBRARIES)
+        | set(ANALYSIS_LIBRARIES)
+        | set(DEPLOYMENT_LIBRARIES)
+        | {
+            "ruff",
+            "pyyaml",
+            "networkx",
+            "astroid",
+            "griffe",
+            "libcst",
+            "ast-grep-py",
+            "ty",
+        }
+    )
     facts = {
         "version": "model-compilation-inputs-v1",
         "request": request.model_dump(mode="json"),
         "native_base": native_base.model_dump(mode="json") if native_base is not None else None,
-        "deployment_base": deployment_base.model_dump(mode="json") if deployment_base is not None else None,
+        "deployment_base": deployment_base.model_dump(mode="json")
+        if deployment_base is not None
+        else None,
         "canonical": {
-            name: value if value is not None else _read(root, (preparation.MODEL_PATH / (name + ".yaml")).as_posix())
+            name: value
+            if value is not None
+            else _read(root, (preparation.MODEL_PATH / (name + ".yaml")).as_posix())
             for name, value in (("core", request.core), ("system", request.system))
         },
         "inputs": input_facts,
         "acquired_files": acquired_files,
-        "physical": sorted((name, sha256(value).hexdigest()) for name, value in (physical or {}).items()),
+        "physical": sorted(
+            (name, sha256(value).hexdigest()) for name, value in (physical or {}).items()
+        ),
         "implementation": implementation,
         "python": sys.version,
         "compilers": model.compilers(),

@@ -744,7 +744,8 @@ class NativeDemandExecutor:
             native["release_id"] == self.prepared.release_id
             and native["runtime_id"] == self.runtime.runtime_id
             and native["binding_obligation_id"] == ready.obligation
-            and canonical_bytes(native["binding"]) == canonical_bytes(wire_json_loads(ready.binding))
+            and canonical_bytes(native["binding"])
+            == canonical_bytes(wire_json_loads(ready.binding))
         ):
             # Native attachment has already validated this exact same-read
             # binding. Preserve its typed roles instead of rebuilding SQL/ASTs.
@@ -1235,7 +1236,11 @@ class NativeDemandExecutor:
             planner = DemandPlanner(self.model, DataOperationStorage(connection))
             ready = tuple(
                 item
-                for item in planner.ready(snapshot, authorization=authorization, excluded_requests=frozenset(self._failed_requests))
+                for item in planner.ready(
+                    snapshot,
+                    authorization=authorization,
+                    excluded_requests=frozenset(self._failed_requests),
+                )
                 if (
                     json.loads(item.native)["request_id"],
                     json.loads(item.native).get("generation"),

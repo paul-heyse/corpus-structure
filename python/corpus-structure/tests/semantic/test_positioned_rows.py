@@ -49,11 +49,19 @@ def test_navigation_fragments_keep_role_order_and_refuse_repeated_role_identity(
 
     from corpus_structure.semantic.constructions.navigation import NavigationRecord
 
-    occurrences = {"late": {"extents": [{"start": 4, "end": 7, "text": "two"}]},
-                   "early": {"extents": [{"start": 0, "end": 3, "text": "one"}]}}
-    record = NavigationRecord(None, {"roles": [{"role": "name", "occurrences": ["late", "early"]}]}, occurrences)
+    occurrences = {
+        "late": {"extents": [{"start": 4, "end": 7, "text": "two"}]},
+        "early": {"extents": [{"start": 0, "end": 3, "text": "one"}]},
+    }
+    record = NavigationRecord(
+        None, {"roles": [{"role": "name", "occurrences": ["late", "early"]}]}, occurrences
+    )
     assert record.text("name") == "twoone" and record.span("name") == (0, 7)
     assert record.fragments("absent") == ()
-    repeated = NavigationRecord(None, {"roles": [{"role": "name", "occurrences": []}, {"role": "name", "occurrences": []}]}, occurrences)
+    repeated = NavigationRecord(
+        None,
+        {"roles": [{"role": "name", "occurrences": []}, {"role": "name", "occurrences": []}]},
+        occurrences,
+    )
     with pytest.raises(ValueError, match="role identity repeats"):
         repeated.fragments("name")

@@ -568,7 +568,10 @@ def test_prepared_reference_reused_for_validation_and_accepted_standing(monkeypa
 
     monkeypatch.setattr(record_alignment, "_records", observed)
     stage = record_alignment.prepare_reference_alignment(
-        RecordSide(binding, (reference,)), prepared(), model=model(), coordinate_texts=contexts,
+        RecordSide(binding, (reference,)),
+        prepared(),
+        model=model(),
+        coordinate_texts=contexts,
     )
     assert stage.whole_reading_correct(candidate, prediction_model=model())
     assert stage.whole_reading_correct(candidate, prediction_model=model())
@@ -588,13 +591,19 @@ def test_prepared_reference_keeps_complete_denominator_and_pass_isolation():
     second, second_text = reading("measurement")
     binding = frame(first, second)
     stage = prepare_reference_alignment(
-        RecordSide(binding, (first, second)), prepared(), model=model(), coordinate_texts=(*first_text, *second_text),
+        RecordSide(binding, (first, second)),
+        prepared(),
+        model=model(),
+        coordinate_texts=(*first_text, *second_text),
     )
     report = stage.align(RecordSide(binding, (first,)), prediction_model=model())
     assert report.counts["full"].reference == 2
     assert report.counts["full"].prediction == report.counts["full"].matched == 1
     separate_pass = prepare_reference_alignment(
-        RecordSide(binding, (second,)), prepared(), model=model(), coordinate_texts=second_text,
+        RecordSide(binding, (second,)),
+        prepared(),
+        model=model(),
+        coordinate_texts=second_text,
     )
     assert separate_pass is not stage and set(separate_pass.records) == {second["record_id"]}
     assert set(stage.records) == {first["record_id"], second["record_id"]}

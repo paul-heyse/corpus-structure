@@ -51,7 +51,9 @@ class FileCustody:
                 refreshed = type(self).acquire(self.path, self.digest)
                 self.identity, self.racily_clean = refreshed.identity, refreshed.racily_clean
         except OSError as error:
-            raise FileCustodyError(f"acquired file unavailable: {self.path}; restart required") from error
+            raise FileCustodyError(
+                f"acquired file unavailable: {self.path}; restart required"
+            ) from error
 
     def receipt(self) -> tuple[str, str, tuple[int, int, int, int, int], bool]:
         self.check()
@@ -68,7 +70,9 @@ class FileCustody:
             try:
                 return cls.acquire(record.path, record.digest)
             except (FileCustodyError, OSError) as error:
-                raise FileCustodyError(f"file changed during worker handoff: {path}; restart required") from error
+                raise FileCustodyError(
+                    f"file changed during worker handoff: {path}; restart required"
+                ) from error
         return record
 
 
@@ -98,7 +102,9 @@ def observed_file(path: Path) -> FileCustody:
     with _lock:
         record = _observed.get(path)
         if record is None:
-            known = next((record for (known_path, _), record in _records.items() if known_path == path), None)
+            known = next(
+                (record for (known_path, _), record in _records.items() if known_path == path), None
+            )
             if known is not None:
                 known.check()
                 _observed[path] = known

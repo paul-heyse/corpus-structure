@@ -267,7 +267,12 @@ def test_cached_receipts_still_compose_required_union(tmp_path):
     original, retry = tmp_path / "original", tmp_path / "retry"
     original.mkdir()
     retry.mkdir()
-    receipt(original, [report("setup"), report("call", "failed"), report("teardown")], selected=("a",), returncode=1)
+    receipt(
+        original,
+        [report("setup"), report("call", "failed"), report("teardown")],
+        selected=("a",),
+        returncode=1,
+    )
     receipt(retry, [report("setup"), report("call"), report("teardown")], selected=("a",))
     for directory in (original, retry):
         owner._write_classification(directory, classify([directory]))

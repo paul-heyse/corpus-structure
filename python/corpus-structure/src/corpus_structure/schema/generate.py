@@ -538,11 +538,19 @@ def _format(path: str, text: str) -> str:
 
 def generated_python_paths() -> frozenset[str]:
     """Closed Python output population owned by this canonical generator."""
-    return frozenset({
-        "core/vocab.py", "core/_model/__init__.py", "core/_model/qualifiers.py",
-        "core/_model/names.py", "core/_model/sql.py", "core/_model/validators.py",
-        "core/_model/revision.py", stage_b.TYPES, stage_b.SHAPES,
-    })
+    return frozenset(
+        {
+            "core/vocab.py",
+            "core/_model/__init__.py",
+            "core/_model/qualifiers.py",
+            "core/_model/names.py",
+            "core/_model/sql.py",
+            "core/_model/validators.py",
+            "core/_model/revision.py",
+            stage_b.TYPES,
+            stage_b.SHAPES,
+        }
+    )
 
 
 def generated_output_paths() -> frozenset[str]:

@@ -119,19 +119,27 @@ def authenticated_prepared_product(sources, functions):
     from .file_custody import verified_file
     from .runtime_slice import AuthenticatedSlice
 
-    files = tuple(verified_file(Path(source.filename), sha256(source.content).hexdigest()) for source in sources.sources)
+    files = tuple(
+        verified_file(Path(source.filename), sha256(source.content).hexdigest())
+        for source in sources.sources
+    )
     modules = {}
     members, globals = [], []
-    for expected_owner, supplied in functions:
+    for _expected_owner, supplied in functions:
         function = supplied.__func__ if inspect.ismethod(supplied) else supplied
         module = sys.modules[function.__module__]
         modules[function.__module__] = module
         components = function.__qualname__.split(".")
+
         def getter(module=module, components=components):
             value = module
             for component in components:
                 value = inspect.getattr_static(value, component)
             return value.__func__ if isinstance(value, (staticmethod, classmethod)) else value
+
         members.append(getter)
-        globals.extend((module, name, function.__builtins__.get(name)) for name in _code_globals(function.__code__))
+        globals.extend(
+            (module, name, function.__builtins__.get(name))
+            for name in _code_globals(function.__code__)
+        )
     return AuthenticatedSlice(files, modules, members, globals)

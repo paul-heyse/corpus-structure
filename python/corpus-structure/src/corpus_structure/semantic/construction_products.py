@@ -284,10 +284,14 @@ def _requested_regions(source: FrozenNativeSource):
 def _clip_sentence_regions(regions, boundaries):
     """Join open intervals in one sweep, then restore region/sentence order."""
     events = []
-    for population, rows in enumerate((regions, tuple((row["start"], row["end"]) for row in boundaries))):
+    for population, rows in enumerate(
+        (regions, tuple((row["start"], row["end"]) for row in boundaries))
+    ):
         for ordinal, (start, end) in enumerate(rows):
             if start < end:
-                events.extend(((start, 1, population, ordinal, end), (end, 0, population, ordinal, start)))
+                events.extend(
+                    ((start, 1, population, ordinal, end), (end, 0, population, ordinal, start))
+                )
     active = ({}, {})
     clipped = []
     for position, opening, population, ordinal, other in sorted(events):
@@ -646,7 +650,10 @@ def validate_interpreted_product(
             if (
                 not source_extent_selected(selected, extent, selector_index=selector_index)
                 or extent["text"] != selected["text"][extent["start"] : extent["end"]]
-                or source.view.containing_piece(extent["native_pointer"], extent["start"], extent["end"]) is None
+                or source.view.containing_piece(
+                    extent["native_pointer"], extent["start"], extent["end"]
+                )
+                is None
             ):
                 raise ValueError("construction occurrence changes original positioned source")
     external = {

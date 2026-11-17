@@ -218,27 +218,42 @@ def test_retained_interval_queries_restore_original_order_and_reuse_indexes(monk
     rows = (("later", 8, 13, "three"), ("earlier", 0, 3, "one"), ("middle", 4, 7, "two"))
     body = {
         "occurrences": [
-            {"local_id": name, "extents": [{"projection": projection, "start": start, "end": end, "text": text}]}
+            {
+                "local_id": name,
+                "extents": [{"projection": projection, "start": start, "end": end, "text": text}],
+            }
             for name, start, end, text in rows
         ],
         "annotations": [
-            {"local_id": name, "kind": "formal.identifier", "family": "formal.lexical", "occurrences": [name], "native_label": text}
+            {
+                "local_id": name,
+                "kind": "formal.identifier",
+                "family": "formal.lexical",
+                "occurrences": [name],
+                "native_label": text,
+            }
             for name, _start, _end, text in rows
         ],
-        "memberships": [], "coverage": [],
+        "memberships": [],
+        "coverage": [],
     }
     readings = FormalSourceReadings._from_retained(
         {"source": {"projection": projection}, "text": "one two three"},
-        [(DataProductReference("fixture:retained"), body)], (),
+        [(DataProductReference("fixture:retained"), body)],
+        (),
     )
-    selected = lexical_fact_readings(readings, readings.source, kind="formal.identifier", start=0, end=13)
+    selected = lexical_fact_readings(
+        readings, readings.source, kind="formal.identifier", start=0, end=13
+    )
     assert [(row.start, row.text) for row in selected] == [(8, "three"), (0, "one"), (4, "two")]
 
     def forbidden(*args, **kwargs):
         raise AssertionError("retained extents must be indexed only once")
 
     monkeypatch.setattr(formal_readings, "_extent", forbidden)
-    narrowed = lexical_fact_readings(readings, readings.source, kind="formal.identifier", start=3, end=8)
+    narrowed = lexical_fact_readings(
+        readings, readings.source, kind="formal.identifier", start=3, end=8
+    )
     assert [(row.start, row.text) for row in narrowed] == [(4, "two")]
 
 

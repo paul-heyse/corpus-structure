@@ -22,8 +22,8 @@ from corpus_structure.schema.model_change import (
     ChangeRequest,
     RuntimeCustody,
     checked_path,
-    generator_fingerprint,
     compilation_fingerprint,
+    generator_fingerprint,
     verify_release_products,
 )
 from corpus_structure.semantic.migration_chain import (
@@ -585,11 +585,18 @@ def check_candidate_files(root: Path, binding: Candidate) -> None:
         raise ModelError(["candidate belongs to another workspace or generator"])
     if binding.release is not None:
         if binding.preparation_request is None or binding.preparation_fingerprint is None:
-            raise ModelError(["candidate lacks complete preparation custody; prepare a fresh preview"])
-        if compilation_fingerprint(
-            root, binding.preparation_request, native_base=binding.native_base,
-            deployment_base=binding.deployment_base,
-        ) != binding.preparation_fingerprint:
+            raise ModelError(
+                ["candidate lacks complete preparation custody; prepare a fresh preview"]
+            )
+        if (
+            compilation_fingerprint(
+                root,
+                binding.preparation_request,
+                native_base=binding.native_base,
+                deployment_base=binding.deployment_base,
+            )
+            != binding.preparation_fingerprint
+        ):
             raise ModelError(["candidate compilation inputs changed; prepare a fresh preview"])
     for relative, expected in binding.files.items():
         file = checked_path(root, relative)

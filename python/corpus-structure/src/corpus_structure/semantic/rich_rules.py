@@ -63,10 +63,21 @@ class RichRulePolicy:
             for row in prepared.registry_rows
             if row.kind == "prefix"
         }
-        self._is_a = MappingProxyType({
-            definition.iri: frozenset({definition.iri, *(self.definitions[name].iri for name in definition.ancestors if name in self.definitions)})
-            for definition in prepared.definitions
-        })
+        self._is_a = MappingProxyType(
+            {
+                definition.iri: frozenset(
+                    {
+                        definition.iri,
+                        *(
+                            self.definitions[name].iri
+                            for name in definition.ancestors
+                            if name in self.definitions
+                        ),
+                    }
+                )
+                for definition in prepared.definitions
+            }
+        )
         self.validate_source()
         self.version = self.source["operation"]["version"]
         self.enums = {}
@@ -362,7 +373,9 @@ class RichRulePolicy:
         if isinstance(children, str):
             raise RichRulePolicyRefused("class membership requires its actual class collection")
         target = self.prepared.expand_name(parent)
-        return any(target in self._is_a.get(self.prepared.expand_name(child), ()) for child in children)
+        return any(
+            target in self._is_a.get(self.prepared.expand_name(child), ()) for child in children
+        )
 
     def applies(self, raw, *, class_name: str, predicate: str):
         source = raw.get("applies_to", "any")

@@ -335,7 +335,10 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
         }:
             raise ValueError("encoder model file population differs from acquired artifacts")
         from corpus_structure.semantic.file_custody import verified_file
-        observations = tuple((name, verified_file(root / name, digest)) for name, digest in artifact_hashes)
+
+        observations = tuple(
+            (name, verified_file(root / name, digest)) for name, digest in artifact_hashes
+        )
         _verify_cpu_artifacts(model_path, observations)
     from sentence_transformers import SentenceTransformer
     from sentence_transformers.sentence_transformer.modules import Pooling
@@ -364,7 +367,7 @@ def _verify_cpu_artifacts(model_path, observations):
         path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
     } != {name for name, _ in observations}:
         raise ValueError("resident encoder model file population changed")
-    for name, record in observations:
+    for _name, record in observations:
         record.check()
 
 

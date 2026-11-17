@@ -46,12 +46,18 @@ class SourceLayoutIndex:
             if item.get("label") in {"title", "section_header"}:
                 headings[item.get("parent")].append(piece)
         self.headings = {parent: tuple(rows) for parent, rows in headings.items()}
-        self.heading_ends = {parent: tuple(row["end"] for row in rows) for parent, rows in self.headings.items()}
+        self.heading_ends = {
+            parent: tuple(row["end"] for row in rows) for parent, rows in self.headings.items()
+        }
 
     def preceding(self, start):
         ordinal = bisect_right(self.ends, start)
         piece = self.pieces[ordinal] if ordinal < len(self.pieces) else {}
-        item = self.items.get(piece.get("item_ref"), {}) if piece.get("start", start + 1) <= start else {}
+        item = (
+            self.items.get(piece.get("item_ref"), {})
+            if piece.get("start", start + 1) <= start
+            else {}
+        )
         parent = item.get("parent")
         index = bisect_right(self.heading_ends.get(parent, ()), start) - 1
         return self.headings[parent][index] if index >= 0 else None

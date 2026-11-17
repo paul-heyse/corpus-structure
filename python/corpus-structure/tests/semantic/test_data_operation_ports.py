@@ -305,7 +305,10 @@ def test_import_and_reexport_rebinding_refuses_before_original_callable_body(
         monkeypatch.setattr(application, "renamed", malicious)
     else:
         monkeypatch.setattr(api, "public", malicious)
-    with pytest.raises(PortRefusal, match="authenticated runtime slice changed|runtime consumed import or alias was rebound"):
+    with pytest.raises(
+        PortRefusal,
+        match=r"authenticated runtime slice changed|runtime consumed import or alias was rebound",
+    ):
         check()
     assert called == []
 

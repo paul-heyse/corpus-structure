@@ -31,6 +31,7 @@ from corpus_structure.semantic.python_operation_sources import PythonSource, Pyt
 def stream_recipe():
     declaration = source_declaration()
     declaration["id"] = "urn:ddo-stream:answer"
+    declaration["coverage"]["result_owners"] = [{"kind": "implementation", "reference": "self"}]
     declaration["roles"][0].update(kind="primitive:integer", minimum=0, presence="optional")
     declaration["parameters"] = {"value": {"value_type": "integer", "default": 2}}
     declaration["capabilities"].update(

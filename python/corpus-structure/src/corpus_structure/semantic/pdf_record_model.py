@@ -8,8 +8,8 @@ record declarations. JSON uses a declared UTF-8 wire representation in Arrow.
 from __future__ import annotations
 
 import json
-from functools import lru_cache
 from decimal import Decimal
+from functools import lru_cache
 from typing import Annotated, Any, Literal
 
 import pyarrow as pa

@@ -33,15 +33,16 @@ def enrich_selected_pdf(
         while current.parent is not None:
             pointer = current.parent.cref
             current = nodes[pointer]
-            if str(current.label) in {"section", "chapter"} and (pointer, "direct") not in selected_scopes:
+            if (
+                str(current.label) in {"section", "chapter"}
+                and (pointer, "direct") not in selected_scopes
+            ):
                 specs.append((pointer, "direct"))
                 selected_scopes.add((pointer, "direct"))
     section_refs = frozenset(
         pointer for pointer, node in nodes.items() if str(node.label) in {"section", "chapter"}
     )
-    scope_members = {
-        scope: tuple(_member_order(nodes, section_refs, *scope)) for scope in specs
-    }
+    scope_members = {scope: tuple(_member_order(nodes, section_refs, *scope)) for scope in specs}
     required_pages_by_scope = {
         (section, membership): {
             prov.page_no
@@ -108,7 +109,9 @@ def enrich_selected_pdf(
     reports_by_table = {}
     for report in reports:
         reports_by_table.setdefault(report["table_pointer"], []).append(report)
-    alignment_pointers = frozenset(pointer for report in computed.alignment_reports for pointer in report.item_pointers)
+    alignment_pointers = frozenset(
+        pointer for report in computed.alignment_reports for pointer in report.item_pointers
+    )
     coverage = []
     for section, membership in specs:
         pointers = _member_order(nodes, section_refs, section, membership)

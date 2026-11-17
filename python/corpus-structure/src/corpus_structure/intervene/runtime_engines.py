@@ -41,7 +41,9 @@ class McpRuntimeEngines:
                 self._engines[purpose] = self._resources.enter_context(
                     open_runtime_engine(
                         self.settings,
-                        self.application_name if purpose == "write" else self.application_name + "-" + purpose,
+                        self.application_name
+                        if purpose == "write"
+                        else self.application_name + "-" + purpose,
                         max_size=self.settings.database.pool_max_size,
                         purpose=purpose,
                     )
