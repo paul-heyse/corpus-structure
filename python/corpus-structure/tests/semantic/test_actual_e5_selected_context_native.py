@@ -178,7 +178,8 @@ def assert_published_cpu(kernel, product, operation):
         ).one()
     assert actual_operation == operation and runtime == kernel.runtime
     assert receipts == 1 and valid is True
-    evidence = payload["completion"]["execution_evidence"]
+    # The retained intent payload is the completion body owned by the native protocol.
+    evidence = payload["execution_evidence"]
     assert evidence["request_id"] == request_id
     assert evidence["runtime_id"] == kernel.runtime
     (cpu,) = evidence["cpu_receipts"]
