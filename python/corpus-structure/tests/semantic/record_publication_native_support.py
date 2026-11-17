@@ -299,7 +299,15 @@ def query_publication(publication, query, **options):
 
 
 def publish_readings(
-    journey, readings, *, source, inference, authorization=None, include_resolution=True
+    journey,
+    readings,
+    *,
+    source,
+    inference,
+    authorization=None,
+    include_resolution=True,
+    page_rows=100,
+    max_bytes=8 * 1024**2,
 ):
     """Consume actual raw/resolved computations; a missing policy grants no reading standing."""
     from evaluate.declared_rich_native_support import selected_entry
@@ -370,6 +378,8 @@ def publish_readings(
         journey.kernel.purpose("read"),
         retained["demand_id"],
         kind=(NAMESPACE + "DdoRichAdmission", NAMESPACE + "DdoRichConsolidation"),
+        page_rows=page_rows,
+        max_bytes=max_bytes,
     )
     kinds = {
         item.owner: item.key for item in journey.kernel.model.identities if item.domain == "kind"
