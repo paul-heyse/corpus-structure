@@ -212,6 +212,7 @@ def test_record_identity_requires_qualified_producer_archive(monkeypatch, change
         kind="integrated",
     )
     identity = dict(contract_digest="d" * 64, kind="integrated")
+    # Isolated consumer mock; this test performs no producer or oracle qualification.
     receipt = PdfBuildValidation(
         build_id="bound-build",
         frozen_digest="e" * 64,
@@ -219,6 +220,11 @@ def test_record_identity_requires_qualified_producer_archive(monkeypatch, change
         contract_digest="d" * 64,
         native_callbacks=True,
         native_contract_digest="b" * 64,
+        certification_basis="producer-certified",
+        lowering_identity="mock-lowering-identity",
+        attested_logical_digest="a" * 64,
+        native_document_digest="mock-native-document-digest",
+        oracle_receipt_id="mock-oracle-receipt",
     )
     assert identity["contract_digest"] != context.contract_digest
     if change == "abi":
@@ -439,6 +445,7 @@ def test_published_native_ports_qualify_retained_schema_before_legacy_gate(
     selected = []
     from corpus_structure.semantic._pdf_native_calls import PdfBuildValidation
 
+    # Isolated consumer mock; this test performs no producer or oracle qualification.
     receipt = PdfBuildValidation(
         build_id="bound-build",
         frozen_digest="e" * 64,
@@ -446,6 +453,11 @@ def test_published_native_ports_qualify_retained_schema_before_legacy_gate(
         contract_digest="d" * 64,
         native_callbacks=True,
         native_contract_digest="b" * 64,
+        certification_basis="producer-certified",
+        lowering_identity="mock-lowering-identity",
+        attested_logical_digest="f" * 64,
+        native_document_digest="mock-native-document-digest",
+        oracle_receipt_id="mock-oracle-receipt",
     )
 
     def execute(statement):

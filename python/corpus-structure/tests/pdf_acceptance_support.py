@@ -181,9 +181,11 @@ def seed_pdf_shared_stream(conn, build, stream_id, body, *, profile="pdf-record-
         parts = [dict(ordinal=index, byte_offset=start, body=body[start:start + 65536])
                  for index, start in enumerate(range(0, len(body), 65536))]
     for part in parts:
+        part_body = part["body"]
+        assert isinstance(part_body, bytes)
         conn.execute(text("INSERT INTO ops.pdf_shared_stream_part VALUES(:project,:profile,:length,:root,"
             ":ordinal,:offset,:part_length,:body,:part_sha) ON CONFLICT DO NOTHING"), params | dict(
-                ordinal=part["ordinal"], offset=part["byte_offset"], body=part["body"],
-                part_length=len(part["body"]), part_sha=sha256(part["body"]).hexdigest()))
+                ordinal=part["ordinal"], offset=part["byte_offset"], body=part_body,
+                part_length=len(part_body), part_sha=sha256(part_body).hexdigest()))
     if verify:
         conn.execute(text("SELECT ops.pdf_verify_shared_stream(:build,:stream,true)"), params)

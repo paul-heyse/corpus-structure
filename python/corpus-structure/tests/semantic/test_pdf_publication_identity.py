@@ -4,6 +4,7 @@ import json
 import struct
 
 import pytest
+from pydantic import JsonValue
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -322,7 +323,7 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
 
     def publish(case, key, input_publication=None):
         build = create_private_build(case=case)
-        companions = {"occurrence": [{"occurrence_id": "item", "kind": "text",
+        companions: dict[str, list[dict[str, JsonValue]]] = {"occurrence": [{"occurrence_id": "item", "kind": "text",
             "address_space": "native_item", "precision": "item", "pointer": "#/texts/0"}]}
         if input_publication is not None:
             companions["input"] = [{"role": "structural", "task_id": input_publication.task_id,

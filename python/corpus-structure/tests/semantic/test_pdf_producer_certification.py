@@ -2,6 +2,7 @@
 
 import json
 from hashlib import sha256
+from typing import Any, Literal, TypedDict
 
 import pytest
 from docling_core.types.doc import DoclingDocument, PageItem, Size
@@ -14,6 +15,16 @@ from corpus_structure.semantic.pdf_payload_validation import metadata_classes
 from corpus_structure.semantic.pdf_payloads import prepare_payload_family
 from corpus_structure.semantic.pdf_publication import PdfCompanionEncodingBasis
 from corpus_structure.semantic.pdf_records import native_schema_bytes
+
+
+class ProducerBasis(TypedDict):
+    release_id: str
+    source_digest: str
+    recipe_digest: str
+    schema_digest: str
+    kind: Literal["native"]
+    lowering_identity: str
+    target_meanings: dict[tuple[int, str, str], Any]
 
 
 def prepared(tmp_path, *, candidate=None):
@@ -34,9 +45,12 @@ def prepared(tmp_path, *, candidate=None):
     payloads = PdfProducerPayloads(tmp_path / "payloads.sqlite", contract)
     payloads.add_replays(replays)
     payloads.add_companion_replays(sets)
-    return payloads, document, dict(release_id="release", source_digest="a" * 64,
-        recipe_digest=sha256(b"recipe").hexdigest(), schema_digest=sha256(native_schema_bytes()).hexdigest(),
-        kind="native", lowering_identity=require_lowering_identity(context), target_meanings={})
+    basis: ProducerBasis = {
+        "release_id": "release", "source_digest": "a" * 64,
+        "recipe_digest": sha256(b"recipe").hexdigest(), "schema_digest": sha256(native_schema_bytes()).hexdigest(),
+        "kind": "native", "lowering_identity": require_lowering_identity(context), "target_meanings": {},
+    }
+    return payloads, document, basis
 
 
 def test_producer_certifies_existing_document_and_prepared_bytes_without_reconstructing(tmp_path, monkeypatch):
