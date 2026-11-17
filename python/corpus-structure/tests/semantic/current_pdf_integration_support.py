@@ -373,13 +373,15 @@ def current_integration_journey(
                 reused=reused,
             )
 
-        publish_observation = pdf_integrated.store_pdf_observation
+        publish_observation = pdf_integrated.PreparedPdfObservationPublisher.publish
 
-        def retain_observation(connection, **arguments):
+        def retain_observation(publisher, connection, product):
+            arguments = dict(task_id=publisher.task_id, attempt=publisher.attempt,
+                             holder=publisher.holder, runtime_id=publisher.runtime_id,
+                             product=product, context=publisher.context)
             if before_observation is not None:
                 before_observation(case, connection, arguments)
-            digest = publish_observation(connection, **arguments)
-            product = arguments["product"]
+            digest = publish_observation(publisher, connection, product)
             case.observations.append(
                 (
                     ProductReference(arguments["task_id"], product.values()["product_key"], digest),
@@ -421,7 +423,7 @@ def current_integration_journey(
         patches.setattr(
             pdf_recognition.RecognitionWorker, "_recognize_pages", controlled_recognition
         )
-        patches.setattr(pdf_integrated, "store_pdf_observation", retain_observation)
+        patches.setattr(pdf_integrated.PreparedPdfObservationPublisher, "publish", retain_observation)
         patches.setattr(pdf_streaming, "publish_pdf_record_draft", retained_draft)
         if reclaim_after_recognition:
             from typing import cast

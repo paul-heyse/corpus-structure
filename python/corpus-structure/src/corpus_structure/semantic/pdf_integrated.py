@@ -571,49 +571,51 @@ def prepare_integrated_pdf_product(
     return result
 
 
-def store_pdf_observation(
-    conn: Connection,
-    *,
-    task_id: int,
-    attempt: int,
-    holder: str,
-    runtime_id: str,
-    product: PreparedIntegratedPdfProduct,
-    context: PreparedPdfContext | None = None,
-) -> str:
-    """Publish a validated recognition observation; document bodies use record publication."""
-    from .pdf_domain import require_pdf_database_action
+@dataclass(frozen=True, slots=True)
+class PreparedPdfObservationPublisher:
+    """One claimed operation's immutable archive and prepared native projection."""
 
-    archived = pdf_context_for_task(conn, task_id)
-    if context is not None and context != archived:
-        raise ValueError("PDF context differs from producing task release")
-    archived.require_operation("publish_pdf_observation")
-    if (
-        archived.release_id is None
-        or not product._validated
-        or product.contract_digest != archived.contract_digest
-    ):
-        raise ValueError(
-            "observation publication requires its prepared immutable producing archive"
+    task_id: int
+    attempt: int
+    holder: str
+    runtime_id: str
+    context: PreparedPdfContext
+    projection_context: Any
+
+    def publish(self, conn: Connection, product: PreparedIntegratedPdfProduct) -> str:
+        archived = self.context
+        if not product._validated or product.contract_digest != archived.contract_digest:
+            raise ValueError("observation publication requires its prepared producing archive")
+        archived.boundary.validate_json("PdfObservationProduct", product.payload)
+        if product.values()["kind"] != "recognition_observation":
+            raise ValueError("observation publication refuses document bodies")
+        from ._pdf_native_calls import publish_pdf_observation
+        from .identifiers import RuntimeId, TaskAttempt, TaskId
+
+        # The native operation still authenticates the live fence and publication
+        # premises for every row; archive preparation is shared, not authority.
+        return publish_pdf_observation(
+            conn, task_id=TaskId(self.task_id), attempt=TaskAttempt(self.attempt),
+            holder=self.holder, runtime_id=RuntimeId(self.runtime_id),
+            contract_digest=product.contract_digest, payload=product.payload,
+            artifacts=product.artifacts, projection_context=self.projection_context,
         )
-    archived.boundary.validate_json("PdfObservationProduct", product.payload)
-    if product.values()["kind"] != "recognition_observation":
-        raise ValueError("observation publication refuses native or integrated document bodies")
-    require_pdf_database_action(conn, archived.release_id, "publish_pdf_observation")
-    from ._pdf_native_calls import publish_pdf_observation
-    from .identifiers import RuntimeId, TaskAttempt, TaskId
+
+
+def prepare_pdf_observation_publisher(
+    conn: Connection, *, task_id: int, attempt: int, holder: str, runtime_id: str,
+    context: PreparedPdfContext,
+) -> PreparedPdfObservationPublisher:
+    from .pdf_domain import require_pdf_database_action
     from .releases import open_release
 
-    return publish_pdf_observation(
-        conn,
-        task_id=TaskId(task_id),
-        attempt=TaskAttempt(attempt),
-        holder=holder,
-        runtime_id=RuntimeId(runtime_id),
-        contract_digest=product.contract_digest,
-        payload=product.payload,
-        artifacts=product.artifacts,
-        projection_context=open_release(conn, archived.release_id),
+    archived = pdf_context_for_task(conn, task_id)
+    if context != archived or archived.release_id is None:
+        raise ValueError("PDF context differs from producing task release")
+    archived.require_operation("publish_pdf_observation")
+    require_pdf_database_action(conn, archived.release_id, "publish_pdf_observation")
+    return PreparedPdfObservationPublisher(
+        task_id, attempt, holder, runtime_id, archived, open_release(conn, archived.release_id)
     )
 
 

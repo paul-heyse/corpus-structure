@@ -47,14 +47,21 @@ capability is an actionable failure; the producer never substitutes a CPU or sin
 route. The archived source recipe names this phase policy. Retained Standard and retained
 integrated products reuse their existing content without another Standard conversion.
 
-`worker.py` accepts one input JSON file and exits after a complete public
-`DocumentParser.parse_triple(..., triple_regions="union")` call. It has no database.
+`worker.py --serve` accepts page-job capabilities over its owned pipe. Each concurrency
+slot imports the public parser, verifies package pins and creates its HTTP client once,
+then executes serial `DocumentParser.parse_triple(..., triple_regions="union")` calls.
+The application opens the original PDF and admits the service generation once per operation;
+a changed response generation requires re-admission. The worker has no database.
 Its narrow recording backend preserves actual submittedPNG bytes, fullHTTP bodies and
 unmodified raw coordinate/class tokens before upstream parsing can reject a result.
 Scoped observers retain upstream union/crop decisions and JPEG95 crop roundtrips without
 reimplementing the scheduler. A failed crop leaves earlier response files intact.
 The application controller owns cancellation, process-group teardown, page release and
-recipe-qualified disk replay. Operational settings use `CORPUS_NEMOTRON__*`; generic
+recipe-qualified disk replay. HTTP400/413/422 under the admitted generation, completed
+empty/partial/capped responses and completed parser refusals are terminal input outcomes.
+Transport, other HTTP statuses, configuration, generation changes and physical interruption
+are attempt failures and are never reused as input outcomes. A page is published atomically;
+any execution-failed page prevents publication of the observation set. Operational settings use `CORPUS_NEMOTRON__*`; generic
 `CORPUS_LLM__ENDPOINT` remains a separate service.
 
 The main evidence owner is

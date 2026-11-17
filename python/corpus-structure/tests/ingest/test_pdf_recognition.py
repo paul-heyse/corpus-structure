@@ -247,6 +247,28 @@ def test_zero_crop_is_real_triple_and_repeated_raw_occurrences_are_distinct(tmp_
     assert values["occurrences"][0]["text"] == values["occurrences"][1]["text"] == "equal"
 
 
+
+@pytest.mark.prerequisite("nemotron_runtime")
+def test_one_slot_reuses_parser_process_across_pages_without_retrying_execution_failure(
+    tmp_path, endpoint
+):
+    url, requests, replies = endpoint
+    raw = "<x_0.1><y_0.2>text<x_0.8><y_0.3><class_Text>"
+    replies.extend([503, raw, raw])
+    worker = owner(tmp_path, url)
+    source = PreparedRecognitionSource.prepare(landmark_pdf())
+    recipe = NemotronRecipe("1" * 64, "2" * 64, render_scale=1)
+    failed, succeeded = list(worker.recognize_pages(source, recipe, [1, 2], concurrency=1))
+    assert failed.execution_failed and succeeded.succeeded
+    assert failed.result["worker_pid"] == succeeded.result["worker_pid"]
+    assert len(requests) == 3, "an execution-failed page is not retried inside its adapter"
+    replies.extend([raw, raw])
+    again = next(worker.recognize_pages(source, recipe, [1]))
+    assert again.succeeded and not again.reused
+    assert again.directory != failed.directory
+    assert len(requests) == 5
+
+
 @pytest.mark.prerequisite("nemotron_runtime")
 def test_cancellation_terminates_owned_process_retains_admitted_request(tmp_path, endpoint):
     url, _, replies = endpoint
@@ -261,7 +283,7 @@ def test_cancellation_terminates_owned_process_retains_admitted_request(tmp_path
 
     with pytest.raises(InterruptedError, match="lease lost"):
         next(worker.recognize_pages(source, recipe, [1, 2], check_active=check))
-    assert worker._process is None
+    assert worker._operation is None
     assert worker.last_page is not None and not worker.last_page.succeeded
     assert (worker.last_page.directory / "interrupted.json").exists()
     assert len(list(tmp_path.glob("**/input.json"))) == 1
@@ -350,20 +372,14 @@ def test_completion_driven_refill_does_not_wait_for_slow_first_page(tmp_path, mo
 
     first_release = threading.Event()
     third_started = threading.Event()
-    original = RecognitionWorker._recognize_pages
-
-    def recognize(self, source, recipe, numbers, **kwargs):
-        if kwargs.get("concurrency", 1) > 1:
-            yield from original(self, source, recipe, numbers, **kwargs)
-            return
-        number = numbers[0]
+    def recognize(self, operation, slot, recipe, number, reuse, check_active):
         if number == 1:
             assert first_release.wait(5)
         if number == 3:
             third_started.set()
-        yield RecognitionPage(number, tmp_path, {"outcome": "succeeded"}, {})
+        return RecognitionPage(number, tmp_path, {"outcome": "succeeded"}, {})
 
-    monkeypatch.setattr(RecognitionWorker, "_recognize_pages", recognize)
+    monkeypatch.setattr(RecognitionWorker, "_execute_page", recognize)
     worker = RecognitionWorker(
         python=tmp_path / "unused-interpreter",
         script=tmp_path / "unused-worker.py",

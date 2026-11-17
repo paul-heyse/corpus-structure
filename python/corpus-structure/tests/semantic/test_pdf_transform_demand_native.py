@@ -192,13 +192,14 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
         from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
         from corpus_structure.semantic.identity import canonical_bytes
 
-        store_observation = pdf_integrated.store_pdf_observation
+        store_observation = pdf_integrated.PreparedPdfObservationPublisher.publish
         rejected_observations = []
         valid_observations = []
 
-        def checked_observation(
-            connection, *, task_id, attempt, holder, runtime_id, product, context=None
-        ):
+        def checked_observation(publisher, connection, product):
+            task_id, attempt, holder, runtime_id = (
+                publisher.task_id, publisher.attempt, publisher.holder, publisher.runtime_id
+            )
             value = product.values()
             variants = (
                 "wrong-original",
@@ -276,20 +277,12 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                     "P0004" if variant in {"attempt", "holder"} else "23514"
                 ), (variant, str(refused.value.orig), refused.value.orig.diag.context)
                 rejected_observations.append((task_id, forged["product_key"]))
-            arguments = dict(
-                task_id=task_id,
-                attempt=attempt,
-                holder=holder,
-                runtime_id=runtime_id,
-                product=product,
-                context=context,
-            )
-            digest = store_observation(connection, **arguments)
-            assert store_observation(connection, **arguments) == digest
+            digest = store_observation(publisher, connection, product)
+            assert store_observation(publisher, connection, product) == digest
             valid_observations.append((task_id, value["product_key"], digest))
             return digest
 
-        monkeypatch.setattr(pdf_integrated, "store_pdf_observation", checked_observation)
+        monkeypatch.setattr(pdf_integrated.PreparedPdfObservationPublisher, "publish", checked_observation)
         targets = (
             "source.pdf_organized_views/discovery",
             "source.pdf_enriched_views/discovery",

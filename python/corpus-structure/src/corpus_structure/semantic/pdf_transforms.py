@@ -108,7 +108,7 @@ def _implementation_files(mode):
     if mode == "organized":
         return common
     if mode == "recognized":
-        return (*common, "ingest/pdf_recognition.py", "ingest/pdf_incumbent_recovery.py")
+        return (*common, "ingest/pdf_recognition.py", "ingest/pdf_incumbent_recovery.py", "core/process_lifetime.py", "core/work.py")
     extra = (
         (
             "ingest/pdf_selected_enrichment.py",
@@ -885,7 +885,7 @@ class PreparedPdfTransform:
         )
 
         from .metadata import table
-        from .pdf_integrated import PreparedPdfOriginal, store_pdf_observation
+        from .pdf_integrated import PreparedPdfOriginal, prepare_pdf_observation_publisher
         from .pdf_observations import (
             MEANING_SPEC,
             PdfObservationExecutionReceipt,
@@ -920,87 +920,62 @@ class PreparedPdfTransform:
                 for source in selected.context.domain.sources
                 if source.name == MEANING_SPEC
             )
+            with execution_owner.engine.connect() as connection:
+                publisher = prepare_pdf_observation_publisher(
+                    connection, task_id=claim.task_id, attempt=claim.attempt, holder=claim.holder,
+                    runtime_id=execution_owner.invocation.executor.runtime.runtime_id,
+                    context=selected.context,
+                )
             receipts, page_values = [], []
 
             def retain(page, actual_recipe):
                 report = prepare_recognition_report(page, actual_recipe)
-                origins = {}
-
-                def publish(product):
-                    with execution_owner.engine.begin() as connection:
-                        digest = store_pdf_observation(
-                            connection,
-                            task_id=claim.task_id,
-                            attempt=claim.attempt,
-                            holder=claim.holder,
-                            runtime_id=execution_owner.invocation.executor.runtime.runtime_id,
-                            product=product,
-                            context=selected.context,
-                        )
-                        reference = ProductReference(
-                            claim.task_id, product.values()["product_key"], digest
-                        )
-                        products = table("ops.pdf_product")
-                        origin = connection.scalar(
-                            select(products.c.publication_context).where(
-                                products.c.task_id == reference.task_id,
-                                products.c.product_key == reference.product_key,
-                                products.c.content_digest == reference.content_digest,
-                            )
-                        )
-                    origins[reference] = PdfObservationPublicationContext.model_validate(origin)
-                    return reference
-
+                prepared_products = tuple(prepare_recognition_page_products(
+                    page, source, actual_recipe, original, selected.context,
+                    structural_pin=selected.parent, report=report,
+                    verify_retained=options.source_recovery is not None, check_active=check_active,
+                ))
                 references, readings = [], []
-                for ordinal, (pin, body, _) in enumerate(
-                    retain_recognition_page(
-                        page,
-                        source,
-                        actual_recipe,
-                        original,
-                        selected.context,
-                        publish=publish,
-                        structural_pin=selected.parent,
-                        report=report,
-                        verify_retained=options.source_recovery is not None,
-                        check_active=check_active,
-                    )
-                ):
-                    reference = ProductReference(**pin)
-                    references.append(
-                        PdfObservedRequest(
-                            ordinal=ordinal,
-                            **reference.values(),
-                            publication_context=origins[reference],
-                        )
-                    )
-                    readings.append(
-                        {
-                            "ordinal": ordinal,
-                            "meaning_digest": observation_meaning_digest(
-                                body, specification=specification
-                            ),
+                with execution_owner.engine.begin() as connection:
+                    pins = []
+                    for product in prepared_products:
+                        check_active()
+                        digest = publisher.publish(connection, product)
+                        body = product.values()
+                        pin = ProductReference(claim.task_id, body["product_key"], digest)
+                        pins.append(pin)
+                        readings.append({
+                            "ordinal": len(readings),
+                            "meaning_digest": observation_meaning_digest(body, specification=specification),
                             "pass_role": body["observation"]["pass_role"],
                             "outcome": body["observation"]["outcome"],
-                        }
-                    )
-                receipts.append(
-                    PdfObservedPage(
-                        page_no=page.page_no,
-                        recipe_digest=actual_recipe.digest,
-                        report_digest=sha256(report.content).hexdigest(),
-                        adapter_reused=page.reused,
-                        observations=tuple(references),
-                    )
-                )
-                page_values.append(
-                    {
-                        "page_no": page.page_no,
-                        "recipe_digest": actual_recipe.digest,
-                        "outcome": json.loads(report.result)["outcome"],
-                        "observations": readings,
+                        })
+                    products = table("ops.pdf_product")
+                    origins = {
+                        ProductReference(claim.task_id, key, digest): PdfObservationPublicationContext.model_validate(origin)
+                        for key, digest, origin in connection.execute(select(
+                            products.c.product_key, products.c.content_digest, products.c.publication_context,
+                        ).where(products.c.task_id == claim.task_id,
+                                products.c.product_key.in_([pin.product_key for pin in pins])))
                     }
-                )
+                    if set(origins) != set(pins):
+                        raise ValueError("page publication context differs from its exact request inventory")
+                    for ordinal, reference in enumerate(pins):
+                        references.append(PdfObservedRequest(
+                            ordinal=ordinal, **reference.values(), publication_context=origins[reference],
+                        ))
+                    check_active()
+                # No partial page escapes its transaction. Original publisher
+                # provenance remains per request, including exact earlier replay.
+                receipts.append(PdfObservedPage(
+                    page_no=page.page_no, recipe_digest=actual_recipe.digest,
+                    report_digest=sha256(report.content).hexdigest(), adapter_reused=page.reused,
+                    observations=tuple(references),
+                ))
+                page_values.append({
+                    "page_no": page.page_no, "recipe_digest": actual_recipe.digest,
+                    "outcome": json.loads(report.result)["outcome"], "observations": readings,
+                })
 
             worker = RecognitionWorker(
                 python=Path(resources.python),
@@ -1063,9 +1038,8 @@ class PreparedPdfTransform:
                     + str(sorted(set(execution_failures)))
                 )
             # Completion order is physical scheduling, not semantic page order.
-            order = sorted(
-                range(len(receipts)), key=lambda index: requested.index(receipts[index].page_no)
-            )
+            page_rank = {number: index for index, number in enumerate(requested)}
+            order = sorted(range(len(receipts)), key=lambda index: page_rank[receipts[index].page_no])
             receipts = [receipts[index] for index in order]
             page_values = [page_values[index] for index in order]
             value = {
@@ -1226,20 +1200,19 @@ def prepare_recognition_report(page, recipe):
     )
 
 
-def retain_recognition_page(
+def prepare_recognition_page_products(
     page,
     source,
     recipe,
     original,
     context,
     *,
-    publish,
     structural_pin: ProductReference | None = None,
     verify_retained=False,
     report: PreparedRecognitionReport | None = None,
     check_active,
 ):
-    """Prepare each actual retained request, then let its fenced native owner publish."""
+    """Prepare the complete bounded page before its publication transaction starts."""
     from corpus_structure.ingest.pdf_recognition import recognition_observation_values
 
     from .pdf_integrated import prepare_integrated_pdf_product
@@ -1266,10 +1239,9 @@ def retain_recognition_page(
             artifacts=(*artifacts, report.content, report.result, report.requests[ordinal]),
             context=context,
         )
-        pin = publish(product)
         check_active()
         retained += 1
-        yield pin.values(), product.values(), raw
+        yield product
     if retained != len(report.requests):
         raise ValueError("recognition request inventory changed during native retention")
 
@@ -1407,8 +1379,8 @@ class PreparedPdfTransformPort:
                     recognition_page_selection,
                 ),
                 (
-                    "corpus_structure.semantic.pdf_transforms.retain_recognition_page",
-                    retain_recognition_page,
+                    "corpus_structure.semantic.pdf_transforms.prepare_recognition_page_products",
+                    prepare_recognition_page_products,
                 ),
                 (
                     "corpus_structure.semantic.pdf_transforms.prepare_recognition_report",
