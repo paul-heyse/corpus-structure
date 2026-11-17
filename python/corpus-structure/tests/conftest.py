@@ -237,6 +237,24 @@ def _missing_contextual_e5_snapshot() -> str | None:
     return missing_e5_snapshot()
 
 
+def _missing_provider_book_panel():
+    from semantic.provider_book_panel_support import missing_book_panel
+
+    return missing_book_panel()
+
+
+def _missing_contextual_qwen_snapshot():
+    from semantic.provider_book_panel_support import missing_qwen_snapshot
+
+    return missing_qwen_snapshot()
+
+
+def _missing_gliner_panel_snapshot():
+    from semantic.provider_book_panel_support import missing_gliner_snapshot
+
+    return missing_gliner_snapshot()
+
+
 _PREREQUISITES = {
     "corpus": lambda: _missing_local_corpus(CORPUS_DIR),
     "pm2_native_assets": _missing_pm2_native_assets,
@@ -244,6 +262,9 @@ _PREREQUISITES = {
     "task86_witness": _missing_task86_witness,
     "nemotron_runtime": _missing_nemotron_runtime,
     "contextual_e5_snapshot": _missing_contextual_e5_snapshot,
+    "contextual_qwen_snapshot": _missing_contextual_qwen_snapshot,
+    "gliner_panel_snapshot": _missing_gliner_panel_snapshot,
+    "provider_book_panel": _missing_provider_book_panel,
 }
 _prerequisite_cache = pytest.StashKey[dict[str, str | None]]()
 
