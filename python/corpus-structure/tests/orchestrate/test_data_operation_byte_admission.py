@@ -251,7 +251,9 @@ def derive(value: int, fail_first: bool, prepared: PreparedRelease) -> int:
             assert initial_generation._physical_retired
         else:
             assert executor.budget.used_bytes == capsule_size
-        assert len(receipts) == 3 - fail_first and len(failures) == fail_first
+        assert len(receipts) == 3 - fail_first and len(failures) == fail_first, tuple(
+            (type(failure).__name__, str(failure)) for failure in failures
+        )
     assert [index for index, _ in observed.claims] == ["0", "1", "2"]
     assert all(
         capsule_size + executor.reservation <= used <= policy.max_owned_bytes
