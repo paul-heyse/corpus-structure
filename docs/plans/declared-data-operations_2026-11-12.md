@@ -35,7 +35,18 @@ model journey for all3 declared selected-context recipes, retaining controlled t
 Finalized descriptor record `ddo.original-descriptor-registration-basis` supplies all29 titles and
 metadata, verified source bytes and keys matching the current document-key function. It adds to, rather
 than edits, the earlier census. It establishes inputs only; no current registration, fencing or
-adoption has occurred. Current native2 retry and isolated E5 implementation own the next feedback.
+adoption has occurred. Current native2 retry passed, held `78b33079196b4afa9252911f147afaa2`, at
+source99edcaec2/compiler23: actual organization/enrichment/integration with controlled recognition
+and the full large private-diagnostic/public-bound controls. Reporting/native observation and
+owned-host cleanup are complete. This is neither actual recognition inference nor final-source
+qualification. The retired-reader15 pure controls passed `bd52a3bbde7d4be387ca3ca2d4bd026b`;
+their branch is merged and removed, with originals held in root managed custody.
+
+Actual E5 setup found SI22 before inference. [ADR-0120](../adr/0120-explicit-nullable-fields.md)
+selects opt-in whole-field nullability, independent of presence, with compiler24/boundary ABI13.
+Complete the scoped contextual/core repair, pure controls and matching native successor before
+fresh actual provider/consumer cohorts and application capture. Preserve strict source pins,
+current-only archive interpretation and every failed original receipt.
 
 ## Current execution boundary · 2026-11-16
 

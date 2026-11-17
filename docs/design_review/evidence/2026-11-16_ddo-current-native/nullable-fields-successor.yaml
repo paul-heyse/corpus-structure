@@ -1,0 +1,4 @@
+# ADR-0120 explicit nullable fields, compiler24/boundary ABI13 and source recapture.
+baseline: HEAD
+native_revision: semantic_ddo_nullable_fields
+native_predecessor: semantic_ddo_rich_refusals
