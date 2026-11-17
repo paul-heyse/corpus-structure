@@ -10,6 +10,33 @@ at `4f32589d0`. All actionable I01–I09 scope is scheduled below, with explicit
 conditional choices retained. Existing F01–F14/C1–C7/CA identities and scoped closures survive.
 Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No broad audit is initiated.
 
+## Resumed remaining execution · 2026-11-16
+
+**Execution authorized; incomplete.** The operator approved the full remaining execution approach
+following the closeout. Keep the existing current rich/policy/query/projection-analysis implementation;
+older proposed sections do not schedule a second redesign. Complete current native/provider/public
+qualification, remaining orphan retirement, faithful original registration, fenced development adoption,
+whole-book same-demand interruption/resume and the DDO-12 union.
+
+**Chandra OCR excluded by operator.** Do not activate, migrate, qualify or build compatibility for
+Chandra-generated results. If their migration presents a problem, discard those results rather than
+retaining legacy code. Raw original PDFs remain eligible for normal faithful source registration;
+Chandra experiment provenance does not turn their bytes into generated OCR. Current Docling/RapidOCR
+and Nemotron capabilities remain selected. The whole-book demand must pin one intended original
+explicitly: its project has two registrations with the same source hash.
+
+Concrete source retirement removes orphan `semantic.pm2_coverage` and
+`semantic.interpretation_queries`; no current production/test/script/tool callers were found.
+Their useful current coverage/query contracts already have current owners. Preserve frozen migrations,
+plans, historical evidence and physical custody. Actual E5 selected-context publication/retrieval is
+required by the active profile and missing from the old10-provider collection; add the real configured
+model journey for all3 declared selected-context recipes, retaining controlled tests separately.
+
+Finalized descriptor record `ddo.original-descriptor-registration-basis` supplies all29 titles and
+metadata, verified source bytes and keys matching the current document-key function. It adds to, rather
+than edits, the earlier census. It establishes inputs only; no current registration, fencing or
+adoption has occurred. Current native2 retry and isolated E5 implementation own the next feedback.
+
 ## Current execution boundary · 2026-11-16
 
 **Implemented; bounded Tested.** The97-relation physical declaration and maintained PDF actions now
@@ -278,6 +305,7 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-19 | A captured source-address operation's bare primitive aliases collide with composite domain kind aliases. | **Implemented**, `e859b748e`: name authoritative `primitive:integer`/`primitive:string` in the declaration, preserving the original typed callable and compiler equality check. Counterfailure `b217da205a06480181e369e9359e4d66`; actual composite/isolated recipe3 passed `8c657a449e3649fca136c60a012b930e`. |
 | DDO-SI-20 | PDF domain JSON projections are passed through strict Python validation, which rejects their nested JSON arrays against the compiled tuple types. | **Implemented**, `542b53744`: use the existing strict JSON boundary and exact numeric `json_bytes` codec at the three projection ingresses. Physical receipt models and native source/body/purpose guards are unchanged; no native SQL successor is needed for this executor-only correction. Worker pure module10 passed `24dbf502bef1448580bb65e3d32c1933`; final-source controls and actual native retry are separately accounted below. Fresh PDF application capture remains required. |
 | DDO-SI-21 | The deliberately2MiB diagnostic fixture specifies a private budget for initial reading but omits it at publication's second support acquisition. | **Implemented fixture repair**, `a2e770d3b`: thread existing page/max-byte options through `publish_readings`; only this fixture requests1row/16MiB. Default100rows/8MiB, full raw diagnostic equality, public64KiB bounds and refusal expectations remain unchanged. Syntax and exact-node collection1 passed `7d32aee3b59845bb81fad803fdecb542`; functional execution **not_run** after the repair. |
+| DDO-SI-22 | Curated contextual targets are intentionally project-owned/source-free, but their compiled population contract rejects explicit null `original_source` in member contexts and bodies. | **Open owning-contract repair.** Actual E5 provider cohort `dd595e955ae945cfb04b670614e9c0c2` failed all3 setup phases at curated target validation, before primary publication or actual E5 inference. Correct the precise source-free declaration/producer contract while preserving source-owned pins, explicit-null meaning and strict validation. Real E5 evidence and all3 selected-context recipes remain required; collection/pure checks do not establish them. |
 
 
 

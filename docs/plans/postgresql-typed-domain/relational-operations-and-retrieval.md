@@ -172,7 +172,8 @@ profile migration, report/export identity and retirement belong in its PTD-10 sl
 selected model/consumer justifies a branch, close with reason and a specific revisit trigger.
 
 Sources: [current retrieval](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_retrieval.py),
-[coverage](../../../python/corpus-structure/src/corpus_structure/semantic/pm2_coverage.py),
+[coverage (historical source)](../../README.md#historical-recovery)
+(`semantic/pm2_coverage.py` at `99edcaec2ab76a4b972d7df13086d91191e6d0a7`),
 [VECTOR0.5.1](https://github.com/pgvector/pgvector-python/blob/v0.5.1/pgvector/sqlalchemy/vector.py),
 [pgvector0.8.7](https://github.com/pgvector/pgvector/blob/v0.8.7/README.md),
 [Core composition](https://docs.sqlalchemy.org/en/21/core/selectable.html).

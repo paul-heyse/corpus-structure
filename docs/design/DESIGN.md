@@ -468,6 +468,14 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Accepted target correction; implementation/qualification Proposed · 2026-11-16.** Effective
+field contracts distinguish required presence from explicit whole-field nullability. Current
+boundary and native schema products preserve missing/null/value meaning under compiler24 and
+boundary ABI13; unannotated fields and source-owned pins retain strict null refusal.
+[D2](D2-schema-and-guidelines.md#effective-operation-compilation-and-authoring) owns the contract.
+
+> Decision: [ADR-0120](../adr/0120-explicit-nullable-fields.md)
+
 **Accepted target; normal-route implementation/adoption Proposed · 2026-11-16.** One canonical
 current physical/native basis, immutable Alembic root and exact frozen successors replace historical
 installation defaults. Current DDO guards retain actual source/schema/native/privilege custody;

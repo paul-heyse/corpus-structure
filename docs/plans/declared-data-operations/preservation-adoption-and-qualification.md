@@ -6,6 +6,13 @@ The coordinator owns state and source-qualified Domain-model I09 disposition. Th
 path; it no longer requires preserving obsolete readers or completing all historical conversion.
 
 <a id="actual-preservation-basis"></a>
+**Operator scope clarification · 2026-11-16.** Chandra OCR/result migration and actual Chandra
+qualification are excluded. Discard incompatible Chandra-generated results rather than add a converter
+or legacy reader. Useful raw PDFs remain original inputs; do not delete originals merely because they
+were used in a Chandra experiment. Keep current Docling/RapidOCR and Nemotron behavior and required
+plans/evidence. Actual E5 selected-context evidence joins the active-provider requirement; controlled
+encoders do not satisfy it. Visual/external inference remains conditional on a selected capability.
+
 ## Actual census and changed adoption basis
 
 The [planning census](../../design_review/evidence/2026-11-12_declared-data-operations-planning/README.md)

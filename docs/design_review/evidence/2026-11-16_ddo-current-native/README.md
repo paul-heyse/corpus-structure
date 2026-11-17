@@ -623,6 +623,14 @@ passed203 installed distributions. The existing controlled launcher's `verify_ex
 and matched the declared model/tokenizer SHA256 pins. These checks start no server and establish
 no provider execution or model-quality result; controlled startup re-verifies the export before use.
 
+## Complete original descriptor inputs · 2026-11-16
+
+Read-only descriptor census retains all29 original titles and metadata, verifies every local
+SHA256 and matches every current document key. Record `ddo.original-descriptor-registration-basis`
+adds [complete descriptors](original-descriptors.json) without changing the earlier finalized census.
+These are raw PDF registrations, including experiment inputs; no Chandra-generated result or
+protected judgment was read. Native registration, writer fencing and development adoption remain open.
+
 ## Records
 
 <!-- evidence-index:start -->

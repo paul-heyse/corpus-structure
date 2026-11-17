@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "ddo.original-descriptor-registration-basis",
+  "title": "Complete original descriptors for faithful current registration",
+  "group": "declared-data-operations",
+  "package": "DDO-11",
+  "finalized": "2026-11-16",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Are original titles, metadata and current document keys available alongside verified binary originals?",
+  "answers": [
+    "DDO-11",
+    "DDO-12"
+  ],
+  "method": "Exact-target repeatable-read read-only census of original descriptors including title and meta::text; current exact JSON codec and filesystem SHA256; no generated output reads or database mutations.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-16_ddo-current-native/original_descriptor_snapshot.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "original_descriptor_snapshot.py",
+      "role": "Exact-target read-only descriptor source",
+      "sha256": "347458c4beda73f9c145821376b2b85e2735bf0ac6be5ff2b0d6bd8d4d383f28"
+    },
+    {
+      "path": "original-descriptors.json",
+      "role": "Original registration input snapshot with titles and metadata",
+      "sha256": "ad051b0da3fef4b143eb4c04a9aba7869746cf1746c4921d4f5f931b249f2e27"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "registered_originals",
+      "value": 29,
+      "of": null,
+      "unit": "documents",
+      "note": null
+    },
+    {
+      "name": "distinct_existing_paths",
+      "value": 28,
+      "of": null,
+      "unit": "paths",
+      "note": null
+    },
+    {
+      "name": "exact_file_hash_matches",
+      "value": 29,
+      "of": 29,
+      "unit": "documents",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All 29 registrations have titles and original metadata, verified local file hashes and keys matching the current document_key function. These are raw PDFs, not Chandra OCR outputs. The snapshot supplies finite normal-purpose registration inputs, not imported/generated results, writer fencing, activation or cutover. Revalidate before fencing if original descriptors change.",
+  "consumed_by": [
+    "DDO-11",
+    "DDO-12"
+  ]
+}
