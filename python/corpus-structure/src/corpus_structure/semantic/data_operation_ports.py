@@ -457,6 +457,7 @@ class PortAdapters:
     def __init__(self, *signatures):
         self._values: dict[int, tuple[Any, TypeAdapter[Any]]] = {}
         self._stream_sequences: dict[int, TypeAdapter[Any]] = {}
+        self._dataclass_annotations: dict[int, dict[str, Any]] = {}
         for signature in signatures:
             if signature is not None:
                 for parameter in signature.parameters.values():
@@ -473,10 +474,19 @@ class PortAdapters:
     def stream_sequence(self, annotation):
         return self._stream_sequences[id(annotation)]
 
+    def dataclass_annotations(self, annotation):
+        self.get(annotation)
+        return self._dataclass_annotations[id(annotation)]
+
     def get(self, annotation):
         key = id(annotation)
         if key not in self._values:
             self._values[key] = (annotation, TypeAdapter(annotation))
+            if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
+                annotations = typing.get_type_hints(annotation)
+                self._dataclass_annotations[key] = annotations
+                for item in dataclasses.fields(annotation):
+                    self.get(annotations[item.name])
         return self._values[key][1]
 
 
@@ -935,7 +945,7 @@ def _validated_python_input(annotation: Any, value: Any, *, adapters=None) -> An
         fields = dataclasses.fields(annotation)
         if set(vars(value)) != {field.name for field in fields}:
             raise PortRefusal("typed dataclass ingress has missing or undeclared fields")
-        annotations = typing.get_type_hints(annotation)
+        annotations = adapters.dataclass_annotations(annotation)
         for field in fields:
             checked = _validated_python_input(
                 annotations[field.name], object.__getattribute__(value, field.name), adapters=adapters

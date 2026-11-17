@@ -194,7 +194,10 @@ def _runtime_identity(provider: str, *, project: Path | None = None) -> Payload:
         record_path = Path(str(installed._path)) / "RECORD"
         if not record_path.is_file():
             raise ValueError(f"missing installed PM2 distribution record for {name}")
-        inventory[name] = (installed.version, observed_file(record_path).digest)
+        record = observed_file(record_path)
+        if not record.identity[2]:
+            raise ValueError(f"empty installed PM2 distribution record for {name}")
+        inventory[name] = (installed.version, record.digest)
     root = Path(__file__).resolve().parents[5]
     project = root if project is None else project
     return {

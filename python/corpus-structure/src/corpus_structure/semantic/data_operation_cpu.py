@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from hashlib import sha256
 from pathlib import Path
@@ -265,8 +265,6 @@ def _load_original(call):
                 else None,
             )
         else:
-            import ast
-
             # Prepared kernels admit their explicit library/asset boundary in the
             # parent. Here authenticate every physical source and loaded entrypoint.
             for source in sources.sources:
