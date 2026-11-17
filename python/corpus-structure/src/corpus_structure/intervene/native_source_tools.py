@@ -34,7 +34,7 @@ def exact_source_search(response):
     )
 
 
-def register_native_source_tools(server, reader, *, project=None, demand=None):
+def register_native_source_tools(server, reader, *, search_reader, project=None, demand=None):
     from corpus_structure.intervene.mcp_results import bounded_mcp_result
     from corpus_structure.semantic.refusals import tool_refusals
     from corpus_structure.serve.native_source import inspect_native_source
@@ -61,7 +61,7 @@ def register_native_source_tools(server, reader, *, project=None, demand=None):
     def find(ctx: Context, request: SourceSearchRequest):
         """Search only the explicitly selected native source population."""
         scope(request)
-        with reader() as connection:
+        with search_reader() as connection:
             response = search_source(connection, request)
         return bounded_mcp_result(exact_source_search(response), request.max_bytes)
 

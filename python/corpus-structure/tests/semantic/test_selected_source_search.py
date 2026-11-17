@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.refusals import InvalidContinuation
-from corpus_structure.serve.source_search import SourceSearchRequest, _position, _rank_sections
+from corpus_structure.serve.source_search import SourceSearchRequest, _position
 from semantic.selected_source_contract_support import selection
 
 
@@ -74,36 +74,6 @@ def test_search_continuation_carries_exact_score_and_population_identity():
     assert _position(request(cursor=cursor), "expected") == (score, "source:one")
     with pytest.raises(InvalidContinuation):
         _position(request(cursor=cursor), "changed-source-population")
-
-
-@pytest.mark.db
-def test_native_search_retains_english_stemming_rank_and_total_tie_order(semantic_bare_engine):
-    with semantic_bare_engine.connect() as connection:
-        first = _rank_sections(
-            connection,
-            [
-                ("z", "The runner was running."),
-                ("a", "The runner was running."),
-                ("other", "A cat sleeps."),
-            ],
-            "run",
-            position=None,
-            limit=1,
-        )
-        assert len(first) == 1 and first[0]["key"] == "a"
-        assert "running" in first[0]["excerpt"] and first[0]["score"] > 0
-        remaining = _rank_sections(
-            connection,
-            [
-                ("z", "The runner was running."),
-                ("a", "The runner was running."),
-                ("other", "A cat sleeps."),
-            ],
-            "run",
-            position=(first[0]["score"], first[0]["key"]),
-            limit=2,
-        )
-        assert [row["key"] for row in remaining] == ["z"]
 
 
 @pytest.mark.parametrize("surface", ["main", "retained"])

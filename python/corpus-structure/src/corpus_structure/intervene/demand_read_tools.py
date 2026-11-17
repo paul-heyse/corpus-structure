@@ -58,7 +58,19 @@ def register_demand_read_tools(
     )
     from .native_source_tools import register_native_source_tools
 
-    register_native_source_tools(server, reader, project=project, demand=demand)
+    @contextmanager
+    def search_reader():
+        from corpus_structure.semantic.pdf_source_search import search_source_snapshot
+
+        engine = engine_provider() if engine_provider is not None else read_engine
+        if engine is None:
+            raise RuntimeError("MCP search engine is unavailable")
+        with search_source_snapshot(engine) as connection:
+            yield connection
+
+    register_native_source_tools(
+        server, reader, search_reader=search_reader, project=project, demand=demand
+    )
     from .source_inspection_tools import register_source_inspection_tools
 
     register_source_inspection_tools(server, reader, project=project, demand=demand)

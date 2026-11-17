@@ -41,6 +41,7 @@ from sqlalchemy.dialects.postgresql import (
     NUMRANGE,
     REAL,
     TIMESTAMP,
+    TSVECTOR,
 )
 from sqlalchemy.sql.sqltypes import ARRAY as BaseARRAY
 from sqlalchemy.types import TypeEngine
@@ -139,6 +140,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
         "numrange": NUMRANGE,
         "vector": Vector,
         "timestamptz": lambda: TIMESTAMP(timezone=True),
+        "tsvector": TSVECTOR,
     }
     nominal = _physical_nominals(view)
     for name, cls in physical_classes.items():
@@ -386,7 +388,9 @@ def _physical_encoding(view: View, slot):
 
 def column_type_annotation(column: Column[Any]) -> str:
     """Project a checked physical column, preserving nominal, closed and optional types."""
-    if isinstance(column.type, JSONB):
+    if isinstance(column.type, TSVECTOR):
+        kind = "str"
+    elif isinstance(column.type, JSONB):
         kind = "JsonValue"
     elif isinstance(column.type, BaseARRAY):
         item_type = column.type.item_type.python_type

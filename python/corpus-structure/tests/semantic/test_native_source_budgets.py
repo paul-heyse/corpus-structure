@@ -144,81 +144,52 @@ def test_postgresql_preflight_admits_only_requested_page_and_refuses_body_transf
 
 
 @pytest.mark.parametrize("bytes_limit,oversized", [(1048576, False), (2048, True)])
-def test_current_search_shares_budget_across_exact_source_population_before_ranking(
+def test_current_search_bounds_returned_hits_independently_of_publication_fill(
     monkeypatch, bytes_limit, oversized
 ):
-    from corpus_structure.ingest import pdf_section_views
-    from corpus_structure.semantic import pdf_record_reader, source_products
+    from corpus_structure.semantic import pdf_record_reader, pdf_source_search
     from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.demand_results import CutSelection
     from corpus_structure.serve import source_search
     from semantic.selected_source_contract_support import selection
 
     pin, cut, publication = selection()
     second = pin.model_copy(update={"product_id": "product:second", "use_id": "use:second"})
-    budgets = []
-
     def acquire(connection, reference):
         return SimpleNamespace(
-            reference=reference,
-            cut=CutSelection(json_bytes(cut)),
-            physical=publication,
-            prepared=object(),
-            original_source="original:selected",
+            reference=reference, cut=CutSelection(json_bytes(cut)), physical=publication,
+            prepared=object(), original_source="original:selected",
             receipt=SimpleNamespace(publication=publication),
         )
-
-    def reader(connection, physical, *, projection_context, read_budget):
-        budgets.append(read_budget)
-        return SimpleNamespace(read_budget=read_budget)
-
-    def sections(reader, *, selections, membership, scope):
-        assert selections == ("#/body",) and membership == "descendants"
-        return [
-            SimpleNamespace(
-                section_pointer="#/body",
-                membership=membership,
-                text="Alice " * 130,
-                pieces=(),
-                items=(),
-                ancestors=(),
-                health={},
-            )
-        ]
-
-    ranked = Mock(return_value=())
+    ensured = Mock()
+    ranked = Mock(return_value=dict(selection="a" * 64, more=False, rows=[
+        dict(source_index=i, section_pointer="#/body", membership="direct",
+             projection_digest="b" * 64, key=str(i), excerpt="Alice " * 130, score=0.1)
+        for i in range(2)
+    ]))
     monkeypatch.setattr(source_search, "acquire_selected_pdf_source", acquire)
-    monkeypatch.setattr(pdf_record_reader, "PublishedPdfReader", reader)
-    monkeypatch.setattr(pdf_section_views, "published_section_projections", sections)
-    monkeypatch.setattr(
-        source_products.FrozenNativeSource,
-        "from_projection",
-        lambda *args, **kwargs: SimpleNamespace(
-            value={"source": {"projection": "projection:controlled"}}
-        ),
-    )
-    monkeypatch.setattr(source_search, "_rank_sections", ranked)
-    request = source_search.SourceSearchRequest(
-        project_id=pin.project_id,
-        demand_id=pin.demand_id,
-        read_id=pin.read_id,
-        sources=(pin, second),
-        sections=("#/body",),
-        membership="descendants",
-        text="Alice",
-        max_rows=10,
-        max_bytes=bytes_limit,
+    monkeypatch.setattr(pdf_source_search, "projection_recipe", lambda *args: ({}, None))
+    monkeypatch.setattr(pdf_source_search, "population_identity", lambda source, recipe: source.reference.product_id)
+    monkeypatch.setattr(pdf_source_search, "ensure_search_projection", ensured)
+    monkeypatch.setattr(DataOperationStorage, "rank_pdf_search_projection", ranked)
+    monkeypatch.setattr(pdf_record_reader, "PublishedPdfReader", Mock(
+        side_effect=AssertionError("cache-hit search must not materialize the population"),
+    ))
+    selected = source_search.SourceSearchRequest(
+        project_id=pin.project_id, demand_id=pin.demand_id, read_id=pin.read_id,
+        sources=(pin, second), text="Alice", max_rows=10, max_bytes=bytes_limit,
     )
     if oversized:
         with pytest.raises(ReadLimit):
-            source_search.search_source(Mock(), request)
-        ranked.assert_not_called()
+            source_search.search_source(Mock(), selected)
     else:
-        answer = source_search.search_source(Mock(), request)
-        assert answer.rows == [] and answer.population_complete
+        answer = source_search.search_source(Mock(), selected)
+        assert len(answer.rows) == 2 and answer.population_complete
         assert answer.cut["read_id"] == pin.read_id
-        assert len(ranked.call_args.args[1]) == 2
         with pytest.raises(InvalidContinuation):
-            source_search.search_source(Mock(), request.model_copy(update={"cursor": "e30="}))
-    assert len(budgets) >= 2 and all(budget is budgets[0] for budget in budgets[:2])
-    assert budgets[0].max_rows == 10
+            source_search.search_source(Mock(), selected.model_copy(update={"cursor": "e30="}))
+    assert ensured.call_count == 2 and ranked.call_count == 1
+    payload = ranked.call_args.args[0]
+    assert payload["limit"] == 10
+    assert all(set(source) == {"source", "recipe"} for source in payload["sources"])

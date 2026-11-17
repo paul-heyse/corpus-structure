@@ -5,11 +5,10 @@ from __future__ import annotations
 import base64
 import json
 import math
-from hashlib import sha256
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import Double, Text, and_, column, func, literal_column, or_, select, values
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.refusals import InvalidContinuation
@@ -69,7 +68,7 @@ class SourceSearchResponse(BaseModel):
     population_complete: bool
 
 
-def _position(request, selection):
+def _continuation(request):
     if request.cursor is None:
         return None
     try:
@@ -77,151 +76,109 @@ def _position(request, selection):
             raise ValueError("oversized search cursor")
         body = json.loads(base64.b64decode(request.cursor, altchars=b"-_", validate=True))
         if (
-            set(body) != {"version", "selection", "score", "key"}
+            not isinstance(body, dict)
+            or set(body) != {"version", "selection", "score", "key"}
             or body["version"] != 1
-            or body["selection"] != selection
+            or not isinstance(body["selection"], str)
         ):
-            raise ValueError("search cursor belongs to another source population")
+            raise ValueError("invalid search cursor binding")
         score = float.fromhex(body["score"])
         if not math.isfinite(score) or score < 0 or not isinstance(body["key"], str):
             raise ValueError("invalid search position")
-        return score, body["key"]
+        return dict(selection=body["selection"], score=score, key=body["key"])
     except (ValueError, TypeError, KeyError) as error:
         raise InvalidContinuation(
             "invalid or stale source search continuation", reason="invalid_continuation"
         ) from error
 
 
-def _rank_sections(connection, texts, text, *, position, limit):
-    """Keep the established English PostgreSQL ranking and excerpt semantics."""
-    if not texts:
-        return ()
-    source = values(
-        column("key", Text()), column("text", Text()), name="selected_source_text"
-    ).data(texts)
-    config = literal_column("'english'::regconfig")
-    query = func.websearch_to_tsquery(config, text)
-    vector = func.to_tsvector(config, source.c.text)
-    # Widen the server's real value before transport. A shortened real text
-    # spelling can otherwise lose equality with the server's tie boundary.
-    score = func.ts_rank_cd(vector, query).cast(Double())
-    statement = select(
-        source.c.key,
-        func.ts_headline(config, source.c.text, query, "MaxWords=45,MinWords=15").label("excerpt"),
-        score.label("score"),
-    ).where(vector.op("@@")(query))
-    if position is not None:
-        previous_score, previous_key = position
-        statement = statement.where(
-            or_(
-                score < previous_score,
-                and_(score == previous_score, source.c.key.collate("C") > previous_key),
-            )
+def _position(request, selection):
+    body = _continuation(request)
+    if body is None:
+        return None
+    if body["selection"] != selection:
+        raise InvalidContinuation(
+            "search cursor belongs to another source population", reason="invalid_continuation"
         )
-    return tuple(
-        connection.execute(
-            statement.order_by(score.desc(), source.c.key.collate("C")).limit(limit)
-        ).mappings()
-    )
+    return body["score"], body["key"]
 
 
 def search_source(connection, request: SourceSearchRequest) -> SourceSearchResponse:
-    from corpus_structure.ingest.pdf_section_views import published_section_projections
-    from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
+    from corpus_structure.semantic._data_operation_wire import WireRankPdfSearchProjectionRequest
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+    from corpus_structure.semantic.pdf_source_search import (
+        ensure_search_projection, population_identity, projection_recipe,
+    )
     from corpus_structure.semantic.refusals import ReadLimit
-    from corpus_structure.semantic.source_products import FrozenNativeSource
 
-    budget = PublishedReadBudget(request.max_rows, request.max_bytes)
-    population, cut = {}, None
+    after = _continuation(request)
+    sources, recipes, cut = [], [], None
     for reference in request.sources:
         source = acquire_selected_pdf_source(connection, reference)
         if cut is not None and source.cut.content != cut.content:
             raise ValueError("source search pins differ in current interpretation or trust")
         cut = source.cut
-        reader = PublishedPdfReader(
-            connection, source.physical, projection_context=source.prepared, read_budget=budget
-        )
-        for row in published_section_projections(
-            reader,
-            selections=request.sections,
-            membership=request.membership,
-            scope=None,
-        ):
-            projected = FrozenNativeSource.from_projection(
-                source.prepared,
-                document=source.original_source,
-                section_pointer=row.section_pointer,
-                membership=row.membership,
-                text=row.text,
-                pieces=row.pieces,
-                items=row.items,
-                ancestors=row.ancestors,
-                recognition=row.health.get("formula_outcomes", ()),
-            )
-            digest = projected.value["source"]["projection"]
-            key = canonical_bytes(
-                [reference.model_dump(), row.section_pointer, row.membership, digest]
-            ).decode()
-            # The publication is selected; the derived search projection claims no
-            # additional product admission, standing or completeness of knowledge.
-            population[key] = source, row, digest
-            budget.value(dict(key=key, text=row.text))
+        recipe, policy = projection_recipe(connection, source)
+        sources.append(source)
+        recipes.append((recipe, policy))
     if cut is None:
         raise ValueError("source search requires its explicit source population")
-    selection = sha256(
-        canonical_bytes(
-            [
-                request.model_dump(exclude={"cursor", "limit"}),
-                cut.identity,
-                sorted(population),
-            ]
-        )
-    ).hexdigest()
-    position = _position(request, selection)
-    ranked = _rank_sections(
-        connection,
-        [(key, row.text) for key, (_, row, _) in population.items()],
-        request.text,
-        position=position,
-        limit=request.limit + 1,
+    # Locks survive the producer call until commit. Canonical order avoids A/B
+    # versus B/A deadlocks across multi-publication first searches.
+    for index in sorted(range(len(sources)), key=lambda i: population_identity(sources[i], recipes[i][0])):
+        recipe, policy = recipes[index]
+        ensure_search_projection(connection, sources[index], recipe=recipe, policy=policy)
+    payload = dict(
+        binding=request.model_dump(mode="json", exclude={"cursor", "limit"}),
+        cut_id=cut.identity,
+        sources=[dict(source=source.reference.model_dump(), recipe=recipe)
+                 for source, (recipe, _) in zip(sources, recipes, strict=True)],
+        limit=min(request.limit, request.max_rows),
     )
-    more = len(ranked) > request.limit
-    selected = ranked[: request.limit]
-    rows = []
-    for result in selected:
-        source, row, digest = population[result["key"]]
-        rows.append(
-            SourceSearchHit(
-                source=source.reference,
-                original_source=source.original_source,
-                source_digest=source.receipt.publication.source_digest,
-                projection_digest=digest,
-                selection=NativeSourceRequest(
-                    **source.reference.model_dump(),
-                    section_pointer=row.section_pointer,
-                    membership=row.membership,
-                    max_rows=request.max_rows,
-                    max_bytes=request.max_bytes,
-                ),
-                excerpt=result["excerpt"],
-                score=result["score"],
-            )
+    if after is not None:
+        payload["after"] = after
+    try:
+        ranked = DataOperationStorage(connection).rank_pdf_search_projection(
+            cast(WireRankPdfSearchProjectionRequest, payload)
         )
+    except DBAPIError as error:
+        if after is not None and getattr(error.orig, "sqlstate", None) == "22023":
+            raise InvalidContinuation(
+                "invalid or stale source search continuation", reason="invalid_continuation"
+            ) from error
+        raise
+    _position(request, ranked["selection"])
+    budget = PublishedReadBudget(request.max_rows, request.max_bytes)
+    rows = []
+    for result in ranked["rows"]:
+        source = sources[result["source_index"]]
+        hit = SourceSearchHit(
+            source=source.reference,
+            original_source=source.original_source,
+            source_digest=source.receipt.publication.source_digest,
+            projection_digest=result["projection_digest"],
+            selection=NativeSourceRequest(
+                **source.reference.model_dump(),
+                section_pointer=result["section_pointer"],
+                membership=result["membership"],
+                projection_digest=result["projection_digest"],
+                max_rows=request.max_rows,
+                max_bytes=request.max_bytes,
+            ),
+            excerpt=result["excerpt"], score=result["score"],
+        )
+        budget.reserve_rows(1)
+        budget.value(hit.model_dump(mode="json"))
+        rows.append(hit)
     cursor = None
-    if more:
-        last = selected[-1]
-        cursor = base64.urlsafe_b64encode(
-            canonical_bytes(
-                dict(
-                    version=1,
-                    selection=selection,
-                    score=float(last["score"]).hex(),
-                    key=last["key"],
-                )
-            )
-        ).decode()
+    if ranked["more"]:
+        last = ranked["rows"][-1]
+        cursor = base64.urlsafe_b64encode(canonical_bytes(dict(
+            version=1, selection=ranked["selection"], score=float(last["score"]).hex(), key=last["key"],
+        ))).decode()
     response = SourceSearchResponse(
-        cut=cut.record, rows=rows, next_cursor=cursor, population_complete=not more
+        cut=cut.record, rows=rows, next_cursor=cursor, population_complete=not ranked["more"]
     )
     if len(canonical_bytes(response.model_dump(mode="json"))) > request.max_bytes:
         raise ReadLimit(

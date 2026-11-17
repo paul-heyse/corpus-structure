@@ -2640,6 +2640,144 @@ definitions:
     - project_id
     - release_id
     additionalProperties: false
+  pdf_search_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+  pdf_search_recipe:
+    type: object
+    properties:
+      version: {const: pdf-source-search-v1}
+      renderer: {$ref: '#/definitions/pdf_search_digest'}
+      policy_digest: {$ref: '#/definitions/pdf_search_digest'}
+      organization_owner:
+        type: object
+        properties:
+          task_id: {$ref: '#/definitions/task_id'}
+          product_key: {$ref: '#/definitions/identifier'}
+          content_digest: {$ref: '#/definitions/pdf_search_digest'}
+        required: [task_id, product_key, content_digest]
+        additionalProperties: false
+      analysis_eligible: {const: true}
+    required: [version, renderer, policy_digest, organization_owner, analysis_eligible]
+    additionalProperties: false
+  pdf_search_piece:
+    type: object
+    properties:
+      kind: {type: string, enum: [native_text, synthetic_separator]}
+      start: {$ref: '#/definitions/nonnegative_integer'}
+      end: {$ref: '#/definitions/nonnegative_integer'}
+      item_ref: {type: string}
+      source_field: {type: string}
+      cell_index: {$ref: '#/definitions/nonnegative_integer'}
+    required: [kind, start, end]
+    additionalProperties: false
+  pdf_search_outcome:
+    type: object
+    properties:
+      pointer: {$ref: '#/definitions/identifier'}
+      outcome: {$ref: '#/definitions/identifier'}
+    required: [pointer, outcome]
+    additionalProperties: false
+  pdf_search_projection_row:
+    type: object
+    properties:
+      section_pointer: {$ref: '#/definitions/identifier'}
+      membership: {type: string, enum: [direct, descendants]}
+      projection_digest: {$ref: '#/definitions/pdf_search_digest'}
+      projection:
+        type: object
+        properties:
+          text: {type: string}
+          pieces: {type: array, items: {$ref: '#/definitions/pdf_search_piece'}}
+          items: {type: array, items: {$ref: '#/definitions/identifier'}}
+          ancestors: {type: array, items: {$ref: '#/definitions/identifier'}}
+          health:
+            type: object
+            properties:
+              formula_outcomes: {type: array, items: {$ref: '#/definitions/pdf_search_outcome'}}
+            required: [formula_outcomes]
+            additionalProperties: false
+        required: [text, pieces, items, ancestors, health]
+        additionalProperties: false
+    required: [section_pointer, membership, projection_digest, projection]
+    additionalProperties: false
+  ensure_pdf_search_projection_request:
+    type: object
+    properties:
+      source: {$ref: '#/definitions/read_selected_pdf_source_request'}
+      recipe: {$ref: '#/definitions/pdf_search_recipe'}
+      configuration: {const: english}
+      fill_max_bytes: {type: integer, minimum: 1, maximum: 134217728}
+      rows: {type: array, items: {$ref: '#/definitions/pdf_search_projection_row'}}
+    required: [source, recipe, configuration, fill_max_bytes]
+    additionalProperties: false
+  ensure_pdf_search_projection_result:
+    type: object
+    properties:
+      state: {type: string, enum: [missing, ready]}
+      population_id: {$ref: '#/definitions/identifier'}
+      set_digest: {type: [string, 'null'], pattern: '^[0-9a-f]{64}$'}
+      row_count: {$ref: '#/definitions/nonnegative_integer'}
+    required: [state, population_id, set_digest, row_count]
+    additionalProperties: false
+  pdf_search_binding:
+    type: object
+    properties:
+      version: {const: 5}
+      project_id: {$ref: '#/definitions/identifier'}
+      demand_id: {$ref: '#/definitions/identifier'}
+      read_id: {$ref: '#/definitions/read_id'}
+      sources: {type: array, minItems: 1, maxItems: 100, items: {$ref: '#/definitions/read_selected_pdf_source_request'}}
+      sections: {type: array, uniqueItems: true, items: {type: string}}
+      membership: {type: string, enum: [direct, descendants]}
+      text: {type: string, minLength: 1, maxLength: 4096}
+      max_rows: {type: integer, minimum: 1, maximum: 10000}
+      max_bytes: {type: integer, minimum: 1, maximum: 8388608}
+    required: [version, project_id, demand_id, read_id, sources, sections, membership, text, max_rows, max_bytes]
+    additionalProperties: false
+  pdf_search_pin:
+    type: object
+    properties:
+      source: {$ref: '#/definitions/read_selected_pdf_source_request'}
+      recipe: {$ref: '#/definitions/pdf_search_recipe'}
+    required: [source, recipe]
+    additionalProperties: false
+  pdf_search_after:
+    type: object
+    properties:
+      selection: {$ref: '#/definitions/pdf_search_digest'}
+      score: {type: number, minimum: 0}
+      key: {type: string}
+    required: [selection, score, key]
+    additionalProperties: false
+  rank_pdf_search_projection_request:
+    type: object
+    properties:
+      binding: {$ref: '#/definitions/pdf_search_binding'}
+      cut_id: {$ref: '#/definitions/identifier'}
+      sources: {type: array, minItems: 1, maxItems: 100, items: {$ref: '#/definitions/pdf_search_pin'}}
+      limit: {type: integer, minimum: 1, maximum: 100}
+      after: {$ref: '#/definitions/pdf_search_after'}
+    required: [binding, cut_id, sources, limit]
+    additionalProperties: false
+  pdf_search_hit:
+    type: object
+    properties:
+      source_index: {type: integer, minimum: 0, maximum: 99}
+      section_pointer: {$ref: '#/definitions/identifier'}
+      membership: {type: string, enum: [direct, descendants]}
+      projection_digest: {$ref: '#/definitions/pdf_search_digest'}
+      key: {type: string}
+      excerpt: {type: string}
+      score: {type: number, minimum: 0}
+    required: [source_index, section_pointer, membership, projection_digest, key, excerpt, score]
+    additionalProperties: false
+  rank_pdf_search_projection_result:
+    type: object
+    properties:
+      selection: {$ref: '#/definitions/pdf_search_digest'}
+      more: {type: boolean}
+      rows: {type: array, maxItems: 100, items: {$ref: '#/definitions/pdf_search_hit'}}
+    required: [selection, more, rows]
+    additionalProperties: false
 operations:
 - name: read_selected_feature_fit_frame
   profile: read
@@ -2852,4 +2990,16 @@ operations:
   profile: read
   request: read_selected_visual_evidence_request
   result: read_selected_visual_evidence_result
+  purposes: [read]
+
+- name: ensure_pdf_search_projection
+  profile: command
+  request: ensure_pdf_search_projection_request
+  result: ensure_pdf_search_projection_result
+  purposes: [read]
+
+- name: rank_pdf_search_projection
+  profile: read
+  request: rank_pdf_search_projection_request
+  result: rank_pdf_search_projection_result
   purposes: [read]

@@ -74,12 +74,19 @@ def published_section_projections(
     membership: Literal["direct", "descendants"],
     scope: Any,
     projection_policy: bytes | None = None,
+    exact_sections: bool = False,
     check_active: Callable[[], None] = lambda: None,
 ) -> tuple[PublishedSectionProjection, ...]:
     """Project authentic pinned sections independently of legacy source-view row custody."""
     check_active()
     sections = reader.sections()
-    selected_sections = select_published_sections(sections, selections, membership, scope)
+    if exact_sections:
+        available = {"#/body", *(row["pointer"] for row in sections)}
+        if not selections or len(set(selections)) != len(selections) or not set(selections) <= available:
+            raise ValueError("exact source projection requires distinct published section pointers")
+        selected_sections = selections
+    else:
+        selected_sections = select_published_sections(sections, selections, membership, scope)
     # The root is an authentic residual scope, never an invented section heading.
     section_refs = frozenset({"#/body", *(row["pointer"] for row in sections)})
     wrappers = [row for row in reader.iter_companions("health") if "source_scope" in row]

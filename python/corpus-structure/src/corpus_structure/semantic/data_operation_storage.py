@@ -69,6 +69,7 @@ def native_protocol_sources(
     from .graph_runtime import nx
     from .operation_event_native import operation_event_native_sources
     from .pdf_completion_native import pdf_completion_native_sql
+    from .pdf_source_search import search_projection_sources
     from .record_grade_native import record_grade_native_sql
     from .record_policy_completion_native import record_policy_completion_native_sql
     from .record_policy_native import (
@@ -355,6 +356,7 @@ def native_protocol_sources(
         ),
         *binding_native_sources(),
         *wire_native_sources(),
+        *search_projection_sources(),
         *source_native_sources(physical_sources=physical_sources, linkml_types=linkml_types),
     )
 
@@ -365,6 +367,8 @@ def _captured(sources) -> dict[str, bytes]:
         raise ValueError("duplicate captured native protocol source")
     required = {
         "native/data-operation-protocol.yaml",
+        "native/pdf-source-search.sql",
+        "native/pdf-source-search-contract.json",
         "native/data-operations.sql",
         "native/data-operation-support-scopes.sql",
         "native/contextual-neighborhood.sql",
@@ -550,6 +554,9 @@ def native_sql(sources=None) -> str:
         )
     )
     sql += "\n" + bodies["native/data-operation-external.sql"].decode()
+    from .pdf_source_search import search_projection_sql
+
+    sql += "\n" + search_projection_sql(captured)
     # Every private completion guard attests the same captured native kernel.
     sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     sql = sql.replace(

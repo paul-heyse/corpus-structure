@@ -42,6 +42,9 @@ class NativeSourceRequest(SelectedPdfSourceReference):
         "artifact",
         "visual_evidence",
     ] = "items"
+    projection_digest: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$", exclude_if=lambda value: value is None
+    )
     section_pointer: str | None = None
     membership: Literal["direct", "descendants"] | None = None
     pointer: str | None = None
@@ -65,6 +68,11 @@ class NativeSourceRequest(SelectedPdfSourceReference):
 
     @model_validator(mode="after")
     def qualified_selection(self):
+        if self.projection_digest is not None and (
+            self.view != "items" or self.section_pointer is None or self.membership is None
+            or self.pointer is not None
+        ):
+            raise ValueError("projection digest requires an exact section items read")
         if self.view == "visual_evidence":
             if (
                 self.evidence is None
@@ -408,6 +416,31 @@ def _inspect_native_source(
     )
     if published is None:
         raise ValueError("native source requires a current published record")
+    if request.projection_digest is not None:
+        from corpus_structure.ingest.pdf_hierarchy import retained_section_text_policy
+        from corpus_structure.ingest.pdf_section_views import published_section_projections
+        from corpus_structure.semantic.source_products import FrozenNativeSource
+
+        if request.section_pointer is None or request.membership is None:
+            raise ValueError("search hit requires its exact section/membership")
+        projections = published_section_projections(
+            published, selections=(request.section_pointer,),
+            membership=request.membership, scope=None, exact_sections=True,
+            projection_policy=retained_section_text_policy(conn, projection_context),
+            check_active=cancellation.check_active,
+        )
+        if len(projections) != 1:
+            raise ValueError("search hit no longer has its exact pinned projection")
+        projection = projections[0]
+        actual = FrozenNativeSource.from_projection(
+            projection_context, document=source.original_source,
+            section_pointer=projection.section_pointer, membership=projection.membership,
+            text=projection.text, pieces=projection.pieces, items=projection.items,
+            ancestors=projection.ancestors,
+            recognition=projection.health.get("formula_outcomes", ()),
+        ).value["source"]["projection"]
+        if actual != request.projection_digest:
+            raise ValueError("search hit differs from its freshly read pinned projection")
     header = _published_native_header(published, runtime=request.view == "products")
     after = -1
     if request.cursor is not None:

@@ -778,6 +778,7 @@ classes:
       occurrence_id: {range: PdfString, required: false, slot_uri: pdf:PdfNativeReadRequest_occurrence_id}
       collection: {range: PdfManifestCollection, required: false, slot_uri: pdf:PdfNativeReadRequest_collection}
       artifact_digest: {range: PdfDigest, required: false, slot_uri: pdf:PdfNativeReadRequest_artifact_digest}
+      projection_digest: {range: PdfDigest, required: false, slot_uri: pdf:PdfNativeReadRequest_projection_digest}
       evidence: {range: PdfVisualEvidencePin, required: false, inlined: true, slot_uri: pdf:PdfNativeReadRequest_evidence}
       page_no: {range: PdfInteger, required: false, minimum_value: 1, slot_uri: pdf:PdfNativeReadRequest_page_no}
       region_index: {range: PdfInteger, required: false, minimum_value: 0, slot_uri: pdf:PdfNativeReadRequest_region_index}

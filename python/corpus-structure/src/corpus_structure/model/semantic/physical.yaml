@@ -46,6 +46,10 @@ types:
     typeof: string
     annotations:
       ph:sql_type: int8range
+  search_vector_value:
+    typeof: string
+    annotations:
+      ph:sql_type: tsvector
   contextual_vector_value:
     typeof: string
     annotations:
@@ -1750,3 +1754,50 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"}]'
+
+  pdf_source_search_population:
+    description: Derived immutable search population, never source admission or read authority.
+    in_subset: [ops]
+    attributes:
+      population_id: {range: string, required: true}
+      project_id: {range: string, required: true}
+      build_id: {range: string, required: true}
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      logical_digest: {range: string, required: true}
+      recipe_digest: {range: string, required: true}
+      configuration: {range: string, required: true}
+      set_digest: {range: string, required: true}
+      row_count: {range: integer, required: true}
+      byte_count: {range: integer, required: true}
+      sections: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [population_id]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"}]'
+      ph:checks: '["configuration = ''english''", "row_count >= 0", "byte_count >= 0", "recipe_digest ~ ''^[0-9a-f]{64}$''", "set_digest ~ ''^[0-9a-f]{64}$''"]'
+  pdf_source_search_section:
+    description: Recipe-qualified section text and PostgreSQL-owned English search vector.
+    in_subset: [ops]
+    attributes:
+      population_id: {range: string, required: true}
+      section_pointer: {range: string, required: true}
+      membership: {range: string, required: true}
+      text: {range: string, required: true}
+      projection_digest: {range: string, required: true}
+      packet_digest: {range: string, required: true}
+      search_vector:
+        range: search_vector_value
+        required: true
+        annotations:
+          ph:computed: "to_tsvector('english'::regconfig, text)"
+    unique_keys:
+      primary_key: {unique_key_slots: [population_id, section_pointer, membership]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["population_id"],"target":"ops.pdf_source_search_population.population_id"}]'
+      ph:checks: '["membership IN (''direct'',''descendants'')", "projection_digest ~ ''^[0-9a-f]{64}$''", "packet_digest ~ ''^[0-9a-f]{64}$''"]'
+      ph:indexes: '[{"columns":["search_vector"],"using":"gin"}]'
