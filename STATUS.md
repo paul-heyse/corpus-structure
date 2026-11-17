@@ -1,46 +1,33 @@
 # Status
 
-_Updated 2026-11-17. Production-efficiency execution in progress; full DDO remains incomplete._
+_Updated 2026-11-17. Remaining DDO/production-efficiency execution continues; full scope is incomplete._
 
-## Current owner and boundary
+## Current owner
 
-- [DDO current execution](docs/plans/declared-data-operations_2026-11-12.md#cross-cutting-implementation-in-progress--2026-11-17) owns integrated work, receipts and remaining PE scope. S03/04/05/06/07/part08/10/12/13/part14 and N1 source are integrated; native capture/qualification and remaining PE scope stay open. S01/02/11 earlier acceptance retains its original source bounds.
-- SI30 lexical virtualenv invocation/custody and verified diagnostics, SI31 numerical-policy body.json projection integrated/reviewed. Effectivev9/demandv2/CPU3/compiler24/boundary13;97relations. Chandra excluded.
-- About2800lines of unused SQL retired, nine selected closure bodies preserved; current task/holder/attempt/lease/PDF custody intact. Source-snippet tests now use current guard; stale fate provenance checksum corrected.
-- All worker contributions are integrated on main; formatting conflicts reconciled with native functional edits preserved. Worker trees are removed after clean/equivalence checks. No persistent native/application deploy or adoption in this increment. Earlier ten lost E5 originals remain unavailable/no credit.
-- Operator clarification: settled detailed design needs no repeat planning/formal review/audit gate. Ordinary implementation checks and accepted ADR routes remain; ADR-0122/0123/0124 record accepted targets. Reopen only concrete consequential mismatches.
+- [DDO current execution](docs/plans/declared-data-operations_2026-11-12.md#cross-cutting-implementation-in-progress--2026-11-17) owns scope, receipts, findings and remaining work. [Efficiency mechanisms](docs/plans/declared-data-operations/production-efficiency-integration.md) retain the accepted target. Chandra excluded; no repeat formal design-review gate.
+- Main integrates named frozen DATA authoring, S15 grammar/frame admission, S35 attempt spool/deferred uptake, SI32 exact source/carrier selection and score dependency, PM2 wrapper/lineage/runtime-reader retirement, and managed xdist retry repair. Earlier local PE slices retain their original evidence bounds.
+- N1 source is not registered/deployed/qualified. Closed DATA requests capture builder/library custody and order nullable DDL→helpers→authenticated facts→constraints→exact guards. Old read/seal/receipt-validator evidence stays unset.
+- Actual authoring exposed and repaired PLpgSQL ambiguities, omitted private PDF admission helper, and retained PDF facet re-lowering against today's digest. Fresh admission/runtime remain current-only; DATA derives old facts from authenticated retained bytes/inputs without relabelling them.
+- ADR-0125 accepts process resource ownership; ADR-0126/0127 accept recognition failure taxonomy and all-contributor PDF custody. Their implementation is in progress, not established by acceptance.
 
 ## Verified · 2026-11-17
 
-- **passed:** final local `ci test --workers 2 --json --`325 (`47d838d…`); `ci check --only types --json`c1c8158…, Ruff5077b5b…, docsf735f0b… (1309 pages/zero link errors), `just turn-end`. Earlier source joins59 (`c80d924…`), rich22 (`2e1a34f…`), reference/custody61 (`a95ebe1…`) and description1 (`86b71e4…`) retain their bounds. These establish no uninstalled-native or actual-provider acceptance.
-
-- **passed:** wire/protocol/ports161 (`1ab6174…`), CLI/dispatch/source/navigation75 (`afedd05…`), characterization/model/demand/archive78 (`3220259…`). These are bounded selections; earlier failed originals remain with the coordinator. Review-repair M1/formal/event38 passed (`7738364…`); final pyrefly `e90f114…`, Ruff `8884f61…`, docs `b24164c…` passed. Final maintained-source local union417 passed (`a70ebb4…`).
-
-- **passed:** recognition/path/diagnostic19,7ce3290faade486daa35ff70369686d8; policy pure1,30a7edf…; SQL33 covered via242b53…/exact retry35bf83… (failed original preserved).
-- **passed:** source evolution39,4742724a4bdc4456b9b41cd06010bc0e/adacfd000. Truthful temporary-operation metadata/current dispatch inputs, independent migration assertions retained. Earlier failed/collection receipts remain held.
-- **passed:** managed fail-fast16,1305da44d99341f0bfaf5bec51eaf56c/398e62b7d. Required selection preserved.
-- **passed:** actual bounded integrated PDF0b7229a9d67842e6a5c6267c79e132dc:4new receipts, all5 obligations fulfilled; independent stage reader confirms no continuation. Actual Nemotron3pages succeeded attempt00002; original failures retained. No linguistic-accuracy/whole-book claim.
-- **passed:** final `ci check --only types --json`,619d2b2452e349538dc8c86c47e72298; Ruff7dee35d46cab45f6b4e601bfcbb54393; `ci docs check --json`,4122841a98da4e649e6529b5b0d6c6f4,1306pages/zero link errors. Initial artifact-fixture DTO/parameter typing failures9b96…/46f143… corrected without ignores; functional artifact retry not_run. Full union not_run.
-
-## Open acceptance
-
-- N1 needs normal authenticated re-lowering/backfill, forward capture, deployment and actual native acceptance. Old read/seal/validator facts stay unset rather than fabricated. S13 native/provider acceptance and selected native scoring remain open. S08 persisted validator-revision/premise proof and conditional HostedPipeline.pipe retirement remain open; the coordinator owns exact residuals. ADR lint731d83d… passed.
-
-- Controlled contextual policy gate3390a4… fails before scoring: discovery/finite producer commit2receipts but query awaits encoder inputs. Exact report-member acquisition remains unresolved; final diagnostics-only edit9e6b01616 not_run. No assertion/production guard weakened.
-- Actual E5all3 162839e4631c43d4935e9de4a85b730a:1failed/2not_run; frame encoding/query/vector/target publication reached, retrieval emits no native score product. Reporting complete/native no_claim/custody settled. Complete scoring/provider acceptance open.
-- Artifact/event5 8eb83f…:1failed/4not_run at fixture direct-vs-descendants scope. Root6f889e4a5 explicitly selects descendants for both originals; functional retry not_run.
-- Event3 fe1481d68c744387b27614807636e05f:1setup failure/2not_run, operation_event.frame lacks exact admitted prepared release capsule before fitting. Reporting complete/native no_claim/custody settled.
-- Remaining8PM2 providers, public/rich/graph/source/fault acceptance and final-source union stay open. Earlier grade4/selected-proof4/binding79 retain their source/context bounds in coordinator.
+- **passed:** `ci test --json -- …test_missing_explicit_runtime_pin_refuses_before_reading_archived_code`,1/f2d24c6…; DATA controls11/60ad8735…; HanLP/PDF custody32/18f7577…, including actual CUDA HanLP; exact original S15 retry2/41d21e… . Original87/0493c… retained85passes; this is bounded evidence, not full provider/DDO qualification.
+- **passed:** retry classifier regression1/bc10f639…; current file-custody control1/323a2f3…; real PostgreSQL retained PDF contract controls2/3ad4b6f…; safe authoring diagnostics3/004aca32… . Original failures remain held or named in the coordinator.
+- **passed:** `ci check --only types --json`,26f26b00…; earlier Ruff cc0fed24… passed before the final native repair. Final lint/docs/turn-end are due after integrated source settles. Earlier325/47d838d… retains its original source scope.
+- **failed:** focused PDF/DATA59/c626fb… retained55passes: three fixture defects repaired; one actual-native setup refusal requires N1. Contextual45/f4d790… retained23passes:21 uninstalled-N1 setup refusals and a stale custody fixture, now corrected. Native retries remain due.
+- **failed:** authoring8e9c… required explicit five scalar-function retirements; a9e689… refused stale contextual source;887b105… exposed native SQL/helper defects;956840… refused old PDF facet. All settled with rollback cleanup established. Preview2b5440… passed;6a3e449… then refused the final diagnostic typing edit as stale. Current-source reacquisition follows, with source held stable. These establish no deployment.
 
 ## Native, application and data
 
-- StageOID130661481/system7701811359771751232: root+15/headsemantic_ddo_policy_json registered1ee9cea2a/deployedd0e2466f…. Independent candidate4712… review:10body-only/0ordinary/no ACL/schema/lifecycle change,161source digests match. Native4ac19529…; physical23eb2beb… unchanged.
-- Application previewab68e37…/applyada08…/candidate701815…/deployc7bf757… passed. Release2f794245a4f3…/runtimee2cfb482465c… includes venv entrypoint; reader/release checks passed, projectddo-current-pdf-bounded activatedgeneration4.
-- No GPU/test inference active. Owned Nemo25d449… stopped deliberately, API/engine absent and GPU baselineSunshine8145 only. Restart normal launcher before required PDF work.
-- Development corpus_structure_dev/OID25921445/revisionsemantic_bep_located_v2 unchanged. All29 originals rehashed; no fence/rename/import/adoption. Canonical whole-book remains doc:38d5d93379c3320aa88457511d38fc25,518pages; not_run.
+- Stage corpus_structure_ddo_stage/OID130661481/system7701811359771751232 remains root+15/headsemantic_ddo_policy_json; registered1ee9cea2a/deployd0e2466f… . Native4ac19529…;97relations. Use explicit stage database routing and verify acquired identity before effects; defaults still name development.
+- Stage app previewab68e37…/candidate701815…/deployc7bf757…; release2f794245a4f3…/runtimee2cfb482465c…; projectddo-current-pdf-bounded generation4. It predates current uninstalled PE changes.
+- Development corpus_structure_dev/OID25921445/revisionsemantic_bep_located_v2 is unchanged; no adoption/fence/import in this increment. Prior29-original rehash retains its date/scope. Whole-book doc:38d5d93379c3320aa88457511d38fc25 has518pages; current same-demand interruption/resume/repeat not_run.
+- Owned Nemotron was stopped deliberately; restart its normal launcher for required recognition. Earlier ten lost E5 receipts remain unavailable/no credit. Earlier bounded actual PDF0b7229… retains its original3-page scope.
 
-## Next turn
+## Active integration and next actions
 
-- Continue [production-efficiency integration](docs/plans/declared-data-operations/production-efficiency-integration.md): authenticated N1 backfill/capture and native acceptance, then remaining local/native/host/model/PDF slices through accepted ADR routes. Actual S28/S30 qualification remains due; no new design-review/planning round is required.
-- Adoption and whole-book same-demand interruption/resume follow all required PE integration; final DDO-12 union follows corrected source. No native/application deployment or adoption occurred in this local increment.
-- Use UV_NO_SYNC=1/shared root environment; no rebind or push. Root owns final turn-end and documentation maintenance.
+- Root holds source stable for N1 capture/register/deploy and matching application/native qualification. Stage effects use explicit corpus_structure_ddo_stage routing; development stays untouched until planned adoption.
+- Worker trees: pe-admission has queued S23/24 commit8d92aba5f and active S25 host work; pe-pdf-reads has queued S37 commit791499f62; its follow-on owns S09/S38. Provider panels e12b8c54e are integrated (2CPU profiles/8CUDA packs, actual run starting). Integrate after stable N1 boundary; resolve conflicts, root-run checks, then remove clean/equivalent trees. Never discard baseline LFS differences blindly.
+- Remaining acceptance includes SI32 actual E5/native scoring, event/artifact/current providers, S23–27/N2+S08 proof, qualified batching, S34 true set/COPY/N3, certification/recovery/serving/N4, legacy closure, adoption and final DDO-12 union. The coordinator owns exact residuals; local passes do not close them.
+- Use UV_NO_SYNC=1/shared root environment; workers run no runtime/tests/services/format in WTs. Root owns integrated checks, handoff and final `just turn-end`; no push.
