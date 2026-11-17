@@ -379,13 +379,15 @@ def test_ontology_selection_refuses_undeclared_or_repeated_names(tmp_path, selec
 
 def test_recognition_acquisition_preserves_configured_interpreter_symlink(tmp_path, monkeypatch):
     import sys
+
     import yaml
 
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_recognition import NemotronRecipe
     from corpus_structure.semantic import pdf_capture, pdf_transforms
     from corpus_structure.semantic.data_operation_preparation import (
-        PrimaryProfileInputs, _acquire_primary_profile,
+        PrimaryProfileInputs,
+        _acquire_primary_profile,
     )
 
     root = primary_profile_inputs(tmp_path)
@@ -395,32 +397,61 @@ def test_recognition_acquisition_preserves_configured_interpreter_symlink(tmp_pa
     worker = root / "worker.py"
     worker.write_text("# Never executed during acquisition.\n")
     (root / "pdf.json").write_bytes(PdfRecipe("0" * 40, "1" * 40).to_bytes())
-    (root / "pdf-assets.json").write_bytes(canonical_bytes({
-        "recipe": "pdf-model-assets-v1", "repositories": [], "files": [],
-    }))
-    (root / "recognition.yaml").write_text(yaml.safe_dump(asdict(NemotronRecipe("2" * 64, "3" * 64))))
-    (root / "integration.yaml").write_text(yaml.safe_dump({
-        "integration": {"integration_policy": {}}, "recognition": {"recovery_policy": None},
-    }))
-    (root / "resources.yaml").write_text(yaml.safe_dump({
-        "python": "runtime/bin/python", "script": "worker.py", "receipts": "receipts",
-        "endpoint": "http://127.0.0.1:8123/v1", "timeout_seconds": 7,
-    }))
+    (root / "pdf-assets.json").write_bytes(
+        canonical_bytes(
+            {
+                "recipe": "pdf-model-assets-v1",
+                "repositories": [],
+                "files": [],
+            }
+        )
+    )
+    (root / "recognition.yaml").write_text(
+        yaml.safe_dump(asdict(NemotronRecipe("2" * 64, "3" * 64)))
+    )
+    (root / "integration.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "integration": {"integration_policy": {}},
+                "recognition": {"recovery_policy": None},
+            }
+        )
+    )
+    (root / "resources.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "python": "runtime/bin/python",
+                "script": "worker.py",
+                "receipts": "receipts",
+                "endpoint": "http://127.0.0.1:8123/v1",
+                "timeout_seconds": 7,
+            }
+        )
+    )
     profile_record = yaml.safe_load((root / "target.yaml").read_text())["primary_profile"]
     profile_record["capture"] = {
-        "recipe": "pdf.json", "assets_manifest": "pdf-assets.json", "assets_root": "assets",
-        "directory": "work", "recognition": {
-            "recipe": "recognition.yaml", "options": "integration.yaml", "resources": "resources.yaml",
+        "recipe": "pdf.json",
+        "assets_manifest": "pdf-assets.json",
+        "assets_root": "assets",
+        "directory": "work",
+        "recognition": {
+            "recipe": "recognition.yaml",
+            "options": "integration.yaml",
+            "resources": "resources.yaml",
         },
     }
     seen = []
     monkeypatch.setattr(pdf_capture, "pdf_capture_operation_sources", lambda *args, **kwargs: None)
+
     def acquire(mode, **kwargs):
         seen.append((mode, kwargs["resources"]))
         return None
+
     monkeypatch.setattr(pdf_transforms, "pdf_transform_operation_sources", acquire)
     _acquire_primary_profile(
-        PrimaryProfileInputs.model_validate(profile_record), lambda name: (root / name).read_bytes(), root
+        PrimaryProfileInputs.model_validate(profile_record),
+        lambda name: (root / name).read_bytes(),
+        root,
     )
     ((mode, resources),) = seen
     assert mode == "integrated"

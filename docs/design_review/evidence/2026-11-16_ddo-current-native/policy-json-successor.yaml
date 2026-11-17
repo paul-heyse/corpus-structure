@@ -1,0 +1,4 @@
+# Current-only governed numerical policy JSON projection; SI31.
+baseline: HEAD
+native_revision: semantic_ddo_policy_json
+native_predecessor: semantic_ddo_selected_proofs

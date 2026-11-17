@@ -438,7 +438,9 @@ def test_report_request_inventory_cannot_gain_or_lose_a_request(tmp_path):
         list(page.requests(expected_requests=()))
 
 
-@pytest.mark.parametrize("diagnostic", [None, "ModuleNotFoundError: No module named 'nemotron_parse'"])
+@pytest.mark.parametrize(
+    "diagnostic", [None, "ModuleNotFoundError: No module named 'nemotron_parse'"]
+)
 def test_recognition_without_requests_refuses_with_verified_page_diagnostic(tmp_path, diagnostic):
     from corpus_structure.ingest.pdf_recognition import RecognitionPage
     from corpus_structure.semantic.pdf_transforms import prepare_recognition_report
@@ -448,7 +450,9 @@ def test_recognition_without_requests_refuses_with_verified_page_diagnostic(tmp_
         result["diagnostic"] = diagnostic
     (tmp_path / "result.json").write_bytes(canonical_bytes(result))
     page = RecognitionPage(3, tmp_path, result, {})
-    with pytest.raises(RuntimeError, match="recognition page 3 has no admitted request inventory") as caught:
+    with pytest.raises(
+        RuntimeError, match="recognition page 3 has no admitted request inventory"
+    ) as caught:
         prepare_recognition_report(page, NemotronRecipe("1" * 64, "2" * 64))
     if diagnostic is not None:
         assert diagnostic in str(caught.value)

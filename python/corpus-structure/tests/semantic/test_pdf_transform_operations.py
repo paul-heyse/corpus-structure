@@ -408,12 +408,18 @@ def test_recognition_custody_keeps_virtualenv_entrypoint_and_checks_executable_b
     worker = tmp_path / "worker.py"
     worker.write_text("# Explicit worker bytes, no provider invocation.\n")
     resources = PdfRecognitionResources(
-        python=str(interpreter), script=str(worker), endpoint="http://127.0.0.1:8123/v1",
-        receipts=str(tmp_path / "receipts"), timeout_seconds=7,
+        python=str(interpreter),
+        script=str(worker),
+        endpoint="http://127.0.0.1:8123/v1",
+        receipts=str(tmp_path / "receipts"),
+        timeout_seconds=7,
     )
     custody = pdf_transform_custody(
-        "recognized", directory=tmp_path / "work", options=PdfRecognitionOptions(recovery_policy=None),
-        recognition_recipe=NemotronRecipe("2" * 64, "3" * 64), resources=resources,
+        "recognized",
+        directory=tmp_path / "work",
+        options=PdfRecognitionOptions(recovery_policy=None),
+        recognition_recipe=NemotronRecipe("2" * 64, "3" * 64),
+        resources=resources,
     )
     record = json.loads(custody.content)
     assert record["resources"]["python"] == str(interpreter)
@@ -423,8 +429,11 @@ def test_recognition_custody_keeps_virtualenv_entrypoint_and_checks_executable_b
         f"importlib.util.find_spec({marker!r}) is not None]))"
     )
     assert json.loads(subprocess.check_output([record["resources"]["python"], "-c", code])) == [
-        str(environment), True,
+        str(environment),
+        True,
     ]
-    base_prefix, found = json.loads(subprocess.check_output([str(interpreter.resolve()), "-c", code]))
+    base_prefix, found = json.loads(
+        subprocess.check_output([str(interpreter.resolve()), "-c", code])
+    )
     assert base_prefix != str(environment)
     assert found is False

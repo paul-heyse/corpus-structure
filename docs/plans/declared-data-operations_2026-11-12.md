@@ -10,6 +10,49 @@ at `4f32589d0`. All actionable I01–I09 scope is scheduled below, with explicit
 conditional choices retained. Existing F01–F14/C1–C7/CA identities and scoped closures survive.
 Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No broad audit is initiated.
 
+## Authorized completion execution · 2026-11-17
+
+**Execution active; incomplete.** Implement the approved remaining DDO-00–12 approach in this
+owner, without reopening completed designs or restoring historical compatibility. Current source
+starts at29f0ca589 plus independent documentation review2cc4e4d9d; that review is not automatically
+adopted into execution. Root owns integration/native lifecycle and status; bounded parallel workers
+own SI31, SI30 and unused SQL source retirement in isolated worktrees.
+
+1. Correct SI31's current numerical-policy `body.json` projection, preserving all score guards.
+2. Correct SI30 at both acquisition and execution custody: preserve the absolute lexical virtualenv
+   interpreter entrypoint, hash its executable bytes separately, and retain verified failed-page
+   diagnostics without accepting missing request inventory. Retained three-page attempt logs show
+   `ModuleNotFoundError: No module named 'nemotron_parse'`; path resolution currently changes the
+   configured virtualenv executable into `/usr/bin/python3.12`, which lacks that package. No new
+   environment or interpreter fallback is needed.
+3. Retire unselected historical publication/assessment/task-guard SQL and migrate source-snippet
+   tests to current generated guards. Preserve selected helpers and real task/lease/PDF custody.
+   The earlier orphan-module removals are already present; no unproven table-drop task is added.
+4. Integrate/review/maintain source, then author one normal frozen successor from
+   `semantic_ddo_selected_proofs` and acquire/check/activate a matching stage application. No forced
+   stamp, edited frozen revision, old-candidate retargeting or planned wire/compiler version bump.
+5. Qualify E5 all3, event/artifact5, eight remaining PM2 providers and current public/rich/graph/
+   source-evolution/native acceptance. Use finite fail-fast feedback while shared prerequisites
+   are unproven; retain every unresolved identity. GPU-owning cohorts are serial. Preserve fitting,
+   privacy, tamper, revocation and independent scientific criteria;900s is no acceptance criterion.
+6. Recognition must use corrected fresh application/demand custody. Preserve the old failed demand.
+   Before that bounded demand, make one explicit existing-worker API attempt on exact pages1–3,
+   using the complete acquired recipe/resources with `reuse_failures=False`; otherwise the normal
+   operation will replay retained pre-request failures. Keep original attempts. No automatic retry
+   framework or recipe change merely to force a retry is selected.
+7. After stage readiness, verify/fence/drain old development OID25921445, retain it under an inert
+   unique name, initialize the canonical database through the registered current chain, acquire an
+   application bound to its new OID and faithfully register/read-verify all29 original descriptors.
+   Regenerate changed-basis products/judgments; optional generated-data conversion cannot block this.
+8. Run normal whole-document phase0/standard for project `nce-grinstead-snell-full-book`, exact
+   `doc:38d5d93379c3320aa88457511d38fc25`/SHA763eab98…/518pages. Interrupt the invocation after
+   committed useful progress while work remains, never cancel the native Demand, then resume that
+   same ID. Target closure owns coverage; no316-view hardcode or smaller book substitute.
+9. Complete final-source `ci test`/`ci check` and the required provider/fault/nonfunctional union;
+   correct package/finding/architecture labels from actual evidence. Root transfers original
+   worktree receipts with verified directory/manifest identity before cleanup, runs turn-end and
+   updates STATUS. No push. Chandra remains excluded; raw originals/plans/evidence remain preserved.
+
 ## Resumed remaining execution · 2026-11-16
 
 **Execution authorized; incomplete.** The operator approved the full remaining execution approach

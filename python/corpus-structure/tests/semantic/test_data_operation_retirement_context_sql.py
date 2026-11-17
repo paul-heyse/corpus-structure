@@ -20,7 +20,9 @@ from corpus_structure.semantic.target_installation import target_task_guard_sql
 @pytest.mark.db
 def test_retired_attempt_preserves_holder_until_a_new_claim_fence(semantic_bare_engine):
     checks = (
-        files("corpus_structure.semantic").joinpath("sql/data_operation_task_checks.sql").read_text()
+        files("corpus_structure.semantic")
+        .joinpath("sql/data_operation_task_checks.sql")
+        .read_text()
     )
     protocol = (
         files("corpus_structure.model").joinpath("semantic/data-operation-native.yaml").read_bytes()
