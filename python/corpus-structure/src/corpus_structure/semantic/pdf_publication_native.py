@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
-from sqlalchemy.dialects.postgresql import dialect
+from sqlalchemy import MetaData, Table, case, func, select, union_all
+from sqlalchemy.dialects.postgresql import Insert, dialect, insert
 
 from .metadata import metadata as default_metadata
+from .native_call_contracts import OperationCallBinding
+from .native_program import core_variable
 from .pdf_staging import STAGE_FAMILIES
 
 _FINAL = {
@@ -22,6 +26,183 @@ _FINAL = {
     "access": "kb.pdf_record_access",
     "region": "kb.pdf_record_region",
 }
+
+
+def _prepare_pdf_copy_statements(
+    metadata: MetaData, stages: Mapping[str, str], *, build_parameter: str
+) -> tuple[Insert, ...]:
+    """Copy frozen families using their model-owned physical columns and relations."""
+    native = metadata.tables[_FINAL["native"]]
+    artifacts = metadata.tables[_FINAL["artifact_stream"]]
+    build = core_variable(build_parameter, native.c.product_id.type)
+    statements = []
+    for family, relation in _FINAL.items():
+        target = metadata.tables[relation]
+        source = metadata.tables[stages[family]].alias("s")
+        values = [
+            _prepare_pdf_reference_target(source, native, artifacts, build)
+            if family == "reference" and column.key == "target_id"
+            else source.c[column.key]
+            for column in target.columns
+        ]
+        statements.append(
+            insert(target)
+            .from_select(
+                [column.key for column in target.columns],
+                select(*values).where(source.c.product_id == build),
+            )
+            .on_conflict_do_nothing()
+        )
+    return tuple(statements)
+
+
+def _prepare_pdf_reference_target(source, native: Table, artifacts: Table, build):
+    """Resolve exact native addresses without losing scalar ambiguity failures."""
+    # Materialize overflow keys once. Fresh products have no planner statistics,
+    # so an inline miss must not rescan all native rows for every reference.
+    streamed = (
+        select(native.c.record_id, artifacts.c.byte_length, artifacts.c.byte_root)
+        .select_from(
+            native.join(
+                artifacts,
+                (artifacts.c.product_id == native.c.product_id)
+                & (artifacts.c.revision_id == native.c.revision_id)
+                & (artifacts.c.stream_id == native.c.native_address_stream_id),
+            )
+        )
+        .where(
+            native.c.product_id == build,
+            native.c.revision_id == build,
+            native.c.native_address.is_(None),
+        )
+        .cte("streamed_targets")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    origin = native.alias("source")
+    source_address = (
+        select(origin.c.native_address)
+        .where(
+            origin.c.product_id == build,
+            origin.c.revision_id == build,
+            origin.c.record_id == source.c.source_id,
+        )
+        .correlate(source)
+        .scalar_subquery()
+    )
+    graph_cell = (
+        select(native.c.record_id)
+        .where(
+            native.c.product_id == build,
+            native.c.revision_id == build,
+            native.c.native_type == "GraphCell",
+            native.c.scalars_json["cell_id"].astext == source.c.native_pointer,
+            func.regexp_replace(native.c.native_address, "/cells/[0-9]+$", "")
+            == func.regexp_replace(source_address, "/links/[0-9]+$", ""),
+        )
+        .correlate(source)
+        .scalar_subquery()
+    )
+    pointer_bytes = func.convert_to(source.c.native_pointer, "UTF8")
+    addressed = union_all(
+        select(native.c.record_id)
+        .where(
+            native.c.product_id == build,
+            native.c.revision_id == build,
+            native.c.native_address == source.c.native_pointer,
+        )
+        .correlate(source),
+        select(streamed.c.record_id)
+        .where(
+            streamed.c.byte_length == func.octet_length(pointer_bytes),
+            streamed.c.byte_root
+            == func.encode(func.ops.pdf_identity_byte_root(pointer_bytes), "hex"),
+        )
+        .correlate(source),
+    ).subquery("target")
+    # Keep the scalar subquery around UNION ALL: an inline/streamed collision
+    # must fail rather than select an arbitrary target or multiply copied rows.
+    inline = select(addressed.c.record_id).correlate(source).scalar_subquery()
+    overflow = (
+        select(native.c.record_id)
+        .where(
+            native.c.product_id == build,
+            native.c.revision_id == build,
+            func.ops.pdf_reference_bytes_equal(
+                build,
+                build,
+                native.c.native_address,
+                native.c.native_address_stream_id,
+                source.c.native_pointer,
+                source.c.native_pointer_stream_id,
+            ),
+        )
+        .correlate(source)
+        .scalar_subquery()
+    )
+    return func.coalesce(
+        source.c.target_id,
+        case(
+            (source.c.field_name.in_(("source_cell_id", "target_cell_id")), graph_cell),
+            (source.c.native_pointer_stream_id.is_(None), inline),
+            else_=overflow,
+        ),
+    )
+
+
+def _prepare_pdf_build_sql(
+    metadata: MetaData, stages: Mapping[str, str], binding: OperationCallBinding
+) -> str:
+    from .native_program import (
+        Assign,
+        Block,
+        Local,
+        Perform,
+        Sql,
+        call,
+        literal,
+        variable,
+        void_call_function,
+    )
+
+    names = {}
+    for field in binding.parameters:
+        if field.native_parameter is None:
+            raise ValueError(f"{binding.id}.{field.name}: missing native parameter")
+        names[field.name] = field.native_parameter
+    frozen = call(
+        "ops",
+        "require_pdf_frozen",
+        *(
+            variable(names[name])
+            for name in ("build_id", "task_id", "attempt", "holder", "frozen_digest")
+        ),
+    )
+    return void_call_function(
+        binding,
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            locals=(Local("b", metadata.tables["ops.pdf_stage_build"]),),
+            statements=(
+                Assign("b", frozen),
+                Perform(
+                    call(
+                        "ops",
+                        "require_pdf_operation",
+                        variable("b", "release_id"),
+                        literal("prepare_pdf_build"),
+                    )
+                ),
+                *(
+                    Sql(statement)
+                    for statement in _prepare_pdf_copy_statements(
+                        metadata, stages, build_parameter=names["build_id"]
+                    )
+                ),
+                Perform(frozen),
+            ),
+        ),
+    )
 
 
 def _quote(value: str) -> str:
@@ -635,9 +816,10 @@ BEGIN
     )
 
 
-def publication_sql(*, target_metadata=None) -> str:
+def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
     metadata = default_metadata if target_metadata is None else target_metadata
     identifier = dialect().identifier_preparer.quote
+    from .pdf_domain import pdf_call_bindings
     from .pdf_record_reader_native import (
         pdf_companion_export_sql,
         pdf_native_export_sql,
@@ -824,78 +1006,14 @@ l.revision_id=p_revision AND l.stream_id=p_left_stream
 r.stream_id=p_right_stream
 $$;
 REVOKE ALL ON FUNCTION ops.pdf_reference_bytes_equal(text,text,text,text,text,text) FROM PUBLIC;
-CREATE OR REPLACE FUNCTION ops.prepare_pdf_build(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text,p_frozen text)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build;
-BEGIN b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- PERFORM ops.require_pdf_operation(b.release_id,'prepare_pdf_build');
 """
-    for family in (
-        "header",
-        "artifact_stream",
-        "native",
-        "membership",
-        "reference",
-        "companion",
-        "endpoint",
-        "companion_field",
-        "access",
-        "region",
-    ):
-        target = _FINAL[family]
-        source = stage[family]
-        columns = ",".join(identifier(column.name) for column in metadata.tables[target].columns)
-        selects = columns
-        preparation = ""
-        if family == "reference":
-            # A new product is not yet represented in planner statistics. Prepare
-            # overflow keys once so an empty fallback cannot rescan all native
-            # rows for every inline reference under an estimated one-row plan.
-            preparation = """WITH streamed_targets AS MATERIALIZED (
- SELECT n.record_id,a.byte_length,a.byte_root
- FROM kb.pdf_record_native n JOIN ops.pdf_artifact_stream a
- ON a.product_id=n.product_id AND a.revision_id=n.revision_id
- AND a.stream_id=n.native_address_stream_id
- WHERE n.product_id=p_build AND n.revision_id=p_build AND n.native_address IS NULL
- ) """
-            # The ordinary pointer is an indexed address. Only streamed addresses
-            # need byte-root comparison; keep the enclosing scalar subquery so
-            # ambiguous inline/streamed targets still raise a cardinality error.
-            reference_target = """COALESCE(s.target_id,CASE
- WHEN s.field_name IN ('source_cell_id','target_cell_id') THEN
- (SELECT n.record_id FROM kb.pdf_record_native n
- WHERE n.product_id=p_build AND n.revision_id=p_build AND n.native_type='GraphCell'
- AND n.scalars_json->>'cell_id'=s.native_pointer
- AND regexp_replace(n.native_address,'/cells/[0-9]+$','')=regexp_replace(
- (SELECT source.native_address FROM kb.pdf_record_native source
- WHERE source.product_id=p_build AND source.revision_id=p_build
- AND source.record_id=s.source_id),'/links/[0-9]+$',''))
- WHEN s.native_pointer_stream_id IS NULL THEN
- (SELECT target.record_id FROM (
- SELECT n.record_id FROM kb.pdf_record_native n
- WHERE n.product_id=p_build AND n.revision_id=p_build AND n.native_address=s.native_pointer
- UNION ALL
- SELECT n.record_id FROM streamed_targets n
- WHERE n.byte_length=octet_length(convert_to(s.native_pointer,'UTF8'))
- AND n.byte_root=encode(ops.pdf_identity_byte_root(convert_to(s.native_pointer,'UTF8')),'hex')
- ) target)
- ELSE
- (SELECT n.record_id FROM kb.pdf_record_native n
- WHERE n.product_id=p_build AND n.revision_id=p_build
- AND ops.pdf_reference_bytes_equal(p_build,p_build,n.native_address,n.native_address_stream_id,
- s.native_pointer,s.native_pointer_stream_id)) END)"""
-            selects = ",".join(
-                reference_target if c == "target_id" else "s." + identifier(c)
-                for c in (column.key for column in metadata.tables[target].columns)
-            )
-        sql += (
-            preparation
-            + f"INSERT INTO\
- {target}({columns}) SELECT\
- {selects} FROM {source} s WHERE s.product_id=p_build ON CONFLICT DO NOTHING;\n"
-        )
-    sql += """ PERFORM ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen); END $$;
+    (prepare_binding,) = (
+        binding
+        for action, binding in pdf_call_bindings(pdf_domain)
+        if action == "prepare_pdf_build" and binding.id == "prepare_pdf_build"
+    )
+    sql += _prepare_pdf_build_sql(metadata, stage, prepare_binding) + ";\n"
+    sql += """
 CREATE OR REPLACE FUNCTION ops.read_pdf_published_revision(p_task bigint,p_key text,p_digest text)
 RETURNS SETOF ops.pdf_published_revision LANGUAGE sql STABLE SECURITY DEFINER SET \
 search_path=pg_catalog,pg_temp AS $$
