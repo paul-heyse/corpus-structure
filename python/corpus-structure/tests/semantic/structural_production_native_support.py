@@ -108,7 +108,7 @@ def produce_source_reports(source, kernel, target, *, text):
     assert execution.receipt_count > 0
     with kernel.purpose("read").begin() as connection:
         page = read_demand_result(connection, retained["demand_id"], project_id=PROJECT, limit=1000)
-    products = tuple(Product(row, row["body"]) for row in page.members())
+    products = tuple(Product(row, row["body"], page.cut) for row in page.members())
     contract = kernel.identities[
         "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
         "kind",

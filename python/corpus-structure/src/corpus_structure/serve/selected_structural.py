@@ -9,6 +9,7 @@ from corpus_structure._query_custody import STRUCTURAL_READ_SOURCES
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.nonrich_contribution_facets import read_nonrich_root
 from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.selected_support import SelectedOutputRoot
 
 from .contribution_facets import ContributionFacetsRequest
 from .selected_contributions import SelectedContributionScope, selected_contribution_scope
@@ -19,16 +20,7 @@ class StructuralScope(SelectedContributionScope):
     implementation: str
 
 
-class SelectedStructuralRoot(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    product_id: str = Field(min_length=1)
-    member_id: str | None = None
-    use_id: str | None = Field(
-        min_length=1,
-        description="Exact native use, or explicit null for an episode-only authority support reference.",
-    )
-    derivation_id: str = Field(min_length=1)
-
+SelectedStructuralRoot = SelectedOutputRoot
 
 class StructuralReadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)

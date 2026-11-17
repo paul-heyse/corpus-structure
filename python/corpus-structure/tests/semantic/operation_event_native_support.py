@@ -111,7 +111,7 @@ def selected(kernel, demand, kind, *, purpose="evaluate"):
     with kernel.purpose(purpose).begin() as connection:
         page = read_demand_result(connection, demand, project_id=PROJECT, limit=1000)
     return page, tuple(
-        Product(row, row["body"])
+        Product(row, row["body"], page.cut)
         for row in page.members()
         if row["kind_contract"] == kernel.identities[kind, "kind"]
     )

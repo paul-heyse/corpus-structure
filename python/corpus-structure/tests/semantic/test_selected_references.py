@@ -356,7 +356,7 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
                 demand_id=demand_id,
                 scope=scope,
                 selection=dict(
-                    version="data-demand-intent-v1",
+                    version="data-demand-intent-v2",
                     model="model:test",
                     execution_profile="test",
                     inference="none",

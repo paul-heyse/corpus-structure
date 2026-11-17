@@ -1,5 +1,7 @@
 """Actual typed raw/resolved family inputs and exact shared predictor application."""
 
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
+
 from corpus_structure.semantic.data_operation_cpu_basis import CPUInputRole
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
@@ -203,7 +205,7 @@ def actual_inputs():
                     admission_use_id="use:" + product,
                 ),
             ),
-        )
+         producer_output=ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1))
 
     raw_role = role(
         "records",

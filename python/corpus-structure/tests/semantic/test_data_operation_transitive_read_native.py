@@ -77,7 +77,7 @@ def _demand(kernel, entry, *, source, operation, inference, subject=None, scope=
         kernel["model"],
         roots=(RootSubject("subject:" + source if subject is None else subject, source, scope),),
         targets=(operation,),
-        source_sets=(FrozenSourceSet("selected", (entry,)),),
+        source_sets=(FrozenSourceSet.unqualified("selected", (entry,)),),
         inference=inference,
         execution_profile="execution:test",
     )

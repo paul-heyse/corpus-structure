@@ -454,57 +454,28 @@ def admit_current_target(source, recipe, directory):
 
 def selected_current_sources(source):
     """Read actual computational source members and their complete occurrence contexts."""
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
-    from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
+    from corpus_structure.semantic.demand_results import stream_demand_result
 
-    with (
-        source.kernel.purpose("read").begin() as connection,
-        selected_record_index(
-            connection,
-            source.demand_id,
-            project_id=PROJECT,
-            scope={},
-            capture_frontier=True,
-        ) as (_, index),
-    ):
-        kinds = {
-            item.key
-            for item in source.kernel.model.identities
-            if item.domain == "kind"
-            and item.owner
-            == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
-        }
-        return tuple(
-            (dict(row), decode_semantic_value(row["body"]))
-            for row in index.rows("kb.data_product_member")
-            if row["kind_contract"] in kinds
-        )
+    kinds = {
+        item.key
+        for item in source.kernel.model.identities
+        if item.domain == "kind"
+        and item.owner
+        == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
+    }
+    with source.kernel.purpose("read").begin() as connection:
+        selected = []
+        for page in stream_demand_result(connection, source.demand_id, project_id=PROJECT):
+            for row in page.members():
+                if row["kind_contract"] in kinds:
+                    selected.append((dict(row, _selected_entry=SelectedSourceSetEntry.from_selected_header(row, page.cut)), row["body"]))
+        return tuple(selected)
 
 
 def source_entry(row):
-    from corpus_structure.semantic.data_operation_model import SubjectContext
-    from corpus_structure.semantic.data_operation_source_sets import SourceSetEntry
-    from corpus_structure.semantic.data_product_reference import (
-        DataProductMemberReference,
-        DataProductReference,
-    )
-
-    product = DataProductReference(row["product_id"])
-    reference = (
-        product
-        if row["member_id"] is None
-        else DataProductMemberReference(product, row["member_id"])
-    )
-    return SourceSetEntry.from_semantic_source(
-        reference,
-        context=SubjectContext(
-            PROJECT,
-            row["subject"],
-            row["original_source"],
-            json_bytes(row["analyzed_scope"]),
-            subject_definition=row["subject_definition"],
-        ),
-    )
+    """Retain the exact source packet's native cut and producing occurrence."""
+    return row["_selected_entry"]
 
 
 def current_consumer_request(source, kernel, targets, *, discover=False):
@@ -530,11 +501,11 @@ def current_consumer_request(source, kernel, targets, *, discover=False):
         selections[producer] = DemandOperationSelection(
             operation=producer, parameters={"complete": True}
         )
-        source_sets = {
-            "selected-source-views": [
-                source_entry(row).record() for row, _ in selected_current_sources(source)
-            ]
-        }
+        from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, source_sets_record
+
+        source_sets = source_sets_record((FrozenSourceSet.from_selected(
+            "selected-source-views", tuple(source_entry(row) for row, _ in selected_current_sources(source))
+        ),))
         graph = kernel.model.projection_graph(
             "selected-dependencies",
             selected_dependencies=tuple(

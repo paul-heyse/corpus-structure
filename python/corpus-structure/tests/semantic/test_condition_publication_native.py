@@ -86,8 +86,8 @@ def test_condition_admits_only_the_exact_supported_roles(
         (CONDITION,),
         original.context,
         source_sets=(
-            FrozenSourceSet("structural-source", (original.entry(),)),
-            FrozenSourceSet("structural-report", (predicates.entry(),)),
+            FrozenSourceSet.from_selected("structural-source", (original.entry(),)),
+            FrozenSourceSet.from_selected("structural-report", (predicates.entry(),)),
         ),
         selections=(selection,),
         inference="actual-condition-producer",

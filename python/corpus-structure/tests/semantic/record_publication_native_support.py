@@ -216,7 +216,7 @@ def publish_authored(journey, values, *, inference, qualifications=None, entitie
         (context,),
         originals=originals,
         source_sets=(
-            FrozenSourceSet(
+            FrozenSourceSet.unqualified(
                 "rich-authored-propositions",
                 (
                     SourceSetEntry.from_semantic_source(
@@ -225,7 +225,7 @@ def publish_authored(journey, values, *, inference, qualifications=None, entitie
                 ),
             ),
             *tuple(
-                FrozenSourceSet(name, ())
+                FrozenSourceSet.from_selected(name, ())
                 for name in (
                     "rich-proposals",
                     "rich-proposal-contexts",
@@ -342,7 +342,7 @@ def publish_readings(
         ),
         source_sets=(
             *tuple(
-                FrozenSourceSet(name, ())
+                FrozenSourceSet.from_selected(name, ())
                 for name in (
                     "rich-proposals",
                     "rich-proposal-contexts",
@@ -350,12 +350,12 @@ def publish_readings(
                     "rich-known-universe",
                 )
             ),
-            FrozenSourceSet("rich-records", tuple(selected_entry(row) for row in raw)),
-            FrozenSourceSet(
+            FrozenSourceSet.from_selected("rich-records", tuple(selected_entry(row) for row in raw)),
+            FrozenSourceSet.from_selected(
                 "rich-readings",
                 tuple(selected_entry(row) for row in resolved) if include_resolution else (),
             ),
-            FrozenSourceSet(
+            FrozenSourceSet.from_selected(
                 "rich-policy-authorizations",
                 () if authorization is None else (selected_entry(authorization),),
             ),

@@ -247,10 +247,10 @@ def publish_external_report(journey, source, response_factory, *, inference):
             ),
         ),
         source_sets=(
-            FrozenSourceSet("rich-proposals", (selected_entry(proposal_product),)),
-            FrozenSourceSet("rich-proposal-contexts", (selected_entry(context_product),)),
+            FrozenSourceSet.from_selected("rich-proposals", (selected_entry(proposal_product),)),
+            FrozenSourceSet.from_selected("rich-proposal-contexts", (selected_entry(context_product),)),
             *tuple(
-                FrozenSourceSet(name, ())
+                FrozenSourceSet.from_selected(name, ())
                 for name in (
                     "rich-authored-propositions",
                     "rich-known-universe",

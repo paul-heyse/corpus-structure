@@ -1,5 +1,7 @@
 """Independent authored-binding semantics; these controlled facts are unadmitted."""
 
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
+
 from copy import deepcopy
 from dataclasses import replace
 
@@ -39,7 +41,7 @@ def witness_case():
     def role(name, product, body, *, member=None, selected=context, evidence=support, position=0):
         return CPUInputRole(
             name, position, 1, product, member, "unadmitted:" + name, selected, body, evidence
-        )
+        , producer_output=ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1) if any(isinstance(ref, ComputationalSupportReference) for ref in evidence) else None)
 
     carrier = role(
         "cues", "unadmitted:report", occurrence, member="subject", selected=source_context
@@ -159,7 +161,7 @@ def test_binding_refuses_custody_substitution_without_promoting_absence(change, 
     elif change == "missing-authored":
         roles[3] = replace(roles[3], support=())
     elif change == "unsupported-cue":
-        roles[4] = replace(roles[4], support=())
+        roles[4] = replace(roles[4], support=(), producer_output=None)
     elif change == "wrong-source":
         roles[4].body["pin"] = dict(roles[4].body["pin"], subject="other-source")
     elif change == "wrong-anchor":
@@ -250,24 +252,39 @@ def test_acquisition_pins_original_query_cut_and_refuses_missing_cues(
 
     from corpus_structure.semantic import contextual_selection as owner
     from corpus_structure.semantic.data_operation_json import json_loads
-    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SelectedSourceSetEntry
     from corpus_structure.semantic.data_product_reference import DataProductReference
 
     _frame, context, roles, other = witness_case()
     query_role = roles[1]
-    query_entry = SourceSetEntry.from_semantic_source(
-        DataProductReference(query_role.product_id), context=context
-    )
+    from corpus_structure.semantic.demand_results import CutSelection
+    from semantic.test_demand_results import _page
+
+    page = _page()
+    page.update(project_id=context.project_id, demand_id="unadmitted:query-demand", read_id="unadmitted:original-query-read")
+    cut = CutSelection.from_native(page)
+
+    def selected_entry(product_id, member_id, selected_context):
+        return SelectedSourceSetEntry.from_selected_header(dict(
+            product_id=product_id, member_id=member_id,
+            subject=selected_context.subject,
+            subject_definition=selected_context.subject_definition,
+            original_source=selected_context.original_source,
+            analyzed_scope=json_loads(selected_context.analyzed_scope),
+            use_id="unadmitted:query-use", derivation_id="unadmitted:query-episode",
+            output_member_id=None, role="result", position=0, multiplicity=1,
+        ), cut)
+
+    query_entry = selected_entry(query_role.product_id, query_role.member_id, context)
     selected = owner.ContextualVectorSelection(
-        (FrozenSourceSet("contextual-query", (query_entry,)),), (), context
+        (FrozenSourceSet.from_selected("contextual-query", (query_entry,)),), (), context
     )
-    cut = SimpleNamespace(
-        record={"read_id": "unadmitted:original-query-read"},
-        identity="unadmitted:exact-original-cut",
-    )
-    monkeypatch.setattr(
-        owner, "_selected_product", lambda *args, **kwargs: (query_role.body, query_entry, cut)
-    )
+    def selected_query(connection, requested, **kwargs):
+        assert requested.read_id == cut.record["read_id"]
+        assert requested.expected_cut == cut.identity
+        return query_role.body, query_entry, cut
+
+    monkeypatch.setattr(owner, "_selected_product", selected_query)
     products, members = {}, {}
     for row in (roles[0], roles[4], roles[5]):
         values = dict(
@@ -303,6 +320,13 @@ def test_acquisition_pins_original_query_cut_and_refuses_missing_cues(
         yield cut, Index()
 
     monkeypatch.setattr("corpus_structure.semantic.demand_results.selected_record_index", read)
+
+    def candidates(index, exact_cut, *, product_id, member_id, anchor_use_id):
+        assert exact_cut is cut
+        assert anchor_use_id == query_entry.proof.anchor_use_id
+        return (selected_entry(product_id, member_id, context),)
+
+    monkeypatch.setattr(owner, "selected_source_entries", candidates)
     arguments = dict(
         project_id=context.project_id,
         query=owner.ContextualSelectedProduct("unadmitted:query-demand", query_role.product_id),

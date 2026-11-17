@@ -35,7 +35,7 @@ def test_population_context_distinguishes_boolean_and_number_with_numeric_value_
             "members": [{**context, "member_id": "member:one"}],
         }
         source_sets = {
-            "selected": [
+            "selected": {"entries": [
                 {
                     **obligation,
                     "project_id": "project:one",
@@ -43,7 +43,7 @@ def test_population_context_distinguishes_boolean_and_number_with_numeric_value_
                     "member": "member:one",
                     "original_source": "source:remote",
                 }
-            ]
+            ], "acquisition": {"kind": "all-admissible-support-v1"}}
         }
         row["members"][0]["original_source"] = "source:remote"
     assert (

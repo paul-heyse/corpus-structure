@@ -88,6 +88,7 @@ def recipe(directory):
 class Product:
     row: dict
     body: dict
+    cut: object
 
     @property
     def context(self):
@@ -115,16 +116,9 @@ class Product:
         )
 
     def entry(self):
-        from corpus_structure.semantic.data_operation_source_sets import SourceSetEntry
-        from corpus_structure.semantic.data_product_reference import (
-            DataProductMemberReference,
-            DataProductReference,
-        )
+        from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
 
-        reference = DataProductReference(self.row["product_id"])
-        if self.row["member_id"] is not None:
-            reference = DataProductMemberReference(reference, self.row["member_id"])
-        return SourceSetEntry.from_semantic_source(reference, context=self.context)
+        return SelectedSourceSetEntry.from_selected_header(self.row, self.cut)
 
     @property
     def root(self):
@@ -145,7 +139,7 @@ def selected(kernel, demand, *, kind, purpose="read"):
     with kernel.purpose(purpose).begin() as connection:
         page = read_demand_result(connection, demand, project_id=PROJECT, limit=1000)
     return tuple(
-        Product(row, row["body"]) for row in page.members() if row["kind_contract"] == contract
+        Product(row, row["body"], page.cut) for row in page.members() if row["kind_contract"] == contract
     )
 
 
@@ -177,7 +171,7 @@ def request(
             raise ValueError("structural issuer fixture requires the actual selected report")
         source_sets = (
             *source_sets,
-            FrozenSourceSet("structural-admission-report", (admission_report.entry(),)),
+            FrozenSourceSet.from_selected("structural-admission-report", (admission_report.entry(),)),
         )
         selections = (
             *selections,
@@ -354,7 +348,7 @@ def source_products(source):
     with source.kernel.purpose("read").begin() as connection:
         page = read_demand_result(connection, source.demand_id, project_id=PROJECT, limit=1000)
     products = tuple(
-        Product(row, row["body"])
+        Product(row, row["body"], page.cut)
         for row in page.members()
         if row["kind_contract"] == contract and row["body"]["text"] == TEXT
     )
@@ -377,7 +371,7 @@ def build_inventory(kernel, original):
         kernel,
         (OPERATION,),
         original.context,
-        source_sets=(FrozenSourceSet("fixture-structural-source", (original.entry(),)),),
+        source_sets=(FrozenSourceSet.from_selected("fixture-structural-source", (original.entry(),)),),
         inference="actual-controlled-source-inventory:" + original.row["member_id"],
     )
     retained, result = execute(kernel, pending)
@@ -441,7 +435,7 @@ def comparison_sources(originals, predicates):
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 
     return (
-        FrozenSourceSet("structural-sources", tuple(item.entry() for item in originals)),
-        FrozenSourceSet("structural-reports", tuple(item.entry() for item in predicates)),
-        FrozenSourceSet("structural-formal", ()),
+        FrozenSourceSet.from_selected("structural-sources", tuple(item.entry() for item in originals)),
+        FrozenSourceSet.from_selected("structural-reports", tuple(item.entry() for item in predicates)),
+        FrozenSourceSet.from_selected("structural-formal", ()),
     )

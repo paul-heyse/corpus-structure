@@ -126,7 +126,7 @@ def test_explicit_null_is_a_required_root_field_and_semantic_source_set_pin():
     )
     assert entry.original_source is None
     validate_subject_context(acquired, context)
-    assert FrozenSourceSet("retained", (entry,)).entries == (entry,)
+    assert FrozenSourceSet.unqualified("retained", (entry,)).entries == (entry,)
 
 
 def test_member_projection_allows_null_only_for_its_checked_project_subject():

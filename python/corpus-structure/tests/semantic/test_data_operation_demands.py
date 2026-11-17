@@ -452,11 +452,11 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
             subject_definition="document",
         ),
     )
-    scope = FrozenSourceSet("inputs", (entry,))
+    scope = FrozenSourceSet.unqualified("inputs", (entry,))
     with pytest.raises(ValueError, match=r"lacks.*source set"):
         freeze(compiled)
     frozen = freeze(compiled, source_sets=(scope,))
-    assert frozen.record["source_sets"]["inputs"][0]["original_source"] == "source:foreign"
+    assert frozen.record["source_sets"]["inputs"]["entries"][0]["original_source"] == "source:foreign"
     assert frozen.record["roots"] == [
         {
             "subject": "document:one",
@@ -465,7 +465,7 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
         }
     ]
     with pytest.raises(ValueError, match="exactly match"):
-        freeze(compiled, source_sets=(scope, FrozenSourceSet("unused", (entry,))))
+        freeze(compiled, source_sets=(scope, FrozenSourceSet.unqualified("unused", (entry,))))
 
 
 def test_population_context_matches_exact_obligation_and_explicit_original_member_associations():
@@ -536,7 +536,7 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
     }
     arguments = {
         "source_set": "originals",
-        "source_sets": {"originals": [entry]},
+        "source_sets": {"originals": {"entries": [entry], "acquisition": {"kind": "all-admissible-support-v1"}}},
         "project": "project:one",
     }
     assert _population_context_matches(base, obligation, **arguments)
@@ -553,7 +553,7 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
             obligation,
             **{
                 **arguments,
-                "source_sets": {"originals": [{**entry, field: replacement}]},
+                "source_sets": {"originals": {"entries": [{**entry, field: replacement}], "acquisition": {"kind": "all-admissible-support-v1"}}},
             },
         )
     assert not _population_context_matches(

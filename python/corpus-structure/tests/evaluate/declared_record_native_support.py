@@ -252,21 +252,30 @@ class SourceChoice:
     pin: DeclaredStructuralSource
     body: dict[str, Any]
     context: SubjectContext
+    selected_entry: Any = None
 
     def entry(self):
-        from corpus_structure.semantic.data_operation_source_sets import SourceSetEntry
-        from corpus_structure.semantic.data_product_reference import (
-            DataProductMemberReference,
-            DataProductReference,
-        )
+        if self.selected_entry is None:
+            raise ValueError("source choice has no retained selected producing occurrence")
+        return self.selected_entry
 
-        product = DataProductReference(self.pin.source_product)
-        reference = (
-            DataProductMemberReference(product, self.pin.source_member)
-            if self.pin.source_member is not None
-            else product
+
+def selected_product_entries(index, cut, product_id, member_id=None):
+    from corpus_structure.semantic.data_operation_source_sets import selected_source_entries
+    from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+
+    return tuple(
+        selected
+        for use in index.frontier_rows("uses")
+        if use["fate"] == "fulfilled"
+        for selected in selected_source_entries(
+            index, cut, product_id=product_id, member_id=member_id,
+            anchor_use_id=use["use_id"],
+            support=ComputationalSupportReference(
+                derivation_id=use["derivation_id"], admission_use_id=use["use_id"]
+            ),
         )
-        return SourceSetEntry.from_semantic_source(reference, context=self.context)
+    )
 
 
 @dataclass
@@ -304,7 +313,7 @@ class CurrentRecordPolicyJourney:
             for row in index.rows("kb.data_product"):
                 if row["kind_contract"] in contracts:
                     _, body = _selected_body(index, row["id"])
-                    products.append((row, body))
+                    products.append((dict(row, _selected_entries=selected_product_entries(index, cut, row["id"])), body))
             uses = tuple(index.frontier_rows("uses"))
             episodes = tuple(index.rows("ops.data_derivation"))
             outputs = tuple(index.rows("ops.data_derivation_output"))
@@ -401,7 +410,7 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
         selected = []
         with (
             kernel.purpose("evaluate").begin() as connection,
-            selected_record_index(connection, demand, project_id=PROJECT, scope={}) as (
+            selected_record_index(connection, demand, project_id=PROJECT, scope={}, capture_frontier=True) as (
                 source_cut,
                 index,
             ),
@@ -430,6 +439,7 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
                     ).decode(),
                     kind_contract=row["kind_contract"],
                 )
+                (selected_entry,) = selected_product_entries(index, source_cut, row["product_id"], row["member_id"])
                 selected.append(
                     SourceChoice(
                         pin,
@@ -441,6 +451,7 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
                             json_bytes(row["analyzed_scope"]),
                             subject_definition=row["subject_definition"],
                         ),
+                        selected_entry,
                     )
                 )
         # The source-only question selects one actual table-bearing native region
@@ -742,10 +753,10 @@ def retain_references(journey, selected_sources, *, partition, held_out_from=())
         (context,),
         originals=originals,
         source_sets=(
-            FrozenSourceSet(
+            FrozenSourceSet.from_selected(
                 "record-policy-sources", tuple(source.entry() for source in selected_sources)
             ),
-            FrozenSourceSet("record-policy-predictions", ()),
+            FrozenSourceSet.from_selected("record-policy-predictions", ()),
         ),
         inference="source-only-predeclaration:" + partition,
     )
@@ -832,7 +843,7 @@ def run_readings(
         tuple(source.context for source in selected_sources),
         originals=originals,
         source_sets=(
-            FrozenSourceSet(
+            FrozenSourceSet.from_selected(
                 "fixture-record-sources", tuple(source.entry() for source in selected_sources)
             ),
         ),
@@ -931,20 +942,12 @@ class SelectedGrade:
     product: dict[str, Any]
 
     def entry(self):
-        from corpus_structure.semantic.data_operation_json import json_bytes
-        from corpus_structure.semantic.data_operation_source_sets import SourceSetEntry
-        from corpus_structure.semantic.data_product_reference import DataProductReference
-
-        context = SubjectContext(
-            PROJECT,
-            self.product["subject"],
-            self.product["original_source"],
-            json_bytes(self.product["analyzed_scope"]),
-            subject_definition=self.product["subject_definition"],
+        (entry,) = tuple(
+            entry for entry in self.product["_selected_entries"]
+            if entry.proof.support.admission_use_id == self.selection.use_id
+            and entry.proof.support.derivation_id == self.selection.derivation_id
         )
-        return SourceSetEntry.from_semantic_source(
-            DataProductReference(self.product["id"]), context=context
-        )
+        return entry
 
 
 def run_grade(
@@ -970,16 +973,8 @@ def run_grade(
 
     entries = []
     for row, _ in predictions:
-        context = SubjectContext(
-            PROJECT,
-            row["subject"],
-            row["original_source"],
-            json_bytes(row["analyzed_scope"]),
-            subject_definition=row["subject_definition"],
-        )
-        entries.append(
-            SourceSetEntry.from_semantic_source(DataProductReference(row["id"]), context=context)
-        )
+        (entry,) = row["_selected_entries"]
+        entries.append(entry)
     context = project_context(journey, "record_policy.grade")
     spec = authored(
         journey,
@@ -994,10 +989,10 @@ def run_grade(
         (context,),
         originals=(*reference_facts, spec),
         source_sets=(
-            FrozenSourceSet(
+            FrozenSourceSet.from_selected(
                 "record-policy-sources", tuple(source.entry() for source in selected_sources)
             ),
-            FrozenSourceSet("record-policy-predictions", tuple(entries)),
+            FrozenSourceSet.from_selected("record-policy-predictions", tuple(entries)),
         ),
         inference=inference,
     )
@@ -1156,8 +1151,8 @@ def complete_policy_fit(journey):
         (context,),
         originals=(fact,),
         source_sets=(
-            FrozenSourceSet("record-policy-feature-grades", (feature.entry(),)),
-            FrozenSourceSet("record-policy-calibration-grades", (calibration.entry(),)),
+            FrozenSourceSet.from_selected("record-policy-feature-grades", (feature.entry(),)),
+            FrozenSourceSet.from_selected("record-policy-calibration-grades", (calibration.entry(),)),
         ),
         inference="genuine-protected-fit-and-native-authorization",
     )
@@ -1221,7 +1216,7 @@ def copy_grade(journey, selected_grade):
         journey,
         ("fixture.protected_grade_copy",),
         (context,),
-        source_sets=(FrozenSourceSet("fixture-copy-grade", (selected_grade.entry(),)),),
+        source_sets=(FrozenSourceSet.from_selected("fixture-copy-grade", (selected_grade.entry(),)),),
         inference="actual-captured-protected-copy",
     )
     with journey.kernel.purpose("evaluate").begin() as connection:
@@ -1310,8 +1305,8 @@ def refuse_exchanged_fitted_body(fitted, monkeypatch):
         (context,),
         originals=(fact,),
         source_sets=(
-            FrozenSourceSet("record-policy-feature-grades", (fitted.feature.entry(),)),
-            FrozenSourceSet("record-policy-calibration-grades", (fitted.calibration.entry(),)),
+            FrozenSourceSet.from_selected("record-policy-feature-grades", (fitted.feature.entry(),)),
+            FrozenSourceSet.from_selected("record-policy-calibration-grades", (fitted.calibration.entry(),)),
         ),
         inference="actual-different-fit-request-copied-conclusion-refusal",
     )
