@@ -289,6 +289,29 @@ def admitted_hanlp_rows(population, reply):
     return ready, refused
 
 
+def hanlp_admission_batches(rows, selection, frame_bytes):
+    """Pack CPU-only admission by exact multiplexed request bytes, not inference size."""
+    from corpus_structure.methods.native_host import host_request_frame_size
+    from corpus_structure.methods.pm2_worker import Pm2WorkerRefused
+
+    base = host_request_frame_size(selection, dict(sentences=[], prepare_bulk=True), frame_bytes)
+    batch, size = [], base
+    for row in rows:
+        words = [word for _, word in row[1]]
+        width = len(json.dumps(words, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode())
+        if base + width > frame_bytes:
+            raise Pm2WorkerRefused("one HanLP admission sentence exceeds its request frame byte bound")
+        additional = width + bool(batch)
+        if batch and size + additional > frame_bytes:
+            yield batch
+            batch, size = [], base
+            additional = width
+        batch.append(row)
+        size += additional
+    if batch:
+        yield batch
+
+
 def hanlp_sentence_batches(ready, startup):
     """Bound padded native subwords and characters without changing sentence membership."""
     batches, batch, lengths, chars = [], [], [], 0
@@ -365,9 +388,9 @@ class PreparedHanlpProfile:
 
                 startup = active.startup(self.selection, check_active)
                 ready = []
-                limit = int(startup.get("max_sentences", 8))
-                for offset in range(0, len(rows), limit):
-                    population = rows[offset : offset + limit]
+                for population in hanlp_admission_batches(
+                    rows, self.selection, active.policy.max_native_request_bytes
+                ):
                     reply = infer(
                         dict(
                             sentences=[[word for _, word in tokens] for _, tokens in population],
@@ -523,6 +546,7 @@ def hanlp_profile_assets(selection):
 
     names = {
         "canonical_hanlp_rows",
+        "hanlp_admission_batches",
         "_local",
         "detach_hanlp_sentence",
         "PreparedHanlpProfile",
@@ -585,6 +609,7 @@ def hanlp_execution_custody(selection=None):
         root / "data_operation_prepared_products.py",
         root / "data_operation_ports.py",
         root.parent / "methods/native_profiles.py",
+        root.parent / "methods/native_host.py",
     )
     return SourceArtifact(
         "hanlp/execution-custody",
@@ -692,6 +717,10 @@ class PreparedHanlpPort:
                 (
                     "corpus_structure.semantic.hanlp_products.admitted_hanlp_rows",
                     admitted_hanlp_rows,
+                ),
+                (
+                    "corpus_structure.semantic.hanlp_products.hanlp_admission_batches",
+                    hanlp_admission_batches,
                 ),
                 (
                     "corpus_structure.semantic.hanlp_products.hanlp_sentence_batches",

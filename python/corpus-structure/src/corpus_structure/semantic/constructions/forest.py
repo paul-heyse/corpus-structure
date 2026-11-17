@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from functools import lru_cache
-from hashlib import sha256
+from functools import cache, lru_cache
 from pathlib import Path
 from typing import Any
 
 from lark import Lark, UnexpectedInput
+
+from corpus_structure.semantic.file_custody import observed_file
 
 from .declarations import DECLARATIONS, MODAL_FORCES, REVISION
 from .lexical import LEXICAL, PositionedTerminal, ProtectedAtom, classify
@@ -56,6 +57,11 @@ def _positioned_values(text: str, terminal: str, values: tuple[PositionedTermina
     return "(?:" + "|".join(alternatives) + ")" if alternatives else r"(?!)x"
 
 
+@cache
+def _grammar_resource(path: Path):
+    return observed_file(path)
+
+
 def prepared_parser(
     text: str,
     atoms: tuple[ProtectedAtom, ...],
@@ -63,8 +69,9 @@ def prepared_parser(
     *,
     terminals: tuple[PositionedTerminal, ...] | None = None,
 ) -> Lark:
-    resource = Path(__file__).with_name("grammars").joinpath("prose.lark").read_bytes()
-    return _prepared_parser(text, atoms, grammar, sha256(resource).hexdigest(), terminals)
+    resource = _grammar_resource(Path(__file__).with_name("grammars").joinpath("prose.lark"))
+    resource.check()
+    return _prepared_parser(text, atoms, grammar, resource.digest, terminals)
 
 
 @lru_cache(maxsize=64)
@@ -81,7 +88,12 @@ def _prepared_parser(
             raise ValueError("protected atoms overlap or lie outside their source region")
         previous = atom.end
     values = classify(text, atoms) if terminals is None else terminals
+    starts = {}
     for row in values:
+        key = row.terminal, row.start
+        if key in starts and starts[key] != row:
+            raise ValueError("same-terminal same-start alternatives exceed dynamic Earley lexical support")
+        starts[key] = row
         terminal_guard(row.start, row.end, atoms, atom=False)
     lexical = {name: _positioned_values(text, name, values) for name in LEXICAL}
     lexical["ATOM"] = (
@@ -103,7 +115,7 @@ def _prepared_parser(
     if grammar is None:
         imports = ", ".join(["clause", *LEXICAL, "ATOM"])
         grammar = f"%import .prose ({imports})\nstart: clause PUNCT?"
-    return Lark(
+    parser = Lark(
         grammar + "\n" + declarations + "\nWS: /" + lexical["WS"] + "/\n%ignore WS",
         import_paths=[str(Path(__file__).with_name("grammars"))],
         parser="earley",
@@ -114,6 +126,8 @@ def _prepared_parser(
         start=["start"],
         keep_all_tokens=True,
     )
+    _grammar_resource(Path(__file__).with_name("grammars").joinpath("prose.lark")).check()
+    return parser
 
 
 class PackedReducer(ReusingForestTransformer):

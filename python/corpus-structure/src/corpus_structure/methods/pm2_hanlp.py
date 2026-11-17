@@ -160,8 +160,6 @@ def _load_hanlp(
         sentences = request.get("sentences")
         if not isinstance(sentences, list) or not sentences:
             raise ValueError("HanLP requires a nonempty ordered sentence batch")
-        if len(sentences) > _MAX_SENTENCES:
-            return {"outcome": "limited", "reason": "sentences", "limit": _MAX_SENTENCES}
         if request.get("prepare_bulk") is True:
             members: list[Payload | None] = [None for _ in sentences]
             admitted = []
@@ -201,6 +199,8 @@ def _load_hanlp(
             return dict(
                 outcome="prepared_batch", members=members, max_padded_subwords=_MAX_PADDED_SUBWORDS
             )
+        if len(sentences) > _MAX_SENTENCES:
+            return {"outcome": "limited", "reason": "sentences", "limit": _MAX_SENTENCES}
         if any(not isinstance(row, list) or not row for row in sentences):
             raise ValueError("HanLP requires nonempty canonical token lists")
         if max(map(len, sentences)) > _MAX_WORDS:
