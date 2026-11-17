@@ -24,6 +24,7 @@ from .construction_products import (
     contextual_product_values,
     interpreted_member_contracts,
     validate_construction_product,
+    retained_construction_product,
 )
 from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_model import SubjectContext
@@ -35,7 +36,7 @@ from .enriched_document_products import (
     compose_enriched_document,
     compose_enriched_document_values,
 )
-from .formal_products import FormalEvidenceProduct, _semantic_nodes, validate_formal_product
+from .formal_products import FormalEvidenceProduct, _semantic_nodes, retained_formal_product
 from .identity import canonical_bytes
 from .python_operation_sources import PythonSource, PythonSourceCollection
 from .sentence_products import SourceAnnotations
@@ -46,6 +47,7 @@ from .types import PreparedRelease, SourceArtifact
 def _semantic_assets(profile: str) -> SourceArtifact:
     root = Path(__file__).parent
     common = (
+        "established_validity.py",
         "characterization.py",
         "characterization_manifests.py",
         "characterization_evidence.py",
@@ -197,6 +199,7 @@ def _semantic_assets(profile: str) -> SourceArtifact:
 def _execution_custody() -> SourceArtifact:
     root = Path(__file__).parent
     names = (
+        "established_validity.py",
         "characterization_ports.py",
         "construction_products.py",
         "enriched_document_products.py",
@@ -601,6 +604,22 @@ class PreparedCharacterizationPort(ABC):
             raise PortRefusal("family body differs from its selected native product identity")
         return product
 
+    @staticmethod
+    def _member(binding, role_name, index):
+        if binding is None:
+            return None
+        role = next(role for role in binding.roles if role.role == role_name)
+        return tuple(member for member in role.members for _ in range(member.multiplicity))[index]
+
+    def _context(self, binding, role_name, index, value):
+        member = self._member(binding, role_name, index)
+        if member is None:
+            return getattr(value, "subject_context", None)
+        return SubjectContext(
+            binding.subject_context.project_id, member.subject, member.original_source,
+            member.analyzed_scope, subject_definition=member.subject_definition,
+        )
+
     def _formal(self, source, values, binding):
         result = []
         for value in values:
@@ -610,14 +629,14 @@ class PreparedCharacterizationPort(ABC):
             )
             result.append(
                 self._selected_product(
-                    validate_formal_product(
+                    retained_formal_product(
                         self.prepared,
                         body,
                         original,
                         model=self.model,
-                        subject_context=value.subject_context
-                        if isinstance(value, FormalEvidenceProduct)
-                        else None,
+                        subject_context=self._context(binding, "formal", len(result), value),
+                        member=self._member(binding, "formal", len(result)),
+                        established_validity=getattr(value, "established_validity", None),
                     ),
                     binding,
                     "formal",
@@ -754,15 +773,15 @@ class PreparedCharacterizationPort(ABC):
         supporting = self._retained(roles["supporting"], binding, "supporting")
         constructions = tuple(
             self._selected_product(
-                validate_construction_product(
+                retained_construction_product(
                     self.prepared,
                     self.model,
                     _body(self.prepared, "DdoPrimaryConstructionProduct", value),
                     source,
                     (*formal, *supporting),
-                    subject_context=value.subject_context
-                    if isinstance(value, ConstructionProduct)
-                    else None,
+                    subject_context=self._context(binding, "constructions", index, value),
+                    member=self._member(binding, "constructions", index),
+                    established_validity=getattr(value, "established_validity", None),
                 ),
                 binding,
                 "constructions",
@@ -794,6 +813,11 @@ class PreparedCharacterizationPort(ABC):
             if item.owner == output.kind and item.domain == "kind"
         )
         value = product.value.model_dump(mode="python", exclude_unset=True)
+        from .established_validity import bind_product_validation
+
+        proof = bind_product_validation(product, product.subject_context) if hasattr(
+            product, "established_validity"
+        ) else None
         return PortCompletion(
             self.operation.semantic_id,
             (
@@ -806,6 +830,7 @@ class PreparedCharacterizationPort(ABC):
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
+            product_validation_evidence=None if proof is None else proof.model_dump_json().encode(),
         )
 
     def invoke_python(self, values, *, binding=None, check_active=lambda: None):

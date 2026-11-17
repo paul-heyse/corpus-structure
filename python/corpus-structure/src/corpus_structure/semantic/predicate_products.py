@@ -15,6 +15,8 @@ from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
+    "semantic/established_validity.py",
+    "semantic/formal_products.py",
     "methods/predicate_declared.py",
     "semantic/predicate_products.py",
     "methods/predicate_contributions.py",
@@ -123,7 +125,7 @@ class PreparedPredicateInputs:
         from .declared_candidate_products import candidate_inspection_report
         from .declared_record_sources import DeclaredNativeFrameSource
         from .enriched_document_products import RetainedCharacterizationProduct
-        from .formal_products import validate_formal_product
+        from .formal_products import retained_formal_product
         from .sentence_products import (
             retained_source_annotation_products,
             validate_source_annotations,
@@ -152,12 +154,13 @@ class PreparedPredicateInputs:
             original = FrozenNativeSource.acquire(
                 self.prepared, {**selected.value, "selectors": body["selectors"]}
             )
-            product = validate_formal_product(
+            product = retained_formal_product(
                 self.prepared,
                 body,
                 original,
                 model=model,
                 subject_context=self.subject_context(member),
+                member=member,
             )
             if product.semantic_id != member.product:
                 raise ValueError("predicate formal body differs from its bound product")

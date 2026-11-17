@@ -179,9 +179,9 @@ class FormalSourceReadings:
     _selected: tuple[tuple[DataProductReference, dict[str, Any]], ...]
 
     @classmethod
-    def from_products(cls, products, source):
+    def from_products(cls, products, source, *, prepared=None, model=None):
         """Immediate construction input: retain exact typed facts, never parse again."""
-        from .formal_products import FrozenFormalSource, validate_formal_product
+        from .formal_products import FrozenFormalSource, retained_formal_product
 
         selected = source.value
         coordinate = selected["source"]
@@ -194,14 +194,15 @@ class FormalSourceReadings:
             if body["source"] != coordinate:
                 raise ValueError("formal construction input belongs to another original source")
             original = FrozenFormalSource.acquire(
-                product.prepared, {**selected, "selectors": body["selectors"]}
+                prepared or product.prepared, {**selected, "selectors": body["selectors"]}
             )
-            checked = validate_formal_product(
-                product.prepared,
+            checked = retained_formal_product(
+                prepared or product.prepared,
                 body,
                 original,
-                model=product.model,
+                model=model or product.model,
                 subject_context=product.subject_context,
+                established_validity=product.established_validity,
             )
             retained.append((DataProductReference(checked.semantic_id), checked.inventory()))
             lexical.extend(body["lexicon"])

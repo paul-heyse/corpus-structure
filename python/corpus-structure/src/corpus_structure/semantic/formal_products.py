@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -35,6 +35,7 @@ from .formal_evidence import (
     grammar_identity,
 )
 from .identity import canonical_bytes
+from .established_validity import ProductValidation
 from .python_operation_sources import PythonSourceCollection
 from .source_products import (
     FrozenNativeSource as FrozenFormalSource,
@@ -132,6 +133,7 @@ class FormalEvidenceProduct:
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
     subject_context: SubjectContext | None = None
+    established_validity: ProductValidation | None = field(default=None, kw_only=True)
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -197,7 +199,8 @@ def validate_formal_product(
     model: EffectiveDataOperationModel,
     subject_context: SubjectContext | None = None,
 ) -> FormalEvidenceProduct:
-    checked = _values(prepared.validate_json("DdoFormalProduct", canonical_bytes(value)))
+    typed = prepared.validate_json("DdoFormalProduct", canonical_bytes(value))
+    checked = _values(typed)
     selected = source.value
     member_contracts = formal_member_contracts(prepared, model)
     packets = analytical_packets(checked, member_contracts["manifest"])
@@ -330,7 +333,42 @@ def validate_formal_product(
         row["outcome"] not in {"complete", "empty"} for row in checked["coverage"]
     ):
         raise ValueError("complete formal product contains incomplete family coverage")
-    return FormalEvidenceProduct(canonical_bytes(checked), prepared, model, subject_context)
+    from .established_validity import successful_product_validation
+
+    proof = successful_product_validation(
+        prepared, model, typed.model_dump(mode="python", exclude_unset=True),
+        "formal/profile-assets", formal_profile_assets().digest,
+        subject_context,
+    )
+    return FormalEvidenceProduct(
+        canonical_bytes(checked), prepared, model, subject_context, established_validity=proof
+    )
+
+
+def retained_formal_product(prepared, value, source, *, model, subject_context=None,
+                            member=None, established_validity=None):
+    """Decode every boundary; reuse only the exact native producer's established facts."""
+    from .established_validity import established_product_matches, selected_product_validation
+
+    typed = prepared.validate_json("DdoFormalProduct", canonical_bytes(value))
+    checked = _values(typed)
+    proof = selected_product_validation(member) if member is not None else established_validity
+    if established_product_matches(
+        proof, prepared=prepared, model=model,
+        body=typed.model_dump(mode="python", exclude_unset=True), source=source,
+        context=subject_context, contract="formal/profile-assets",
+    ):
+        product = FormalEvidenceProduct(
+            canonical_bytes(checked), prepared, model, subject_context,
+            established_validity=proof,
+        )
+    else:
+        product = validate_formal_product(
+            prepared, checked, source, model=model, subject_context=subject_context
+        )
+    if member is not None and product.semantic_id != member.product:
+        raise ValueError("formal body differs from its exact selected native product")
+    return product
 
 
 @dataclass(frozen=True)
@@ -627,7 +665,7 @@ def _semantic_nodes(content: bytes, names: tuple[str, ...]) -> tuple[tuple[str, 
 def formal_execution_custody() -> SourceArtifact:
     """Physical adapter/CPU/receipt code belongs to runtime custody, not recipe meaning."""
     root = Path(__file__).parent
-    names = ("formal_products.py", "cpu_execution.py", "cpu_receipts.py")
+    names = ("formal_products.py", "established_validity.py", "cpu_execution.py", "cpu_receipts.py")
     return SourceArtifact(
         "formal/execution-custody",
         canonical_bytes(
@@ -648,6 +686,7 @@ def formal_profile_assets() -> SourceArtifact:
 
     root = Path(__file__).parent
     paths = (
+        root / "established_validity.py",
         root / "formal_evidence.py",
         root / "formal_forest.py",
         root / "formal_sources.py",
@@ -684,6 +723,7 @@ def formal_profile_assets() -> SourceArtifact:
                 "formal_positioned_lexicon",
                 "formal_member_contracts",
                 "validate_formal_product",
+                "retained_formal_product",
                 "PreparedFormalEvidence",
                 "PreparedFormalEvidencePort._completion",
                 "execute_formal_profile",
@@ -822,7 +862,9 @@ class PreparedFormalEvidencePort:
             product = replace(product, subject_context=binding.subject_context)
         from .data_operation_identity import semantic_value
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
+        from .established_validity import bind_product_validation
 
+        proof = bind_product_validation(product, product.subject_context)
         model_value = product.value.model_dump(mode="python", exclude_unset=True)
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
@@ -838,6 +880,7 @@ class PreparedFormalEvidencePort:
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
+            product_validation_evidence=None if proof is None else proof.model_dump_json().encode(),
         )
 
     def invoke_python(

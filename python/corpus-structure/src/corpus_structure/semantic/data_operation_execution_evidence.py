@@ -16,6 +16,7 @@ from corpus_structure.methods.native_host import NativeExecutionReceipt
 from .cpu_receipts import CPUExecutionReceipt
 from .external_receipts import ExternalExecutionReceipt
 from .identity import canonical_bytes
+from .established_validity import ProductValidation
 from .pdf_observations import PdfObservationExecutionReceipt
 from .pdf_publication import PdfExecutionReceipt
 
@@ -37,6 +38,7 @@ class NativeExecutionEvidence(BaseModel):
     host_receipts: tuple[NativeExecutionReceipt, ...]
     cpu_receipts: tuple[CPUExecutionReceipt, ...]
     cpu_replies: tuple[str, ...] = ()
+    product_validations: tuple[ProductValidation, ...] = ()
     pdf_receipts: tuple[PdfExecutionReceipt, ...] = ()
     pdf_observation_receipts: tuple[PdfObservationExecutionReceipt, ...] = ()
     provider_receipts: tuple[ProviderExecutionReceipt, ...] = ()
@@ -75,6 +77,7 @@ def bind_execution_evidence(
     runtime_id: str,
     cpu_content: bytes | None = None,
     cpu_reply_content: bytes | None = None,
+    product_validation_content: bytes | None = None,
     pdf_content: bytes | None = None,
     pdf_observation_content: bytes | None = None,
     provider_content: bytes | None = None,
@@ -88,6 +91,8 @@ def bind_execution_evidence(
         "host_receipts": json.loads(content) if content is not None else [],
         "cpu_receipts": [json.loads(cpu_content)] if cpu_content is not None else [],
         "cpu_replies": [cpu_reply_content.decode("utf-8")] if cpu_reply_content is not None else [],
+        "product_validations": [json.loads(product_validation_content)]
+        if product_validation_content is not None else [],
         "pdf_receipts": [json.loads(pdf_content)] if pdf_content is not None else [],
         "pdf_observation_receipts": [json.loads(pdf_observation_content)]
         if pdf_observation_content is not None

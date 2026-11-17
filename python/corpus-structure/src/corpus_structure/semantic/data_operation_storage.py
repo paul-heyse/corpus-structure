@@ -61,6 +61,7 @@ def native_protocol_sources(
     )
     from .data_operation_wire_native import wire_native_sources
     from .definition_admission_native import definition_admission_native_sql
+    from .established_validity import product_validation_native_sql
     from .execution_evidence_leaf import (
         execution_evidence_leaf_native_sql,
         execution_evidence_leaf_schema,
@@ -100,6 +101,8 @@ def native_protocol_sources(
             Path(__file__).with_name("data_operation_provider_profiles.py").read_bytes(),
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
+        SourceArtifact("native/data-operation-product-validation.sql", product_validation_native_sql().encode()),
+        SourceArtifact("native/data-operation-product-validation.py", Path(__file__).with_name("established_validity.py").read_bytes()),
         SourceArtifact(
             "native/pdf-observations.py",
             Path(__file__).with_name("pdf_observations.py").read_bytes(),
@@ -366,6 +369,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-support-scopes.sql",
         "native/contextual-neighborhood.sql",
         "native/data-operation-storage.py",
+        "native/data-operation-product-validation.sql",
+        "native/data-operation-product-validation.py",
         "native/data-operation-member-contracts.py",
         "native/data-operation-physical.yaml",
         "native/data-operation-bindings.sql",
@@ -524,6 +529,7 @@ def native_sql(sources=None) -> str:
             # SQL-language structural helpers resolve the tagged-value functions
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
+            "native/data-operation-product-validation.sql",
             "native/contextual-neighborhood.sql",
             "native/data-operation-definition-admission.sql",
             "native/data-operation-artifact-admission.sql",

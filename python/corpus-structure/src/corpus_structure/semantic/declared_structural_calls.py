@@ -29,6 +29,7 @@ from .types import PreparedRelease, SourceArtifact
 NAMESPACE = "urn:corpus:structural:"
 _ASSET = "structural/call-assets"
 _PATHS = (
+    "semantic/established_validity.py",
     "methods/structural_declared.py",
     "methods/structural_products.py",
     "methods/dossier_contributions.py",
@@ -277,7 +278,7 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
     from .data_operation_model import SubjectContext
     from .data_product_reference import DataProductReference
     from .declared_record_sources import DeclaredNativeFrameSource
-    from .formal_products import validate_formal_product
+    from .formal_products import retained_formal_product
     from .formal_readings import FormalSourceReadings
     from .source_products import FrozenNativeSource
     from .structural_products import DeclaredComparisonReport, DeclaredStructuralInput
@@ -350,8 +351,8 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
             member.analyzed_scope,
             subject_definition=member.subject_definition,
         )
-        product = validate_formal_product(
-            profile.prepared, raw, source, model=model, subject_context=context
+        product = retained_formal_product(
+            profile.prepared, raw, source, model=model, subject_context=context, member=member
         )
         if product.semantic_id != member.product:
             raise ValueError("comparison formal body differs from its exact native product")

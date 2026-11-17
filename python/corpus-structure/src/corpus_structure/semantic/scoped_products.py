@@ -17,6 +17,8 @@ from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
+    "semantic/established_validity.py",
+    "semantic/formal_products.py",
     "methods/scoped_relations_declared.py",
     "semantic/scoped_products.py",
     "methods/scoped_relations.py",
@@ -111,7 +113,7 @@ def execute_scoped_relations(
     from .declared_record_sources import DeclaredNativeFrameSource
     from .declared_structural_references import DeclaredStructuralSource
     from .enriched_document_products import RetainedCharacterizationProduct
-    from .formal_products import validate_formal_product
+    from .formal_products import retained_formal_product
     from .source_products import FrozenNativeSource
     from .structural_products import StructuralPassage
 
@@ -149,7 +151,7 @@ def execute_scoped_relations(
         products.append(CharacterizationSnapshot(product.semantic_id, product.content))
     navigation = NativeNavigationIndex(tuple(products), selected).require()
     for member, value in zip(profile.members("formal"), formal, strict=True):
-        product = validate_formal_product(
+        product = retained_formal_product(
             profile.prepared,
             value,
             selected,
@@ -161,6 +163,7 @@ def execute_scoped_relations(
                 member.analyzed_scope,
                 subject_definition=member.subject_definition,
             ),
+            member=member,
         )
         if product.semantic_id != member.product:
             raise ValueError("scoped formal body differs from its exact selected product")

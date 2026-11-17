@@ -1304,7 +1304,7 @@ BEGIN
  AND input->>'member_id' IS NOT DISTINCT FROM diagnostic->'source_pin'->>'source_member'
  AND coalesce(member.kind_contract,product.kind_contract)=diagnostic->'source_pin'->>'kind_contract'
  AND coalesce(member.subject_definition,product.subject_definition)=diagnostic->'source_pin'->>'subject_definition')
- OR (evidence-'version'-'runtime_id'-'host_receipts'-'cpu_receipts'-'cpu_replies'-'pdf_receipts'-'pdf_observation_receipts'-'provider_receipts'-'external_receipts') IS DISTINCT FROM (p-'physical_retirement'-'failure')
+ OR (evidence-'version'-'runtime_id'-'host_receipts'-'cpu_receipts'-'cpu_replies'-'pdf_receipts'-'pdf_observation_receipts'-'provider_receipts'-'external_receipts'-'product_validations') IS DISTINCT FROM (p-'physical_retirement'-'failure')
  OR jsonb_array_length(evidence->'provider_receipts')<>1
  OR EXISTS(SELECT FROM jsonb_array_elements(evidence->'provider_receipts') receipt
  WHERE jsonb_array_length(receipt->'logical_members')=0 OR jsonb_array_length(receipt->'physical')=0
@@ -1452,6 +1452,7 @@ BEGIN
  PERFORM ops.ddo_require_contextual_completion(r,completion);
  PERFORM ops.ddo_require_rich_preparation_completion(r,completion);
  PERFORM ops.ddo_require_rich_admission_completion(r,completion);
+ PERFORM ops.ddo_require_product_validations(r,completion);
  PERFORM ops.ddo_assert_output_witnesses(r,completion);
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_require_episode_correspondence(producing ops.data_derivation,original ops.data_completion_intent)
@@ -1520,7 +1521,7 @@ DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; key 
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','runtime_id','completion']);
  PERFORM ops.ddo_fields(p->'completion',ARRAY['outcome','outputs','support','inputs','implementation_revision'],ARRAY['execution_evidence']);
- IF p->'completion' ? 'execution_evidence' AND ((p->'completion'->'execution_evidence') - 'version' - 'host_receipts' - 'cpu_receipts' - 'cpu_replies' - 'pdf_receipts' - 'pdf_observation_receipts' - 'provider_receipts' - 'external_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
+ IF p->'completion' ? 'execution_evidence' AND ((p->'completion'->'execution_evidence') - 'version' - 'host_receipts' - 'cpu_receipts' - 'cpu_replies' - 'pdf_receipts' - 'pdf_observation_receipts' - 'provider_receipts' - 'external_receipts' - 'product_validations') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(p->'completion'->'execution_evidence'->'provider_receipts','[]')) receipt
  WHERE jsonb_array_length(receipt->'logical_members')=0 OR EXISTS(
  SELECT FROM jsonb_array_elements(receipt->'logical_members') member
