@@ -267,9 +267,9 @@ def _demand_support_scope_inputs(metadata, *, include_unfulfilled=False):
     selection = _var("d.selection", JSONB)
     root = _items(_var("d.root", JSONB), "root")
     sets = _each(func.coalesce(selection["source_sets"], _json({})), "source_set")
-    entry = _items(sets.c.value, "source_entry")
+    entry = _items(sets.c.value["entries"], "source_entry")
     source_entries = (
-        select(entry.c.value.label("entry"))
+        select(entry.c.value.label("entry"), sets.c.value.label("source_set"))
         .select_from(sets.join(entry, literal(True)))
         .cte("source_entries")
     )
@@ -291,6 +291,14 @@ def _demand_support_scope_inputs(metadata, *, include_unfulfilled=False):
         .select_from(source_entries)
         .where(
             source_entries.c.entry["product"].astext == outputs.c.product_id,
+            func.ops.ddo_source_set_proof_matches(
+                source_entries.c.source_set,
+                outputs.c.product_id,
+                source_entries.c.entry["member"].astext,
+                episodes.c.id, uses.c.id,
+                _obj(member_id=outputs.c.member_id, role=outputs.c.role,
+                     position=outputs.c.position, multiplicity=outputs.c.multiplicity),
+            ),
         )
     )
     seed = union(
@@ -450,12 +458,12 @@ def binding_branches(metadata):
     roles = _items(definitions.c.input_roles, "input_role")
     entries = _items(
         func.coalesce(
-            selection["source_sets"][roles.c.value["support"]["source_set"].astext], _json([])
+            selection["source_sets"][roles.c.value["support"]["source_set"].astext]["entries"], _json([])
         ),
         "entry",
     )
     pins = (
-        select(entries.c.value.label("entry"))
+        select(entries.c.value.label("entry"), selection["source_sets"][roles.c.value["support"]["source_set"].astext].label("source_set"))
         .select_from(definitions.join(roles, literal(True)).join(entries, literal(True)))
         .where(
             definitions.c.release_id == release,
@@ -478,6 +486,12 @@ def binding_branches(metadata):
         .select_from(pins)
         .where(
             pins.c.entry["product"].astext == products.c.id,
+            func.ops.ddo_source_set_proof_matches(
+                pins.c.source_set, products.c.id, pins.c.entry["member"].astext,
+                episodes.c.id, uses.c.id,
+                _obj(member_id=outputs.c.member_id, role=outputs.c.role,
+                     position=outputs.c.position, multiplicity=outputs.c.multiplicity),
+            ),
             or_(
                 and_(pins.c.entry["member"].astext.is_(None), outputs.c.member_id.is_(None)),
                 and_(
@@ -515,6 +529,7 @@ def binding_branches(metadata):
         )
     )
     distinct = (
+        uses.c.id,
         episodes.c.id,
         outputs.c.role,
         outputs.c.position,
@@ -531,6 +546,7 @@ def binding_branches(metadata):
             products.c.analyzed_scope.label("parent_scope"),
             products.c.canonical_body,
             outputs.c.member_id.label("output_member"),
+            outputs.c.role.label("output_role"),
             outputs.c.position.label("output_position"),
             outputs.c.multiplicity.label("output_multiplicity"),
             episodes.c.id.label("episode_id"),
@@ -600,6 +616,14 @@ def binding_branches(metadata):
         original_source=projected.c.projected_source,
         analyzed_scope=projected.c.projected_scope,
         meaning_body=projected.c.projected_body,
+        support_references=func.jsonb_build_array(_obj(
+            kind=literal("computation"), derivation_id=admitted.c.episode_id,
+            admission_use_id=admitted.c.use_id,
+        )),
+        support_evidence=_obj(producer_output=_obj(
+            member_id=admitted.c.output_member, role=admitted.c.output_role,
+            position=admitted.c.output_position, multiplicity=admitted.c.output_multiplicity,
+        )),
     )
     admitted_role = exists(
         select(1)
@@ -690,6 +714,10 @@ def binding_branches(metadata):
         .scalar_subquery()
     )
     evidence = _obj(
+        producer_output=_obj(
+            member_id=candidates.c.output_member, role=candidates.c.output_role,
+            position=candidates.c.output_position, multiplicity=candidates.c.output_multiplicity,
+        ),
         demand_id=demand,
         use_id=candidates.c.use_id,
         trust_snapshot=_var("snapshot", JSONB),
@@ -1378,7 +1406,7 @@ def _latest_read_use(metadata, obligations):
     )
 
 
-def _selected_support_output_rows(metadata, *, purpose="read", one_use=True):
+def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, member_aware=False):
     """Whole outputs reached by exact scoped selected current support."""
     obligations = _scoped_read_obligations(metadata).cte("scoped_obligations")
     latest = _latest_read_use(metadata, obligations)
@@ -1420,21 +1448,32 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True):
             nodes.c.id == episodes.c.id,
         )
     )
-    return (
-        select(episodes.c.id.label("derivation_id"), outputs.c.product_id)
-        .select_from(
-            episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(
-                products, products.c.id == outputs.c.product_id
-            )
+    relation = episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(
+        products, products.c.id == outputs.c.product_id
+    )
+    fields = [episodes.c.id.label("derivation_id"), outputs.c.product_id]
+    producing_reached = literal(True)
+    if member_aware:
+        producing = metadata.tables["ops.demand_use"].alias("source_producing_use")
+        relation = relation.join(producing, producing.c.derivation_id == episodes.c.id)
+        fields.extend((outputs.c.member_id.label("output_member_id"), outputs.c.role,
+                       outputs.c.position, outputs.c.multiplicity,
+                       producing.c.id.label("admission_use_id")))
+        producing_reached = and_(
+            producing.c.fate == "fulfilled", _visible(producing),
+            func.ops.ddo_use_valid(producing.table_valued(), boundary),
+            exists(select(1).select_from(nodes).where(
+                nodes.c.kind == "use", nodes.c.id == producing.c.id
+            )),
         )
-        .where(
-            reached,
-            outputs.c.member_id.is_(None),
+    return (
+        select(*fields).select_from(relation).where(
+            reached, producing_reached,
+            literal(True) if member_aware else outputs.c.member_id.is_(None),
             products.c.project_id == _var("d.project_id", Text),
             func.ops.ddo_support_valid(episodes.c.id, boundary),
             *access,
-        )
-        .distinct()
+        ).distinct()
     )
 
 
@@ -1451,6 +1490,11 @@ def selected_support_output(metadata, *, purpose="read"):
             )
         )
     )
+
+
+def selected_source_output_occurrences(metadata):
+    """Identity-only actual use/output occurrences under one selected anchor."""
+    return _selected_support_output_rows(metadata, member_aware=True)
 
 
 def record_grade_selected_outputs(metadata):
@@ -1945,6 +1989,7 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None):
         "binding_original": compiled(branches[1]),
         "read_page": compiled(read_page(metadata)),
         "selected_support_output": compiled(selected_support_output(metadata)),
+        "selected_source_output_occurrences": compiled(selected_source_output_occurrences(metadata)),
         "selected_feature_fit_output": compiled(
             selected_support_output(metadata, purpose="feature-fit")
         ),

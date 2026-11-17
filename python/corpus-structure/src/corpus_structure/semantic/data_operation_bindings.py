@@ -1330,6 +1330,21 @@ def decode_binding_rows(
                     )
                 )
 
+            references = read_support_references(row["support_references"])
+            computational = any(reference.kind == "computation" for reference in references)
+            output = None
+            try:
+                supplied_output = (row["support_evidence"].get("producer_output")
+                                   if isinstance(row["support_evidence"], Mapping) else None)
+                if supplied_output is not None:
+                    output = ProducerOutputOccurrence.model_validate(supplied_output)
+                if computational != (output is not None) or (
+                    output is not None and output.member_id is not None
+                    and output.member_id != row["member"]
+                ):
+                    raw_invalid = True
+            except ValueError:
+                raw_invalid = True
             members.append(
                 BoundRoleMember(
                     row["product"],
@@ -1345,14 +1360,9 @@ def decode_binding_rows(
                     row["member"],
                     row["provider_identity"],
                     row["alternative_identity"],
-                    support_references=read_support_references(row["support_references"]),
+                    support_references=references,
                     subject_definition=row["subject_definition"],
-                    producer_output=(
-                        ProducerOutputOccurrence.model_validate(row["support_evidence"]["producer_output"])
-                        if isinstance(row["support_evidence"], Mapping)
-                        and row["support_evidence"].get("producer_output") is not None
-                        else None
-                    ),
+                    producer_output=output,
                 )
             )
         accepted = input_kind_contracts(compiled.model, (role.kind,))[role.kind] if members else ()
