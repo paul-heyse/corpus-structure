@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and15successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; implementation and targeted acceptance are in progress.**
+**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The native-only target lifecycle and103-relation N2 deployment are integrated; the root and17successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; implementation and targeted acceptance are in progress.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -90,7 +90,7 @@ controls, not complete model/provider qualification. Earlier failed `79d73…`/`
 
 S35 now journals verified fsynced artifacts under a build/attempt/holder-fenced spool and defers
 all conversion-time database uptake until producer retirement. Records, occurrences and candidate
-companions adopt once; rasters/assemblies remain in the spool report. Formula companions batch.
+companions adopt once; rasters/assemblies remain in producer spool custody. Formula companions batch.
 The existing same-attempt spool refuses reopening; authenticated prior-attempt recovery is S39.
 True native set/COPY adoption and unused profile retirement remain S34/N3. The first focused59
 selection `c626fb0e62b1408eb7f6fb4439a91865` retained55passes and4failures: one uninstalled-N1
@@ -121,20 +121,42 @@ the lane without settling futures; sizing now uses the physical probe and lane-s
 settles every owned future. Focused host/provider/spool controls **passed94**, f4bc315ae3c148569f4600c09c21628a.
 The exact actual CUDA cues panel **passed1**,5481e906fa3b4842941b51ff75b280ed. Full eight-pack
 S30 panel4b03a4d845dc47599736f947f5309cbc retained2passes/6failures: definition hit an upstream
-CPU/CUDA indexing mismatch, then the remaining packs encountered the fenced generation. This
-is an open implementation defect; S31 cutover remains unqualified. Actual CPU encoder panels
-passed both profiles in08737ea42bf94750b1d018211e4a45ea (bounded provider observations only).
-ADR-0129 supplies the accepted S29 policy; encoder implementation/native integration continues.
+CPU/CUDA indexing mismatch, then the remaining packs encountered the fenced generation.
+A source-digest-bound correction for pinned GLiNER2 2.1.0 changes only the row-index device;
+`docs/pins.md` owns its removal trigger. Current full production CUDA eight-pack panel
+**passed8**,bab2cbd77be146b18cca5b64f7832618 after S31's combined admission/extraction exchange.
+Earlier full8/cbc03556420843e0bfcdb67100422df3 and six-pack5241df2513714ea297c91af109de47f9 remain
+at their original source. These establish bounded attribution observations, not linguistic accuracy.
+S29 now integrates interned role bodies/frames, three declared encoder batch operations, per-member
+failure slots and authentic-observation numerical policy v2. Actual CPU E5/Qwen panels
+**passed2**,5e47e51c86db49188acc1562d34d3d0b under that policy; native E5/scoring acceptance is due.
+S31 multi-input M1 packs and S32 per-block ReadyGroups/D1 stage chains are integrated. Exact M1
+retry **passed2**,d5992d2577484c78aa4db7b5c0e58764; learned control retry **passed1**,
+c3ab37708f274ba6ac8db9f2258c4bb3. They repair stale scalar fixture assumptions without changing
+model admission or outcome contracts. Final integrated/provider union remains open.
 
 S09/S38 integrate origin-classified recognition failures, shared frozen/published draft finishing,
 reusable page workers and atomic page publication. Focused150/e9db7d904fe64e17b7083c766b7db6b0
 retained149passes and one obsolete fake-group fixture, since repaired. S37 Python reads are
-integrated; native ordered observation/set adoption remain N3. S39 now has an inode-bound
-inherited writer lease that survives target return while child threads remain, typed exact
-producer premises and a fenced native basis lookup. Verified recovery uptake and all-contributor
-native custody remain in progress. Docling private hooks are pinned in docs/pins.md. S08 durable
-validator-success proof remains open; strict decoding and full semantic fallback are required
-unless exact original validator and source/selectors/context premises match.
+integrated; native ordered observation/set adoption remain N3. S39 integrates the inode-bound inherited writer lease, fenced exact producer basis, strict verified
+manifest recovery and contributor records in the frozen receipt. Native producer/manifest custody
+stays outside semantic runtime_report, so attempt paths cannot change PDF meaning. Pinned Docling
+hooks restore successful page assemblies, confidence, errors, rasters and sizes before complete
+global assembly; only missing page stages execute. Actual CUDA Docling recovery **passed1**,71419ec28aae4704966dc7c2afddca83, via
+`ci test retry 2b01cbbb2dfd436c9ab8029b2777011f --json`: GS physical120–122, a stopped process after
+one durable page, a fresh process computing only the missing pages, then a third process rebuilding
+from that completed spool with no page/candidate stages. Exact typed rows (JSON-object/transport
+order excluded) and stream bytes match. This does not establish native contributor publication,
+whole-book recovery, or uninterrupted-versus-resumed GPU equality. Failedcfaf414…/9432a9…/2b01c…
+remain: determining preparation canonicalizes only Docling's declared supported_engines sets;
+native model traversal now preserves field order. Changed ordered options still refuse reuse.
+Docling private hooks remain held in docs/pins.md. S08 validator-success proof is integrated:
+full actual Python validation emits original revision/body/source/selectors/context premises;
+native seals retain/project them and consumers strictly decode, compare and otherwise fully
+validate. It records trusted-producer success, not independent native Python replay. Targeted
+reuse controls passed10/e93f700d7af0483faeb6c365d3707c11; native correspondence and full family
+integration remain under qualification. Rich authored inputs keep their existing full validation
+because no captured producing Python validator operation exists for them.
 
 S14 investigation resolved: HostedPipeline.pipe has a production sentence-processing caller and
 is retained. The unconsumed historical SourceOperationLink DTO and test-only run-runtime lookup
@@ -152,9 +174,10 @@ population (S13). S14 removes the unused liveness/execution-context/task-semanti
 unused GLiNER helpers, caches immutable PDF profiles and avoids duplicate export verification.
 `HostedPipeline.pipe` is retained for its live sentence-processing consumer. These are
 integrated implementation, with targeted acceptance still in progress; no enclosing slice is
-declared complete by its commit title. Persisted S08 established-validity proof remains open:
+declared complete by its commit title. Persisted S08 established-validity proof is integrated but not fully qualified:
 canonical bytes or a native validating-kernel digest alone do not establish the exact Python
-validator revision and original source/selectors/context premises.
+validator revision and original source/selectors/context premises. The S08 replacement above now
+carries those actual successful producer premises; installed native/consumer acceptance is due.
 
 N1 source integrates lowered admission facts/indexes, set-wise support validity, shared scope
 locks, recorded read evidence, actual validating-kernel receipts, intent seals and executor
@@ -172,13 +195,91 @@ Authenticated DATA re-lowering left0missing definitions/profiles/context facts. 
 kernel identities,11intent seals and11receipt validator identities remain NULL; no evidence was
 fabricated. Development is untouched and the stage application still predates these changes.
 
-N2 set attach/claim, atomic obligation expansion, shared read watermark and SQL-request/client-result
-contract-digest boundary are integrated in source; Python consumers and native capture remain in
-progress. Native cohort41/d7c9536538a54a099c492056194d444d retained24passes/17failures because
-shared discovery/pin fixtures wrote after demand-read acquisition. Static inspection found no
-corresponding production violation; fixtures now preserve the fresh transaction boundary and use
-set forms. Their native retry is due. The SQL guard is unchanged. Wire selection70/44e9d0311b7b4b858b2a2bd8348b4057
-retained66passes/4stale-fixture failures; fixtures have been corrected, exact retry pending.
+N2 set attach/claim, atomic obligation expansion, exact ordered read watermark and SQL-request/
+client-result contract-digest boundary are integrated, registered and deployed on the owned stage:
+headsemantic_ddo_pe_n2,103relations. S29's declared encoder form and S39 contributor custody ride
+this coherent head. Preview53394199e1c548f69f3bd428dad093c8, candidateea52a6c856494ec08025448061230508
+(98native/privilege operations), registration977b4b64b6c74f83a1cf42ab331bb95c and deploy
+b141a5468a584ee8b6954159e14f3e0c **passed**. Exactly nine predecessor scalar/helper identities are
+retired; no compatibility wrappers remain for them. The named DATA step re-lowers retained
+admitted releases without manufacturing historical validation evidence. Development is unchanged.
+Failed candidates4e0ee6d9…/d5845a57…/0b38eb1c…/f42dedcc… retain their original refusal and established
+rollback cleanup: provider declaration order, missing exact retirements, SQL variable ambiguity
+and JSON operator precedence were corrected. Managed PL/pgSQL diagnostics now retain the full
+bounded error list; actual checker controls **passed11**,595fc71ca2d84796946dd866da8fb7ba.
+
+Native cohort41/d7c9536538a54a099c492056194d444d retained24passes/17failures because shared
+fixtures wrote after read acquisition. Fixtures now use fresh read transactions and set forms;
+installed-head retries acc228b30fc54ad8bd92a327a9aec870 (12passed/5failed),
+0d9423c40b28494ea586f7f7de5d7867 (4passed/1failed), and7c58ceef6ec54bf4b19f21b7bcd7e2b2
+(**passed1**) cover all17 earlier unresolved nodes. Updates preserve real behavior: atomic discovery
+closure already exposes child requests, trust revocation refuses earlier under read epochs, and
+set claims report per-item refusals. This retry chain does not requalify the whole41 at final source. The SQL guard is unchanged. Wire70/44e9d0311b7b4b858b2a2bd8348b4057
+retained66passes/4stale-fixture failures; exact retry **passed4**,ac8de836ad5444a5a61e7f9c4752c2f6.
+Host stage-A pending-reservation custody prevents eviction before staged work starts; focused
+admission/host/recognition **passed47**,92ab5736c615455887932950e75ee97e. Original70e28…/3e3f… failures
+remain. Diagnostic-retention control **passed1**,dd0ec6c4baeb4b908ab920ea54bf1057: original structured
+exception observations precede body/traceback release. Pyrefly **passed**,8fcc1e90cad744b5b73eee786d562c8c;
+Ruff **passed**,3bb0afee11f745e8aec85ed2fe24bd4a at their recorded source. Later integration still
+requires affected diagnostics and complete qualification.
+
+S34 protected COPY companion sets and S41 publication search projection are integrated in source;
+N3 capture/acceptance remains due. S34 retires the scalar companion action and executemany facade,
+shares native shape validation, checks whole-set duplicates/order/replay and adopts endpoints with
+one target join. Native-completion formula outcomes use one set; mixed integrated metadata may use
+bounded sets to preserve streaming ownership. S41 owns publication/recipe/config-keyed immutable
+text/digest/TSVECTOR+GIN, bounded first fill, returned-row budgets and hit-opening digest checks.
+Find alone uses READ COMMITTED to observe a concurrent completed cache fill while the selected
+pins and scoped trust locks remain fixed. Other source readers retain their snapshot contracts.
+S42's ordinal continuations/read-scoped support closure and all planned consumers are integrated; cachetools7.2.7 is now
+an exact direct dependency (already locked transitively; no other package version moved).
+`ci doctor` **passed**,9a60840895ef48b6ab497c6d7d66e354. S36 producer certification, per-lowering-kind reconstruction oracle and explicit `ci source verify`
+are integrated in source. Exact prepared companions and records are certified before COPY; native
+stored-byte/logical equality remains independent. The first actual reconstruction records running,
+passed, failed or interrupted outcomes; ordinary publications may reuse only the exact qualified
+lowering/kind. Explicit selected verification captures under the producing release, reconstructs
+without a database transaction, and reauthorizes the same cut/receipt before delivery.
+The lowering key binds exact supplied declarations, generated executable calls, derived schemas,
+codecs, libraries and the explicit producer/reader implementation closure. Preparation is cached
+by exact inputs under process-owned file custody; changed code cannot be rebased by preparing a
+new target, and executing metadata/types must match. Bounded independent review identified these
+closure and target-input gaps; root repaired them without a new formal review gate.
+
+PDF producer/streaming/retained-reader55 **passed**,b329834b767e433ab2de727de733b723, via
+`ci test --workers 2 --json --` their three files. Original27/0c56e71… retained25passes/two native
+setup failures (successor absent and live source-custody refusal); native counterparts remain due.
+S42's86/9d354a… retained82passes/four failures (stale report-source product and incomplete context
+fixture), repaired without weakening guards; exact retry **passed4**,c7ceb270a7004277808d74b93cb5e3b9.
+Pyrefly **passed**,063a5ef7d00947f6b65ac2b832902895; Ruff **passed**,0cf225915d8b4ccda9ec86189c703f4a.
+Actual certified three-page recovery **passed1**,d24fcbb6d1ec41e8a343559194a4e766, through
+`ci test --providers-only -- …test_actual_pdf_spool_resume.py`, with the earlier panel's bounded
+scope and no native publication/whole-book credit. S40 shared storage/backfill is integrated (fd280dd71/fc8332140); both per-build part stores are
+removed from the target. The separately selected S36 reset stages required columns nullable,
+removes incomplete historical receipts under the exact immutable guard, then applies constraints.
+Read-only stage observation found7old validation receipts,15products and831parts in each old store;
+only actual byte folds are eligible for S40 transfer, never fabricated S36 evidence. Preview
+ d23821de199e4d18b7c3045a3dca5ec9 is running on the acquired N2 stage; native transition/acceptance
+remain open. Combined Pyrefly9a271db05654447c88cb7d0fb86daac4 and Ruffba8a32c84f8f461b84c55651501a34ef
+**passed**; shared upload-shape/omission and closed maintenance controls **passed5**,
+e752a326d56d4c7f83e5931202ece8d5. Independent static review found a stale generated typed part-table
+reference; regeneration removed it. No further material defect was found in its bounded static
+inspection, which grants no migration or concurrency qualification.
+
+S33's prepared dynamic-Earley candidate shares grammar analysis and uses only region-local
+scanner owners. Source inspection settles PE-D02 for `classify`: positive-width nonoverlapping
+matches over disjoint unprotected spans have one extent per terminal/start. Conflicting supplied
+observations still explicitly refuse. Bounded ordered SPPF/sharing/reducer and interleaving controls
+**passed15**,da95b5e446cb4c3d8af5aad5f6b94ed0. Construction consumers f625775… retained84passes/one
+locked spaCy environment refusal; root refreshed only editable corpus-structure metadata with
+`uv sync --locked --offline --inexact`, moving no dependency version. Exact retry **passed1**,
+2d9bf7abc52b4ca5b4111b5b897d8bba; `ci doctor` **passed**,c5ae921eedfa4ea5b29e134a6937a2cf.
+The preceding d345379… selected no tests because root supplied a nonexistent second path; it is
+not functional evidence. The actual book has no current stage requests for its original key,
+so the complete actual-region gate needs the current source/formal/sentence prerequisites.
+Candidate adoption and removal of its private experiment compiler remain open; docs/pins.md
+holds Lark1.3.1's private scanner/local-state contract. Do not substitute blanket raw-text
+reclassification for retained primary lexical observations and sentence-clipped regions.
+All integrated obsolete worktrees were removed after preserving their actual LFS bytes.
 
 - **passed:** `ci test --workers 2 --json --` over receipt/CLI evidence plus lowering controls,
   210 tests, `d412ae71b6244a29be04f7b40414011c` (bounded source/context). Earlier 208-test result
@@ -289,7 +390,7 @@ durable completion intents, which are the retained-intent recovery point.
 | PE-RC03 | Admission still precedes hydration. The worst-case reservation is reduced to the measured hydrated size afterwards; a batch is charged once; logical page size is independent of memory admission; one owned-byte budget per process | [ADR-0123](../adr/0123-two-stage-byte-admission.md) records two-stage byte admission, page size independent of memory admission and once-per-call batch charging. It supersedes nothing: ADR-0084's clause "Admission/reservations precede hydration and queueing" is kept literally, and what changes was not stated in any ADR. D6 is amended to add the stage-B reduction. ADR-0084's successor remains the one owed by the 2026-11-12 RC05 at DDO-11. Text: demand-planning companion | PE-S23 |
 | PE-RC04 | The three encoder operations keep one request, product and vector per occurrence or target and declare the batch form under a new encoder numerical policy with authentic-observation batch semantics. Every encoder vector identity changes; existing vectors are regenerated | ADR-0129 supersedes ADR-0114, changing its paragraph "Encoder model execution remains scalar under its existing exact profile until an explicit released encoder policy selects cross-request batching" and restating the rest; ADR-0084 and ADR-0085 are not contradicted; D6 amended. Text: operations companion | PE-S29 |
 | PE-RC05 | One execution host per process owns the budget, worker generations, capsules, prepared ports, provider lanes and verified bases; a run proves retirement of its own work; one run is active per host; native model residency is process-scoped only under an explicit keep-warm setting | [ADR-0125](../adr/0125-process-owned-execution-host.md) supersedes ADR-0083, changing "One invocation owns verified preparation, regional lifetimes, physical admission and worker/provider scopes" and "No global verification cache…", and restating the rest, including established validation under original premises and "a digest is not proof"; D6 amended. Text: demand-planning companion | PE-S25 (PE-S08 relies on the restated clause) |
-| PE-RC06 | The producer certifies each PDF publication before staging; PostgreSQL certifies custody and structure and seal requires equal logical digests; the reconstruct-from-rows round trip runs per lowering identity, on explicit verify and in qualification. Independent per-publication reconstruction is given up; this is an accepted weakening, not an equivalence | ADR-F supersedes ADR-0045, changing "The model-bound finite runtime validates actual immutable payload interiors and required closure, then derives access projections" and restating the rest; D3 amended. Text: operations companion | PE-S36 |
+| PE-RC06 | The producer certifies each PDF publication before staging; PostgreSQL certifies custody and structure and seal requires equal logical digests; the reconstruct-from-rows round trip runs per lowering identity, on explicit verify and in qualification. Independent per-publication reconstruction is given up; this is an accepted weakening, not an equivalence | [ADR-0130](../adr/0130-pdf-producer-certified-publication.md) supersedes ADR-0045, changing "The model-bound finite runtime validates actual immutable payload interiors and required closure, then derives access projections" and restating the rest; D3 amended. Text: operations companion | PE-S36 |
 | PE-RC07 | An operation outcome is terminal or an execution failure; execution failures are never published or reused. Draft stages finish frozen builds; capture resumes from the spool; a sealed receipt names every contributing attempt | ADR-0126 supersedes ADR-0094, changing only "Native refusal, cancellation, failed/empty/partial and externally awaiting work remain distinct" and restating the rest, including durable exact completion intents. ADR-0127 supersedes ADR-0099, changing only "A sealed PDF publication retains its actual publisher task, attempt, holder…" to name every contributing attempt, and restating the rest. Both record the failure classification settled in detailed execution planning. Text: operations companion | PE-S09 (both), PE-S39 (ADR-0127 resume) |
 | PE-RC08 | A serving identity names the running code; drift is detected by file metadata with content confirmation, and changed content refuses with a restart instruction | [ADR-0124](../adr/0124-serving-code-custody.md), superseding nothing (the guarantee was in no ADR); D8 amended. Text: interfaces companion | PE-S06 |
 

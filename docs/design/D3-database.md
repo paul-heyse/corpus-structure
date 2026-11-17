@@ -650,6 +650,19 @@ Subsequent ordinary publications use that qualified oracle plus per-publication 
 checks; unexamined content-specific lowering defects are an accepted assurance limit (DP-23).
 The DDO coordinator owns implementation and qualification; this does not relabel prior evidence.
 
+**Implemented in source; native qualification remains open · 2026-11-17.** The lowering contract
+captures the explicit producer/reader/native-generator implementation closure, generated native
+calls and result shapes, exact supplied action/logical/physical declarations and LinkML types,
+derived metadata JSON schemas and record/payload Arrow codecs, and their library versions.
+Schema preparation is cached by those exact inputs. Process-owned file custody remains checked
+on reuse; a new target cannot rebase loaded code, and executing physical metadata and LinkML
+types must match the captured current basis. Changed code or model files require a fresh process.
+
+`ci source verify` explicitly reconstructs a selected publication. It captures bytes under its
+selected read and producing release, releases the database transaction before reconstruction,
+then reacquires current selection authority and checks the exact cut and receipt before returning
+the verification. Ordinary reads do not initiate reconstruction or weaken current authorization.
+
 > Decision: [ADR-0130](../adr/0130-pdf-producer-certified-publication.md)
 
 **Accepted target (2026-11-01):** New segmented streams use independently verified actual parts,

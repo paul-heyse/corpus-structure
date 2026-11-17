@@ -561,6 +561,22 @@ byte length and byte root; parts are stored once per project and key, with a one
 verification receipt; a producer sends a descriptor without parts when the key exists. Sharing
 is scoped to a project so shared content cannot reveal another project's content.
 
+**Implementation boundary · 2026-11-17; native qualification remains open.** Both old per-build
+part tables are removed from the target physical model. The inherited fixed part upload shape
+is compiled from the captured model solely for temporary COPY input, without a durable prototype
+table. Shared keys own actual verified parts; build descriptors retain their own record identity.
+An unverified pending key has one build/attempt/holder append owner. Reclaim authenticates that
+owner's closed database fence and excludes verified/live-dependent content. This database append
+check does not prove retirement of GPU processes or spool writers. Verified content is immutable.
+
+The explicitly selected `pdf_s40_shared_streams` maintenance step verifies retained old actual
+parts and canonical byte roots, copies compatible frozen/published streams to the shared store,
+then drops both old tables. Open generated uploads become inert; original assets and spools stay.
+The separately selected `pdf_s36_retire_validation` step removes historical receipts lacking the
+new producer/oracle premises before required constraints apply. It retains product/record bytes
+without manufacturing historical certification; current use requires regeneration. Neither step
+is auto-selected from table existence, and no runtime legacy reader is retained.
+
 Rejected: content-addressed records with per-stage membership (organize reparents most items
 and integrate rewrites many, so little would be shared, while every reader and validator would
 gain an indirection) and private intermediate stages (each has consumers).
@@ -641,8 +657,9 @@ spooled pages.
   limited, never dropped; receipts cover exactly the admitted ordered population.
 - **PDF products (PE-S34–S37):** for a bounded original under the CPU recipe or a fixed spool,
   logical digests of every stage, exported native JSON bytes, companion rows and access and
-  region rows are identical before and after; frozen digests differ only by the removed page
-  streams.
+  region rows are identical before and after. Frozen digests change with removed page streams
+  and the added producer certification, access and region inventories; those physical custody
+  differences do not change logical product identity.
 - **Tamper refusals (PE-S36):** a staged part altered after staging; an access row inconsistent
   with the records; an attested digest unequal to the database identity; a candidate with
   invalid OCR geometry but correct digests (refused by producer certification before staging);
