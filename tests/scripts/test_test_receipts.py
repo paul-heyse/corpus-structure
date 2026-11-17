@@ -283,6 +283,63 @@ def test_cached_receipts_still_compose_required_union(tmp_path):
     assert observed == classify([original, retry], required_from=[original])
 
 
+
+def test_settled_parallel_retry_preserves_raw_inventory_and_exports_only_unresolved(
+    tmp_path, monkeypatch
+):
+    import test_receipts as owner
+
+    original, retry = tmp_path / "original", tmp_path / "retry"
+    original.mkdir()
+    retry.mkdir()
+    nodes = ["test_case.py::test_covered", "test_case.py::test_retry"]
+
+    def parallel_receipt(directory, selected, *, failed=()):
+        aliases = {node + "@cohort": node for node in selected}
+        reports = [
+            report(phase, "failed" if phase == "call" and node in failed else "passed",
+                   nodeid=raw)
+            for raw, node in aliases.items()
+            for phase in ("setup", "call", "teardown")
+        ]
+        receipt(directory, reports, selected=tuple(aliases), returncode=int(bool(failed)))
+        manifest = {"event": "collection_finish", "selected": list(aliases),
+                    "nodeid_aliases": aliases, "native_required": []}
+        stream(directory / "events-controller-12.jsonl", [
+            manifest,
+            *({"event": event, "nodeid": raw, "pid": 12, "worker": "controller"}
+              for raw in aliases for event in ("logstart", "logfinish")),
+        ])
+        owner._write_classification(directory, classify([directory]))
+        return manifest
+
+    original_manifest = parallel_receipt(original, nodes, failed=(nodes[1],))
+    cached = owner.read_json(original / "classification.json")
+    assert cached["receipts"][0]["collection_manifests"] == [original_manifest]
+    unresolved = classify([original], required_from=[original], settled=True)
+    assert unresolved["required"] == nodes
+    assert unresolved["required_unresolved"] == [nodes[1]]
+
+    def collect(directory, args, **kwargs):
+        assert "--collect-only" in args
+        selection = Path(next(arg[1:] for arg in args if arg.startswith("@")))
+        # Validation retains the complete original required inventory.
+        assert selection.read_text().splitlines() == nodes
+        receipt(directory, [], selected=tuple(nodes))
+
+    monkeypatch.setattr(owner, "run_python", collect)
+    destination = tmp_path / "retry.txt"
+    written = owner.write_unresolved(
+        unresolved, destination, required_from=[original], lane="ordinary", managed=True
+    )
+    assert written["nodes"] == [nodes[1]]
+    assert destination.read_text().splitlines() == [nodes[1]]
+    parallel_receipt(retry, [nodes[1]])
+    covered = classify([original, retry], required_from=[original], settled=True)
+    assert covered["required"] == nodes
+    assert covered["required_unresolved"] == []
+    assert covered == classify([original, retry], required_from=[original])
+
 def test_teardown_failure_overrides_call_and_keeps_unstarted(tmp_path: Path) -> None:
     result = classify_receipt(
         receipt(

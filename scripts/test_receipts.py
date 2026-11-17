@@ -824,7 +824,12 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
     evidence_selection = (invocation or {}).get("evidence_selection", "ordinary")
     collection_manifests: list[dict[str, Any]] = []
     try:
-        collection_manifests = [e for e in companion if e.get("event") == "collection_finish"]
+        # Keep the collected raw identity inventory intact for settled replay.
+        # Companion events below are normalized for result accounting; sharing
+        # those dictionaries would replace selected IDs but retain raw alias keys.
+        collection_manifests = [
+            dict(event) for event in companion if event.get("event") == "collection_finish"
+        ]
         if not collection_manifests:
             raise ValueError("missing selected-node manifest")
         aliases = _node_aliases(collection_manifests)
