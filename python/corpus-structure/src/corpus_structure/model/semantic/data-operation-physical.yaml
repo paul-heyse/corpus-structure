@@ -629,7 +629,7 @@ classes:
       grade_census_eligible: {range: boolean, required: false}
       fit_census_eligible: {range: boolean, required: false}
       kernel_digest: {range: string, required: false}
-      scope: {range: json_payload, required: true, annotations: {ph:default: "'{}'::jsonb"}}
+      scope: {range: json_payload, required: true, annotations: {ph:server_default_factory: empty_object}}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
     annotations:

@@ -12,6 +12,7 @@ import keyword
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from linkml_runtime.linkml_model import SlotDefinition
 from pgvector.sqlalchemy import VECTOR as Vector
 from sqlalchemy import (
     BigInteger,
@@ -31,6 +32,8 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    and_,
+    case,
     cast,
     func,
     literal,
@@ -48,6 +51,7 @@ from sqlalchemy.dialects.postgresql import (
     TIMESTAMP,
     TSVECTOR,
 )
+from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.sqltypes import ARRAY as BaseARRAY
 from sqlalchemy.types import TypeEngine
 
@@ -103,6 +107,84 @@ def check_name(table: str, what: str, sql: str) -> str:
 
 
 # --- Compilation -------------------------------------------------------------------------------
+
+
+def _physical_default(
+    typ: TypeEngine[Any], annotations: Mapping[str, Any], location: str
+) -> ColumnElement[Any] | None:
+    value = annotations.get("ph:server_default_value")
+    factory = annotations.get("ph:server_default_factory")
+    if "ph:default" in annotations or (value is not None and factory is not None):
+        raise ModelError([f"{location}: invalid server default declaration"])
+    if factory == "uuid_text" and isinstance(typ, Text):
+        return cast(func.gen_random_uuid(), Text())
+    if factory == "empty_object" and isinstance(typ, JSONB):
+        return cast(literal("{}", Text()), JSONB())
+    if factory is not None:
+        raise ModelError([f"{location}: unsupported server default factory {factory!r}"])
+    if value is None:
+        return None
+    if (
+        (isinstance(typ, Boolean) and isinstance(value, bool))
+        or (isinstance(typ, Integer) and isinstance(value, int) and not isinstance(value, bool))
+        or (isinstance(typ, Text) and isinstance(value, str))
+    ):
+        return literal(value, typ)
+    raise ModelError([f"{location}: server default is incompatible with its physical type"])
+
+
+def _physical_generated(
+    typ: TypeEngine[Any],
+    annotations: Mapping[str, Any],
+    slots: Mapping[str, SlotDefinition],
+    location: str,
+) -> ColumnElement[Any] | None:
+    generated = annotations.get("ph:generated_as")
+    source = annotations.get("ph:generated_source")
+    configuration = annotations.get("ph:search_configuration")
+    if "ph:computed" in annotations:
+        raise ModelError([f"{location}: generated columns require a declared projection"])
+    if generated is None and source is None and configuration is None:
+        return None
+    if (
+        not isinstance(source, str)
+        or source not in slots
+        or slots[source].multivalued
+        or annotations.get("ph:identity") is not None
+    ):
+        raise ModelError([f"{location}: invalid generated column source"])
+    source_range = str(slots[source].range or "string")
+    if (
+        generated == "search_vector"
+        and source_range == "string"
+        and isinstance(typ, TSVECTOR)
+        and isinstance(configuration, str)
+        and configuration
+    ):
+        return func.to_tsvector(
+            cast(literal(configuration, Text()), REGCONFIG()), sql_column(source, Text())
+        )
+    if configuration is None:
+        if (
+            generated == "integer_point_range"
+            and source_range == "integer"
+            and isinstance(typ, INT8RANGE)
+        ):
+            point = sql_column(source, BigInteger())
+            return func.int8range(point, point, "[]")
+        endpoints = {"visual_region_x": ("left", "right"), "visual_region_y": ("top", "bottom")}
+        if generated in endpoints and source_range == "json_payload" and isinstance(typ, NUMRANGE):
+            region = sql_column(source, JSONB()).op("->", return_type=JSONB())("source_region")
+            first, last = (
+                region.op("->>", return_type=Text())(edge) for edge in endpoints[generated]
+            )
+            return case(
+                (
+                    and_(first.is_not(None), last.is_not(None)),
+                    func.numrange(cast(first, Numeric()), cast(last, Numeric()), "[)"),
+                )
+            )
+    raise ModelError([f"{location}: unsupported generated projection {generated!r}"])
 
 
 def compile_metadata(view: View, *, target: str) -> MetaData:
@@ -176,32 +258,13 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
             if slot.multivalued:
                 typ = ARRAY(typ)
             annotations = ci_annotations(slot)
-            default = annotations.get("ph:default")
-            computed = annotations.get("ph:computed")
-            search_source = annotations.get("ph:search_vector_source")
-            configuration = annotations.get("ph:search_configuration")
-            if search_source is not None or configuration is not None:
-                location = f"{name}.{slot.name}"
-                if (
-                    not isinstance(search_source, str)
-                    or search_source not in slots
-                    or not isinstance(configuration, str)
-                    or not configuration
-                    or default is not None
-                    or computed is not None
-                    or annotations.get("ph:identity") is not None
-                    or not isinstance(typ, TSVECTOR)
-                ):
-                    raise ModelError([f"{location}: invalid generated search-vector declaration"])
-                source = slots[search_source]
-                if source.range != "string" or source.multivalued:
-                    raise ModelError(
-                        [f"{location}: generated search-vector source must be scalar text"]
-                    )
-                computed = func.to_tsvector(
-                    cast(literal(configuration, Text()), REGCONFIG()),
-                    sql_column(search_source, Text()),
-                )
+            location = f"{name}.{slot.name}"
+            default = _physical_default(typ, annotations, location)
+            computed = _physical_generated(typ, annotations, slots, location)
+            if default is not None and (
+                computed is not None or annotations.get("ph:identity") is not None
+            ):
+                raise ModelError([f"{location}: server default conflicts with generated value"])
             columns.append(
                 Column[Any](
                     str(slot.name),
@@ -214,7 +277,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                         else []
                     ),
                     nullable=not slot.required,
-                    server_default=text(default) if default is not None else None,
+                    server_default=default,
                     info={
                         **nominal(subsets[0], str(name), str(slot.name)),
                         "minimum": slot.minimum_value,

@@ -25,11 +25,11 @@ classes:
       invocation_key:
         range: string
         required: true
-        annotations: {ph:default: gen_random_uuid()::text}
+        annotations: {ph:server_default_factory: uuid_text}
       trigger:
         range: json_payload
         required: true
-        annotations: {ph:default: "'{}'::jsonb"}
+        annotations: {ph:server_default_factory: empty_object}
       status: {range: DataOperationTaskState, required: true}
       attempt:
         range: integer

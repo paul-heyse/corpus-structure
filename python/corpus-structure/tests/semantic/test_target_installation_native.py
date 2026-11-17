@@ -405,7 +405,7 @@ def test_actual_target_successor_uses_registered_state_and_preserves_installatio
     declaration = yaml.safe_load(sources["physical.yaml"])
     declaration["classes"]["project"]["attributes"]["native_installation_note"] = {
         "range": "string",
-        "annotations": {"ph:default": "'unreviewed'"},
+        "annotations": {"ph:server_default_value": "unreviewed"},
     }
     sources["physical.yaml"] = yaml.safe_dump(declaration, sort_keys=False).encode()
     from corpus_structure.schema.physical import compile_physical

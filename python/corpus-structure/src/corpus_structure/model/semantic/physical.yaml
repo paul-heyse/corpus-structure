@@ -289,7 +289,7 @@ classes:
         range: boolean
         required: true
         annotations:
-          ph:default: 'false'
+          ph:server_default_value: false
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -484,7 +484,7 @@ classes:
         range: integer
         required: true
         annotations:
-          ph:default: '0'
+          ph:server_default_value: 0
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -503,7 +503,7 @@ classes:
       input_kind:
         required: true
         annotations:
-          ph:default: '''dependency'''
+          ph:server_default_value: dependency
       input_name:
         required: true
       physical_id:
@@ -1124,21 +1124,18 @@ classes:
         range: integer_range
         required: true
         annotations:
-          ph:computed: int8range(task_id, task_id, '[]')
+          ph:generated_as: integer_point_range
+          ph:generated_source: task_id
       source_x:
         range: numeric_range
         annotations:
-          ph:computed: "CASE WHEN body -> 'source_region' ->> 'left' IS NOT NULL\n\
-            \      AND body -> 'source_region' ->> 'right' IS NOT NULL\n     THEN\
-            \ numrange((body -> 'source_region' ->> 'left')::numeric,\n          \
-            \         (body -> 'source_region' ->> 'right')::numeric, '[)') END"
+          ph:generated_as: visual_region_x
+          ph:generated_source: body
       source_y:
         range: numeric_range
         annotations:
-          ph:computed: "CASE WHEN body -> 'source_region' ->> 'top' IS NOT NULL\n\
-            \      AND body -> 'source_region' ->> 'bottom' IS NOT NULL\n     THEN\
-            \ numrange((body -> 'source_region' ->> 'top')::numeric,\n           \
-            \        (body -> 'source_region' ->> 'bottom')::numeric, '[)') END"
+          ph:generated_as: visual_region_y
+          ph:generated_source: body
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -1782,7 +1779,8 @@ classes:
         range: search_vector_value
         required: true
         annotations:
-          ph:search_vector_source: text
+          ph:generated_as: search_vector
+          ph:generated_source: text
           ph:search_configuration: english
     unique_keys:
       primary_key: {unique_key_slots: [population_id, section_pointer, membership]}
