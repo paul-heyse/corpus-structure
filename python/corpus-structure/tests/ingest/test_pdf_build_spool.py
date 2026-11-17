@@ -226,7 +226,9 @@ def test_preparation_identity_binds_models_options_and_not_incidental_resources(
         "_preparation": dict(
             profile="pdf-prepared-native-runtime-v1",
             requested_options={"artifacts_path": "/old", "do_ocr": True},
-            effective_options={"artifacts_path": "/old", "scale": 2.0},
+            effective_options={"artifacts_path": "/old", "scale": 2.0,
+                               "chart_extraction_options": {"model_spec": {"supported_engines": ["transformers", "mlx"]}},
+                               "generation_order": ["first", "second"]},
             backend_options={"threads": 8},
             stage_scope="native",
             native_variants={"layout": "LayoutModel"},
@@ -239,7 +241,11 @@ def test_preparation_identity_binds_models_options_and_not_incidental_resources(
     changed = deepcopy(report)
     changed["_preparation"]["effective_options"]["artifacts_path"] = "/new"
     changed["_preparation"]["arrow_resources"]["capacity"] = 99
+    changed["_preparation"]["effective_options"]["chart_extraction_options"]["model_spec"]["supported_engines"].reverse()
     assert native_preparation_identity(json.dumps(changed).encode()) == identity
+    ordered = deepcopy(report)
+    ordered["_preparation"]["effective_options"]["generation_order"].reverse()
+    assert native_preparation_identity(json.dumps(ordered).encode()) != identity
     changed["_preparation"]["effective_options"]["scale"] = 3.0
     assert native_preparation_identity(json.dumps(changed).encode()) != identity
 

@@ -441,9 +441,11 @@ class PdfConverter:
     def _capture_prepared_profile(self, requested_options: Any, backend_options: Any) -> None:
         """Freeze actual prepared variants and resource/image policy once per native owner."""
         import pyarrow as pa
+        from .pdf_build_spool import canonical_native_options
 
         assert self._formula is not None
-        effective = self._options.model_dump(mode="json", serialize_as_any=True)
+        effective = canonical_native_options(self._options.model_dump(mode="json", serialize_as_any=True))
+        requested_options = canonical_native_options(requested_options)
         option_variants = {
             name: type(getattr(self._options, name)).__name__
             for name in (

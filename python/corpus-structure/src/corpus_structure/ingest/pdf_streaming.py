@@ -335,14 +335,14 @@ def _json_view(value: Any, computed: bool = False) -> Any:
             else:
                 descriptor = type(value).model_computed_fields[name].wrapped_property
                 values[name] = descriptor.__get__(value, type(value))
-        nested = {
+        nested = tuple(
             name for name, child in values.items() if isinstance(child, (BaseModel, list, dict))
-        }
+        )
         scalars = value.model_dump(
             mode="json",
             by_alias=True,
             exclude_none=True,
-            exclude=nested,
+            exclude=set(nested),
             exclude_computed_fields=not computed,
         )
         members: dict[str, Any] = dict(scalars)
@@ -638,14 +638,16 @@ class StreamingPdfProducer:
         converter._prepare()
         from .pdf_build_spool import native_preparation_identity
 
-        identity = native_preparation_identity(converter.prepared_options_report)
-        if spool.preparation_identities and spool.preparation_identities != {identity}:
-            raise ValueError("resumed PDF native preparation differs from its verified page spool")
         prepared = _atomic_bytes(
             spool.root / "native-preparation.json",
             converter.prepared_options_report,
             "native_preparation",
         )
+        identity = native_preparation_identity(converter.prepared_options_report)
+        if spool.preparation_identities and spool.preparation_identities != {identity}:
+            # Retain the actual observation for diagnosis, but never acknowledge
+            # it into contributor custody or consume pages on a changed basis.
+            raise ValueError("resumed PDF native preparation differs from its verified page spool")
         if spool.on_page is not None:
             spool.on_page(prepared)
         options = {} if page_range is None else {"page_range": page_range}

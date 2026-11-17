@@ -255,6 +255,12 @@ def _missing_gliner_panel_snapshot():
     return missing_gliner_snapshot()
 
 
+def _missing_pdf_resume_assets():
+    from semantic.actual_pdf_resume_support import missing_pdf_resume_assets
+
+    return missing_pdf_resume_assets()
+
+
 _PREREQUISITES = {
     "corpus": lambda: _missing_local_corpus(CORPUS_DIR),
     "pm2_native_assets": _missing_pm2_native_assets,
@@ -265,6 +271,7 @@ _PREREQUISITES = {
     "contextual_qwen_snapshot": _missing_contextual_qwen_snapshot,
     "gliner_panel_snapshot": _missing_gliner_panel_snapshot,
     "provider_book_panel": _missing_provider_book_panel,
+    "pdf_resume_assets": _missing_pdf_resume_assets,
 }
 _prerequisite_cache = pytest.StashKey[dict[str, str | None]]()
 
