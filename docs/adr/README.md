@@ -63,7 +63,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0090](0090-native-source-operation-lineage.md) | Persist source operation lineage in native run options | 2026-11-12 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0091](0091-gpu-native-environment-boundaries.md) | Run all selected NLP in one Python 3.14 GPU host with a tested Protobuf override | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Tested | [ADR-0088](0088-gpu-default-native-hosts.md) |
 | [ADR-0092](0092-ddo-operation-authority.md) | One effective operation model admits declaration and implementation owners | 2026-11-12 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
-| [ADR-0093](0093-ddo-products-and-support.md) | Semantic products retain authentic support independently of execution | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0094](0094-ddo-demand-and-recovery.md) | Native demands and requests own fulfillment and recovery | 2026-11-12 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
 | [ADR-0096](0096-original-source-admission.md) | Original source admission retains factual support without inventing computation | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0097](0097-ddo-native-composition.md) | Declared nominal refinements and document paths preserve concrete input identity | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
@@ -91,6 +90,9 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0119](0119-pdf-logical-meaning-and-execution-custody.md) | Keep PDF logical meaning independent of execution custody | 2026-11-16 | [§B4](../design/DESIGN.md#section-b4) | Proposed | ADR-0043 |
 | [ADR-0120](0120-explicit-nullable-fields.md) | Explicit nullable fields preserve null separately from absence | 2026-11-16 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0121](0121-selected-support-acquisition.md) | Select computational source support explicitly alongside semantic addresses | 2026-11-17 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
+| [ADR-0122](0122-set-wise-support-validity.md) | Semantic support uses set-wise live validity and acquisition evidence | 2026-11-17 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0093](0093-ddo-products-and-support.md) |
+| [ADR-0123](0123-two-stage-byte-admission.md) | Physical calls reserve before hydration and reduce to measured ownership | 2026-11-17 | [§B2](../design/DESIGN.md#section-b2) | Proposed |  |
+| [ADR-0124](0124-serving-code-custody.md) | Serving identity names imported code and refuses detected drift | 2026-11-17 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
 
 ## Superseded, still in the tree
 
@@ -127,5 +129,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0080](0080-observe-committed-source-run.md) | Observe committed source-run identity before source execution | 2026-11-10 | [§2](../design/DESIGN.md#section-2) | Proposed |  |
 | [ADR-0087](0087-book-characterization-policy-and-recovery.md) | Share final characterization policy and retain native demand anchors for recovery | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0088](0088-gpu-default-native-hosts.md) | Run GPU-default NLP in shared hosts with explicit workflow intent | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0087](0087-book-characterization-policy-and-recovery.md) |
+| [ADR-0093](0093-ddo-products-and-support.md) | Semantic products retain authentic support independently of execution | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

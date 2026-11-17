@@ -185,6 +185,17 @@ policy exact cohorts must be bound before task registration or the batching obli
 
 > Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
 
+**Accepted target; implementation/qualification Proposed · 2026-11-17.** Physical calls reserve
+twice the packet bound plus three times the reply bound before claim/hydration. The sole owner
+then reduces that reservation to twice measured hydrated bytes plus three times the reply bound,
+holding it through the final consumer. A batch is charged once and split at its packet bound;
+max_claims bounds logical members independently. A bounded invocation-owned ReadyFrontier feeds
+the existing driver between ticks; planner pages are independent of memory admission. There is
+no authored size estimator, new thread or scheduler. Existing cancellation/retirement, parent
+reduction and native settlement authority remain. The DDO plan owns PE-S23 implementation.
+
+> Decision: [ADR-0123](../adr/0123-two-stage-byte-admission.md)
+
 ## Invocation-owned characterization execution
 
 **Proposed accepted target · 2026-11-11.** A private invocation execution context is constructed

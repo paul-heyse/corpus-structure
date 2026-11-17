@@ -1247,6 +1247,15 @@ publication/schema fidelity controls; final assembled qualification belongs to U
 
 ## Runtime initialization
 
+**Accepted target; implementation/qualification Proposed · 2026-11-17.** Serving identity names
+authenticated imported source digests, first-use library versions, the query contract and profile.
+Each request checks module identity and shared file custody; changed/racily clean metadata causes
+content confirmation. Equal bytes refresh custody. Changed bytes, unknown import custody or a
+conflicting pin require restart. This detects drift through observable filesystem metadata,
+rather than promising a full disk-content comparison on every request. PE-S06 owns implementation.
+
+> Decision: [ADR-0124](../adr/0124-serving-code-custody.md)
+
 **Implemented; scoped Tested (2026-10-30).** Command metadata uses ordinary Typer registration
 and runtime-visible signatures; owning invocations acquire scientific, analytical and preparation
 kernels. The public preparation function defers compiler acquisition until called. Settings remain

@@ -365,6 +365,14 @@ semantic decoder fallback.
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
 
+**Accepted target; implementation/qualification Proposed · 2026-11-17.** Physical calls use one
+pre-hydration worst-case byte reservation, reduced by its sole owner after measured hydration
+and retained through final consumption. Planner pages, live claims and memory admission have
+independent bounds. D6 owns the two-stage mechanism and bounded ReadyFrontier; existing
+cancellation, parent reduction and native settlement authority remain.
+
+> Decision: [ADR-0123](../adr/0123-two-stage-byte-admission.md)
+
 **Accepted target; normal-route implementation/adoption Proposed · 2026-11-16.** One canonical
 current physical/native basis, immutable Alembic root and exact frozen successors replace historical
 installation defaults. Current DDO guards retain actual source/schema/native/privilege custody;
@@ -466,6 +474,13 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b3"></a>
 
 ### §B3 Agents work the semantic queue through supervised or interactive MCP sessions
+
+**Accepted target; implementation/qualification Proposed · 2026-11-17.** D8 serving identities
+name authenticated imported code, first-use library versions and exact query/profile contracts.
+Shared file custody detects observable metadata drift and confirms changed content; unsupported
+code/module changes require restart. This does not promise rehashing every source on every request.
+
+> Decision: [ADR-0124](../adr/0124-serving-code-custody.md)
 
 **Implemented, 2026-10-30; full SP-09/SP-10 qualification remains separately owned.** A supervisor
 may invoke the configured model in a fresh run-bound stdio MCP session. PostgreSQL owns the
