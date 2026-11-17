@@ -10,6 +10,14 @@ ADR that responds to a finding.
 - **Retention:** a review stays while it supplies an open finding or needed decision evidence;
   then it is deleted and recovered from Git.
 
+## Production efficiency first-principles review
+
+[Production efficiency](design_review_production-efficiency_2026-11-17.md) (2026-11-17) is an
+operator-requested, principle-focused diagnostic review of production code at `fc73d2c8c`
+against FP-07/A4 and the efficient-architecture heuristics. It was formed from source by static
+reading, without consuming the living audit, and gives 30 findings with leads, an independent
+challenge, and the rules its leads would change. It revises no plan and selects no remedy.
+
 ## Declared data operations target inquiry
 
 [Declared data operations](design_review_declared-data-operations_2026-11-12.md) (2026-11-12) is
