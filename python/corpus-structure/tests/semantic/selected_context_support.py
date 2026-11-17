@@ -23,7 +23,9 @@ from corpus_structure.semantic.source_contexts import record_source_pin
 
 def case(recipe, *, frame=None):
     frame = frame or source()
-    pointer = next(piece["item_ref"] for piece in frame.value["pieces"] if piece["kind"] == "native_text")
+    pointer = next(
+        piece["item_ref"] for piece in frame.value["pieces"] if piece["kind"] == "native_text"
+    )
     if recipe == "located-frame-2":
         layers, ref = primary(
             frame,
@@ -187,4 +189,3 @@ def case(recipe, *, frame=None):
         subject_context=context,
     )
     return frame, occurrence, (body,), binding, ref, expected
-

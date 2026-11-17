@@ -24,7 +24,13 @@ def missing_e5_snapshot():
     _, directory = configured_e5()
     if not directory.is_dir():
         return f"configured E5 snapshot requires {directory}"
-    required = ("config.json", "modules.json", "model.safetensors", "tokenizer.json", "1_Pooling/config.json")
+    required = (
+        "config.json",
+        "modules.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "1_Pooling/config.json",
+    )
     paths = set(directory / name for name in required)
     paths.update(path for path in directory.rglob("*") if path.is_file() or path.is_symlink())
     missing = []

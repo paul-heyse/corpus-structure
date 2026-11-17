@@ -757,7 +757,7 @@ def _validate_literal(
         return
     prop = PropertyDefinition(
         **{field.name: prop_facts[field.name] for field in fields(PropertyDefinition)}
-           )
+    )
     prop = replace(prop, name="value", required=True)
     primitives = {}
     vocabularies = ()
@@ -985,7 +985,11 @@ def compile_data_operations(
             nullable = annotation.endswith(" | None")
             value_annotation = annotation.removesuffix(" | None")
             multivalued = value_annotation.startswith(("list[", "tuple[", "set[", "frozenset["))
-            element = value_annotation.split("[", 1)[1].rsplit("]", 1)[0] if multivalued else value_annotation
+            element = (
+                value_annotation.split("[", 1)[1].rsplit("]", 1)[0]
+                if multivalued
+                else value_annotation
+            )
             element = element.replace(", ...", "")
             target = (
                 python_types.get(element)
@@ -2604,8 +2608,8 @@ def _materialize_json_schema_properties(kinds, nodes, edges) -> None:
                 str(root["maximum"]) if "maximum" in root else None,
                 root.get("pattern"),
                 True,
-                       nullable=Draft7Validator(field_schema).is_valid(None),
-                   )
+                nullable=Draft7Validator(field_schema).is_valid(None),
+            )
             facts = {**asdict(prop), "json_schema": field_schema}
             kinds[prop_id] = EffectiveKind(
                 prop_id, name, "property", canonical_bytes(facts), kind.origins

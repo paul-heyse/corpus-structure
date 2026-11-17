@@ -16,7 +16,16 @@ def execute_profile(receiver, source, recipe):
     raise ValueError("finite primary fixture requires its actual acquired CPU plan")
 
 
-def execute_kernel(source: dict, recipe: str, pin: dict, context: dict, source_input: dict, *, prepared, check_active) -> dict[str, dict]:
+def execute_kernel(
+    source: dict,
+    recipe: str,
+    pin: dict,
+    context: dict,
+    source_input: dict,
+    *,
+    prepared,
+    check_active,
+) -> dict[str, dict]:
     from corpus_structure.semantic.contributions import contribution_identity, operation_identity
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.data_operation_json import json_bytes
@@ -24,23 +33,40 @@ def execute_kernel(source: dict, recipe: str, pin: dict, context: dict, source_i
     from semantic.selected_context_support import case
 
     check_active()
-    frame = DeclaredNativeFrameSource(canonical_bytes(source).decode(), canonical_bytes(pin).decode())
-    _, occurrence, primary, _, _, _ = case(recipe, frame=frame)
-    occurrence.update(
-        contract="RetainedContributionSemantics", candidate_type="contribution",
-        operation_key=operation_identity("finite_selected_context", "1", pin, recipe),
-        item_key="finite-focal:" + recipe, disposition="located_proposal", standing="retained_private",
-        score_state="missing", computation_dependencies=(pin["source"],),
+    frame = DeclaredNativeFrameSource(
+        canonical_bytes(source).decode(), canonical_bytes(pin).decode()
     )
-    occurrence = prepared.validate_json("DdoCandidateSourceContribution", json_bytes(occurrence)).model_dump(mode="python")
+    _, premise_occurrence, primary, _, _, _ = case(recipe, frame=frame)
+    occurrence: dict[str, Any] = dict(premise_occurrence)
+    occurrence.update(
+        contract="RetainedContributionSemantics",
+        candidate_type="contribution",
+        operation_key=operation_identity("finite_selected_context", "1", pin, recipe),
+        item_key="finite-focal:" + recipe,
+        disposition="located_proposal",
+        standing="retained_private",
+        score_state="missing",
+        computation_dependencies=(pin["source"],),
+    )
+    occurrence = prepared.validate_json(
+        "DdoCandidateSourceContribution", json_bytes(occurrence)
+    ).model_dump(mode="python")
     occurrence["contribution_id"] = contribution_identity(occurrence)
     body = dict(primary[0], coverage=[])
     # Packet contexts are not addresses; the projection retains these exact authored rows.
     model = bound_data_operation_model(prepared)
-    member_contract = next(item.key for item in model.identities if item.domain == "kind" and item.owner == "urn:corpus:test:selected-context/SelectedContextMember")
+    member_contract = next(
+        item.key
+        for item in model.identities
+        if item.domain == "kind"
+        and item.owner == "urn:corpus:test:selected-context/SelectedContextMember"
+    )
     for packet in body["members"]:
         packet["kind_contract"] = member_contract
-        packet["context"] = {key: context[key] for key in ("subject", "subject_definition", "original_source", "analyzed_scope")}
+        packet["context"] = {
+            key: context[key]
+            for key in ("subject", "subject_definition", "original_source", "analyzed_scope")
+        }
     return dict(occurrence=occurrence, primary=body)
 
 
@@ -96,7 +122,9 @@ class SelectedContextInventory:
             },
         ],
         "result_fields": {"occurrence": "occurrence", "primary": "primary"},
-        "applicability": [{"kind": "documentation", "text": "exact-finite-selected-context-source-only"}],
+        "applicability": [
+            {"kind": "documentation", "text": "exact-finite-selected-context-source-only"}
+        ],
         "invariants": [
             {
                 "kind": "documentation",
@@ -218,7 +246,10 @@ class SelectedContextPlan:
 
 def schema():
     from corpus_structure.semantic.types import SourceArtifact
-    return SourceArtifact("selected-context-fixture", b"""
+
+    return SourceArtifact(
+        "selected-context-fixture",
+        b"""
 id: urn:corpus:test:selected-context
 name: selected_context_fixture
 imports: [data_operation_source, observations]
@@ -281,11 +312,13 @@ classes:
       right_start: {range: integer, required: true}
       right_end: {range: integer, required: true}
       nuclearity: {required: true}
-""")
+""",
+    )
 
 
 def assets():
     from corpus_structure.semantic.types import SourceArtifact
+
     return SourceArtifact(ASSET, canonical_bytes({"fixture": "finite-selected-primary-1"}))
 
 
@@ -298,5 +331,22 @@ def operation_sources():
         PythonSourceCollection,
     )
     from semantic import selected_context_support
-    modules = (__import__(__name__, fromlist=["*"]), selected_context_support, contextual_query_support, data_operation_prepared_call)
-    return PythonSourceCollection(tuple(PythonSource(module.__name__, Path(module.__file__).read_bytes(), str(Path(module.__file__).resolve())) for module in modules), boundary_contracts=(assets(),))
+
+    modules = (
+        __import__(__name__, fromlist=["*"]),
+        selected_context_support,
+        contextual_query_support,
+        data_operation_prepared_call,
+    )
+    sources = []
+    for module in modules:
+        filename = module.__file__
+        assert filename is not None
+        location = Path(filename)
+        sources.append(
+            PythonSource(module.__name__, location.read_bytes(), str(location.resolve()))
+        )
+    return PythonSourceCollection(
+        tuple(sources),
+        boundary_contracts=(assets(),),
+    )

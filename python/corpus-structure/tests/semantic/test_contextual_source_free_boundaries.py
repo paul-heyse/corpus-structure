@@ -18,7 +18,9 @@ def contextual_boundaries():
     from corpus_structure.semantic import contextual_operations
 
     core = Path(contextual_operations.__file__).parents[1] / "model/semantic/core.yaml"
-    return prepare_release(contextual_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))))
+    return prepare_release(
+        contextual_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    )
 
 
 def test_curated_population_boundary_preserves_explicit_source_free_context(contextual_boundaries):
@@ -26,24 +28,35 @@ def test_curated_population_boundary_preserves_explicit_source_free_context(cont
     value = contextual_boundaries.validate_json("DdoContextualTargetPopulation", json_bytes(body))
     checked = value.model_dump(mode="python", exclude_unset=True)
     for packet in checked["members"]:
-        assert "original_source" in packet["context"] and packet["context"]["original_source"] is None
+        assert (
+            "original_source" in packet["context"] and packet["context"]["original_source"] is None
+        )
         assert "original_source" in packet["body"] and packet["body"]["original_source"] is None
     for where in ("context", "body"):
         missing = deepcopy(body)
         del missing["members"][0][where]["original_source"]
         with pytest.raises(ValidationError):
-            contextual_boundaries.validate_json("DdoContextualTargetPopulation", json_bytes(missing))
+            contextual_boundaries.validate_json(
+                "DdoContextualTargetPopulation", json_bytes(missing)
+            )
         invalid = deepcopy(body)
         invalid["members"][0][where]["original_source"] = 7
         with pytest.raises(ValidationError):
-            contextual_boundaries.validate_json("DdoContextualTargetPopulation", json_bytes(invalid))
+            contextual_boundaries.validate_json(
+                "DdoContextualTargetPopulation", json_bytes(invalid)
+            )
 
 
 def test_nullable_scalar_carrier_address_keeps_required_original_source(contextual_boundaries):
-    carrier = dict(
-        product_id="product:occurrence", member_id=None, kind_contract="kind:occurrence",
-        project_id="project:A", subject_definition="original-source-view", subject="source:A",
-        original_source="document:A", analyzed_scope_meaning="{}",
+    carrier: dict[str, object] = dict(
+        product_id="product:occurrence",
+        member_id=None,
+        kind_contract="kind:occurrence",
+        project_id="project:A",
+        subject_definition="original-source-view",
+        subject="source:A",
+        original_source="document:A",
+        analyzed_scope_meaning="{}",
         contribution_id="source-contribution:" + "a" * 64,
     )
     value = contextual_boundaries.validate_json("DdoContextualCarrierInput", json_bytes(carrier))
@@ -51,4 +64,6 @@ def test_nullable_scalar_carrier_address_keeps_required_original_source(contextu
     carrier["original_source"] = None
     with pytest.raises(ValidationError):
         contextual_boundaries.validate_json("DdoContextualCarrierInput", json_bytes(carrier))
-    assert not contextual_boundaries.index.properties_by_class["DdoContextualPrimaryInput"]["original_source"].nullable
+    assert not contextual_boundaries.index.properties_by_class["DdoContextualPrimaryInput"][
+        "original_source"
+    ].nullable

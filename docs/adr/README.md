@@ -89,6 +89,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0117](0117-current-operation-event-fitting.md) | Selected event fitting preserves protected frames and exposes only authorized parameters | 2026-11-16 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0118](0118-current-target-installation.md) | One current native root and frozen successors replace historical installation paths | 2026-11-16 | [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0119](0119-pdf-logical-meaning-and-execution-custody.md) | Keep PDF logical meaning independent of execution custody | 2026-11-16 | [§B4](../design/DESIGN.md#section-b4) | Proposed | ADR-0043 |
+| [ADR-0120](0120-explicit-nullable-fields.md) | Explicit nullable fields preserve null separately from absence | 2026-11-16 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 
 ## Superseded, still in the tree
 

@@ -664,8 +664,10 @@ def effective_class_definitions(
             nullable_annotation = ann.get("cs:nullable", "false").lower()
             if nullable_annotation not in {"true", "false"}:
                 _fail(
-                    "nullable_policy", f"{name}/{sn}",
-                    "nullable must be an explicit boolean", "unsupported",
+                    "nullable_policy",
+                    f"{name}/{sn}",
+                    "nullable must be an explicit boolean",
+                    "unsupported",
                 )
             nullable = nullable_annotation == "true"
             if nullable and (slot.identifier or ann.get("cs:key_role") == "identity"):
@@ -673,15 +675,22 @@ def effective_class_definitions(
             scope = ann.get("cs:constraint_scope", profile.constraint_scope)
             if nullable and scope != "shape":
                 _fail(
-                    "nullable_policy", f"{name}/{sn}",
-                    "nullable is a shape-boundary value policy", "unsupported",
+                    "nullable_policy",
+                    f"{name}/{sn}",
+                    "nullable is a shape-boundary value policy",
+                    "unsupported",
                 )
             if nullable:
                 for ancestor in view.class_ancestors(name, reflexive=False):
                     for inherited in view.class_induced_slots(ancestor):
-                        if str(inherited.name) == sn and _annotations(inherited).get("cs:nullable", "false").lower() != "true":
+                        if (
+                            str(inherited.name) == sn
+                            and _annotations(inherited).get("cs:nullable", "false").lower()
+                            != "true"
+                        ):
                             _fail(
-                                "nullable_override", f"{name}/{sn}",
+                                "nullable_override",
+                                f"{name}/{sn}",
                                 "a subclass cannot weaken an inherited nonnullable field",
                             )
             if scope not in {"shape", "occurrence", "accepted_value", "context"}:

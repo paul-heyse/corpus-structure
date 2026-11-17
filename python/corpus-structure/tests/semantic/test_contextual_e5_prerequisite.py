@@ -14,6 +14,7 @@ def test_e5_prerequisite_names_missing_and_pointer_assets_together(monkeypatch, 
     weights = tmp_path / "model.safetensors"
     weights.write_text("version https://git-lfs.github.com/spec/v1\noid sha256:unhydrated\n")
     reason = actual_e5_support.missing_e5_snapshot()
+    assert reason is not None
     assert f"configured E5 snapshot requires Git LFS hydration of {weights}" in reason
     assert f"configured E5 snapshot requires {tmp_path / 'modules.json'}" in reason
     assert f"configured E5 snapshot requires {tmp_path / 'tokenizer.json'}" in reason
