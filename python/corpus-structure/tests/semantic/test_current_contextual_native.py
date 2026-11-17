@@ -19,7 +19,8 @@ from corpus_structure.semantic.contextual_selection import (
     ContextualVectorSelection,
 )
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
-from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, source_sets_record
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.observations import source_python, source_value
 from semantic.current_contextual_support import (
@@ -38,13 +39,14 @@ from semantic.current_pdf_source_support import (
     _current_pdf_source,
     _section_stream,
     admit_current_target,
+    current_consumer_request,
 )
 from semantic.data_operation_kernel_support import Kernel
 from semantic.structural_admission_native_support import (
     Product,
     build_inventory,
     execute,
-    request,
+    selected,
     source_products,
 )
 from semantic.structural_native_fixture import TEXT
@@ -84,34 +86,119 @@ def current_contextual_case(scenario_seeds, tmp_path_factory):
         kernel = admit_current_target(
             source, contextual_recipe(directory, encoder), directory / "contextual-release"
         )
-        original, _ = source_products(source)
-        build_inventory(kernel, original)
-        from corpus_structure.semantic.data_operation_service import DemandOperationSelection
-
-        pending = request(
-            kernel,
-            ("retrieve.contextual_query/declared",),
-            original.context,
-            selections=(
-                DemandOperationSelection(
-                    operation="retrieve.contextual_query/declared",
-                    replicate="actual-scalar-query-A",
-                ),
-            ),
-            inference="exact-retained-source-occurrences",
+        captured_original, _ = source_products(source)
+        # Establish the retained-discovery parent/member before producing pins.
+        selected_sources = source_sets_record(
+            (FrozenSourceSet.from_selected("selected-source-views", (captured_original.entry(),)),)
         )
-        query_retained, _ = execute(kernel, pending)
+        discovery = current_consumer_request(source, kernel, (), discover=True).model_copy(
+            update={"source_sets": selected_sources}
+        )
+        discovered, _ = execute(kernel, discovery)
+        (original,) = selected(
+            kernel,
+            discovered["demand_id"],
+            kind="https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+        )
+        predicates, _ = build_inventory(kernel, original)
+        (occurrence,) = [
+            value
+            for value in selected(
+                kernel,
+                predicates.read.demand_id,
+                kind="https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateSourceContribution",
+            )
+            if value.body["kind"] == "occurrence"
+            and [
+                (anchor["start"], anchor["end"], anchor["source_piece"])
+                for anchor in value.body["anchors"]
+            ]
+            == [(0, 3, "Ada")]
+        ]
+        from corpus_structure.semantic.data_operation_service import (
+            DemandDiscoverySelection,
+            DemandOperationSelection,
+        )
+
+        pending = current_consumer_request(
+            source, kernel, ("retrieve.contextual_query/declared",), discover=True
+        )
+        pending = pending.model_copy(
+            update={
+                "source_sets": {
+                    **selected_sources,
+                    **source_sets_record(
+                        (
+                            # Fix the address; current discovery supplies its proof.
+                            FrozenSourceSet.unqualified(
+                                "fixture-structural-source", (original.entry().entry,)
+                            ),
+                        )
+                    ),
+                },
+                "discovery": (
+                    *pending.discovery,
+                    DemandDiscoverySelection(
+                        producer="source.selected_views/discovery",
+                        output_role="result",
+                        target="fixture.structural_inventory",
+                        population=pending.discovery[0].population,
+                        target_role="source",
+                    ),
+                ),
+                "selections": (
+                    *pending.selections,
+                    DemandOperationSelection(
+                        operation="retrieve.contextual_query/declared",
+                        replicate="actual-scalar-query-A",
+                    ),
+                ),
+                "inference": "exact-retained-source-occurrences",
+            }
+        )
+        query_retained, query_result = execute(kernel, pending)
         query_demand = query_retained["demand_id"]
-        (query,) = [
+        queries = [
             value
             for value in retained_products(kernel, query_demand, "DdoContextualQuery")
             if value.body["lexical_query"] == "Ada"
         ]
+        snapshot = json_loads(query_result.snapshot)
+        diagnostic = {
+            "receipts": query_result.receipt_count,
+            "obligations": [
+                {
+                    "operation": obligation["operation_id"],
+                    "fate": obligation["fate"],
+                    "uses": [
+                        {
+                            "fate": use["fate"],
+                            "roles": [
+                                value["role"] for value in use["selection"].get("inputs", [])[:12]
+                            ],
+                            "reasons": [
+                                {
+                                    name: str(reason[name])[:256]
+                                    for name in ("code", "location", "detail")
+                                }
+                                for reason in use["selection"].get("reasons", [])[:4]
+                            ],
+                        }
+                        for use in snapshot["uses"]
+                        if use["obligation_id"] == obligation["obligation_id"]
+                    ][:4],
+                }
+                for obligation in snapshot["obligations"][:12]
+            ],
+        }
+        assert len(queries) == 1, json_bytes(diagnostic).decode()
+        (query,) = queries
         (query_vector,) = [
             value
             for value in retained_products(kernel, query_demand, "DdoContextualQueryVector")
             if value.body["vector"]["vector_id"] == query.body["query_vector_id"]
         ]
+        assert query.body["carrier"]["contribution_id"] == occurrence.body["contribution_id"]
         target_demand, _ = run_intent(
             kernel, target_intent(kernel, ("one", "two"), replicate="actual-target-observation-A")
         )
