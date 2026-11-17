@@ -103,12 +103,13 @@ def _implementation_files(mode):
         "ingest/pdf_streaming.py",
         "ingest/pdf_stream_types.py",
         "ingest/pdf_build_spool.py",
+        "core/work.py",
         "ingest/pdf_capacity.py",
     )
     if mode == "organized":
         return common
     if mode == "recognized":
-        return (*common, "ingest/pdf_recognition.py", "ingest/pdf_incumbent_recovery.py", "core/process_lifetime.py", "core/work.py")
+        return (*common, "ingest/pdf_recognition.py", "ingest/pdf_incumbent_recovery.py", "core/process_lifetime.py")
     extra = (
         (
             "ingest/pdf_selected_enrichment.py",

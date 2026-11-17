@@ -1,6 +1,125 @@
 actions:
 - calls:
   - cardinality: one
+    id: register_pdf_spool_producer
+    order_by: []
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: runtime_id
+      native_parameter: p_runtime
+      nullable: false
+      semantic_type: RuntimeId
+      source: physical:sem.runtime_binding.runtime_id
+    - name: writer_device
+      native_parameter: p_device
+      nullable: false
+      source: model:PdfSpoolProducer.writer_device
+    - name: writer_inode
+      native_parameter: p_inode
+      nullable: false
+      source: model:PdfSpoolProducer.writer_inode
+    - name: premises_bytes
+      native_parameter: p_premises
+      nullable: false
+      source: model:PdfSpoolProducer.premises_bytes
+    result_fields:
+    - name: identity
+      nullable: false
+      source: model:PdfSpoolProducer.producer_id
+    result_mode: scalar
+    symbol: ops.register_pdf_spool_producer
+  - cardinality: one
+    id: register_pdf_spool_contributor
+    order_by: []
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: runtime_id
+      native_parameter: p_runtime
+      nullable: false
+      semantic_type: RuntimeId
+      source: physical:sem.runtime_binding.runtime_id
+    - name: producer_id
+      native_parameter: p_producer
+      nullable: false
+      source: model:PdfSpoolProducer.producer_id
+    - name: manifest_bytes
+      native_parameter: p_manifest
+      nullable: false
+      source: model:PdfSpoolContributor.manifest_bytes
+    - name: selected_replays
+      native_parameter: p_selected
+      nullable: false
+      source: model:PdfSpoolContributor.selected_replays
+    result_fields:
+    - name: identity
+      nullable: false
+      source: model:PdfSpoolContributor.contributor_id
+    result_mode: scalar
+    symbol: ops.register_pdf_spool_contributor
+  - cardinality: many
+    id: read_pdf_spool_contributors
+    order_by: [producer_id, manifest_digest, selection_digest]
+    ordered: true
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfSpoolContributorReceipt
+    symbol: ops.read_pdf_spool_contributors
+  - cardinality: one
     id: read_pdf_producer_basis
     order_by: []
     ordered: false

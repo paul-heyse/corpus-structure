@@ -486,11 +486,13 @@ b.state='abandoned' THEN
         "endpoint": "ops.pdf_stage_endpoint",
         "companion_field": "ops.pdf_stage_companion_field",
     }
-    for family, relation in sorted(stage.items()):
+    inventory_stage = {**stage, "spool_producer": "ops.pdf_spool_producer", "spool_contributor": "ops.pdf_spool_contributor"}
+    for family, relation in sorted(inventory_stage.items()):
         keys = ",".join(metadata.tables[relation].primary_key.columns.keys())
+        owner_column = "build_id" if family.startswith("spool_") else "product_id"
         sql += f"""
  family_count_:=0;
- FOR row_ IN SELECT to_jsonb(t) body FROM {relation} t WHERE product_id=p_build ORDER BY {keys} LOOP
+ FOR row_ IN SELECT to_jsonb(t) body FROM {relation} t WHERE {owner_column}=p_build ORDER BY {keys} LOOP
  payload:=convert_to(row_.body::text,'UTF8');
  state_:=ops.pdf_identity_fold_step(state_,count_,convert_to('{family}:','UTF8')||sha256(payload));
  count_:=count_+1; total_:=total_+octet_length(payload);
@@ -519,9 +521,10 @@ b.state='abandoned' THEN
  IF b.state<>'open' THEN
  RAISE EXCEPTION 'PDF freeze build is not open' USING ERRCODE='23514'; END IF;
 """
-    for family, relation in sorted(stage.items()):
+    for family, relation in sorted(inventory_stage.items()):
+        owner_column = "build_id" if family.startswith("spool_") else "product_id"
         sql += f"""
- SELECT count(*) INTO family_count_ FROM {relation} WHERE product_id=p_build;
+ SELECT count(*) INTO family_count_ FROM {relation} WHERE {owner_column}=p_build;
  IF family_count_ IS DISTINCT FROM (inventory_->>'{family}')::bigint THEN
  RAISE EXCEPTION 'PDF freeze inventory changed; retry from the current private build'
  USING ERRCODE='40001'; END IF;
@@ -1526,6 +1529,7 @@ BEGIN
  OR build.attempt IS DISTINCT FROM (p_receipt->>'publisher_attempt')::bigint
  OR build.holder IS DISTINCT FROM p_receipt->>'publisher_holder'
  OR build.attempt>p_attempt OR (build.attempt=p_attempt AND build.holder IS DISTINCT FROM p_holder)
+ OR p_receipt->'contributors' IS DISTINCT FROM ops.pdf_spool_contributors(publication.build_id)
  OR build.state<>'published' OR (build.release_id,build.source_digest,build.schema_digest,
  build.recipe_digest) IS DISTINCT FROM (publication.release_id,publication.source_digest,
  publication.schema_digest,publication.recipe_digest)

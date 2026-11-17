@@ -11,7 +11,7 @@ from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import ExitStack, closing, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import pyarrow as pa
 from sqlalchemy import Connection, Engine
@@ -30,6 +30,11 @@ if TYPE_CHECKING:
         PublishedPdfDocumentRef,
     )
     from corpus_structure.semantic.pdf_staging import PdfBuildRef, PdfStageReceipt
+
+
+class PdfProducerClaim(OwnedClaim, Protocol):
+    @property
+    def runtime_id(self) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -136,7 +141,7 @@ def ipc_replay_batches(
 
 def run_private_native_pdf_build(
     engine: Engine,
-    claim: OwnedClaim,
+    claim: PdfProducerClaim,
     holder: str,
     *,
     original: Path,
@@ -181,6 +186,7 @@ def run_private_native_pdf_build(
     owner = OwnedPdfSource.acquire(original, directory, expected_digest=source_digest)
     worker = None
     spool = None
+    recovered = ()
     entered = False
     try:
 
@@ -214,17 +220,119 @@ def run_private_native_pdf_build(
                     pdf_context_for_task(connection, claim.task_id)
                 )
                 payload_schema = schema_dump(payload_family.json_schema)
-            from corpus_structure.ingest.pdf_build_spool import PdfBuildSpool
+                from corpus_structure.semantic import _pdf_native_calls as calls
+                from corpus_structure.semantic.identifiers import RuntimeId, TaskAttempt, TaskId
+                from corpus_structure.ingest.pdf_build_spool import PdfSpoolProducerBasis
+
+                basis = PdfSpoolProducerBasis(**calls.read_pdf_producer_basis(
+                    connection, task_id=TaskId(claim.task_id), attempt=TaskAttempt(claim.attempt),
+                    holder=holder, runtime_id=RuntimeId(claim.runtime_id),
+                ).model_dump(mode="python"))
+            from corpus_structure.ingest.pdf import pdf_package_versions
+            from corpus_structure.ingest.pdf_build_spool import (
+                PdfBuildSpool, PdfSpoolPremises, clone_recovery_entries,
+                selected_replay_bytes, verify_spool_recovery,
+            )
+            from corpus_structure.ingest.pdf_stream_types import PdfPageRecovery
+
+            from hashlib import sha256
+            import json
+
+            integration_digest = None
+            if observation_replay is not None or structural_pin is not None or integration_policy is not None:
+                integration_digest = sha256(json.dumps({
+                    "observation_digest": observation_replay.digest if observation_replay else None,
+                    "structural_pin": structural_pin, "integration_policy": integration_policy,
+                }, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+            premises = PdfSpoolPremises(
+                basis, source_digest, recipe.digest, schema_digest, payload_family.schema_digest,
+                assets.digest if assets is not None else None, pdf_package_versions(),
+                integration_digest=integration_digest,
+            )
+            recovered = verify_spool_recovery(
+                directory, build_id=build.build_id, task_id=claim.task_id,
+                before_attempt=claim.attempt, premises=premises, check_active=check_active,
+            )
 
             spool = PdfBuildSpool(
                 directory, build_id=build.build_id, task_id=claim.task_id,
                 attempt=claim.attempt, holder=holder, check_active=check_active,
             )
-            worker = PdfWorker(recipe, assets=assets, writer_lease=spool.writer_lease)
+            with _pdf_transaction(engine, cancellation) as connection:
+                producer_id = calls.register_pdf_spool_producer(
+                    connection, build_id=build.build_id, task_id=TaskId(claim.task_id),
+                    attempt=TaskAttempt(claim.attempt), holder=holder,
+                    runtime_id=RuntimeId(claim.runtime_id),
+                    writer_device=spool.writer_lease.identity["device"],
+                    writer_inode=spool.writer_lease.identity["inode"], premises_bytes=premises.to_bytes(),
+                )
+            spool.declare_premises(premises, producer_id)
             replay_root = spool.root
+            copied_paths = set()
+
+            def register_contributor(recovery, selected):
+                recovery.check_owned()
+                with _pdf_transaction(engine, cancellation) as connection:
+                    calls.register_pdf_spool_contributor(
+                        connection, build_id=build.build_id, task_id=TaskId(claim.task_id),
+                        attempt=TaskAttempt(claim.attempt), holder=holder,
+                        runtime_id=RuntimeId(claim.runtime_id), producer_id=recovery.owner.producer_id,
+                        manifest_bytes=recovery.manifest,
+                        selected_replays=selected_replay_bytes(recovery.root, selected),
+                    )
+
+            reply = None
+            recovery_pages = []
+            # A complete verified record spool precedes any new native setup.
+            for recovery in reversed(recovered):
+                prior_reply = recovery.complete_reply()
+                if prior_reply is not None:
+                    ready = recovery.ready_pages(payload_family)
+                    if {page.page_no for page in ready} != {page.page_no for page in prior_reply.page_replays}:
+                        raise ValueError("completed PDF spool differs from complete native page custody")
+                    selected = recovery.entries
+                    register_contributor(recovery, selected)
+                    copied = clone_recovery_entries(recovery, spool, selected, prefix="recovered-complete")
+                    copied_paths.update(clone.path for clone in copied.values())
+                    from dataclasses import replace
+                    reply = replace(prior_reply,
+                        page_replays=tuple(copied[entry.path] for entry in prior_reply.page_replays),
+                        record_replays=tuple(copied[entry.path] for entry in prior_reply.record_replays))
+                    break
+            if reply is None:
+                selected_pages = set()
+                preparation_identity = None
+                for index, recovery in enumerate(reversed(recovered)):
+                    pages = []
+                    for page in recovery.ready_pages(payload_family):
+                        if page.page_no in selected_pages:
+                            continue
+                        if preparation_identity is not None and page.preparation_identity != preparation_identity:
+                            raise ValueError("PDF prior attempts have different determining native preparations")
+                        preparation_identity = page.preparation_identity
+                        pages.append(page)
+                        selected_pages.add(page.page_no)
+                    if not pages:
+                        continue
+                    numbers = {page.page_no for page in pages}
+                    selected = tuple(entry for entry in recovery.entries if (
+                        entry.family == "native_preparation" or entry.page_no in numbers
+                        and entry.family in {"page", "candidate_payload", "native-raster"}
+                    ))
+                    register_contributor(recovery, selected)
+                    # Current preparation is independently observed by the child;
+                    # retained preparation remains the contributor's provenance.
+                    copied = clone_recovery_entries(recovery, spool,
+                        tuple(entry for entry in selected if entry.family != "native_preparation"),
+                        prefix=f"recovered-{index}")
+                    copied_paths.update(clone.path for clone in copied.values())
+                    recovery_pages.extend(PdfPageRecovery(page.page_no, copied[page.page.path],
+                        copied[page.candidate.path], page.preparation_identity) for page in pages)
+            if reply is None:
+                worker = PdfWorker(recipe, assets=assets, writer_lease=spool.writer_lease)
 
             def retain_replay(replay: PdfReplayRef) -> None:
-                if replay.family not in {*STAGE_FAMILIES, "page", "candidate_payload", "companion:occurrence", "native_preparation"}:
+                if replay.family not in {*STAGE_FAMILIES, "page", "candidate_payload", "companion:occurrence", "native_preparation", "native_completion"}:
                     raise ValueError("unknown private PDF replay family")
                 if replay.family == "page":
                     import json
@@ -291,39 +399,52 @@ def run_private_native_pdf_build(
                 finally:
                     batches.close()
 
-            with ExitStack() as native_lifetime:
-                if recipe.device == "cuda" or recipe.ocr_device == "cuda":
-                    if require_nemotron_handoff:
-                        if nemotron_endpoint is None:
-                            raise ValueError("native GPU worker requires a Nemotron endpoint")
-                        native_lifetime.enter_context(
-                            native_before_nemotron(nemotron_endpoint, check_active=check_active)
-                        )
-                    else:
-                        native_lifetime.enter_context(
-                            suspend_resident_nemotron(nemotron_endpoint, check_active=check_active)
-                        )
-                native_lifetime.enter_context(closing(worker))
-                reply = worker.stream(
-                    owner.reference,
-                    spool_root=replay_root / "pages",
-                    record_root=replay_root / "records",
-                    build_id=build.build_id,
-                    release_id=build.release_id,
-                    payload_schema=payload_schema,
-                    on_replay=retain_replay,
-                    check_active=check_active,
-                    observation_replay=observation_replay,
-                    structural_pin=structural_pin,
-                    integration_policy=integration_policy,
-                    reconciliation_root=replay_root / "reconciliation"
-                    if observation_replay
-                    else None,
-                )
+            if reply is None:
+                with ExitStack() as native_lifetime:
+                    if recipe.device == "cuda" or recipe.ocr_device == "cuda":
+                        if require_nemotron_handoff:
+                            if nemotron_endpoint is None:
+                                raise ValueError("native GPU worker requires a Nemotron endpoint")
+                            native_lifetime.enter_context(
+                                native_before_nemotron(nemotron_endpoint, check_active=check_active)
+                            )
+                        else:
+                            native_lifetime.enter_context(
+                                suspend_resident_nemotron(nemotron_endpoint, check_active=check_active)
+                            )
+                    native_lifetime.enter_context(closing(worker))
+                    reply = worker.stream(
+                        owner.reference,
+                        spool_root=replay_root / "pages",
+                        record_root=replay_root / "records",
+                        build_id=build.build_id,
+                        release_id=build.release_id,
+                        payload_schema=payload_schema,
+                        on_replay=retain_replay,
+                        check_active=check_active,
+                        observation_replay=observation_replay,
+                        recovery_pages=tuple(sorted(recovery_pages, key=lambda page: page.page_no)),
+                        structural_pin=structural_pin,
+                        integration_policy=integration_policy,
+                        reconciliation_root=replay_root / "reconciliation"
+                        if observation_replay
+                        else None,
+                    )
             if reply.conversion_status != "success":
                 raise RuntimeError(
                     "native streaming conversion did not complete: " + "; ".join(reply.errors)
                 )
+            spool.complete(reply)
+            fresh_entries = tuple(entry for entry in spool.entries if entry.path not in copied_paths)
+            if fresh_entries:
+                with _pdf_transaction(engine, cancellation) as connection:
+                    calls.register_pdf_spool_contributor(
+                        connection, build_id=build.build_id, task_id=TaskId(claim.task_id),
+                        attempt=TaskAttempt(claim.attempt), holder=holder,
+                        runtime_id=RuntimeId(claim.runtime_id), producer_id=producer_id,
+                        manifest_bytes=spool.path.read_bytes(),
+                        selected_replays=selected_replay_bytes(spool.root, fresh_entries),
+                    )
             # The child and its native borrowers have settled. No page callback
             # above adopts anything; consume the verified journal once now.
             from corpus_structure.ingest.pdf_candidate_source import encoded_replay
@@ -340,7 +461,7 @@ def run_private_native_pdf_build(
                 check_active=check_active, cancellation=cancellation,
             )
             for replay in spool.entries:
-                if replay.family not in {"page", "native-raster", "candidate_payload", "native_preparation"}:
+                if replay.family not in {"page", "native-raster", "candidate_payload", "native_preparation", "native_completion"}:
                     adopt_replay(replay)
             from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
 
@@ -353,7 +474,7 @@ def run_private_native_pdf_build(
                         {
                             "kind": "runtime_report",
                             "ordinal": 0,
-                            "value": {"effective_options": reply.effective_options.decode(), "spool": spool.report()},
+                            "value": {"effective_options": reply.effective_options.decode()},
                         },
                     ),
                     replay_key="native:runtime-report",
@@ -378,7 +499,10 @@ def run_private_native_pdf_build(
                 )
             import json
 
-            completion = replay_root / "records" / "completion.jsonl"
+            completions = [entry for entry in spool.entries if entry.family == "native_completion"]
+            if len(completions) != 1:
+                raise ValueError("PDF completed spool has no exact native completion report")
+            completion = completions[0].path
             if completion.exists():
                 def formula_outcomes():
                     with completion.open() as completion_file:
@@ -402,6 +526,8 @@ def run_private_native_pdf_build(
                 worker.close()
             if spool is not None:
                 spool.close()
+            for recovery in recovered:
+                recovery.close()
             owner.close()
     finally:
         if not entered:
@@ -632,7 +758,7 @@ def publish_pdf_record_draft(
 
 def produce_published_pdf_records(
     engine: Engine,
-    claim: OwnedClaim,
+    claim: PdfProducerClaim,
     holder: str,
     request: PdfRecordProducerRequest,
     *,

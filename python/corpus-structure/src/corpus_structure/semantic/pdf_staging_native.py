@@ -415,6 +415,9 @@ END $stage$;
         )
     from .pdf_staging import stage_upload_profile
 
+    from .pdf_spool_native import pdf_spool_native_sql
+
+    sql += pdf_spool_native_sql()
     profile = stage_upload_profile()
     return (
         sql.replace("total>65536", "total>" + str(profile["max_rows"]))

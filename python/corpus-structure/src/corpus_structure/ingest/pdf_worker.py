@@ -158,6 +158,9 @@ def _native_child(
                         )
                         + companions
                     )
+                    from .pdf_streaming import _ref
+
+                    acknowledged(_ref(request.record_root / "completion.jsonl", "native_completion"))
                     result = PdfStreamReply(
                         streamed.conversion_status,
                         streamed.errors,

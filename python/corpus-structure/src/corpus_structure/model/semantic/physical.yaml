@@ -1342,6 +1342,27 @@ classes:
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "stream_id"], "target":
         "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
       ph:read_roles: '[]'
+  pdf_spool_producer:
+    is_a: PdfSpoolProducer
+    in_subset: [ops]
+    unique_keys:
+      primary_key: {unique_key_slots: [producer_id]}
+      unique_0: {unique_key_slots: [build_id, attempt, holder]}
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"},{"columns":["task_id"],"target":"ops.task.id"}]'
+      ph:checks: '["producer_id ~ ''^[0-9a-f]{64}$''", "attempt > 0", "writer_device >= 0", "writer_inode > 0"]'
+  pdf_spool_contributor:
+    is_a: PdfSpoolContributor
+    in_subset: [ops]
+    unique_keys:
+      primary_key: {unique_key_slots: [contributor_id]}
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"},{"columns":["producer_id"],"target":"ops.pdf_spool_producer.producer_id"}]'
+      ph:checks: '["manifest_digest = encode(sha256(manifest_bytes),''hex'')", "selection_digest = encode(sha256(selected_replays),''hex'')", "adopter_attempt > 0"]'
   pdf_stage_build:
     is_a: PdfStageBuild
     in_subset:

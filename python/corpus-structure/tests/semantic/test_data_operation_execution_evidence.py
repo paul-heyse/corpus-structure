@@ -198,6 +198,7 @@ def test_pdf_receipt_keeps_original_sealed_publisher_separate_from_admitting_att
         ),
         publisher_attempt=1,
         publisher_holder="sealed-owner",
+        contributors=(),
     )
     value = bind_execution_evidence(
         None,

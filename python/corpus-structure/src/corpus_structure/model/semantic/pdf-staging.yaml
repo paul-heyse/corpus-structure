@@ -65,6 +65,41 @@ enums:
       native: {}
       integrated: {}
 classes:
+  PdfSpoolProducer:
+    description: Original admitted attempt captured before native conversion starts; never relabelled on recovery.
+    attributes:
+      producer_id: {required: true}
+      build_id: {required: true}
+      task_id: {range: PdfRecordInteger, required: true}
+      attempt: {range: PdfRecordInteger, required: true}
+      holder: {required: true}
+      writer_device: {range: PdfRecordInteger, required: true}
+      writer_inode: {range: PdfRecordInteger, required: true}
+      premises_bytes: {range: bytes, required: true}
+  PdfSpoolContributor:
+    description: Exact selected files from a registered original producer, admitted by a current build fence.
+    attributes:
+      contributor_id: {required: true}
+      build_id: {required: true}
+      producer_id: {required: true}
+      manifest_digest: {required: true}
+      selection_digest: {required: true}
+      manifest_bytes: {range: bytes, required: true}
+      selected_replays: {range: bytes, required: true}
+      adopter_attempt: {range: PdfRecordInteger, required: true}
+      adopter_holder: {required: true}
+  PdfSpoolContributorReceipt:
+    attributes:
+      producer_id: {required: true}
+      task_id: {range: PdfRecordInteger, required: true}
+      producer_attempt: {range: PdfRecordInteger, required: true}
+      producer_holder: {required: true}
+      runtime_id: {required: true}
+      runtime_manifest_digest: {required: true}
+      manifest_digest: {required: true}
+      selection_digest: {required: true}
+      adopter_attempt: {range: PdfRecordInteger, required: true}
+      adopter_holder: {required: true}
   PdfSpoolProducerBasis:
     description: Exact admitted producer identity acquired under the live PDF task fence; never inferred from process settings.
     attributes:

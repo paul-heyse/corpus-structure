@@ -79,12 +79,27 @@ class PublishedPdfDocumentRef:
 
 
 @dataclass(frozen=True, slots=True)
+class PdfSpoolContributorReceipt:
+    producer_id: str
+    task_id: int
+    producer_attempt: int
+    producer_holder: str
+    runtime_id: str
+    runtime_manifest_digest: str
+    manifest_digest: str
+    selection_digest: str
+    adopter_attempt: int
+    adopter_holder: str
+
+
+@dataclass(frozen=True, slots=True)
 class PdfExecutionReceipt:
     """Actual sealed publisher, distinct from a later completion's admitting claim."""
 
     publication: PublishedPdfDocumentRef
     publisher_attempt: int
     publisher_holder: str
+    contributors: tuple[PdfSpoolContributorReceipt, ...]
 
     def __post_init__(self) -> None:
         if (
@@ -1015,4 +1030,9 @@ def inspect_pdf_execution_receipt(
     )
     if state is None or state.published != publication:
         raise ValueError("PDF execution receipt differs from authenticated sealed build")
-    return PdfExecutionReceipt(publication, state.build.attempt, state.build.holder)
+    contributors = tuple(PdfSpoolContributorReceipt(**row.model_dump(mode="python"))
+                         for row in calls.read_pdf_spool_contributors(
+                             conn, build_id=publication.build_id, task_id=TaskId(publication.task_id),
+                             attempt=TaskAttempt(attempt), holder=holder,
+                         ))
+    return PdfExecutionReceipt(publication, state.build.attempt, state.build.holder, contributors)

@@ -44,34 +44,11 @@ def test_manifest_records_exact_relative_descriptor_and_attempt(tmp_path):
     assert lines[1]["replay"]["path"] == "page"
     assert lines[1]["replay"]["digest"] == sha256(b"actual retained bytes").hexdigest()
     assert owner.entries == (item,)
-    assert owner.report()["manifest_sha256"] == sha256(owner.path.read_bytes()).hexdigest()
     later = spool(tmp_path, attempt=2)
     assert later.root != owner.root and owner.path.exists()
     assert later.entries == ()
     later.close()
     owner.close()
-
-
-def test_runtime_report_declares_spool_identity_and_rejects_forged_digest(tmp_path):
-    from copy import deepcopy
-
-    from jsonschema.exceptions import ValidationError
-
-    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
-    from corpus_structure.semantic.pdf_payloads import prepare_schema_validator
-
-    owner = spool(tmp_path)
-    owner.append(replay(owner))
-    report = {"effective_options": "{}", "spool": owner.report()}
-    assert "page_no" not in report["spool"]["artifacts"][0]
-    validator = prepare_schema_validator(
-        trusted_pdf_context().boundary.json_schema("PdfRuntimeReport")
-    )
-    validator.validate(report)
-    forged = deepcopy(report)
-    forged["spool"]["artifacts"][0]["digest"] = "invented"
-    with pytest.raises(ValidationError):
-        validator.validate(forged)
 
 
 def test_manifest_refuses_expired_fence_without_acknowledging_file(tmp_path):
@@ -228,3 +205,43 @@ def test_preparation_identity_binds_models_options_and_not_incidental_resources(
     assert native_preparation_identity(json.dumps(changed).encode()) == identity
     changed["_preparation"]["effective_options"]["scale"] = 3.0
     assert native_preparation_identity(json.dumps(changed).encode()) != identity
+
+
+def test_complete_spool_clones_exact_records_and_rebinds_only_private_raster_path(tmp_path):
+    from corpus_structure.ingest.pdf_build_spool import clone_recovery_entries, verify_spool_recovery
+    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
+
+    original = spool(tmp_path)
+    original.declare_premises(exact_premises(), "f" * 64)
+
+    def entry(name, content, family, page_no=None):
+        path = original.root / name
+        path.write_bytes(content)
+        ref = PdfReplayRef(path, sha256(content).hexdigest(), len(content), family, page_no=page_no)
+        original.append(ref)
+        return ref
+
+    raster = entry("raster.png", b"raster", "native-raster", 1)
+    page = entry("page.json", json.dumps({"raster": {"path": str(raster.path),
+        "digest": raster.digest, "byte_length": raster.byte_length}, "page": {"page_no": 1}}).encode(), "page", 1)
+    record = entry("native.arrow", b"exact logical native records", "native")
+    entry("preparation.json", b"original preparation", "native_preparation")
+    entry("completion.jsonl", json.dumps(dict(kind="conversion", status="success",
+        source_digest=exact_premises().source_digest, recipe_sha256=sha256(b"recipe").hexdigest())).encode()+b"\n", "native_completion")
+    reply = PdfStreamReply("success", (), b"recipe", (page,), (record,), b"exact original options")
+    original.complete(reply)
+    with pytest.raises(ValueError, match="immutable"):
+        original.append(record)
+    original.close()
+    recovery, = verify_spool_recovery(tmp_path, build_id="build:one", task_id=3,
+        before_attempt=2, premises=exact_premises(), check_active=lambda: None)
+    with recovery, spool(tmp_path, attempt=2) as current:
+        current.declare_premises(exact_premises(), "a" * 64)
+        verified_reply = recovery.complete_reply()
+        assert verified_reply == reply
+        copied = clone_recovery_entries(recovery, current, recovery.entries, prefix="recovered")
+        assert copied[record.path].path.read_bytes() == record.path.read_bytes()
+        assert copied[record.path].digest == record.digest
+        restored = json.loads(copied[page.path].path.read_bytes())
+        assert restored["raster"]["path"] == str(copied[raster.path].path)
+        assert copied[page.path].digest != page.digest

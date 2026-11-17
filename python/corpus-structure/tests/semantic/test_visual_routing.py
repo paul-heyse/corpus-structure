@@ -370,7 +370,7 @@ def _current_pdf_custody():
                 payload={
                     "execution_evidence": {
                         "pdf_receipts": [
-                            asdict(PdfExecutionReceipt(publication, 2, "holder:actual"))
+                            asdict(PdfExecutionReceipt(publication, 2, "holder:actual", ()))
                         ]
                     }
                 },

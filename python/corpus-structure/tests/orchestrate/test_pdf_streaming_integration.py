@@ -171,7 +171,7 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
 
         entries = [json.loads(line) for line in manifests[0].read_text().splitlines()]
         assert entries[0]["attempt"] == build.attempt
-        assert {item["replay"]["family"] for item in entries[1:]} >= {"page", "native-raster"}
+        assert {item["replay"]["family"] for item in entries[1:] if "replay" in item} >= {"page", "native-raster"}
         assert any(receipt.replay_key.startswith("ipc:native:") for receipt in receipts)
         assert any(receipt.replay_key.startswith("ipc:artifact_stream:") for receipt in receipts)
         with source.kernel.purpose("read").connect() as connection:
@@ -183,3 +183,49 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
             for relation in ("ops.pdf_stage_native", "ops.pdf_stage_artifact_part"):
                 with pytest.raises(DBAPIError), connection.begin_nested():
                     connection.execute(text(f"SELECT * FROM {relation}"))
+
+
+@pytest.mark.parametrize("restored", [{1, 3}, {1, 2, 3}])
+def test_resumed_pipeline_limits_page_work_and_restores_full_assembly(monkeypatch, restored):
+    from docling import document_converter
+    from docling.datamodel.base_models import ConversionStatus
+    from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
+
+    from corpus_structure.ingest.pdf import PdfConverter, PdfRecipe
+
+    observations = []
+
+    def restored_pages(result, expected):
+        observations.append(("restore", tuple(expected)))
+        result.pages = [SimpleNamespace(page_no=number) for number in expected]
+
+    spool = SimpleNamespace(restored_pages=restored, restore_pages=restored_pages)
+    monkeypatch.setattr(document_converter, "DocumentConverter", _ScriptedDocumentConverter)
+    converter = PdfConverter(PdfRecipe("a" * 40, "b" * 40, device="cpu", ocr_device="cpu",
+                            recipe_id="docling-standard-pdf-stream-v1"), stream_spool=spool)
+    converter._prepare()
+    pipeline = next(iter(converter._converter.initialized_pipelines.values()))
+    monkeypatch.setattr(StandardPdfPipeline, "_get_expected_page_nos", lambda self, result: [1, 2, 3])
+
+    def build(self, result):
+        missing = self._get_expected_page_nos(result)
+        assert missing == [2]
+        observations.append(("build", tuple(missing)))
+        result.pages = [SimpleNamespace(page_no=2)]
+        return result
+
+    def assemble(self, result):
+        assert [page.page_no for page in result.pages] == [1, 2, 3]
+        assert self._get_expected_page_nos(result) == [1, 2, 3]
+        observations.append(("assemble", (1, 2, 3)))
+        return result
+
+    monkeypatch.setattr(StandardPdfPipeline, "_build_document", build)
+    monkeypatch.setattr(StandardPdfPipeline, "_assemble_document", assemble)
+    result = SimpleNamespace(pages=[], status=ConversionStatus.SUCCESS,
+                             input=SimpleNamespace(_backend=SimpleNamespace(get_document_outline=lambda: [])))
+    pipeline._build_document(result)
+    pipeline._assemble_document(result)
+    expected = [] if len(restored) == 3 else [("build", (2,))]
+    assert observations == [*expected, ("restore", (1, 2, 3)), ("assemble", (1, 2, 3))]
+    assert pipeline._spool_missing_pages is None and pipeline._spool_expected_pages is None

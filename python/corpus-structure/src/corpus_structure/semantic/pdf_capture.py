@@ -74,6 +74,7 @@ def pdf_capture_custody(
         "ingest/pdf_streaming.py",
         "ingest/pdf_stream_types.py",
         "ingest/pdf_build_spool.py",
+        "core/work.py",
         "ingest/pdf_assets.py",
         "ingest/pdf.py",
         "ingest/pdf_health.py",
