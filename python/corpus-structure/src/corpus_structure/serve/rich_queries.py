@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import unicodedata
 from contextlib import contextmanager
+from functools import lru_cache
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
@@ -57,17 +58,19 @@ def rich_query_implementation(query):
         yield identity
 
 
-@contextmanager
-def installed_read_implementation(contract, *, sources, profile, extra_libraries=()):
-    """Existing import custody shared by finite current read consumers."""
-    from corpus_structure._query_custody import query_sources
+@lru_cache(maxsize=None)
+def _library_version(name):
+    return version(name)
+
+
+@lru_cache(maxsize=64)
+def _installed_read_basis(contract, sources, profile, extra_libraries):
+    from corpus_structure._query_custody import capture_sources
 
     root = Path(__file__).resolve().parents[1]
-    captured = {
-        str(root / name): sha256((root / name).read_bytes()).hexdigest() for name in sources
-    }
+    captured = capture_sources(tuple(root / name for name in sources))
     libraries = {
-        name: version(name)
+        name: _library_version(name)
         for name in (
             "pydantic",
             "pydantic-core",
@@ -93,6 +96,15 @@ def installed_read_implementation(contract, *, sources, profile, extra_libraries
             )
         )
     ).hexdigest()
+    return identity, captured
+
+
+@contextmanager
+def installed_read_implementation(contract, *, sources, profile, extra_libraries=()):
+    """Name authenticated imported code; detect unsupported source/module drift."""
+    from corpus_structure._query_custody import query_sources
+
+    identity, captured = _installed_read_basis(contract, tuple(sources), profile, tuple(extra_libraries))
     with query_sources(captured):
         yield identity
 

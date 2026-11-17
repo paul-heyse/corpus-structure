@@ -16,6 +16,7 @@ from types import ModuleType
 
 RICH_QUERY_SOURCES = (
     "_query_custody.py",
+    "semantic/file_custody.py",
     "semantic/rich_queries.py",
     "semantic/rich_statistics_queries.py",
     "serve/rich_queries.py",
@@ -136,7 +137,7 @@ class SourceCustodyError(RuntimeError):
 
 class _CapturedLoader(SourceFileLoader):
     def exec_module(self, module: ModuleType) -> None:
-        if module in _EXECUTED or any(not key.startswith("__") for key in module.__dict__):
+        if module in _EXECUTED or any(vars(previous).get("__name__") == self.name for previous in _EXECUTED) or any(not key.startswith("__") for key in module.__dict__):
             raise SourceCustodyError("query-helper reload is unsupported; restart the process")
         source = self.get_data(self.path)
         digest = sha256(source).hexdigest()
@@ -144,9 +145,19 @@ class _CapturedLoader(SourceFileLoader):
         expected = _EXPECTED.get()
         required = expected.get(path) if expected is not None else None
         if required is not None and required != digest:
-            raise SourceCustodyError("query-helper bytes changed before import")
+            raise SourceCustodyError("query-helper bytes changed before import; restart the process")
         # Compile the actual captured installed bytes, without stale timestamp pyc.
         exec(compile(source, self.path, "exec", dont_inherit=True), module.__dict__)
+        # Compile only the captured bytes. Shared custody then confirms those
+        # bytes against a stable file observation before the import can finish.
+        # file_custody itself reaches this point after defining its primitives.
+        from corpus_structure.semantic.file_custody import observed_file
+        try:
+            record = observed_file(Path(path))
+            if record.digest != digest:
+                raise SourceCustodyError("query-helper bytes changed during import; restart the process")
+        except (ValueError, OSError) as error:
+            raise SourceCustodyError("query-helper source custody changed; restart the process") from error
         _EXECUTED[module] = (path, digest)
 
 
@@ -173,37 +184,79 @@ def install(bootstrap_source: bytes) -> None:
     )
     if not any(isinstance(finder, _CustodyFinder) for finder in sys.meta_path):
         sys.meta_path.insert(0, _CustodyFinder())
+    from corpus_structure.semantic.file_custody import verified_file
+    verified_file(Path(__file__).resolve(), sha256(bootstrap_source).hexdigest())
 
 
 def _check_loaded(expected: dict[str, str]) -> None:
-    # Retain custody for helper objects still referenced by cached query code even
-    # if somebody removed their module from sys.modules before importing it again.
-    for module in [*sys.modules.values(), *_EXECUTED]:
-        if not isinstance(module, ModuleType):
-            continue
-        attributes = vars(module)
-        name = attributes.get("__name__")
-        known = _NAMES.get(name) if isinstance(name, str) else None
-        origin = known or attributes.get("__file__")
-        if origin is None:
-            continue
-        path = str(Path(origin).resolve())
-        record = _EXECUTED.get(module)
+    # Imported object custody survives sys.modules eviction. Replacing or dropping
+    # a module cannot authenticate the stale objects retained by query consumers.
+    for module, (path, digest) in tuple(_EXECUTED.items()):
+        if path in expected and (
+            digest != expected[path]
+            or sys.modules.get(vars(module).get("__name__")) is not module
+            or str(Path(vars(module).get("__file__", "")).resolve()) != path
+        ):
+            raise SourceCustodyError("query-helper module changed; restart the process")
+    known_paths = set()
+    for name, path in _NAMES.items():
         if path not in expected:
             continue
-        if record != (path, expected[path]):
-            raise SourceCustodyError(
-                "query helper was loaded without matching source custody; restart the process"
-            )
+        known_paths.add(path)
+        module = sys.modules.get(name)
+        if module is not None and _EXECUTED.get(module) != (path, expected[path]):
+            raise SourceCustodyError("query helper was loaded without matching source custody; restart the process")
+    # Explicit owner-promised paths can also be outside the finite installed set.
+    # Only that unusual route needs to locate previously loaded unknown modules.
+    unknown = set(expected) - known_paths
+    if unknown:
+        for module in tuple(sys.modules.values()):
+            if not isinstance(module, ModuleType):
+                continue
+            origin = vars(module).get("__file__")
+            if origin is None:
+                continue
+            path = str(Path(origin).resolve())
+            if path in unknown and _EXECUTED.get(module) != (path, expected[path]):
+                raise SourceCustodyError("query helper was loaded without matching source custody; restart the process")
+
+
+def _check_files(expected: dict[str, str]) -> None:
+    from corpus_structure.semantic.file_custody import verified_file
+
+    try:
+        for path, digest in expected.items():
+            verified_file(Path(path), digest)
+    except (ValueError, OSError) as error:
+        raise SourceCustodyError("query-helper source custody changed; restart the process") from error
+
+
+def capture_sources(paths) -> dict[str, str]:
+    """Capture imported digests and promised lazy sources without importing them."""
+    from corpus_structure.semantic.file_custody import observed_file
+
+    imported = {path: digest for path, digest in _EXECUTED.values()}
+    try:
+        captured = {
+            str(Path(path).resolve()): imported.get(str(Path(path).resolve())) or observed_file(Path(path).resolve()).digest
+            for path in paths
+        }
+    except (ValueError, OSError) as error:
+        raise SourceCustodyError("query-helper source custody changed; restart the process") from error
+    _check_loaded(captured)
+    _check_files(captured)
+    return captured
 
 
 @contextmanager
 def query_sources(expected: dict[str, str]):
     """Check already-loaded helpers and constrain later imports to captured bytes."""
     _check_loaded(expected)
+    _check_files(expected)
     token = _EXPECTED.set(expected)
     try:
         yield
         _check_loaded(expected)
+        _check_files(expected)
     finally:
         _EXPECTED.reset(token)

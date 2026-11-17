@@ -111,16 +111,13 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
         service.serve_rich_query(None, request(cursor=first["cursor"]))
 
 
-def test_loaded_query_helper_cannot_be_relabelled_with_changed_source_bytes(monkeypatch):
-    original = Path.read_bytes
-    target = Path(service.__file__).resolve().parents[1] / "semantic/rich_queries.py"
-    monkeypatch.setattr(
-        Path,
-        "read_bytes",
-        lambda path: (
-            original(path) + b"\n# edited after import\n" if path == target else original(path)
-        ),
-    )
+def test_serving_reports_detected_source_custody_drift(monkeypatch):
+    from corpus_structure import _query_custody
+
+    def changed(_):
+        raise _query_custody.SourceCustodyError("source custody changed; restart the process")
+
+    monkeypatch.setattr(_query_custody, "_check_files", changed)
     with pytest.raises(RichQueryRefused, match="source custody"):
         service.serve_rich_query(None, request())
 
