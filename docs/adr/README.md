@@ -93,6 +93,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0128](0128-wire-contract-boundary-validation.md) | Matching native contract digests place request checks at SQL and result checks at clients | 2026-11-17 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0106 |
 | [ADR-0129](0129-contextual-encoder-batch-policy.md) | Contextual encoders batch authentic observations while preserving independent vectors | 2026-11-17 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0114 |
 | [ADR-0130](0130-pdf-producer-certified-publication.md) | Certify PDF output at the producer and qualify reconstruction per lowering identity | 2026-11-17 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0045 |
+| [ADR-0131](0131-model-owned-postgresql-programs.md) | Generate maintained PostgreSQL SQL from LinkML and typed programs | 2026-11-17 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

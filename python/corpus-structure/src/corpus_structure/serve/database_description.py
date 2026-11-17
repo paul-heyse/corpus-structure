@@ -241,7 +241,11 @@ def _describe_database(request: DatabaseDescriptionRequest, settings: Settings, 
             ast.VariableSetStmt(
                 kind=enums.VariableSetKind.VAR_SET_MULTI,
                 name="TRANSACTION",
-                args=(ast.DefElem(defname="transaction_read_only", arg=ast.A_Const(val=ast.Integer(ival=1))),),
+                args=(
+                    ast.DefElem(
+                        defname="transaction_read_only", arg=ast.A_Const(val=ast.Integer(ival=1))
+                    ),
+                ),
             )
         )
         search_path = RawStream()(
@@ -259,7 +263,9 @@ def _describe_database(request: DatabaseDescriptionRequest, settings: Settings, 
             cur.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
             cur.execute(read_only)
             cur.execute(search_path)
-            cur.execute(str(select(func.current_database(), func.current_user()).compile(dialect=dialect())))
+            cur.execute(
+                str(select(func.current_database(), func.current_user()).compile(dialect=dialect()))
+            )
             identity = cur.fetchone()
             if identity is None:
                 raise RuntimeError("database identity unavailable")
@@ -356,10 +362,16 @@ def _describe_database(request: DatabaseDescriptionRequest, settings: Settings, 
                                 observe(item)
                                 if request.depth in {"columns", "constraints"}:
                                     permitted = catalog_conn.scalar(
-                                        select(func.pg_catalog.has_table_privilege(
-                                            func.pg_catalog.format("%I.%I", sql_cast(selected_schema, Text()), sql_cast(name, Text())),
-                                            "SELECT",
-                                        ))
+                                        select(
+                                            func.pg_catalog.has_table_privilege(
+                                                func.pg_catalog.format(
+                                                    "%I.%I",
+                                                    sql_cast(selected_schema, Text()),
+                                                    sql_cast(name, Text()),
+                                                ),
+                                                "SELECT",
+                                            )
+                                        )
                                     )
                                     if permitted:
                                         try:

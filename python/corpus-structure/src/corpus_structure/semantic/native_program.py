@@ -38,6 +38,17 @@ def _identifier(name: str) -> str:
 def pg_type(*identifiers: str) -> ast.TypeName:
     if not identifiers:
         raise ValueError("PostgreSQL type requires its name")
+    if len(identifiers) == 1 and identifiers[0] in {
+        "bool",
+        "float4",
+        "float8",
+        "int2",
+        "int4",
+        "int8",
+    }:
+        # Match the parser's built-in type nodes so routine declarations and ACLs
+        # use the same identity spelling (for example, bigint instead of int8).
+        identifiers = ("pg_catalog", *identifiers)
     return ast.TypeName(names=_names(*identifiers), typemod=-1)
 
 
@@ -89,9 +100,11 @@ def _render(expression: Expression) -> str:
 
 def column_type(column: Column[Any]) -> ast.TypeName:
     """Retain a model-selected PostgreSQL cast as a native declaration type."""
-    projection = prepare_sql(
-        _render(select(cast(null(), column.type))), source="native column type"
-    ).statements[0].stmt
+    projection = (
+        prepare_sql(_render(select(cast(null(), column.type))), source="native column type")
+        .statements[0]
+        .stmt
+    )
     if not isinstance(projection, ast.SelectStmt) or not projection.targetList:
         raise ValueError("native output type requires one typed projection")
     value = projection.targetList[0].val
@@ -179,7 +192,9 @@ class Return:
     value: Expression | None = None
 
 
-type Statement = Sql | Assign | Perform | SelectInto | Raise | If | While | ForQuery | ReturnQuery | Return
+type Statement = (
+    Sql | Assign | Perform | SelectInto | Raise | If | While | ForQuery | ReturnQuery | Return
+)
 
 
 @dataclass(frozen=True)

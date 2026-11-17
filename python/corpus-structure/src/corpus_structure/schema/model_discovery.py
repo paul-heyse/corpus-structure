@@ -81,7 +81,8 @@ def discover_source_consumers(
             except (SyntaxError, RecursionError) as error:
                 compiled[path] = {"outcome": "failed", "line": getattr(error, "lineno", None)}
             parsed = SgRoot(source, "python").root()
-            wrapped = MetadataWrapper(cst.parse_module(raw))
+            # The parser produces a fresh tree with unique nodes.
+            wrapped = MetadataWrapper(cst.parse_module(raw), unsafe_skip_copy=True)
             lexical = _Bindings()
             wrapped.visit(lexical)
         except (

@@ -5,9 +5,11 @@ from sqlalchemy import Column, MetaData, Text
 from sqlalchemy.dialects.postgresql import dialect
 
 from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.native_inventory import update_function_inventory
 from corpus_structure.semantic.pdf_publication_native import (
     _FINAL,
     _prepare_pdf_copy_statements,
+    publication_sql,
 )
 from corpus_structure.semantic.pdf_staging import STAGE_FAMILIES
 
@@ -47,3 +49,10 @@ def test_frozen_region_copy_tracks_quoted_columns_and_new_model_fields():
         source.c[column.key].name for column in target.columns
     ]
     assert statement.onConflictClause is not None
+
+
+def test_frozen_prepare_declaration_matches_its_writer_grant():
+    inventory = {}
+    update_function_inventory(inventory, publication_sql())
+    prepare = inventory["ops.prepare_pdf_build(text,bigint,bigint,text,text)"]
+    assert prepare["execute_roles"] == ["corpus_sem_writer"]

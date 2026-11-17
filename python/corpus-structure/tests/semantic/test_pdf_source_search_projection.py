@@ -68,8 +68,10 @@ def test_generated_search_tracks_quoted_physical_fields_and_result_types():
 
     target = MetaData()
     for name in (
-        "sem.input", "ops.pdf_published_revision",
-        "ops.pdf_source_search_population", "ops.pdf_source_search_section",
+        "sem.input",
+        "ops.pdf_published_revision",
+        "ops.pdf_source_search_population",
+        "ops.pdf_source_search_section",
     ):
         metadata.tables[name].to_metadata(target)
     target.tables["ops.pdf_published_revision"].c.logical_digest.name = 'publication "digest"'
@@ -83,11 +85,14 @@ def test_generated_search_tracks_quoted_physical_fields_and_result_types():
         declarations.append(item.stmt)
     assert len(parse_plpgsql(generated)) == 4
     keys = next(
-        item for item in declarations
+        item
+        for item in declarations
         if item.funcname and item.funcname[-1].sval == "ddo_pdf_search_keys"
     )
     assert keys.parameters is not None
-    population = next(parameter for parameter in keys.parameters if parameter.name == "population_id")
+    population = next(
+        parameter for parameter in keys.parameters if parameter.name == "population_id"
+    )
     assert population.argType is not None
     assert population.argType.names is not None
     assert population.argType.names[-1].sval == "varchar"

@@ -206,7 +206,9 @@ def _deadlines(conn, database, *, statement_timeout_seconds: float):
         ("statement_timeout", statement_timeout_seconds),
         ("lock_timeout", database.renewal_lock_timeout_seconds),
     ):
-        conn.execute(select(func.pg_catalog.set_config(setting, f"{max(1, int(seconds * 1000))}ms", True)))
+        conn.execute(
+            select(func.pg_catalog.set_config(setting, f"{max(1, int(seconds * 1000))}ms", True))
+        )
 
 
 def _retryable_renewal_failure(error: Exception, failure: DatabaseFailure) -> bool:
@@ -238,7 +240,9 @@ def _leases_cover_retry(
     )
     return conn.scalar(
         select(func.count())
-        .select_from(task.join(active, (task.c.id == active.c.id) & (task.c.attempt == active.c.attempt)))
+        .select_from(
+            task.join(active, (task.c.id == active.c.id) & (task.c.attempt == active.c.attempt))
+        )
         .where(
             task.c.status == "running",
             task.c.claimed_by == claims[0].holder,

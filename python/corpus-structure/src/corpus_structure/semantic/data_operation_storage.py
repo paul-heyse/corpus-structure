@@ -88,8 +88,8 @@ def native_protocol_sources(
         record_policy_native_sql,
     )
     from .rich_admission_native import rich_admission_native_sql
-    from .structural_admission_native import structural_admission_native_sql
     from .source_value_native import source_value_native_sources
+    from .structural_admission_native import structural_admission_native_sql
 
     if physical_sources is None:
         physical_sources = physical_source_closure(

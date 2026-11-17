@@ -37,7 +37,9 @@ _RENDERER_FILES = (
 )
 
 
-def search_projection_sources(*, target_metadata=None, pdf_domain=None) -> tuple[SourceArtifact, ...]:
+def search_projection_sources(
+    *, target_metadata=None, pdf_domain=None
+) -> tuple[SourceArtifact, ...]:
     from .pdf_domain import CONTRACT as PDF_DOMAIN_CONTRACT
     from .pdf_domain import PdfDomainContract, pdf_call_bindings, pdf_domain_sources
     from .pdf_search_native import search_program_sql
@@ -100,7 +102,8 @@ def search_projection_sources(*, target_metadata=None, pdf_domain=None) -> tuple
             ).encode(),
         ),
         SourceArtifact(
-            "native/pdf-search-native.py", Path(__file__).with_name("pdf_search_native.py").read_bytes()
+            "native/pdf-search-native.py",
+            Path(__file__).with_name("pdf_search_native.py").read_bytes(),
         ),
     )
 
