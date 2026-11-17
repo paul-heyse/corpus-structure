@@ -161,11 +161,11 @@ def test_changed_source_or_runtime_function_cannot_keep_an_admitted_port(tmp_pat
         return "wrong"
 
     monkeypatch.setattr(port.function, "__code__", replaced.__code__)
-    with pytest.raises(PortRefusal, match="implementation differs"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_python(())
     monkeypatch.setattr(port.function, "__code__", original_code)
     monkeypatch.setattr(port.function, "__defaults__", (99,))
-    with pytest.raises(PortRefusal, match="default differs"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_python(())
 
 
@@ -305,7 +305,7 @@ def test_import_and_reexport_rebinding_refuses_before_original_callable_body(
         monkeypatch.setattr(application, "renamed", malicious)
     else:
         monkeypatch.setattr(api, "public", malicious)
-    with pytest.raises(PortRefusal, match="rebound"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         check()
     assert called == []
 
@@ -331,7 +331,7 @@ def test_local_function_alias_rebinding_is_checked_transitively(tmp_path, monkey
 
     module = importlib.import_module(name)
     monkeypatch.setattr(module, "renamed", lambda index: "wrong")
-    with pytest.raises(PortRefusal, match="rebound"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_python(())
 
 
@@ -542,7 +542,7 @@ def test_plain_inherited_receiver_is_authenticated_and_keeps_nominal_outputs(tmp
 
     assert inspect.ismethod(port.function)
     monkeypatch.setattr(type(port.function.__self__), "prefix", "changed:")
-    with pytest.raises(PortRefusal, match="constant determinant"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_python((value,))
 
 
@@ -662,7 +662,7 @@ def test_logical_archive_origin_can_resolve_exact_relocated_runtime(tmp_path, mo
     )
     assert port.invoke_python(()).outputs[0].value() == "2"
     Path(source.filename).write_text('def derive(index: int = 2) -> str:\n    return "wrong"\n')
-    with pytest.raises(PortRefusal, match="source changed"):
+    with pytest.raises(PortRefusal, match="acquired file changed"):
         port.invoke_python(())
 
 
@@ -856,7 +856,7 @@ class Item:
     with pytest.raises(PortRefusal, match="undeclared fields"):
         port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3,"extra":1}'),))
     monkeypatch.setattr(module.Item, "__init__", lambda self, **kwargs: None)
-    with pytest.raises(PortRefusal, match="constructor implementation"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3}'),))
 
 
@@ -941,7 +941,7 @@ class Item:
         monkeypatch.setattr(item.__dataclass_fields__["value"], "default", changed)
         monkeypatch.setattr(item, "value", changed, raising=False)
     message = "default or factory" if mutate_fields else "constructor .*defaults differ"
-    with pytest.raises(PortRefusal, match=message):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_json((RoleValue("index", kind(model, "index"), b"{}"),))
     with pytest.raises(PortRefusal, match=message):
         resolve_python_port(
@@ -1017,7 +1017,7 @@ def test_generated_dataclass_refuses_changed_standard_behavior(tmp_path, monkeyp
         original = item.__qualname__
         item.__qualname__ = "Changed"
         try:
-            with pytest.raises(PortRefusal, match="source owner differs"):
+            with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
                 port.invoke_json((RoleValue("index", kind(model, "index"), b"{}"),))
         finally:
             item.__qualname__ = original
@@ -1030,7 +1030,7 @@ def test_generated_dataclass_refuses_changed_standard_behavior(tmp_path, monkeyp
         monkeypatch.setitem(port.function.__globals__, "hash", lambda _: 0)
     else:
         monkeypatch.setattr(item, mutation, lambda *args, **kwargs: "changed")
-    with pytest.raises(PortRefusal, match="generated dataclass"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_json((RoleValue("index", kind(model, "index"), b"{}"),))
 
 
@@ -1061,7 +1061,7 @@ def test_generated_dataclass_refuses_changed_class_field_value(tmp_path, monkeyp
         model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
     )
     monkeypatch.setattr(port.function.__globals__["Item"], "value", 9, raising=False)
-    with pytest.raises(PortRefusal, match="class field"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3}'),))
 
 
@@ -1157,7 +1157,7 @@ def test_captured_builtin_mapping_is_authenticated_on_acquisition_and_each_call(
     namespace["unconsumed_name"] = object()
     assert port.invoke_python(values).outputs[0].value() == "1"
     namespace["len"] = lambda value: 9
-    with pytest.raises(PortRefusal, match=r"captured builtin.*len"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_python(values)
 
 
@@ -1195,7 +1195,7 @@ def test_generated_method_checks_its_captured_builtin_mapping(tmp_path, monkeypa
         model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
     )
     namespace["NotImplemented"] = object()
-    with pytest.raises(PortRefusal, match=r"captured builtin.*NotImplemented"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         port.invoke_json((RoleValue("index", kind(model, "index"), b'{"value":3}'),))
 
 
@@ -1237,7 +1237,7 @@ def test_stream_pull_refuses_changed_captured_builtin_before_next_item(tmp_path,
     stream = port.open_stream_python((PythonRoleValue("index", kind(model, "index"), 3),))
     assert next(stream)[1].outputs[0].value() == "3"
     namespace["str"] = lambda value: "changed"
-    with pytest.raises(PortRefusal, match=r"captured builtin.*str"):
+    with pytest.raises(PortRefusal, match="authenticated runtime slice changed"):
         next(stream)
     assert stream.terminal is not None and stream.terminal.state == "failed"
 
