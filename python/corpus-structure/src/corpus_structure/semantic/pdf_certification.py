@@ -368,15 +368,26 @@ def write_retained_pdf_replays(root: Path, build, retained, *, check_active, on_
         replays.append(replay)
     digest, fold = sha256(), IdentityFold("bytes")
     opener = gzip.open if retained.compression == "gzip" else open
-    with opener(retained.path, "rb") as source:
+    def parts(source):
         def chunks():
             while block := source.read(65536):
                 check_active()
                 yield block
-        pending = []
-        for part in emit_parts(common["stream_id"], chunks()):
+        yield from emit_parts(common["stream_id"], chunks())
+    # The repeatable retained source already owns its backing file. Determine
+    # and authenticate the descriptor before any part transfer, without another
+    # full uncompressed spool. Certification checks the second pass's bytes.
+    with opener(retained.path, "rb") as source:
+        for part in parts(source):
             digest.update(part.body)
             fold.add(part.body)
+    if digest.hexdigest() != retained.serialization_sha256:
+        raise ValueError("retained bytes changed during producer preparation")
+    write("artifact_stream", [{**common, "byte_length": fold.byte_length, "byte_root": fold.digest().hex(),
+        "serialization_sha256": digest.hexdigest(), "encoding_profile": "retained-pdf-envelope-json-v1"}])
+    with opener(retained.path, "rb") as source:
+        pending = []
+        for part in parts(source):
             pending.append({**common, "ordinal": part.ordinal, "byte_offset": part.offset,
                 "byte_length": part.byte_length, "body": part.body, "sha256_digest": part.sha256_digest})
             if len(pending) == 64:
@@ -384,8 +395,4 @@ def write_retained_pdf_replays(root: Path, build, retained, *, check_active, on_
                 pending.clear()
         if pending:
             write("artifact_part", pending)
-    if digest.hexdigest() != retained.serialization_sha256:
-        raise ValueError("retained bytes changed during producer preparation")
-    write("artifact_stream", [{**common, "byte_length": fold.byte_length, "byte_root": fold.digest().hex(),
-        "serialization_sha256": digest.hexdigest(), "encoding_profile": "retained-pdf-envelope-json-v1"}])
     return tuple(replays)
