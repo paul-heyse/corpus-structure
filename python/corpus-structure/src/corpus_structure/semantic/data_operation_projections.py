@@ -1670,6 +1670,79 @@ def record_grade_selected_outputs(metadata):
     return _selected_support_output_rows(metadata, one_use=False)
 
 
+def _pinned_watermark_uses(metadata, bounded):
+    """Visible exact-pin uses under the obligation's actual role/context policy."""
+    selection = _var("d.selection", JSONB)
+    definitions = metadata.tables["sem.data_operation_definition"].alias("watermark_definition")
+    roles = _items(definitions.c.input_roles, "watermark_role")
+    source_set = selection["source_sets"][roles.c.value["support"]["source_set"].astext]
+    entries = _items(func.coalesce(source_set["entries"], _json([])), "watermark_pin")
+    products = metadata.tables["kb.data_product"].alias("watermark_product")
+    members = metadata.tables["kb.data_product_member"].alias("watermark_member")
+    outputs = metadata.tables["ops.data_derivation_output"].alias("watermark_output")
+    episodes = metadata.tables["ops.data_derivation"].alias("watermark_episode")
+    uses = metadata.tables["ops.demand_use"].alias("watermark_use")
+    selected_member = entries.c.value["member"].astext
+    projected_kind = func.coalesce(members.c.kind_contract, products.c.kind_contract)
+    projected_subject = func.coalesce(members.c.subject, products.c.subject)
+    projected_scope = func.coalesce(members.c.analyzed_scope, products.c.analyzed_scope)
+    projected_body = func.coalesce(members.c.body, products.c.canonical_body)
+    emitting = _obj(member_id=outputs.c.member_id, role=outputs.c.role,
+                    position=outputs.c.position, multiplicity=outputs.c.multiplicity)
+    header = _obj(
+        product=products.c.id, member=selected_member, subject=projected_subject,
+        subject_definition=func.coalesce(members.c.subject_definition, products.c.subject_definition),
+        original_source=products.c.original_source, analyzed_scope=projected_scope,
+        meaning_body=projected_body,
+        support_references=func.jsonb_build_array(_obj(
+            kind=literal("computation"), derivation_id=episodes.c.id, admission_use_id=uses.c.id,
+        )), support_evidence=_obj(producer_output=emitting),
+    )
+    # The same immutable subject/source/proof predicates own binding eligibility.
+    # This records raw visible identities; live validity/authority remain with the
+    # read acquisition and binding boundary rather than becoming a validity cache.
+    role_matches = case((and_(
+        roles.c.value["accepted_kind_contracts"].op("?")(projected_kind),
+        func.coalesce(roles.c.value["support"]["origins"], _json(["computation"]))
+        .op("?")(literal("computation")),
+        or_(roles.c.value["subject_field"].astext.is_not(None),
+            roles.c.value["subject_target"].astext == "source-set",
+            projected_scope.is_not_distinct_from(bounded.c.analyzed_scope)),
+    ), and_(
+        func.ops.ddo_binding_subject(roles.c.value, header, bounded.c.subject,
+                                    bounded.c.original_source),
+        func.ops.ddo_binding_source(roles.c.value, header, bounded.c.original_source,
+                                   func.coalesce(selection["source_sets"], _json({}))),
+    )), else_=literal(False))
+    return (
+        select(bounded.c.id.label("obligation_id"), literal("use").label("kind"),
+               uses.c.id.label("identity"), uses.c.created_at)
+        .select_from(
+            bounded.join(definitions, and_(
+                definitions.c.release_id == _var("d.release_id", Text),
+                definitions.c.operation_id == bounded.c.operation_id,
+            )).join(roles, literal(True)).join(entries, literal(True))
+            .join(products, products.c.id == entries.c.value["product"].astext)
+            .outerjoin(members, and_(members.c.product_id == products.c.id,
+                                    members.c.member_id == selected_member))
+            .join(outputs, and_(outputs.c.product_id == products.c.id, or_(
+                and_(selected_member.is_(None), outputs.c.member_id.is_(None)),
+                and_(selected_member.is_not(None), or_(
+                    outputs.c.member_id.is_(None), outputs.c.member_id == selected_member,
+                )),
+            )))
+            .join(episodes, episodes.c.id == outputs.c.derivation_id)
+            .join(uses, uses.c.derivation_id == episodes.c.id)
+        )
+        .where(products.c.project_id == _var("d.project_id", Text),
+               or_(selected_member.is_(None), members.c.member_id.is_not(None)),
+               uses.c.fate == "fulfilled", _visible(uses), role_matches,
+               func.ops.ddo_source_set_proof_matches(
+                   source_set, products.c.id, selected_member, episodes.c.id, uses.c.id, emitting,
+               ))
+    )
+
+
 def _inputs_watermarks(metadata, bounded):
     """A set-wise readiness fingerprint; waiting fates do not advance it."""
     uses = metadata.tables["ops.demand_use"]
@@ -1737,22 +1810,25 @@ def _inputs_watermarks(metadata, bounded):
         .select_from(bounded.join(originals, originals.c.demand_id == _var("d.id", Text)))
         .where(_visible(originals))
     )
-    visible = union_all(fulfilled, population_rows, original_rows).cte("watermark_visible")
-    counts = (
-        select(visible.c.obligation_id, visible.c.kind,
-               func.count().label("count"), func.max(visible.c.created_at).label("latest"),
-               func.max(visible.c.identity).label("identity"))
-        .group_by(visible.c.obligation_id, visible.c.kind)
-        .cte("watermark_counts").prefix_with("MATERIALIZED")
+    # A use can be both a local prerequisite and an explicit pin, or can emit
+    # several selected outputs. Hash its actual identity once, independent of
+    # output multiplicity and timestamp ties.
+    visible = union(fulfilled, _pinned_watermark_uses(metadata, bounded),
+                    population_rows, original_rows).cte("watermark_visible")
+    identities = (
+        select(visible.c.obligation_id,
+               _aggregate(_obj(kind=visible.c.kind, identity=visible.c.identity),
+                          visible.c.kind, visible.c.identity).label("identities"))
+        .group_by(visible.c.obligation_id)
+        .cte("watermark_identities").prefix_with("MATERIALIZED")
     )
     facts = (
-        select(_aggregate(_obj(kind=counts.c.kind, count=counts.c.count,
-                               latest=counts.c.latest, identity=counts.c.identity), counts.c.kind))
-        .where(counts.c.obligation_id == bounded.c.id)
+        select(identities.c.identities)
+        .where(identities.c.obligation_id == bounded.c.id)
         .correlate(bounded).scalar_subquery()
     )
     return func.ops.ddo_digest(_obj(
-        visible=facts, source_sets=_var("d.selection", JSONB)["source_sets"],
+        visible=func.coalesce(facts, _json([])), source_sets=_var("d.selection", JSONB)["source_sets"],
         original_sources=_var("d.selection", JSONB)["original_sources"],
         kernel=_var("boundary.kernel_digest", Text), trust=_var("boundary.trust_snapshot", JSONB),
     ))
