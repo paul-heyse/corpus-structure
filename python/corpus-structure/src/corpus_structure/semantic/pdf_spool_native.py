@@ -53,7 +53,7 @@ BEGIN
  FROM ops.pdf_spool_producer WHERE build_id=p_build AND attempt=p_attempt AND holder=p_holder;
  IF producer_.build_id IS DISTINCT FROM p_build OR producer_.task_id IS DISTINCT FROM p_task
  OR producer_.attempt>p_attempt OR (producer_.attempt=p_attempt AND producer_.holder<>p_holder)
- OR (original_->'producer'-'runtime_id'-'runtime_manifest_digest') IS DISTINCT FROM current_basis_
+ OR ((original_->'producer')-'runtime_id'-'runtime_manifest_digest') IS DISTINCT FROM current_basis_
  OR original_->>'source_digest' IS DISTINCT FROM b.source_digest
  OR original_->>'native_recipe_digest' IS DISTINCT FROM b.recipe_digest
  OR original_->>'native_schema_digest' IS DISTINCT FROM b.schema_digest
