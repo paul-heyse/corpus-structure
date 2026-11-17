@@ -158,9 +158,6 @@ def run_private_native_pdf_build(
     replay_key: str,
     nemotron_endpoint: str | None = None,
     require_nemotron_handoff: bool = False,
-    observation_replay: PdfReplayRef | None = None,
-    structural_pin: dict[str, Any] | None = None,
-    integration_policy: dict[str, Any] | None = None,
     on_adopted: Callable[[PdfStageReceipt], None] | None = None,
     cancellation: BorrowerCancellation | None = None,
     owned_check: Callable[[], None],
@@ -251,35 +248,12 @@ def run_private_native_pdf_build(
             )
             from corpus_structure.ingest.pdf_stream_types import PdfPageRecovery
 
-            integration_digest = None
-            if (
-                observation_replay is not None
-                or structural_pin is not None
-                or integration_policy is not None
-            ):
-                integration_digest = sha256(
-                    json.dumps(
-                        {
-                            "observation_digest": observation_replay.digest
-                            if observation_replay
-                            else None,
-                            "structural_pin": structural_pin,
-                            "integration_policy": integration_policy,
-                        },
-                        sort_keys=True,
-                        separators=(",", ":"),
-                        allow_nan=False,
-                    ).encode()
-                ).hexdigest()
+            from hashlib import sha256
+            import json
+
             premises = PdfSpoolPremises(
-                basis,
-                source_digest,
-                recipe.digest,
-                schema_digest,
-                payload_family.schema_digest,
-                assets.digest if assets is not None else None,
-                pdf_package_versions(),
-                integration_digest=integration_digest,
+                basis, source_digest, recipe.digest, schema_digest, payload_family.schema_digest,
+                assets.digest if assets is not None else None, pdf_package_versions(),
             )
             recovered = verify_spool_recovery(
                 directory,
@@ -527,13 +501,7 @@ def run_private_native_pdf_build(
                         payload_schema=payload_schema,
                         on_replay=retain_replay,
                         check_active=check_active,
-                        observation_replay=observation_replay,
                         recovery_pages=tuple(sorted(recovery_pages, key=lambda page: page.page_no)),
-                        structural_pin=structural_pin,
-                        integration_policy=integration_policy,
-                        reconciliation_root=replay_root / "reconciliation"
-                        if observation_replay
-                        else None,
                     )
             if reply.conversion_status != "success":
                 raise RuntimeError(

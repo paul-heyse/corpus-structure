@@ -134,13 +134,12 @@ def _profile_definitions():
     return (
         custody,
         json.loads(annotations["pds:artifact_profiles"]),
-        json.loads(annotations["pds:companion_profile"]),
     )
 
 
 def artifact_profile(kind: str) -> str:
     """Resolve fixed producer artifact encodings under process source custody."""
-    custody, profiles, _ = _profile_definitions()
+    custody, profiles = _profile_definitions()
     custody.check()
     if kind not in profiles:
         raise ValueError(f"unknown private PDF producer artifact: {kind}")
@@ -264,12 +263,3 @@ def abandon_pdf_build(conn: Connection, build: PdfBuildRef) -> None:
         attempt=TaskAttempt(build.attempt),
         holder=build.holder,
     )
-
-
-def companion_profile(family: str) -> str:
-    """Resolve an admitted companion replay encoding from the same semantic owner."""
-    custody, _, profile = _profile_definitions()
-    custody.check()
-    if family not in profile["families"]:
-        raise ValueError("unsupported private companion family")
-    return profile["prefix"] + family

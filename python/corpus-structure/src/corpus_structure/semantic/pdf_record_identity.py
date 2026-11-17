@@ -283,10 +283,13 @@ class LogicalIdentity:
         key: str,
         fields: Iterable[tuple[str, Scalar | ScalarDescriptor]],
     ) -> None:
+        self.add_encoded_record(family, key, record_frame(self.schema_id, family, key, fields))
+
+    def add_encoded_record(self, family: str, key: str, encoded: bytes) -> None:
+        """Fold a locally encoded record after an external binary sort."""
         order = family.encode("utf-8"), key.encode("utf-8")
         if self._previous is not None and order <= self._previous:
             raise ValueError("records must be unique in UTF-8 binary (family,key) order")
-        encoded = record_frame(self.schema_id, family, key, fields)
         self._fold.add(encoded)
         self._previous = order
 

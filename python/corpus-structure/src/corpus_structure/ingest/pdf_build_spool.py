@@ -84,7 +84,6 @@ class PdfSpoolPremises:
     asset_manifest_digest: str | None
     packages: tuple[tuple[str, str], ...]
     page_range: tuple[int, int] | None = None
-    integration_digest: str | None = None
 
     def __post_init__(self):
         for digest in (
@@ -100,19 +99,8 @@ class PdfSpoolPremises:
             and re.fullmatch("[0-9a-f]{64}", self.asset_manifest_digest) is None
         ):
             raise ValueError("PDF spool premises require an exact asset manifest digest")
-        if (
-            self.integration_digest is not None
-            and re.fullmatch("[0-9a-f]{64}", self.integration_digest) is None
-        ):
-            raise ValueError("PDF spool premises require an exact integration input digest")
-        if (
-            not self.packages
-            or any(
-                len(pair) != 2 or not all(isinstance(value, str) and value for value in pair)
-                for pair in self.packages
-            )
-            or len({pair[0] for pair in self.packages}) != len(self.packages)
-        ):
+        if not self.packages or any(len(pair) != 2 or not all(isinstance(value, str) and value for value in pair)
+                                    for pair in self.packages) or len({pair[0] for pair in self.packages}) != len(self.packages):
             raise ValueError("PDF spool premises require unique exact package versions")
         if self.page_range is not None and (
             len(self.page_range) != 2
@@ -126,23 +114,11 @@ class PdfSpoolPremises:
 
     def reusable_with(self, other: PdfSpoolPremises) -> bool:
         return self.producer.determining_basis() == other.producer.determining_basis() and (
-            self.source_digest,
-            self.native_recipe_digest,
-            self.native_schema_digest,
-            self.payload_schema_digest,
-            self.asset_manifest_digest,
-            self.packages,
-            self.page_range,
-            self.integration_digest,
+            self.source_digest, self.native_recipe_digest, self.native_schema_digest,
+            self.payload_schema_digest, self.asset_manifest_digest, self.packages, self.page_range,
         ) == (
-            other.source_digest,
-            other.native_recipe_digest,
-            other.native_schema_digest,
-            other.payload_schema_digest,
-            other.asset_manifest_digest,
-            other.packages,
-            other.page_range,
-            other.integration_digest,
+            other.source_digest, other.native_recipe_digest, other.native_schema_digest,
+            other.payload_schema_digest, other.asset_manifest_digest, other.packages, other.page_range,
         )
 
 
@@ -410,7 +386,6 @@ def _stored_premises(value: dict[str, Any]) -> PdfSpoolPremises:
         asset_manifest_digest=value["asset_manifest_digest"],
         packages=tuple(tuple(pair) for pair in value["packages"]),
         page_range=tuple(value["page_range"]) if value["page_range"] is not None else None,
-        integration_digest=value["integration_digest"],
     )
 
 

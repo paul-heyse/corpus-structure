@@ -107,42 +107,7 @@ def _native_child(
                         request.source, spool, page_range=request.page_range
                     )
                     companions = ()
-                    if request.observation_replay is not None:
-                        from .pdf_stream_reconciliation import (
-                            read_observation_replay,
-                            reconcile_pdf_stream,
-                            write_companion_artifacts,
-                        )
-
-                        if (
-                            request.structural_pin is None
-                            or request.integration_policy is None
-                            or request.reconciliation_root is None
-                        ):
-                            raise PdfWorkerError(
-                                "integrated streaming requires structural/policy/replay bindings"
-                            )
-                        reconciled = reconcile_pdf_stream(
-                            streamed.document,
-                            request.structural_pin,
-                            read_observation_replay(request.observation_replay),
-                            request.source.digest,
-                            policy=request.integration_policy,
-                            directory=request.reconciliation_root,
-                        )
-                        try:
-                            streamed.document = reconciled.document
-                            companions = write_companion_artifacts(
-                                reconciled,
-                                request.record_root.with_name(
-                                    request.record_root.name + "-companions"
-                                ),
-                                build_id=request.build_id,
-                                on_batch=acknowledged,
-                            )
-                        finally:
-                            reconciled.close()
-                    if request.observation_replay is None:
+                    if request.validation_contract is None:
                         companions = streamed.write_native_occurrence_batches(
                             request.record_root.with_name(
                                 request.record_root.name + "-occurrences"
@@ -162,16 +127,19 @@ def _native_child(
                     )
                     from .pdf_streaming import _ref
 
-                    acknowledged(
-                        _ref(request.record_root / "completion.jsonl", "native_completion")
-                    )
+                    acknowledged(_ref(request.record_root / "completion.jsonl", "native_completion"))
+                    certified_sets, certification, access_replay = (), None, None
+                    if request.validation_contract is not None:
+                        from corpus_structure.semantic.pdf_certification import certify_native_stream
+                        certified_sets, certification, access_replay = certify_native_stream(
+                            streamed, request, records, on_replay=acknowledged)
                     result = PdfStreamReply(
                         streamed.conversion_status,
                         streamed.errors,
                         streamed.recipe,
                         tuple(spool.pages[n] for n in sorted(spool.pages)),
                         records,
-                        streamed.effective_options,
+                        streamed.effective_options, certified_sets, certification, access_replay,
                     )
                     del streamed
                 elif isinstance(request, PdfEnrichmentRequest):
@@ -331,12 +299,9 @@ class PdfWorker:
         on_replay: Callable[[PdfReplayRef], None],
         page_range: tuple[int, int] | None = None,
         check_active: Callable[[], None] | None = None,
-        observation_replay: PdfReplayRef | None = None,
-        structural_pin: dict | None = None,
-        integration_policy: dict | None = None,
-        reconciliation_root: Path | None = None,
         payload_schema: bytes | None = None,
         recovery_pages: tuple[PdfPageRecovery, ...] = (),
+        validation_contract: bytes | None = None, lowering_identity: str | None = None,
     ) -> PdfStreamReply:
         value = self._exchange(
             PdfStreamRequest(
@@ -346,12 +311,8 @@ class PdfWorker:
                 build_id,
                 release_id,
                 page_range,
-                observation_replay,
-                structural_pin,
-                integration_policy,
-                reconciliation_root,
                 payload_schema,
-                recovery_pages,
+                recovery_pages, validation_contract, lowering_identity,
             ),
             check_active,
             on_replay,

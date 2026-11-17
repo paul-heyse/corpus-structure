@@ -116,6 +116,13 @@ class PdfPageRecovery:
 
 
 @dataclass(frozen=True, slots=True)
+class PdfPreparedCompanionSet:
+    family: str
+    replay_key: str
+    replays: tuple[PdfReplayRef, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class PdfStreamRequest:
     source: PdfSourceRef
     spool_root: Path
@@ -123,12 +130,10 @@ class PdfStreamRequest:
     build_id: str
     release_id: str
     page_range: tuple[int, int] | None = None
-    observation_replay: PdfReplayRef | None = None
-    structural_pin: dict | None = None
-    integration_policy: dict | None = None
-    reconciliation_root: Path | None = None
     payload_schema: bytes | None = None
     recovery_pages: tuple[PdfPageRecovery, ...] = ()
+    validation_contract: bytes | None = None
+    lowering_identity: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,3 +149,6 @@ class PdfStreamReply:
     page_replays: tuple[PdfReplayRef, ...]
     record_replays: tuple[PdfReplayRef, ...]
     effective_options: bytes = b"{}"
+    companion_sets: tuple[PdfPreparedCompanionSet, ...] = ()
+    certification: PdfReplayRef | None = None
+    access_replay: PdfReplayRef | None = None

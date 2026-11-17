@@ -140,9 +140,11 @@ def pdf_domain_sources(
         return supplied[name] if name in supplied else root.joinpath(name).read_bytes()
 
     from .determinants import analysis_runtime
+    from .pdf_lowering import lowering_sources
 
     sources = (
         *action_sources,
+        *lowering_sources(),
         SourceArtifact(ANALYSIS_RUNTIME, canonical_bytes(dict(analysis_runtime()))),
         SourceArtifact(
             PREFIX + "schema/pdf_products", root.joinpath("pdf-products.yaml").read_bytes()

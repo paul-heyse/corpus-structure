@@ -184,57 +184,39 @@ def test_recognition_replay_has_delivery_independent_pin_order_and_refuses_dupli
         list(iter_recognition_replay(duplicate))
 
 
-def test_companions_are_exact_part_streams_in_model_owned_profile(native_source, tmp_path):
-    from hashlib import sha256
-
+def test_reconciliation_companions_use_current_prepared_set_bytes(native_source, tmp_path):
     import pyarrow as pa
 
-    from corpus_structure.ingest.pdf_stream_reconciliation import write_companion_artifacts
-    from corpus_structure.semantic.pdf_staging import companion_profile
+    from corpus_structure.semantic.pdf_certification import write_pdf_companion_sets
+    from corpus_structure.semantic.pdf_publication import PdfCompanionEncodingBasis
 
     document = DoclingDocument.model_validate(native_source.payload["document"])
     with reconcile_pdf_stream(
-        document,
-        pin(1, "native", "0" * 64, "structural"),
-        iter(()),
-        native_source.payload["artifact_digest"],
-        directory=tmp_path,
+        document, pin(1, "native", "0" * 64, "structural"), iter(()),
+        native_source.payload["artifact_digest"], directory=tmp_path,
     ) as result:
+        families = ("input", "occurrence", "relation", "mapping_report", "coverage", "health")
+        companions = {family: (result.health,) if family == "health" else result.journal.collection(family)
+                      for family in families}
+        expected = {family: list(rows) for family, rows in companions.items()}
         admitted = []
-        files = write_companion_artifacts(
-            result, tmp_path / "companions", build_id="build", on_batch=admitted.append
-        )
-        assert list(files) == admitted
-        rows = []
-        for replay in files:
+        sets = write_pdf_companion_sets(tmp_path / "companions", PdfCompanionEncodingBasis("build", "release"),
+            companions, payload_family=None, check_active=lambda: None, on_replay=admitted.append)
+        assert [replay for prepared in sets for replay in prepared.replays] == admitted
+        actual = {family: [] for family in families}
+        for replay in admitted:
             replay.verify()
+            if replay.family != "prepared_companion:companion":
+                continue
             with pa.memory_map(str(replay.path), "r") as source:
                 reader = pa.ipc.open_file(source)
                 for number in range(reader.num_record_batches):
-                    rows.extend(
-                        (replay.family, row) for row in reader.get_batch(number).to_pylist()
-                    )
-        for family in ("input", "occurrence", "relation", "mapping_report", "coverage", "health"):
-            stream_id = "companion:" + family
-            parts = [
-                row
-                for kind, row in rows
-                if kind == "artifact_part" and row["stream_id"] == stream_id
-            ]
-            data = b"".join(row["body"] for row in sorted(parts, key=lambda row: row["ordinal"]))
-            manifest = next(
-                row
-                for kind, row in rows
-                if kind == "artifact_stream" and row["stream_id"] == stream_id
-            )
-            assert manifest["byte_length"] == len(data)
-            assert manifest["serialization_sha256"] == sha256(data).hexdigest()
-            assert manifest["encoding_profile"] == companion_profile(family)
-            assert all(row["product_id"] == "build" for row in parts)
-            if family == "occurrence":
-                assert len(data.splitlines()) == 7
-            if family == "health":
-                assert json.loads(data)["source_fidelity"] == "unassessed"
+                    for row in reader.get_batch(number).to_pylist():
+                        assert row["product_id"] == row["revision_id"] == "build"
+                        actual[row["family"]].append(json.loads(row["body"]))
+        assert actual == expected
+        assert len(actual["occurrence"]) == 7
+        assert actual["health"][0]["source_fidelity"] == "unassessed"
 
 
 @pytest.mark.parametrize(
