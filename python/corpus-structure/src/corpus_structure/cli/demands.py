@@ -284,8 +284,10 @@ def plan(
         invocation.publish("request", request_path)
         with ENGINE(state(ctx).settings(), purpose="write") as engine, engine.begin() as connection:
             target = acquired_target(connection, purpose="write")
-            native = create_native_demand(connection, parsed)
+            registered = create_native_demand(connection, parsed)
             invocation.record_target(target, None, None, parsed.release_id)
+        with ENGINE(state(ctx).settings(), purpose="read") as engine, engine.begin() as connection:
+            native = read_data_demand(connection, registered["demand_id"], limit=1)
         from corpus_structure.orchestrate.source_reporting import record_native_demand
 
         record_native_demand(invocation, native, target)

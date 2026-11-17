@@ -300,7 +300,11 @@ def run_source_operation(
         native_request = prepare_source_demand(
             connection, request, domains=domains, prepared=prepared
         )
-        snapshot = create_native_demand(connection, native_request, prepared=prepared)
+        registered = create_native_demand(connection, native_request, prepared=prepared)
+    from corpus_structure.semantic.data_operation_service import read_data_demand
+
+    with engine.begin() as connection:
+        snapshot = read_data_demand(connection, registered["demand_id"], limit=1)
     if on_registered is not None:
         on_registered(snapshot)
     return execute_data_demand(

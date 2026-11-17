@@ -101,16 +101,21 @@ def test_native_service_creation_read_and_cancellation_preserve_original_pins(dd
         intent=cast(dict, intent.record),
     )
     with ddo_kernel["engine"].begin() as connection:
-        created = service.create_data_demand(connection, request)
+        registered = service.create_data_demand(connection, request)
+        assert registered["selection"] == intent.record
+        assert registered["inserted_obligations"] == 1
+        demand = registered["demand_id"]
+    with ddo_kernel["engine"].begin() as connection:
+        created = service.read_data_demand(connection, demand, limit=1)
         assert created["release_id"] == request.release_id
         assert created["runtime_id"] == request.runtime_id
-        assert created["selection"] == intent.record
         assert created["obligations"][0]["subject"] == "subject:one"
-        demand = created["demand_id"]
         current = service.read_data_demand(connection, demand, limit=1)
         assert current["read_id"] != created["read_id"]
+    with ddo_kernel["engine"].begin() as connection:
         cancelled = service.cancel_data_demand(connection, demand, reason="operator cancelled")
         assert cancelled["state"] == "cancelled"
+    with ddo_kernel["engine"].begin() as connection:
         assert service.read_data_demand(connection, demand)["state"] == "cancelled"
 
 

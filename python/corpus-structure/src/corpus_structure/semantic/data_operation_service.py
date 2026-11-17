@@ -15,10 +15,11 @@ from corpus_structure.semantic._data_operation_wire import (
     WireCancelDataDemandResult,
     WireReadDemandResultRequest,
     WireReadDemandResultResult,
+    WireRegisterDataDemandResult,
 )
 
 from .data_operation_admission import bound_data_operation_model
-from .data_operation_demands import DemandIntent, DemandPlanner, ResumedDataDemand
+from .data_operation_demands import DemandIntent, DemandPlanner
 from .data_operation_json import DdoJsonValue as DdoJsonValue
 from .data_operation_json import json_bytes
 from .data_operation_storage import DataOperationStorage
@@ -134,8 +135,8 @@ def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent
 
 def create_native_demand(
     connection: Connection, request: NativeDemandRequest, *, prepared=None
-) -> ResumedDataDemand:
-    """Authenticate retained runtime custody before admitting the compiled intent."""
+) -> WireRegisterDataDemandResult:
+    """Register authenticated intent; acquire its read in a fresh transaction."""
     from .runtime_binding_store import runtime_binding_for_release
 
     prepared = load_release(connection, request.release_id) if prepared is None else prepared
@@ -151,7 +152,7 @@ def create_native_demand(
         runtime=request.runtime_id,
         strength=request.strength,
     )
-    return planner.resume(demand["demand_id"])
+    return demand
 
 
 @dataclass(frozen=True)
@@ -289,7 +290,7 @@ class CreateDataDemand(BaseModel):
     strength: str = "value"
 
 
-def create_data_demand(connection: Connection, request: CreateDataDemand) -> ResumedDataDemand:
+def create_data_demand(connection: Connection, request: CreateDataDemand) -> WireRegisterDataDemandResult:
     prepared = load_release(connection, request.release_id)
     planner = DemandPlanner(bound_data_operation_model(prepared), DataOperationStorage(connection))
     demand = planner.register(
@@ -299,7 +300,7 @@ def create_data_demand(connection: Connection, request: CreateDataDemand) -> Res
         runtime=request.runtime_id,
         strength=request.strength,
     )
-    return planner.resume(demand["demand_id"])
+    return demand
 
 
 def read_data_demand(

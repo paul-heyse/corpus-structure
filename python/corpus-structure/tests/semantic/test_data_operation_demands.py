@@ -253,6 +253,7 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
         "parameters": {},
         "fate": "attached",
         "historical_fate": "attached",
+        "inputs_watermark": "watermark:one",
     }
     snapshot = {
         "demand_id": "demand:one",
@@ -640,6 +641,7 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
             if name == "close_data_population":
                 return {
                     "population_id": "one-authentic-population",
+                    "inserted_obligations": 3,
                     "members": [
                         {
                             "subject": "child",
@@ -661,14 +663,13 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
         derivation="source-episode",
     )
     assert sum(name == "close_data_population" for name, _ in storage.calls) == 1
-    assert {
-        value["operation_id"] for name, value in storage.calls if name == "expand_data_obligation"
-    } == {"op:a", "op:b", "op:base"}
-    assert all(
-        value["subject"] == "child"
-        for name, value in storage.calls
-        if name == "expand_data_obligation"
-    )
+    # Native closure owns the frozen target/dependency expansion. Python sends
+    # one closure, never reconstructs that authority with scalar inserts.
+    assert storage.calls == [("close_data_population", {
+        "demand_id": "demand", "name": "children",
+        "product_id": "source-population-product", "derivation_id": "source-episode",
+        "member_role": "result",
+    })]
     with pytest.raises(ValueError, match="source projection"):
         freeze(
             compiled,

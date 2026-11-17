@@ -17,7 +17,8 @@ from pydantic import TypeAdapter
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitAuthoredDataRequest,
     WireAdmitOriginalDocumentAssetRequest,
-    WireAttachDataRequestRequest,
+    WireAttachDataRequestsItem,
+    WireAttachDataRequestsRequest,
     WireCloseDataPopulationResult,
     WireDemandId,
     WireDemandIntent,
@@ -492,6 +493,8 @@ class DemandPlanner:
         self.storage = storage
         self.selected_population_ids: tuple[str, ...] = ()
         self.fulfilled_request_ids: tuple[str, ...] = ()
+        self.logical_progress = 0
+        self.refusals: tuple[Exception, ...] = ()
 
     def register(
         self,
@@ -531,18 +534,6 @@ class DemandPlanner:
                 )
             else:
                 raise ValueError("unknown original source admission reference")
-        for root in record["roots"]:
-            for operation in record["operations"]:
-                if operation["operation"] not in record["root_operations"]:
-                    continue
-                self.storage.expand_data_obligation(
-                    {
-                        "demand_id": result["demand_id"],
-                        "operation_id": WireOperationId(operation["operation"]),
-                        **root,
-                        "parameters": operation["parameters"],
-                    }
-                )
         return result
 
     def expand_discovery(
@@ -571,25 +562,6 @@ class DemandPlanner:
                 "member_role": relation["output_role"],
             }
         )
-        selected = {item["operation"]: item for item in frozen["operations"]}
-        closure = rooted_closure(
-            _frozen_dependency_graph(selected), (item["target"] for item in relations)
-        )
-        # Partial positive discovery can expose members. Only the native complete
-        # witness can prove absence or closed fan-in on a subsequent binding.
-        for member in closed["members"]:
-            for operation in sorted(closure):
-                self.storage.expand_data_obligation(
-                    {
-                        "demand_id": snapshot["demand_id"],
-                        "operation_id": WireOperationId(operation),
-                        "subject": member["subject"],
-                        "original_source": member["original_source"],
-                        "analyzed_scope": member["analyzed_scope"],
-                        "parameters": selected[operation]["parameters"],
-                        "population_id": closed["population_id"],
-                    }
-                )
         return closed
 
     def resume(
@@ -643,7 +615,11 @@ class DemandPlanner:
         authorization: bytes,
         excluded_requests: frozenset[tuple[str, int]] = frozenset(),
     ) -> tuple[ReadyDataRequest, ...]:
+        from .refusals import SemanticRefusal
+
         ready = []
+        self.logical_progress = 0
+        self.refusals = ()
         selected = {item["operation"]: item for item in snapshot["intent"]["operations"]}
         obligations = {item["obligation_id"]: item for item in snapshot["obligations"]}
         rebindings = {}
@@ -652,37 +628,46 @@ class DemandPlanner:
                 rebindings.setdefault(
                     (use.get("obligation_id"), use.get("request_id")), use["rebind_derivation"]
                 )
-        for bound in self.bound_requests(
+        bounds = tuple(self.bound_requests(
             snapshot, authorization=authorization, excluded_requests=excluded_requests
-        ):
+        ))
+        items = []
+        for bound in bounds:
             obligation = obligations[bound.obligation]
             operation = selected[bound.operation]
-            wire_binding = wire_json_loads(bound.binding)
-            # The pinned native view names a directly trusted historical producer.
-            # The hint is not authority: attachment revalidates it under trust locks.
             rebind = rebindings.get((obligation["obligation_id"], bound.request_id))
-            native = self.storage.attach_data_request(
-                cast(
-                    WireAttachDataRequestRequest,
-                    {
-                        **({"rebind_derivation": rebind} if rebind is not None else {}),
-                        "obligation_id": obligation["obligation_id"],
-                        "request_meaning": json.loads(bound.request),
-                        "request_key": bound.request_id,
-                        "binding": wire_binding,
-                        "replicate": operation["replicate"],
-                    },
-                )
-            )
-            if native["fate"] == "fulfilled":
+            items.append(cast(WireAttachDataRequestsItem, {
+                **({"rebind_derivation": rebind} if rebind is not None else {}),
+                "obligation_id": obligation["obligation_id"],
+                "request_meaning": json.loads(bound.request), "request_key": bound.request_id,
+                "binding": wire_json_loads(bound.binding), "replicate": operation["replicate"],
+            }))
+        if not items:
+            return ()
+        attached = self.storage.attach_data_requests(cast(WireAttachDataRequestsRequest, {
+            "read_id": snapshot["read_id"], "items": items,
+        }))["items"]
+        if len(attached) != len(bounds):
+            raise SemanticRefusal("native attach set changed its item correspondence")
+        for bound, item in zip(bounds, attached, strict=True):
+            if item["state"] == "refused":
+                error = SemanticRefusal("native attachment refused: " + item["reason"])
+                error.add_note("native obligation: " + bound.obligation + "; SQLSTATE " + item["sqlstate"])
+                self.refusals += (error,)
+                continue
+            native = item["result"]
+            obligation = obligations[bound.obligation]
+            if (obligation.get("request_id"), obligation.get("generation"), obligation["fate"]) != (
+                native["request_id"], native["generation"], native["fate"],
+            ):
+                self.logical_progress += 1
+            if item["state"] == "fulfilled":
                 self.fulfilled_request_ids += (native["request_id"],)
                 continue
-            ready.append(
-                ReadyDataRequest(
-                    **{name: value for name, value in vars(bound).items() if name != "request_id"},
-                    native=canonical_bytes(native),
-                )
-            )
+            ready.append(ReadyDataRequest(
+                **{name: value for name, value in vars(bound).items() if name != "request_id"},
+                native=canonical_bytes(native),
+            ))
         return tuple(ready)
 
     def bound_requests(
@@ -716,10 +701,16 @@ class DemandPlanner:
             raise ValueError("binding requires the demand's retained model")
         selected = {item["operation"]: item for item in frozen["operations"]}
         source_sets = frozen.get("source_sets", {})
+        latest_uses = {use["obligation_id"]: use for use in snapshot.get("uses", ())}
         for obligation in snapshot["obligations"]:
             if (obligation.get("request_id"), obligation.get("generation")) in excluded_requests:
                 continue
             if obligation["fate"] in {"fulfilled", "closed", "cancelled", "failed"}:
+                continue
+            previous = latest_uses.get(obligation["obligation_id"])
+            if (not retained and previous is not None
+                and previous["fate"] in {"awaiting-inputs", "awaiting-population", "awaiting-discovery"}
+                and previous["selection"].get("inputs_watermark") == obligation["inputs_watermark"]):
                 continue
             operation = selected[obligation["operation_id"]]
             discovery_roles = {
@@ -912,6 +903,7 @@ class DemandPlanner:
                             "obligation_id": obligation["obligation_id"],
                             "fate": "awaiting-population",
                             "selection": {
+                                "inputs_watermark": obligation["inputs_watermark"],
                                 "reasons": [
                                     asdict(
                                         BindingReason(
@@ -985,6 +977,7 @@ class DemandPlanner:
                             "obligation_id": obligation["obligation_id"],
                             "fate": recordable_binding_fate(binding.status),
                             "selection": {
+                                "inputs_watermark": obligation["inputs_watermark"],
                                 "reasons": [asdict(reason) for reason in binding.reasons]
                             },
                         },

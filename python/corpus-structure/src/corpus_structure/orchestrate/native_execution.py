@@ -45,21 +45,20 @@ def execute_native_intent(
         if request is not None:
             if project is not None and request.project_id != project:
                 raise SemanticRefusal("request belongs to another project")
-            snapshot = create_native_demand(connection, request, prepared=prepared)
-            demand = snapshot["demand_id"]
-        else:
-            if demand is None:
-                raise SemanticRefusal("native execution lacks its explicit demand")
-            snapshot = read_data_demand(connection, demand, limit=1)
-            if project is not None and snapshot["project_id"] != project:
-                raise SemanticRefusal("retained demand belongs to another project")
+            receipt = create_native_demand(connection, request, prepared=prepared)
+            demand = receipt["demand_id"]
+    if demand is None:
+        raise SemanticRefusal("native execution lacks its explicit demand")
+    # Native read acquisition cannot share the registration write transaction.
+    with engine.begin() as connection:
+        snapshot = read_data_demand(connection, demand, limit=1)
+        if project is not None and snapshot["project_id"] != project:
+            raise SemanticRefusal("retained demand belongs to another project")
         if (
             required_targets is not None
             and tuple(snapshot["selection"]["targets"]) != required_targets
         ):
             raise SemanticRefusal("retained demand differs from the required explicit targets")
-    if demand is None:
-        raise RuntimeError("native registration lacks its exact demand identity")
     if registered is not None:
         registered(snapshot, target, request)
     execute = execute_data_demand

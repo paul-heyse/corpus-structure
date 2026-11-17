@@ -55,9 +55,9 @@ def test_claim_uses_authenticated_expected_generation_and_original_basis(
     def claim(payload):
         seen.append(payload)
         return (
-            {"state": "no-work"}
+            {"items": [{"state": "no-work"}]}
             if state == "no-work"
-            else dict(
+            else {"items": [{"state": "claimed", "result": dict(
                 metadata,
                 state="claimed",
                 task_id=13,
@@ -65,17 +65,17 @@ def test_claim_uses_authenticated_expected_generation_and_original_basis(
                 holder="owner",
                 lease_until="2026-11-17T00:00:00Z",
                 trust_snapshot={},
-            )
+            )}]}
         )
 
     monkeypatch.setattr(
-        data_operations, "DataOperationStorage", lambda _: SimpleNamespace(claim_data_request=claim)
+        data_operations, "DataOperationStorage", lambda _: SimpleNamespace(claim_data_requests=claim)
     )
     result, _ = executor._claim(
         SimpleNamespace(native=canonical_bytes(metadata)), SimpleNamespace(add_claim=claims.append)
     )
     assert seen == [
-        dict(request_id="request:original", generation=5, holder="owner", lease_seconds=300)
+        dict(items=[dict(request_id="request:original", generation=5)], holder="owner", lease_seconds=300)
     ]
     if state == "claimed":
         assert result is claims[0]
@@ -134,7 +134,7 @@ def test_reconstructed_binding_consumes_original_pinned_read_without_attachment(
         target, "request:original", metadata, context, b"current-authorization"
     )
     assert seen == [
-        ("read", dict(demand_id="demand:original", read_id="read:original", limit=1000)),
+        ("read", dict(demand_id="demand:original", read_id="read:original", limit=1, obligation_id="obligation:original")),
         ("binding", "read:original", dict(authorization=b"current-authorization", retained=True)),
     ]
     assert original.binding == canonical_bytes(metadata["binding"])
@@ -372,10 +372,10 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(monkey
 
     def native_claim(_payload):
         events.append("claim")
-        return claimed
+        return {"items": [{"state": "claimed", "result": claimed}]}
 
     monkeypatch.setattr(data_operations, "DataOperationStorage", lambda conn: SimpleNamespace(
-        claim_data_request=native_claim if conn is connection else None
+        claim_data_requests=native_claim if conn is connection else None
     ))
 
     def hydrate(_ready, _physical, *, connection, **_):
@@ -383,11 +383,13 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(monkey
         events.append("hydrate")
         if refuse:
             raise ValueError("controlled hydration refusal")
+        _physical.hydrated_sizes["obligation"] = 10
         return ("selected input",)
 
     monkeypatch.setattr(executor, "_hydrate", hydrate)
-    physical = SimpleNamespace(hydrated_inputs=None, hydration_error=None)
-    ready = SimpleNamespace(native=canonical_bytes(metadata), operation="operation")
+    physical = SimpleNamespace(hydrated_inputs=None, hydration_error=None, hydrated_sizes={},
+                               consumer_inputs={}, consumer_results={}, binding_rows={})
+    ready = SimpleNamespace(native=canonical_bytes(metadata), operation="operation", obligation="obligation")
     claim, result = executor._claim(
         ready, SimpleNamespace(add_claim=lambda _: events.append("renew committed claim")),
         physical=physical,
@@ -404,3 +406,33 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(monkey
     else:
         assert physical.hydrated_inputs == ("selected input",)
         assert physical.hydration_error is None
+
+
+def test_claim_set_preserves_refusal_siblings_and_owns_repeated_identity_once(monkeypatch):
+    metadata = attached_basis()
+    events, owners = [], []
+    executor = object.__new__(NativeDemandExecutor)
+    executor.holder = "owner"
+    monkeypatch.setattr(executor, "engine", SimpleNamespace(begin=lambda: nullcontext(None)), raising=False)
+    native = dict(metadata, state="claimed", task_id=13, attempt=2, holder="owner",
+                  lease_until="2026-11-17T00:00:00Z", trust_snapshot={})
+
+    def claim_set(payload):
+        events.append(payload)
+        return {"items": [
+            {"state": "refused", "sqlstate": "22023", "reason": "controlled refusal"},
+            {"state": "claimed", "result": native},
+            {"state": "claimed", "result": native},
+            {"state": "no-work"},
+        ]}
+
+    monkeypatch.setattr(data_operations, "DataOperationStorage", lambda _: SimpleNamespace(
+        claim_data_requests=claim_set,
+    ))
+    items = tuple(SimpleNamespace(native=canonical_bytes(metadata)) for _ in range(4))
+    result = executor._claim_many(items, SimpleNamespace(add_claim=owners.append))
+    assert len(events) == 1 and len(events[0]["items"]) == 4
+    assert result[0].claim is None and "controlled refusal" in str(result[0].error)
+    assert result[1].claim is owners[0] and len(owners) == 1
+    assert result[2].claim is None and result[2].error is None
+    assert result[3].claim is None and result[3].error is None

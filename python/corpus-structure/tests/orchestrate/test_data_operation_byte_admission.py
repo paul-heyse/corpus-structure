@@ -70,7 +70,9 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
     """Replace native I/O only; exercise production admission and physical owners."""
     executor = cast(Any, NativeDemandExecutor.__new__(NativeDemandExecutor))
     executor.prepared, executor.policy = prepared, policy
-    executor.engine = SimpleNamespace(begin=lambda: nullcontext(None))
+    connection = SimpleNamespace(begin_nested=lambda: nullcontext())
+    executor.engine = SimpleNamespace(begin=lambda: nullcontext(connection))
+    executor.holder = "controlled"
     executor.fitter_engine = None
     executor.nemotron_endpoint = None
     executor.port_workers = 2
@@ -107,7 +109,8 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
             operation=operation,
             obligation=str(index),
             native=json.dumps({"request_id": str(index), "generation": 1,
-                               "release_id": prepared.release_id, "runtime_id": "runtime:controlled"}).encode(),
+                               "release_id": prepared.release_id, "runtime_id": "runtime:controlled",
+                               "binding": {}, "binding_demand_id": "demand", "binding_obligation_id": str(index) }).encode(),
             binding_result=None,
         )
         for index, operation in enumerate(requests)
@@ -116,35 +119,27 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
     monkeypatch.setattr(
         data_operations,
         "DemandPlanner",
-        lambda *_: SimpleNamespace(ready=lambda *_args, **_kw: ready, fulfilled_request_ids=()),
+        lambda *_: SimpleNamespace(ready=lambda *_args, **_kw: ready, logical_progress=0, refusals=()),
     )
-    monkeypatch.setattr(data_operations, "DataOperationStorage", lambda _: None)
     observed = SimpleNamespace(claims=[], receipts=[], failures=[], live=set(), windows=[])
 
-    def claim(item, owner, *, physical=None):
-        index = item.obligation
-        observed.claims.append((index, executor.budget.used_bytes))
-        observed.live.add(index)
-        observed.windows.append(len(observed.live))
-        if physical is not None:
-            physical.hydrated_inputs = executor._hydrate(item, physical)
-        return SimpleNamespace(
-            request_id=index,
-            generation=1,
-            attempt=1,
-            runtime_id="runtime:controlled",
-            release_id=prepared.release_id,
-            fence=dict(
-                request_id=index,
-                generation=1,
-                task_id=int(index) + 1,
-                attempt=1,
-                holder="controlled",
-            ),
-        ), {
-            "state": "claimed",
-            "action": "execute",
-        }
+    def claim_set(payload):
+        results = []
+        for item in payload["items"]:
+            index = item["request_id"]
+            observed.claims.append((index, executor.budget.used_bytes))
+            observed.live.add(index)
+            observed.windows.append(len(observed.live))
+            metadata = json.loads(next(value.native for value in executor._ready_items if value.obligation == index))
+            results.append({"state": "claimed", "result": {
+                **metadata, "state": "claimed", "action": "compute", "task_id": int(index) + 1,
+                "attempt": 1, "holder": payload["holder"], "lease_until": "2026-11-17T00:00:00Z",
+            }})
+        return {"items": results}
+
+    monkeypatch.setattr(data_operations, "DataOperationStorage", lambda _: SimpleNamespace(
+        claim_data_requests=claim_set,
+    ))
 
     def publish(claim, answer, owner):
         observed.receipts.append((claim.request_id, answer))
@@ -155,7 +150,6 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
         observed.failures.append((claim.request_id, error))
         observed.live.remove(claim.request_id)
 
-    executor._claim = claim
     def hydrate(item, physical, **_kwargs):
         physical.hydrated_sizes[item.obligation] = len(item.obligation)
         return int(item.obligation)
@@ -183,6 +177,9 @@ def execution_resources(executor):
 
 
 class Active:
+    def add_claim(self, _):
+        pass
+
     def __call__(self):
         pass
 
@@ -478,7 +475,7 @@ def test_measured_batch_boundary_rehydrates_without_reclaiming(monkeypatch, prep
         receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
     assert not failures and len(receipts) == 3
     assert [identifier for identifier, _ in observed.claims] == ["0", "1", "2"]
-    assert hydrations == ["0", "1", "1", "2", "2"]
+    assert hydrations == ["0", "1", "2", "1", "2", "2"]
     assert batches == [("0",), ("1",), ("2",)]
     assert max(observed.windows) <= executor.policy.max_claims
     assert executor.budget.used_bytes == 0 and not observed.live
@@ -503,10 +500,11 @@ def test_one_frontier_replenishes_multiple_logical_pages(monkeypatch, prepared):
             SimpleNamespace(
                 operation="scalar", obligation=str(identifier), binding_result=None,
                 native=json.dumps({"request_id": str(identifier), "generation": 1,
-                                   "release_id": prepared.release_id, "runtime_id": "runtime:controlled"}).encode(),
+                                   "release_id": prepared.release_id, "runtime_id": "runtime:controlled",
+                                   "binding": {}, "binding_demand_id": "demand", "binding_obligation_id": str(identifier)}).encode(),
             )
             for identifier in range(2 * index, 2 * index + 2)
-        ], (), (), ()
+        ], (), 0, ()
 
     executor._prepare_page = page
     driver = data_operations.drive_prepared_work
