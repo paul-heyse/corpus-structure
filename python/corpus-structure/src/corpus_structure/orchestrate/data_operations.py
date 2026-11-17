@@ -472,6 +472,14 @@ class _RunExecution:
         finally:
             self.host._execution = None
 
+    def _discard_retired_bodies(self):
+        # Direct callers may retain this executor after run(). Futures and request
+        # caches must not keep encoded replies/inputs after their credits retire.
+        self.python_work.clear()
+        self.uncertain_python.clear()
+        self.pending_failures.clear()
+        self.requests.clear()
+
     def _finish_run(self, *error):
         healthy = (
             not self.uncertain_python and not self.pending_failures
@@ -483,6 +491,7 @@ class _RunExecution:
         if healthy:
             self.physical_retired = True
             self._release_retired_claims()
+            self._discard_retired_bodies()
             try:
                 self.native_hosts.finish_run(self.executor.policy.native_keep_warm_seconds)
             except BaseException as failure:
@@ -537,6 +546,7 @@ class _RunExecution:
                     )
         if self.physical_retired:
             self._release_retired_claims()
+            self._discard_retired_bodies()
         if failures:
             raise BaseExceptionGroup("native demand physical cleanup failed", failures)
 
