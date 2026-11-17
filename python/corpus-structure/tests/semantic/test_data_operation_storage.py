@@ -1175,7 +1175,7 @@ def test_registration_exposes_all_frozen_obligations_atomically(ddo_kernel):
     collected = list(page["obligations"])
     while page["continuation"]:
         with ddo_kernel["engine"].begin() as reader:
-            following = DataOperationStorage(reader).read_demand_result(page["continuation"])
+            following = DataOperationStorage(reader).read_demand_result({**page["continuation"]})
         assert following["read_id"] == page["read_id"]
         collected.extend(following["obligations"])
         page = following
@@ -2336,9 +2336,9 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
-    with ddo_kernel["engine"].begin() as connection:
-        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        if uncommitted_intent:
+    if uncommitted_intent:
+        with ddo_kernel["engine"].begin() as connection:
+            planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
             assert planner.ready(snapshot, authorization=b"{}") == ()
             assert len(planner.refusals) == 1
             assert any(word in str(planner.refusals[0]) for word in ("active", "lease", "invalid"))
@@ -2357,7 +2357,6 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
             )
             assert released["state"] == "released"
             updated_snapshot = planner.resume(demand["demand_id"])
-    if uncommitted_intent:
         with ddo_kernel["engine"].begin() as connection:
             planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
             updated = planner.ready(updated_snapshot, authorization=b"{}")

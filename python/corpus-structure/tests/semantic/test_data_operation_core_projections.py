@@ -64,12 +64,12 @@ def test_captured_sql_scope_projection_follows_its_domain_function_providers():
     assert "CREATE OR REPLACE FUNCTION ops.ddo_support_scopes" in scope_source.content.decode()
     prepared = prepare_sql(native_sql(captured), source="scope-provider-installation-order")
     declarations = {
-        tuple(part.sval for part in statement.stmt.funcname): (index, statement.stmt)
+        tuple(part.sval for part in statement.stmt.funcname or ()): (index, statement.stmt)
         for index, statement in enumerate(prepared.statements)
         if isinstance(statement.stmt, ast.CreateFunctionStmt)
     }
     index, scope = declarations[("ops", "ddo_support_scopes")]
-    assert next(option.arg.sval for option in scope.options if option.defname == "language") == "sql"
+    assert next(option.arg.sval for option in scope.options or () if option.defname == "language") == "sql"
     calls = set()
 
     class Calls(Visitor):

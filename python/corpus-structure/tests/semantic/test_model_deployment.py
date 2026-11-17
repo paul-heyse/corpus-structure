@@ -548,6 +548,13 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
                 intent=cast(dict, intent.record),
             ),
         )
-    assert created["runtime_id"] == runtime.runtime_id
-    assert created["release_id"] == binding.release
-    assert created["obligations"][0]["subject"] == "deployment:subject"
+    with (
+        open_runtime_engine(settings, "deployment-first-demand-read", purpose="read") as engine,
+        engine.begin() as connection,
+    ):
+        from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+
+        snapshot = DataOperationStorage(connection).read_demand_result({"demand_id": created["demand_id"]})
+    assert snapshot["runtime_id"] == runtime.runtime_id
+    assert snapshot["release_id"] == binding.release
+    assert snapshot["obligations"][0]["subject"] == "deployment:subject"

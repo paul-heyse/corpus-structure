@@ -311,10 +311,10 @@ def test_cancelled_queued_work_releases_owned_body_without_dispatch(runtime):
 def test_gliner_coalescing_keeps_member_refusal_and_valid_reply_in_one_exchange(
     runtime, monkeypatch, tmp_path
 ):
-    from dataclasses import dataclass
-
     from corpus_structure.methods.gliner import (
         GlinerInput,
+        GlinerPreparation,
+        GlinerReport,
         GlinerPack,
         GlinerProfile,
         GlinerRefused,
@@ -322,10 +322,6 @@ def test_gliner_coalescing_keeps_member_refusal_and_valid_reply_in_one_exchange(
     from corpus_structure.methods.gliner_worker import GlinerAdmission
 
     calls = []
-
-    @dataclass(frozen=True)
-    class Report:
-        context_id: str
 
     class Worker:
         closed = False
@@ -366,8 +362,13 @@ def test_gliner_coalescing_keeps_member_refusal_and_valid_reply_in_one_exchange(
                 for i, item in enumerate(inputs)
             )
             return GlinerBatchResult(admissions, tuple(
-                Report(item.context_id) for item, member in zip(inputs, admissions, strict=True)
-                if member.admitted
+                GlinerReport(
+                    context_id=item.context_id, context_digest=item.context_digest,
+                    computation="controlled", profile="controlled", pack=pack.release,
+                    preparation=GlinerPreparation(item.text, "", 0, 0, len(item.text.encode())),
+                    raw_json="{}", effective_profile_json="{}", inference_seconds=0.0,
+                    resident_reused=False,
+                ) for item, member in zip(inputs, admissions, strict=True) if member.admitted
             ))
 
         def close(self):

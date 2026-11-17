@@ -191,7 +191,7 @@ def _lower_set_operations(protocol: dict[str, Any]) -> None:
             }, "required": [*shared, "items"], "additionalProperties": False,
         }
         result = definitions[item["result"]]
-        outcomes = []
+        outcomes: list[dict[str, Any]] = []
         for variant in result.get("oneOf", [result]):
             field = variant["properties"][operation["outcome_field"]]
             states = field.get("enum", [field.get("const")])

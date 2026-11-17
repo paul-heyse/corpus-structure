@@ -426,8 +426,7 @@ def verify_spool_recovery(
 def selected_replay_bytes(root: Path, replays: tuple[PdfReplayRef, ...]) -> bytes:
     values = []
     for replay in replays:
-        value = asdict(replay)
-        value["path"] = replay.path.relative_to(root).as_posix()
+        value = {**asdict(replay), "path": replay.path.relative_to(root).as_posix()}
         values.append(value)
     return json.dumps(values, sort_keys=True, separators=(",", ":")).encode()
 

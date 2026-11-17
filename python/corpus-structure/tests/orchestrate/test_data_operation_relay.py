@@ -24,10 +24,16 @@ def request_owner():
 
 class Handle:
     def __init__(self):
-        self.future = Future()
+        self.future: Future[str] = Future()
         self.physically_retired = False
 
-    def retire(self):
+    def collect(self) -> str:
+        return self.future.result()
+
+    def cancel(self) -> None:
+        self.future.cancel()
+
+    def retire(self) -> bool:
         return self.physically_retired
 
 
@@ -84,7 +90,9 @@ def test_closing_ready_group_child_preserves_unretired_submitted_handle():
         yield ReadyGroup((child(),), max_active=1)
 
     relay = owner.relay(parent())
-    (nested,) = next(relay).plans
+    group = next(relay)
+    assert isinstance(group, ReadyGroup)
+    (nested,) = group.plans
     (work,) = next(nested)
     assert work.try_submit() is handle
     nested.close()
@@ -127,7 +135,6 @@ def test_retained_failure_publishes_original_frames_then_releases_body_reference
             failed_hydration()
         except Exception as failure:
             return failure
-        raise AssertionError("expected failure")
 
     failure = capture()
     assert references[0]() is not None and physical_retirement_uncertain(failure)

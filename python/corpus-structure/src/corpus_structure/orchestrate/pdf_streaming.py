@@ -400,6 +400,8 @@ def run_private_native_pdf_build(
                     batches.close()
 
             if reply is None:
+                if worker is None:
+                    raise ValueError("PDF stream requires its active physical worker")
                 with ExitStack() as native_lifetime:
                     if recipe.device == "cuda" or recipe.ocr_device == "cuda":
                         if require_nemotron_handoff:

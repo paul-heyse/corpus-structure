@@ -13,6 +13,7 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_model import MODEL_VERSION
 from corpus_structure.semantic.data_operation_wire import (
     KIND_PREFIX,
+    ExactJSONValue,
     checked_json_schema,
     validate_native_wire,
     wire_contracts,
@@ -1176,7 +1177,7 @@ def test_read_obligation_carries_required_checked_subject_definition(mutation):
 
 
 def test_waiting_fate_retains_the_inputs_watermark_in_its_closed_reason_selection():
-    payload = {
+    payload: dict[str, ExactJSONValue] = {
         "obligation_id": "obligation:waiting",
         "fate": "awaiting-inputs",
         "selection": {"reasons": [], "inputs_watermark": "watermark:visible-prerequisites"},
@@ -1184,6 +1185,8 @@ def test_waiting_fate_retains_the_inputs_watermark_in_its_closed_reason_selectio
     assert validate_native_wire("record_data_fate", "input", payload) == payload
     for invalid in (0, "", None):
         malformed = copy.deepcopy(payload)
-        malformed["selection"]["inputs_watermark"] = invalid
+        selection = malformed["selection"]
+        assert isinstance(selection, dict)
+        selection["inputs_watermark"] = invalid
         with pytest.raises(ValueError):
             validate_native_wire("record_data_fate", "input", malformed)

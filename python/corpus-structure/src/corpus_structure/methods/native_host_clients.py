@@ -197,7 +197,7 @@ class HostedGliner:
                 )
         except ContextRefused as error:
             raise GlinerRefused(str(error)) from error
-        (report,) = self._exchange(
+        reports = self._exchange(
             pack,
             (GlinerInput.from_context(context),),
             threshold=0.5,
@@ -206,7 +206,10 @@ class HostedGliner:
             check_active=check_active,
             diagnostic=_Diagnostic(mapping.input_digest, supplied),
         )
-        return cast(GlinerReport, report)
+        if isinstance(reports, GlinerBatchResult):
+            raise GlinerWorkerError("native diagnosis returned batch admission results")
+        (report,) = reports
+        return report
 
     def close(self):
         self._closed = True

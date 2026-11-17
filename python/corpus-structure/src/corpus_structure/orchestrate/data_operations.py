@@ -1819,15 +1819,16 @@ class NativeDemandExecutor:
                                         for product in use["products"]:
                                             if product["role"] != relation["output_role"]:
                                                 continue
-                                            identity = (
-                                                relation["population"],
-                                                product["product_id"],
-                                                use["derivation_id"],
-                                            )
-                                            if identity[2] is None:
+                                            derivation = use["derivation_id"]
+                                            if derivation is None:
                                                 raise ValueError(
                                                     "discovery product lacks a producing episode"
                                                 )
+                                            identity = (
+                                                relation["population"],
+                                                product["product_id"],
+                                                derivation,
+                                            )
                                             witness = (*identity, relation["output_role"])
                                             if witness not in populations:
                                                 planner.expand_discovery(

@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import json
+from typing import TypedDict
 from typing import cast as typing_cast
 
 from corpus_structure.semantic._data_operation_wire import (
     WireAttachDataRequestsRequest,
+    WireDemandId,
+    WireDemandIntent,
+    WireObligationId,
     WireCancelDataDemandRequest,
     WireClaimDataRequestsRequest,
     WirePublishDataDerivationRequest,
@@ -17,6 +21,16 @@ from corpus_structure.semantic._data_operation_wire import (
 from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from semantic.data_operation_declaration_support import root_subject, subject_context
+
+
+class RegisteredDemand(TypedDict):
+    demand_id: WireDemandId
+    selection: WireDemandIntent
+
+
+class NativeObligation(TypedDict):
+    obligation_id: WireObligationId
+
 
 
 def attach(
@@ -49,7 +63,7 @@ def attach(
     ).record
     with (engine or kernel["engine"]).begin() as connection:
         storage = DataOperationStorage(connection)
-        demand = storage.register_data_demand(
+        registered = storage.register_data_demand(
             typing_cast(
                 WireRegisterDataDemandRequest,
                 {
@@ -64,11 +78,11 @@ def attach(
         )
         # Registration installs roots atomically. Select the authenticated
         # obligation from the native frontier rather than recreating its identity.
-        demand = {name: demand[name] for name in ("demand_id", "selection")}
+        demand: RegisteredDemand = {"demand_id": registered["demand_id"], "selection": registered["selection"]}
         acquired = storage.read_demand_result(
             typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]})
         )
-        obligation = {"obligation_id": next(
+        obligation: NativeObligation = {"obligation_id": next(
             row["obligation_id"] for row in acquired["obligations"]
             if row["operation_id"] == operation and row["subject"] == subject
             and row["original_source"] == original_source

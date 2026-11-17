@@ -1,17 +1,47 @@
 """Page-local progress, waiting watermarks and native set correspondence."""
 
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, NotRequired, TypedDict, cast
 
 import pytest
 
+from corpus_structure.semantic._data_operation_wire import WireDemandIntent
 from corpus_structure.semantic import data_operation_demands as demands
 from corpus_structure.semantic import data_operation_storage as storage_module
 from semantic.data_operation_declaration_support import model, operation
 from semantic.test_data_operation_demands import freeze
 
 
-def page(compiled):
+class FrontierObligation(TypedDict):
+    obligation_id: str
+    operation_id: str
+    fate: str
+    request_id: str
+    generation: int
+    inputs_watermark: str
+    subject: NotRequired[str]
+    original_source: NotRequired[str]
+    analyzed_scope: NotRequired[dict[str, object]]
+
+
+class WaitingUse(TypedDict):
+    obligation_id: str
+    fate: str
+    selection: dict[str, str]
+
+
+class FrontierPage(TypedDict):
+    demand_id: str
+    read_id: str
+    intent: WireDemandIntent
+    obligations: list[FrontierObligation]
+    uses: list[WaitingUse]
+    project_id: NotRequired[str]
+    trust_snapshot: NotRequired[dict[str, int]]
+
+
+
+def page(compiled) -> FrontierPage:
     return {
         "demand_id": "demand", "read_id": "read", "intent": freeze(compiled).record,
         "obligations": [
