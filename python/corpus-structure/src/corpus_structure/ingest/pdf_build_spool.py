@@ -416,7 +416,7 @@ def verify_spool_recovery(
             except BaseException:
                 os.close(descriptor)
                 raise
-        return tuple(recovered)
+        return tuple(sorted(recovered, key=lambda capability: capability.owner.attempt))
     except BaseException:
         for capability in recovered:
             capability.close()

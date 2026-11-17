@@ -245,3 +245,18 @@ def test_complete_spool_clones_exact_records_and_rebinds_only_private_raster_pat
         restored = json.loads(copied[page.path].path.read_bytes())
         assert restored["raster"]["path"] == str(copied[raster.path].path)
         assert copied[page.path].digest != page.digest
+
+
+def test_recovery_precedence_uses_authenticated_numeric_attempt(tmp_path):
+    from corpus_structure.ingest.pdf_build_spool import verify_spool_recovery
+
+    for attempt in (2, 9, 10):
+        with spool(tmp_path, attempt=attempt) as owner:
+            owner.declare_premises(exact_premises(), "f" * 64)
+    capabilities = verify_spool_recovery(tmp_path, build_id="build:one", task_id=3,
+        before_attempt=11, premises=exact_premises(), check_active=lambda: None)
+    try:
+        assert [capability.owner.attempt for capability in capabilities] == [2, 9, 10]
+    finally:
+        for capability in capabilities:
+            capability.close()
