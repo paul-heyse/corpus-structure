@@ -84,6 +84,7 @@ _SAFE_ANNOTATIONS = frozenset(
         "cs:functional",
         "cs:scope",
         "cs:reference_role",
+        "cs:nullable",
         "cs:data_universe",
         "cs:projection_families",
         "cs:definition_variant",
@@ -660,7 +661,29 @@ def effective_class_definitions(
                     "fact references require a string range",
                     "unsupported",
                 )
+            nullable_annotation = ann.get("cs:nullable", "false").lower()
+            if nullable_annotation not in {"true", "false"}:
+                _fail(
+                    "nullable_policy", f"{name}/{sn}",
+                    "nullable must be an explicit boolean", "unsupported",
+                )
+            nullable = nullable_annotation == "true"
+            if nullable and (slot.identifier or ann.get("cs:key_role") == "identity"):
+                _fail("nullable_identity", f"{name}/{sn}", "identity fields cannot be nullable")
             scope = ann.get("cs:constraint_scope", profile.constraint_scope)
+            if nullable and scope != "shape":
+                _fail(
+                    "nullable_policy", f"{name}/{sn}",
+                    "nullable is a shape-boundary value policy", "unsupported",
+                )
+            if nullable:
+                for ancestor in view.class_ancestors(name, reflexive=False):
+                    for inherited in view.class_induced_slots(ancestor):
+                        if str(inherited.name) == sn and _annotations(inherited).get("cs:nullable", "false").lower() != "true":
+                            _fail(
+                                "nullable_override", f"{name}/{sn}",
+                                "a subclass cannot weaken an inherited nonnullable field",
+                            )
             if scope not in {"shape", "occurrence", "accepted_value", "context"}:
                 _fail("constraint_scope", f"{name}/{sn}", scope)
             presence = str(slot.value_presence) if slot.value_presence is not None else None
@@ -763,6 +786,7 @@ def effective_class_definitions(
                 str.__str__(slot.equals_string) if slot.equals_string is not None else None,
                 collection_key,
                 reference_role,
+                nullable=nullable,
             )
             slots.append(prop)
         keys = tuple(str(s.name) for s in view.class_induced_slots(name) if s.identifier)
@@ -771,6 +795,8 @@ def effective_class_definitions(
             for _, unique in sorted(cast(dict[str, Any], cls.unique_keys or {}).items())
         )
         for group in groups:
+            if any(prop.nullable and prop.name in group for prop in slots):
+                _fail("nullable_identity", name, "identity fields cannot be nullable")
             if not group or any(k not in {p.name for p in slots} for k in group):
                 _fail("identity_slots", name, "identity references missing properties")
         definitions.append(

@@ -1735,3 +1735,42 @@ def test_complete_episode_set_is_preserved_in_semantic_request_without_first_sel
         "episode-b",
         "episode-a",
     )
+
+
+@pytest.mark.parametrize(
+    "annotation,default,nullable,multivalued,required",
+    [
+        ("str | None", "", True, False, True),
+        ("str | None", " = None", True, False, False),
+        ("list[str] | None", "", True, True, True),
+        ("list[str] | None", " = None", True, True, False),
+        ("list[str]", "", False, True, True),
+    ],
+)
+def test_python_field_nullable_whole_value_and_default_presence_are_independent(annotation, default, nullable, multivalued, required):
+    value = contract()
+    value["roles"][0]["kind"] = "urn:test:nullable-python"
+    model = compile_data_operations(
+        declarations=declarations(value, kinds=[{"id": "urn:test:nullable-python", "python": "example.Control"}]),
+        python_sources=python_inputs("class Control:\n    value: " + annotation + default + "\n"),
+    )
+    prop = next(kind for kind in model.kinds if kind.semantic_id == "urn:test:nullable-python/property/value")
+    facts = json.loads(prop.facts)
+    assert facts["nullable"] is nullable
+    assert facts["multivalued"] is multivalued
+    assert facts["required"] is required
+    assert facts["range"] == "primitive:string"
+
+
+@pytest.mark.parametrize("annotation", ["list[str | None]", "list[str | None] | None"])
+def test_unsupported_python_nullable_collection_members_remain_incomplete(annotation):
+    value = contract()
+    value["roles"][0]["kind"] = "urn:test:nullable-python"
+    model = compile_data_operations(
+        declarations=declarations(value, kinds=[{"id": "urn:test:nullable-python", "python": "example.Control"}]),
+        python_sources=python_inputs("class Control:\n    value: " + annotation + "\n"),
+    )
+    kind = next(kind for kind in model.kinds if kind.semantic_id == "urn:test:nullable-python")
+    assert not kind.complete
+    assert any("unresolved Python kind field annotation" in unknown.reason for unknown in kind.unknowns)
+    assert not any(kind.semantic_id == "urn:test:nullable-python/property/value" for kind in model.kinds)

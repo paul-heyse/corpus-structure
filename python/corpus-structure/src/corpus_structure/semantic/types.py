@@ -14,8 +14,8 @@ from pydantic import BaseModel, TypeAdapter
 
 from .refusals import SemanticRefusal
 
-SEMANTIC_COMPILER_VERSION: Literal["23"] = "23"
-BOUNDARY_ABI_VERSION = "12"
+SEMANTIC_COMPILER_VERSION: Literal["24"] = "24"
+BOUNDARY_ABI_VERSION = "13"
 
 
 @dataclass(frozen=True)
@@ -107,6 +107,7 @@ class PropertyDefinition:
     equals_string: str | None = None
     collection_key: str | None = None
     reference_role: str | None = None
+    nullable: bool = field(kw_only=True)
 
 
 @dataclass(frozen=True)

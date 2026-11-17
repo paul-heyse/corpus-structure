@@ -231,12 +231,19 @@ def _missing_nemotron_runtime() -> str | None:
     return None
 
 
+def _missing_contextual_e5_snapshot() -> str | None:
+    from semantic.actual_e5_support import missing_e5_snapshot
+
+    return missing_e5_snapshot()
+
+
 _PREREQUISITES = {
     "corpus": lambda: _missing_local_corpus(CORPUS_DIR),
     "pm2_native_assets": _missing_pm2_native_assets,
     "page85_native_capture": _missing_page85_native_capture,
     "task86_witness": _missing_task86_witness,
     "nemotron_runtime": _missing_nemotron_runtime,
+    "contextual_e5_snapshot": _missing_contextual_e5_snapshot,
 }
 _prerequisite_cache = pytest.StashKey[dict[str, str | None]]()
 

@@ -969,7 +969,7 @@ def kind_meaning_schema(kind, kind_records, class_definitions, enum_members) -> 
                 if prop.maximum_cardinality is not None:
                     sequence["maxItems"] = prop.maximum_cardinality
                 value = tagged("sequence", sequence)
-            if not prop.required:
+            if prop.nullable:
                 value = {"anyOf": [tagged("null"), value]}
             pair = array({"const": prop.name}, value)
             choices.append(pair)

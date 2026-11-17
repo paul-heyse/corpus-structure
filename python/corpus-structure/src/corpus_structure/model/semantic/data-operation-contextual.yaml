@@ -23,13 +23,13 @@ classes:
   DdoContextualTarget:
     is_a: SourceRecordProduct
     attributes:
-      original_source: {}
+      original_source: {value_presence: PRESENT, annotations: {cs:nullable: true}}
       descriptor: {range: SourceValue, inlined: true, required: true}
       semantic_target: {range: SourceValue, inlined: true, required: true}
   DdoContextualTargetMember:
     is_a: SourceRecordProduct
     attributes:
-      original_source: {}
+      original_source: {value_presence: PRESENT, annotations: {cs:nullable: true}}
       descriptor: {range: SourceValue, inlined: true, required: true}
       semantic_target: {range: SourceValue, inlined: true, required: true}
   DdoContextualTargetScope:
@@ -42,7 +42,7 @@ classes:
     attributes:
       subject: {required: true}
       subject_definition: {required: true}
-      original_source: {}
+      original_source: {value_presence: PRESENT, annotations: {cs:nullable: true}}
       analyzed_scope: {range: DdoContextualTargetScope, inlined: true, required: true}
   DdoContextualTargetPacket:
     is_a: SourceRecordProduct
@@ -83,7 +83,7 @@ classes:
   DdoContextualVectorProduct:
     is_a: SourceRecordProduct
     attributes:
-      original_source: {}
+      original_source: {value_presence: PRESENT, annotations: {cs:nullable: true}}
       profile: {range: SourceValue, inlined: true, required: true}
       vector: {range: DdoContextualVector, inlined: true, required: true}
       rendered: {range: DdoContextualRenderedInput, inlined: true, required: true}
@@ -102,7 +102,7 @@ classes:
   DdoContextualCarrierInput:
     is_a: DdoSemanticProductReference
     attributes:
-      member_id: {}
+      member_id: {annotations: {cs:nullable: true}}
       kind_contract: {required: true}
       project_id: {required: true}
       subject_definition: {required: true}
@@ -153,12 +153,12 @@ classes:
   DdoContextualProductInput:
     is_a: DdoSemanticProductReference
     attributes:
-      member_id: {}
+      member_id: {annotations: {cs:nullable: true}}
       kind_contract: {required: true}
       project_id: {required: true}
       subject_definition: {required: true}
       subject: {required: true}
-      original_source: {}
+      original_source: {value_presence: PRESENT, annotations: {cs:nullable: true}}
       analyzed_scope_meaning: {required: true}
   DdoContextualWitnessHypothesis:
     is_a: SourceRecordProduct

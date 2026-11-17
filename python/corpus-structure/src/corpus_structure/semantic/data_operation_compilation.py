@@ -636,6 +636,7 @@ def _validate_binding_fields(
                             None,
                             None,
                             False,
+                            nullable=False,
                         )
                     )
                 ),
@@ -756,7 +757,7 @@ def _validate_literal(
         return
     prop = PropertyDefinition(
         **{field.name: prop_facts[field.name] for field in fields(PropertyDefinition)}
-    )
+           )
     prop = replace(prop, name="value", required=True)
     primitives = {}
     vocabularies = ()
@@ -981,11 +982,11 @@ def compile_data_operations(
     for kind in tuple(kinds.values()):
         for field in json.loads(kind.facts).get("effective_python", {}).get("fields", []):
             annotation = field["annotation"] or ""
-            multivalued = annotation.startswith(("list[", "tuple[", "set[", "frozenset["))
-            element = annotation.split("[", 1)[1].rsplit("]", 1)[0] if multivalued else annotation
+            nullable = annotation.endswith(" | None")
+            value_annotation = annotation.removesuffix(" | None")
+            multivalued = value_annotation.startswith(("list[", "tuple[", "set[", "frozenset["))
+            element = value_annotation.split("[", 1)[1].rsplit("]", 1)[0] if multivalued else value_annotation
             element = element.replace(", ...", "")
-            nullable = element.endswith(" | None")
-            element = element.removesuffix(" | None")
             target = (
                 python_types.get(element)
                 or aliases.get(element)
@@ -1016,7 +1017,7 @@ def compile_data_operations(
                                 field["name"],
                                 property_id,
                                 target,
-                                not nullable and field["default"] is None,
+                                field["default"] is None,
                                 multivalued,
                                 None,
                                 None,
@@ -1024,6 +1025,7 @@ def compile_data_operations(
                                 None,
                                 None,
                                 False,
+                                nullable=nullable,
                             )
                         ),
                         "default": field["default"],
@@ -2535,6 +2537,8 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
 
 def _materialize_json_schema_properties(kinds, nodes, edges) -> None:
     """Realize the same closed wire schema as typed model fields, without a shadow catalog."""
+    from jsonschema import Draft7Validator
+
     from .data_operation_wire import (
         KIND_PREFIX,
         json_schema_field_type,
@@ -2600,7 +2604,8 @@ def _materialize_json_schema_properties(kinds, nodes, edges) -> None:
                 str(root["maximum"]) if "maximum" in root else None,
                 root.get("pattern"),
                 True,
-            )
+                       nullable=Draft7Validator(field_schema).is_valid(None),
+                   )
             facts = {**asdict(prop), "json_schema": field_schema}
             kinds[prop_id] = EffectiveKind(
                 prop_id, name, "property", canonical_bytes(facts), kind.origins

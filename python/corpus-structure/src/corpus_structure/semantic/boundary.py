@@ -222,6 +222,8 @@ def build_boundary_adapters(
                         cardinality["max_length"] = prop.maximum_cardinality
                 if cardinality:
                     annotation = _ANNOTATED[annotation, Field(**cardinality)]
+            if prop.nullable:
+                annotation = annotation | None
             required = prop.name in definition.identity_slots or (
                 prop.constraint_scope == "shape" and prop.required
             )

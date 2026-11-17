@@ -70,7 +70,10 @@ def primary(frame, root, children, memberships=()):
                     extents=[
                         dict(
                             projection=frame.projection_digest,
-                            native_pointer=POINTER,
+                            native_pointer=next(
+                                piece["item_ref"] for piece in frame.value["pieces"]
+                                if piece["kind"] == "native_text"
+                            ),
                             start=start,
                             end=start + len(literal),
                         )

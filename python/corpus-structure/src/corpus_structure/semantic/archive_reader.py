@@ -56,6 +56,10 @@ def reconstruct_release(
     from .archive_wire import ArchiveProducts, decode_products
     from .boundary import build_boundary_adapters
     from .identity import canonical_bytes
+    from .types import SEMANTIC_COMPILER_VERSION
+
+    if profile.compiler_version != SEMANTIC_COMPILER_VERSION:
+        raise ValueError(f"unsupported archived compiler {profile.compiler_version}")
 
     products = products if isinstance(products, ArchiveProducts) else decode_products(products)
     definitions = products.definitions
@@ -79,10 +83,6 @@ def reconstruct_release(
         if "conditional_rules.json" in artifact_map
         else {}
     )
-    from .types import SEMANTIC_COMPILER_VERSION
-
-    if profile.compiler_version != SEMANTIC_COMPILER_VERSION:
-        raise ValueError(f"unsupported archived compiler {profile.compiler_version}")
     recipe = json.loads(artifact_map["boundary_recipe.json"].content)
     if (
         set(recipe) != {"abi", "primitives", "aliases", "descendants", "conditional_scope"}

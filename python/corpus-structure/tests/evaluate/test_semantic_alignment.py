@@ -322,8 +322,9 @@ def test_external_known_endpoints_need_no_redeclared_entity_or_label():
 def test_scalar_declared_identity_attributes_align_without_a_label():
     p = prepared()
     prop = PropertyDefinition(
-        "name", NAME, "string", False, False, None, None, None, None, None, False
-    )
+        "name", NAME, "string", False, False, None, None, None, None, None, False,
+               nullable=False,
+           )
     p.definitions = (
         p.definitions[0],
         ClassDefinition("Person", P, ("Entity",), (prop,), ("id",), (("id",), ("name",))),
@@ -360,7 +361,8 @@ def test_release_qualification_provenance_does_not_change_meaning_and_statement_
         None,
         False,
         key_role="provenance",
-    )
+                nullable=False,
+            )
     p.definitions = (
         *p.definitions,
         ClassDefinition(
@@ -381,6 +383,7 @@ def test_release_qualification_provenance_does_not_change_meaning_and_statement_
                     None,
                     None,
                     False,
+                    nullable=False,
                 ),
                 PropertyDefinition(
                     "polarity",
@@ -394,6 +397,7 @@ def test_release_qualification_provenance_does_not_change_meaning_and_statement_
                     None,
                     None,
                     False,
+                    nullable=False,
                 ),
             ),
             (),
@@ -461,7 +465,8 @@ def test_equal_labels_cannot_override_incompatible_declared_identity_keys():
         None,
         None,
         False,
-    )
+                   nullable=False,
+               )
     p.definitions = (
         p.definitions[0],
         ClassDefinition(
@@ -504,7 +509,8 @@ def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_pl
         None,
         False,
         equals_string="inspection",
-    )
+               nullable=False,
+           )
     inspector = PropertyDefinition(
         "inspector",
         "https://example.org/inspector",
@@ -517,7 +523,8 @@ def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_pl
         None,
         None,
         False,
-    )
+                    nullable=False,
+                )
     custodian = PropertyDefinition(
         "custodian",
         "https://example.org/custodian",
@@ -530,7 +537,8 @@ def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_pl
         None,
         None,
         False,
-    )
+                    nullable=False,
+                )
     note = PropertyDefinition(
         "note",
         "https://example.org/note",
@@ -543,7 +551,8 @@ def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_pl
         None,
         None,
         False,
-    )
+               nullable=False,
+           )
     p.definitions = (
         *p.definitions,
         ClassDefinition("Value", "https://example.org/Value", (), (), (), abstract=True),
