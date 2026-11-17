@@ -586,7 +586,7 @@ invalidation retain their native library lifecycle. Native row-type evolution re
 only exact declared dependencies around physical changes. [D3's realization](D3-database.md#unified-operation-realization)
 owns the concrete boundary; PostgreSQL transactional authority is unchanged.
 
-> Decision: [ADR-0106](../adr/0106-postgresql-current-realization.md)
+> Decision: [ADR-0128](../adr/0128-wire-contract-boundary-validation.md)
 
 **Implemented; scoped native Tested · 2026-11-14.** Explicit discovery target input roles
 select their authenticated parent product/member. Native registration/admission independently check
@@ -888,10 +888,12 @@ never relabels trimmed bytes as an original reply. D6 owns this contract and its
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Captured native
 schemas and explicit field correspondence derive structural Python wire types and fixed methods.
 Draft7 and exact JSON transport retain runtime enforcement; static types do not confer native
-authorization. Current compiler identities describe current generated artifacts, while historical
+authorization. Accepted target, implementation/qualification Proposed2026-11-17: SQL request
+validation precedes effects; envelopes bind the installed contract digest; client digest equality
+and result validation precede commit. Internally committing calls keep SQL result checks. Current compiler identities describe current generated artifacts, while historical
 declaration logs retain their producing compiler maps unchanged.
 
-> Decision: [ADR-0106](../adr/0106-postgresql-current-realization.md)
+> Decision: [ADR-0128](../adr/0128-wire-contract-boundary-validation.md)
 
 **Implemented; rollback authoring scoped Tested · 2026-11-14.** Compared frozen table/schema
 policies own complete grants, column ACLs, effective purpose CREATE denial and declared ownership.

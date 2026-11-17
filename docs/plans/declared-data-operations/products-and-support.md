@@ -583,7 +583,7 @@ client-side batching over single-item natives (keeps one round trip and one vali
 
 ### PE-S27, SQL half — wire validation placement (PE-F04)
 
-**Rule change PE-RC01** (ADR-C, superseding ADR-0106; the Python half is in the contracts
+**Rule change PE-RC01** (ADR-0128, superseding ADR-0106; the Python half is in the contracts
 companion). Each externally callable native entrypoint validates its complete input once per
 call against the contract installed with its release, before any effect; a set-form call
 validates the whole set once. Native wrappers do not re-validate their own results, and

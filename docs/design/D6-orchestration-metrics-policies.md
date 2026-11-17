@@ -207,6 +207,14 @@ reduction and native settlement authority remain. The DDO plan owns PE-S23 imple
 
 > Decision: [ADR-0123](../adr/0123-two-stage-byte-admission.md)
 
+**Accepted wire target; implementation/qualification Proposed · 2026-11-17.** Set calls keep
+per-item outcomes/fences while validating the complete set once at SQL ingress. Client contract
+digest equality and result validation complete before transaction commit; a mismatch rolls effects
+back. Semantic authorization, trust and physical claim ownership remain live. D3 and the DDO
+contracts/products companions own N2 and its acceptance; no second transport catalogue is added.
+
+> Decision: [ADR-0128](../adr/0128-wire-contract-boundary-validation.md)
+
 ## Invocation-owned characterization execution
 
 **Accepted target; implementation/qualification Proposed · 2026-11-17.** One process execution

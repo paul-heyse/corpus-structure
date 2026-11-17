@@ -225,7 +225,7 @@ dependency, not synchronization barriers: any slice whose prerequisites are met 
 | PE-S25 | Process-scoped execution host; carried verified basis | PE-F19, F03 (execution), PE-RC05 | demand-planning / DDO-06 | PE-S04, S05, S23, ADR-0125 |
 | **Wave 4 — native successor N2 (wire change)** | | | | |
 | PE-S26 | Set-form native operations; readiness watermark and single-obligation read; member set inserts | PE-F10, F06 (waiting obligations), F12 (members) | products, contracts, demand-planning / DDO-03–05 | N1 |
-| PE-S27 | Wire validation placement and contract digest | PE-F04 (checks), PE-RC01 | contracts, products / DDO-03, 04 | PE-S00, PE-S01, ADR-C |
+| PE-S27 | Wire validation placement and contract digest | PE-F04 (checks), PE-RC01 | contracts, products / DDO-03, 04 | PE-S00, PE-S01, ADR-0128 |
 | **Wave 5 — model-call granularity** | | | | |
 | PE-S28 | Encoder batch qualification (bounded) | PE-F13 | operations / DDO-07 | — |
 | PE-S29 | Encoder batch form | PE-F13, PE-RC04 | operations / DDO-07, 08 | PE-S02, S07, S28, ADR-E; its native form check rides the first successor after PE-S28 passes |

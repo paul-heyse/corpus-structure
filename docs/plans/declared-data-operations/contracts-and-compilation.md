@@ -758,7 +758,7 @@ and lands first.
 
 ### PE-S27 — validation placement (PE-F04, PE-RC01)
 
-**Rule change PE-RC01** (ADR-C, superseding ADR-0106 and restating its renewal-checkout,
+**Rule change PE-RC01** (ADR-0128, superseding ADR-0106 and restating its renewal-checkout,
 notice-handler and compiler-retirement decisions unchanged). Draft7 remains authoritative for
 wire shape. Four validations run per call today; the Python and SQL checks validate against
 different authorities (the on-disk protocol and the contract installed with the release), so
@@ -775,7 +775,7 @@ validators compile once per process. Client result validation completes before t
 transaction commits, so an off-contract result rolls its effects back; a call path that commits
 inside the native call keeps its SQL output check. PE-S00 reads the pinned `pg_jsonschema`
 source only to inform the cost of SQL input validation. Moving the result check to SQL would
-need a plan amendment and a revised ADR-C. ADR-C is written after that PE-S00 item and before
+need a plan amendment and a revised ADR-0128. ADR-0128 is written after that PE-S00 item and before
 PE-S27. Generated non-DDO calls adopt the pattern only where their
 SQL side validates input; otherwise they keep both client checks.
 

@@ -346,7 +346,14 @@ No operational database is deployed by this target acceptance.
 
 **Selected PostgreSQL realization; implementation/qualification bounded by the DDO coordinator · 2026-11-14.**
 Captured native schemas derive structural TypedDict views, explicit nominal field correspondence and
-fixed call methods; Draft7 and exact JSON codecs retain runtime semantic enforcement. SQLAlchemy
+fixed call methods; Draft7 and exact JSON codecs retain runtime semantic enforcement.
+**Accepted validation-placement target; implementation/qualification Proposed · 2026-11-17.**
+SQL validates requests before effects; native envelopes name the installed contract digest.
+The client requires equality with its captured prepared protocol and validates results before
+commit, rolling back mismatches. Under that equality neither repeats its own outbound check.
+Paths committing internally keep SQL output checks; non-DDO methods adopt this only when SQL
+input validation exists. Set calls validate their whole input once and retain per-item domain,
+authorization and fencing checks. Static typing grants no native authority. SQLAlchemy
 Core owns typed relational projections. The writer pool reserves one renewal-thread checkout with
 no transaction between cycles; foreground ports retain no checkout through inference waits and
 admission accounts for the remaining driver/worker inventory. Purpose-specific engines stay distinct.
@@ -363,7 +370,7 @@ Historical compiler maps retain producing provenance while current generated art
 compiler identity. Legacy table/interchange compilation retires after its live Arrow helper consumers
 move. Public selected-read/reuse and sealed-history removal remain the DDO packages' actual obligations.
 
-> Decision: [ADR-0106](../adr/0106-postgresql-current-realization.md)
+> Decision: [ADR-0128](../adr/0128-wire-contract-boundary-validation.md)
 
 **Accepted target, Proposed until implemented (2026-11-02).** SQLAlchemy Core is the primary relational authoring/execution representation. Model-bound expressions and pglast declarations generate eligible native products under versioned custody/catalog/admission profiles and the existing Alembic lifecycle. Restricted PostgreSQL enforcement remains authoritative. Structured SQL bodies require actual profile qualification; retained specialized kernels are explicitly bound. Published-address consumer constraints and read selection share one model-owned binding.
 
