@@ -15,7 +15,7 @@ from corpus_structure.settings import Settings, SettingsReport
 
 GROUPS = (
     "db", "schema", "ingest", "project", "run", "status", "tasks", "query", "explain", "golden",
-    "eval", "mcp", "direct", "context", "doctor", "setup", "results", "test", "model",
+    "eval", "mcp", "context", "doctor", "setup", "results", "test", "model",
 )  # fmt: skip
 
 
@@ -29,6 +29,7 @@ def test_help_lists_groups_without_building_settings(cli) -> None:
     commands = result.stdout.split("Commands")[1]
     for name in GROUPS:
         assert f" {name} " in commands, name
+    assert " direct " not in commands
     assert cli("status", "--help", settings=refuse).exit_code == 0
     assert cli(settings=refuse).exit_code in (0, 2)  # no_args_is_help, never settings
 

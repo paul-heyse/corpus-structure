@@ -12,12 +12,9 @@ from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from corpus_structure.methods.record_readings import retained_reading_groups
-
 from .data_operation_json import DdoJsonValue, json_bytes, json_loads
 from .data_operation_model import json_context_meaning
 from .declared_candidate_products import candidate_member_id, candidate_member_values
-from .reading_resolution_products import resolved_reading_events
 from .record_contracts import interpretation_identity, record_family_contract, record_identity
 from .rich_knowledge_contracts import DdoRichContext, DdoRichSelectedMember
 
@@ -147,6 +144,10 @@ def grouped_candidate_product(
     A member/reading selector identifies an occurrence. It never truncates that
     occurrence's alternatives or implies completeness outside the selected product.
     """
+    from corpus_structure.methods.record_readings import retained_reading_groups
+
+    from .reading_resolution_products import resolved_reading_events
+
     definition = next(
         (value for value in prepared.definitions if value.iri == selected.nominal), None
     )
