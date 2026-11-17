@@ -86,6 +86,16 @@ artifact/structural journeys remain required; old algorithm-replay or substitute
 cannot qualify their replacement. Protected structural judgments remain separate from source
 membership and do not confer truth on an assembled dossier.
 
+**Retained source discovery · accepted target detail,2026-11-16.**
+`source.selected_views/discovery` consumes the explicitly named frozen set
+`selected-source-views`, containing exact admitted semantic product/member references and their
+qualified original contexts. It retains computational-origin and original-document association
+checks and distinguishes an explicitly empty complete selection from unknown coverage. Consumers
+of already retained views select this operation, with `complete` explicit; they do not manufacture a
+new PDF capture episode. Fresh original-byte preparation keeps the separate declared PDF capture
+frontdoor. Product pins select eligible authenticated support; they do not fabricate execution
+custody, silently aggregate different producing episodes or grant access to unrelated project data.
+
 ## One operation authority and prepared execution · Domain-model I02/I04/I08
 
 DDO-07/08 own the complete operation-by-operation retirement inventory, with current disposition in

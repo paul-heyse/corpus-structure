@@ -273,6 +273,10 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-14 | Accepted multi-coordinate literals can reverse equal text pieces without detection. | **Implemented, bounded Python qualification**, `bc68c0789`: compare global selected-projection bounds or explicit native field origins from the verified source bridge. Unknown cross-coordinate order refuses; discovery order and pointer sorting confer no authority. Two native fixture emitters migrated `a673eb5d3`. Pure121 had120passed/1missing-origin fixture; fixture repair43 passed `dc6f0bf4726f4ea195c3535fcb956206`, integrated recipe/helpers3 passed `c5c0ef6b340445199e01c55c3310cf3f`. Independent review closed the original discovery-order defect before acceptance. Actual tamper retry remains open. |
 | DDO-SI-15 | A copied grade with output role `copy` reaches a role-specific STRICT receipt lookup before the intended implementation-authority refusal. | **Implemented, native confirmation open**, `553e167ca`: authenticate the protected implementation first, after unchanged trusted producer fences. No SQLSTATE weakening; source review closed. |
 | DDO-SI-16 | PDF recognition policy lookup omits its actual archived `data-operations/contracts/` namespace. | **Implemented, native confirmation open**, `553e167ca`: retained PostgreSQL diagnostic from `2fadaf72467b4b67b07855878c50914c` identifies the second STRICT profile lookup, before the `wrong-original` negative. Namespace corrected; exact release/digest/SHA and STRICT contract checks remain. This is separate from SI11's malformed-pin guard. |
+| DDO-SI-17 | Current retained consumers choose a PDF discovery operation absent from their declared primary model; retained-view discovery lacks a named set for cross-demand acquisition. | **Implemented**, `3a7cda88b`: retained discovery declares `selected-source-views`; consumers freeze actual qualified member pins and choose the retained producer. Fresh capture remains separate. Pure14 passed `92d9c64e077b4d8aaadf1b598ae9a587`; actual provider/native retries remain open. No recapture or unpinned project-wide import substitutes for retained custody. |
+| DDO-SI-18 | The actual literal-provider fixture omits the imported canonical helper from its acquired source collection. | **Implemented**, `64973fc93`: capture the actual helper module bytes explicitly, preserving the prepared callable source guard. Current pure recipe3 passed below; actual provider retry remains open. |
+| DDO-SI-19 | A captured source-address operation's bare primitive aliases collide with composite domain kind aliases. | **Implemented**, `e859b748e`: name authoritative `primitive:integer`/`primitive:string` in the declaration, preserving the original typed callable and compiler equality check. Counterfailure `b217da205a06480181e369e9359e4d66`; actual composite/isolated recipe3 passed `8c657a449e3649fca136c60a012b930e`. |
+
 
 
 Actual follow-up evidence at frozen `6271711eb`: export6 **passed** above. Native5
@@ -286,6 +290,19 @@ including spaCy, declare CUDA; later GPU-owning qualification is serial with one
 overlapping GPU cohort. The lock remains required. These failures remain retained, not reclassified
 as passes. Pure namespace/refusal controls18 passed `807129b88ddd403abfd018c141edad94`.
 Native capture, actual retries, development adoption and DDO-12 remain open.
+
+The remaining8 actual-provider invocation `d21e50f18d374ca9aebf1bac3a15585a` at frozen
+`6271711eb` settled **failed8**, complete reporting/custody, native `no_claim`, no reporting errors.
+Seven reached SI17 before inference; the literal case reached SI18 before its factory body.
+Serial execution advanced through all cases without a900-second watchdog. Owned processes and
+private PostgreSQL were drained. Current whole typing **passed** `900ac7c7855145acb985d873d23f92e2`
+before the final declaration/helper additions; final-source checks remain required.
+Rollback-only native preview/apply/candidate `4ee04fc86e8040c99dd150df448b8488` /
+`dae2f8d4cbff4268bbe9a094558c12d9` / `20fcfd878af3447aa64c1fe71724ff04` succeeded with14native,
+zeroordinary/privilege operations, but subsequent identity source changes correctly refuse candidate
+registration. It is superseded before registration, with no persistent deployment. Reacquire a
+coherent frozen successor rather than bypassing the exact source check.
+
 
 
 Cross-release request execution (`c0e1b6f4d`, `f5ac9e2a3`, `726a411bc`) uses authenticated attach
