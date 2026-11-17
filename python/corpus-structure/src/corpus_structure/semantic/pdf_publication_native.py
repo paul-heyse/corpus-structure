@@ -566,13 +566,15 @@ BEGIN
     sql += """INSERT INTO pg_temp.pc_pdf_stage_endpoint
  """ + rows + """
  SELECT p_build,p_build,c.local_id,(endpoint.ordinality-1)::bigint,
- CASE WHEN endpoint.value ? 'input_index' THEN (input.body->>'task_id')::bigint ELSE 0 END,
- CASE WHEN endpoint.value ? 'input_index' THEN input.body->>'product_key' ELSE '@self' END,
- CASE WHEN endpoint.value ? 'input_index' THEN input.body->>'content_digest' ELSE '@self' END,
+ CASE WHEN endpoint.value ? 'input_index' THEN COALESCE((input.body->>'task_id')::bigint,0) ELSE 0 END,
+ CASE WHEN endpoint.value ? 'input_index' THEN COALESCE(input.body->>'product_key','@missing') ELSE '@self' END,
+ CASE WHEN endpoint.value ? 'input_index' THEN COALESCE(input.body->>'content_digest','@missing') ELSE '@self' END,
  endpoint.value->>'occurrence_id',endpoint.value->>'role'
  FROM rows_ c CROSS JOIN LATERAL jsonb_array_elements(c.body_->'endpoints') WITH ORDINALITY endpoint(value,ordinality)
  LEFT JOIN ops.pdf_stage_companion input ON input.product_id=p_build AND input.family='input' AND input.local_id=endpoint.value->>'input_index'
  WHERE c.family='relation';
+ IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_endpoint WHERE target_content_digest='@missing') THEN
+ RAISE EXCEPTION 'companion endpoint input is outside the admitted input inventory' USING ERRCODE='23514'; END IF;
 """
     sql += adopt(relations[4], "changed companion endpoint duplicate")
     from .pdf_staging import stage_upload_profile
@@ -580,7 +582,8 @@ BEGIN
     profile = stage_upload_profile()
     return ((sql + "END $$;\n")
             .replace("total>65536", "total>" + str(profile["max_rows"]))
-            .replace("total_bytes>67108864", "total_bytes>" + str(profile["max_native_bytes"])))
+            .replace("total_bytes>67108864", "total_bytes>" + str(profile["max_native_bytes"]))
+            .replace("octet_length(p_key)>1024", "octet_length(p_key)>" + str(profile["max_replay_key_bytes"])))
 
 
 def publication_sql(*, target_metadata=None) -> str:
