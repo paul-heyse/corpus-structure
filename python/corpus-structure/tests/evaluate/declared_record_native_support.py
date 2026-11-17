@@ -1385,9 +1385,8 @@ def refuse_exchanged_fitted_body(fitted, monkeypatch):
     original_error = observed[0].orig
     assert isinstance(original_error, psycopg.errors.CheckViolation)
     assert original_error.sqlstate == "23514"
-    assert "fitted policy differs from actual frozen feature" in (
-        original_error.diag.message_primary or ""
-    )
+    message = original_error.diag.message_primary or ""
+    assert "fitted policy differs from its actual CPU result" in message, message
     # The rejected request never obtains a fit publication or an issuer receipt.
     with journey.kernel.purpose("evaluate").begin() as connection:
         from corpus_structure.semantic.demand_results import read_demand_result
