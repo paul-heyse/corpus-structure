@@ -393,6 +393,7 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
         reacquire_record_feature_grade(connection, fitted.feature.selection)
 
 
+@pytest.mark.parametrize("current_record_policy", [1], indirect=True)
 def test_actual_completed_empty_carrier_grade_preserves_no_output_opportunity(
     current_record_policy,
 ):

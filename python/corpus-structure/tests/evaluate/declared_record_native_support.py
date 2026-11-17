@@ -312,7 +312,9 @@ class CurrentRecordPolicyJourney:
 
 
 @contextmanager
-def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, recipe):
+def current_record_policy_journey(
+    scenario_seeds, tmp_path, monkeypatch, *, recipe, source_count=4
+):
     import pypdfium2 as pdfium
 
     from corpus_structure.core.evidence import document_key
@@ -342,7 +344,7 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
                 }
             )
             originals = []
-            for ordinal in range(4):
+            for ordinal in range(source_count):
                 document = pdfium.PdfDocument.new()
                 page = document.new_page(200 + ordinal, 300)
                 page.close()
@@ -390,7 +392,7 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
             project_id=PROJECT,
             database_capacity=6,
         )
-        assert result.receipt_count == 8
+        assert result.receipt_count == 2 * source_count
         contracts = {
             identity.key
             for identity in kernel.model.identities
@@ -459,8 +461,8 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
             )
             for items in by_original.values()
         ]
-        assert len(selected) == 4
-        assert len({pin.original_source for pin in (item.pin for item in selected)}) == 4
+        assert len(selected) == source_count
+        assert len({pin.original_source for pin in (item.pin for item in selected)}) == source_count
         yield CurrentRecordPolicyJourney(
             kernel,
             demand,
@@ -470,9 +472,13 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
 
 
 @pytest.fixture
-def current_record_policy(scenario_seeds, tmp_path, monkeypatch):
+def current_record_policy(scenario_seeds, tmp_path, monkeypatch, request):
     with current_record_policy_journey(
-        scenario_seeds, tmp_path, monkeypatch, recipe=policy_recipe(tmp_path)
+        scenario_seeds,
+        tmp_path,
+        monkeypatch,
+        recipe=policy_recipe(tmp_path),
+        source_count=getattr(request, "param", 4),
     ) as journey:
         yield journey
 
