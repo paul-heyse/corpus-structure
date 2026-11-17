@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from hashlib import sha256
 from typing import TYPE_CHECKING, cast
 
@@ -54,7 +55,21 @@ def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperat
     ]
     if len(interfaces) > 1:
         raise SemanticRefusal("release has ambiguous source interface projection")
-    return replace(model, source_interfaces=interfaces[0].content) if interfaces else model
+    return (
+        _bound_model_with_interfaces(artifacts[0].content, interfaces[0].content)
+        if interfaces
+        else model
+    )
+
+
+@lru_cache(maxsize=8)
+def _bound_model_with_interfaces(
+    model_content: bytes, source_interfaces: bytes
+) -> EffectiveDataOperationModel:
+    """Reuse only immutable artifact composition, never acquired authorization."""
+    return replace(
+        read_effective_data_operations(model_content), source_interfaces=source_interfaces
+    )
 
 
 def require_data_operation_call_context(
