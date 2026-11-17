@@ -23,7 +23,7 @@ from corpus_structure.methods.gliner import (
     GlinerRefused,
     GlinerReport,
 )
-from corpus_structure.methods.gliner_worker import GlinerWorkerError
+from corpus_structure.methods.gliner_worker import GlinerAdmission, GlinerWorkerError
 from corpus_structure.methods.source_preparation import (
     POLICY,
     POLICY_V5,
@@ -307,16 +307,24 @@ class M1GlinerRequest:
 
 @dataclass(frozen=True)
 class M1GlinerReply:
+    admissions: tuple[GlinerAdmission, ...] = ()
     reports: tuple[GlinerReport, ...] = ()
-    failure: Literal["none", "refused", "worker"] = "none"
+    failure: Literal["none", "worker"] = "none"
     message: str = ""
 
     def __post_init__(self):
         if self.failure == "none":
             if self.message:
                 raise ValueError("successful M1 reply cannot carry a provider failure")
-        elif self.failure not in {"refused", "worker"} or self.reports or not self.message:
-            raise ValueError("M1 failure reply requires one declared disposition and reason")
+            admitted = tuple(value for value in self.admissions if value.admitted)
+            if len(self.reports) != len(admitted) or any(
+                (report.context_id, report.context_digest)
+                != (admission.context_id, admission.context_digest)
+                for admission, report in zip(admitted, self.reports, strict=True)
+            ):
+                raise ValueError("M1 reports must match the exact admitted input population")
+        elif self.failure != "worker" or self.reports or self.admissions or not self.message:
+            raise ValueError("M1 worker failure requires one physical disposition and reason")
 
 
 @dataclass(frozen=True)
@@ -333,54 +341,6 @@ class M1CandidateProduct:
     contribution_coordinate_texts: tuple[Mapping[str, Any], ...] = ()
 
 
-def plan_candidate_replies(
-    *,
-    prepared,
-    model,
-    view,
-    prepared_source,
-    annotation_result,
-    cfg,
-    check_active,
-    generic_role_guidance=False,
-    source_capture_rules=(),
-    primary_products=(),
-) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
-    """Translate only bounded provider dispositions into the original kernel."""
-    plan = plan_candidates(
-        prepared=prepared,
-        model=model,
-        view=view,
-        prepared_source=prepared_source,
-        annotation_result=annotation_result,
-        cfg=cfg,
-        check_active=check_active,
-        generic_role_guidance=generic_role_guidance,
-        source_capture_rules=source_capture_rules,
-        primary_products=primary_products,
-    )
-    reports, failure = None, None
-    try:
-        while True:
-            try:
-                request = plan.throw(failure) if failure is not None else plan.send(reports)
-            except StopIteration as completed:
-                return completed.value
-            reply = yield request
-            if not isinstance(reply, M1GlinerReply):
-                raise TypeError("M1 requires its typed provider reply")
-            if reply.failure == "refused":
-                reports, failure = None, GlinerRefused(reply.message)
-            elif reply.failure == "worker":
-                reports, failure = None, GlinerWorkerError(reply.message)
-            elif len(reply.reports) != len(request.inputs):
-                raise ValueError("M1 reply changed its exact inference question population")
-            else:
-                reports, failure = reply.reports, None
-    finally:
-        plan.close()
-
-
 def plan_candidates(
     *,
     prepared,
@@ -393,7 +353,7 @@ def plan_candidates(
     generic_role_guidance=False,
     source_capture_rules=(),
     primary_products=(),
-):
+) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
     """Execute only explicitly prepared language, annotation and selected primary facts.
 
     Preparation and native binding own discovery. This kernel never obtains a
@@ -548,45 +508,6 @@ def plan_candidates(
         operation["operation_key"] = operation_identity(operation, context=index)
         contribution_batches.append(ContributionBatch(operations=(operation,)))
 
-    def stop_failed_worker(reason, family, index):
-        terminal = "resident worker failed; no automatic restart/fallback"
-        for row in details["execution"]:
-            if row["outcome"] != "pending":
-                continue
-            row.update(outcome="not_run", reason=terminal)
-            for variant, _, pack in packs[row["family"]]:
-                if variant == row.get("variant", "default"):
-                    retain_unexecuted(row["context"], pack, "not_run", terminal)
-        if local_pack is not None:
-            attempted = {row["context"] for row in details["local_execution"]}
-            for pending in range(len(prepared_source.selections)):
-                if pending not in attempted:
-                    details["local_execution"].append(
-                        dict(context=pending, outcome="not_run", reason=terminal)
-                    )
-                    retain_unexecuted(pending, local_pack, "not_run", terminal, local=True)
-        details["producer_failure"] = str(reason)
-        combined = ContributionBatch.combine(contribution_batches)
-        return M1CandidateProduct(
-            outcome=ObservationOutcome.PRODUCED
-            if combined.contributions
-            else ObservationOutcome.FAILED,
-            error=None if combined.contributions else str(reason),
-            parse_detail=details,
-            contributions=combined.contributions,
-            contribution_operations=combined.operations,
-            contribution_coordinate_texts=combined.coordinate_texts,
-            coverage=(
-                *coverage,
-                CoverageDraft(
-                    family=family,
-                    scope=prepared_source.selections[index].region,
-                    outcome="failed",
-                    reason=str(reason),
-                ),
-            ),
-        )
-
     for region in prepared_source.regions:
         for family in region.families:
             coverage.append(
@@ -613,10 +534,14 @@ def plan_candidates(
             parse_detail=details,
             coverage=tuple(coverage),
         )
+    from corpus_structure.methods.gliner_batching import gliner_input_batches
+
+    contexts = {}
+    context_errors = {}
     for index, selection in enumerate(prepared_source.selections):
         check_active()
         try:
-            context = selection.context(
+            contexts[index] = selection.context(
                 prepared_source.source,
                 max_chars=cfg.max_context_chars,
                 max_pieces=cfg.max_context_pieces,
@@ -624,6 +549,77 @@ def plan_candidates(
                 preparation=prepared_source.preparation,
                 policy=cfg.policy,
             )
+        except ContextRefused as error:
+            context_errors[index] = str(error)
+
+    # Prepare the entire selection population before the first physical question.
+    # Question results are keyed independently of physical chunking; reduction below
+    # keeps the original context/local/family/variant order.
+    questions = {}
+    for index, selection in enumerate(prepared_source.selections):
+        if index not in contexts:
+            continue
+        item = GlinerInput.from_context(contexts[index])
+        if local_pack is not None:
+            questions.setdefault(("local", "default", local_pack), []).append((index, item))
+        for family in selection.families:
+            for variant, _, pack in packs[family]:
+                questions.setdefault((family, variant, pack), []).append((index, item))
+    results = {}
+    worker_failure = None
+    for (family, variant, pack), members in questions.items():
+        inputs = tuple(item for _, item in members)
+        for ordinals, refusal in gliner_input_batches(
+            cfg.profile(), pack, inputs, threshold=cfg.threshold, overlap_policy="flat",
+            native_profile=cfg.native_execution_profile,
+        ):
+            check_active()
+            if refusal is not None or worker_failure is not None:
+                for ordinal in ordinals:
+                    results[members[ordinal][0], family, variant] = (
+                        "not_run" if worker_failure is not None else "limited",
+                        worker_failure or refusal,
+                    )
+                continue
+            requested = tuple(inputs[ordinal] for ordinal in ordinals)
+            reply = yield M1GlinerRequest(
+                cfg.profile(), pack, requested, cfg.threshold, cfg.native_execution_profile
+            )
+            if not isinstance(reply, M1GlinerReply):
+                raise TypeError("M1 requires its typed per-input provider reply")
+            if reply.failure == "worker":
+                worker_failure = reply.message
+                details["producer_failure"] = worker_failure
+                for ordinal in ordinals:
+                    results[members[ordinal][0], family, variant] = ("not_run", worker_failure)
+                continue
+            if len(reply.admissions) != len(requested) or any(
+                (admission.context_id, admission.context_digest)
+                != (item.context_id, item.context_digest)
+                for admission, item in zip(reply.admissions, requested, strict=True)
+            ):
+                raise ValueError("M1 reply changed its original inference question population")
+            reports = iter(reply.reports)
+            for ordinal, admission in zip(ordinals, reply.admissions, strict=True):
+                results[members[ordinal][0], family, variant] = (
+                    ("report", next(reports)) if admission.admitted
+                    else ("limited", admission.reason or "native input refused")
+                )
+
+    def selected_report(index, family, variant):
+        outcome, value = results[index, family, variant]
+        if outcome == "limited":
+            raise GlinerRefused(value)
+        if outcome == "not_run":
+            raise GlinerWorkerError(value)
+        return value
+
+    for index, selection in enumerate(prepared_source.selections):
+        check_active()
+        try:
+            if index in context_errors:
+                raise ContextRefused(context_errors[index])
+            context = contexts[index]
         except ContextRefused as error:
             if local_pack is not None:
                 details["local_execution"].append(
@@ -710,13 +706,7 @@ def plan_candidates(
         if local_pack is not None:
             check_active()
             try:
-                (local_report,) = yield M1GlinerRequest(
-                    cfg.profile(),
-                    local_pack,
-                    (GlinerInput.from_context(context),),
-                    cfg.threshold,
-                    cfg.native_execution_profile,
-                )
+                local_report = selected_report(index, "local", "default")
                 contribution_batches.append(
                     adapt_report(
                         local_report,
@@ -734,13 +724,11 @@ def plan_candidates(
                 )
                 details["local_execution"].append(dict(context=index, outcome="succeeded"))
             except (GlinerRefused, GlinerWorkerError) as error:
-                outcome = "limited" if isinstance(error, GlinerRefused) else "failed"
+                outcome = "limited" if isinstance(error, GlinerRefused) else "not_run"
                 details["local_execution"].append(
                     dict(context=index, outcome=outcome, reason=str(error))
                 )
                 retain_unexecuted(index, local_pack, outcome, str(error), local=True)
-                if isinstance(error, GlinerWorkerError):
-                    return stop_failed_worker(error, "local_contributions", index)
         for family, variant, anchor, pack in (
             (requested_family, variant, anchor, pack)
             for requested_family in selection.families
@@ -798,13 +786,7 @@ def plan_candidates(
                             **metadata,
                         )
                     )
-                (report,) = yield M1GlinerRequest(
-                    cfg.profile(),
-                    pack,
-                    (GlinerInput.from_context(context),),
-                    cfg.threshold,
-                    cfg.native_execution_profile,
-                )
+                report = selected_report(index, family, variant)
                 association_diagnostics: list[dict[str, Any]] = []
                 report_entry = dict(
                     context=index,
@@ -997,18 +979,20 @@ def plan_candidates(
                     )
                 )
             except GlinerWorkerError as error:
-                execution[index, family, variant].update(outcome="failed", reason=str(error))
-                retain_unexecuted(index, pack, "failed", str(error))
+                execution[index, family, variant].update(outcome="not_run", reason=str(error))
+                retain_unexecuted(index, pack, "not_run", str(error))
                 details["reports"].append(
                     dict(
                         context=index,
                         family=family,
-                        outcome="failed",
+                        outcome="not_run",
                         reason=str(error),
                         **metadata,
                     )
                 )
-                return stop_failed_worker(error, family, index)
+                coverage.append(
+                    CoverageDraft(family=family, scope=scope, outcome="failed", reason=str(error))
+                )
     check_active()
     contribution_batch = ContributionBatch.combine(contribution_batches)
     records = tuple(
@@ -1034,7 +1018,8 @@ def plan_candidates(
     return M1CandidateProduct(
         outcome=ObservationOutcome.PRODUCED
         if records or contribution_batch.contributions
-        else ObservationOutcome.EMPTY,
+        else ObservationOutcome.FAILED if worker_failure else ObservationOutcome.EMPTY,
+        error=worker_failure if not (records or contribution_batch.contributions) else None,
         records=records,
         contributions=contribution_batch.contributions,
         contribution_operations=contribution_batch.operations,

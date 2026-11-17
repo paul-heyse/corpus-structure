@@ -241,7 +241,7 @@ def test_current_m1_passes_selected_primary_meaning_to_exact_assertion_qualifica
         yield from ()
         return M1CandidateProduct(ObservationOutcome.EMPTY)
 
-    monkeypatch.setattr("corpus_structure.semantic.m1_products.plan_candidate_replies", inspect)
+    monkeypatch.setattr("corpus_structure.semantic.m1_products.plan_candidates", inspect)
     with pytest.raises(StopIteration):
         next(
             profile.run(
@@ -287,7 +287,7 @@ def test_current_m1_refuses_changed_or_unselected_primary_before_provider(
             profile, construction_member=replace(profile.construction_member, product=altered)
         )
     monkeypatch.setattr(
-        "corpus_structure.semantic.m1_products.plan_candidate_replies",
+        "corpus_structure.semantic.m1_products.plan_candidates",
         lambda **_: pytest.fail("provider plan started for changed primary"),
     )
     with pytest.raises(

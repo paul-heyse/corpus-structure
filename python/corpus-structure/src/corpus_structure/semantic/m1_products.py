@@ -17,7 +17,6 @@ from corpus_structure.methods.m1_source import (
     M1Config,
     M1GlinerReply,
     M1GlinerRequest,
-    plan_candidate_replies,
     plan_candidates,
 )
 
@@ -59,6 +58,7 @@ def m1_profile_assets(configuration, record_schemas):
     root = Path(__file__).parents[1]
     paths = (
         "methods/m1_source.py",
+        "methods/gliner_batching.py",
         "methods/record_assembly.py",
         "methods/record_packs.py",
         "methods/gliner.py",
@@ -273,7 +273,7 @@ class PreparedM1Inputs:
             "execution_profile": checked["execution_profile"],
         }
         return (
-            yield from plan_candidate_replies(
+            yield from plan_candidates(
                 prepared=self.prepared,
                 model=self.model,
                 view=data,
@@ -441,35 +441,25 @@ def plan_m1_gliner(question, configuration, *, execution_owner, check_active, or
     if reply.retirement_uncertain:
         raise NativeRetirementUncertain(reply.error_message)
     if reply.error_type in {"GlinerRefused", "Pm2WorkerRefused"}:
-        return M1GlinerReply(failure="refused", message=reply.error_message or reply.error_type)
+        from corpus_structure.methods.gliner_worker import GlinerAdmission
+
+        return M1GlinerReply(admissions=tuple(
+            GlinerAdmission(index, item.context_id, item.context_digest, False,
+                            reply.error_message or reply.error_type)
+            for index, item in enumerate(question.inputs)
+        ))
     if reply.error_type in {"GlinerWorkerError", "Pm2WorkerError"}:
         return M1GlinerReply(failure="worker", message=reply.error_message or reply.error_type)
     if reply.error_type is not None:
-        # Capacity and unknown infrastructure failures retain their owner/disposition.
         _ = reply.payload
         raise ValueError("unknown M1 provider failure disposition")
-    if reply.admissions:
-        if len(reply.admissions) != len(question.inputs) or any(
-            (admission.context_id, admission.context_digest)
-            != (value.context_id, value.context_digest)
-            for admission, value in zip(reply.admissions, question.inputs, strict=True)
-        ):
-            raise ValueError("M1 provider changed the original admission population")
-        if not all(value.admitted for value in reply.admissions):
-            return M1GlinerReply(
-                failure="refused",
-                message="; ".join(
-                    value.reason or "native input refused"
-                    for value in reply.admissions
-                    if not value.admitted
-                ),
-            )
-    if len(reply.reports) != len(question.inputs) or any(
-        (report.context_id, report.context_digest) != (value.context_id, value.context_digest)
-        for report, value in zip(reply.reports, question.inputs, strict=True)
+    if len(reply.admissions) != len(question.inputs) or any(
+        (admission.context_id, admission.context_digest)
+        != (value.context_id, value.context_digest)
+        for admission, value in zip(reply.admissions, question.inputs, strict=True)
     ):
-        raise ValueError("M1 provider changed the original inference population")
-    return M1GlinerReply(reports=reply.reports)
+        raise ValueError("M1 provider changed the original admission population")
+    return M1GlinerReply(admissions=reply.admissions, reports=reply.reports)
 
 
 @dataclass
@@ -656,10 +646,6 @@ def resolve_m1_port(prepared, model, operation, *, identity, authorize, custody,
             (
                 "corpus_structure.methods.m1_source.plan_candidates",
                 plan_candidates,
-            ),
-            (
-                "corpus_structure.methods.m1_source.plan_candidate_replies",
-                plan_candidate_replies,
             ),
         ),
         native_selections=(selection,),

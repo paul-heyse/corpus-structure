@@ -528,10 +528,8 @@ def test_m1_shared_provider_question_preserves_claim_membership_and_typed_refusa
     )
     with pytest.raises(StopIteration) as stopped:
         plan.send((refused,))
-    assert (
-        stopped.value.value.failure == "refused"
-        and stopped.value.value.message == "oversized input"
-    )
+    assert stopped.value.value.admissions == refused.admissions
+    assert stopped.value.value.reports == ()
     assert receipts == [receipt]
     uncertain = plan_m1_gliner(
         question, config, execution_owner=owner, check_active=lambda: None, ordinal=3, receipts=[]
@@ -749,7 +747,7 @@ def test_related_m1_context_consumes_only_related_members_own_selected_span(link
 
 
 def test_m1_coalesced_success_preserves_report_and_rejects_foreign_source_reply():
-    """The lane's successful scatter omits redundant per-input admission rows."""
+    """The lane retains the admitted original population alongside native reports."""
     from dataclasses import replace
 
     import pytest
@@ -761,6 +759,7 @@ def test_m1_coalesced_success_preserves_report_and_rejects_foreign_source_reply(
         GlinerPreparation,
         GlinerReport,
     )
+    from corpus_structure.methods.gliner_worker import GlinerAdmission
     from corpus_structure.methods.m1_source import M1GlinerRequest
     from corpus_structure.semantic.m1_products import plan_m1_gliner
 
@@ -810,9 +809,10 @@ def test_m1_coalesced_success_preserves_report_and_rejects_foreign_source_reply(
         reply = ProviderReply(
             requests[-1].correlation,
             reports=(replace(report, context_digest="b" * 64) if foreign else report,),
+            admissions=(GlinerAdmission(3, report.context_id, report.context_digest, True),),
         )
         if foreign:
-            with pytest.raises(ValueError, match="original inference population"):
+            with pytest.raises(ValueError, match="exact admitted input population"):
                 plan.send((reply,))
         else:
             with pytest.raises(StopIteration) as stopped:
