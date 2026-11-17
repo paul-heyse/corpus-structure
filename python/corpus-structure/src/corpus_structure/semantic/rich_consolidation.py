@@ -16,6 +16,7 @@ from .rich_fact_graph import RichFactGraph
 from .rich_graph_validation import (
     RichWholeInput,
     _body_id,
+    index_rich_assembly,
     read_retained_rich_graph,
     read_rich_graph,
 )
@@ -311,7 +312,7 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
     from .rich_proposal_lowering import lower_rich_proposals
     from .rich_relations import RichRelationKernel
     from .rich_rule_evaluation import evaluate_rich_rules
-    from .rich_rules import RichRulePolicy
+    from .rich_rules import prepared_rich_rule_policy
     from .rich_scientific import assess_rich_scientific
 
     builder = RichAssembly(prepared, model, inputs)
@@ -319,7 +320,11 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
     lower_rich_proposals(builder, check_active=check_active)
     builder.readings(check_active)
     graph = builder.graph()
-    policy = RichRulePolicy(prepared)
+    policy = prepared_rich_rule_policy(prepared)
+    index = index_rich_assembly(
+        prepared, model, context=inputs.context, graph=graph, inputs=builder.references,
+        whole_inputs=builder.wholes, retained_states=tuple(builder.retained_states),
+    )
     scientific = assess_rich_scientific(
         prepared,
         model,
@@ -331,6 +336,7 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
         source_contexts=tuple(builder.source_contexts),
         whole_inputs=builder.wholes,
         retained_graphs=builder.retained,
+        _index=index,
     )
     for assessment in scientific:
         builder.add(assessment)
@@ -346,6 +352,10 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
         for packet in graph.members
         if isinstance(packet.body, DdoRichFact)
     }
+    facts_by_slot = {}
+    for fact in facts.values():
+        slot = (fact.subject_entity, fact.property_contract, fact.qualification_meaning)
+        facts_by_slot.setdefault(slot, []).append(fact.fact_id)
     slots = {}
     for assessment in scientific:
         if assessment.outcome != "different":
@@ -353,16 +363,7 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
         selected = tuple(occurrences[identifier] for identifier in assessment.occurrences)
         left = facts[selected[0].fact_id]
         slot = (left.subject_entity, left.property_contract, left.qualification_meaning)
-        slots[slot] = tuple(
-            sorted(
-                {
-                    fact.fact_id
-                    for fact in facts.values()
-                    if (fact.subject_entity, fact.property_contract, fact.qualification_meaning)
-                    == slot
-                }
-            )
-        )
+        slots[slot] = tuple(sorted(set(facts_by_slot[slot])))
     for slot, ids in sorted(slots.items()):
         identifier = canonical_identity(
             "rich-value-disagreement", [inputs.context.identity_record, slot, ids]
@@ -387,6 +388,10 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
             )
         )
     graph = builder.graph()
+    index = index_rich_assembly(
+        prepared, model, context=inputs.context, graph=graph, inputs=builder.references,
+        whole_inputs=builder.wholes, retained_states=tuple(builder.retained_states),
+    )
     with RichRelationKernel(
         property_ids=frozenset(
             prop.iri for definition in prepared.definitions for prop in definition.properties
@@ -409,6 +414,7 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
             scientific_assessments=scientific,
             whole_inputs=builder.wholes,
             retained_graphs=builder.retained,
+            _index=index,
         )
     for assessment in result.assessments:
         builder.add(assessment)
@@ -448,6 +454,7 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
         inputs=builder.references,
         whole_inputs=builder.wholes,
         retained_graphs=builder.retained,
+        _retained_states=tuple(builder.retained_states),
     ).graph
 
 

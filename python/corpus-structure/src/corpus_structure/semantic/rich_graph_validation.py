@@ -115,10 +115,12 @@ def _references(value):
             yield from _references(item)
 
 
-class ValidatedRichGraph:
-    def __init__(self, prepared, model, context, graph, inputs, whole_inputs, retained_states=()):
+class RichGraphIndex:
+    def __init__(self, prepared, model, context, graph, inputs, whole_inputs, retained_states=(), *, boundary_checks=True):
         self.prepared, self.model, self.context = prepared, model, context
         self.graph = graph
+        self.whole_inputs = whole_inputs
+        self.retained_states = retained_states
         self.kinds = {kind.semantic_id: kind for kind in model.kinds}
         self.kind_facts = {kind.semantic_id: json.loads(kind.facts) for kind in model.kinds}
         self.properties = {
@@ -197,20 +199,21 @@ class ValidatedRichGraph:
             owner = _NAMESPACE + type(packet.body).__name__
             if owner not in self.ids or packet.kind_contract != self.ids[owner]:
                 raise ValueError("rich member body differs from its actual nominal kind")
-            facts = self.kind_facts[owner]
-            validate_wire_schema(
-                facts["json_schema"], json_loads(json_bytes(packet.body.model_dump(mode="python")))
-            )
-            actual = SubjectContext(
-                context.project_id,
-                packet.context.subject,
-                packet.context.original_source,
-                json_bytes(packet.context.analyzed_scope),
-                subject_definition=packet.context.subject_definition,
-            )
-            validate_subject_context(model, actual)
-            if actual != context:
-                raise ValueError("rich member context differs from its actual knowledge subject")
+            if boundary_checks:
+                facts = self.kind_facts[owner]
+                validate_wire_schema(
+                    facts["json_schema"], json_loads(json_bytes(packet.body.model_dump(mode="python")))
+                )
+                actual = SubjectContext(
+                    context.project_id,
+                    packet.context.subject,
+                    packet.context.original_source,
+                    json_bytes(packet.context.analyzed_scope),
+                    subject_definition=packet.context.subject_definition,
+                )
+                validate_subject_context(model, actual)
+                if actual != context:
+                    raise ValueError("rich member context differs from its actual knowledge subject")
             self.members[packet.member_id] = packet.body
             self.packets[packet.member_id] = packet
             for retained in retained_states:
@@ -801,7 +804,7 @@ class ValidatedRichGraph:
                 )
 
 
-class _RetainedRichGraph(ValidatedRichGraph):
+class _RetainedRichGraph(RichGraphIndex):
     """Local current meaning, with only its actual root's embedded opaque provenance."""
 
     def __init__(self, prepared, model, context, graph, selection):
@@ -822,7 +825,7 @@ def read_retained_rich_graph(
     retained: RichWholeInput,
     inputs: tuple[DdoRichSelectedMember, ...],
     whole_inputs: tuple[RichWholeInput, ...],
-) -> ValidatedRichGraph:
+) -> _RetainedRichGraph:
     """Decode a selected accepted whole without pretending its old sources are inputs.
 
     Pure decoding grants no accepted standing. The native producer owner separately
@@ -863,6 +866,38 @@ def read_retained_rich_graph(
     return state
 
 
+def index_rich_assembly(
+    prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
+    graph: RichGraphAssembly, inputs: tuple[DdoRichSelectedMember, ...],
+    whole_inputs: tuple[RichWholeInput, ...], retained_states: tuple[_RetainedRichGraph, ...],
+) -> RichGraphIndex:
+    """Index a typed in-process builder graph; its output boundary still validates fully.
+
+    This grants no established validity to hydrated or adopted retained products.
+    Each retained state must have passed the ordinary retained graph boundary.
+    """
+    if type(graph) is not RichGraphAssembly:
+        raise ValueError("in-process rich indexing requires the builder's actual assembly")
+    return RichGraphIndex(
+        prepared, model, context, graph, inputs, whole_inputs, retained_states,
+        boundary_checks=False,
+    )
+
+
+def checked_stage_index(index, prepared, model, context, graph, inputs, whole_inputs, retained_graphs):
+    """Keep a reused invocation-owned index bound to its exact selected arguments."""
+    if (
+        index.prepared is not prepared or index.model is not model or index.context != context
+        or index.graph is not graph
+        or index.inputs != {rich_reference_key(item) for item in inputs}
+        or len(index.inputs) != len(inputs)
+        or index.whole_inputs is not whole_inputs
+        or tuple(state.selection for state in index.retained_states) != retained_graphs
+    ):
+        raise ValueError("rich stage index differs from its exact in-process graph and premises")
+    return index
+
+
 def read_rich_graph(
     prepared: PreparedRelease,
     model: EffectiveDataOperationModel,
@@ -875,7 +910,8 @@ def read_rich_graph(
     inputs: tuple[DdoRichSelectedMember, ...],
     whole_inputs: tuple[RichWholeInput, ...] = (),
     retained_graphs: tuple[RichWholeInput, ...] = (),
-) -> ValidatedRichGraph:
+    _retained_states: tuple[_RetainedRichGraph, ...] | None = None,
+) -> RichGraphIndex:
     """Validate once and expose the same finite typed decoder to current CPU consumers."""
     validate_subject_context(model, context)
     if (
@@ -906,18 +942,22 @@ def read_rich_graph(
         retained_graphs
     ):
         raise ValueError("retained rich graph repeats an actual selected whole")
-    retained_states = tuple(
-        read_retained_rich_graph(
-            prepared,
-            model,
-            context=context,
-            retained=item,
-            inputs=inputs,
-            whole_inputs=whole_inputs,
+    if _retained_states is None:
+        retained_states = tuple(
+            read_retained_rich_graph(
+                prepared, model, context=context, retained=item,
+                inputs=inputs, whole_inputs=whole_inputs,
+            )
+            for item in retained_graphs
         )
-        for item in retained_graphs
-    )
-    state = ValidatedRichGraph(
+    else:
+        if (
+            tuple(state.selection for state in _retained_states) != retained_graphs
+            or any(state.prepared is not prepared or state.model is not model or state.context != context for state in _retained_states)
+        ):
+            raise ValueError("rich retained indexes differ from their exact in-process inputs")
+        retained_states = _retained_states
+    state = RichGraphIndex(
         prepared, model, context, checked, inputs, whole_inputs, retained_states
     )
     if isinstance(checked, DdoRichAdmission):

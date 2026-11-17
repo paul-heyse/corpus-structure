@@ -23,7 +23,7 @@ from .data_operation_json import DdoJsonValue, json_bytes
 from .data_operation_ports import _untrusted_value
 from .identity import canonical_bytes
 from .refusals import InvalidContinuation, SemanticRefusal
-from .rich_graph_validation import ValidatedRichGraph
+from .rich_graph_validation import RichGraphIndex
 from .rich_knowledge_contracts import (
     DdoRichAdmission,
     DdoRichCollectionValue,
@@ -199,7 +199,7 @@ class RichGraphIndex:
 
     def __init__(
         self,
-        state: ValidatedRichGraph,
+        state: RichGraphIndex,
         *,
         max_members: int = 100000,
         max_nested_members: int = 1000,
@@ -452,7 +452,7 @@ class RichGraphIndex:
 class RichQueryIndex(RichGraphIndex):
     """Public named knowledge queries require the actual selected accepted whole."""
 
-    def __init__(self, state: ValidatedRichGraph, **limits):
+    def __init__(self, state: RichGraphIndex, **limits):
         if not isinstance(state.graph, DdoRichAdmission):
             raise RichQueryRefused("rich queries require the actual selected accepted whole")
         super().__init__(state, **limits)

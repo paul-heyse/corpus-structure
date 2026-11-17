@@ -28,7 +28,7 @@ from .identity import canonical_bytes
 from .math_context import AnalysisContextProfile, prepare_interpretation_context
 from .refusals import SemanticReason, SemanticRefusal, semantic_reason_identity
 from .rich_decisions import OccurrenceStatus, RuleOutcome, RuleSeverity
-from .rich_graph_validation import RichWholeInput, read_rich_graph
+from .rich_graph_validation import RichWholeInput, RichGraphIndex, checked_stage_index, read_rich_graph
 from .rich_knowledge_contracts import (
     DdoRichAlternative,
     DdoRichAssessment,
@@ -332,6 +332,7 @@ def evaluate_rich_rules(
     scientific_assessments: tuple[DdoRichAssessment, ...] = (),
     whole_inputs: tuple[RichWholeInput, ...] = (),
     retained_graphs: tuple[RichWholeInput, ...] = (),
+    _index: RichGraphIndex | None = None,
 ) -> RichRuleEvaluation:
     """Evaluate actual occurrence views; publication and complete-reading grading stay separate."""
     relations.check_active()
@@ -345,14 +346,11 @@ def evaluate_rich_rules(
             "rich rule analysis context differs from its actual captured owner"
         )
     policy_digest = rich_eligibility_policy_digest(checked_policy, model)
-    state = read_rich_graph(
-        prepared,
-        model,
-        context=context,
-        graph=graph,
-        inputs=inputs,
-        whole_inputs=whole_inputs,
-        retained_graphs=retained_graphs,
+    state = (
+        read_rich_graph(
+            prepared, model, context=context, graph=graph, inputs=inputs,
+            whole_inputs=whole_inputs, retained_graphs=retained_graphs,
+        ) if _index is None else checked_stage_index(_index, prepared, model, context, graph, inputs, whole_inputs, retained_graphs)
     )
     for retained in state.retained_admissions:
         if retained.eligibility_policy_digest != policy_digest:
@@ -508,6 +506,26 @@ def evaluate_rich_rules(
     unselected_facts = set(incomplete_alternatives) | {
         identifier for identifier, resolutions in dependent_identity.items() if resolutions
     }
+    occurrences_by_fact = defaultdict(list)
+    for occurrence in predicate_occurrences.values():
+        occurrences_by_fact[occurrence.fact_id].append(occurrence)
+    occurrence_ordinals = {identifier: ordinal for ordinal, identifier in enumerate(predicate_occurrences)}
+    alternative_occurrences = {
+        identifier: tuple(sorted(
+            (occurrence for fact_id in set(alternative.fact_ids) for occurrence in occurrences_by_fact.get(fact_id, ())),
+            key=lambda occurrence: occurrence_ordinals[occurrence.occurrence_id],
+        ))
+        for identifier, alternative in alternatives.items()
+    }
+    exclusive_symbols = defaultdict(set)
+    for symbol, owners in symbol_owners.items():
+        if len(owners) == 1:
+            exclusive_symbols[next(iter(owners))].add(symbol)
+    all_symbols = frozenset(symbol_owners)
+    given_by_others = {
+        identifier: tuple(sorted(all_symbols - exclusive_symbols.get(identifier, set())))
+        for identifier in predicate_occurrences
+    }
     tables = dict(
         claims=pa.Table.from_pylist(
             [
@@ -550,8 +568,7 @@ def evaluate_rich_rules(
             [
                 {"group": identifier, "claim": occurrence.occurrence_id}
                 for identifier, alternative in alternatives.items()
-                for occurrence in predicate_occurrences.values()
-                if occurrence.fact_id in alternative.fact_ids
+                for occurrence in alternative_occurrences[identifier]
             ],
             schema=VIEW_ALTERNATIVES,
         ),
@@ -766,11 +783,7 @@ def evaluate_rich_rules(
                     )
                 ),
                 gives_symbols=tuple(sorted(gives[identifier])),
-                given_by_others=tuple(
-                    sorted(
-                        symbol for symbol, owners in symbol_owners.items() if owners - {identifier}
-                    )
-                ),
+                given_by_others=given_by_others[identifier],
                 same_slot=same,
                 alternative_of=other,
                 evidence_count=occurrence.evidence_count,

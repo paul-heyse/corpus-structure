@@ -149,3 +149,52 @@ def test_actual_scientific_disagreement_creates_complete_alternative_and_withhol
     assert len(alternatives) == 1 and alternatives[0].completeness == "complete"
     assert alternatives[0].origin == "value-disagreement" and len(alternatives[0].fact_ids) == 2
     assert value.eligibility.selected_fact_ids == value.eligibility.selected_occurrence_ids == ()
+
+
+def test_consolidation_checks_builder_output_once_and_reuses_frozen_release_policy(scientific, monkeypatch):
+    import pytest
+
+    from corpus_structure.semantic.rich_graph_validation import RichGraphIndex
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichConsolidation
+    from corpus_structure.semantic.rich_rules import prepared_rich_rule_policy
+
+    prepared, model, inputs = authored_inputs(scientific, ({"kind": "number", "number": Decimal("1")},))
+    checked = []
+    original = RichGraphIndex.check
+
+    def count(self):
+        checked.append(type(self.graph))
+        return original(self)
+
+    monkeypatch.setattr(RichGraphIndex, "check", count)
+    output = consolidate_rich_knowledge(prepared, model, inputs=inputs, check_active=lambda: None)
+    assert checked == [DdoRichAuthoredPropositions, DdoRichConsolidation]
+    assert output.eligibility.selected_fact_ids
+    policy = prepared_rich_rule_policy(prepared)
+    assert prepared_rich_rule_policy(prepared) is policy
+    with pytest.raises(TypeError):
+        policy.source["operation"]["version"] = "changed"
+
+
+def test_consolidation_refuses_malformed_member_at_final_output_boundary(scientific, monkeypatch):
+    import pytest
+
+    from corpus_structure.semantic.rich_consolidation import RichAssembly
+
+    prepared, model, inputs = authored_inputs(scientific, ({"kind": "number", "number": Decimal("1")},))
+    original = RichAssembly.graph
+    stages = []
+
+    def malformed_output(self):
+        graph = original(self)
+        stages.append(graph)
+        if len(stages) == 3:
+            first = graph.members[0]
+            wrong = first.model_copy(update={"context": first.context.model_copy(update={"subject": "wrong-subject"})})
+            return graph.model_copy(update={"members": (wrong, *graph.members[1:])})
+        return graph
+
+    monkeypatch.setattr(RichAssembly, "graph", malformed_output)
+    with pytest.raises(ValueError, match="subject|context"):
+        consolidate_rich_knowledge(prepared, model, inputs=inputs, check_active=lambda: None)
+    assert len(stages) == 3

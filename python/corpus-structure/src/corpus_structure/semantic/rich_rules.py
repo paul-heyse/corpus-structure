@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from types import MappingProxyType
 
 from .refusals import SemanticOperationRefusal, SemanticReason, SemanticRefusal
 from .rich_knowledge_sources import RULE_INPUT, VERSION, parse_policy_yaml
@@ -16,6 +17,18 @@ from .types import PreparedRelease
 
 class RichRulePolicyRefused(SemanticRefusal):
     """The actual captured domain policy cannot provide the requested typed rules."""
+
+
+def prepared_rich_rule_policy(prepared: PreparedRelease) -> RichRulePolicy:
+    """Release-owned preparation; no document, selected-input or invocation state."""
+    artifact = next((item for item in prepared.artifacts if item.kind == RULE_INPUT), None)
+    if artifact is None:
+        raise RichRulePolicyRefused("release has no declared domain rules operation")
+    key = "rich-rule-policy:" + artifact.digest
+    with prepared._adapter_lock:
+        if key not in prepared._relational_preparations:
+            prepared._relational_preparations[key] = RichRulePolicy(prepared)
+        return prepared._relational_preparations[key]
 
 
 class RichRulePolicy:
@@ -50,6 +63,10 @@ class RichRulePolicy:
             for row in prepared.registry_rows
             if row.kind == "prefix"
         }
+        self._is_a = MappingProxyType({
+            definition.iri: frozenset({definition.iri, *(self.definitions[name].iri for name in definition.ancestors if name in self.definitions)})
+            for definition in prepared.definitions
+        })
         self.validate_source()
         self.version = self.source["operation"]["version"]
         self.enums = {}
@@ -155,7 +172,7 @@ class RichRulePolicy:
             arguments={"is_a": (Vocabulary("classes", classes), Vocabulary("classes", classes))},
             views=self.source.get("views", {}),
         )
-        self.rules = []
+        rules = []
         seen = set()
         for section in ("rules", "guideline"):
             for raw in self.source.get(section, ()):
@@ -165,13 +182,23 @@ class RichRulePolicy:
                 seen.add(rid)
                 if "finalize" not in raw.get("at", ("batch", "finalize")):
                     continue
-                self.rules.append(
+                rules.append(
                     (
                         raw,
                         self.language.compile(rid, raw.get("when", "true")),
                         self.language.compile(rid, raw["check"]),
                     )
                 )
+
+        from .native_source_view import freeze_native
+
+        self.source = freeze_native(self.source)
+        self.metadata = freeze_native(self.metadata)
+        self.definitions = MappingProxyType(self.definitions)
+        self.prefixes = MappingProxyType(self.prefixes)
+        self.enums = MappingProxyType(self.enums)
+        self.qprops = MappingProxyType(self.qprops)
+        self.rules = tuple((freeze_native(raw), when, check) for raw, when, check in rules)
 
     def validate_source(self):
         from .alias_policy import label_normalizer
@@ -335,13 +362,7 @@ class RichRulePolicy:
         if isinstance(children, str):
             raise RichRulePolicyRefused("class membership requires its actual class collection")
         target = self.prepared.expand_name(parent)
-        ancestor = next((d.name for d in self.prepared.definitions if d.iri == target), None)
-        for child in children:
-            expanded = self.prepared.expand_name(child)
-            definition = next((d for d in self.prepared.definitions if d.iri == expanded), None)
-            if definition is not None and (expanded == target or ancestor in definition.ancestors):
-                return True
-        return False
+        return any(target in self._is_a.get(self.prepared.expand_name(child), ()) for child in children)
 
     def applies(self, raw, *, class_name: str, predicate: str):
         source = raw.get("applies_to", "any")
