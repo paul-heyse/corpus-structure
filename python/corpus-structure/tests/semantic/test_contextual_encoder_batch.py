@@ -78,14 +78,16 @@ def test_query_packet_interns_body_and_frame_and_preserves_duplicate_occurrence_
     assert batch.unpack_encoder_packet(packet) == members
     from corpus_structure.semantic import declared_record_sources
 
-    constructor = declared_record_sources.DeclaredNativeFrameSource
+    source_class = declared_record_sources.DeclaredNativeFrameSource
+    initialize = source_class.__post_init__
     decoded = []
 
-    def frame(*args, **kwargs):
-        decoded.append(True)
-        return constructor(*args, **kwargs)
+    def checked_frame(self):
+        if type(self) is source_class:
+            decoded.append(True)
+        initialize(self)
 
-    monkeypatch.setattr(declared_record_sources, "DeclaredNativeFrameSource", frame)
+    monkeypatch.setattr(source_class, "__post_init__", checked_frame)
     reply = batch.execute_encoder_batch(packet, asdict(profile), "", (), check_active=lambda: None)
     values = cpu_authority_batch_values(canonical_bytes(reply), expected_members=members)
     assert len(decoded) == 1 and len(calls) == 1 and len(calls[0]) == 2
@@ -199,13 +201,14 @@ def test_scalar_authority_reply_cannot_satisfy_encoder_batch_members():
 
 @pytest.mark.parametrize("change", ["version", "code", "detail", "extra"])
 def test_failed_member_cannot_expand_its_finite_outcome_contract(change):
-    value = batch.member_failure("invalid-vector", "controlled invalid norm")
+    failure: dict[str, object] = dict(batch.member_failure("invalid-vector", "controlled invalid norm")["encoder_member_failure"])
+    value: dict[str, object] = {"encoder_member_failure": failure}
     if change == "version":
-        value["encoder_member_failure"]["version"] = "historical"
+        failure["version"] = "historical"
     elif change == "code":
-        value["encoder_member_failure"]["code"] = "worker-crash"
+        failure["code"] = "worker-crash"
     elif change == "detail":
-        value["encoder_member_failure"]["detail"] = 1
+        failure["detail"] = 1
     else:
         value["extra"] = True
     with pytest.raises(ValueError, match="failure slot"):
