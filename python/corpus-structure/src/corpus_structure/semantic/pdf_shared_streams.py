@@ -25,21 +25,29 @@ def shared_streams_sql(metadata) -> str:
     )
 
 
-def part_wire_contract_sql(metadata) -> str:
+def part_upload_contract_table(model: MetaData | None = None) -> Table:
     """Only a private temporary normalized wire shape, never a durable part store."""
-    upload = artifact_part_upload_table(metadata)
-    contract = Table(
+    upload = artifact_part_upload_table(model)
+    return Table(
         "pdf_part_wire_contract",
-        MetaData(),
+        MetaData(info=dict(upload.metadata.info)),
         *(Column(column.name, column.type, nullable=column.nullable) for column in upload.columns),
         *(
             CheckConstraint(str(check.sqltext), name=check.name)
-            for check in upload.constraints
-            if isinstance(check, CheckConstraint)
+            for check in sorted(
+                (check for check in upload.constraints if isinstance(check, CheckConstraint)),
+                key=lambda check: (str(check.name or ""), str(check.sqltext)),
+            )
         ),
         prefixes=["TEMPORARY"],
         postgresql_on_commit="DROP",
     )
+
+
+def part_wire_contract_sql(metadata) -> str:
+    """Protect the same declared temporary contract used by native authoring."""
+    upload = artifact_part_upload_table(metadata)
+    contract = part_upload_contract_table(metadata)
     ddl = str(CreateTable(contract).compile(dialect=dialect()))
     # Compare the server-normalized columns as well as owner/constraints. This
     # contract is publisher-owned, ungranted, and cannot survive this transaction.

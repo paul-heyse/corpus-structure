@@ -150,7 +150,7 @@ REVOKE ALL ON FUNCTION ops.pdf_shared_stream_mutation_guard() FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.pdf_adopt_shared_stream_descriptors(p_build text,p_streams regclass) RETURNS void
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
-DECLARE stream record; project text:=ops.pdf_stream_project(p_build); content ops.pdf_shared_stream; owner ops.pdf_stage_build;
+DECLARE stream ops.pdf_stage_artifact_stream%ROWTYPE; project text:=ops.pdf_stream_project(p_build); content ops.pdf_shared_stream; owner ops.pdf_stage_build;
 BEGIN
  IF project IS NULL THEN RAISE EXCEPTION 'shared stream has no actual build project' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT owner FROM ops.pdf_stage_build WHERE build_id=p_build;
@@ -174,18 +174,21 @@ REVOKE ALL ON FUNCTION ops.pdf_adopt_shared_stream_descriptors(text,regclass) FR
 
 CREATE OR REPLACE FUNCTION ops.pdf_adopt_shared_stream_parts(p_build text,p_parts regclass) RETURNS void
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
-DECLARE part record; stream ops.pdf_stage_artifact_stream; project text:=ops.pdf_stream_project(p_build);
+DECLARE part_product text; part_revision text; part_stream text; part_ordinal bigint;
+ part_offset bigint; part_length bigint; part_body bytea; part_sha text;
+ stream ops.pdf_stage_artifact_stream; project text:=ops.pdf_stream_project(p_build);
  retained ops.pdf_shared_stream_part; content ops.pdf_shared_stream; owner ops.pdf_stage_build;
 BEGIN
  SELECT * INTO STRICT owner FROM ops.pdf_stage_build WHERE build_id=p_build;
- FOR part IN EXECUTE format('SELECT * FROM %s ORDER BY stream_id COLLATE "C",ordinal',p_parts) LOOP
+ FOR part_product,part_revision,part_stream,part_ordinal,part_offset,part_length,part_body,part_sha
+ IN EXECUTE format('SELECT product_id,revision_id,stream_id,ordinal,byte_offset,byte_length,body,sha256_digest FROM %s ORDER BY stream_id COLLATE "C",ordinal',p_parts) LOOP
  SELECT descriptor.* INTO stream FROM ops.pdf_stage_artifact_stream descriptor
- WHERE descriptor.product_id=p_build AND descriptor.revision_id=p_build AND descriptor.stream_id=part.stream_id;
+ WHERE descriptor.product_id=p_build AND descriptor.revision_id=p_build AND descriptor.stream_id=part_stream;
  IF NOT FOUND THEN RAISE EXCEPTION 'shared parts require their descriptor before bytes' USING ERRCODE='23514'; END IF;
- IF part.product_id IS DISTINCT FROM p_build OR part.revision_id IS DISTINCT FROM p_build
- OR part.ordinal<0 OR part.byte_offset<0 OR part.byte_length NOT BETWEEN 1 AND 65536
- OR part.byte_length<>octet_length(part.body) OR part.sha256_digest<>encode(sha256(part.body),'hex')
- OR part.byte_offset+part.byte_length>stream.byte_length THEN
+ IF part_product IS DISTINCT FROM p_build OR part_revision IS DISTINCT FROM p_build
+ OR part_ordinal<0 OR part_offset<0 OR part_length NOT BETWEEN 1 AND 65536
+ OR part_length<>octet_length(part_body) OR part_sha<>encode(sha256(part_body),'hex')
+ OR part_offset+part_length>stream.byte_length THEN
  RAISE EXCEPTION 'shared stream incoming part differs from its descriptor/bytes' USING ERRCODE='23514'; END IF;
  SELECT stored.* INTO STRICT content FROM ops.pdf_shared_stream stored WHERE stored.project_id=project
  AND stored.encoding_profile=stream.encoding_profile AND stored.byte_length=stream.byte_length AND stored.byte_root=stream.byte_root FOR UPDATE;
@@ -193,13 +196,13 @@ BEGIN
  IF (content.owner_build_id,content.owner_attempt,content.owner_holder) IS DISTINCT FROM (owner.build_id,owner.attempt,owner.holder) THEN
  RAISE EXCEPTION 'pending shared parts belong to another append fence' USING ERRCODE='55P03'; END IF;
  INSERT INTO ops.pdf_shared_stream_part VALUES(project,stream.encoding_profile,stream.byte_length,stream.byte_root,
- part.ordinal,part.byte_offset,part.byte_length,part.body,part.sha256_digest) ON CONFLICT DO NOTHING;
+ part_ordinal,part_offset,part_length,part_body,part_sha) ON CONFLICT DO NOTHING;
  END IF;
  SELECT stored.* INTO retained FROM ops.pdf_shared_stream_part stored WHERE stored.project_id=project
  AND stored.encoding_profile=stream.encoding_profile AND stored.stream_length=stream.byte_length
- AND stored.byte_root=stream.byte_root AND stored.ordinal=part.ordinal;
+ AND stored.byte_root=stream.byte_root AND stored.ordinal=part_ordinal;
  IF NOT FOUND OR (retained.byte_offset,retained.byte_length,retained.body,retained.sha256_digest) IS DISTINCT FROM
- (part.byte_offset,part.byte_length,part.body,part.sha256_digest) THEN
+ (part_offset,part_length,part_body,part_sha) THEN
  RAISE EXCEPTION 'shared stream part replay differs' USING ERRCODE='23514'; END IF;
  END LOOP;
 END $$;
