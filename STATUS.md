@@ -4,12 +4,15 @@ _Updated 2026-11-17. Production-efficiency execution in progress; full DDO remai
 
 ## Current owner and boundary
 
-- [DDO local execution](docs/plans/declared-data-operations_2026-11-12.md#local-preparation-execution--2026-11-17) owns current implementation, receipts and remaining PE scope. PE-S01/S02/S11 integrated; strict reusable cattrs decoding, immutable call correspondence and SI33 capsule declaration included. Rule-changing/native work remains pending required reviews/ADRs.
+- [DDO current execution](docs/plans/declared-data-operations_2026-11-12.md#cross-cutting-implementation-in-progress--2026-11-17) owns integrated work, receipts and remaining PE scope. S03/04/05/06/07/part08/10/12/13/part14 and N1 source are integrated; native capture/qualification and remaining PE scope stay open. S01/02/11 earlier acceptance retains its original source bounds.
 - SI30 lexical virtualenv invocation/custody and verified diagnostics, SI31 numerical-policy body.json projection integrated/reviewed. Effectivev9/demandv2/CPU3/compiler24/boundary13;97relations. Chandra excluded.
 - About2800lines of unused SQL retired, nine selected closure bodies preserved; current task/holder/attempt/lease/PDF custody intact. Source-snippet tests now use current guard; stale fate provenance checksum corrected.
-- Current worker edits merged to main; independent review found two frozen-mapping consumers, now repaired and checked. No worktrees remain. Original managed receipts transferred with directory+manifest inode verification and root holds before removal; earlier ten lost E5 originals remain unavailable/no credit.
+- All worker contributions are integrated on main; formatting conflicts reconciled with native functional edits preserved. Worker trees are removed after clean/equivalence checks. No persistent native/application deploy or adoption in this increment. Earlier ten lost E5 originals remain unavailable/no credit.
+- Operator clarification: settled detailed design needs no repeat planning/formal review/audit gate. Ordinary implementation checks and accepted ADR routes remain; ADR-0122/0123/0124 record accepted targets. Reopen only concrete consequential mismatches.
 
 ## Verified · 2026-11-17
+
+- **passed:** final local `ci test --workers 2 --json --`325 (`47d838d…`); `ci check --only types --json`c1c8158…, Ruff5077b5b…, docsf735f0b… (1309 pages/zero link errors), `just turn-end`. Earlier source joins59 (`c80d924…`), rich22 (`2e1a34f…`), reference/custody61 (`a95ebe1…`) and description1 (`86b71e4…`) retain their bounds. These establish no uninstalled-native or actual-provider acceptance.
 
 - **passed:** wire/protocol/ports161 (`1ab6174…`), CLI/dispatch/source/navigation75 (`afedd05…`), characterization/model/demand/archive78 (`3220259…`). These are bounded selections; earlier failed originals remain with the coordinator. Review-repair M1/formal/event38 passed (`7738364…`); final pyrefly `e90f114…`, Ruff `8884f61…`, docs `b24164c…` passed. Final maintained-source local union417 passed (`a70ebb4…`).
 
@@ -20,6 +23,8 @@ _Updated 2026-11-17. Production-efficiency execution in progress; full DDO remai
 - **passed:** final `ci check --only types --json`,619d2b2452e349538dc8c86c47e72298; Ruff7dee35d46cab45f6b4e601bfcbb54393; `ci docs check --json`,4122841a98da4e649e6529b5b0d6c6f4,1306pages/zero link errors. Initial artifact-fixture DTO/parameter typing failures9b96…/46f143… corrected without ignores; functional artifact retry not_run. Full union not_run.
 
 ## Open acceptance
+
+- N1 needs normal authenticated re-lowering/backfill, forward capture, deployment and actual native acceptance. Old read/seal/validator facts stay unset rather than fabricated. S13 native/provider acceptance and selected native scoring remain open. S08 persisted validator-revision/premise proof and conditional HostedPipeline.pipe retirement remain open; the coordinator owns exact residuals. ADR lint731d83d… passed.
 
 - Controlled contextual policy gate3390a4… fails before scoring: discovery/finite producer commit2receipts but query awaits encoder inputs. Exact report-member acquisition remains unresolved; final diagnostics-only edit9e6b01616 not_run. No assertion/production guard weakened.
 - Actual E5all3 162839e4631c43d4935e9de4a85b730a:1failed/2not_run; frame encoding/query/vector/target publication reached, retrieval emits no native score product. Reporting complete/native no_claim/custody settled. Complete scoring/provider acceptance open.
@@ -36,6 +41,6 @@ _Updated 2026-11-17. Production-efficiency execution in progress; full DDO remai
 
 ## Next turn
 
-- Continue [production-efficiency integration](docs/plans/declared-data-operations/production-efficiency-integration.md): remaining local slices plus review/ADR prerequisites for N1, host, failure, model batches and PDF assurance. Actual S28/S30 qualification remains due.
+- Continue [production-efficiency integration](docs/plans/declared-data-operations/production-efficiency-integration.md): authenticated N1 backfill/capture and native acceptance, then remaining local/native/host/model/PDF slices through accepted ADR routes. Actual S28/S30 qualification remains due; no new design-review/planning round is required.
 - Adoption and whole-book same-demand interruption/resume follow all required PE integration; final DDO-12 union follows corrected source. No native/application deployment or adoption occurred in this local increment.
 - Use UV_NO_SYNC=1/shared root environment; no rebind or push. Root owns final turn-end and documentation maintenance.

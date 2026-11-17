@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and15successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; no slice has started.**
+**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and15successors are registered and installed on the owned stage. The v9 application is admitted, checked and activated on the owned stage; actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; implementation and targeted acceptance are in progress.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -66,9 +66,96 @@ construction/contextual/model/demand/navigation/M1/formal/event files. This supe
 source credit for the overlapping earlier selections; failed originals remain retained.
 Independent review repairs are covered. No speedup or full DDO qualification is claimed.
 
-Next: PE-S03/04/05/07/08/10/12–15 and the required target
-accepted ADR routes for native N1, host, failure, batch and PDF rule changes. S28/S30 actual
-qualification remains due. N1–N4, development adoption, whole-book and final union are **not_run**.
+### Cross-cutting implementation in progress · 2026-11-17
+
+Main additionally integrates read-release reuse and MCP lifespan engines (S04), immutable source
+indexes and rich in-process validation reuse (S03/part S08), digest-only CPU source descriptors,
+prepared adapters, sealed CPU packet digests and parent-child model-asset custody (S05/S07),
+import-bound serving identity (S06), evaluation-owned reference alignment/scoring (S10), settled
+receipt classification (S12), and prepared preview/candidate reuse with a closed generated-output
+population (S13). S14 removes the unused liveness/execution-context/task-semantics modules and
+unused GLiNER helpers, caches immutable PDF profiles and avoids duplicate export verification.
+The conditional `HostedPipeline.pipe` retirement remains to be investigated. These are
+integrated implementation, with targeted acceptance still in progress; no enclosing slice is
+declared complete by its commit title. Persisted S08 established-validity proof remains open:
+canonical bytes or a native validating-kernel digest alone do not establish the exact Python
+validator revision and original source/selectors/context premises.
+
+N1 source integrates lowered admission facts/indexes, set-wise support validity, shared scope
+locks, recorded read evidence, actual validating-kernel receipts, intent seals and executor
+binding reuse. Typed read-scope rows/cut consumers, receipt-identity-controlled immutable producer
+reuse, shared page population closure and the cancellation support-lock union are integrated.
+Cancellation refuses retryably if that union expands while waiting. Private lowered fields are
+excluded from current closed wire projections. N1 is **not captured, deployed or qualified**. A normal forward
+DATA step must authenticate and re-lower already-admitted artifacts before required constraints;
+historical read evidence, intent seals and validator identities must not be fabricated.
+
+- **passed:** `ci test --workers 2 --json --` over receipt/CLI evidence plus lowering controls,
+  210 tests, `d412ae71b6244a29be04f7b40414011c` (bounded source/context). Earlier 208-test result
+  `c2e7aeee04c14326b0cfe0ee0c2c9c45` remains. Later S12 preflight/cache controls are recorded below.
+- **passed:** final S12 classifier/preflight controls165, `b406ae49caeb4c29916e7d9f430aee8e`;
+  source navigation/M1/formal/construction59, `c80d924e4d20443490401251be773da6`;
+  serving custody/CPU tamper/reference alignment61, `a95ebe13f31a4affa260d6667db0f0f3`;
+  rich consolidation/scientific/extraction/lowering22, `2e1a34f36ff845ac90babb181cea5b44`.
+  These remain bounded source/context results; native selected-scoring and actual model assets
+  are not established by the pure reference controls.
+- **failed:** mixed root cohort `947462ed5cec4d198163b02bb0917102`,347passed/16failed. Fifteen
+  PDF staging cases require a native capture matching changed source. The description case
+  exposed a real fresh-reader transaction requirement: one engine now supplies separate archive
+  and SQL-admission borrowers. Exact replacement1 **passed**, `86b71e465b2249b8989f1f22282efc09`.
+- **failed:** rich/source cohort `9a122e86b6574985ab780c96407ecd4d`,41passed/70failed. Frozen
+  mappings are now thawed only at canonical authentication serialization. The rich fixture now
+  supplies its actual projection and complete native/synthetic partition; an independent forged
+  projection still refuses. The affected59/22 replacements above passed. No native guard was weakened.
+- **failed:** read/MCP cohort `dd698ba1cad7436c8587bbe2a7ed2a40`,79passed/14failed. Report-source
+  mismatch was regenerated; the live neighborhood kernel is now included in maintained native
+  capture sources. Actual native acceptance awaits N1 capture; its behavior/tests are retained.
+- **failed:** custody cohort `badfe6adcb6a4715923fb9d91b87175c`,83passed/46failed. The valid-call
+  regression was Python's lazy dataclass deepcopy cache; preparation now establishes that cache
+  before authentication. Four-node replacement `21571a652d494888af5f734bd04195d3` reached the
+  intended mutation controls, with2passed/2diagnostic-expectation failures. Expectations were
+  updated; subsequent122 cohort `120e9e7bac934d9eaa00605fba546605` reached117passed/5failed,
+  then121 cohort `32567e70438f4e8b943886275b030a07` reached119passed/2failed. Their remaining
+  module-eviction refusal and child-source diagnostic are repaired and covered by the61 cohort
+  above. Fixture coverage/required lowered fields were
+  corrected independently; no production guard was weakened.
+- **passed, final local source endpoint:** `ci test --workers 2 --json --` over classifier,
+  ports/CPU/coroutine, file/query custody, lowered declarations and reference-alignment files,
+  325 tests, `47d838df06ab4c97af97604425cc1514`. `ci check --only types --json`
+  `c1c8158eb29044e9b1ec790a96f84bfa` and `ci check --only lint --json`
+  `5077b5bd1b404a2baaeaf8cbe589594a` **passed** after final N1 integration/formatting.
+  The new cancellation-lock test's original typing diagnostic `69480bd9651148e7bbcec09ab4aeea63`
+  was repaired by narrowing the real Psycopg exception; no SQLSTATE expectation was removed.
+  This endpoint does not qualify uninstalled native functions or actual model assets.
+- **failed:** S13 `49500c9c7e654f2094722c7600d71cda`,11passed/1failed/1blocked. Candidate
+  `29ccd4d7646b4d3491371fd14883ee23` exposed literal escaped SQL quotes in new attach predicates;
+  repaired in `7bfbba7de`. Actual provider acceptance requires `CORPUS_PM2_NATIVE_TEST_ASSETS`.
+- **failed:** `ci check --only types --json`, `3a00c30ac80d486cb6b2783978dc6bfe`, four diagnostics;
+  narrowing, runtime adapter typing and typed test-fixture repairs are integrated. Further
+  diagnostics `b29f95f284234e2e8bc128da6af15a37`, `48bbeb1d0b89492bab6022b45d1a05f2` and
+  `a0f46b50530a4ec28b5dfcee929d5463` remain retained; repaired type check
+  `7be9487d5140451281471b49d2d5771d` **passed**. Ruff `2421acfa71ad48f9b12b110fce150fb9`
+  and docs `78e39288b66f49b6a23c3c0f390743c8` **passed** (1309 pages, zero link errors).
+- **passed:** `ci adr lint`, `731d83dee37b453b9f5a0e71377142e9`. ADR-0122/0123/0124 record
+  already accepted support-validity, two-stage admission and serving-code custody decisions.
+- Collection-only failure `511679a9254f4998815fffb4d990c0d1` was a root selection-path mistake;
+  corrected evaluation paths produced the61-test pass above. `5d7bd510cca24af7a58ba22a0689e21b`
+  preserves the original description refusal. All original failures remain held; formatting and
+  final N1 source integration require their own final-source checks, not optimistic native credit.
+
+All three worker contributions are integrated on main; formatting conflicts preserved the native
+functional changes. Clean worktrees were removed after patch equivalence and, for the two
+formatted conflict regions, AST equivalence apart from a known unused local. `just turn-end`
+**passed**. Final `ci docs check --json` **passed**, `f735f0bbba4b4278872b5c3654188577`
+(1309 pages, zero link errors). The final native package is source implementation awaiting its normal forward
+backfill/capture/deployment and actual acceptance; no fresh design review or planning is due.
+
+The operator has explicitly withdrawn blanket repeat design-review/audit prerequisites: carry
+the established detailed design into implementation, preserve its refusal/ownership criteria,
+and reopen only concrete consequential mismatches. No additional planning round is required.
+Continue remaining PE scope and accepted ADR routes. S28/S30 actual qualification, N1–N4,
+development adoption, whole-book and final DDO-12 union remain open. Original failed receipts
+remain; no deployment/adoption or measured performance benefit is claimed in this increment.
 
 ### Position in the completion sequence
 
@@ -108,13 +195,13 @@ durable completion intents, which are the retained-intent recovery point.
 | Rule impact | Accepted target and consequence | Route | First dependent slice |
 |---|---|---|---|
 | PE-RC01 | PostgreSQL validates every request at the definer boundary; the native envelope names the installed contract digest; the client refuses on a digest difference, validates results and does not re-validate its own requests; native code does not re-validate its results. Exactly one result check remains | ADR-C supersedes ADR-0106, changing its "keep authoritative schema validation and exact transport" realization and restating the rest; D6 and the PostgreSQL companion amended. Written after PE-S00's `pg_jsonschema` item. Text: contracts and products companions | PE-S27 |
-| PE-RC02 | Support validity is evaluated set-wise once per statement; a pinned read records its scope closure, access universes and kernel digest at acquisition and later calls lock and compare; settlements take trust scopes in shared mode and only revocation takes them exclusively | ADR-A supersedes ADR-0093, changing "Cross-release inputs require … current support" (how it is evaluated) and "Trust publication/revocation shares ordered scoped epoch authority", adding the pinned-read clause and restating the rest, including product identity and "Directly revoked producing execution cannot be rehabilitated". ADR-0110 stays in force unchanged. The exclusive-lock sentence lives only in the demand-planning companion and is replaced there. Text: products companion | PE-S18 |
-| PE-RC03 | Admission still precedes hydration. The worst-case reservation is reduced to the measured hydrated size afterwards; a batch is charged once; logical page size is independent of memory admission; one owned-byte budget per process | ADR-B is a new record for two-stage byte admission, page size independent of memory admission and once-per-call batch charging. It supersedes nothing: ADR-0084's clause "Admission/reservations precede hydration and queueing" is kept literally, and what changes was not stated in any ADR. D6 is amended to add the stage-B reduction. ADR-0084's successor remains the one owed by the 2026-11-12 RC05 at DDO-11. Text: demand-planning companion | PE-S23 |
+| PE-RC02 | Support validity is evaluated set-wise once per statement; a pinned read records its scope closure, access universes and kernel digest at acquisition and later calls lock and compare; settlements take trust scopes in shared mode and only revocation takes them exclusively | [ADR-0122](../adr/0122-set-wise-support-validity.md) supersedes ADR-0093, changing "Cross-release inputs require … current support" (how it is evaluated) and "Trust publication/revocation shares ordered scoped epoch authority", adding the pinned-read clause and restating the rest, including product identity and "Directly revoked producing execution cannot be rehabilitated". ADR-0110 stays in force unchanged. The exclusive-lock sentence lives only in the demand-planning companion and is replaced there. Text: products companion | PE-S18 |
+| PE-RC03 | Admission still precedes hydration. The worst-case reservation is reduced to the measured hydrated size afterwards; a batch is charged once; logical page size is independent of memory admission; one owned-byte budget per process | [ADR-0123](../adr/0123-two-stage-byte-admission.md) records two-stage byte admission, page size independent of memory admission and once-per-call batch charging. It supersedes nothing: ADR-0084's clause "Admission/reservations precede hydration and queueing" is kept literally, and what changes was not stated in any ADR. D6 is amended to add the stage-B reduction. ADR-0084's successor remains the one owed by the 2026-11-12 RC05 at DDO-11. Text: demand-planning companion | PE-S23 |
 | PE-RC04 | The three encoder operations keep one request, product and vector per occurrence or target and declare the batch form under a new encoder numerical policy with authentic-observation batch semantics. Every encoder vector identity changes; existing vectors are regenerated | ADR-E supersedes ADR-0114, changing its paragraph "Encoder model execution remains scalar under its existing exact profile until an explicit released encoder policy selects cross-request batching" and restating the rest; ADR-0084 and ADR-0085 are not contradicted; D6 amended. Text: operations companion | PE-S29 |
 | PE-RC05 | One execution host per process owns the budget, worker generations, capsules, prepared ports, provider lanes and verified bases; a run proves retirement of its own work; one run is active per host; native model residency is process-scoped only under an explicit keep-warm setting | ADR-D supersedes ADR-0083, changing "One invocation owns verified preparation, regional lifetimes, physical admission and worker/provider scopes" and "No global verification cache…", and restating the rest, including established validation under original premises and "a digest is not proof"; D6 amended. Text: demand-planning companion | PE-S25 (PE-S08 relies on the restated clause) |
 | PE-RC06 | The producer certifies each PDF publication before staging; PostgreSQL certifies custody and structure and seal requires equal logical digests; the reconstruct-from-rows round trip runs per lowering identity, on explicit verify and in qualification. Independent per-publication reconstruction is given up; this is an accepted weakening, not an equivalence | ADR-F supersedes ADR-0045, changing "The model-bound finite runtime validates actual immutable payload interiors and required closure, then derives access projections" and restating the rest; D3 amended. Text: operations companion | PE-S36 |
 | PE-RC07 | An operation outcome is terminal or an execution failure; execution failures are never published or reused. Draft stages finish frozen builds; capture resumes from the spool; a sealed receipt names every contributing attempt | ADR-G supersedes ADR-0094, changing only "Native refusal, cancellation, failed/empty/partial and externally awaiting work remain distinct" and restating the rest, including durable exact completion intents. ADR-H supersedes ADR-0099, changing only "A sealed PDF publication retains its actual publisher task, attempt, holder…" to name every contributing attempt, and restating the rest. Both record the failure classification settled in detailed execution planning. Text: operations companion | PE-S09 (both), PE-S39 (ADR-H resume) |
-| PE-RC08 | A serving identity names the running code; drift is detected by file metadata with content confirmation, and changed content refuses with a restart instruction | ADR-I, a new record that supersedes nothing (the guarantee was in no ADR); D8 amended. Text: interfaces companion | PE-S06 |
+| PE-RC08 | A serving identity names the running code; drift is detected by file metadata with content confirmation, and changed content refuses with a restart instruction | [ADR-0124](../adr/0124-serving-code-custody.md), superseding nothing (the guarantee was in no ADR); D8 amended. Text: interfaces companion | PE-S06 |
 
 Preserved without change: §B1–§B6; ADR-0110; ADR-0121's rule that no authenticated cut or
 authority result is cached across invocations; the retain and publish split; freeze, then
@@ -122,7 +209,8 @@ validate, then seal; Chandra's exclusion.
 
 ### Production-efficiency review disposition · accepted 2026-11-17
 
-Every row is **scheduled, not started**. Closure needs the slice's consumers migrated, its
+Rows retain their source finding and scheduled owner; current implementation/qualification is
+recorded above. Closure needs the slice's consumers migrated, its
 superseded machinery removed and its companion's acceptance evidence, not a decision or a
 foundation pass.
 

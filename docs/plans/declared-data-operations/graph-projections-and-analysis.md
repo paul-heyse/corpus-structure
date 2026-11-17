@@ -129,8 +129,9 @@ callbacks preserve canonical node payloads and typed edge counters/multiplicity.
 shared-binder identity and concrete mapping enumeration. Complete slots require isomorphism; partial
 positive witnesses require non-induced monomorphism, not induced matching. Expected fields may be
 asymmetric, and post-mapping joint-choice/prerequisite checks must still see distinguishing mappings.
-Migrate `evaluate/characterization_assessment.py` and `evaluate/task_semantics.py` with their actual
-consumers; retain guarded global assignment and independent protected expectations.
+Migrate `evaluate/characterization_assessment.py` with its actual consumers; retain guarded global
+assignment and independent protected expectations. The unused `evaluate/task_semantics.py` and
+its mechanism-only tests are retired under PE-S14 rather than migrated.
 
 For authentic single-parent containment, use
 [`is_arborescence`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/algorithms/tree/recognition.py)
@@ -301,5 +302,4 @@ cache authority. Dated integrated qualification is recorded in the coordinator; 
 ## Task-semantics module retirement — production-efficiency · 2026-11-17
 
 `evaluate/task_semantics.py` has no production consumer. It is removed with its tests in PE-S14 of the
-[integration companion](production-efficiency-integration.md); the earlier sentence that it migrates
-with its actual consumers no longer applies to it. The coordinator owns status.
+[integration companion](production-efficiency-integration.md). The coordinator owns status.
