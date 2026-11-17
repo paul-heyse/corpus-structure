@@ -266,9 +266,7 @@ def _remove_owned_empty_tree(
                         and top
                         and re.fullmatch(r"selected-read-[a-z0-9_]{8}", name)
                     )
-                    children.append(
-                        (name, found, inspect_tree(child, selected_scratch=scratch))
-                    )
+                    children.append((name, found, inspect_tree(child, selected_scratch=scratch)))
                 finally:
                     os.close(child)
             return children

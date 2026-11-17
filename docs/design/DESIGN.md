@@ -227,6 +227,13 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Implemented compiler contract; native qualification remains scoped · 2026-11-16.** Missing,
+explicit null and populated values retain distinct canonical meanings. Opt-in whole-field nullability
+does not weaken identity determinants or source-owned pins; required presence remains independent.
+[D2](D2-schema-and-guidelines.md#effective-operation-compilation-and-authoring) owns compilation.
+
+> Decision: [ADR-0120](../adr/0120-explicit-nullable-fields.md)
+
 **Accepted current target; implementation/qualification Proposed · 2026-11-15.** SourceRecord
 occurrence identity uses the checked family-field kind contract, family, occurrence recipe,
 genuine primary source pin and occurrence anchors. Whole-release salts and release relabelling

@@ -163,23 +163,26 @@ def actual_e5_native_case(scenario_seeds, tmp_path_factory):
         # Establish the actual retained-discovery parent/member before deriving
         # any source pins. Later discovery reuses this exact selection and value.
         ((capture_row, _),) = [
-            item for item in selected_current_sources(source)
+            item
+            for item in selected_current_sources(source)
             if item[1]["source"]["section_pointer"] == "#/groups/0" and item[1]["text"] == TEXT
         ]
-        retained_request = current_consumer_request(
-            source, kernel, (), discover=True
-        ).model_copy(update={
-            "inference": INFERENCE,
-            "source_sets": {"selected-source-views": [source_entry(capture_row).record()]},
-        })
+        retained_request = current_consumer_request(source, kernel, (), discover=True).model_copy(
+            update={
+                "inference": INFERENCE,
+                "source_sets": {"selected-source-views": [source_entry(capture_row).record()]},
+            }
+        )
         retained, result = execute(kernel, retained_request)
         assert result.receipt_count == 1
         (population,) = selected(
-            kernel, retained["demand_id"],
+            kernel,
+            retained["demand_id"],
             kind="https://corpus-structure.dev/semantic/data-operation-source-discovery/DdoSourceViewPopulation",
         )
         (original,) = selected(
-            kernel, retained["demand_id"],
+            kernel,
+            retained["demand_id"],
             kind="https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
         )
         assert original.row["product_id"] == population.row["product_id"]
@@ -229,41 +232,55 @@ def query_request(kernel, retained_request, original, primary, *, recipe, member
     discovery = (
         DemandDiscoverySelection(**asdict(query_relations[0])),
         DemandDiscoverySelection(
-            producer=DISCOVERY, output_role="result", target=OPERATION,
-            population=query_relations[0].population, target_role="source",
+            producer=DISCOVERY,
+            output_role="result",
+            target=OPERATION,
+            population=query_relations[0].population,
+            target_role="source",
         ),
     )
     sources = {
         **retained_request.source_sets,
-        **source_sets_record((
-            FrozenSourceSet("fixture-selected-context-source", (original.entry(),)),
-            FrozenSourceSet("query-context-primary", (primary.entry(),)),
-        )),
-    }
-    return retained_request.model_copy(update={
-        "targets": (DISCOVERY,),
-        "discovery": discovery,
-        "source_sets": sources,
-        "selections": (
-            *retained_request.selections,
-            DemandOperationSelection(operation=OPERATION, parameters={"recipe": recipe}),
-            DemandOperationSelection(
-                operation=QUERY, replicate="actual-E5:" + recipe,
-                parameters={"context_selection": {
-                    "recipe": recipe,
-                    "evidence": {"product_id": primary.row["product_id"], "member_id": member},
-                }},
-            ),
+        **source_sets_record(
+            (
+                FrozenSourceSet("fixture-selected-context-source", (original.entry(),)),
+                FrozenSourceSet("query-context-primary", (primary.entry(),)),
+            )
         ),
-        "inference": INFERENCE,
-    })
+    }
+    return retained_request.model_copy(
+        update={
+            "targets": (DISCOVERY,),
+            "discovery": discovery,
+            "source_sets": sources,
+            "selections": (
+                *retained_request.selections,
+                DemandOperationSelection(operation=OPERATION, parameters={"recipe": recipe}),
+                DemandOperationSelection(
+                    operation=QUERY,
+                    replicate="actual-E5:" + recipe,
+                    parameters={
+                        "context_selection": {
+                            "recipe": recipe,
+                            "evidence": {
+                                "product_id": primary.row["product_id"],
+                                "member_id": member,
+                            },
+                        }
+                    },
+                ),
+            ),
+            "inference": INFERENCE,
+        }
+    )
 
 
 def assert_query_fulfilled(result, operation):
     # DemandAdvance.snapshot is the native WireReadDemandResultResult frontier.
     frontier = json_loads(result.snapshot)
     obligations = {
-        row["obligation_id"]: row for row in frontier["obligations"]
+        row["obligation_id"]: row
+        for row in frontier["obligations"]
         if row["operation_id"] == operation
     }
     uses = [row for row in frontier["uses"] if row["obligation_id"] in obligations]

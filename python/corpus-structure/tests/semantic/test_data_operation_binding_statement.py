@@ -17,10 +17,10 @@ from corpus_structure.semantic.data_operation_storage import (
 from semantic.test_data_operation_bindings import model
 
 
-def test_binding_statement_materializes_role_selections_and_decodes_context_only_at_output(monkeypatch):
-    target = model(
-        BindingExpression("scan", roles=("left", "right")), names=("left", "right")
-    )
+def test_binding_statement_materializes_role_selections_and_decodes_context_only_at_output(
+    monkeypatch,
+):
+    target = model(BindingExpression("scan", roles=("left", "right")), names=("left", "right"))
     monkeypatch.setattr(
         DataOperationStorage,
         "read_demand_result",
@@ -29,7 +29,12 @@ def test_binding_statement_materializes_role_selections_and_decodes_context_only
         ),
     )
     projections = admitted_data_projection(
-        cast(Connection, object()), "demand:controlled", "urn:op", {}, target, read_id="read:controlled"
+        cast(Connection, object()),
+        "demand:controlled",
+        "urn:op",
+        {},
+        target,
+        read_id="read:controlled",
     )
     compiled = compile_binding(target, "urn:op", projections, subject="doc")
     statement = binding_statement(compiled)

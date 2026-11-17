@@ -459,9 +459,7 @@ def test_recovery_preserves_original_interruption_and_receipts(owned_private_res
         recovered_private_process(receipt, process)
 
 
-def test_recovery_removes_selected_sqlite_scratch_after_drain(
-    owned_private_residue, monkeypatch
-):
+def test_recovery_removes_selected_sqlite_scratch_after_drain(owned_private_residue, monkeypatch):
     from native_private_cohort import recover_private_temporary
 
     receipt, temporary = owned_private_residue

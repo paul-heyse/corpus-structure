@@ -312,9 +312,7 @@ class CurrentRecordPolicyJourney:
 
 
 @contextmanager
-def current_record_policy_journey(
-    scenario_seeds, tmp_path, monkeypatch, *, recipe, source_count=4
-):
+def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, recipe, source_count=4):
     import pypdfium2 as pdfium
 
     from corpus_structure.core.evidence import document_key

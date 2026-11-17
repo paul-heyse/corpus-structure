@@ -1032,9 +1032,7 @@ def compile_binding(
                 .where(condition.is_(True), alias.c.product.is_not(None))
                 .distinct()
             )
-        selected = query.cte("selected_" + name).prefix_with(
-            "MATERIALIZED", dialect="postgresql"
-        )
+        selected = query.cte("selected_" + name).prefix_with("MATERIALIZED", dialect="postgresql")
         selected_relations[name] = selected
         query = select(*selected.c)
         if roles[name].collection == "sequence":

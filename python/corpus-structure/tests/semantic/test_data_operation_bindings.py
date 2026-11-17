@@ -1986,10 +1986,10 @@ def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage
     exact = Decimal("0.123456789012345678901234567890123456789")
     connection.execute(
         text(
-            'UPDATE admitted SET analyzed_scope = CAST(:scope AS jsonb), '
-            'support_evidence = CAST(:support AS jsonb)'
+            "UPDATE admitted SET analyzed_scope = CAST(:scope AS jsonb), "
+            "support_evidence = CAST(:support AS jsonb)"
         ),
-        {"scope": '{"fraction":' + str(exact) + '}', "support": '{"fraction":' + str(exact) + '}'},
+        {"scope": '{"fraction":' + str(exact) + "}", "support": '{"fraction":' + str(exact) + "}"},
     )
     target = model(
         BindingExpression("scan", roles=("items", "empty")),
@@ -2018,7 +2018,11 @@ def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage
                 select(literal(value, type_=Boolean())),
                 "awaiting-inputs",
             )
-            for code, value in (("true-control", True), ("false-control", False), ("null-control", None))
+            for code, value in (
+                ("true-control", True),
+                ("false-control", False),
+                ("null-control", None),
+            )
         ),
     )
     statements = []
@@ -2065,7 +2069,9 @@ def test_binding_transport_refuses_missing_or_duplicate_check_rows(storage, valu
     compiled = replace(
         compiled,
         checks=(
-            BindingCheck(BindingReason("control", "transport-control", "control"), query, "invalid"),
+            BindingCheck(
+                BindingReason("control", "transport-control", "control"), query, "invalid"
+            ),
         ),
     )
     message = "duplicate or unexpected" if values else "incomplete"

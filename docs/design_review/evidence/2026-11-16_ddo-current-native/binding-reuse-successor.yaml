@@ -1,0 +1,4 @@
+# SI23/SI24 statement-local binding and authoring source recapture.
+baseline: HEAD
+native_revision: semantic_ddo_binding_reuse
+native_predecessor: semantic_ddo_nullable_fields
