@@ -192,9 +192,11 @@ def _check_loaded(expected: dict[str, str]) -> None:
     # Imported object custody survives sys.modules eviction. Replacing or dropping
     # a module cannot authenticate the stale objects retained by query consumers.
     for module, (path, digest) in tuple(_EXECUTED.items()):
+        name = vars(module).get("__name__")
         if path in expected and (
             digest != expected[path]
-            or sys.modules.get(vars(module).get("__name__")) is not module
+            or not isinstance(name, str)
+            or sys.modules.get(name) is not module
             or str(Path(vars(module).get("__file__", "")).resolve()) != path
         ):
             raise SourceCustodyError("query-helper module changed; restart the process")
