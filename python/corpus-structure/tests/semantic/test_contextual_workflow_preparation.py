@@ -45,6 +45,9 @@ def test_current_definition_workflow_has_actual_source_and_consumer_contracts(pr
     ):
         assert model.operation(operation).subject == "original-source-view"
     assert model.subject_definition("original-source-view").scope == "original-source"
+    assert model.operation("retrieve.contextual_scores/declared").dependencies == (
+        "retrieve.contextual_vectors/selection",
+    )
     for operation, subject in (
         ("retrieve.contextual_targets/curated", "contextual-registry"),
         ("retrieve.contextual_target/declared", "contextual-target"),

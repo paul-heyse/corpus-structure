@@ -251,6 +251,38 @@ def run_intent(kernel, intent):
     return demand, result
 
 
+def query_intent(kernel, source, occurrence, *, replicate, context_selection=None, primary=()):
+    """Acquire exactly the requested retained carrier, never all same-context contributions."""
+    from corpus_structure.semantic.contextual_selection import (
+        ContextualSelectedProduct,
+        acquire_contextual_query_selection,
+        freeze_contextual_query_demand,
+    )
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+    from semantic.current_pdf_source_support import PROJECT
+
+    def chosen(value):
+        pin = value.read
+        return ContextualSelectedProduct(
+            pin.demand_id, value.row["product_id"], read_id=pin.read_id,
+            expected_cut=pin.cut_id, member_id=value.row["member_id"],
+        )
+
+    with kernel.purpose("read").begin() as connection:
+        selection = acquire_contextual_query_selection(
+            connection, project_id=PROJECT, source=chosen(source), occurrence=chosen(occurrence)
+        )
+    return freeze_contextual_query_demand(
+        kernel.model, selection, replicate=replicate,
+        inference="exact-retained-source-occurrence",
+        execution_profile=kernel.recipe.execution_profile,
+        context_selection=context_selection,
+        source_sets=(FrozenSourceSet.from_selected(
+            "query-context-primary", tuple(value.entry() for value in primary)
+        ),) if context_selection is not None else (),
+    )
+
+
 def registry_targets(names):
     from corpus_structure.semantic.contextual_registry import RegistryTarget
 

@@ -127,7 +127,7 @@ class ContextualScoringOperation:
             "kind": "urn:corpus:kind:contextual-retrieval:NumericalPolicy",
         },
         "replicate_policy": "retained-observation-single-result",
-        "dependencies": [],
+        "dependencies": ["retrieve.contextual_vectors/selection"],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],

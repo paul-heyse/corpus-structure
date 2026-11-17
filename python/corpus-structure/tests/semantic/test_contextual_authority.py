@@ -209,6 +209,12 @@ def test_query_authority_rebuilds_actual_selected_primary_context(recipe, monkey
     assert result["query"]["carrier"]["contribution_id"] == occurrence["contribution_id"]
     assert result["query"]["context"]["rendered"] == expected
     assert result["query"]["context_inputs"][0]["product_id"] == "product:primary"
+    foreign = decode_semantic_value(processed)
+    foreign["context"]["subject"] = "another-consumer"
+    with pytest.raises(ValueError, match="selected source/occurrence context"):
+        execute_query_encoder_authority_kernel(
+            semantic_value(foreign), frame.record, asdict(profile()), "", (), check_active=lambda: None
+        )
     wrong = dict(frame.record)
     wrong_pin = dict(pin, source_member="another-member")
     wrong_pin["source"] = canonical_bytes([pin["source_product"], "another-member"]).decode()

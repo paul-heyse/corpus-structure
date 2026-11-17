@@ -117,6 +117,13 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
     primary = next(role for role in selected.roles if role.name == "primary")
     assert primary.support is not None
     assert primary.support.source_set == "query-context-primary" and primary.minimum == 1
+    for query_operation in (operation, selected):
+        inputs = {role.name: role for role in query_operation.roles if role.direction == "input"}
+        for name in ("source", "occurrence"):
+            assert inputs[name].support is not None
+            assert inputs[name].support.source_set == "contextual-query-" + name
+            assert inputs[name].minimum == inputs[name].maximum == 1
+            assert inputs[name].subject_target == "subject"
     assert len(selected.output_witnesses) == 2
     assert all(value.complete for value in model.implementation_slices), [
         (value.root, value.unknowns) for value in model.implementation_slices if not value.complete
@@ -138,10 +145,16 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
     )
     with pytest.raises(ValueError, match="explicit replicate selection is required"):
         freeze_demand(model, **arguments)
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+
     intent = freeze_demand(
         model,
         selections=(
             OperationSelection(operation.semantic_id, replicate="operator-selected-sample-A"),
+        ),
+        source_sets=tuple(
+            FrozenSourceSet.unqualified(name, ())
+            for name in ("contextual-query-source", "contextual-query-occurrence")
         ),
         **arguments,
     )

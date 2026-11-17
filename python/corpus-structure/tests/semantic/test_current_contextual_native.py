@@ -28,6 +28,7 @@ from semantic.current_contextual_support import (
     controlled_encoder,
     final_selection,
     inventory_intent,
+    query_intent,
     retained_products,
     retrieval_intent,
     run_intent,
@@ -115,49 +116,9 @@ def current_contextual_case(scenario_seeds, tmp_path_factory):
             ]
             == [(0, 3, "Ada")]
         ]
-        from corpus_structure.semantic.data_operation_service import (
-            DemandDiscoverySelection,
-            DemandOperationSelection,
+        query_demand, query_result = run_intent(
+            kernel, query_intent(kernel, original, occurrence, replicate="actual-scalar-query-A")
         )
-
-        pending = current_consumer_request(
-            source, kernel, ("retrieve.contextual_query/declared",), discover=True
-        )
-        pending = pending.model_copy(
-            update={
-                "source_sets": {
-                    **selected_sources,
-                    **source_sets_record(
-                        (
-                            # Fix the address; current discovery supplies its proof.
-                            FrozenSourceSet.unqualified(
-                                "fixture-structural-source", (original.entry().entry,)
-                            ),
-                        )
-                    ),
-                },
-                "discovery": (
-                    *pending.discovery,
-                    DemandDiscoverySelection(
-                        producer="source.selected_views/discovery",
-                        output_role="result",
-                        target="fixture.structural_inventory",
-                        population=pending.discovery[0].population,
-                        target_role="source",
-                    ),
-                ),
-                "selections": (
-                    *pending.selections,
-                    DemandOperationSelection(
-                        operation="retrieve.contextual_query/declared",
-                        replicate="actual-scalar-query-A",
-                    ),
-                ),
-                "inference": "exact-retained-source-occurrences",
-            }
-        )
-        query_retained, query_result = execute(kernel, pending)
-        query_demand = query_retained["demand_id"]
         queries = [
             value
             for value in retained_products(kernel, query_demand, "DdoContextualQuery")

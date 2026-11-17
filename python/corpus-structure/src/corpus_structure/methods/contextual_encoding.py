@@ -38,10 +38,11 @@ class ContextualEncodingOperation:
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
-                    "source": "same-original",
+                    "source": "frozen-source-set",
                     "coverage": {"role": "source", "description": "exact-native-source"},
                     "origins": ["computation", "original-source"],
                     "identity_requirements": ["episode", "original-source"],
+                    "source_set": "contextual-query-source",
                 },
             },
             {
@@ -55,9 +56,10 @@ class ContextualEncodingOperation:
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
-                    "source": "same-original",
+                    "source": "frozen-source-set",
                     "coverage": {"role": "occurrence", "description": "exact-retained-occurrence"},
                     "identity_requirements": ["episode"],
+                    "source_set": "contextual-query-occurrence",
                 },
             },
             {
@@ -306,10 +308,11 @@ class SelectedContextEncodingOperation:
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
-                    "source": "same-original",
+                    "source": "frozen-source-set",
                     "coverage": {"role": "source", "description": "exact-native-source"},
                     "origins": ["computation", "original-source"],
                     "identity_requirements": ["episode", "original-source"],
+                    "source_set": "contextual-query-source",
                 },
             },
             {
@@ -323,9 +326,10 @@ class SelectedContextEncodingOperation:
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
-                    "source": "same-original",
+                    "source": "frozen-source-set",
                     "coverage": {"role": "occurrence", "description": "exact-retained-occurrence"},
                     "identity_requirements": ["episode"],
+                    "source_set": "contextual-query-occurrence",
                 },
             },
             {

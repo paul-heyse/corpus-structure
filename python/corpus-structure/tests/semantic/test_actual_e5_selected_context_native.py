@@ -21,7 +21,6 @@ from corpus_structure.semantic.composed import (
 from corpus_structure.semantic.contextual_registry import RegistryTarget
 from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.data_operation_service import (
-    DemandDiscoverySelection,
     DemandOperationSelection,
 )
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, source_sets_record
@@ -33,6 +32,7 @@ from semantic.current_contextual_support import (
     contextual_recipe,
     final_selection,
     inventory_intent,
+    query_intent,
     retained_products,
     retrieval_intent,
     run_intent,
@@ -56,7 +56,6 @@ pytestmark = [
 ]
 
 QUERY = "retrieve.contextual_query/selected-context"
-DISCOVERY = "source.selected_views/discovery"
 INFERENCE = "actual-configured-E5-selected-context"
 
 CASES = (
@@ -202,7 +201,7 @@ def actual_e5_native_case(scenario_seeds, tmp_path_factory):
         )
         targets = retained_products(kernel, target_demand, "DdoContextualTargetVector")
         assert len(targets) == 3
-        yield kernel, original, encoder, target_demand, targets, retained_request
+        yield kernel, original, encoder, target_demand, targets
 
 
 def assert_published_cpu(kernel, product, operation):
@@ -227,61 +226,6 @@ def assert_published_cpu(kernel, product, operation):
     assert cpu["pid"] > 0 and cpu["main_thread"] is True
     assert len(cpu["request_digest"]) == len(cpu["result_digest"]) == 64
 
-
-def query_request(kernel, retained_request, original, primary, *, recipe, member):
-    from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
-
-    # Discovery owns the document root; both consumers run at its actual child
-    # source context. The fixture set limits addresses; current discovery owns
-    # its producing proof. The primary and PDF sets retain their selected proofs.
-    query_relations = source_discovery_relations(kernel.model, DISCOVERY, "result", QUERY)
-    assert len(query_relations) == 1 and query_relations[0].target_role == "source"
-    discovery = (
-        DemandDiscoverySelection(**asdict(query_relations[0])),
-        DemandDiscoverySelection(
-            producer=DISCOVERY,
-            output_role="result",
-            target=OPERATION,
-            population=query_relations[0].population,
-            target_role="source",
-        ),
-    )
-    sources = {
-        **retained_request.source_sets,
-        **source_sets_record(
-            (
-                FrozenSourceSet.unqualified(
-                    "fixture-selected-context-source", (original.entry().entry,)
-                ),
-                FrozenSourceSet.from_selected("query-context-primary", (primary.entry(),)),
-            )
-        ),
-    }
-    return retained_request.model_copy(
-        update={
-            "targets": (DISCOVERY,),
-            "discovery": discovery,
-            "source_sets": sources,
-            "selections": (
-                *retained_request.selections,
-                DemandOperationSelection(operation=OPERATION, parameters={"recipe": recipe}),
-                DemandOperationSelection(
-                    operation=QUERY,
-                    replicate="actual-E5:" + recipe,
-                    parameters={
-                        "context_selection": {
-                            "recipe": recipe,
-                            "evidence": {
-                                "product_id": primary.row["product_id"],
-                                "member_id": member,
-                            },
-                        }
-                    },
-                ),
-            ),
-            "inference": INFERENCE,
-        }
-    )
 
 
 def assert_operation_fulfilled(kernel, result, operation, *, allow_reuse=False):
@@ -345,7 +289,7 @@ def assert_operation_fulfilled(kernel, result, operation, *, allow_reuse=False):
 def test_actual_e5_selected_context_native_publication_and_retrieval(
     actual_e5_native_case, recipe, member, literal, expected_context
 ):
-    kernel, original, encoder, target_demand, targets, retained_request = actual_e5_native_case
+    kernel, original, encoder, target_demand, targets = actual_e5_native_case
     inference = INFERENCE
     finite, result = execute(
         kernel,
@@ -379,12 +323,18 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
     assert_published_cpu(kernel, primary, OPERATION)
     assert_published_cpu(kernel, occurrence, OPERATION)
     query_operation = QUERY
-    retained, result = execute(
+    query_demand, result = run_intent(
         kernel,
-        query_request(kernel, retained_request, original, primary, recipe=recipe, member=member),
+        query_intent(
+            kernel, original, occurrence, replicate="actual-E5:" + recipe,
+            context_selection={
+                "recipe": recipe,
+                "evidence": {"product_id": primary.row["product_id"], "member_id": member},
+            },
+            primary=(primary,),
+        ),
     )
     assert_operation_fulfilled(kernel, result, query_operation)
-    query_demand = retained["demand_id"]
     (query,) = retained_products(kernel, query_demand, "DdoContextualQuery")
     (query_vector,) = retained_products(kernel, query_demand, "DdoContextualQueryVector")
     assert query.body["lexical_query"] == literal
@@ -431,7 +381,10 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
         inventory_demand,
         inventory,
     )
-    demand, _ = run_intent(kernel, retrieval_intent(kernel, selection, budget=3))
+    demand, retrieval_result = run_intent(kernel, retrieval_intent(kernel, selection, budget=3))
+    assert_operation_fulfilled(kernel, retrieval_result, "retrieve.contextual_vectors/selection", allow_reuse=True)
+    assert_operation_fulfilled(kernel, retrieval_result, "retrieve.contextual_scores/declared", allow_reuse=True)
+    assert_operation_fulfilled(kernel, retrieval_result, "retrieve.contextual/declared", allow_reuse=True)
     (scores,) = retained_products(kernel, demand, "DdoContextualNativeScores")
     (retrieved,) = retained_products(kernel, demand, "DdoContextualRetrievalProduct")
     candidates = source_python(retrieved.body["candidate_list"])

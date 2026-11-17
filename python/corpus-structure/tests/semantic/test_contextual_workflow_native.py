@@ -18,6 +18,7 @@ from semantic.current_contextual_support import (
     contextual_workflow_recipe,
     controlled_encoder,
     final_selection,
+    query_intent,
     retained_products,
     run_intent,
     witnessed_retrieval_intent,
@@ -173,31 +174,29 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
         component_retained, _ = execute(kernel, component_request(kernel, original, "meaning"))
         (components,) = selected(kernel, component_retained["demand_id"], kind=COMPONENT_KIND)
         (component,) = components.body["definition_components"]["components"]
-        pending = request(
-            kernel,
-            ("retrieve.contextual_query/declared",),
-            original.context,
-            selections=(
-                DemandOperationSelection(
-                    operation="retrieve.contextual_query/declared",
-                    replicate="actual-finite-count-query-observations",
-                ),
-            ),
-            inference="exact-finite-count-query-carriers",
-        )
-        query_retained, _ = execute(kernel, pending)
-        query_demand = query_retained["demand_id"]
-        queries = retained_products(kernel, query_demand, "DdoContextualQuery")
+        cue_products = {
+            value.body["semantic_type"]: value
+            for value in selected(
+                kernel, cue_retained["demand_id"],
+                kind="https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateSourceContribution",
+            )
+        }
+        query_demands, queries = {}, {}
+        for role in ("subject", "unrelated", "object"):
+            carrier = cue_products["source_rule." + role]
+            query_demands[role], _ = run_intent(
+                kernel, query_intent(
+                    kernel, original, carrier,
+                    replicate="actual-finite-count-query-observations:" + role,
+                )
+            )
+            (queries[role],) = retained_products(kernel, query_demands[role], "DdoContextualQuery")
+            assert queries[role].body["carrier"]["contribution_id"] == carrier.body["contribution_id"]
 
         def query_for(role):
-            (value,) = [
-                row
-                for row in queries
-                if row.body["carrier"]["contribution_id"]
-                == cues["source_rule." + role]["contribution_id"]
-            ]
-            return value
+            return queries[role]
 
+        query_demand = query_demands["subject"]
         query, unrelated = query_for("subject"), query_for("unrelated")
         (query_vector,) = [
             row

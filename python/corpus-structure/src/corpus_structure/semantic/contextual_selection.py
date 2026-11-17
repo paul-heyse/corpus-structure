@@ -23,6 +23,7 @@ class ContextualSelectedProduct:
     product_id: str
     read_id: str | None = None
     expected_cut: str | None = None
+    member_id: str | None = None
 
 
 def contextual_target_discovery(producer):
@@ -86,7 +87,7 @@ def freeze_contextual_target_demand(
     )
 
 
-def _selected_product(connection, selection, *, project_id, kind_name):
+def _selected_product_with_kind(connection, selection, *, project_id, kind_name):
     from .data_operation_identity import decode_semantic_value
     from .data_operation_support import ComputationalSupportReference
     from .demand_results import selected_record_index
@@ -111,7 +112,7 @@ def _selected_product(connection, selection, *, project_id, kind_name):
                 index,
                 read,
                 product_id=selection.product_id,
-                member_id=None,
+                member_id=selection.member_id,
                 anchor_use_id=use["use_id"],
                 support=ComputationalSupportReference(
                     derivation_id=use["derivation_id"], admission_use_id=use["use_id"]
@@ -125,13 +126,115 @@ def _selected_product(connection, selection, *, project_id, kind_name):
         (selected_entry,) = candidates
         product = index.mapping("kb.data_product", ("id",))[selection.product_id]
         contracts = index.mapping("sem.data_kind_contract", ("kind_contract",))
-        contract = contracts[product["kind_contract"]]
-        if (
-            contract["kind"]
-            != "https://corpus-structure.dev/semantic/data-operation-contextual/" + kind_name
-        ):
+        member = (
+            product
+            if selection.member_id is None
+            else index.mapping("kb.data_product_member", ("product_id", "member_id"))[
+                (selection.product_id, selection.member_id)
+            ]
+        )
+        contract = contracts[member["kind_contract"]]
+        expected_kind = (
+            kind_name
+            if ":" in kind_name
+            else "https://corpus-structure.dev/semantic/data-operation-contextual/" + kind_name
+        )
+        if contract["kind"] != expected_kind:
             raise ValueError("contextual selection has a different native nominal contract")
-        return decode_semantic_value(product["canonical_body"]), selected_entry, cut
+        body = member["canonical_body"] if selection.member_id is None else member["body"]
+        return decode_semantic_value(body), selected_entry, cut, member["kind_contract"]
+
+
+def _selected_product(connection, selection, *, project_id, kind_name):
+    body, entry, cut, _ = _selected_product_with_kind(
+        connection, selection, project_id=project_id, kind_name=kind_name
+    )
+    return body, entry, cut
+
+
+@dataclass(frozen=True)
+class ContextualQuerySelection:
+    """One exact source/carrier pair, including their actual selected producing proofs."""
+
+    source_sets: tuple[FrozenSourceSet, ...]
+    cuts: tuple[CutSelection, ...]
+    query_context: SubjectContext
+
+
+def acquire_contextual_query_selection(connection, *, project_id, source, occurrence):
+    from .data_operation_model import SubjectContext, json_context_meaning
+    from .declared_record_sources import DeclaredRecordSource
+
+    source_body, source_entry, source_cut, source_kind = _selected_product_with_kind(
+        connection,
+        source,
+        project_id=project_id,
+        kind_name="https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+    )
+    occurrence_body, occurrence_entry, occurrence_cut = _selected_product(
+        connection,
+        occurrence,
+        project_id=project_id,
+        kind_name="https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateSourceContribution",
+    )
+    address = source_entry.entry
+    context = SubjectContext(
+        project_id,
+        address.subject,
+        address.original_source,
+        address.analyzed_scope,
+        subject_definition=address.subject_definition,
+    )
+    coordinate = source_body["source"]
+    pin = DeclaredRecordSource(
+        coordinate["document"], coordinate["projection"], coordinate["section_pointer"],
+        coordinate["membership"], context, address.product, address.member,
+        source_kind,
+    ).pin()
+    carrier = occurrence_entry.entry
+    if (
+        carrier.subject != context.subject
+        or carrier.subject_definition != context.subject_definition
+        or carrier.original_source != context.original_source
+        or json_context_meaning(carrier.analyzed_scope) != json_context_meaning(context.analyzed_scope)
+        or occurrence_body["pin"] != pin
+    ):
+        raise ValueError("contextual carrier differs from its exact selected native source/context")
+    return ContextualQuerySelection(
+        (
+            FrozenSourceSet.from_selected("contextual-query-source", (source_entry,)),
+            FrozenSourceSet.from_selected("contextual-query-occurrence", (occurrence_entry,)),
+        ),
+        (source_cut, occurrence_cut),
+        context,
+    )
+
+
+def freeze_contextual_query_demand(
+    model, selection, *, replicate, inference, execution_profile, context_selection=None,
+    source_sets=(),
+):
+    from .data_operation_demands import OperationSelection, RootSubject, freeze_demand
+    from .data_operation_json import json_bytes
+
+    context = selection.query_context
+    operation = (
+        "retrieve.contextual_query/declared"
+        if context_selection is None
+        else "retrieve.contextual_query/selected-context"
+    )
+    return freeze_demand(
+        model,
+        roots=(RootSubject(context.subject, context.original_source, context.analyzed_scope),),
+        targets=(operation,),
+        selections=(OperationSelection(
+            operation, replicate=replicate,
+            parameters=json_bytes({} if context_selection is None else dict(context_selection=context_selection)),
+        ),),
+        inference=inference,
+        execution_profile=execution_profile,
+        source_sets=(*selection.source_sets, *source_sets),
+    )
 
 
 @dataclass(frozen=True)
