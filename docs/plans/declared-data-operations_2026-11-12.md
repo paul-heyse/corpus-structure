@@ -112,13 +112,29 @@ authoritative and only unresolved IDs execute. Focused regression **passed1**,
 command. Pyrefly `64ac24cff6d646f8842ab86627bd4c36` and Ruff
 `cc0fed2423c344f1bf9b35abd2a7d21b` **passed** at this source boundary; failed originals remain.
 
-PE-S23/24 admission/claim work and Python-side S37 reads continue in isolated trees. The root
-owns native capture, shared contracts, current consumer acceptance and receipts. ADR-0125
-accepts the process-host target and restates surviving execution/validation contracts; S25 is
-not yet implemented. S08 durable validator-success proof follows N2 completion/publication,
-with strict decoding and full semantic fallback when exact original premises do not match.
-Host/N2, model batching, PDF certification/recovery, serving/N4, adoption and final DDO-12 remain
-authorized work, not separate approvals.
+PE-S23/24 now stage measured packets under reserved credit, share one lazy frontier and claim/hydrate
+in one transaction. S25 integrates process-owned CPU/provider resources, fresh per-run permission,
+refcounted sealed bases, exact runtime/capsule byte accounting, idle eviction and quarantine.
+A bounded implementation review found an idle-timer handoff race and uncharged runtime bytes;
+both are corrected. An actual GLiNER run exposed a synthetic cohort proof mismatch that killed
+the lane without settling futures; sizing now uses the physical probe and lane-selection failure
+settles every owned future. Focused host/provider/spool controls **passed94**, f4bc315ae3c148569f4600c09c21628a.
+The exact actual CUDA cues panel **passed1**,5481e906fa3b4842941b51ff75b280ed. Full eight-pack
+S30 panel4b03a4d845dc47599736f947f5309cbc retained2passes/6failures: definition hit an upstream
+CPU/CUDA indexing mismatch, then the remaining packs encountered the fenced generation. This
+is an open implementation defect; S31 cutover remains unqualified. Actual CPU encoder panels
+passed both profiles in08737ea42bf94750b1d018211e4a45ea (bounded provider observations only).
+ADR-0129 supplies the accepted S29 policy; encoder implementation/native integration continues.
+
+S09/S38 integrate origin-classified recognition failures, shared frozen/published draft finishing,
+reusable page workers and atomic page publication. Focused150/e9db7d904fe64e17b7083c766b7db6b0
+retained149passes and one obsolete fake-group fixture, since repaired. S37 Python reads are
+integrated; native ordered observation/set adoption remain N3. S39 now has an inode-bound
+inherited writer lease that survives target return while child threads remain, typed exact
+producer premises and a fenced native basis lookup. Verified recovery uptake and all-contributor
+native custody remain in progress. Docling private hooks are pinned in docs/pins.md. S08 durable
+validator-success proof remains open; strict decoding and full semantic fallback are required
+unless exact original validator and source/selectors/context premises match.
 
 S14 investigation resolved: HostedPipeline.pipe has a production sentence-processing caller and
 is retained. The unconsumed historical SourceOperationLink DTO and test-only run-runtime lookup
@@ -145,9 +161,24 @@ locks, recorded read evidence, actual validating-kernel receipts, intent seals a
 binding reuse. Typed read-scope rows/cut consumers, receipt-identity-controlled immutable producer
 reuse, shared page population closure and the cancellation support-lock union are integrated.
 Cancellation refuses retryably if that union expands while waiting. Private lowered fields are
-excluded from current closed wire projections. N1 is **not captured, deployed or qualified**. A normal forward
-DATA step must authenticate and re-lower already-admitted artifacts before required constraints;
-historical read evidence, intent seals and validator identities must not be fabricated.
+excluded from current closed wire projections. N1 is **registered and deployed** to the owned
+stage corpus_structure_ddo_stage/OID130661481/system7701811359771751232, headsemantic_ddo_pe_n1,
+101relations. Final preview0d24ead8ffad497c8e735a91f1c8404e, rollback-only candidate
+8635e45e68ba46d0b79ec6acda9261f5 (159native/privilege operations), registration
+ab0544f5b13e47db9ab0cb0a31b9d0f9 and deploy1281cc155f134b2bb8da56cc3dae36b6 **passed**.
+Independent maintenance observation confirmed the head. Native digest54956abb570a4eefbdd5677cea7faafef37164c8c9aee2cf8fd47987234f2691;
+physical415dad28fc951e2a1c136fb95764f352094d1191c4e4faee750fd7be61f16b85.
+Authenticated DATA re-lowering left0missing definitions/profiles/context facts. Historical48read
+kernel identities,11intent seals and11receipt validator identities remain NULL; no evidence was
+fabricated. Development is untouched and the stage application still predates these changes.
+
+N2 set attach/claim, atomic obligation expansion, shared read watermark and SQL-request/client-result
+contract-digest boundary are integrated in source; Python consumers and native capture remain in
+progress. Native cohort41/d7c9536538a54a099c492056194d444d retained24passes/17failures because
+shared discovery/pin fixtures wrote after demand-read acquisition. Static inspection found no
+corresponding production violation; fixtures now preserve the fresh transaction boundary and use
+set forms. Their native retry is due. The SQL guard is unchanged. Wire selection70/44e9d0311b7b4b858b2a2bd8348b4057
+retained66passes/4stale-fixture failures; fixtures have been corrected, exact retry pending.
 
 - **passed:** `ci test --workers 2 --json --` over receipt/CLI evidence plus lowering controls,
   210 tests, `d412ae71b6244a29be04f7b40414011c` (bounded source/context). Earlier 208-test result
@@ -212,7 +243,7 @@ backfill/capture/deployment and actual acceptance; no fresh design review or pla
 The operator has explicitly withdrawn blanket repeat design-review/audit prerequisites: carry
 the established detailed design into implementation, preserve its refusal/ownership criteria,
 and reopen only concrete consequential mismatches. No additional planning round is required.
-Continue remaining PE scope and accepted ADR routes. S28/S30 actual qualification, N1–N4,
+Continue remaining PE scope and accepted ADR routes. S28/S30 native/provider integration, N2–N4,
 development adoption, whole-book and final DDO-12 union remain open. Original failed receipts
 remain; no deployment/adoption or measured performance benefit is claimed in this increment.
 
