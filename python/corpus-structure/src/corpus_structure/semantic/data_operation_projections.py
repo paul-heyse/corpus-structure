@@ -89,16 +89,22 @@ def _node(kind, identity):
     return select(cast(kind_value, Text).label("kind"), cast(identity, Text).label("id"))
 
 
-def _validity_rows(seed_uses, seed_episodes=None, *, name="validity", boundary=None, seed_populations=None):
+def _validity_rows(
+    seed_uses, seed_episodes=None, *, name="validity", boundary=None, seed_populations=None
+):
     from sqlalchemy.dialects.postgresql import ARRAY
 
     empty = cast(literal("{}"), ARRAY(Text))
-    rows = func.ops.ddo_valid_closure(
-        seed_uses,
-        empty if seed_episodes is None else seed_episodes,
-        literal_column("boundary") if boundary is None else boundary,
-        empty if seed_populations is None else seed_populations,
-    ).table_valued(column("kind", Text), column("id", Text), column("valid", Boolean)).alias(name + "_rows")
+    rows = (
+        func.ops.ddo_valid_closure(
+            seed_uses,
+            empty if seed_episodes is None else seed_episodes,
+            literal_column("boundary") if boundary is None else boundary,
+            empty if seed_populations is None else seed_populations,
+        )
+        .table_valued(column("kind", Text), column("id", Text), column("valid", Boolean))
+        .alias(name + "_rows")
+    )
     return select(rows).cte(name).prefix_with("MATERIALIZED")
 
 
@@ -365,12 +371,20 @@ def cancellation_scopes(metadata):
     or rehabilitate those historical products to acquire their trust barrier.
     """
     nodes, direct = _demand_support_scope_inputs(metadata, include_unfulfilled=True)
-    ordinary = _scope_projection(metadata, nodes, _var("d.project_id", Text), direct, domain_dependencies=False)
+    ordinary = _scope_projection(
+        metadata, nodes, _var("d.project_id", Text), direct, domain_dependencies=False
+    )
     uses = metadata.tables["ops.demand_use"]
-    retained = func.jsonb_object_keys(uses.c.trust_snapshot).table_valued(column("scope", Text)).render_derived(name="retained_settlement_scope")
+    retained = (
+        func.jsonb_object_keys(uses.c.trust_snapshot)
+        .table_valued(column("scope", Text))
+        .render_derived(name="retained_settlement_scope")
+    )
     return union(
         ordinary,
-        select(retained.c.scope).select_from(uses.join(retained, literal(True))).where(uses.c.demand_id == _var("d.id", Text)),
+        select(retained.c.scope)
+        .select_from(uses.join(retained, literal(True)))
+        .where(uses.c.demand_id == _var("d.id", Text)),
     ).order_by("scope")
 
 
@@ -1088,7 +1102,17 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         if relation.fullname == "ops.data_population":
             omitted.add("context_key")
         elif relation.fullname == "sem.data_operation_definition":
-            omitted.update({"binding_expression", "definition_identity", "eligibility_identity", "quantified", "validity_family", "command_class", "dependencies"})
+            omitted.update(
+                {
+                    "binding_expression",
+                    "definition_identity",
+                    "eligibility_identity",
+                    "quantified",
+                    "validity_family",
+                    "command_class",
+                    "dependencies",
+                }
+            )
         if relation.fullname == "ops.data_request":
             # A later generation can replace physical placement and the active
             # binding/release/runtime. Authentic consumed pins are immutable uses,
@@ -1676,14 +1700,23 @@ def read_page(metadata):
         .prefix_with("MATERIALIZED")
     )
     population_table = metadata.tables["ops.data_population"]
-    candidate_populations = select(population_table).where(
-        population_table.c.demand_id == demand,
-        or_(population_table.c.selected_obligation_id.is_(None), population_table.c.selected_obligation_id.in_(select(bounded.c.id))),
-        _visible(population_table),
-    ).cte("candidate_populations").prefix_with("MATERIALIZED")
+    candidate_populations = (
+        select(population_table)
+        .where(
+            population_table.c.demand_id == demand,
+            or_(
+                population_table.c.selected_obligation_id.is_(None),
+                population_table.c.selected_obligation_id.in_(select(bounded.c.id)),
+            ),
+            _visible(population_table),
+        )
+        .cte("candidate_populations")
+        .prefix_with("MATERIALIZED")
+    )
     validity = _validity_rows(
-        select(func.array_agg(selected_uses.c.id)).scalar_subquery(), name="page_validity",
-        seed_populations=select(func.array_agg(candidate_populations.c.id)).scalar_subquery()
+        select(func.array_agg(selected_uses.c.id)).scalar_subquery(),
+        name="page_validity",
+        seed_populations=select(func.array_agg(candidate_populations.c.id)).scalar_subquery(),
     )
     valid = _set_valid(validity, "use", selected_uses.c.id)
     fulfilled_invalid = and_(selected_uses.c.fate == "fulfilled", valid == false())
@@ -2005,7 +2038,10 @@ def read_page(metadata):
     )
     result_populations = (
         select(_aggregate(population_value, populations.c.name))
-        .where(populations.c.id.in_(select(candidate_populations.c.id)), _set_valid(validity, "population", populations.c.id))
+        .where(
+            populations.c.id.in_(select(candidate_populations.c.id)),
+            _set_valid(validity, "population", populations.c.id),
+        )
         .scalar_subquery()
     )
     cancellations = metadata.tables["ops.data_demand_cancellation"]

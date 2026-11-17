@@ -238,10 +238,16 @@ class PreparedNativeReferenceScoring:
         row, body = _body(self.index, self.product_id)
         projection = read_native_definition_projection(self.prepared)
         kinds = {kind["kind"]: kind["kind_contract"] for kind in projection["kinds"]}
-        owner = "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations"
-        checked = None if row["kind_contract"] != kinds.get(owner) else self.prepared.validate_json(
-            "DdoSourceAnnotations", json_bytes(body)
-        ).model_dump(mode="json", exclude_unset=True)
+        owner = (
+            "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations"
+        )
+        checked = (
+            None
+            if row["kind_contract"] != kinds.get(owner)
+            else self.prepared.validate_json("DdoSourceAnnotations", json_bytes(body)).model_dump(
+                mode="json", exclude_unset=True
+            )
+        )
         return checked, projection, kinds
 
     @cached_property
@@ -256,10 +262,15 @@ class PreparedNativeReferenceScoring:
     def authenticated_sources(self):
         prepared, index, cut, product_id = self.prepared, self.index, self.cut, self.product_id
         _, projection, _ = self.product
-        producing = {row["derivation_id"] for row in index.rows_for("ops.data_derivation_output", product_id=product_id)}
+        producing = {
+            row["derivation_id"]
+            for row in index.rows_for("ops.data_derivation_output", product_id=product_id)
+        }
         selected = {
             row["derivation_id"]
-            for row in index.rows_for("ops.demand_use", demand_id=cut.record["demand_id"], fate="fulfilled")
+            for row in index.rows_for(
+                "ops.demand_use", demand_id=cut.record["demand_id"], fate="fulfilled"
+            )
         }
         definition = next(
             (
@@ -301,16 +312,21 @@ class PreparedNativeReferenceScoring:
         return frozenset(
             (row["product_id"], row.get("member_id"))
             for identifier in authentic
-            for row in index.rows_for("ops.data_derivation_input", derivation_id=identifier, role="source")
+            for row in index.rows_for(
+                "ops.data_derivation_input", derivation_id=identifier, role="source"
+            )
         )
 
     def source(self, pin):
         from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+        from corpus_structure.semantic.data_operation_json import json_loads
         from corpus_structure.semantic.data_operation_model import SubjectContext
         from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
-        from corpus_structure.semantic.sentence_products import retained_source_annotation_products, validate_source_annotations
+        from corpus_structure.semantic.sentence_products import (
+            retained_source_annotation_products,
+            validate_source_annotations,
+        )
         from corpus_structure.semantic.source_products import FrozenNativeSource
-        from corpus_structure.semantic.data_operation_json import json_loads
 
         key = json_bytes(pin)
         if key in self._sources:
@@ -364,6 +380,7 @@ class PreparedNativeReferenceScoring:
 
         from corpus_structure.ingest.annotation_views import annotation_view
         from corpus_structure.ingest.annotations import AnnotationUnavailable
+
         from .native_scoring import SelectedNativeScoringQuestion, score_native
 
         stage = self
@@ -385,7 +402,9 @@ class PreparedNativeReferenceScoring:
             raise SelectedReferenceRefusal("native scoring requires an explicit whole-block member")
         blocks = stage.blocks.get(member["block_id"], ())
         if len(blocks) != 1:
-            raise SelectedReferenceRefusal("selected native block differs from its actual population")
+            raise SelectedReferenceRefusal(
+                "selected native block differs from its actual population"
+            )
         annotation = blocks[0]["annotation"]
         if (question.projection, question.start, question.end) != (
             checked["source"]["projection"],
@@ -404,7 +423,9 @@ class PreparedNativeReferenceScoring:
             == json_context_meaning(json_bytes(source_row["analyzed_scope"])).decode()
             for item in source_members
         ):
-            raise SelectedReferenceRefusal("native source is outside the independent question scope")
+            raise SelectedReferenceRefusal(
+                "native source is outside the independent question scope"
+            )
         packets = packets.get(member_id, ())
         if (
             len(packets) != 1
@@ -444,7 +465,6 @@ class PreparedNativeReferenceScoring:
             projection=question.projection, start=question.start, end=question.end
         )
         return result
-
 
 
 def evaluate_selected_references(connection, request: SelectedReferenceEvaluationRequest):
@@ -667,13 +687,20 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                 for row in payload.get(collection, ())
             }
             native_prepared = (
-                (prepared if prepared.release_id == prediction_cut.record["release_id"] else open_release(connection, prediction_cut.record["release_id"]))
+                (
+                    prepared
+                    if prepared.release_id == prediction_cut.record["release_id"]
+                    else open_release(connection, prediction_cut.record["release_id"])
+                )
                 if any(case["matcher"] == "spacy_native" for case in reference["cases"])
                 else None
             )
             native_scoring = (
-                PreparedNativeReferenceScoring(native_prepared, predictions, prediction_cut, request.prediction_product_id)
-                if native_prepared is not None else None
+                PreparedNativeReferenceScoring(
+                    native_prepared, predictions, prediction_cut, request.prediction_product_id
+                )
+                if native_prepared is not None
+                else None
             )
             cases = []
             for case in reference["cases"]:
@@ -705,7 +732,9 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                         )
                     else:
                         assert native_scoring is not None
-                        native = native_scoring.score(member, source_python(case["expected"]), case["source_members"])
+                        native = native_scoring.score(
+                            member, source_python(case["expected"]), case["source_members"]
+                        )
                     cases.append(
                         dict(
                             case_id=case["case_id"],

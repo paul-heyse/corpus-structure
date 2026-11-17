@@ -1406,7 +1406,9 @@ def _authenticated_closed_slice(
         module = modules[source.module]
         tree = ast.parse(source.content)
         code = compile(source.content, str(paths[source.module]), "exec", dont_inherit=True)
-        for path, _node, value, _expected in _runtime_members(tree.body, module, code, source.module):
+        for path, _node, value, _expected in _runtime_members(
+            tree.body, module, code, source.module
+        ):
             if path in expected_nodes:
                 components = path.removeprefix(source.module + ".").split(".")
 

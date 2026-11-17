@@ -94,16 +94,20 @@ class AuthenticatedSlice:
                 "__module__",
             ):
                 if name in {"__globals__", "__builtins__"}:
+
                     def getter(value=value, name=name):
                         return _Identity(getattr(value, name))
+
                     self._checks.append((getter, getter()))
                 else:
                     remember(lambda value=value, name=name: getattr(value, name))
             from .data_operation_ports import _code_globals
 
             for name in _code_globals(value.__code__):
+
                 def getter(value=value, name=name):
                     return value.__globals__.get(name, value.__builtins__.get(name))
+
                 self._checks.append((getter, _state(getter())))
             cells = tuple(value.__closure__ or ())
             self._checks.append((lambda value=value: tuple(value.__closure__ or ()), _state(cells)))
@@ -121,7 +125,7 @@ class AuthenticatedSlice:
                 # deepcopy/pickle lazily cache this standard class fact. Prepare
                 # it before fixing the class dictionary, then protect the cache
                 # together with the already authenticated generated behavior.
-                slotnames = cast(Callable[[type], list[str]], copyreg._slotnames)
+                slotnames = cast(Callable[[type], list[str]], vars(copyreg)["_slotnames"])
                 slotnames(value)
             self._checks.append(
                 (lambda value=value: tuple(vars(value)), _state(tuple(vars(value))))

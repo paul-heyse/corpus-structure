@@ -83,13 +83,19 @@ def test_changed_bytes_with_restored_mtime_refuse_instead_of_relabelling(promise
     os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
     with pytest.raises(custody.SourceCustodyError, match="restart"):
         custody.capture_sources((path,))
-    with pytest.raises(custody.SourceCustodyError, match="restart"), custody.query_sources(captured):
+    with (
+        pytest.raises(custody.SourceCustodyError, match="restart"),
+        custody.query_sources(captured),
+    ):
         pass
 
 
 def test_lazy_import_must_match_its_promised_bytes(promised):
     name, path, captured = promised
-    with pytest.raises(custody.SourceCustodyError, match="restart"), custody.query_sources(captured):
+    with (
+        pytest.raises(custody.SourceCustodyError, match="restart"),
+        custody.query_sources(captured),
+    ):
         path.write_text("VALUE = 9\n")
         importlib.import_module(name)
     assert name not in sys.modules
@@ -100,7 +106,10 @@ def test_evicted_import_cannot_be_reloaded_or_hide_retained_module_objects(promi
     name, _, captured = promised
     sys.modules.pop(name)
     try:
-        with pytest.raises(custody.SourceCustodyError, match="restart"), custody.query_sources(captured):
+        with (
+            pytest.raises(custody.SourceCustodyError, match="restart"),
+            custody.query_sources(captured),
+        ):
             pass
         with pytest.raises(custody.SourceCustodyError, match=r"reload.*restart"):
             importlib.import_module(name)

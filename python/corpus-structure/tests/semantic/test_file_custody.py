@@ -102,13 +102,13 @@ def test_authenticated_runtime_refuses_changed_callable_premises(acquired, monke
     runtime.check()
     function = vars(module)["original"]
     if mutation == "function":
-        module.original = lambda value=1: value
+        vars(module)["original"] = lambda value=1: value
     elif mutation == "code":
         function.__code__ = (lambda value=1: value).__code__
     elif mutation == "default":
         function.__defaults__ = (3,)
     elif mutation == "global":
-        module.TOKEN = 3
+        vars(module)["TOKEN"] = 3
     else:
         function.__annotations__["return"] = str
     with pytest.raises(ValueError, match="restart"):

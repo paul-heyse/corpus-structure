@@ -88,16 +88,30 @@ def frame():
         },
         "text": text,
         "pieces": [
-            {"kind": "native_text", "item_ref": "#/texts/0", "source_field": "text", "start": 0, "end": 14},
+            {
+                "kind": "native_text",
+                "item_ref": "#/texts/0",
+                "source_field": "text",
+                "start": 0,
+                "end": 14,
+            },
             {"kind": "synthetic_separator", "start": 14, "end": 15},
-            {"kind": "native_text", "item_ref": "#/texts/1", "source_field": "text", "start": 15, "end": 29},
+            {
+                "kind": "native_text",
+                "item_ref": "#/texts/1",
+                "source_field": "text",
+                "start": 15,
+                "end": 29,
+            },
         ],
         "items": [{"self_ref": "#/texts/0"}, {"self_ref": "#/texts/1"}],
         "ancestors": [],
         "recognition": [],
         "selectors": [],
     }
-    projection = native_projection_identity(text, value["pieces"], value["items"], value["recognition"], value["ancestors"])
+    projection = native_projection_identity(
+        text, value["pieces"], value["items"], value["recognition"], value["ancestors"]
+    )
     value["source"]["projection"] = projection
     value["selectors"] = [{"projection": projection}]
     pin = {
@@ -294,4 +308,6 @@ def test_declared_frame_refuses_counterfeit_projection_even_when_pin_agrees():
         semantic_value(dict(source=value["source"], selectors=value["selectors"]))
     ).decode()
     with pytest.raises(ValueError, match="declared native projection differs"):
-        DeclaredNativeFrameSource(canonical_bytes(value).decode(), canonical_bytes(pin).decode()).view
+        _ = DeclaredNativeFrameSource(
+            canonical_bytes(value).decode(), canonical_bytes(pin).decode()
+        ).view

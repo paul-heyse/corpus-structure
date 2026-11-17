@@ -105,7 +105,12 @@ def attach(
             },
             "replicate": None,
         }
-        attached = storage.attach_data_request(typing_cast(WireAttachDataRequestRequest, wire))
+    # Acquiring a read closes this transaction's graph-writing boundary. Attach
+    # under its recorded evidence from a fresh transaction, as the executor does.
+    with (engine or kernel["engine"]).begin() as connection:
+        attached = DataOperationStorage(connection).attach_data_request(
+            typing_cast(WireAttachDataRequestRequest, wire)
+        )
     return demand, obligation, wire, attached
 
 
