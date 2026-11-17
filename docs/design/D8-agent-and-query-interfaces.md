@@ -61,7 +61,7 @@ disclosure is separate from protected authority support disclosure and current n
 The former export version is unsupported by the current reader; it gains no compatibility decoder.
 Native adoption/export/refusal controls remain with the DDO coordinator.
 
-> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
+> Decision: [ADR-0129](../adr/0129-contextual-encoder-batch-policy.md)
 
 ## Pinned demand and operation interfaces
 

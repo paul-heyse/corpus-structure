@@ -43,9 +43,9 @@ Whole batch replies remain private. A distinct bounded execution-evidence leaf d
 receipt/reply digest and selected member commitment, with sibling bodies explicitly undisclosed,
 while keeping the selected input/support closure. Detached verification distinguishes native
 assertion from whole-cohort independent replay. This reuses existing export/custody owners and
-adds no attestation registry; model encoder batching requires explicit policy and qualification.
+adds no attestation registry; the three encoder operations select the authentic-observation batch policy of ADR-0129. Policy identity binds model/artifacts, rendering, tokenizer/pooling, padding side, dtype/normalization, prompts and chunk size. One vector remains attributable to each logical member; cohort/order may change authentic float32 observations. Native/provider integration qualification remains open.
 
-> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
+> Decision: [ADR-0129](../adr/0129-contextual-encoder-batch-policy.md)
 
 **Implemented; bounded pure controls Tested · 2026-11-16; native qualification remains open.**
 Cross-release coalescing executes the stored generation's immutable release, runtime and exact

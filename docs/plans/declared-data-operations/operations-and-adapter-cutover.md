@@ -409,7 +409,7 @@ only on admitted lengths in order.
 
 ### PE-S28, PE-S29 — encoder batch form (PE-F13, PE-RC04)
 
-**Rule change PE-RC04** (ADR-E, superseding ADR-0114's encoder paragraph and restating its
+**Rule change PE-RC04** (ADR-E, superseding ADR-0129's encoder paragraph and restating its
 other decisions unchanged; ADR-0084 and ADR-0085 are not contradicted and stay). The three
 encoder operations (declared query, selected-context query, target vector) keep one logical
 request, product and vector observation per occurrence or target and declare the `batch` form.

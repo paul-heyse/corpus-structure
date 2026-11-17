@@ -1,9 +1,9 @@
 ---
-id: ADR-0114
-title: Contextual targets reuse independent vectors and disclose scoped execution evidence
+id: ADR-0129
+title: Contextual encoders batch authentic observations while preserving independent vectors
 status: accepted
-date: 2026-11-15
-supersedes: []
+date: 2026-11-17
+supersedes: [ADR-0114]
 superseded-by: null
 design: [§B4, §B5]
 evidence: Proposed
@@ -25,6 +25,8 @@ fences. Copying that reply into each selected completion's disclosed support wou
 members' bodies, including source-qualified text outside the selected closure. A protected
 structural authority leaf has different meaning and cannot silently represent CPU execution.
 The DDO coordinator owns implementation, native capture and qualification.
+
+The accepted PE-S29 target now supplies the explicit encoder policy left open by ADR-0114. Actual CPU panels for both selected profiles passed mixed, reversed and regrouped book inputs (managed result08737ea42bf94750b1d018211e4a45ea). This establishes only that authored provider panel, not native DDO integration or ranking invariance.
 
 ## Options
 
@@ -83,13 +85,22 @@ independent verification of a whole reply it did not receive. Full private bytes
 through existing authorized admission/replay custody. Reuse the existing selected export and
 archived validation mechanisms with this distinct relation; do not add an attestation table/service.
 
-Encoder model execution remains scalar under its existing exact profile until an explicit released
-encoder policy selects cross-request batching. That policy must bind model/artifacts, rendering,
-tokenizer/pooling, dtype/normalization, prompts and batch size and state authentic-observation
-numerical meaning. Physical cohort neutrality requires this explicit policy, actual batch provenance
-and mixed/reordered/scatter plus native/provider qualification. ADR-0085's cue/classification decision
-is not automatically extended to an encoder. No universal epsilon, fresh byte equality, invariant
-ranking or provider accuracy is promised; a normalization admission tolerance is not such a promise.
+The three declared encoder operations (query, selected context and target vector) select an
+explicit released batch form under a new numerical policy and profile identity. Each logical
+occurrence or target keeps one request, product and vector; physical cohort/order does not enter
+semantic vector identity. The policy binds model/artifacts, rendering, tokenizer and pooling,
+padding side, dtype and normalization, prompts and native chunk size. Authentic native float32
+observations may vary with physical cohort/order. All affected vector identities change and prior
+vectors can be regenerated; no historical compatibility reader is introduced.
+
+Batch provenance retains the actual ordered member mapping and whole physical reply. Mixed,
+reversed, regrouped and cross-request scatter controls must establish member attribution and the
+same logical population before enabling the form. Norm tolerance is an admission condition only.
+No universal epsilon, fresh-run byte equality, invariant ranking or provider accuracy is promised.
+ADR-0085's cue/classification qualification is independent. Other CPU families remain governed by
+their own forms. This replaces only ADR-0114's scalar-until-policy clause; all target-reuse,
+authenticated native scoring, original cohort custody and bounded disclosure clauses above remain
+in force.
 
 ## Consequences
 
@@ -100,8 +111,7 @@ current source/trust support through the ordinary engine. No performance amount 
 
 Batch execution and disclosure acquire explicit separate contracts. Native guards still enforce
 membership, original execution, policy, trust and publication; possession of a digest grants no
-permission. Scalar target controls and exact-integer prepared-batch controls do not qualify model
-batching. Shared protocol integration, native bypass/adoption/refusal controls, detached projection,
+permission. Exact-integer prepared-batch controls do not qualify model batching. The provider panels supply bounded numerical and attribution evidence; native/provider integration remains open. Shared protocol integration, native bypass/adoption/refusal controls, detached projection,
 actual encoder qualification and retirement of superseded consumers remain with the
 [DDO coordinator](../plans/declared-data-operations_2026-11-12.md). This decision neither marks
 those obligations complete nor deploys a persistent database change.

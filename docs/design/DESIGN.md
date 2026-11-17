@@ -577,7 +577,7 @@ native-authenticated execution-evidence leaf discloses only the selected member 
 explicit hidden cohort, preserving the selected input/support closure. D4/D6 own realization;
 model batching needs its own explicit released policy and actual qualification.
 
-> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
+> Decision: [ADR-0129](../adr/0129-contextual-encoder-batch-policy.md)
 
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Purpose-owned
 Psycopg pools lend sessions through SQLAlchemy NullPool. Demand execution reserves one writer
@@ -883,7 +883,7 @@ reply, ordered member basis/output and authentic original producer/runtime indep
 adoption and current support. Bounded ordinary execution evidence grants no scientific standing and
 never relabels trimmed bytes as an original reply. D6 owns this contract and its qualification.
 
-> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
+> Decision: [ADR-0129](../adr/0129-contextual-encoder-batch-policy.md)
 
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Captured native
 schemas and explicit field correspondence derive structural Python wire types and fixed methods.

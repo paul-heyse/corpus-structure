@@ -68,10 +68,11 @@ The existing owned CPU encoder retains model preparation/resources. Native score
 one Core alias/full-text/pgvector query; actual CPU RRF/relationship operations consume those
 products. Native admission recomputes that bounded scoring function, preserving exact observed
 numerics and complete population/tie/empty distinctions. No second query implementation or task
-engine is introduced. Encoder batching remains unsupported until its own explicit released policy
-and actual provider/native controls qualify; cue/classification policy alone does not qualify it.
+engine is introduced. The three encoder operations select ADR-0129’s released authentic-observation
+batch policy. Its implementation and native/provider qualification remain with DDO;
+cue/classification qualification alone does not qualify encoders.
 
-> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
+> Decision: [ADR-0129](../adr/0129-contextual-encoder-batch-policy.md)
 
 ## Selected provider execution profiles and complete settings
 
