@@ -196,7 +196,8 @@ class FrozenSourceSet:
             raise TypeError("source sets require an immutable typed entry tuple")
         if not self.name:
             raise ValueError("source sets require an explicit name")
-        identities = {(entry.product, entry.member) for entry in self.entries}
+        by_address = {(entry.product, entry.member): entry for entry in self.entries}
+        identities = set(by_address)
         if len(identities) != len(self.entries):
             raise ValueError("source sets require unique qualified product/member pins")
 
@@ -206,10 +207,8 @@ class FrozenSourceSet:
                 for read in self.acquisition.reads for proof in read.proofs
             }
             if acquired != identities or any(
-                read.selection.project_id != entry.project_id
+                read.selection.project_id != by_address[proof.product_id, proof.member_id].project_id
                 for read in self.acquisition.reads for proof in read.proofs
-                for entry in self.entries
-                if (entry.product, entry.member) == (proof.product_id, proof.member_id)
             ):
                 raise ValueError("source acquisition differs from its exact semantic entries")
         elif not isinstance(self.acquisition, AllAdmissibleAcquisition):
@@ -281,22 +280,83 @@ def read_source_sets(record: dict) -> tuple[FrozenSourceSet, ...]:
     return tuple(result)
 
 
-def source_proof_predicate(scope, relation):
-    """Role-local SQL selection of the explicitly frozen producing occurrences."""
-    from sqlalchemy import and_, false, or_, true
+def source_entry_predicate(scope, relation):
+    """One typed recordset keeps whole-book role qualification out of SQL syntax."""
+    from sqlalchemy import and_, column, exists, func, literal, select, type_coerce
     from sqlalchemy.dialects.postgresql import JSONB
-    from sqlalchemy import type_coerce
+    from .data_operation_json import ContextJSONB
+
+    entries = func.jsonb_array_elements(literal(scope["entries"], type_=ContextJSONB())).table_valued(
+        column("value", JSONB())
+    ).render_derived()
+    entry = entries.c.value
+    return exists(select(1).select_from(entries).where(and_(
+        entry["product"].astext == relation.c.product,
+        entry["member"].astext.is_not_distinct_from(relation.c.member),
+        entry["subject"].astext == relation.c.subject,
+        entry["subject_definition"].astext == relation.c.subject_definition,
+        entry["original_source"].astext.is_not_distinct_from(relation.c.original_source),
+        entry["analyzed_scope"] == type_coerce(relation.c.analyzed_scope, JSONB()),
+    )))
+
+
+def source_proof_predicate(scope, relation):
+    """Role-local proof selection through one typed recordset, not an OR per member."""
+    from sqlalchemy import column, exists, func, literal, select, true, type_coerce
+    from sqlalchemy.dialects.postgresql import JSONB
 
     acquisition = scope["acquisition"]
     if acquisition["kind"] == "all-admissible-support-v1":
         return true()
-    evidence = type_coerce(relation.c.support_evidence, JSONB)
-    return or_(false(), *(
-        and_(
-            relation.c.product == proof["product_id"],
-            relation.c.member.is_not_distinct_from(proof["member_id"]),
-            relation.c.support_references == [proof["support"]],
-            evidence["producer_output"] == proof["output"],
-        )
-        for read in acquisition["reads"] for proof in read["proofs"]
+    if acquisition["kind"] != "selected-support-v1":
+        raise ValueError("unsupported source acquisition kind")
+    records = [proof for read in acquisition["reads"] for proof in read["proofs"]]
+    proofs = func.jsonb_array_elements(literal(records, type_=JSONB())).table_valued(
+        column("value", JSONB())
+    ).render_derived()
+    proof = proofs.c.value
+    evidence = type_coerce(relation.c.support_evidence, JSONB())
+    return exists(select(1).select_from(proofs).where(
+        relation.c.product == proof["product_id"].astext,
+        relation.c.member.is_not_distinct_from(proof["member_id"].astext),
+        relation.c.support_references == func.jsonb_build_array(proof["support"]),
+        evidence["producer_output"] == proof["output"],
     ))
+
+
+def selected_source_entries(index, cut, *, product_id, member_id, anchor_use_id, support=None):
+    """Enumerate exact retained proof candidates; native admission grants authority.
+
+    The caller supplies its selected frontier anchor and may constrain the actual
+    producing support from an immutable selected input. Ambiguity is returned,
+    never resolved by historical order, equal bodies or first-visible choice.
+    """
+    product = index.mapping("kb.data_product", ("id",)).get(product_id)
+    member = (None if member_id is None else index.mapping(
+        "kb.data_product_member", ("product_id", "member_id")
+    ).get((product_id, member_id)))
+    if product is None or (member_id is not None and member is None):
+        return ()
+    value = product if member is None else member
+    uses = tuple(row for row in index.rows("ops.demand_use") if row["fate"] == "fulfilled")
+    results = []
+    for output in index.rows("ops.data_derivation_output"):
+        if output["product_id"] != product_id or (
+            output["member_id"] is not None and output["member_id"] != member_id
+        ):
+            continue
+        for use in uses:
+            if use["derivation_id"] != output["derivation_id"] or (
+                support is not None and (use["id"], output["derivation_id"]) != (
+                    support.admission_use_id, support.derivation_id
+                )
+            ):
+                continue
+            header = dict(value, product_id=product_id, member_id=member_id,
+                          use_id=use["id"], derivation_id=output["derivation_id"],
+                          output_member_id=output["member_id"], role=output["role"],
+                          position=output["position"], multiplicity=output["multiplicity"])
+            results.append(SelectedSourceSetEntry.from_selected_header(
+                header, cut, anchor_use_id=anchor_use_id
+            ))
+    return tuple(results)

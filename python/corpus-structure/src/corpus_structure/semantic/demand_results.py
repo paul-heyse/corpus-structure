@@ -130,6 +130,7 @@ class DemandResult:
                     derivation_id=use["derivation_id"],
                     product_id=output["product_id"],
                     role=output["role"],
+                    output_member_id=output["member_id"],
                     position=output["position"],
                     multiplicity=output["multiplicity"],
                 )
