@@ -17,6 +17,49 @@ independent_integrated = integrated_examples.independent_integrated
 
 
 @pytest.mark.parametrize(
+    "pointer,membership,accepted",
+    [
+        ("#/body", "direct", True),
+        ("#/body", "descendants", False),
+        ("#/groups/0", "direct", True),
+        ("#/groups/0", "descendants", True),
+        ("#/groups/1", "direct", False),
+        ("#/texts/0", "direct", False),
+    ],
+)
+def test_recognition_coverage_preserves_exact_residual_body_scope(pointer, membership, accepted):
+    from corpus_structure.semantic.pdf_contracts import validate_pdf_report_metadata
+
+    value = {
+        "document": {
+            "body": {"self_ref": "#/body", "label": "unspecified"},
+            "groups": [
+                {"self_ref": "#/groups/0", "label": "section"},
+                {"self_ref": "#/groups/1", "label": "unspecified"},
+            ],
+            "texts": [{"self_ref": "#/texts/0", "label": "text"}],
+        },
+        "items": [],
+        "source_scope": "whole_document",
+        "health": {"inline_coverage": "unknown", "cell_coverage": "unknown"},
+        "recognition_coverage": [
+            {
+                "section_pointer": pointer,
+                "membership": membership,
+                "universe": "inline",
+                "outcome": "partial",
+                "policy": "native-font-token-vector-ocr-word-v3",
+            }
+        ],
+    }
+    if accepted:
+        validate_pdf_report_metadata(value)
+    else:
+        with pytest.raises(ValueError, match="native section or direct body root"):
+            validate_pdf_report_metadata(value)
+
+
+@pytest.mark.parametrize(
     "change",
     [
         None,
