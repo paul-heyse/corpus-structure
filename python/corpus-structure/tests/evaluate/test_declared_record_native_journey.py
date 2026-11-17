@@ -243,17 +243,19 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     # refused; a role label does not become the restricted fitting capability.
     with (
         journey.kernel.purpose("evaluate").begin() as connection,
-        pytest.raises(DBAPIError, match="restricted actual fitting principal"),
+        pytest.raises(DBAPIError) as evaluator_denied,
         connection.begin_nested(),
     ):
         reacquire_record_feature_grade(connection, fitted.feature.selection)
+    assert getattr(evaluator_denied.value.orig, "sqlstate", None) == "42501"
     with journey.kernel.engine.begin() as connection:
         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_fitter")
         with (
-            pytest.raises(DBAPIError, match="restricted actual fitting principal"),
+            pytest.raises(DBAPIError) as privileged_denied,
             connection.begin_nested(),
         ):
             reacquire_record_feature_grade(connection, fitted.feature.selection)
+        assert getattr(privileged_denied.value.orig, "sqlstate", None) == "42501"
     with journey.kernel.purpose("fit").begin() as connection:
         with pytest.raises(DBAPIError, match="feature fit"), connection.begin_nested():
             reacquire_record_feature_grade(connection, fitted.calibration.selection)
