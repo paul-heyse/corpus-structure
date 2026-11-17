@@ -466,7 +466,8 @@ class PortAdapters:
                 if get_origin(annotation) not in (Generator, Iterator):
                     self.get(annotation)
                 elif get_args(annotation):
-                    self._stream_sequences[id(annotation)] = TypeAdapter(tuple[get_args(annotation)[0], ...])
+                    item_type = get_args(annotation)[0]
+                    self._stream_sequences[id(annotation)] = TypeAdapter(tuple[item_type, ...])
                 for item in get_args(annotation) if get_origin(annotation) in (Generator, Iterator, tuple, list, dict) else ():
                     if item not in (Ellipsis, None, type(None)) and item is not Any:
                         self.get(item)
