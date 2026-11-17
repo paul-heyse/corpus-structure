@@ -1,7 +1,6 @@
 """Exact integer metadata encoding; isolated helper execution grants no admission."""
 
 import json
-from pathlib import Path
 
 import pytest
 from sqlalchemy import text
@@ -9,13 +8,12 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.prepared_sql import prepare_sql
+from corpus_structure.semantic.source_value_native import source_value_native_sql
 
 
 @pytest.fixture
 def metadata_codec(semantic_bare_engine):
-    sql = (
-        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/source_values.sql"
-    ).read_text()
+    sql = source_value_native_sql()
     parsed = prepare_sql(sql, source="source-metadata-codec")
     with semantic_bare_engine.connect() as connection, connection.begin():
         connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS data")

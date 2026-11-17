@@ -256,6 +256,7 @@ def function(
     security_definer: bool = False,
     search_path: tuple[str, ...] = (),
     volatility: Literal["stable", "immutable", "volatile"] | None = None,
+    strict: bool = False,
 ) -> str:
     names = tuple(item.name for item in (*parameters, *body.locals))
     if len(set(names)) != len(names):
@@ -270,6 +271,7 @@ def function(
         security_definer=security_definer,
         search_path=search_path,
         volatility=volatility,
+        strict=strict,
     )
 
 
@@ -283,6 +285,7 @@ def sql_function(
     security_definer: bool = False,
     search_path: tuple[str, ...] = (),
     volatility: Literal["stable", "immutable", "volatile"] | None = None,
+    strict: bool = False,
 ) -> str:
     """Generate a SQL-language function under its existing text-body profile."""
     return _routine(
@@ -295,6 +298,7 @@ def sql_function(
         security_definer=security_definer,
         search_path=search_path,
         volatility=volatility,
+        strict=strict,
     )
 
 
@@ -309,6 +313,7 @@ def _routine(
     security_definer: bool,
     search_path: tuple[str, ...],
     volatility: Literal["stable", "immutable", "volatile"] | None,
+    strict: bool,
 ) -> str:
     if security_definer and not search_path:
         raise ValueError("security definer function requires its declared search path")
@@ -320,6 +325,8 @@ def _routine(
     options = [ast.DefElem(defname="language", arg=ast.String(sval=language))]
     if volatility is not None:
         options.append(ast.DefElem(defname="volatility", arg=ast.String(sval=volatility)))
+    if strict:
+        options.append(ast.DefElem(defname="strict", arg=ast.Boolean(boolval=True)))
     if security_definer:
         options.append(ast.DefElem(defname="security", arg=ast.Boolean(boolval=True)))
     if search_path:

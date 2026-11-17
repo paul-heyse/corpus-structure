@@ -89,6 +89,7 @@ def native_protocol_sources(
     )
     from .rich_admission_native import rich_admission_native_sql
     from .structural_admission_native import structural_admission_native_sql
+    from .source_value_native import source_value_native_sources
 
     if physical_sources is None:
         physical_sources = physical_source_closure(
@@ -224,10 +225,7 @@ def native_protocol_sources(
             "native/data-operation-contextual-witness.py",
             Path(__file__).with_name("contextual_witness_native.py").read_bytes(),
         ),
-        SourceArtifact(
-            "native/data-operation-source-values.sql",
-            Path(__file__).with_name("sql").joinpath("source_values.sql").read_bytes(),
-        ),
+        *source_value_native_sources(),
         SourceArtifact(
             "native/data-operation-execution-evidence-leaf.sql",
             execution_evidence_leaf_native_sql().encode(),
