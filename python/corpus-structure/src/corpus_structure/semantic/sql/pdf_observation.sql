@@ -50,7 +50,7 @@ BEGIN
  PERFORM ops.ddo_authorize_request(request);
  SELECT * INTO STRICT definition FROM sem.data_operation_definition
  WHERE release_id=context.release_id AND operation_id=request.operation_id;
- IF NOT coalesce((definition.command_class=\'pdf\'),false)
+ IF NOT coalesce((definition.command_class='pdf'),false)
  OR request.recipe IS DISTINCT FROM definition.recipe
  OR definition.support_contract->'effects'->0->>'name' IS DISTINCT FROM 'retain_pdf_observations'
  OR p_receipt->>'version' IS DISTINCT FROM 'pdf-observation-execution-1'
@@ -192,7 +192,7 @@ BEGIN
   SELECT d.* INTO STRICT definition FROM sem.data_operation_definition d
   JOIN ops.data_request request ON request.release_id=d.release_id AND request.operation_id=d.operation_id
   WHERE request.id=context.request_id;
-  IF NOT coalesce((definition.command_class=\'pdf\'),false)
+  IF NOT coalesce((definition.command_class='pdf'),false)
    OR definition.support_contract->'effects'->0->>'name' IS DISTINCT FROM 'retain_pdf_observations' THEN
    RAISE EXCEPTION 'native observations require the exact approved PDF recognition effect' USING ERRCODE='23514';
   END IF;

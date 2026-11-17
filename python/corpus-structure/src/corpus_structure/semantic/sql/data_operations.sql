@@ -219,6 +219,21 @@ BEGIN
  RETURN NULL;
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_lock_read(boundary ops.data_demand_read,project text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE scope_key text; epoch bigint; snapshot jsonb:='{}';
+BEGIN
+ IF boundary.id IS NULL OR boundary.kernel_digest IS DISTINCT FROM '__DDO_SOURCE_DIGEST__'
+ OR boundary.locked_scopes IS NULL OR boundary.access_universes IS NULL THEN
+ RAISE EXCEPTION 'read requires reacquisition under current native kernel' USING ERRCODE='23514'; END IF;
+ FOR scope_key IN SELECT value#>>'{}' FROM jsonb_array_elements(boundary.locked_scopes) ORDER BY value#>>'{}' LOOP
+ SELECT s.epoch INTO STRICT epoch FROM ops.data_trust_scope s WHERE s.scope=scope_key AND s.project_id=project FOR SHARE;
+ snapshot:=snapshot||jsonb_build_object(scope_key,epoch); END LOOP;
+ IF snapshot IS DISTINCT FROM boundary.trust_snapshot THEN RAISE EXCEPTION 'read trust changed; reacquire demand read' USING ERRCODE='23514'; END IF;
+ PERFORM ops.ddo_authorize(value#>>'{}') FROM jsonb_array_elements(boundary.access_universes);
+ RETURN snapshot;
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_read_visible(created_at timestamp with time zone,created_xid text,boundary ops.data_demand_read) RETURNS boolean
 LANGUAGE sql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  SELECT created_at<=boundary.frontier_at AND (created_xid=boundary.owner_xid OR pg_visible_in_snapshot(created_xid::xid8,boundary.read_snapshot::pg_snapshot))
@@ -973,13 +988,13 @@ BEGIN
  SELECT * INTO STRICT def FROM sem.data_operation_definition WHERE release_id=d.release_id AND operation_id=o.operation_id;
  PERFORM ops.ddo_require_subject_source(ops.ddo_release_subject_scopes(d.release_id),def.subject_definition,o.original_source);
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(def.input_roles||def.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
- IF coalesce((def.command_class=\'pdf\'),false) THEN
+ IF coalesce((def.command_class='pdf'),false) THEN
  PERFORM ops.require_pdf_operation(d.release_id,'retain_pdf_original');
- ELSIF coalesce((def.command_class=\'rich\'),false) THEN
+ ELSIF coalesce((def.command_class='rich'),false) THEN
  IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_writer','MEMBER') THEN
  RAISE EXCEPTION 'rich admission requires native write purpose' USING ERRCODE='42501'; END IF;
- ELSIF coalesce((def.command_class=\'policy\'),false) OR coalesce((def.command_class=\'structural\'),false)
- OR coalesce((def.command_class=\'operation_event\'),false) THEN
+ ELSIF coalesce((def.command_class='policy'),false) OR coalesce((def.command_class='structural'),false)
+ OR coalesce((def.command_class='operation_event'),false) THEN
  IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_evaluator','MEMBER') THEN
  RAISE EXCEPTION 'policy authorization requires native evaluator purpose' USING ERRCODE='42501'; END IF;
  ELSIF def.profile NOT IN ('derivation','discovery') OR coalesce(def.support_contract->'effects','[]')<>'[]'::jsonb THEN
@@ -2262,7 +2277,7 @@ CREATE OR REPLACE FUNCTION sem.relower_admitted_data_operation_release(p_release
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE projection jsonb; result jsonb;
 BEGIN
- IF NOT EXISTS(SELECT FROM sem.finalization WHERE release_id=p_release)
+ IF NOT EXISTS(SELECT FROM sem.release_finalization WHERE release_id=p_release)
  OR NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=p_release) THEN
  RAISE EXCEPTION 're-lowering requires an already admitted finalized release' USING ERRCODE='23514'; END IF;
  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT projection FROM sem.artifact
@@ -2330,7 +2345,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_binding_rows(p_demand text,p_operation text,p_trust jsonb,p_read text DEFAULT NULL,p_subject text DEFAULT NULL,p_source jsonb DEFAULT NULL,p_scope jsonb DEFAULT NULL,p_decode_body boolean DEFAULT true,p_selected jsonb DEFAULT NULL)
 RETURNS TABLE(__DDO_CORE_BINDING_RETURNS__)
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE d ops.data_demand; snapshot jsonb; boundary ops.data_demand_read;
 BEGIN
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p_demand;
@@ -2341,9 +2356,8 @@ BEGIN
  IF jsonb_typeof(p_source) NOT IN ('string','null') THEN RAISE EXCEPTION 'source filter requires JSON string or explicit null' USING ERRCODE='23514'; END IF;
  PERFORM ops.ddo_require_subject_source(ops.ddo_release_subject_scopes(d.release_id),ops.ddo_operation_subject(d.release_id,p_operation),p_source#>>'{}');
  END IF;
- SELECT coalesce(jsonb_object_agg(scope.scope,scope.epoch),'{}') INTO snapshot FROM ops.data_trust_scope scope JOIN (__DDO_CORE_SUPPORT_SCOPES__) required ON required.scope=scope.scope WHERE scope.project_id=d.project_id;
- snapshot:=ops.ddo_trust_snapshot_meaning(snapshot);
- IF snapshot IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(p_trust) OR (boundary.id IS NOT NULL AND ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) IS DISTINCT FROM snapshot) THEN RAISE EXCEPTION 'binding trust snapshot changed'; END IF;
+ snapshot:=ops.ddo_lock_read(boundary,d.project_id);
+ IF ops.ddo_trust_snapshot_meaning(snapshot) IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(p_trust) THEN RAISE EXCEPTION 'binding trust snapshot changed'; END IF;
  PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value) JOIN sem.data_kind_contract kind ON kind.kind_contract=input_role.value->>'kind_contract' WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation;
  RETURN QUERY __DDO_CORE_BINDING_COMPUTED__;
  RETURN QUERY __DDO_CORE_BINDING_ORIGINAL__;

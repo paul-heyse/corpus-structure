@@ -103,7 +103,7 @@ DECLARE definition sem.data_operation_definition; selected jsonb; output jsonb;
 BEGIN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition
  WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF NOT coalesce((definition.command_class=\'policy\'),false) THEN
+ IF NOT coalesce((definition.command_class='policy'),false) THEN
  IF definition.operation_id='record_policy.authorize'
  OR EXISTS(SELECT FROM jsonb_array_elements(definition.support_contract->'effects') effect
  WHERE effect->>'name'='native-evaluator-policy-authorization') THEN

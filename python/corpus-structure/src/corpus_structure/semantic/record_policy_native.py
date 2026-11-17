@@ -160,9 +160,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $poli
  JOIN ops.data_derivation_output output ON output.derivation_id=d.id
  JOIN sem.data_kind_contract kind ON kind.kind_contract=(SELECT product.kind_contract FROM kb.data_product product WHERE product.id=output.product_id)
  WHERE d.id=episode AND d.outcome='success'
- AND (((definition.command_class=\'policy\') AND output.role='authorization' AND kind.kind='__KIND__')
- OR ((definition.command_class=\'structural\') AND output.role='admission' AND kind.kind='__STRUCTURAL_KIND__')
- OR ((definition.command_class=\'operation_event\') AND output.role='parameters' AND kind.kind='__EVENT_PARAMETERS_KIND__'))
+ AND (((definition.command_class='policy') AND output.role='authorization' AND kind.kind='__KIND__')
+ OR ((definition.command_class='structural') AND output.role='admission' AND kind.kind='__STRUCTURAL_KIND__')
+ OR ((definition.command_class='operation_event') AND output.role='parameters' AND kind.kind='__EVENT_PARAMETERS_KIND__'))
  AND output.position=0 AND output.multiplicity=1 AND output.member_id IS NULL
  AND kind.universe='ordinary'
  AND (SELECT count(*) FROM ops.data_derivation_output other WHERE other.derivation_id=d.id)=1)
