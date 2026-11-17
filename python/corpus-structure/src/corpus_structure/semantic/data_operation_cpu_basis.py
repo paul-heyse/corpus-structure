@@ -462,7 +462,7 @@ def cpu_input_basis_native_sql() -> str:
 CREATE OR REPLACE FUNCTION ops.ddo_cpu_input_basis(r ops.data_request)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
 DECLARE selected jsonb; product kb.data_product; member kb.data_product_member;
- roles jsonb:='[]'; support_refs jsonb; meaning jsonb; context_meaning jsonb;
+ roles jsonb:='[]'; support_refs jsonb; meaning jsonb; context_meaning jsonb; output_meaning jsonb;
 BEGIN
  IF data.ddo_field(r.binding->'parameters','replicate') IS DISTINCT FROM
  data.ddo_json_meaning(jsonb_build_object('replicate',r.replicate)->'replicate') THEN
@@ -490,6 +490,13 @@ BEGIN
  OR (selected->'producer_output'->>'member_id' IS NOT NULL
  AND selected->'producer_output'->>'member_id' IS DISTINCT FROM member.member_id) THEN
  RAISE EXCEPTION 'CPU input basis requires its exact emitting occurrence and selected member' USING ERRCODE='23514'; END IF;
+ output_meaning:=CASE WHEN selected->'producer_output'='null'::jsonb THEN '["null"]'::jsonb
+ ELSE jsonb_build_array('mapping',jsonb_build_array(
+ jsonb_build_array('member_id',CASE WHEN selected->'producer_output'->>'member_id' IS NULL THEN '["null"]'::jsonb
+ ELSE jsonb_build_array('string',selected->'producer_output'->>'member_id') END),
+ jsonb_build_array('role',jsonb_build_array('string',selected->'producer_output'->>'role')),
+ jsonb_build_array('position',jsonb_build_array('integer',selected->'producer_output'->>'position')),
+ jsonb_build_array('multiplicity',jsonb_build_array('integer',selected->'producer_output'->>'multiplicity')))) END;
  context_meaning:=data.ddo_json_meaning(jsonb_build_object(
  'project_id',r.project_id,'subject',coalesce(member.subject,product.subject),
  'subject_definition',coalesce(member.subject_definition,product.subject_definition),
@@ -505,7 +512,7 @@ BEGIN
  jsonb_build_array('context',context_meaning),
  jsonb_build_array('body',coalesce(member.body,product.canonical_body)),
  jsonb_build_array('support',data.ddo_json_meaning(support_refs)),
- jsonb_build_array('producer_output',data.ddo_json_meaning(selected->'producer_output'))));
+ jsonb_build_array('producer_output',output_meaning)));
  roles:=roles||jsonb_build_array(meaning);
  END LOOP;
  -- Match the one Python basis owner even when equal value/member positions
