@@ -98,9 +98,7 @@ def typed_archive_record():
         ],
         "operations": [],
         "bindings": [],
-        "nodes": [
-            {"id": "primitive:integer", "category": "kind", "payload": {"json": {"n": 2}}}
-        ],
+        "nodes": [{"id": "primitive:integer", "category": "kind", "payload": {"json": {"n": 2}}}],
         "edges": [
             {
                 "source": "primitive:integer",
@@ -149,13 +147,17 @@ def test_current_archive_preserves_exact_typed_values_and_canonical_payloads(typ
 def test_current_archive_refuses_primitive_coercion_and_malformed_nested_values(
     typed_archive_record, collection, field, value
 ):
+    from cattrs.errors import CattrsError
+
     typed_archive_record[collection][0][field] = value
-    with pytest.raises((TypeError, ValueError)):
+    with pytest.raises((TypeError, ValueError, CattrsError)):
         read_effective_data_operations(canonical_bytes(typed_archive_record))
 
 
 @pytest.mark.parametrize("mutation", ["extra", "missing"])
-def test_current_archive_refuses_incomplete_or_expanded_kind_records(typed_archive_record, mutation):
+def test_current_archive_refuses_incomplete_or_expanded_kind_records(
+    typed_archive_record, mutation
+):
     kind = typed_archive_record["kinds"][0]
     if mutation == "extra":
         kind["legacy_name"] = "integer"

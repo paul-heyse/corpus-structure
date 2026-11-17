@@ -386,6 +386,7 @@ def test_inspection_bounds_joined_zero_rows_and_withholds_sole_row_cursor(tmp_pa
     import typer
 
     from corpus_structure.cli.app import build_full_app
+
     app = build_full_app()
     from corpus_structure.cli.output import CliState
     from corpus_structure.cli.result_inspection import NativeInspection, inspect_result
@@ -543,6 +544,7 @@ def test_run_only_observations_do_not_acquire_a_legacy_native_reader():
     import typer
 
     from corpus_structure.cli.app import build_full_app
+
     app = build_full_app()
     from corpus_structure.cli.output import CliState
     from corpus_structure.cli.result_inspection import native_inspection

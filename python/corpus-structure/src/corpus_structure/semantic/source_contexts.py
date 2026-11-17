@@ -614,7 +614,6 @@ def _require_digest(value: str) -> None:
         raise ContextRefused("context dependency requires a SHA-256 digest")
 
 
-
 def record_source_pin(source: DeclaredNativeFrameSource) -> dict[str, Any]:
     """Render the owned current pin at the record/contribution boundary."""
     return source.pin.values()

@@ -11,7 +11,21 @@ class CommandRegistration:
 
 
 REGISTRY = (
-    CommandRegistration(("doctor", "setup", "check", "format", "context", "docs", "evidence", "adr", "host", "release"), "operations"),
+    CommandRegistration(
+        (
+            "doctor",
+            "setup",
+            "check",
+            "format",
+            "context",
+            "docs",
+            "evidence",
+            "adr",
+            "host",
+            "release",
+        ),
+        "operations",
+    ),
     CommandRegistration(("results",), "managed"),
     CommandRegistration(("test",), "testing"),
     CommandRegistration(("db",), "db"),
@@ -24,7 +38,21 @@ REGISTRY = (
     CommandRegistration(("ingest", "project", "run", "tasks"), "orchestrate"),
     CommandRegistration(("status",), "status"),
     CommandRegistration(("source",), "source"),
-    CommandRegistration(("query", "explain", "review", "export", "records", "contributions", "characterization", "query-context", "neighborhood", "definition"), "selected_results"),
+    CommandRegistration(
+        (
+            "query",
+            "explain",
+            "review",
+            "export",
+            "records",
+            "contributions",
+            "characterization",
+            "query-context",
+            "neighborhood",
+            "definition",
+        ),
+        "selected_results",
+    ),
     CommandRegistration(("research",), "research"),
     CommandRegistration(("interpretations",), "interpretations"),
     CommandRegistration(("structure",), "structure"),

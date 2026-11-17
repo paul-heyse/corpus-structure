@@ -12,6 +12,7 @@ def test_cli_finalization_returns_real_receipt_and_exact_replay(
     commit_writer_engine = domain_default_case.writer
     from corpus_structure.cli import orchestrate as cli
     from corpus_structure.cli.app import build_full_app
+
     app = build_full_app()
 
     _, run, _ = domain_default_case.stage.result

@@ -57,7 +57,10 @@ def build_command_app(arguments: list[str]) -> typer.Typer:
     if (
         not arguments
         or arguments[0] not in names
-        or any(argument in {"--help", "--install-completion", "--show-completion"} for argument in arguments)
+        or any(
+            argument in {"--help", "--install-completion", "--show-completion"}
+            for argument in arguments
+        )
         or "_CI_COMPLETE" in os.environ
     ):
         return build_full_app()

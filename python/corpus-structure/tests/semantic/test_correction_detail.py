@@ -214,6 +214,7 @@ def test_cli_retention_preserves_failed_outcome_and_safe_outer_message(tmp_path)
     from typer.testing import CliRunner
 
     from corpus_structure.cli.app import build_full_app
+
     app = build_full_app()
     from corpus_structure.cli.diagnostic_artifacts import read_diagnostic
     from corpus_structure.cli.managed import ResultStore

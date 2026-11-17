@@ -593,6 +593,7 @@ def _acquire(prepared, model, operation, *, identity, authorize, custody, source
         if kernel is None
         else (("corpus_structure.evaluate.declared_operation_events." + kernel.__name__, kernel),),
         retain_cpu_reply=kernel is not None,
+        requires_prepared_schema=variant == "frame",
     )
     if variant != "authorize":
         plan.port = port

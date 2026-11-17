@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager, nullcontext
-from functools import cached_property
 from dataclasses import dataclass
+from functools import cached_property
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
 

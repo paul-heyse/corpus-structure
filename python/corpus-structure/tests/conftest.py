@@ -273,6 +273,7 @@ class Cli:
         self, *args: str, settings: Callable[[], Settings] | None = None, env: dict | None = None
     ) -> Result:
         from corpus_structure.cli.app import build_full_app
+
         app = build_full_app()
         from corpus_structure.cli.output import CliState
 

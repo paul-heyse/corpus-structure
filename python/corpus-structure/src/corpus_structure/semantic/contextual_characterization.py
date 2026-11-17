@@ -604,7 +604,8 @@ class ContextualLayer:
                 else:
                     merged.append((start, end))
             protected_intervals[projection] = (
-                tuple(start for start, _ in merged), tuple(end for _, end in merged)
+                tuple(start for start, _ in merged),
+                tuple(end for _, end in merged),
             )
         for part in self.context.parts:
             starts, ends = protected_intervals.get(source_projection(part.view), ((), ()))

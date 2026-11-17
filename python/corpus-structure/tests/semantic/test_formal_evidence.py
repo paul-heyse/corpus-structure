@@ -535,14 +535,18 @@ def test_formal_descendant_selection_walks_frozen_native_parent_links():
     text = "ordinary prose"
     view = SimpleNamespace(
         text=text,
-        pieces=freeze_native([
-            dict(kind="native_text", start=0, end=len(text), item_ref="#/texts/1"),
-        ]),
-        items=freeze_native([
-            dict(self_ref="#/groups/0", label="section"),
-            dict(self_ref="#/groups/1", label="section", parent={"$ref": "#/groups/0"}),
-            dict(self_ref="#/texts/1", label="text", parent={"$ref": "#/groups/1"}),
-        ]),
+        pieces=freeze_native(
+            [
+                dict(kind="native_text", start=0, end=len(text), item_ref="#/texts/1"),
+            ]
+        ),
+        items=freeze_native(
+            [
+                dict(self_ref="#/groups/0", label="section"),
+                dict(self_ref="#/groups/1", label="section", parent={"$ref": "#/groups/0"}),
+                dict(self_ref="#/texts/1", label="text", parent={"$ref": "#/groups/1"}),
+            ]
+        ),
         health={},
     )
     builder = _LayerBuilder(view, {}, FormalIdentity(b"{}", "projection:fixture", "view", True))
@@ -555,7 +559,12 @@ def test_formal_descendant_selection_walks_frozen_native_parent_links():
         max_inline_chars=512,
         check_active=lambda: None,
     )
-    assert actual == [dict(
-        projection="projection:fixture", native_pointer="#/texts/1", start=0, end=14,
-    )]
+    assert actual == [
+        dict(
+            projection="projection:fixture",
+            native_pointer="#/texts/1",
+            start=0,
+            end=14,
+        )
+    ]
     assert builder.annotations

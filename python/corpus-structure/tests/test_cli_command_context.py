@@ -222,6 +222,7 @@ def test_selected_origins_are_preserved_without_relabelling():
     import typer
 
     from corpus_structure.cli.app import build_full_app
+
     app = build_full_app()
     from corpus_structure.cli.target import configured_selection
     from corpus_structure.settings import SettingsReport

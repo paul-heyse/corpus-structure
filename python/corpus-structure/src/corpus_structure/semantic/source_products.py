@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from functools import cached_property
 from dataclasses import dataclass
+from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType

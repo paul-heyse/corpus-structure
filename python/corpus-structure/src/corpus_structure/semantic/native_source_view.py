@@ -62,10 +62,16 @@ class NativeSourceView:
         from .source_products import native_projection_identity
 
         value = self.value
-        if native_projection_identity(
-            value["text"], value["pieces"], value["items"],
-            value.get("recognition", ()), value.get("ancestors", ()),
-        ) != value["source"]["projection"]:
+        if (
+            native_projection_identity(
+                value["text"],
+                value["pieces"],
+                value["items"],
+                value.get("recognition", ()),
+                value.get("ancestors", ()),
+            )
+            != value["source"]["projection"]
+        ):
             raise ValueError("declared native projection differs from its selected source")
         position = 0
         for piece in value["pieces"]:
@@ -82,10 +88,13 @@ class NativeSourceView:
         frozen = freeze_native(value)
         object.__setattr__(self, "value", frozen)
         object.__setattr__(self, "columns", freeze_native(self.columns) if self.columns else frozen)
-        pointers = (*self.items_by_ref, *(
-            item.get("self_ref", item.get("pointer")) for item in self.ancestors
-        ))
-        if any(not isinstance(pointer, str) or not pointer.startswith("#/") for pointer in pointers):
+        pointers = (
+            *self.items_by_ref,
+            *(item.get("self_ref", item.get("pointer")) for item in self.ancestors),
+        )
+        if any(
+            not isinstance(pointer, str) or not pointer.startswith("#/") for pointer in pointers
+        ):
             raise ValueError("source context has unsupported native pointers")
         for piece in self.pieces:
             if piece.get("kind") == "native_text":
@@ -132,7 +141,9 @@ class NativeSourceView:
 
     @cached_property
     def items_by_ref(self) -> Mapping[str, Mapping[str, Any]]:
-        return MappingProxyType({item.get("self_ref", item.get("pointer")): item for item in self.items})
+        return MappingProxyType(
+            {item.get("self_ref", item.get("pointer")): item for item in self.items}
+        )
 
     @cached_property
     def piece_indices_by_item(self) -> Mapping[str, tuple[int, ...]]:
@@ -158,7 +169,8 @@ class NativeSourceView:
 
     def selected_items(self, start: int, end: int) -> tuple[tuple[str, Mapping[str, Any]], ...]:
         selected = {
-            piece["item_ref"] for piece in self.selected_pieces(start, end)
+            piece["item_ref"]
+            for piece in self.selected_pieces(start, end)
             if piece.get("item_ref") in self.items_by_ref
         }
         return tuple(

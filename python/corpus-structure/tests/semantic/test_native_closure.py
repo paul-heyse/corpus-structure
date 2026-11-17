@@ -110,6 +110,7 @@ def test_restricted_activation_cas_and_deployment_record(
     from typer.testing import CliRunner
 
     from corpus_structure.cli.app import build_full_app
+
     app = build_full_app()
     from corpus_structure.cli.output import CliState
 

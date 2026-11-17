@@ -89,18 +89,30 @@ def require_data_operation_call_context(
 
 def bound_data_operation_calls(prepared):
     """Read captured fixed native correspondence through its actual typed owner."""
-    from pydantic import TypeAdapter
-
-    from .native_call_contracts import OperationCallBinding
-
     model = bound_data_operation_model(prepared)
     artifacts = [a for a in prepared.artifacts if a.kind == "data_operation_ports.json"]
     if len(artifacts) != 1:
         raise SemanticRefusal("release lacks one current native-call correspondence")
-    manifest = json.loads(artifacts[0].content)
-    if manifest["model_digest"] != sha256(model.content).hexdigest():
+    return _bound_data_operation_calls(model.content, artifacts[0].content)
+
+
+@lru_cache(maxsize=1)
+def _call_binding_adapter():
+    from pydantic import TypeAdapter
+
+    from .native_call_contracts import OperationCallBinding
+
+    return TypeAdapter(tuple[tuple[str, OperationCallBinding], ...])
+
+
+@lru_cache(maxsize=8)
+def _bound_data_operation_calls(model_content: bytes, correspondence: bytes):
+    """Cache immutable decoding only; callers still acquire native authority."""
+    model = read_effective_data_operations(model_content)
+    manifest = json.loads(correspondence)
+    if manifest["model_digest"] != sha256(model_content).hexdigest():
         raise SemanticRefusal("native-call correspondence belongs to another effective model")
-    calls = TypeAdapter(tuple[tuple[str, OperationCallBinding], ...]).validate_json(
+    calls = _call_binding_adapter().validate_json(
         canonical_bytes(manifest["calls"]),
         strict=True,
     )

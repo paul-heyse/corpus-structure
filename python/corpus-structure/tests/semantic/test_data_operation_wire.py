@@ -44,7 +44,12 @@ def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeyp
         assert wire.wire_role_kind("claim_data_request", "input").endswith(
             "claim_data_request_request"
         )
-        payload = {"request_id": "request:x", "generation": 1, "holder": "worker", "lease_seconds": 3}
+        payload = {
+            "request_id": "request:x",
+            "generation": 1,
+            "holder": "worker",
+            "lease_seconds": 3,
+        }
         assert wire.validate_native_wire("claim_data_request", "input", payload) == payload
         assert wire.wire_contracts()["claim_data_request"]["input"]
         assert preparations == [None]
@@ -152,7 +157,12 @@ def test_native_wire_integer_type_and_declared_limits_do_not_coerce(lease):
         validate_native_wire(
             "claim_data_request",
             "input",
-            {"request_id": "request:x", "generation": 1, "holder": "worker", "lease_seconds": lease},
+            {
+                "request_id": "request:x",
+                "generation": 1,
+                "holder": "worker",
+                "lease_seconds": lease,
+            },
         )
 
 
@@ -275,7 +285,8 @@ def test_generated_boundaries_execute_the_captured_nested_wire_contract(monkeypa
     request = module.__dict__["_claim_data_requestRequest"]
     result_type = module.__dict__["ClaimDataRequestResult"]
     checked = request.model_validate_json(
-        '{"payload":{"request_id":"request:x","generation":1,"holder":"worker","lease_seconds":3}}', strict=True
+        '{"payload":{"request_id":"request:x","generation":1,"holder":"worker","lease_seconds":3}}',
+        strict=True,
     )
     assert checked.payload["lease_seconds"] == 3
     with pytest.raises(ValidationError):

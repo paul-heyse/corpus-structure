@@ -2,7 +2,7 @@
 
 import json
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, NotRequired, TypedDict
 
 from corpus_structure.methods.source_preparation import native_table_geometry
@@ -44,7 +44,7 @@ def artifact_spans(text, *, navigation, pointer, start):
             )
 
 
-def _measure_table_geometry(node: dict[str, Any], *, navigation) -> dict[str, Any]:
+def _measure_table_geometry(node: Mapping[str, Any], *, navigation) -> Mapping[str, Any]:
     """Recognize nested sample-size bands without modifying the native annotations."""
     data = node.get("data", {})
     cells: list[dict[str, Any]] = data.get("table_cells", [])

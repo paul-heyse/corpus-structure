@@ -148,6 +148,7 @@ def test_structural_discovery_qualifies_coordinates_without_claiming_binding(mod
 def test_deployment_preview_binds_separate_authoring_and_destination(model_checkout, monkeypatch):
     from corpus_structure.cli import recipes, schema
     from corpus_structure.cli.app import build_full_app
+
     app = build_full_app()
     from corpus_structure.cli.output import CliState
     from corpus_structure.schema import model_deployment

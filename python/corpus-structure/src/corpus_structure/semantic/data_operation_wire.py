@@ -345,7 +345,9 @@ def _ambient_protocol() -> _PreparedProtocol:
 
 
 def _protocol_state(sources: tuple[SourceArtifact, ...] | None) -> _PreparedProtocol:
-    return _ambient_protocol() if sources is None else _prepared_protocol(_protocol_content(sources))
+    return (
+        _ambient_protocol() if sources is None else _prepared_protocol(_protocol_content(sources))
+    )
 
 
 def wire_operations(
