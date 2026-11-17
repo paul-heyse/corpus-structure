@@ -492,13 +492,20 @@ def test_equal_literal_pieces_retain_actual_coordinate_order():
         evidence_sets=(evidence["set_id"],),
     )
     contexts = tuple(row for row in contexts if row["pointer"] != "#/tables/0/cells/3") + tuple(
-        {"pin": dict(PIN), "space": "native", "pointer": piece["pointer"], "text": "12"}
-        for piece in pieces
+        {"pin": dict(PIN), "space": "native", "pointer": piece["pointer"], "text": "12",
+         "projection_start": 40 + index * 2}
+        for index, piece in enumerate(pieces)
     )
+    # Discovery order is deliberately the reverse of the independently supplied bridge.
+    contexts = tuple(reversed(contexts))
     finish(record)
     assert bind(record, contexts).model_dump(mode="python")["fields"][4]["original_pieces"] == (
         "12", "12"
     )
+    unknown = tuple({key: value for key, value in row.items() if key != "projection_start"}
+                    for row in contexts)
+    with pytest.raises(ValueError, match="coordinate order is unavailable"):
+        bind(record, unknown)
     evidence["anchors"] = tuple(reversed(evidence["anchors"]))
     evidence["set_id"] = evidence_set_identity(evidence)
     value["evidence_sets"] = (evidence["set_id"],)

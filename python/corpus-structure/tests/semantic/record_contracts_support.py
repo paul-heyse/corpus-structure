@@ -207,13 +207,14 @@ def table_record():
         "assertion_members": ("fact:value", "fact:condition"),
     }
     contexts = tuple(
-        {"pin": dict(PIN), "space": "native", "pointer": pointer, "text": text}
-        for pointer, text in (
-            ("#/tables/0/cells/0", "Group A"),
-            ("#/tables/0/cells/1", "Population"),
-            ("#/tables/0/cells/2", "mean"),
-            ("#/tables/0/cells/3", "12"),
-            ("#/texts/4", "hypothetical"),
+        {"pin": dict(PIN), "space": "native", "pointer": pointer, "text": text,
+         "projection_start": origin}
+        for pointer, text, origin in (
+            ("#/tables/0/cells/0", "Group A", 0),
+            ("#/tables/0/cells/1", "Population", 8),
+            ("#/tables/0/cells/2", "mean", 19),
+            ("#/tables/0/cells/3", "12", 24),
+            ("#/texts/4", "hypothetical", 27),
         )
     )
     return finish(record), contexts

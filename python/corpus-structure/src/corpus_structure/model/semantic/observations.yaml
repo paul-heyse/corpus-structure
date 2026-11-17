@@ -638,6 +638,10 @@ classes:
       pointer: {required: true}
       text: {required: true}
       recognition: {range: RecordCapturedRecognition, inlined: true}
+      projection_start:
+        range: integer
+        minimum_value: 0
+        description: For native text, the source owner's verified field origin in the pinned selected projection. Selected-projection bounds already share origin zero; input list order grants no source ordering.
   RecordAnchor:
     is_a: SourceRecordProduct
     attributes:

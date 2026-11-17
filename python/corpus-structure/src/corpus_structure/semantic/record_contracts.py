@@ -246,17 +246,22 @@ def bind_record_candidates(
     A complete source-reading claim needs an independent producer's pinned coordinate
     input. V2 bindings admit same-product selected context and separately typed captured
     recognition; occurrence-defining anchors remain primary. This pure check does
-    not qualify provider inference or persisted publication. Coordinate texts retain
-    the producer's source order within each pin/space for multi-coordinate literals.
+    not qualify provider inference or persisted publication. Cross-coordinate literal
+    order requires a shared projection basis, never input traversal order.
     """
     contexts = {}
-    coordinate_order = {}
+    coordinate_origins = {}
     for raw in coordinate_texts:
         row = prepared.validate_python("RecordCoordinateText", raw).model_dump(mode="python")
         key = _text_key(row["pin"], row["space"], row["pointer"], row.get("recognition"))
-        if key in contexts and contexts[key] != row["text"]:
+        origin = 0 if row["space"] == "selected_projection" else row.get("projection_start")
+        if row.get("projection_start") is not None and row["space"] != "native":
+            raise ValueError("projection bridge requires native coordinate text")
+        if key in contexts and (
+            contexts[key] != row["text"] or coordinate_origins[key] != origin
+        ):
             raise ValueError("conflicting pinned coordinate text")
-        coordinate_order.setdefault(key, len(coordinate_order))
+        coordinate_origins[key] = origin
         contexts[key] = row["text"]
     result = []
     seen = set()
@@ -439,18 +444,28 @@ def bind_record_candidates(
                                     piece["pointer"],
                                     piece.get("recognition"),
                                 )
-                                # The supplied source sequence establishes order within
-                                # one pinned coordinate space, never between sources or
-                                # by sorting opaque pointer strings or equal text values.
+                                # Selected projection bounds are global. Native bounds
+                                # need the source owner's verified field-origin bridge.
                                 coordinate_space = canonical_bytes(
                                     [_pin(piece["pin"]), piece["space"]]
                                 )
-                                ordinal = coordinate_order[coordinate]
-                                if ordinal < previous_coordinates.get(coordinate_space, -1):
-                                    raise ValueError(
-                                        "literal evidence intervals overlap or reverse source order"
-                                    )
-                                previous_coordinates[coordinate_space] = ordinal
+                                origin = coordinate_origins[coordinate]
+                                previous = previous_coordinates.get(coordinate_space)
+                                if previous is not None:
+                                    previous_coordinate, previous_end = previous
+                                    if coordinate != previous_coordinate and (
+                                        origin is None or previous_end is None
+                                    ):
+                                        raise ValueError("literal source coordinate order is unavailable")
+                                    if origin is not None and previous_end is not None and (
+                                        origin + piece["start"] < previous_end
+                                    ):
+                                        raise ValueError(
+                                            "literal evidence intervals overlap or reverse source order"
+                                        )
+                                previous_coordinates[coordinate_space] = (
+                                    coordinate, None if origin is None else origin + piece["end"]
+                                )
                                 if piece["start"] < previous_ends.get(coordinate, 0):
                                     raise ValueError(
                                         "literal evidence intervals overlap or reverse source order"

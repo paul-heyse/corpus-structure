@@ -195,6 +195,8 @@ def finish(row):
 def reading(family):
     contract, specs = specifications(family)
     anchors, sets, fields, contexts = [], [], [], []
+    # This controlled source lays out the declared text fragments with newline separators.
+    projection_position = 0
     for role, kind, value, original, meaning in specs:
         field: dict[str, Any] = {
             "role": role,
@@ -221,9 +223,11 @@ def reading(family):
                 }
                 if text is not None:
                     anchor.update(start=0, end=len(text), source_piece=text)
-                    contexts.append(
-                        {"pin": dict(PIN), "space": space, "pointer": pointer, "text": text}
-                    )
+                    coordinate = {"pin": dict(PIN), "space": space, "pointer": pointer, "text": text}
+                    if space == "native":
+                        coordinate["projection_start"] = projection_position
+                    contexts.append(coordinate)
+                    projection_position += len(text) + 1
                 anchor["anchor_id"] = anchor_identity(anchor)
                 anchors.append(anchor)
                 members.append(anchor["anchor_id"])

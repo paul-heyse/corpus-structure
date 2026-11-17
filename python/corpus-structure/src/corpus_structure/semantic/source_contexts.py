@@ -705,7 +705,10 @@ def evidence_anchor(
             version=2, relationship=relationship, policy="attributed-selected-source-2"
         )
     anchor["anchor_id"] = anchor_identity(anchor)
-    return anchor, dict(pin=pin, space=anchor["space"], pointer=pointer, text=text)
+    coordinate = dict(pin=pin, space=anchor["space"], pointer=pointer, text=text)
+    if native:
+        coordinate["projection_start"] = projection_start
+    return anchor, coordinate
 
 
 def native_item_anchor(context: NativeSourceContext, pointer: str) -> dict[str, Any]:
