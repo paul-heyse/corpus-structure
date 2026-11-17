@@ -103,6 +103,8 @@ def test_frozen_model_reuses_content_and_exact_decoding_without_caching_other_in
 
 
 def test_server_packet_cache_is_fence_bound_detached_and_byte_bounded(monkeypatch):
+    from typing import Any, cast
+
     from corpus_structure.semantic.data_operation_external import ExternalDataSession
 
     class Storage:
@@ -113,7 +115,7 @@ def test_server_packet_cache_is_fence_bound_detached_and_byte_bounded(monkeypatc
             return {"packet": {"project_id": "project:A", "inputs": [], "padding": "x" * 80}}
 
     storage = Storage()
-    session = ExternalDataSession(object(), "project:A", max_packet_bytes=200)
+    session = ExternalDataSession(cast(Any, object()), "project:A", max_packet_bytes=200)
     monkeypatch.setattr(session, "_invoke", lambda action: action(storage))
     claim = {"request_id": "request:A", "generation": 1, "task_id": 1, "attempt": 1, "holder": "owner"}
     first = session.read("packet:A", claim)

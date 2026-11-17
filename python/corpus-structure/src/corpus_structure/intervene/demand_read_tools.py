@@ -40,6 +40,8 @@ def register_demand_read_tools(server, *, settings, read_engine=None, engine_pro
     @contextmanager
     def reader():
         engine = engine_provider() if engine_provider is not None else read_engine
+        if engine is None:
+            raise RuntimeError("MCP read engine is unavailable")
         with engine.begin() as connection:
             yield connection
 

@@ -11,7 +11,7 @@ from corpus_structure.intervene.runtime_engines import McpRuntimeEngines
 def test_mcp_engines_are_lazy_shared_by_purpose_and_closed_at_lifespan_end(monkeypatch):
     from corpus_structure.semantic import runtime
 
-    events = []
+    events: list[tuple[str, str, int] | tuple[str, str]] = []
 
     @contextmanager
     def opened(settings, name, *, max_size, purpose):
