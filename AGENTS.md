@@ -354,6 +354,12 @@ unnecessary friction, updating the owner; the operator has authorized those adju
 
 ## Agent coordination
 
+This is a standing request to use subagents whenever you judge delegation useful. Decide
+autonomously whether, when, and how to delegate, including parallel work and independent review.
+No separate user request or confirmation is needed. Use your judgment about task complexity,
+coordination cost, and expected benefit; no minimum agent count applies. Follow applicable
+ownership and coordination instructions.
+
 Use subagents when another context, capability or perspective supplies useful progress, learning
 or independent judgment worth briefing and integration. Shape assignments around coherent outcomes,
 available inputs and shared decisions; components and role names are possible organizing aids.

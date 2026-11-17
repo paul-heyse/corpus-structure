@@ -4,6 +4,7 @@ _Updated 2026-11-16. Current-turn closeout completed; DDO remains incomplete._
 
 ## Current owner and implementation
 
+- `AGENTS.md` explicitly requests discretionary subagent delegation without separate confirmation; existing coordination rules still apply. On 2026-11-16, `git diff --check` **passed**; product tests **not_run** for this instruction-only change.
 - The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#current-consumer-integration-and-discovered-defects--2026-11-16) owns SI01–21, package state, receipts and remaining accepted scope. This checkpoint closes the requested turn, not the plan.
 - Current v8/model0.6.7,97-relation target and recorded legacy retirement remain integrated. Original-generation custody and strict source/native/publication guards remain authoritative. No historical executor or reader is restored.
 - Final merged repairs: strict compiled JSON validation for PDF domain projections (`542b53744`), using the exact numeric codec; explicit bounded second private support read only in the large-diagnostic fixture (`a2e770d3b`). Typed physical receipts, ordinary read defaults and public64KiB bounds are unchanged.
