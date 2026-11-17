@@ -39,6 +39,7 @@ from corpus_structure.semantic.data_operation_model import (
     ResolvedRoleBinding,
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
 
@@ -274,12 +275,13 @@ def _authored_member(product, member, position, episode, *, source="source"):
         analyzed_scope=b'{"page":1}',
         coverage=b'{"complete":true}',
         support_episodes=(episode,),
-        support_evidence=b'{"trust":"pinned"}',
+        support_evidence=b'{"producer_output":{"member_id":null,"multiplicity":1,"position":0,"role":"result"},"trust":"pinned"}',
         position=position,
         multiplicity=1,
         member=member,
         support_references=(ComputationalSupportReference(derivation_id=episode),),
         subject_definition="document",
+        producer_output=ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1),
     )
 
 

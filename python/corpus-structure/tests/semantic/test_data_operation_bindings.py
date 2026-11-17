@@ -45,6 +45,7 @@ from corpus_structure.semantic.data_operation_model import (
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from corpus_structure.semantic.types import SourceArtifact
 from semantic.data_operation_binding_support import BINDING_EVIDENCE_CASES
 from semantic.data_operation_declaration_support import binding_declaration as declaration
@@ -185,7 +186,7 @@ def storage(native_rollback):
                 support_references=[
                     {"kind": "computation", "derivation_id": f"ep{value}", "admission_use_id": None}
                 ],
-                support_evidence={"trust": "pinned"},
+                support_evidence={"trust": "pinned", "producer_output": {"member_id": None, "role": "result", "position": 0, "multiplicity": 1}},
                 position=3 - value,
                 multiplicity=1,
                 value=value,
@@ -305,7 +306,7 @@ def test_sql_range_membership_defaults_and_exact_identity(storage):
         ("original_source", "second-original"),
         ("analyzed_scope", {"page": 9}),
         ("support_episodes", ["selected-episode"]),
-        ("support_evidence", {"witness": "selected-witness"}),
+        ("support_evidence", {"witness": "selected-witness", "producer_output": {"member_id": None, "role": "result", "position": 0, "multiplicity": 1}}),
     ],
 )
 def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet, value):
@@ -339,9 +340,9 @@ def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet,
         analyzed_scope=b'{"page":9}' if facet == "analyzed_scope" else b'{"page":1}',
         coverage=b'{"complete":true}',
         support_episodes=("selected-episode",) if facet == "support_episodes" else ("ep2",),
-        support_evidence=b'{"witness":"selected-witness"}'
+        support_evidence=b'{"producer_output":{"member_id":null,"multiplicity":1,"position":0,"role":"result"},"witness":"selected-witness"}'
         if facet == "support_evidence"
-        else b'{"trust":"pinned"}',
+        else b'{"producer_output":{"member_id":null,"multiplicity":1,"position":0,"role":"result"},"trust":"pinned"}',
         position=17 if facet == "position" else 1,
         multiplicity=1,
         member="selected-member" if facet == "member" else "m2",
@@ -351,6 +352,7 @@ def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet,
             ),
         ),
         subject_definition="document",
+        producer_output=ProducerOutputOccurrence(member_id=None, role="result", position=0, multiplicity=1),
     )
     assert actual == BindingResult(
         operation="urn:op",
@@ -1161,7 +1163,7 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
         (projection,),
         subject="doc",
         original_source="root-source",
-        source_sets=(FrozenSourceSet("inputs", (frozen,)),),
+        source_sets=(FrozenSourceSet.unqualified("inputs", (frozen,)),),
     )
     result = execute_binding(connection, compiled)
     assert result.status == "ready"
@@ -1170,7 +1172,7 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
         for member in result.roles[0].members
     ] == [("p2", "m2", "foreign-source")]
     assert (
-        json.loads(result.source_sets)["inputs"][0]["source_reference"]
+        json.loads(result.source_sets)["inputs"]["entries"][0]["source_reference"]
         == DataProductMemberReference(DataProductReference("p2"), "m2").identity
     )
     with pytest.raises(ValueError, match=r"lacks.*source set"):
@@ -1184,7 +1186,7 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
                 "urn:op",
                 (projection,),
                 subject="doc",
-                source_sets=(FrozenSourceSet("inputs", (wrong,)),),
+                source_sets=(FrozenSourceSet.unqualified("inputs", (wrong,)),),
             ),
         ).status
         == "awaiting-inputs"
@@ -1814,7 +1816,7 @@ def test_semantic_source_set_pins_cross_source_context_without_legacy_reference(
     entry = SourceSetEntry.from_semantic_source(
         DataProductMemberReference(DataProductReference("p2"), "m2"), context=context
     )
-    sources = (FrozenSourceSet("selected", (entry,)),)
+    sources = (FrozenSourceSet.unqualified("selected", (entry,)),)
     assert read_source_sets(source_sets_record(sources)) == sources
     base = model(BindingExpression("scan", roles=("items",)))
     assert base.operations[0].roles[0].support is not None
@@ -1858,7 +1860,7 @@ def test_semantic_source_set_pins_cross_source_context_without_legacy_reference(
                 (projection,),
                 subject="authored:input",
                 original_source="local:source",
-                source_sets=(FrozenSourceSet("selected", (wrong,)),),
+                source_sets=(FrozenSourceSet.unqualified("selected", (wrong,)),),
             ),
         )
         assert invalid.status != "ready"
@@ -1935,9 +1937,9 @@ def test_explicit_empty_source_set_is_closed_absence_and_never_an_unbounded_scan
     )
 
     connection, _table, projection = storage
-    sources = (FrozenSourceSet("selected", ()),)
-    assert source_sets_record(sources) == {"selected": []}
-    assert read_source_sets({"selected": []}) == sources
+    sources = (FrozenSourceSet.unqualified("selected", ()),)
+    assert source_sets_record(sources) == {"selected": {"entries": [], "acquisition": {"kind": "all-admissible-support-v1"}}}
+    assert read_source_sets(source_sets_record(sources)) == sources
     base = model(BindingExpression("scan", roles=("items",)), minimum=0, presence="optional")
     original = base.operations[0].roles[0]
     assert original.support is not None
@@ -1980,7 +1982,7 @@ def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage
     from sqlalchemy import Boolean, event, literal, select, text
 
     from corpus_structure.semantic.data_operation_bindings import BindingCheck, BindingReason
-    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 
     connection, _table, projection = storage
     exact = Decimal("0.123456789012345678901234567890123456789")
@@ -1989,7 +1991,7 @@ def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage
             "UPDATE admitted SET analyzed_scope = CAST(:scope AS jsonb), "
             "support_evidence = CAST(:support AS jsonb)"
         ),
-        {"scope": '{"fraction":' + str(exact) + "}", "support": '{"fraction":' + str(exact) + "}"},
+        {"scope": '{"fraction":' + str(exact) + "}", "support": json_bytes({"fraction": exact, "producer_output": {"member_id": None, "role": "result", "position": 0, "multiplicity": 1}}).decode()},
     )
     target = model(
         BindingExpression("scan", roles=("items", "empty")),
@@ -2043,7 +2045,7 @@ def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage
     assert [member.product for member in result.roles[0].members] == ["p3", "p2", "p1"]
     for member in result.roles[0].members:
         assert json_loads(member.analyzed_scope) == {"fraction": exact}
-        assert json_loads(member.support_evidence) == {"fraction": exact}
+        assert json_loads(member.support_evidence) == {"fraction": exact, "producer_output": {"member_id": None, "role": "result", "position": 0, "multiplicity": 1}}
 
 
 @pytest.mark.parametrize("values", [(), (True, False), (None, None)])
@@ -2077,3 +2079,15 @@ def test_binding_transport_refuses_missing_or_duplicate_check_rows(storage, valu
     message = "duplicate or unexpected" if values else "incomplete"
     with pytest.raises(ValueError, match=message + " SQL binding check"):
         execute_binding(connection, compiled)
+
+
+def test_binding_decoder_refuses_missing_or_forged_emitting_occurrence(storage):
+    connection, relation, projection = storage
+    compiled = compile_binding(model(BindingExpression("scan", roles=("items",))), "urn:op", (projection,), subject="doc")
+    for evidence in (
+        {"trust": "pinned"},
+        {"producer_output": {"member_id": "foreign", "role": "result", "position": 0, "multiplicity": 1}},
+        {"producer_output": {"member_id": None, "role": "result", "position": -1, "multiplicity": 1}},
+    ):
+        connection.execute(relation.update().values(support_evidence=evidence))
+        assert execute_binding(connection, compiled).status == "invalid"
