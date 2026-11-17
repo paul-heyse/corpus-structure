@@ -14,6 +14,7 @@ from pglast.stream import RawStream, maybe_double_quote_name
 from sqlalchemy import Column, Table, cast, literal_column, null, select
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.sql import visitors
+from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import BindParameter, ClauseElement, ColumnClause, TextClause
 from sqlalchemy.types import TypeEngine
 
@@ -219,7 +220,8 @@ def _statements(statements: tuple[Statement, ...], indent: str) -> str:
 def _step(statement: Statement, nested: str) -> str:
     match statement:
         case Sql(sql):
-            return _statement(sql)
+            # Native effects have no client to receive an implicitly returned identity.
+            return _statement(sql.inline() if isinstance(sql, Insert) else sql)
         case Assign(target, value):
             return f"{_identifier(target)} := {_render(value)}"
         case Perform(value):

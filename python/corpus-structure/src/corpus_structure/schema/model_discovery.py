@@ -81,10 +81,16 @@ def discover_source_consumers(
             except (SyntaxError, RecursionError) as error:
                 compiled[path] = {"outcome": "failed", "line": getattr(error, "lineno", None)}
             parsed = SgRoot(source, "python").root()
-            # The parser produces a fresh tree with unique nodes.
-            wrapped = MetadataWrapper(cst.parse_module(raw), unsafe_skip_copy=True)
+            module = cst.parse_module(raw)
+            matches = tuple(
+                (category, nodes)
+                for category, rule in rules
+                if tokens and (nodes := parsed.find_all({"rule": rule}))
+            )
             lexical = _Bindings()
-            wrapped.visit(lexical)
+            if matches:
+                # Only matched files need lexical attribution. The parser yields unique nodes.
+                MetadataWrapper(module, unsafe_skip_copy=True).visit(lexical)
         except (
             UnicodeError,
             SyntaxError,
@@ -96,8 +102,8 @@ def discover_source_consumers(
             continue
         inspected[path] = sha256(raw).hexdigest()
         seen = set()
-        for category, rule in rules:
-            for node in parsed.find_all({"rule": rule}) if tokens else ():
+        for category, nodes in matches:
+            for node in nodes:
                 span = node.range()
                 key = (span.start.index, span.end.index)
                 if key in seen:
