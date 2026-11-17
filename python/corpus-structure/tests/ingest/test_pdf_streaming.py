@@ -74,10 +74,12 @@ def test_page_custody_precedes_release_and_restores_exact_crop(tmp_path):
     page, image = page_with_image()
     observed = []
     spool = PdfStreamSpool(tmp_path / "spool", on_page=observed.append)
-    spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0)
+    spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0,
+                       confidence=None, errors=())
     assert len(observed) == 1
     assert page._backend is None and page.assembled is None and not page._image_cache
-    result = SimpleNamespace(pages=[page])
+    result = SimpleNamespace(pages=[page], confidence=SimpleNamespace(pages={}),
+                             errors=[], _page_sizes_by_no={})
     spool.restore_pages(result)
     restored = result.pages[0]
     box = BoundingBox(l=1, t=2, r=4, b=5, coord_origin=CoordOrigin.TOPLEFT)
@@ -100,7 +102,8 @@ def test_failed_adoption_does_not_release_page(tmp_path):
 
     spool = PdfStreamSpool(tmp_path / "spool", on_page=refuse)
     with pytest.raises(RuntimeError, match="adoption refused"):
-        spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0)
+        spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0,
+                       confidence=None, errors=())
     assert page._backend is not None and page.assembled is not None
     assert spool.pages == {}
     image.close()
@@ -109,10 +112,12 @@ def test_failed_adoption_does_not_release_page(tmp_path):
 def test_page_replay_refuses_corrupt_bytes(tmp_path):
     page, image = page_with_image()
     spool = PdfStreamSpool(tmp_path / "spool")
-    spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0)
+    spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0,
+                       confidence=None, errors=())
     spool.pages[1].path.write_bytes(b"bad")
     with pytest.raises(ValueError, match="replay size changed"):
-        spool.restore_pages(SimpleNamespace(pages=[page]))
+        spool.restore_pages(SimpleNamespace(pages=[page], confidence=SimpleNamespace(pages={}),
+                             errors=[], _page_sizes_by_no={}))
     image.close()
 
 
@@ -131,11 +136,13 @@ def test_page_envelope_delegates_native_serializer_and_preserves_assembly_classe
 
     monkeypatch.setattr(Page, "model_dump_json", refuse_intermediate_json)
     spool = PdfStreamSpool(tmp_path / "spool")
-    spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0)
+    spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0,
+                       confidence=None, errors=())
     replay = json.loads(spool.pages[1].path.read_bytes())
     assert replay["page"] == expected
-    assert replay["serialization_profile"] == "pydantic-native-page-envelope-v1"
-    result = SimpleNamespace(pages=[page])
+    assert replay["serialization_profile"] == "pydantic-native-page-envelope-v2"
+    result = SimpleNamespace(pages=[page], confidence=SimpleNamespace(pages={}),
+                             errors=[], _page_sizes_by_no={})
     spool.restore_pages(result)
     assert type(result.pages[0].assembled.elements[0]) is ContainerElement
     assert type(result.pages[0].assembled.elements[1]) is Table
@@ -440,3 +447,27 @@ def test_page_working_streams_are_not_reemitted_into_record_products(tmp_path):
                     streams.extend(reader.get_batch(index).column("stream_id").to_pylist())
     assert {"native/completion", "native/recipe", "native/prepared-runtime"} <= set(streams)
     assert not any(name.startswith("page/") for name in streams)
+
+
+def test_recovery_inserts_absent_page_and_restores_native_confidence(tmp_path):
+    from docling.datamodel.base_models import PageConfidenceScores
+    from corpus_structure.ingest.pdf_stream_types import PdfPageRecovery, PdfReplayRef
+
+    page, image = page_with_image()
+    spool = PdfStreamSpool(tmp_path / "original")
+    confidence = PageConfidenceScores(layout_score=0.75)
+    spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0,
+                       confidence=confidence, errors=())
+    candidate = tmp_path / "candidate"
+    candidate.write_bytes(b"candidate")
+    recovery = PdfPageRecovery(1, spool.pages[1], PdfReplayRef(
+        candidate, sha256(b"candidate").hexdigest(), 9, "candidate_payload", page_no=1,
+    ), "a" * 64)
+    resumed = PdfStreamSpool(tmp_path / "resumed", recovery_pages=(recovery,))
+    result = SimpleNamespace(pages=[], confidence=SimpleNamespace(pages={}),
+                             errors=[], _page_sizes_by_no={})
+    resumed.restore_pages(result, [1])
+    assert [restored.page_no for restored in result.pages] == [1]
+    assert result.confidence.pages[1].layout_score == 0.75
+    assert result._page_sizes_by_no[1] == Size(width=10, height=10)
+    image.close()

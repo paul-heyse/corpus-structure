@@ -20,6 +20,7 @@ from .pdf_build_spool import PdfSpoolWriterLease
 from .pdf_enrichment import PdfEnrichmentRequest, PdfEnrichmentResult, compute_enrichment
 from .pdf_health import error_summary
 from .pdf_stream_types import (
+    PdfPageRecovery,
     PdfReplayReady,
     PdfReplayRef,
     PdfSourceRef,
@@ -98,6 +99,7 @@ def _native_child(
                         request.spool_root,
                         on_page=acknowledged,
                         payload_family=payload_family,
+                        recovery_pages=request.recovery_pages,
                     )
                     streamed = StreamingPdfProducer(recipe, assets=assets).run(
                         request.source, spool, page_range=request.page_range
@@ -322,6 +324,7 @@ class PdfWorker:
         integration_policy: dict | None = None,
         reconciliation_root: Path | None = None,
         payload_schema: bytes | None = None,
+        recovery_pages: tuple[PdfPageRecovery, ...] = (),
     ) -> PdfStreamReply:
         value = self._exchange(
             PdfStreamRequest(
@@ -336,6 +339,7 @@ class PdfWorker:
                 integration_policy,
                 reconciliation_root,
                 payload_schema,
+                recovery_pages,
             ),
             check_active,
             on_replay,

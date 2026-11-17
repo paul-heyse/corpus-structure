@@ -108,6 +108,14 @@ class PdfReplayRef:
 
 
 @dataclass(frozen=True, slots=True)
+class PdfPageRecovery:
+    page_no: int
+    page: PdfReplayRef
+    candidate: PdfReplayRef
+    preparation_identity: str
+
+
+@dataclass(frozen=True, slots=True)
 class PdfStreamRequest:
     source: PdfSourceRef
     spool_root: Path
@@ -120,6 +128,7 @@ class PdfStreamRequest:
     integration_policy: dict | None = None
     reconciliation_root: Path | None = None
     payload_schema: bytes | None = None
+    recovery_pages: tuple[PdfPageRecovery, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

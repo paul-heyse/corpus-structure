@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from hashlib import file_digest, sha256
 from pathlib import Path
 from typing import Any
 
-from .pdf_stream_types import PdfReplayRef, PdfSourceRef
+from .pdf_stream_types import PdfPageRecovery, PdfReplayRef, PdfSourceRef
 
 
 def _ref(path: Path, family: str, rows: int = 0) -> PdfReplayRef:
@@ -42,7 +42,7 @@ def _atomic_bytes(path: Path, value: bytes, family: str) -> PdfReplayRef:
 @lru_cache(maxsize=1)
 def _page_envelope_model():
     """Prepare once; nested Page/BoundingBox serializers remain their native owners."""
-    from docling.datamodel.base_models import Page
+    from docling.datamodel.base_models import ErrorItem, Page, PageConfidenceScores
     from docling_core.types.doc import BoundingBox
     from pydantic import ConfigDict, create_model
 
@@ -50,6 +50,8 @@ def _page_envelope_model():
         "NativePageReplayEnvelope",
         __config__=ConfigDict(extra="forbid"),
         assembly_types=(dict[str, list[str]], ...),
+        confidence=(PageConfidenceScores | None, ...),
+        errors=(list[ErrorItem], ...),
         page=(Page, ...),
         shape_lines=(list[BoundingBox], ...),
         shape_boxes=(list[BoundingBox], ...),
@@ -70,6 +72,7 @@ class PdfStreamSpool:
         on_page: Callable[[PdfReplayRef], None] | None = None,
         check_active: Callable[[], None] | None = None,
         payload_family: Any = None,
+        recovery_pages: tuple[PdfPageRecovery, ...] = (),
     ):
         root.mkdir(parents=True, exist_ok=False)
         self.root = root
@@ -77,6 +80,19 @@ class PdfStreamSpool:
         self.pages: dict[int, PdfReplayRef] = {}
         self.candidates: dict[int, PdfReplayRef] = {}
         self._payload_family = payload_family
+        self.restored_pages: set[int] = set()
+        self.preparation_identities = set()
+        for recovery in recovery_pages:
+            if recovery.page_no in self.restored_pages:
+                raise ValueError("PDF recovery repeated a physical page")
+            recovery.page.verify()
+            recovery.candidate.verify()
+            self.pages[recovery.page_no] = recovery.page
+            self.candidates[recovery.page_no] = recovery.candidate
+            self.restored_pages.add(recovery.page_no)
+            self.preparation_identities.add(recovery.preparation_identity)
+        if len(self.preparation_identities) > 1:
+            raise ValueError("PDF recovery combines different native preparations")
 
     @property
     def payload_family(self):
@@ -120,7 +136,8 @@ class PdfStreamSpool:
             self.on_page(replay)
         self.candidates[value.page_no] = replay
 
-    def capture_page(self, page: Any, hierarchy: Any, scale: float) -> None:
+    def capture_page(self, page: Any, hierarchy: Any, scale: float, *,
+                     confidence: Any, errors: Sequence[Any]) -> None:
         self.active()
         if page.assembled is None:
             return
@@ -143,6 +160,8 @@ class PdfStreamSpool:
 
         envelope = _page_envelope_model().model_construct(
             assembly_types=assembly_types(page.assembled),
+            confidence=confidence,
+            errors=list(errors),
             page=page,
             shape_lines=list(page._shape_lines or ()),
             shape_boxes=list(page._shape_bounding_boxes or ()),
@@ -153,13 +172,14 @@ class PdfStreamSpool:
             },
             scale=scale,
             crop_profile="docling-native-full-raster-crop-v1",
-            serialization_profile="pydantic-native-page-envelope-v1",
+            serialization_profile="pydantic-native-page-envelope-v2",
         )
         replay = _atomic_bytes(
             self.root / f"page-{page.page_no:06}.json",
             envelope.model_dump_json().encode(),
             "page",
         )
+        replay = replace(replay, page_no=page.page_no)
         if self.on_page:
             self.on_page(replay)  # Failure must prevent successful release/admission.
         self.pages[page.page_no] = replay
@@ -174,8 +194,8 @@ class PdfStreamSpool:
         page._shape_lines = None
         page._shape_bounding_boxes = None
 
-    def restore_pages(self, conv_res: Any) -> None:
-        from docling.datamodel.base_models import Page
+    def restore_pages(self, conv_res: Any, expected_pages: Sequence[int] | None = None) -> None:
+        from docling.datamodel.base_models import ErrorItem, Page, PageConfidenceScores
         from docling_core.types.doc import BoundingBox
         from PIL import Image
         from pydantic import PrivateAttr
@@ -211,11 +231,16 @@ class PdfStreamSpool:
                     )
 
         restored = []
-        for old in conv_res.pages:
+        current = {page.page_no: page for page in conv_res.pages}
+        expected = list(expected_pages) if expected_pages is not None else sorted(current)
+        if not self.restored_pages <= set(expected):
+            raise ValueError("PDF recovery contains pages outside the native selection")
+        for number in expected:
             self.active()
-            replay = self.pages.get(old.page_no)
+            replay = self.pages.get(number)
             if replay is None:
-                restored.append(old)
+                if number in current:
+                    restored.append(current[number])
                 continue
             replay.verify()
             data = json.loads(replay.path.read_bytes())
@@ -234,6 +259,12 @@ class PdfStreamSpool:
             )
             page._raster.verify()
             page._scale = data["scale"]
+            if data["confidence"] is not None:
+                conv_res.confidence.pages[number] = PageConfidenceScores.model_validate(data["confidence"])
+            if number in self.restored_pages:
+                conv_res.errors.extend(ErrorItem.model_validate(error) for error in data["errors"])
+            if page.size is not None:
+                conv_res._page_sizes_by_no[number] = page.size
             restored.append(page)
         conv_res.pages = restored  # Native finalization explicitly consumes global state.
 
@@ -602,6 +633,15 @@ class StreamingPdfProducer:
         source.verify()
         converter = PdfConverter(self.recipe, assets=self.assets, stream_spool=spool)
         converter._prepare()
+        from .pdf_build_spool import native_preparation_identity
+
+        identity = native_preparation_identity(converter.prepared_options_report)
+        if spool.preparation_identities and spool.preparation_identities != {identity}:
+            raise ValueError("resumed PDF native preparation differs from its verified page spool")
+        prepared = _atomic_bytes(spool.root / "native-preparation.json", converter.prepared_options_report,
+                                 "native_preparation")
+        if spool.on_page is not None:
+            spool.on_page(prepared)
         options = {} if page_range is None else {"page_range": page_range}
         result = None
         try:

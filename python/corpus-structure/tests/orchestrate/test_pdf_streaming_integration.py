@@ -63,7 +63,10 @@ class _ScriptedDocumentConverter:
                 assembled=AssembledUnit(elements=[], headers=[], body=[]),
             )
             page._image_cache = {self.native_images_scale: image}
-            self.pipeline._release_page_resources(SimpleNamespace(payload=page))
+            self.pipeline._release_page_resources(SimpleNamespace(
+                payload=page, page_no=1, is_failed=False, error=None,
+                conv_res=SimpleNamespace(confidence=SimpleNamespace(pages={}), errors=[]),
+            ))
             assert not page._image_cache and page.assembled is None
         document = DoclingDocument(name="scripted provider control")
         document.pages[1] = PageItem(page_no=1, size=Size(width=10, height=10))

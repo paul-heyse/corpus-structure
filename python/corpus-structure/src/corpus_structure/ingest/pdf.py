@@ -315,17 +315,66 @@ class PdfConverter:
             producer_owner = self
 
             class StreamedPipeline(base_pipeline_type):
+                _spool_missing_pages: list[int] | None = None
+                _spool_expected_pages: list[int] | None = None
+
+                def _get_expected_page_nos(self, conv_res: Any) -> list[int]:
+                    if self._spool_missing_pages is not None:
+                        return list(self._spool_missing_pages)
+                    return super()._get_expected_page_nos(conv_res)
+
+                def _build_document(self, conv_res: Any) -> Any:
+                    from docling.datamodel.base_models import ConversionStatus
+
+                    expected = super()._get_expected_page_nos(conv_res)
+                    self._spool_expected_pages = expected
+                    if not spool.restored_pages <= set(expected):
+                        raise ValueError("PDF recovery contains an unselected physical page")
+                    missing = [number for number in expected if number not in spool.restored_pages]
+                    if expected and not missing:
+                        # Native's empty-selection path is FAILURE. Retained
+                        # pages instead proceed through full global assembly.
+                        hierarchy = self.pipeline_options.heading_hierarchy_options
+                        if hierarchy.enabled and hierarchy.use_bookmarks:
+                            conv_res._pdf_outline = conv_res.input._backend.get_document_outline()
+                        if self.pipeline_options.document_timeout is not None:
+                            from time import monotonic
+
+                            conv_res._conversion_deadline = monotonic() + self.pipeline_options.document_timeout
+                        conv_res.status = ConversionStatus.SUCCESS
+                        return conv_res
+                    self._spool_missing_pages = missing
+                    try:
+                        result = super()._build_document(conv_res)
+                    finally:
+                        # Global failed-page accounting and every document stage
+                        # must see the complete original native selection.
+                        self._spool_missing_pages = None
+                    if spool.restored_pages and result.status == ConversionStatus.FAILURE:
+                        result.status = ConversionStatus.PARTIAL_SUCCESS
+                    return result
+
                 def _release_page_resources(self, item: Any) -> None:
-                    if item.payload is not None:
+                    if item.payload is not None and not item.is_failed and item.error is None:
                         spool.capture_page(
                             item.payload,
                             self.heading_hierarchy_model,
                             producer_owner.formula_stage().native.images_scale,
+                            confidence=item.conv_res.confidence.pages.get(item.page_no),
+                            errors=[error for error in item.conv_res.errors if error.page_no == item.page_no],
                         )
+                    else:
+                        super()._release_page_resources(item)
 
                 def _assemble_document(self, conv_res: Any) -> Any:
-                    spool.restore_pages(conv_res)
-                    return super()._assemble_document(conv_res)
+                    expected = self._spool_expected_pages
+                    if expected is None:
+                        raise ValueError("PDF assembly has no exact native build selection")
+                    try:
+                        spool.restore_pages(conv_res, expected)
+                        return super()._assemble_document(conv_res)
+                    finally:
+                        self._spool_expected_pages = None
 
             pipeline_type = StreamedPipeline
         converter = DocumentConverter(
@@ -438,7 +487,7 @@ class PdfConverter:
                         else "formula-inference-after-demand-crop-detachment"
                     ),
                     "global_graph": "materialized-native-reading-order-and-heading",
-                    "page_serialization": "pydantic-native-page-envelope-v1",
+                    "page_serialization": "pydantic-native-page-envelope-v2",
                 },
                 "arrow_resources": {
                     "cpu_pool_capacity": pa.cpu_count(),

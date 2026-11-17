@@ -150,3 +150,81 @@ def test_writer_lease_survives_parent_close_and_target_return_until_process_deat
         lease.close()
         if probe is not None:
             os.close(probe)
+
+
+def exact_premises():
+    from corpus_structure.ingest.pdf_build_spool import PdfSpoolPremises, PdfSpoolProducerBasis
+
+    return PdfSpoolPremises(PdfSpoolProducerBasis(
+        "request:one", 1, "release:one", "pdf.native", "definition:one", "recipe:one",
+        "implementation:one", "profile:one", "runtime:original", "a" * 64, "b" * 64,
+    ), "c" * 64, sha256(b"recipe").hexdigest(), "d" * 64, "e" * 64,
+        None, (("docling", "2.148.0"),))
+
+
+def test_recovery_requires_positive_retirement_and_exact_registered_premises(tmp_path):
+    from corpus_structure.core.work import PhysicalRetirementUncertain
+    from corpus_structure.ingest.pdf_build_spool import verify_spool_recovery
+
+    owner = spool(tmp_path)
+    owner.declare_premises(exact_premises(), "f" * 64)
+    item = replay(owner)
+    owner.append(item)
+    arguments = dict(build_id="build:one", task_id=3, before_attempt=2,
+                     premises=exact_premises(), check_active=lambda: None)
+    with pytest.raises(PhysicalRetirementUncertain, match="still owns spool"):
+        verify_spool_recovery(tmp_path, **arguments)
+    owner.close()
+    capabilities = verify_spool_recovery(tmp_path, **arguments)
+    assert len(capabilities) == 1
+    recovered = capabilities[0]
+    assert recovered.entries == (item,)
+    assert recovered.owner.producer_id == "f" * 64
+    assert recovered.premises.producer.runtime_id == "runtime:original"
+    assert recovered.manifest_digest == sha256(owner.path.read_bytes()).hexdigest()
+    with pytest.raises(ValueError, match="stays with the native parent"):
+        pickle.dumps(recovered)
+    recovered.close()
+    with pytest.raises(ValueError, match="custody has ended"):
+        recovered.check_owned()
+
+
+def test_recovery_ignores_only_unacknowledged_tail_and_refuses_changed_bytes(tmp_path):
+    from corpus_structure.ingest.pdf_build_spool import verify_spool_recovery
+
+    owner = spool(tmp_path)
+    owner.declare_premises(exact_premises(), "f" * 64)
+    item = replay(owner)
+    owner.append(item)
+    acknowledged = owner.path.read_bytes()
+    owner.close()
+    with owner.path.open("ab") as sink:
+        sink.write(b'{"replay":')
+    arguments = dict(build_id="build:one", task_id=3, before_attempt=2,
+                     premises=exact_premises(), check_active=lambda: None)
+    recovered, = verify_spool_recovery(tmp_path, **arguments)
+    assert recovered.manifest == acknowledged
+    recovered.close()
+    item.path.write_bytes(b"changed")
+    with pytest.raises(ValueError, match="PDF replay"):
+        verify_spool_recovery(tmp_path, **arguments)
+
+
+def test_preparation_identity_binds_models_options_and_not_incidental_resources():
+    from copy import deepcopy
+    from corpus_structure.ingest.pdf_build_spool import native_preparation_identity
+
+    report = {"_preparation": dict(
+        profile="pdf-prepared-native-runtime-v1", requested_options={"artifacts_path": "/old", "do_ocr": True},
+        effective_options={"artifacts_path": "/old", "scale": 2.0}, backend_options={"threads": 8},
+        stage_scope="native", native_variants={"layout": "LayoutModel"},
+        packages={"docling": "2.148.0"}, image_ownership={"profile": "native-raster"},
+        arrow_resources={"capacity": 4},
+    )}
+    identity = native_preparation_identity(json.dumps(report).encode())
+    changed = deepcopy(report)
+    changed["_preparation"]["effective_options"]["artifacts_path"] = "/new"
+    changed["_preparation"]["arrow_resources"]["capacity"] = 99
+    assert native_preparation_identity(json.dumps(changed).encode()) == identity
+    changed["_preparation"]["effective_options"]["scale"] = 3.0
+    assert native_preparation_identity(json.dumps(changed).encode()) != identity

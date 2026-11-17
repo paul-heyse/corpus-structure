@@ -224,7 +224,7 @@ def run_private_native_pdf_build(
             replay_root = spool.root
 
             def retain_replay(replay: PdfReplayRef) -> None:
-                if replay.family not in {*STAGE_FAMILIES, "page", "candidate_payload", "companion:occurrence"}:
+                if replay.family not in {*STAGE_FAMILIES, "page", "candidate_payload", "companion:occurrence", "native_preparation"}:
                     raise ValueError("unknown private PDF replay family")
                 if replay.family == "page":
                     import json
@@ -340,7 +340,7 @@ def run_private_native_pdf_build(
                 check_active=check_active, cancellation=cancellation,
             )
             for replay in spool.entries:
-                if replay.family not in {"page", "native-raster", "candidate_payload"}:
+                if replay.family not in {"page", "native-raster", "candidate_payload", "native_preparation"}:
                     adopt_replay(replay)
             from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
 
