@@ -9,6 +9,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication import adopt_pdf_companions
 from semantic.pdf_companion_set_support import adopt_raw_companion_set
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def occurrence(local):
