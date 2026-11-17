@@ -1,15 +1,17 @@
 # Status
 
-_Updated 2026-11-17. Operator-requested closeout; full DDO remains incomplete._
+_Updated 2026-11-17. Production-efficiency execution in progress; full DDO remains incomplete._
 
 ## Current owner and boundary
 
-- [DDO coordinator closeout](docs/plans/declared-data-operations_2026-11-12.md#operator-requested-closeout--2026-11-17) owns findings, exact receipts and next work. Operator requests separate planning for newly accepted production-efficiency integration; no PE slice/rule implementation started.
+- [DDO local execution](docs/plans/declared-data-operations_2026-11-12.md#local-preparation-execution--2026-11-17) owns current implementation, receipts and remaining PE scope. PE-S01/S02/S11 integrated; strict reusable cattrs decoding, immutable call correspondence and SI33 capsule declaration included. Rule-changing/native work remains pending required reviews/ADRs.
 - SI30 lexical virtualenv invocation/custody and verified diagnostics, SI31 numerical-policy body.json projection integrated/reviewed. Effectivev9/demandv2/CPU3/compiler24/boundary13;97relations. Chandra excluded.
 - About2800lines of unused SQL retired, nine selected closure bodies preserved; current task/holder/attempt/lease/PDF custody intact. Source-snippet tests now use current guard; stale fate provenance checksum corrected.
-- All relevant worker commits merged to main. No worktrees remain. Original managed receipts transferred with directory+manifest inode verification and root holds before removal; earlier ten lost E5 originals remain unavailable/no credit.
+- Current worker edits merged to main; independent review found two frozen-mapping consumers, now repaired and checked. No worktrees remain. Original managed receipts transferred with directory+manifest inode verification and root holds before removal; earlier ten lost E5 originals remain unavailable/no credit.
 
 ## Verified · 2026-11-17
+
+- **passed:** wire/protocol/ports161 (`1ab6174…`), CLI/dispatch/source/navigation75 (`afedd05…`), characterization/model/demand/archive78 (`3220259…`). These are bounded selections; earlier failed originals remain with the coordinator. Review-repair M1/formal/event38 passed (`7738364…`); final pyrefly `e90f114…`, Ruff `8884f61…`, docs `b24164c…` passed. Final maintained-source local union417 passed (`a70ebb4…`).
 
 - **passed:** recognition/path/diagnostic19,7ce3290faade486daa35ff70369686d8; policy pure1,30a7edf…; SQL33 covered via242b53…/exact retry35bf83… (failed original preserved).
 - **passed:** source evolution39,4742724a4bdc4456b9b41cd06010bc0e/adacfd000. Truthful temporary-operation metadata/current dispatch inputs, independent migration assertions retained. Earlier failed/collection receipts remain held.
@@ -34,6 +36,6 @@ _Updated 2026-11-17. Operator-requested closeout; full DDO remains incomplete._
 
 ## Next turn
 
-- Plan execution of new [production-efficiency integration](docs/plans/declared-data-operations/production-efficiency-integration.md), preserving accepted rule changes and original guarantees. Reconcile open fixture/input/capsule findings with that work.
-- Adoption and whole-book same-demand interruption/resume follow its required integration; final DDO-12 union follows final source. Do not restart new cohorts during this requested closeout.
+- Continue [production-efficiency integration](docs/plans/declared-data-operations/production-efficiency-integration.md): remaining local slices plus review/ADR prerequisites for N1, host, failure, model batches and PDF assurance. Actual S28/S30 qualification remains due.
+- Adoption and whole-book same-demand interruption/resume follow all required PE integration; final DDO-12 union follows corrected source. No native/application deployment or adoption occurred in this local increment.
 - Use UV_NO_SYNC=1/shared root environment; no rebind or push. Root owns final turn-end and documentation maintenance.

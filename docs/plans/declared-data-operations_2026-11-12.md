@@ -12,8 +12,7 @@ Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No bro
 
 ## Production-efficiency integration · 2026-11-17
 
-**Accepted and authorized by the operator, 2026-11-17; implementation Proposed, no slice
-started.** This section adopts the
+**Accepted and authorized by the operator, 2026-11-17; implementation in progress.** This section adopts the
 [production-efficiency review](../design_review/reviews/design_review_production-efficiency_2026-11-17.md),
 consumed as published at `2cc4e4d9d` (source baseline `fc73d2c8c`, re-read at `2cc4e4d9d` with
 no finding moved). It supersedes the statement in the completion sequence above that the review
@@ -30,6 +29,46 @@ cross-cutting target, the slice table and its dependency order; each technical c
 its mechanism contracts in a section dated 2026-11-17. Benefits are stated qualitatively as
 work removed. No slice has a timing criterion and no benchmark, cost model or runtime
 accounting is added.
+
+### Local preparation execution · 2026-11-17
+
+**Implemented; bounded Tested · 2026-11-17.** Main integrates PE-S01 protocol preparation,
+PE-S02 immutable source views and PE-S11 lazy CLI dispatch. The cattrs amendment prepares a
+strict private current-model decoder; native-call correspondence reuses its prepared adapter and
+immutable decoding by exact artifact/model bytes. SI33 frame preparation now declares its capsule
+requirement; actual event/host qualification remains open. These changes do not deliver full
+PE-S04/S05 or the remaining PE scope, and no native/application deployment or adoption occurred.
+
+- PE-S01 retains ambient contracts, role lookup and validators independently of captured caches;
+  generated calls bind captured validators at import. Mutable public documents remain detached.
+- PE-S02 shares an authenticated frozen view and invocation-frame preparation across blocks;
+  native piece/item lookup and quotations use owned indexes. Detached public mapping APIs remain.
+- PE-S11 dispatches one explicit command family, retaining full help/completion/reference trees;
+  numerical helpers load at their actual interpretation consumer rather than MCP DTO registration.
+- Library clarifications and PE-S00 source conclusions live in the integration companion. Current
+  compact archive defaults remain; no RDF runtime projection or alternate codec is introduced.
+- **passed:** wire/protocol/generation/ports161, `1ab6174442fe471195d017f899c9fff7`;
+  CLI/dispatch/source-context/navigation75, `afedd05ea21e4a97a222d2ab49b1346e`;
+  characterization/model/demand/archive78, `32202590e68049f5842ff528598bb1a9`.
+  Each is a bounded ordinary selection, not DDO-12 qualification.
+- Failed originals `4bfc46f98a6e403f80d54f5a4686945e`, `c01b17fe4c91408ab08ee1c850f0b27d`
+  and `f397b47b1a5344d682d4c12c1d7d04f9` remain. Repairs supplied required claim generation,
+  expected cattrs literal rejection, retired-command expectations and deferred numerical imports.
+- Type diagnostics exposed frozen-view inference and a read-only geometry signature; corrected.
+  Independent implementation review identified frozen mapping consumers for contextual links
+  and formal ancestry; both repaired. Focused M1/formal/event38 passed in
+  `77383649b7e94f3d8b168f4d87ea96f9`. Final pyrefly `e90f114df4af40e6b7f42d41ac3eaddc`,
+  Ruff `8884f612a314411591baf9a4e9609011` and docs `b24164c15c854a58be36391f1d2b4028` passed.
+
+Final maintained-source local union **passed: 417 tests**, `a70ebb4beecd4f10b415a52074ff7664`,
+produced by `ci test --workers 2 --json --` over the 17 affected wire/port/archive/CLI/source/
+construction/contextual/model/demand/navigation/M1/formal/event files. This supersedes bounded
+source credit for the overlapping earlier selections; failed originals remain retained.
+Independent review repairs are covered. No speedup or full DDO qualification is claimed.
+
+Next: PE-S03/04/05/07/08/10/12–15 and the required target
+reviews/ADR routes before native N1, host, failure, batch and PDF rule changes. S28/S30 actual
+qualification remains due. N1–N4, development adoption, whole-book and final union are **not_run**.
 
 ### Position in the completion sequence
 

@@ -46,6 +46,42 @@ Corrections to the review found during preparation, carried into the contracts:
 - **PE-F13:** no production operation declares a non-scalar form. The batch path is complete and
   used only by tests and the execution-evidence leaf.
 
+## Execution clarification — library integration · 2026-11-17
+
+The operator authorized the detailed execution approach, including its subsequent library
+assessment. Pydantic 2.14.1 owns callable/DTO boundary validation and serialization; prepared
+adapters retain distinct strict JSON and Python ingress. cattrs 26.2.1 owns strict immutable
+representation conversion. Dedicated converters configure exact primitives before generating
+nested hooks. Neither library replaces portable Draft 7 wire semantics or canonical identity codecs.
+
+PE-S04/S13 includes preparing the current effective-model cattrs decoder once and rejecting
+primitive coercion. Current v9 compact omissions/defaults remain paired with their encoder;
+they are not historical compatibility. PE-S05 also prepares the static typed-call adapter and
+reuses decoded immutable correspondence by actual artifact bytes and effective-model identity.
+Native admission and authorization remain live. Untrusted model instances retain reconstruction
+and validation; unchecked construction/copy updates do not establish custody.
+
+PE-S13 retains the complete prepared release: boundary products, JSON Schema, vocabulary
+snapshots, OWL/SHACL and coverage declarations. Candidate/deploy reuse these exact artifacts.
+The fingerprint includes supplied import/ontology bytes, profile and consequential preparation,
+generator and library determinants. Mutable SchemaViews remain preparation-local.
+
+LinkML already supplies effective declarations and physical PostgreSQL metadata; RDFLib and
+pySHACL already supply derived graph artifacts and explicit RDF conformance. PE-S16/S17/S40
+extend those existing model owners. No PostgreSQL-to-RDF materialization, live SHACL validity
+cache, new msgspec codec or dataclass-to-attrs migration is selected. Such a projection would
+need explicit occurrence/order/null/cut/protected-support fidelity and would retain live native
+fencing and authorization. SHACL shape coverage does not imply those transactional guarantees.
+Existing graph-copy, no-implicit-inference and structured failure boundaries remain deliberate.
+PDF producer certification and reconstruction use the actual lowerer and native schemas.
+
+Source reading also settles PE-S00's visibility choice: native graph writers refuse after
+acquisition in the same owner transaction; acquisition bookkeeping remains permitted. Completion
+helpers must separate immutable correspondence from their live family checks, including PostgreSQL
+linguistic/catalog premises. Watermarks include raw visible identity cardinalities, exact pins,
+trust epochs and kernel identity, avoiding timestamp-tie omissions. The coordinator owns execution
+state and verification; these clarifications do not claim implementation or qualification.
+
 ## Workload premise
 
 One operator, one workstation, a local GPU, a dedicated PostgreSQL 18 cluster. The benchmark is

@@ -693,7 +693,7 @@ settlement. With the watermark, a run over an unchanged demand returns after one
 
 ### PE-S23 — two-stage byte admission (PE-F11, PE-RC03)
 
-**Rule change PE-RC03** (ADR-B, superseding ADR-0084's admission clause; D6 amended). Admission
+**Rule change PE-RC03** (ADR-B, a new record preserving ADR-0084's admission-before-hydration clause; D6 amended). Admission
 still precedes hydration. Three quantities are separated:
 
 - **Logical page size** is a planner parameter and no longer depends on capacity.

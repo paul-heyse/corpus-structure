@@ -491,7 +491,7 @@ publication or source authority. These conditions follow the selected-version do
 [defaults](https://github.com/pydantic/pydantic/blob/v2.14.1/docs/concepts/fields.md) and
 [faux immutability](https://github.com/pydantic/pydantic/blob/v2.14.1/docs/concepts/models.md).
 Keep cattrs 26.2.1's existing exact-primitive dataclass structuring after ingress validation;
-it is not a second semantic validator (`contracts.py:1474–1513`).
+it is not a second semantic validator (`semantic/archive_wire.py` and `semantic/data_operation_model.py`).
 
 The invocation port receives the resolved binding, semantic parameters, admitted immutable
 products and explicitly authorized effect/preparation/cancellation capabilities. It does not
