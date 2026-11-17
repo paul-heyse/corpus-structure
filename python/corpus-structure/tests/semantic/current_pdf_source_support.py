@@ -481,6 +481,32 @@ def selected_current_sources(source):
         )
 
 
+def source_entry(row):
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_source_sets import SourceSetEntry
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductMemberReference,
+        DataProductReference,
+    )
+
+    product = DataProductReference(row["product_id"])
+    reference = (
+        product
+        if row["member_id"] is None
+        else DataProductMemberReference(product, row["member_id"])
+    )
+    return SourceSetEntry.from_semantic_source(
+        reference,
+        context=SubjectContext(
+            PROJECT,
+            row["subject"],
+            row["original_source"],
+            json_bytes(row["analyzed_scope"]),
+            subject_definition=row["subject_definition"],
+        ),
+    )
+
+
 def current_consumer_request(source, kernel, targets, *, discover=False):
     """Build explicit current intent over actual admitted computational contexts."""
     from corpus_structure.orchestrate.source_operation import _default_profile_selections
@@ -496,16 +522,19 @@ def current_consumer_request(source, kernel, targets, *, discover=False):
     from corpus_structure.semantic.original_documents import acquire_original_document_selection
 
     selections = _default_profile_selections(kernel.model, targets, {})
-    original_sources, discovery = {}, ()
+    original_sources, discovery, source_sets = {}, (), {}
     if discover:
-        # Follow the actual source frontdoor: this demand discovers the explicitly
-        # chosen PDF sections. Retained-view discovery alone cannot import another
-        # demand's unpinned view publications.
-        producer = "source.pdf_views/discovery"
+        # This consumer discovers the fixture's explicitly pinned retained members.
+        # The separately admitted consumer need not declare PDF recapture operations.
+        producer = "source.selected_views/discovery"
         selections[producer] = DemandOperationSelection(
-            operation=producer,
-            parameters={"sections": list(source.sections), "membership": "descendants"},
+            operation=producer, parameters={"complete": True}
         )
+        source_sets = {
+            "selected-source-views": [
+                source_entry(row).record() for row, _ in selected_current_sources(source)
+            ]
+        }
         graph = kernel.model.projection_graph(
             "selected-dependencies",
             selected_dependencies=tuple(
@@ -579,6 +608,7 @@ def current_consumer_request(source, kernel, targets, *, discover=False):
         selections=tuple(selections.values()),
         discovery=discovery,
         original_sources=original_sources,
+        source_sets=source_sets,
         execution_profile=kernel.recipe.execution_profile,
         inference="current-computational-source-test",
     )

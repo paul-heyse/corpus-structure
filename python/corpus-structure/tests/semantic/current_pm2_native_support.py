@@ -16,7 +16,7 @@ from corpus_structure.semantic.data_operation_service import (
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.demand_results import read_demand_result
 from corpus_structure.semantic.source_products import FrozenNativeSource
-from semantic.current_pdf_source_support import PROJECT, ROOT, current_pdf_recipe
+from semantic.current_pdf_source_support import PROJECT, ROOT, current_pdf_recipe, source_entry
 from semantic.current_pm2_projection_fixture import OPERATION, operation_sources
 from semantic.data_operation_kernel_support import (
     CapturedKernelInputs,
@@ -81,32 +81,6 @@ def table_source(scenario_seeds, tmp_path, monkeypatch):
         sections=("#/groups/0",),
     ) as source:
         yield source
-
-
-def source_entry(row):
-    from corpus_structure.semantic.data_operation_model import SubjectContext
-    from corpus_structure.semantic.data_operation_source_sets import SourceSetEntry
-    from corpus_structure.semantic.data_product_reference import (
-        DataProductMemberReference,
-        DataProductReference,
-    )
-
-    product = DataProductReference(row["product_id"])
-    reference = (
-        product
-        if row["member_id"] is None
-        else DataProductMemberReference(product, row["member_id"])
-    )
-    return SourceSetEntry.from_semantic_source(
-        reference,
-        context=SubjectContext(
-            PROJECT,
-            row["subject"],
-            row["original_source"],
-            json_bytes(row["analyzed_scope"]),
-            subject_definition=row["subject_definition"],
-        ),
-    )
 
 
 def projection_request(kernel, row, *, mode="mixed", operation=OPERATION):

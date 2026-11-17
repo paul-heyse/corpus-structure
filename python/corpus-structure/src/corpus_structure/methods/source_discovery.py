@@ -54,8 +54,9 @@ class SelectedSourceViewsOperation:
                 "subject_field": "/source/document_subject",
                 "support": {
                     "provenance": "exact",
-                    "source": "same-original",
+                    "source": "frozen-source-set",
                     "coverage": {"role": "views", "description": "frozen-selected-view-set"},
+                    "source_set": "selected-source-views",
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },

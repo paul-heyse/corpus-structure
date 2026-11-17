@@ -126,6 +126,69 @@ def test_actual_package_kernel_inputs_preserve_read_only_source_custody(monkeypa
         == "source.selected_views/discovery"
     )
     assert actual.bundle == bundle and actual.dependencies == dependencies
+    # A separately captured consumer has selected-view discovery, not PDF
+    # recapture. Its request must explicitly pin the other demand's source members.
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import original_documents
+    from corpus_structure.semantic.data_operation_service import freeze_native_demand
+    from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
+    from semantic import current_pdf_source_support as current_sources
+
+    original = original_documents.OriginalDocumentAcquisition(
+        "original",
+        OriginalDocumentRef(
+            kind="original-document",
+            project_id=current_sources.PROJECT,
+            document_key="document:controlled-consumer",
+            content_hash="a" * 64,
+            mime="application/pdf",
+        ),
+    )
+    rows = tuple(
+        dict(
+            product_id="product:retained-native",
+            member_id=member,
+            subject="source:" + member,
+            subject_definition="original-source-view",
+            original_source=original.reference.document_key,
+            analyzed_scope={"section": section, "membership": "descendants"},
+        )
+        for member, section in (("first", "#/groups/0"), ("second", "#/groups/1"))
+    )
+    monkeypatch.setattr(
+        current_sources, "selected_current_sources", lambda source: tuple((row, {}) for row in rows)
+    )
+    monkeypatch.setattr(
+        original_documents, "acquire_original_document_selection", lambda *args, **kwargs: original
+    )
+    kernel = SimpleNamespace(
+        model=actual.model,
+        prepared=actual.prepared,
+        runtime="runtime:controlled-consumer",
+        recipe=SimpleNamespace(execution_profile="source-native"),
+        purpose=lambda role: SimpleNamespace(begin=lambda: nullcontext(None)),
+    )
+    source = SimpleNamespace(document_key=original.reference.document_key)
+    request = current_sources.current_consumer_request(
+        source, kernel, ("source.selected_views/discovery",), discover=True
+    )
+    assert request.targets == ("source.selected_views/discovery",)
+    assert [(value.operation, value.parameters) for value in request.selections] == [
+        ("source.selected_views/discovery", {"complete": True})
+    ]
+    assert set(request.source_sets) == {"selected-source-views"}
+    (entries,) = request.source_sets.values()
+    assert [entry["reference"] for entry in entries] == [
+        {"product_id": "product:retained-native", "member_id": "first"},
+        {"product_id": "product:retained-native", "member_id": "second"},
+    ]
+    assert [entry["analyzed_scope"] for entry in entries] == [row["analyzed_scope"] for row in rows]
+    assert {entry["original_source"] for entry in entries} == {original.reference.document_key}
+    freeze_native_demand(actual.prepared, request)
+    with pytest.raises(ValueError, match="lacks its explicit frozen source set"):
+        freeze_native_demand(actual.prepared, request.model_copy(update={"source_sets": {}}))
     modified = replace(
         sources.sources[0], content=sources.sources[0].content + b"\n# changed custody\n"
     )
