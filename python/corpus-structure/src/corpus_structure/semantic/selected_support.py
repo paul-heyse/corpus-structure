@@ -33,8 +33,9 @@ class SelectedReadReference(_SelectedValue):
         from .demand_results import CutSelection
 
         cut = CutSelection(self.cut_canonical_json.encode())
+        record = cut.record
         if cut.identity != self.cut_id or any(
-            cut.record[name] != getattr(self, name)
+            record[name] != getattr(self, name)
             for name in ("project_id", "demand_id", "read_id", "release_id", "runtime_id")
         ):
             raise ValueError("selected support differs from its exact native cut bytes")
@@ -42,8 +43,11 @@ class SelectedReadReference(_SelectedValue):
 
     @classmethod
     def from_cut(cls, cut):
+        if isinstance(cut, cls):
+            return cut
+        record = cut.record
         return cls(
-            **{name: cut.record[name] for name in (
+            **{name: record[name] for name in (
                 "project_id", "demand_id", "read_id", "release_id", "runtime_id"
             )},
             cut_id=cut.identity,

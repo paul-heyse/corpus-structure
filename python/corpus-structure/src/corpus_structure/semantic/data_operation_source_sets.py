@@ -160,15 +160,16 @@ class SelectedSourceSetEntry:
         from .data_operation_support import ComputationalSupportReference
         from .data_product_reference import DataProductMemberReference, DataProductReference
 
+        read = SelectedReadReference.from_cut(cut)
         product = DataProductReference(header["product_id"])
         reference = product if header["member_id"] is None else DataProductMemberReference(
             product, header["member_id"]
         )
         entry = SourceSetEntry.from_semantic_source(reference, context=SubjectContext(
-            cut.record["project_id"], header["subject"], header["original_source"],
+            read.project_id, header["subject"], header["original_source"],
             json_bytes(header["analyzed_scope"]), subject_definition=header["subject_definition"],
         ))
-        return cls(entry, SelectedReadReference.from_cut(cut), SelectedSourceProof(
+        return cls(entry, read, SelectedSourceProof(
             anchor_use_id=header["use_id"] if anchor_use_id is None else anchor_use_id,
             product_id=header["product_id"], member_id=header["member_id"],
             support=ComputationalSupportReference(
@@ -331,6 +332,7 @@ def selected_source_entries(index, cut, *, product_id, member_id, anchor_use_id,
     producing support from an immutable selected input. Ambiguity is returned,
     never resolved by historical order, equal bodies or first-visible choice.
     """
+    read = SelectedReadReference.from_cut(cut)
     product = index.mapping("kb.data_product", ("id",)).get(product_id)
     member = (None if member_id is None else index.mapping(
         "kb.data_product_member", ("product_id", "member_id")
@@ -357,6 +359,6 @@ def selected_source_entries(index, cut, *, product_id, member_id, anchor_use_id,
                           output_member_id=output["member_id"], role=output["role"],
                           position=output["position"], multiplicity=output["multiplicity"])
             results.append(SelectedSourceSetEntry.from_selected_header(
-                header, cut, anchor_use_id=anchor_use_id
+                header, read, anchor_use_id=anchor_use_id
             ))
     return tuple(results)
