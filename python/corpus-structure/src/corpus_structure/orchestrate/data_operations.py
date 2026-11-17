@@ -479,6 +479,7 @@ class _RunExecution:
         self.uncertain_python.clear()
         self.pending_failures.clear()
         self.requests.clear()
+        self.cpu = None
 
     def _finish_run(self, *error):
         healthy = (

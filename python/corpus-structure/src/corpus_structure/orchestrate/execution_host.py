@@ -110,7 +110,7 @@ class ProcessExecutionHost:
             return
         if self.resources is not None:
             cpu = self.resources.cpu
-            if (len(cpu._release_capsules) > self.policy.max_idle_capsules
+            if cpu is not None and (len(cpu._release_capsules) > self.policy.max_idle_capsules
                 or cpu.preparation_bytes > self.policy.max_idle_capsule_bytes):
                 self.retire_resources()
         while True:
@@ -204,6 +204,10 @@ class ProcessExecutionHost:
                 native_hosts=native,
                 providers=ProviderExecution(self.budget, self.policy, native_group=native),
             )
+        if self.resources.cpu is None:
+            from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+
+            self.resources.cpu = CPUExecutionScope(executor.prepared, self.policy, budget=self.budget, retain_schema=False)
         try:
             self.resources.native_hosts.begin_run()
         except BaseException as failure:
@@ -250,7 +254,7 @@ class ProcessExecutionHost:
 
     def retire_cpu(self):
         resources = self.resources
-        if resources is None:
+        if resources is None or resources.cpu is None:
             return
         if (self._execution is not None and self._execution.has_live_requests()
             or resources.cpu._admissions or resources.cpu._submissions or resources.cpu._stream_transports):
@@ -267,9 +271,13 @@ class ProcessExecutionHost:
             raise self._quarantine
         from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 
-        prepared = resources.cpu.prepared
-        resources.cpu = CPUExecutionScope(prepared, self.policy, budget=self.budget, retain_schema=False)
+        resources.cpu = None
+        for entry in self._bases.values():
+            if entry.context is not None:
+                entry.context.cpu, entry.context.prepared_schema = None, False
         if self._execution is not None:
+            prepared = self._execution.executor.prepared
+            resources.cpu = CPUExecutionScope(prepared, self.policy, budget=self.budget, retain_schema=False)
             self._execution.cpu = resources.cpu
             for context in self._execution.executor._contexts.values():
                 context.cpu, context.prepared_schema = None, False
@@ -281,11 +289,13 @@ class ProcessExecutionHost:
             return
         failures = []
         for owner in (resources.providers, resources.native_hosts, resources.cpu, resources.pool):
+            if owner is None:
+                continue
             try:
                 owner.close()
             except BaseException as error:
                 failures.append(error)
-        confirmed = resources.pool.drained and resources.cpu._physical_retired and resources.native_hosts.physical_drained and resources.providers.retire()
+        confirmed = resources.pool.drained and (resources.cpu is None or resources.cpu._physical_retired) and resources.native_hosts.physical_drained and resources.providers.retire()
         if not confirmed:
             from corpus_structure.core.work import PhysicalRetirementUncertain
 

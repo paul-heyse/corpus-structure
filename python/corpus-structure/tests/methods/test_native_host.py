@@ -803,6 +803,9 @@ def test_process_residency_reuses_warm_population_and_retires_before_profile_cha
             assert not self.closed
             return SimpleNamespace(payload=payload)
 
+        def host_closed(self, _name):
+            return self.closed
+
         def close(self):
             events.append(("close", self))
             self.closed = True

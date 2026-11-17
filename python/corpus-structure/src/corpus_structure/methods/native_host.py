@@ -727,9 +727,25 @@ class NativeHostResidency:
             self._check()
             self._run_selections = {}
             self._calls_this_run = False
+            stale = self._group is not None and any(
+                self._group.host_closed(selection.native.host)
+                for selection in self._selections.values()
+            )
+        if stale:
+            self.retire_idle()
 
     def finish_run(self, keep_warm_seconds):
         with self._condition:
+            deadline = time.monotonic() + 330
+            while self._suspended and self._group is not None:
+                self._check()
+                if time.monotonic() >= deadline:
+                    raise NativeRetirementUncertain("external GPU handoff has not confirmed native retirement")
+                self._condition.wait(0.1)
+            if self._suspended:
+                # The external owner already proved this generation dead and
+                # now owns the GPU. Its own operation lifetime remains separate.
+                return
             self._idle_epoch += 1
             epoch = self._idle_epoch
         if not keep_warm_seconds:
