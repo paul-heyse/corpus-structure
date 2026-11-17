@@ -51,6 +51,44 @@ def test_native_sql_uses_frozen_core_products_without_ambient_builder(monkeypatc
     assert pglast.parse_sql(first)
 
 
+def test_captured_sql_scope_projection_follows_its_domain_function_providers():
+    from pglast import ast
+    from pglast.visitors import Visitor
+
+    from corpus_structure.semantic.native_sql_body import body_source
+    from corpus_structure.semantic.prepared_sql import prepare_sql
+
+    captured = native_protocol_sources()
+    scope_source = next(source for source in captured
+                        if source.name == "native/data-operation-support-scopes.sql")
+    assert "CREATE OR REPLACE FUNCTION ops.ddo_support_scopes" in scope_source.content.decode()
+    prepared = prepare_sql(native_sql(captured), source="scope-provider-installation-order")
+    declarations = {
+        tuple(part.sval for part in statement.stmt.funcname): (index, statement.stmt)
+        for index, statement in enumerate(prepared.statements)
+        if isinstance(statement.stmt, ast.CreateFunctionStmt)
+    }
+    index, scope = declarations[("ops", "ddo_support_scopes")]
+    assert next(option.arg.sval for option in scope.options if option.defname == "language") == "sql"
+    calls = set()
+
+    class Calls(Visitor):
+        def visit_FuncCall(self, ancestors, node):
+            calls.add(tuple(part.sval for part in node.funcname))
+
+    Calls()(prepare_sql(body_source(scope), source="captured-scope-body").private_tree())
+    providers = {
+        ("ops", "ddo_record_grade_dependency_scopes"),
+        ("ops", "ddo_record_fit_dependency_scopes"),
+        ("ops", "ddo_operation_event_dependency_scopes"),
+    }
+    # These are the actual captured body calls, not a source-order smoke test.
+    assert providers <= calls
+    assert all(declarations[provider][0] < index for provider in providers)
+    assert declarations[("ops", "ddo_scope")][0] < index
+
+
+
 def test_core_projection_capture_consumes_explicit_counterfactual_metadata_without_ambient_fallback(
     monkeypatch,
 ):

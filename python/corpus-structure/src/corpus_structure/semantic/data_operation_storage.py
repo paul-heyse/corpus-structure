@@ -286,6 +286,10 @@ def native_protocol_sources(
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
         SourceArtifact(
+            "native/data-operation-support-scopes.sql",
+            _SQL.with_name("data_operation_support_scopes.sql").read_bytes(),
+        ),
+        SourceArtifact(
             "native/contextual-neighborhood.sql",
             _SQL.with_name("contextual_neighborhood.sql").read_bytes(),
         ),
@@ -359,6 +363,7 @@ def _captured(sources) -> dict[str, bytes]:
     required = {
         "native/data-operation-protocol.yaml",
         "native/data-operations.sql",
+        "native/data-operation-support-scopes.sql",
         "native/contextual-neighborhood.sql",
         "native/data-operation-storage.py",
         "native/data-operation-member-contracts.py",
@@ -533,6 +538,9 @@ def native_sql(sources=None) -> str:
             "native/data-operation-record-policy.sql",
             "native/data-operation-record-policy-completion.sql",
             "native/data-operation-rich-admission.sql",
+            # This SQL-language body binds all three domain scope providers at
+            # CREATE time. The core's PL/pgSQL callers bind it only after install.
+            "native/data-operation-support-scopes.sql",
         )
     )
     sql += "\n" + bodies["native/data-operation-external.sql"].decode()

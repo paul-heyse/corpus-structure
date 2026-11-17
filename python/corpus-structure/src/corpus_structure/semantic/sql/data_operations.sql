@@ -179,10 +179,6 @@ BEGIN
  RETURN result;
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_support_scopes(project text,source text,support jsonb) RETURNS TABLE(scope text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- __DDO_CORE_LOCK_SUPPORT_SCOPES__
-$$;
 CREATE OR REPLACE FUNCTION ops.ddo_lock_support(project text,source text,support jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE scope_key text; snapshot jsonb:='{}'; e bigint;
