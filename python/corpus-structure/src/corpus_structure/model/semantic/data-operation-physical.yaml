@@ -335,6 +335,7 @@ classes:
       payload: {range: json_payload, required: true}
       payload_digest: {range: string, required: true}
       created_at: {range: timestamp, required: true}
+      validation_seal: {range: json_payload, required: false}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
       unique_0: {unique_key_slots: [request_id, generation]}
@@ -480,6 +481,7 @@ classes:
       publishing_task_id: {range: integer, required: true}
       publishing_attempt: {range: integer, required: true}
       trust_snapshot: {range: json_payload, required: true}
+      validating_kernel_digest: {range: string, required: false}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
       unique_0: {unique_key_slots: [intent_id]}

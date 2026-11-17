@@ -321,8 +321,7 @@ BEGIN
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
  IF r.operation_id NOT IN ('operation_event.frame','operation_event.fit','operation_event.authorize','urn:corpus:operation:score-operation-event') THEN RETURN true; END IF;
  IF NOT EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
- JOIN sem.artifact artifact ON artifact.release_id=producer.release_id AND artifact.artifact_name='data_operation_native_definitions.json'
- WHERE producer.id=episode AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
+ WHERE producer.id=episode AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
  SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
  AND request_id=producing.request_id AND generation=producing.generation;
  IF producing.outcome IS DISTINCT FROM 'success' OR

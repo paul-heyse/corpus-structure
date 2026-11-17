@@ -427,9 +427,7 @@ BEGIN
  r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
  -- The original native receipt seals the complete immutable frame checks. A
  -- different kernel requires reassessment instead of trusting an old guard.
- IF NOT EXISTS(SELECT FROM sem.artifact artifact WHERE artifact.release_id=producing.release_id
- AND artifact.artifact_name='data_operation_native_definitions.json'
- AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
+ IF NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.derivation_id=producing.id AND receipt.intent_id=intent.id AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
  PERFORM ops.ddo_record_grade_require_producer(r,intent.payload);
  FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
  PERFORM ops.ddo_record_grade_require_cut(r.project_id,captured.cut_text,captured.cut_id);

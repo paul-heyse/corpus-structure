@@ -481,8 +481,7 @@ BEGIN
  -- Ordinary support closure still rechecks every declared dependency/current
  -- trust scope. Do not replay every immutable event/graph on every support read.
  IF NOT EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
- JOIN sem.artifact artifact ON artifact.release_id=producer.release_id AND artifact.artifact_name='data_operation_native_definitions.json'
- WHERE producer.id=episode AND producer.outcome='success' AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
+ WHERE producer.id=episode AND producer.outcome='success' AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
  SELECT intent.payload INTO STRICT completion FROM ops.data_derivation producer JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id WHERE producer.id=episode;
  IF r.operation_id='rich.admit' THEN PERFORM ops.ddo_rich_require_admission_producer(r,completion);
  ELSE PERFORM ops.ddo_rich_require_preparation_producer(r,completion); END IF;

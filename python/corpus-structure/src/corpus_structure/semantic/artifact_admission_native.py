@@ -53,10 +53,8 @@ BEGIN
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=episode.request_id;
  IF r.operation_id IS DISTINCT FROM 'structure.artifact_identity/declared' THEN RETURN true; END IF;
  IF episode.outcome<>'success' OR NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt
- JOIN sem.artifact artifact ON artifact.release_id=episode.release_id
- AND artifact.artifact_name='data_operation_native_definitions.json'
  WHERE receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
- AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
+ AND receipt.validating_kernel_digest='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
  SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id
  AND request_id=episode.request_id AND generation=episode.generation;
  IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM

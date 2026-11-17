@@ -1474,12 +1474,16 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
         select(latest).select_from(obligations.join(latest, literal(True))).cte("selected_uses")
     )
     boundary = literal_column("boundary")
+    selected_validity = _validity_rows(
+        select(func.array_agg(selected.c.id)).where(selected.c.fate == "fulfilled").scalar_subquery(),
+        name="selected_output_validity",
+    )
     seed = (
         _node("use", selected.c.id)
         .where(
             *([selected.c.id == _var("p_use", Text)] if one_use else []),
             selected.c.fate == "fulfilled",
-            func.ops.ddo_node_valid("use", selected.c.id, boundary),
+            _set_valid(selected_validity, "use", selected.c.id),
         )
         .cte("selected_output_seed")
     )
@@ -1528,7 +1532,7 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
         producing_reached = and_(
             producing.c.fate == "fulfilled",
             _visible(producing),
-            func.ops.ddo_node_valid("use", producing.c.id, boundary),
+            _set_valid(selected_validity, "use", producing.c.id),
             exists(
                 select(1)
                 .select_from(nodes)
@@ -1543,7 +1547,7 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
             producing_reached,
             literal(True) if member_aware else outputs.c.member_id.is_(None),
             products.c.project_id == _var("d.project_id", Text),
-            func.ops.ddo_node_valid("episode", episodes.c.id, boundary),
+            _set_valid(selected_validity, "episode", episodes.c.id),
             *access,
         )
         .distinct()

@@ -14,7 +14,9 @@ BEGIN
  AND encode(sha256(content),'hex')=projection->>'model_digest';
  IF projection IS NULL OR archived IS NULL THEN
  RAISE EXCEPTION 'read-only inspection lacks its authenticated operation archive' USING ERRCODE='23514'; END IF;
- IF projection->>'native_digest' IS DISTINCT FROM sem.data_operation_native_descriptor()->>'source_digest' THEN
+ IF NOT EXISTS(SELECT FROM sem.data_operation_release facts WHERE facts.release_id=p->>'release_id'
+ AND facts.lowering_digest='__DDO_LOWERING_DIGEST__' AND facts.native_kernel_digest=projection->>'native_digest'
+ AND facts.model_digest=projection->>'model_digest') THEN
  RAISE EXCEPTION 'read-only inspection native source correspondence differs' USING ERRCODE='23514'; END IF;
  IF EXISTS(WITH expected AS (
  SELECT value->>'kind_contract' AS key,value AS body FROM jsonb_array_elements(projection->'kinds')),
@@ -1320,6 +1322,70 @@ BEGIN
  END LOOP;
  END LOOP;
 END $$;
+-- Exact immutable correspondence is carried only by a private kernel seal.
+CREATE OR REPLACE FUNCTION ops.ddo_completion_seal(r ops.data_request,payload jsonb,runtime text,snapshot jsonb)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT jsonb_build_object('kernel','__DDO_SOURCE_DIGEST__','request',r.id,'generation',r.generation,
+ 'release',r.release_id,'recipe',r.recipe,'runtime',runtime,'payload',ops.ddo_digest(payload),'trust',snapshot)
+$$;
+CREATE OR REPLACE FUNCTION ops.ddo_require_completion_correspondence(r ops.data_request,completion jsonb,
+ producer_task bigint,producer_attempt bigint,producer_holder text)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ PERFORM ops.ddo_require_pdf_completion(completion,producer_task,producer_attempt,producer_holder,r.release_id,r.operation_id);
+ PERFORM ops.ddo_require_external_completion(completion,r,producer_task,producer_attempt,producer_holder);
+ PERFORM ops.ddo_require_record_grade_completion(r,completion);
+ PERFORM ops.ddo_require_record_fit_completion(r,completion);
+ IF r.operation_id IN ('operation_event.frame','operation_event.fit','operation_event.authorize') THEN
+ PERFORM ops.ddo_authorize('evaluator'); END IF;
+ PERFORM ops.ddo_require_operation_event_completion(r,completion);
+ PERFORM ops.ddo_require_policy_authorization_completion(r,completion);
+ PERFORM ops.ddo_require_structural_admission_completion(r,completion);
+ PERFORM ops.ddo_require_structural_dossier_completion(r,completion);
+ PERFORM ops.ddo_require_definition_completion(r,completion);
+ PERFORM ops.ddo_require_artifact_completion(r,completion);
+ PERFORM ops.ddo_require_contextual_completion(r,completion);
+ PERFORM ops.ddo_require_rich_preparation_completion(r,completion);
+ PERFORM ops.ddo_require_rich_admission_completion(r,completion);
+ PERFORM ops.ddo_assert_output_witnesses(r,completion);
+END $$;
+CREATE OR REPLACE FUNCTION ops.ddo_require_completion_live(r ops.data_request,completion jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE captured record; selected record; output jsonb; cut jsonb; boundary ops.data_demand_read;
+ scope_key text; epoch bigint; current_trust jsonb:='{}';
+BEGIN
+ PERFORM ops.ddo_authorize_request(r);
+ PERFORM ops.ddo_binding_body_access(r.binding,r.project_id);
+ FOR output IN SELECT value FROM jsonb_array_elements(completion->'outputs') LOOP
+ PERFORM ops.ddo_kind_access(output->'product'->>'kind_contract');
+ PERFORM ops.ddo_body_access(output->'product'->>'kind_contract',data.ddo_normalize(output->'product'->'body'));
+ END LOOP;
+ IF r.operation_id='record_policy.grade' THEN
+ FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
+ PERFORM ops.ddo_record_grade_require_cut(r.project_id,captured.cut_text,captured.cut_id); END LOOP;
+ ELSIF r.operation_id='record_policy.fit' THEN
+ FOR selected IN SELECT * FROM ops.ddo_record_fit_selections(r) LOOP
+ PERFORM ops.ddo_record_fit_require_selection(r,selected.role_name,selected.selection,false); END LOOP;
+ ELSIF r.operation_id='operation_event.frame' THEN
+ FOR cut IN SELECT ops.ddo_record_grade_input(r,'question')->'body'->'original_selection'
+ UNION SELECT ops.ddo_record_grade_input(r,'question')->'body'->'prediction_selection' LOOP
+ PERFORM ops.ddo_record_grade_require_cut(r.project_id,cut->>'cut_canonical_json',cut->>'cut_id'); END LOOP;
+ ELSIF r.operation_id='operation_event.fit' THEN
+ cut:=ops.ddo_record_grade_input(r,'specification')->'body'->'frame'->'selection';
+ FOR scope_key IN SELECT * FROM ops.ddo_record_fit_cut_scopes(r.project_id,cut) LOOP
+ SELECT coalesce((SELECT scope.epoch FROM ops.data_trust_scope scope WHERE scope.scope=scope_key AND scope.project_id=r.project_id),0) INTO epoch;
+ current_trust:=current_trust||jsonb_build_object(scope_key,epoch); END LOOP;
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=cut->>'read_id' AND demand_id=cut->>'demand_id';
+ IF ops.ddo_trust_snapshot_meaning(current_trust) IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) THEN
+ RAISE EXCEPTION 'operation event trust differs from retained cut' USING ERRCODE='23514'; END IF;
+ ELSIF r.operation_id='retrieve.contextual_scores/declared' AND completion->>'outcome'='success' THEN
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(completion->'outputs') output
+ WHERE output->'product'->'body' IS NOT NULL
+ AND data.ddo_field(data.ddo_normalize(output->'product'->'body'),'linguistic_observation') IS NOT DISTINCT FROM
+ data.record_json_meaning(data.record_json_source(ops.ddo_contextual_linguistic_context()))) THEN
+ RAISE EXCEPTION 'contextual linguistic premises changed' USING ERRCODE='23514'; END IF;
+ END IF;
+END $$;
 CREATE OR REPLACE FUNCTION ops.retain_data_completion_intent(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; key text; old ops.data_completion_intent;
@@ -1346,24 +1412,10 @@ BEGIN
  IF r.generation<>(p->>'generation')::integer OR p->'completion'->'inputs' IS DISTINCT FROM r.binding->'inputs' OR p->'completion'->'support' IS DISTINCT FROM r.binding->'support'
  OR NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id AND implementation_revision=p->'completion'->>'implementation_revision') THEN RAISE EXCEPTION 'completion differs from admitted request/implementation'; END IF;
  PERFORM ops.ddo_assert_support(r,p->'completion'->'support');
- PERFORM ops.ddo_require_pdf_completion(p->'completion',t.id,t.attempt,t.claimed_by,r.release_id,r.operation_id);
- PERFORM ops.ddo_require_external_completion(p->'completion',r,t.id,t.attempt,t.claimed_by);
- PERFORM ops.ddo_require_record_grade_completion(r,p->'completion');
- PERFORM ops.ddo_require_record_fit_completion(r,p->'completion');
- IF r.operation_id IN ('operation_event.frame','operation_event.fit','operation_event.authorize') THEN
- PERFORM ops.ddo_authorize('evaluator'); END IF;
- PERFORM ops.ddo_require_operation_event_completion(r,p->'completion');
- PERFORM ops.ddo_require_policy_authorization_completion(r,p->'completion');
- PERFORM ops.ddo_require_structural_admission_completion(r,p->'completion');
- PERFORM ops.ddo_require_structural_dossier_completion(r,p->'completion');
- PERFORM ops.ddo_require_definition_completion(r,p->'completion');
- PERFORM ops.ddo_require_artifact_completion(r,p->'completion');
- PERFORM ops.ddo_require_contextual_completion(r,p->'completion');
- PERFORM ops.ddo_require_rich_preparation_completion(r,p->'completion');
- PERFORM ops.ddo_require_rich_admission_completion(r,p->'completion');
- PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
+ PERFORM ops.ddo_require_completion_correspondence(r,p->'completion',t.id,t.attempt,t.claimed_by);
+ PERFORM ops.ddo_require_completion_live(r,p->'completion');
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
- INSERT INTO ops.data_completion_intent VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion',ops.ddo_digest(p->'completion'),clock_timestamp()) ON CONFLICT DO NOTHING;
+ INSERT INTO ops.data_completion_intent VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion',ops.ddo_digest(p->'completion'),clock_timestamp(),ops.ddo_completion_seal(r,p->'completion',p->>'runtime_id',snapshot)) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT old FROM ops.data_completion_intent WHERE request_id=r.id AND generation=r.generation;
  IF old.id<>key THEN RAISE EXCEPTION 'immutable retained intent must be adopted; a generation cannot replace its answer'; END IF;
  RETURN jsonb_build_object('payload',jsonb_build_object('intent_id',key,'payload_digest',old.payload_digest));
@@ -1584,6 +1636,8 @@ BEGIN
  IF i.request_id<>r.id OR i.generation<>r.generation OR i.generation<>(p->>'generation')::integer OR NOT ((i.producer_task_id,i.producer_attempt,i.producer_holder)=(t.id,t.attempt,t.claimed_by) OR EXISTS(SELECT FROM ops.data_intent_adoption a WHERE a.intent_id=i.id AND (a.task_id,a.attempt,a.holder)=(t.id,t.attempt,t.claimed_by))) THEN RAISE EXCEPTION 'intent is not bound to current attempt'; END IF;
  PERFORM ops.ddo_assert_support(r,i.payload->'support');
  PERFORM sem.require_runtime_binding(r.release_id,i.runtime_id);
+ IF NOT EXISTS(SELECT FROM sem.runtime_binding runtime WHERE runtime.release_id=r.release_id AND runtime.runtime_id=i.runtime_id
+ AND runtime.execution_profile=r.binding->>'execution_profile') THEN RAISE EXCEPTION 'producing runtime execution profile differs'; END IF;
  PERFORM ops.ddo_require_provider_profile(r.release_id,r.operation_id,i.runtime_id);
  IF EXISTS(SELECT FROM ops.data_revocation v WHERE v.scope=ops.ddo_scope(r.project_id,r.original_source)
  AND ((v.selector_kind='runtime' AND v.selector=i.runtime_id) OR (v.selector_kind='recipe' AND v.selector=r.recipe))) THEN RAISE EXCEPTION 'producing runtime or recipe was directly revoked'; END IF;
@@ -1592,23 +1646,12 @@ BEGIN
  result_state:=ops.ddo_completion_state(def,i.payload->>'outcome');
  IF i.payload->>'implementation_revision'<>def.implementation_revision OR jsonb_typeof(i.payload->'outputs')<>'array' THEN RAISE EXCEPTION 'invalid completion attestation/outcome'; END IF;
  IF result_state IN ('empty','failed') AND i.payload->'outputs'<>'[]'::jsonb THEN RAISE EXCEPTION 'non-success completion cannot publish outputs'; END IF;
- -- Reconciliation validates the original sealed producer, not the adopter's later fence.
- PERFORM ops.ddo_require_pdf_completion(i.payload,i.producer_task_id,i.producer_attempt,i.producer_holder,r.release_id,r.operation_id);
- PERFORM ops.ddo_require_external_completion(i.payload,r,i.producer_task_id,i.producer_attempt,i.producer_holder);
- PERFORM ops.ddo_require_record_grade_completion(r,i.payload);
- PERFORM ops.ddo_require_record_fit_completion(r,i.payload);
- IF r.operation_id IN ('operation_event.frame','operation_event.fit','operation_event.authorize') THEN
- PERFORM ops.ddo_authorize('evaluator'); END IF;
- PERFORM ops.ddo_require_operation_event_completion(r,i.payload);
- PERFORM ops.ddo_require_policy_authorization_completion(r,i.payload);
- PERFORM ops.ddo_require_structural_admission_completion(r,i.payload);
- PERFORM ops.ddo_require_structural_dossier_completion(r,i.payload);
- PERFORM ops.ddo_require_definition_completion(r,i.payload);
- PERFORM ops.ddo_require_artifact_completion(r,i.payload);
- PERFORM ops.ddo_require_contextual_completion(r,i.payload);
- PERFORM ops.ddo_require_rich_preparation_completion(r,i.payload);
- PERFORM ops.ddo_require_rich_admission_completion(r,i.payload);
- PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
+ -- Retained intents are durable across kernels. Absent/different seals run
+ -- the original complete battery against the actual original producer fence.
+ IF i.validation_seal IS DISTINCT FROM ops.ddo_completion_seal(r,i.payload,i.runtime_id,snapshot) THEN
+ PERFORM ops.ddo_require_completion_correspondence(r,i.payload,i.producer_task_id,i.producer_attempt,i.producer_holder);
+ END IF;
+ PERFORM ops.ddo_require_completion_live(r,i.payload);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));
  INSERT INTO ops.data_derivation VALUES(episode,r.id,r.generation,i.id,r.release_id,r.recipe,i.runtime_id,i.producer_task_id,i.producer_attempt,result_state,clock_timestamp());
  FOR item,n IN SELECT input_record,physical_position FROM ops.ddo_derivation_input_positions(i.payload->'inputs',def.input_roles) LOOP
@@ -1643,7 +1686,7 @@ BEGIN
  IF cnt<coalesce((roledef->>'minimum')::integer,0) OR (roledef->>'maximum' IS NOT NULL AND cnt>(roledef->>'maximum')::integer) THEN RAISE EXCEPTION 'output cardinality differs from contract'; END IF;
  END LOOP; END IF;
  key:='receipt:'||ops.ddo_digest(jsonb_build_array(i.id,episode));
- INSERT INTO ops.data_publication_receipt VALUES(key,i.id,episode,t.id,t.attempt,snapshot);
+ INSERT INTO ops.data_publication_receipt VALUES(key,i.id,episode,t.id,t.attempt,snapshot,'__DDO_SOURCE_DIGEST__');
  UPDATE ops.task SET status=CASE result_state WHEN 'success' THEN 'done' WHEN 'empty' THEN 'empty' ELSE 'failed' END,result_digest=i.payload_digest,finished_at=clock_timestamp(),lease_until=NULL,error=CASE WHEN result_state='failed' THEN jsonb_build_object('data_operation','failed') ELSE NULL END WHERE id=t.id;
  -- Every attached obligation observes the actual terminal outcome. Computational
  -- failure is distinct from a private attempt's infrastructure failure.
@@ -2111,12 +2154,12 @@ BEGIN
  WHEN ops.ddo_operation_event_command_eligible(definition) THEN 'operation_event'
  ELSE NULL END;
 END $$;
-CREATE OR REPLACE FUNCTION sem.admit_data_operation_definitions(p_payload jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION sem.ddo_lower_data_operation_definitions(p_payload jsonb,p_new_release boolean) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; k jsonb; o jsonb; archived jsonb; old sem.data_kind_contract; operation jsonb; expected_inputs jsonb; expected_outputs jsonb; expected_support jsonb; lowered sem.data_operation_definition; header sem.data_operation_release; subject jsonb;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['release_id','model_digest','native_digest','kinds','operations']);
- IF p->>'native_digest' IS DISTINCT FROM sem.data_operation_native_descriptor()->>'source_digest' THEN RAISE EXCEPTION 'native source correspondence mismatch'; END IF;
+ IF p_new_release AND p->>'native_digest' IS DISTINCT FROM sem.data_operation_native_descriptor()->>'source_digest' THEN RAISE EXCEPTION 'native source correspondence mismatch'; END IF;
  SELECT convert_from(content,'UTF8')::jsonb INTO archived FROM sem.artifact WHERE release_id=p->>'release_id' AND artifact_name='data_operations.json' AND encode(sha256(content),'hex')=p->>'model_digest';
  IF archived IS NULL THEN RAISE EXCEPTION 'effective operation archive is absent or differs'; END IF;
  IF jsonb_typeof(archived->'subject_definitions') IS DISTINCT FROM 'array'
@@ -2172,6 +2215,14 @@ BEGIN
  lowered.validity_family:=ops.ddo_classify_validity(lowered.operation_id);
  lowered.command_class:=ops.ddo_classify_command(lowered);
  INSERT INTO sem.data_operation_definition SELECT (lowered).* ON CONFLICT DO NOTHING;
+ IF NOT p_new_release THEN
+ UPDATE sem.data_operation_definition d SET binding_expression=lowered.binding_expression,
+ definition_identity=lowered.definition_identity,eligibility_identity=lowered.eligibility_identity,
+ quantified=lowered.quantified,validity_family=lowered.validity_family,command_class=lowered.command_class,
+ dependencies=lowered.dependencies WHERE d.release_id=lowered.release_id AND d.operation_id=lowered.operation_id
+ AND (d.binding_expression,d.definition_identity,d.eligibility_identity,d.quantified,d.validity_family,d.command_class,d.dependencies)
+ IS DISTINCT FROM (lowered.binding_expression,lowered.definition_identity,lowered.eligibility_identity,lowered.quantified,lowered.validity_family,lowered.command_class,lowered.dependencies);
+ END IF;
  IF NOT EXISTS(SELECT FROM sem.data_operation_definition d WHERE d.release_id=lowered.release_id
  AND d.operation_id=lowered.operation_id AND to_jsonb(d)=to_jsonb(lowered)) THEN
  RAISE EXCEPTION 'operation definition changed under admitted release'; END IF;
@@ -2186,6 +2237,11 @@ BEGIN
  SELECT p->>'release_id',p->>'model_digest',artifact.content_digest,p->>'native_digest','__DDO_LOWERING_DIGEST__'
  FROM sem.artifact artifact WHERE artifact.release_id=p->>'release_id'
  AND artifact.artifact_name='data_operation_native_definitions.json' ON CONFLICT DO NOTHING;
+ IF NOT p_new_release THEN
+ UPDATE sem.data_operation_release SET lowering_digest='__DDO_LOWERING_DIGEST__'
+ WHERE release_id=p->>'release_id' AND model_digest=p->>'model_digest' AND native_kernel_digest=p->>'native_digest'
+ AND lowering_digest IS DISTINCT FROM '__DDO_LOWERING_DIGEST__';
+ END IF;
  SELECT * INTO STRICT header FROM sem.data_operation_release WHERE release_id=p->>'release_id';
  IF header.model_digest IS DISTINCT FROM p->>'model_digest' OR header.native_kernel_digest IS DISTINCT FROM p->>'native_digest'
  OR header.lowering_digest IS DISTINCT FROM '__DDO_LOWERING_DIGEST__'
@@ -2194,6 +2250,30 @@ BEGIN
  RAISE EXCEPTION 'release facts changed under admitted release'; END IF;
  PERFORM sem.admit_pdf_operation_contracts(p->>'release_id');
  RETURN jsonb_build_object('release_id',p->>'release_id','model_digest',p->>'model_digest');
+END $$;
+
+CREATE OR REPLACE FUNCTION sem.admit_data_operation_definitions(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN RETURN sem.ddo_lower_data_operation_definitions(p_payload,true); END $$;
+-- Consumed only by an authenticated forward DATA step with the exact intrinsic
+-- guards temporarily retired. This rederives read facts from already admitted
+-- immutable artifacts; it never updates source model/kernel or receipt evidence.
+CREATE OR REPLACE FUNCTION sem.relower_admitted_data_operation_release(p_release text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE projection jsonb; result jsonb;
+BEGIN
+ IF NOT EXISTS(SELECT FROM sem.finalization WHERE release_id=p_release)
+ OR NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=p_release) THEN
+ RAISE EXCEPTION 're-lowering requires an already admitted finalized release' USING ERRCODE='23514'; END IF;
+ SELECT convert_from(content,'UTF8')::jsonb INTO STRICT projection FROM sem.artifact
+ WHERE release_id=p_release AND artifact_name='data_operation_native_definitions.json'
+ AND encode(sha256(content),'hex')=content_digest;
+ result:=sem.ddo_lower_data_operation_definitions(projection||jsonb_build_object('release_id',p_release),false);
+ UPDATE sem.runtime_binding SET execution_profile=convert_from(manifest_bytes,'UTF8')::jsonb->>'execution_profile'
+ WHERE release_id=p_release AND execution_profile IS NULL;
+ IF EXISTS(SELECT FROM sem.runtime_binding WHERE release_id=p_release AND nullif(execution_profile,'') IS NULL) THEN
+ RAISE EXCEPTION 'admitted runtime lacks an execution profile' USING ERRCODE='23514'; END IF;
+ RETURN result;
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_kind_access(contract text) RETURNS boolean

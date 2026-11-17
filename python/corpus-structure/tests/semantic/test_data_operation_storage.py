@@ -2736,3 +2736,21 @@ def test_native_read_acquisition_forbids_later_frontier_writes(ddo_kernel):
         DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
         with pytest.raises(DBAPIError, match="fresh transaction"):
             connection.execute(text("INSERT INTO ops.data_obligation SELECT * FROM ops.data_obligation LIMIT 1 ON CONFLICT DO NOTHING"))
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_native_completion_receipt_records_actual_validator_not_release_expectation(ddo_kernel):
+    _, _, _, attached = attach(ddo_kernel)
+    fence = claim(ddo_kernel, attached)
+    intent = retain(ddo_kernel, fence)
+    with ddo_kernel["engine"].begin() as connection:
+        seal = connection.scalar(text("SELECT validation_seal FROM ops.data_completion_intent WHERE id=:id"), {"id": intent["intent_id"]})
+        assert seal["request"] == fence["request_id"]
+        assert seal["generation"] == fence["generation"]
+        assert seal["runtime"] == ddo_kernel["runtime"]
+        assert seal["trust"] and all(epoch == 0 for epoch in seal["trust"].values())
+        assert seal["kernel"] == connection.scalar(text("SELECT sem.data_operation_native_descriptor()->>'source_digest'"))
+    receipt = publish(ddo_kernel, fence, intent)
+    with ddo_kernel["engine"].begin() as connection:
+        actual = connection.scalar(text("SELECT validating_kernel_digest FROM ops.data_publication_receipt WHERE id=:id"), {"id": receipt["receipt_id"]})
+        assert actual == seal["kernel"]
