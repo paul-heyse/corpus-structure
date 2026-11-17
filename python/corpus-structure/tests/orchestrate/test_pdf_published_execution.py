@@ -180,11 +180,13 @@ def test_draft_finishes_matching_immutable_content_without_lowering(
 
     from corpus_structure.orchestrate import pdf_streaming
     from corpus_structure.semantic.pdf_publication import FrozenPdfBuildRef
+    from corpus_structure.semantic.pdf_staging import PdfBuildRef
+    from corpus_structure.semantic.identifiers import TaskId, TaskAttempt, ReleaseId
 
     original, schema, recipe = b"%PDF-1.7", b"{}", b"{}"
-    build = SimpleNamespace(
-        task_id=12, attempt=2, holder="holder",
-        release_id="release",
+    build = PdfBuildRef(
+        build_id="owned", task_id=TaskId(12), attempt=TaskAttempt(2), holder="holder",
+        release_id=ReleaseId("release"),
         source_digest=sha256(original).hexdigest(),
         recipe_digest=sha256(recipe).hexdigest(),
         schema_digest=sha256(schema).hexdigest(),

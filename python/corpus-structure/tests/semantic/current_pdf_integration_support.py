@@ -374,6 +374,7 @@ def current_integration_journey(
             )
 
         publish_observation = pdf_integrated.PreparedPdfObservationPublisher.publish
+        observation_publishers = []
 
         def retain_observation(publisher, connection, product):
             arguments = dict(task_id=publisher.task_id, attempt=publisher.attempt,
@@ -382,6 +383,7 @@ def current_integration_journey(
             if before_observation is not None:
                 before_observation(case, connection, arguments)
             digest = publish_observation(publisher, connection, product)
+            observation_publishers.append(publisher)
             case.observations.append(
                 (
                     ProductReference(arguments["task_id"], product.values()["product_key"], digest),
@@ -487,12 +489,7 @@ def current_integration_journey(
                     with case.kernel.purpose("write").begin() as connection:
                         with pytest.raises(DBAPIError) as stale, connection.begin_nested():
                             publish_observation(
-                                connection,
-                                task_id=claim.task_id,
-                                attempt=claim.attempt,
-                                holder=claim.holder,
-                                runtime_id=executor.runtime.runtime_id,
-                                product=case.observations[0][1],
+                                observation_publishers[0], connection, case.observations[0][1]
                             )
                         assert isinstance(stale.value.orig, NativePgError)
                         assert stale.value.orig.sqlstate == "P0004"
