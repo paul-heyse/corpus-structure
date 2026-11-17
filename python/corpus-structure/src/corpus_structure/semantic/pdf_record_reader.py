@@ -14,6 +14,7 @@ from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
+from itertools import groupby
 from typing import TYPE_CHECKING, Any, BinaryIO, TypedDict
 
 import pyarrow as pa
@@ -78,6 +79,13 @@ class PublishedReadBudget:
             raise ReadLimit("native source byte-work budget exhausted", reason="work_limit")
         self.rows += summary.rows
 
+    def reserve_rows(self, count: int) -> None:
+        from .refusals import ReadLimit
+
+        if count < 0 or self.rows + count > self.max_rows:
+            raise ReadLimit("native source row-work budget exhausted", reason="work_limit")
+        self.rows += count
+
     def value(self, value):
         from pydantic_core import to_jsonable_python
 
@@ -103,6 +111,15 @@ class PublishedReadBudget:
         if self.bytes + size > self.max_bytes:
             raise ReadLimit("native source byte-work budget exhausted", reason="work_limit")
         self.bytes += size
+
+
+@dataclass(frozen=True)
+class PdfRecognitionInventory:
+    """Page membership and health needed by recognition, with no native body."""
+
+    page_nos: tuple[int, ...]
+    source_scope: str
+    health: Mapping[str, Any]
 
 
 class _ProjectionParameters(TypedDict):
@@ -287,10 +304,14 @@ class PublishedPdfReader:
     def _raw_rows(self, statement, *, payload_reserved=False):
         with self._read_scope():
             budget = getattr(self, "read_budget", None)
-            if budget is not None:
+            admitted = getattr(self, "_whole_materialization", False)
+            if budget is not None and not admitted:
                 budget.preflight(self.conn, statement, payload_reserved=payload_reserved)
             with self.conn.execute(statement) as result:
-                return list(result)
+                rows = list(result)
+            if budget is not None and admitted:
+                budget.reserve_rows(len(rows))
+            return rows
 
     def _read_operation(self, name, *, selection=None, **parameters):
         from . import _pdf_native_calls as calls
@@ -323,7 +344,9 @@ class PublishedPdfReader:
 
         if not 1 <= batch_size <= 1000:
             raise ValueError("published record batch size must be 1..1000")
-        if getattr(self, "read_budget", None) is not None:
+        if getattr(self, "read_budget", None) is not None and not getattr(
+            self, "_whole_materialization", False
+        ):
             batch_size = min(batch_size, 64)
         while True:
             # Each bounded function call rechecks the immutable published binding. Close
@@ -381,6 +404,14 @@ class PublishedPdfReader:
     def scalar(self, stream_id: str) -> Generator[bytes]:
         from .pdf_record_identity import ArtifactPart, ArtifactPin, replay_artifact
 
+        materialized = getattr(self, "_materialized_streams", None)
+        if materialized is not None:
+            if stream_id not in materialized:
+                raise PublishedRecordUnavailable("published native stream is absent")
+            for chunk in materialized[stream_id][1]:
+                self._check_active()
+                yield chunk
+            return
         stream = self._one("artifact_stream", {"stream_id": stream_id})
         pin = ArtifactPin(
             stream_id,
@@ -678,6 +709,11 @@ class PublishedPdfReader:
         return self._projection_values((row,))[0]
 
     def _profile(self, stream_id):
+        materialized = getattr(self, "_materialized_streams", None)
+        if materialized is not None:
+            if stream_id not in materialized:
+                raise PublishedRecordUnavailable("published native stream is absent")
+            return materialized[stream_id][0]["encoding_profile"]
         return self._one("artifact_stream", {"stream_id": stream_id})["encoding_profile"]
 
     def hydrate(self, record_id: str, *, native_type: str) -> dict[str, Any]:
@@ -777,11 +813,75 @@ class PublishedPdfReader:
         self._check_active()
         return bound
 
+    def _bulk_artifact_streams(self):
+        """Fetch each stream once inside an admitted whole-product byte bound."""
+        from .pdf_record_identity import ArtifactPart, ArtifactPin, replay_artifact
+
+        budget = self.read_budget
+        if budget is None:
+            raise ValueError("bulk PDF streams require an admitted invocation budget")
+        descriptors = {}
+        for stream in self.iter_rows("artifact_stream", batch_size=1000):
+            stream_id = stream["stream_id"]
+            if stream_id in descriptors:
+                raise ValueError("duplicate published artifact stream")
+            budget.reserve(stream["byte_length"])
+            descriptors[stream_id] = stream
+        def verified(stream_id, members):
+            stream = descriptors[stream_id]
+            pin = ArtifactPin(
+                stream_id,
+                self.revision["release_id"],
+                self.revision["source_digest"],
+                stream["byte_length"],
+                stream["serialization_sha256"],
+                bytes.fromhex(stream["byte_root"]),
+            )
+            parts = (
+                ArtifactPart(
+                    stream_id, row["ordinal"], row["byte_offset"],
+                    row["byte_length"], row["body"], row["sha256_digest"],
+                )
+                for row in members
+            )
+            chunks = tuple(replay_artifact(
+                parts, pin, release_id=self.revision["release_id"],
+                source_digest=self.revision["source_digest"],
+            ))
+            self._check_active()
+            return stream, chunks
+
+        materialized = {}
+        with closing(self.iter_rows("artifact_part", batch_size=1000, _payload_reserved=True)) as rows:
+            for stream_id, members in groupby(rows, key=lambda row: row["stream_id"]):
+                if stream_id not in descriptors or stream_id in materialized:
+                    raise ValueError("published artifact parts differ from stream inventory")
+                materialized[stream_id] = verified(stream_id, members)
+        for stream_id in descriptors.keys() - materialized.keys():
+            # Empty streams have no part rows, but retain exact length, SHA-256
+            # and fold obligations. Missing nonempty streams refuse here.
+            materialized[stream_id] = verified(stream_id, ())
+        return materialized
+
+    @contextmanager
+    def _materialization_scope(self):
+        if getattr(self, "read_budget", None) is None or getattr(
+            self, "_materialized_streams", None
+        ) is not None:
+            yield
+            return
+        self.require_materialization_capacity()
+        self._whole_materialization = True
+        try:
+            self._materialized_streams = self._bulk_artifact_streams()
+            yield
+        finally:
+            self._materialized_streams = None
+            self._whole_materialization = False
+
     def hydrate_document(self):
-        """Explicit whole-value demand uses one ordered native cursor, without repairs."""
-        if getattr(self, "read_budget", None) is not None:
-            self.require_materialization_capacity()
-        with closing(self.iter_native_json()) as chunks:
+        """Explicit whole-value demand uses admitted, verified bulk stream custody."""
+        with self._materialization_scope(), closing(self.iter_native_json()) as chunks:
             value = json.loads(b"".join(chunks))
         self._check_active()
         return value
@@ -985,8 +1085,43 @@ class PublishedPdfReader:
                 payload, body["payload_schema_digest"], body["payload_logical_digest"], page_no
             )
 
+    def recognition_inventory(self) -> PdfRecognitionInventory:
+        """Read the exact page map and native health without reconstructing values."""
+        header = self._one("header")
+        root = self.record(header["root_id"])
+        structure = json.loads(root["structure_json"])
+        descriptor = structure["fields"].get("pages")
+        if descriptor is None or descriptor.get("kind") != "map":
+            raise ValueError("native physical page inventory is absent")
+        pages = []
+        seen = set()
+        with closing(self.members(header["root_id"], "pages")) as members:
+            for ordinal, member in enumerate(members):
+                key = member.get("member_key")
+                if member["ordinal"] != ordinal or member["value_kind"] != "record" or not isinstance(key, str):
+                    raise ValueError("native physical page inventory differs from its page map")
+                try:
+                    number = int(key)
+                except ValueError as error:
+                    raise ValueError("native physical page number is invalid") from error
+                if number < 1 or str(number) != key or number in seen:
+                    raise ValueError("native physical page number is invalid or duplicated")
+                pages.append(number)
+                seen.add(number)
+        if len(pages) != descriptor["length"]:
+            raise ValueError("native physical page membership inventory is incomplete")
+        wrappers = [row for row in self.iter_companions("health") if "source_scope" in row]
+        if len(wrappers) != 1 or "conversion" not in wrappers[0]:
+            raise ValueError("native health/source scope is absent or ambiguous")
+        wrapper = wrappers[0]
+        return PdfRecognitionInventory(tuple(sorted(pages)), wrapper["source_scope"], wrapper)
+
     def native_product_values(self, *, include_candidate_pages: bool = True):
-        """Explicit materialization for native transformations; never a small read."""
+        """Explicit complete materialization for native transformations."""
+        with self._materialization_scope():
+            return self._native_product_values(include_candidate_pages=include_candidate_pages)
+
+    def _native_product_values(self, *, include_candidate_pages: bool):
         document = self.hydrate_document()
         health_rows = list(self.iter_companions("health"))
         wrappers = [h for h in health_rows if "source_scope" in h]
@@ -1483,7 +1618,12 @@ class PublishedPdfReader:
         ):
             for row in result:
                 self._check_active()
-                yield _record_envelope(materialize_read_pdf_native_events(row))
+                event = _record_envelope(materialize_read_pdf_native_events(row))
+                budget = getattr(self, "read_budget", None)
+                if budget is not None and getattr(self, "_whole_materialization", False):
+                    budget.reserve_rows(1)
+                    budget.value(event)
+                yield event
 
     def write_native_json(self, sink: BinaryIO) -> PdfExportReceipt:
         digest, size = sha256(), 0

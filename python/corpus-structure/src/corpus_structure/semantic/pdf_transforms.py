@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from .data_operation_json import json_bytes
 from .identity import canonical_bytes
 from .product_reference import ProductReference
+from .pdf_record_reader import PdfRecognitionInventory
 from .types import SourceArtifact
 
 
@@ -342,6 +343,15 @@ class SelectedPdfInput:
     read_budget: Any
 
 
+@dataclass(frozen=True)
+class SelectedPdfRecognitionInput:
+    original: bytes
+    inventory: PdfRecognitionInventory
+    parent: Any
+    context: Any
+    read_budget: Any
+
+
 def _read_selected_pdf(
     prepared,
     capture,
@@ -353,6 +363,7 @@ def _read_selected_pdf(
     membership: Literal["direct", "descendants"] = "direct",
     project_sections=True,
     read_candidates=True,
+    recognition_only=False,
     check_active,
 ):
     """Authenticate the exact semantic support before detaching any native body."""
@@ -415,8 +426,11 @@ def _read_selected_pdf(
         )
         # The native owner authenticates the immutable pin and returns only a scalar
         # aggregate. The invocation already owns its input credit through publication.
-        reader.require_materialization_capacity()
-        health = [row for row in reader.iter_companions("health") if "conversion" in row]
+        inventory = reader.recognition_inventory() if recognition_only else None
+        if not recognition_only:
+            reader.require_materialization_capacity()
+        health = ([inventory.health] if inventory is not None else
+                  [row for row in reader.iter_companions("health") if "conversion" in row])
         if (
             len(health) != 1
             or pdf_publication_value(
@@ -428,7 +442,8 @@ def _read_selected_pdf(
         check_active()
         context = pdf_context_for_release(connection, prepared)
         artifacts = table("kb.source_artifact")
-        digests = (publication.source_digest, publication.schema_digest, publication.recipe_digest)
+        digests = ((publication.source_digest,) if recognition_only else
+                   (publication.source_digest, publication.schema_digest, publication.recipe_digest))
         size = connection.scalar(
             select(func.sum(func.octet_length(artifacts.c.content))).where(
                 artifacts.c.artifact_digest.in_(digests)
@@ -449,51 +464,58 @@ def _read_selected_pdf(
             sha256(bodies[digest]).hexdigest() != digest for digest in digests
         ):
             raise ValueError("selected publication original/schema/recipe custody differs")
-        values = reader.native_product_values(include_candidate_pages=False)
-        product = PreparedPdfProduct(
-            canonical_bytes(values),
-            bodies[publication.source_digest],
-            bodies[publication.schema_digest],
-            bodies[publication.recipe_digest],
-            context.contract_digest,
-        )
-        if membership not in {"direct", "descendants"}:
-            raise ValueError("PDF source membership is outside the admitted finite choices")
-        projections = (
-            published_section_projections(
-                reader,
-                selections=tuple(sections),
-                membership=membership,
-                scope=None,
-                check_active=check_active,
-            )
-            if project_sections
-            else ()
-        )
-        specs = tuple((row.section_pointer, row.membership) for row in projections)
-        directory.mkdir(parents=True, exist_ok=False)
-        replays = {}
-        for payload in reader.iter_candidate_payloads(context=context) if read_candidates else ():
+        if recognition_only:
+            assert inventory is not None
             check_active()
-            if payload.page_no in replays:
-                raise ValueError("duplicate selected PDF candidate page")
-            replay = _atomic_bytes(
-                directory / f"candidate-{payload.page_no:06}.arrow",
-                payload.content,
-                "candidate_payload",
+            return SelectedPdfRecognitionInput(
+                bodies[publication.source_digest], inventory, parent, context, read_budget
             )
-            replays[payload.page_no] = replace(
-                replay,
-                rows=1,
-                page_no=payload.page_no,
-                schema_digest=payload.schema_digest,
-                logical_digest=payload.logical_digest,
+        with reader._materialization_scope():
+            values = reader.native_product_values(include_candidate_pages=False)
+            product = PreparedPdfProduct(
+                canonical_bytes(values),
+                bodies[publication.source_digest],
+                bodies[publication.schema_digest],
+                bodies[publication.recipe_digest],
+                context.contract_digest,
             )
-        candidates = (
-            ReplayCandidatePageSource(replays, prepare_payload_family(context))
-            if read_candidates
-            else None
-        )
+            if membership not in {"direct", "descendants"}:
+                raise ValueError("PDF source membership is outside the admitted finite choices")
+            projections = (
+                published_section_projections(
+                    reader,
+                    selections=tuple(sections),
+                    membership=membership,
+                    scope=None,
+                    check_active=check_active,
+                )
+                if project_sections
+                else ()
+            )
+            specs = tuple((row.section_pointer, row.membership) for row in projections)
+            directory.mkdir(parents=True, exist_ok=False)
+            replays = {}
+            for payload in reader.iter_candidate_payloads(context=context) if read_candidates else ():
+                check_active()
+                if payload.page_no in replays:
+                    raise ValueError("duplicate selected PDF candidate page")
+                replay = _atomic_bytes(
+                    directory / f"candidate-{payload.page_no:06}.arrow",
+                    payload.content,
+                    "candidate_payload",
+                )
+                replays[payload.page_no] = replace(
+                    replay,
+                    rows=1,
+                    page_no=payload.page_no,
+                    schema_digest=payload.schema_digest,
+                    logical_digest=payload.logical_digest,
+                )
+            candidates = (
+                ReplayCandidatePageSource(replays, prepare_payload_family(context))
+                if read_candidates
+                else None
+            )
     check_active()
     return SelectedPdfInput(product, parent, candidates, specs, context, read_budget)
 
@@ -584,11 +606,11 @@ def _read_selected_observations(value, binding, execution_owner, selected, check
     return tuple(detached)
 
 
-def recognition_page_selection(values, pages, options):
-    """Validate the explicit page scope before opening the provider boundary."""
-    if values["source_scope"] != "whole_document" or values["health"]["conversion"] != "success":
+def recognition_page_selection(inventory: PdfRecognitionInventory, pages, options):
+    """Validate the explicit page scope against the narrow physical inventory."""
+    if inventory.source_scope != "whole_document" or inventory.health["conversion"] != "success":
         raise ValueError("recognition requires a complete successful retained Standard source")
-    available = tuple(sorted(int(number) for number in values["document"]["pages"]))
+    available = inventory.page_nos
     requested = tuple(pages) or available
     if (
         len(set(requested)) != len(requested)
@@ -681,6 +703,7 @@ def _selected_pdf_execution(
             membership=membership,
             project_sections=profile.mode == "enriched",
             read_candidates=profile.mode != "recognized",
+            recognition_only=profile.mode == "recognized",
             check_active=check_active,
         )
         recipe_bytes = profile.recipe_bytes(pages)
@@ -690,7 +713,8 @@ def _selected_pdf_execution(
                 task_id=claim.task_id,
                 attempt=claim.attempt,
                 holder=claim.holder,
-                original=selected.product.original,
+                original=(selected.original if isinstance(selected, SelectedPdfRecognitionInput)
+                          else selected.product.original),
                 recipe_bytes=recipe_bytes,
             )
         yield selected, recipe_bytes, owner, directory
@@ -777,6 +801,8 @@ class PreparedPdfTransform:
             sections=sections,
             membership=membership,
         ) as (selected, recipe_bytes, owner, directory):
+            if not isinstance(selected, SelectedPdfInput):
+                raise ValueError("PDF transformation requires the complete selected product")
             if self.mode == "organized":
                 publication_scope = nullcontext(
                     self._organize(selected, recipe_bytes, check_active)
@@ -868,13 +894,14 @@ class PreparedPdfTransform:
         with contextmanager(_selected_pdf_execution)(
             self, capture, binding, execution_owner, check_active, pages=pages
         ) as (selected, _, _, _):
-            values = selected.product.values()
-            requested = recognition_page_selection(values, pages, options)
+            if not isinstance(selected, SelectedPdfRecognitionInput):
+                raise ValueError("recognition requires its authenticated narrow inventory")
+            requested = recognition_page_selection(selected.inventory, pages, options)
             if options.source_recovery is not None:
                 from corpus_structure.ingest.pdf_incumbent_recovery import read_source_witness
 
-                read_source_witness(selected.product.original)
-            original = PreparedPdfOriginal(selected.product.original)
+                read_source_witness(selected.original)
+            original = PreparedPdfOriginal(selected.original)
             source = PreparedRecognitionSource(original.content, original.digest)
             recipe = NemotronRecipe(**self.record["recognition_recipe"])
             resources = PdfRecognitionResources.model_validate(self.record["resources"])

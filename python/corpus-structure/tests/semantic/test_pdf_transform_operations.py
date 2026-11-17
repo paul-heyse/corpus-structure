@@ -223,13 +223,11 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
 @pytest.mark.parametrize("pages", [(1, 1), (2,)])
 def test_recognition_refuses_duplicate_or_foreign_physical_pages_before_provider(pages):
     options = PdfRecognitionOptions(recovery_policy=None)
-    values = {
-        "source_scope": "whole_document",
-        "health": {"conversion": "success"},
-        "document": {"pages": {"1": {}}},
-    }
+    from corpus_structure.semantic.pdf_record_reader import PdfRecognitionInventory
+
+    inventory = PdfRecognitionInventory((1,), "whole_document", {"conversion": "success"})
     with pytest.raises(ValueError, match="physical page inventory"):
-        recognition_page_selection(values, pages, options)
+        recognition_page_selection(inventory, pages, options)
 
 
 def test_recognition_recipe_owns_recovery_and_integration_recipe_owns_selection():

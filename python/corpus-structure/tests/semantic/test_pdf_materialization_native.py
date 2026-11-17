@@ -1,5 +1,7 @@
 """A native DDO PDF publication is bounded before whole-product detachment."""
 
+import json
+
 import pytest
 from sqlalchemy import select
 
@@ -177,6 +179,11 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             encoded = b"".join(reader.iter_native_json())
             assert b"independent expected text" in encoded
             assert bound >= len(encoded) > len(b"independent expected text")
+            assert reader.hydrate_document() == json.loads(encoded)
+            inventory = reader.recognition_inventory()
+            assert inventory.page_nos == (1,)
+            assert inventory.source_scope == "whole_document"
+            assert inventory.health["conversion"] == "success"
             too_small = PublishedPdfReader(
                 connection,
                 pin,
