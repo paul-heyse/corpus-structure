@@ -40,8 +40,16 @@ _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 
 
 def native_protocol_sources(
-    *, physical_sources=None, linkml_types=None
+    *, physical_sources=None, linkml_types=None, target_metadata=None
 ) -> tuple[SourceArtifact, ...]:
+    from importlib.metadata import version
+
+    from corpus_structure.schema.physical import (
+        compile_physical,
+        linkml_types_source,
+        physical_source_closure,
+    )
+
     from .artifact_admission_native import artifact_admission_native_sql
     from .authority_leaf import NativeAuthorityLeaf
     from .contextual_admission_native import contextual_admission_native_sql
@@ -83,27 +91,47 @@ def native_protocol_sources(
     from .structural_admission_native import structural_admission_native_sql
 
     if physical_sources is None:
-        protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
-        physical = (_ROOT / "data-operation-physical.yaml").read_bytes()
-    else:
-        if not isinstance(linkml_types, bytes):
-            raise ValueError("explicit native physical inputs lack captured LinkML types")
-        try:
-            protocol = physical_sources["data-operation-native.yaml"]
-            physical = physical_sources["data-operation-physical.yaml"]
-        except KeyError as error:
-            raise ValueError("explicit native physical closure lacks DDO declarations") from error
+        physical_sources = physical_source_closure(
+            "physical.yaml", lambda name: (_ROOT / name).read_bytes()
+        )
+        linkml_types = linkml_types_source() if linkml_types is None else linkml_types
+    if not isinstance(linkml_types, bytes):
+        raise ValueError("explicit native physical inputs lack captured LinkML types")
+    try:
+        protocol = physical_sources["data-operation-native.yaml"]
+        physical = physical_sources["data-operation-physical.yaml"]
+    except KeyError as error:
+        raise ValueError("explicit native physical closure lacks DDO declarations") from error
+    if target_metadata is None:
+        target_metadata = compile_physical(physical_sources, linkml_types=linkml_types)
     from .data_operation_projections import capture_projection_sources
 
     return (
-        *capture_projection_sources(physical_sources=physical_sources, linkml_types=linkml_types),
+        *capture_projection_sources(
+            physical_sources=physical_sources,
+            linkml_types=linkml_types,
+            target_metadata=target_metadata,
+        ),
+        SourceArtifact(
+            "native/native-program.py", Path(__file__).with_name("native_program.py").read_bytes()
+        ),
+        SourceArtifact(
+            "native/native-program-libraries.json",
+            canonical_bytes(
+                {
+                    library: version(library)
+                    for library in ("pglast", "sqlalchemy", "linkml-runtime")
+                }
+            ),
+        ),
         SourceArtifact(
             "native/data-operation-provider-profiles.py",
             Path(__file__).with_name("data_operation_provider_profiles.py").read_bytes(),
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(
-            "native/data-operation-product-validation.sql", product_validation_native_sql().encode()
+            "native/data-operation-product-validation.sql",
+            product_validation_native_sql(target_metadata=target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-product-validation.py",
@@ -361,7 +389,7 @@ def native_protocol_sources(
         ),
         *binding_native_sources(),
         *wire_native_sources(),
-        *search_projection_sources(),
+        *search_projection_sources(target_metadata=target_metadata),
         *source_native_sources(physical_sources=physical_sources, linkml_types=linkml_types),
     )
 
@@ -1594,7 +1622,9 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
             raise ValueError(
                 "native candidate metadata lacks explicit captured physical inputs/types"
             )
-        captured = native_protocol_sources(physical_sources=sources, linkml_types=types)
+        captured = native_protocol_sources(
+            physical_sources=sources, linkml_types=types, target_metadata=target_metadata
+        )
     captured_map = _captured(captured)
     physical_sources = {
         source.name.removeprefix("native/projection-physical/"): source.content

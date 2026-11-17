@@ -5,8 +5,8 @@ from alembic.operations import ops
 from pydantic import ValidationError
 from sqlalchemy import BigInteger, Column, LargeBinary, Text
 
-from corpus_structure.schema.data_steps import DataStepRequest, order_data_steps, prepare_data_steps
 from corpus_structure.schema.data_step_programs import RETIRED_PARTS, predecessor_parts
+from corpus_structure.schema.data_steps import DataStepRequest, order_data_steps, prepare_data_steps
 from corpus_structure.semantic.alembic_privileges import OwnedOperationsOp
 from corpus_structure.semantic.native_objects import NativeAuthoring, NativeAuthoringError
 
@@ -42,7 +42,7 @@ def test_shared_stream_backfill_and_authenticated_n1_are_explicit_composable_own
     )
     assert [step.name for step in selected] == ["ddo_n1_relower", "pdf_s40_shared_streams"]
     assert selected[1].owner == "corpus_sem_publisher"
-    assert "LOCK TABLE ops.pdf_artifact_part" in selected[1].statements[0]
+    assert "LOCK ops.pdf_artifact_part" in selected[1].statements[0]
     assert "pdf_identity_fold_finish" in selected[1].statements[0]
     assert "TO_REGCLASS" not in selected[1].statements[0].upper()
     assert "IN EXECUTE" not in selected[1].statements[0].upper()
@@ -88,15 +88,24 @@ def test_retired_shapes_come_from_the_fixed_predecessor_inventory():
     assert tuple(relations) == RETIRED_PARTS
     for relation in relations.values():
         assert set(relation.c.keys()) == {
-            "product_id", "revision_id", "stream_id", "ordinal", "byte_offset",
-            "byte_length", "body", "sha256_digest",
+            "product_id",
+            "revision_id",
+            "stream_id",
+            "ordinal",
+            "byte_offset",
+            "byte_length",
+            "body",
+            "sha256_digest",
         }
         assert isinstance(relation.c.body.type, LargeBinary)
         assert isinstance(relation.c.byte_length.type, BigInteger)
         assert isinstance(relation.c.product_id.type, Text)
         assert all(not column.nullable for column in relation.c)
         assert {column.name for column in relation.primary_key} == {
-            "product_id", "revision_id", "stream_id", "ordinal",
+            "product_id",
+            "revision_id",
+            "stream_id",
+            "ordinal",
         }
 
 

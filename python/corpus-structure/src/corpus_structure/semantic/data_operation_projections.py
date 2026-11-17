@@ -2447,7 +2447,7 @@ def read_page(metadata):
     )
 
 
-def capture_projection_sources(*, physical_sources=None, linkml_types=None):
+def capture_projection_sources(*, physical_sources=None, linkml_types=None, target_metadata=None):
     """Acquire explicit physical bytes and the generated native products together."""
     from pathlib import Path
 
@@ -2471,7 +2471,13 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None):
                 "explicit Core projection inputs require physical closure and captured LinkML types"
             )
         types = linkml_types
-    metadata = compile_physical(sources, linkml_types=types)
+    metadata = target_metadata
+    if metadata is None:
+        metadata = compile_physical(sources, linkml_types=types)
+    elif sources != metadata.info.get("physical_sources") or types != metadata.info.get(
+        "physical_linkml_types"
+    ):
+        raise ValueError("Core projection metadata differs from captured physical inputs")
     branches = binding_branches(metadata)
     products = {
         "access_universes": compiled(read_access_universes(metadata)),

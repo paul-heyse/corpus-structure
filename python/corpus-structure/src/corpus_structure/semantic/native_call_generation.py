@@ -7,6 +7,7 @@ from dataclasses import asdict
 from hashlib import sha256
 
 from .identity import canonical_bytes
+from .native_call_contracts import NATIVE_FIELD_TYPES
 from .native_call_sources import _PRIMITIVES, _integer_bounds
 
 
@@ -198,16 +199,11 @@ def render_call_bindings(
         typ = field.resolved
         if field.native_type == "integer":
             return "Integer()"
-        expression = {
-            "integer": "BigInteger()",
-            "string": "Text()",
-            "boolean": "Boolean()",
-            "timestamp": "DateTime(timezone=True)",
-            "json_payload": "JSONB(none_as_null=True)" if field.nullable else "JSONB()",
-            "bytes": "BYTEA()",
-            "decimal": "Numeric()",
-            "float": "Float()",
-        }[typ.kind]
+        expression = (
+            "JSONB(none_as_null=True)"
+            if typ.kind == "json_payload" and field.nullable
+            else NATIVE_FIELD_TYPES[typ.kind][1]
+        )
         return "ARRAY(" + expression + ")" if typ.multivalued else expression
 
     def request_type(field):

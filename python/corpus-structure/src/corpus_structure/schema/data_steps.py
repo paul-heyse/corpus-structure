@@ -86,7 +86,11 @@ def _implementation_id(*sources: bytes) -> str:
     from corpus_structure.semantic import native_program
 
     digest = sha256()
-    for source in (Path(__file__).read_bytes(), Path(native_program.__file__).read_bytes(), *sources):
+    for source in (
+        Path(__file__).read_bytes(),
+        Path(native_program.__file__).read_bytes(),
+        *sources,
+    ):
         digest.update(sha256(source).digest())
     return digest.hexdigest()
 
@@ -162,10 +166,17 @@ def _n1() -> FrozenDataStep:
             "sem.runtime_binding",
             "ops.data_population",
         ),
-        prerequisite_relations=tuple(sorted((
-            definitions.fullname, finalized.fullname, population.fullname,
-            headers.fullname, runtimes.fullname,
-        ))),
+        prerequisite_relations=tuple(
+            sorted(
+                (
+                    definitions.fullname,
+                    finalized.fullname,
+                    population.fullname,
+                    headers.fullname,
+                    runtimes.fullname,
+                )
+            )
+        ),
         retired_relations=(),
     )
 

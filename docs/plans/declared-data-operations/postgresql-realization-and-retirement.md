@@ -350,3 +350,26 @@ but no wholesale upgrade or parser audit is scheduled.
 Acceptance for the lifespan engine: N tool calls in one session create one pool and one
 principal check and hit the release cache after the first; cancelling one call does not affect
 a sibling; a server restart re-authenticates.
+
+## Model-owned SQL authoring
+
+**Accepted target · 2026-11-17.** ADR-0131 extends I08 from structural cleanup to maintained
+PostgreSQL authoring. LinkML's captured imports and induced slots remain the physical authority,
+including finite value-set populations resolved at capture. See the
+[LinkML](../../libraries/data_model/linkml.md) and [Valuesets](../../libraries/data_model/valuesets.md)
+guides. Typed Python expresses native behavior over the compiled Core tables and resolved calls.
+Core and pglast generate statements. PostgreSQL binds types and privileges and checks concrete
+procedural and scratch contexts. The native candidate workflow freezes the exact generated
+effects through Alembic. No runtime vocabulary query or additional model is introduced.
+
+The first increment generates frozen PDF preparation from the exact call binding, reuses scratch
+specifications for runtime and authoring, compiles maintenance steps from typed programs, and
+generates shared reader and validity statements. S40 reads the predecessor's retained descriptor
+before producing typed migration statements. Search vector input and configuration are model
+references. The coordinator owns stage results and remaining work.
+
+Continue by owner through the remaining DDO kernels, PDF adoption and publication, selected and
+public reads, scientific routines, and bootstrap and maintenance entry points. Remove their
+superseded SQL sources and fallback paths with their callers. Preserve frozen migrations,
+independent test controls and explicitly submitted read-only SQL. N3 native qualification,
+remaining owner conversion, and the final DDO-12 union are separate completion boundaries.

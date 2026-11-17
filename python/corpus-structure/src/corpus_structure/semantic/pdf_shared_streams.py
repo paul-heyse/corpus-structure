@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 from pglast import ast, enums
 from pglast.stream import RawStream
-
 from sqlalchemy import CheckConstraint, Column, MetaData, Table
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import CreateTable
@@ -59,9 +58,7 @@ class PdfScratchSpec:
         template = (
             ast.RangeVar(schemaname="pg_temp", relname="pdf_part_wire_contract", inh=True)
             if self.source.name == "pdf_stage_artifact_part"
-            else ast.RangeVar(
-                schemaname=self.source.schema, relname=self.source.name, inh=True
-            )
+            else ast.RangeVar(schemaname=self.source.schema, relname=self.source.name, inh=True)
         )
         return ast.CreateStmt(
             relation=ast.RangeVar(relname=self.name, relpersistence="t", inh=True),
@@ -164,7 +161,9 @@ def pdf_scratch_prepare(spec: PdfScratchSpec) -> tuple[Statement, ...]:
                     targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
                     objtype=enums.ObjectType.OBJECT_TABLE,
                     objects=(spec.relation(),),
-                    privileges=tuple(ast.AccessPriv(priv_name=name) for name in ("select", "insert")),
+                    privileges=tuple(
+                        ast.AccessPriv(priv_name=name) for name in ("select", "insert")
+                    ),
                     grantees=(
                         ast.RoleSpec(
                             roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
@@ -179,18 +178,12 @@ def pdf_scratch_prepare(spec: PdfScratchSpec) -> tuple[Statement, ...]:
 
 
 def shared_streams_sql(metadata) -> str:
-    upload = artifact_part_upload_table(metadata)
-    pg = dialect()
-    columns = ",".join(
-        f"{pg.identifier_preparer.quote(column.name)} {column.type.compile(dialect=pg)}"
-        for column in upload.columns
-    )
+    from .pdf_shared_stream_queries import shared_stream_queries_sql
+
     return (
-        Path(__file__)
-        .with_name("sql")
-        .joinpath("pdf_shared_streams.sql")
-        .read_text()
-        .replace("__PART_COLUMNS__", columns)
+        shared_stream_queries_sql(metadata)
+        + "\n"
+        + Path(__file__).with_name("sql").joinpath("pdf_shared_streams.sql").read_text()
     )
 
 
@@ -216,13 +209,25 @@ def part_upload_contract_table(model: MetaData | None = None) -> Table:
 def part_wire_contract_sql(metadata) -> str:
     """Protect the same declared temporary contract used by native authoring."""
     from .native_program import (
-        Assign, Block, If, Local, Perform, Raise, Return, Sql,
-        call, function, literal, pg_type, variable,
+        Assign,
+        Block,
+        If,
+        Local,
+        Perform,
+        Raise,
+        Return,
+        Sql,
+        call,
+        function,
+        literal,
+        pg_type,
+        variable,
     )
 
     upload = artifact_part_upload_table(metadata)
     contract = part_upload_contract_table(metadata)
     spec = PdfScratchSpec(PdfScratchPurpose.PART_CONTRACT, contract, contract.name)
+
     # Compare the server-normalized columns as well as owner/constraints. This
     # contract is publisher-owned, ungranted, and cannot survive this transaction.
     def text_row(values: Iterable[ast.Node]) -> ast.TypeCast:
@@ -231,65 +236,118 @@ def part_wire_contract_sql(metadata) -> str:
             typeName=pg_type("text"),
         )
 
-    expected = ast.A_ArrayExpr(elements=tuple(
-        text_row((
-            literal(index), literal(column.name),
-            ast.TypeCast(
-                arg=ast.TypeCast(
-                    arg=literal(column.type.compile(dialect=dialect())),
-                    typeName=pg_type("regtype"),
-                ),
-                typeName=pg_type("oid"),
-            ),
-            literal(-1), literal(not column.nullable), literal(""), literal(""),
-        ))
-        for index, column in enumerate(upload.columns, 1)
-    ))
+    expected = ast.A_ArrayExpr(
+        elements=tuple(
+            text_row(
+                (
+                    literal(index),
+                    literal(column.name),
+                    ast.TypeCast(
+                        arg=ast.TypeCast(
+                            arg=literal(column.type.compile(dialect=dialect())),
+                            typeName=pg_type("regtype"),
+                        ),
+                        typeName=pg_type("oid"),
+                    ),
+                    literal(-1),
+                    literal(not column.nullable),
+                    literal(""),
+                    literal(""),
+                )
+            )
+            for index, column in enumerate(upload.columns, 1)
+        )
+    )
     actual = ast.SubLink(
         subLinkType=enums.SubLinkType.ARRAY_SUBLINK,
         subselect=ast.SelectStmt(
-            targetList=(ast.ResTarget(val=text_row(variable(name) for name in (
-                "attnum", "attname", "atttypid", "atttypmod", "attnotnull",
-                "attgenerated", "attidentity",
-            ))),),
+            targetList=(
+                ast.ResTarget(
+                    val=text_row(
+                        variable(name)
+                        for name in (
+                            "attnum",
+                            "attname",
+                            "atttypid",
+                            "atttypmod",
+                            "attnotnull",
+                            "attgenerated",
+                            "attidentity",
+                        )
+                    )
+                ),
+            ),
             fromClause=(ast.RangeVar(schemaname="pg_catalog", relname="pg_attribute", inh=True),),
             whereClause=ast.BoolExpr(
                 boolop=enums.BoolExprType.AND_EXPR,
                 args=(
                     ast.A_Expr(
-                        kind=enums.A_Expr_Kind.AEXPR_OP, name=(ast.String(sval="="),),
-                        lexpr=variable("attrelid"), rexpr=variable("contract"),
+                        kind=enums.A_Expr_Kind.AEXPR_OP,
+                        name=(ast.String(sval="="),),
+                        lexpr=variable("attrelid"),
+                        rexpr=variable("contract"),
                     ),
                     ast.A_Expr(
-                        kind=enums.A_Expr_Kind.AEXPR_OP, name=(ast.String(sval=">"),),
-                        lexpr=variable("attnum"), rexpr=literal(0),
+                        kind=enums.A_Expr_Kind.AEXPR_OP,
+                        name=(ast.String(sval=">"),),
+                        lexpr=variable("attnum"),
+                        rexpr=literal(0),
                     ),
-                    ast.BoolExpr(boolop=enums.BoolExprType.NOT_EXPR, args=(variable("attisdropped"),)),
+                    ast.BoolExpr(
+                        boolop=enums.BoolExprType.NOT_EXPR, args=(variable("attisdropped"),)
+                    ),
                 ),
             ),
-            sortClause=(ast.SortBy(
-                node=variable("attnum"), sortby_dir=enums.SortByDir.SORTBY_DEFAULT,
-                sortby_nulls=enums.SortByNulls.SORTBY_NULLS_DEFAULT,
-            ),),
+            sortClause=(
+                ast.SortBy(
+                    node=variable("attnum"),
+                    sortby_dir=enums.SortByDir.SORTBY_DEFAULT,
+                    sortby_nulls=enums.SortByNulls.SORTBY_NULLS_DEFAULT,
+                ),
+            ),
         ),
     )
     definition = function(
-        "ops", "pdf_part_upload_contract", parameters=(), returns=pg_type("regclass"),
-        security_definer=True, search_path=("pg_catalog", "pg_temp"),
+        "ops",
+        "pdf_part_upload_contract",
+        parameters=(),
+        returns=pg_type("regclass"),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
         body=Block(
-            locals=(Local("contract", pg_type("regclass"),
-                          call("pg_catalog", "to_regclass", literal(spec.qualified_name))),),
+            locals=(
+                Local(
+                    "contract",
+                    pg_type("regclass"),
+                    call("pg_catalog", "to_regclass", literal(spec.qualified_name)),
+                ),
+            ),
             statements=(
                 If(
                     ast.NullTest(arg=variable("contract"), nulltesttype=enums.NullTestType.IS_NULL),
-                    (Sql(spec.create_statement()), Assign("contract", ast.TypeCast(
-                        arg=literal(spec.qualified_name), typeName=pg_type("regclass"),
-                    ))),
+                    (
+                        Sql(spec.create_statement()),
+                        Assign(
+                            "contract",
+                            ast.TypeCast(
+                                arg=literal(spec.qualified_name),
+                                typeName=pg_type("regclass"),
+                            ),
+                        ),
+                    ),
                 ),
-                Perform(call("ops", "require_pdf_stage_scratch", literal(spec.name), variable("contract"))),
+                Perform(
+                    call(
+                        "ops", "require_pdf_stage_scratch", literal(spec.name), variable("contract")
+                    )
+                ),
                 If(
-                    ast.A_Expr(kind=enums.A_Expr_Kind.AEXPR_DISTINCT,
-                               name=(ast.String(sval="="),), lexpr=actual, rexpr=expected),
+                    ast.A_Expr(
+                        kind=enums.A_Expr_Kind.AEXPR_DISTINCT,
+                        name=(ast.String(sval="="),),
+                        lexpr=actual,
+                        rexpr=expected,
+                    ),
                     (Raise("PDF upload part contract has stale columns", "23514"),),
                 ),
                 Return(variable("contract")),
@@ -297,11 +355,15 @@ def part_wire_contract_sql(metadata) -> str:
         ),
     )
     revoke = ast.GrantStmt(
-        is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+        is_grant=False,
+        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
         objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(ast.ObjectWithArgs(objname=(ast.String(sval="ops"),
-                                            ast.String(sval="pdf_part_upload_contract")),
-                                    args_unspecified=False),),
+        objects=(
+            ast.ObjectWithArgs(
+                objname=(ast.String(sval="ops"), ast.String(sval="pdf_part_upload_contract")),
+                args_unspecified=False,
+            ),
+        ),
         grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
         behavior=enums.DropBehavior.DROP_RESTRICT,
     )

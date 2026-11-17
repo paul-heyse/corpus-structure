@@ -1781,7 +1781,8 @@ classes:
         range: search_vector_value
         required: true
         annotations:
-          ph:computed: "to_tsvector('english'::regconfig, text)"
+          ph:search_vector_source: text
+          ph:search_configuration: english
     unique_keys:
       primary_key: {unique_key_slots: [population_id, section_pointer, membership]}
     annotations:

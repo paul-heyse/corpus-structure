@@ -145,7 +145,7 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
             stage_native_sql(
                 target_metadata=installation.metadata, pdf_sources=installation.pdf_sources
             ),
-            publication_sql(target_metadata=installation.metadata),
+            publication_sql(target_metadata=installation.metadata, pdf_domain=context.domain),
             pdf_record_logical_identity_sql(),
             sql.joinpath("pdf_record_proof_reader.sql").read_text(),
             sql.joinpath("pdf_record_access_correspondence.sql").read_text(),
@@ -463,9 +463,10 @@ def target_authoring_scratch(connection, installation: TargetInstallation):
     savepoint = connection.begin_nested()
     try:
         for spec in pdf_scratch_specs(installation.metadata):
-            if connection.scalar(
-                text("SELECT to_regclass(:name)"), {"name": spec.qualified_name}
-            ) is not None:
+            if (
+                connection.scalar(text("SELECT to_regclass(:name)"), {"name": spec.qualified_name})
+                is not None
+            ):
                 raise NativeAuthoringError(
                     "target static authoring requires unused scratch context: " + spec.name
                 )

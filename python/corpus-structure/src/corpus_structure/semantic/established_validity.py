@@ -214,7 +214,9 @@ def product_validation_native_sql(*, target_metadata=None):
         func.data.ddo_json(func.data.ddo_field(body, "source")).is_distinct_from(source),
         func.data.ddo_json(func.data.ddo_field(body, "selectors")).is_distinct_from(selectors),
         expected["original_source"].astext.is_distinct_from(source["document"].astext),
-        expected["analyzed_scope"].is_distinct_from(context(dict(source=source, selectors=selectors))),
+        expected["analyzed_scope"].is_distinct_from(
+            context(dict(source=source, selectors=selectors))
+        ),
     )
     proofs = json_array(validations(completion), "validation")
     guard_parameters = (
@@ -230,21 +232,45 @@ def product_validation_native_sql(*, target_metadata=None):
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),
         body=Block(
-            locals=tuple(Local(name, pg_type("jsonb")) for name in ("proof", "output", "body", "expected_context")),
+            locals=tuple(
+                Local(name, pg_type("jsonb"))
+                for name in ("proof", "output", "body", "expected_context")
+            ),
             statements=(
                 Assign("expected_context", context_value),
                 ForQuery(
                     ("proof",),
                     select(proofs.c.value),
                     (
-                        If(invalid_proof, (Raise("product validation lacks its actual admitted validator/context", "23514"),)),
+                        If(
+                            invalid_proof,
+                            (
+                                Raise(
+                                    "product validation lacks its actual admitted validator/context",
+                                    "23514",
+                                ),
+                            ),
+                        ),
                         If(
                             func.jsonb_array_length(completion["outputs"]) != 1,
-                            (Raise("product validation requires its exact single whole result", "23514"),),
+                            (
+                                Raise(
+                                    "product validation requires its exact single whole result",
+                                    "23514",
+                                ),
+                            ),
                         ),
                         Assign("output", completion["outputs"][0]),
                         Assign("body", func.data.ddo_normalize(output["product"]["body"])),
-                        If(mismatched_result, (Raise("product validation differs from its exact canonical result/source/scope", "23514"),)),
+                        If(
+                            mismatched_result,
+                            (
+                                Raise(
+                                    "product validation differs from its exact canonical result/source/scope",
+                                    "23514",
+                                ),
+                            ),
+                        ),
                     ),
                 ),
             ),
@@ -276,7 +302,16 @@ def product_validation_native_sql(*, target_metadata=None):
             value["body_id"].astext == product.c.body_digest,
             cast(value["subject_context_json"].astext, jsonb)
             == context(
-                {name: product.c[name] for name in ("project_id", "subject", "subject_definition", "original_source", "analyzed_scope")}
+                {
+                    name: product.c[name]
+                    for name in (
+                        "project_id",
+                        "subject",
+                        "subject_definition",
+                        "original_source",
+                        "analyzed_scope",
+                    )
+                }
             ),
         )
         .limit(1)
@@ -302,19 +337,26 @@ def product_validation_native_sql(*, target_metadata=None):
                 is_grant=False,
                 targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
                 objtype=enums.ObjectType.OBJECT_FUNCTION,
-                objects=(ast.ObjectWithArgs(
-                    objname=(ast.String(sval="ops"), ast.String(sval=name)),
-                    objargs=tuple(parameter.type_ for parameter in parameters),
-                    args_unspecified=False,
-                ),),
+                objects=(
+                    ast.ObjectWithArgs(
+                        objname=(ast.String(sval="ops"), ast.String(sval=name)),
+                        objargs=tuple(parameter.type_ for parameter in parameters),
+                        args_unspecified=False,
+                    ),
+                ),
                 grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
                 behavior=enums.DropBehavior.DROP_RESTRICT,
             )
         )
 
-    return ";\n".join((
-        guard,
-        revoke("ddo_require_product_validations", guard_parameters),
-        reader,
-        revoke("ddo_product_validation", reader_parameters),
-    )) + ";\n"
+    return (
+        ";\n".join(
+            (
+                guard,
+                revoke("ddo_require_product_validations", guard_parameters),
+                reader,
+                revoke("ddo_product_validation", reader_parameters),
+            )
+        )
+        + ";\n"
+    )

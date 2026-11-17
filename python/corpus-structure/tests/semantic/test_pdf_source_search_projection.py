@@ -32,7 +32,10 @@ def test_search_projection_has_private_immutable_stored_vector_and_gin_index():
         "membership",
     )
     ddl = str(CreateTable(section).compile(dialect=postgresql.dialect()))
-    assert "TSVECTOR GENERATED ALWAYS AS (to_tsvector('english'::regconfig, text)) STORED" in ddl
+    assert (
+        "TSVECTOR GENERATED ALWAYS AS (to_tsvector(CAST('english' AS REGCONFIG), text)) STORED"
+        in ddl
+    )
     assert any(
         "USING gin (search_vector)" in str(CreateIndex(index).compile(dialect=postgresql.dialect()))
         for index in section.indexes

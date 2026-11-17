@@ -4,8 +4,23 @@ from __future__ import annotations
 
 from pglast import ast, enums, parse_sql
 from pglast.stream import RawStream
-from sqlalchemy import ARRAY, Boolean, MetaData, Table, Text
-from sqlalchemy import and_, any_, cast, exists, func, not_, null, or_, select, union_all
+from sqlalchemy import (
+    ARRAY,
+    Boolean,
+    MetaData,
+    Table,
+    Text,
+    and_,
+    any_,
+    cast,
+    exists,
+    func,
+    not_,
+    null,
+    or_,
+    select,
+    union_all,
+)
 from sqlalchemy.dialects.postgresql import dialect
 
 from .native_program import Parameter, core_variable, literal, pg_type, sql_function
@@ -15,11 +30,13 @@ from .pdf_record_model import artifact_part_upload_table
 def _column_type(column) -> ast.TypeName:
     # Let Core compile any model-selected PostgreSQL type, then retain the
     # parser's TypeName rather than guessing aliases, case, arrays or typmods.
-    projection = parse_sql(str(select(cast(null(), column.type)).compile(dialect=dialect())))[0].stmt
-    if not isinstance(projection, ast.SelectStmt):
+    projection = parse_sql(str(select(cast(null(), column.type)).compile(dialect=dialect())))[
+        0
+    ].stmt
+    if not isinstance(projection, ast.SelectStmt) or not projection.targetList:
         raise ValueError("wire output type requires one typed projection")
     value = projection.targetList[0].val
-    if not isinstance(value, ast.TypeCast):
+    if not isinstance(value, ast.TypeCast) or value.typeName is None:
         raise ValueError("wire output type requires a model-selected cast")
     return value.typeName
 
@@ -36,9 +53,12 @@ def _query_function(
 ) -> str:
     """Decorate the shared routine compiler with SQL TABLE/default/strict nodes."""
     declaration = sql_function(
-        "ops", name, parameters=parameters,
+        "ops",
+        name,
+        parameters=parameters,
         returns=pg_type("record") if isinstance(returns, Table) else returns,
-        body=query, volatility="stable",
+        body=query,
+        volatility="stable",
         search_path=("pg_catalog", "pg_temp") if search_path else (),
     )
     statement = parse_sql(declaration)[0].stmt
@@ -50,6 +70,8 @@ def _query_function(
         if parameter.name in default_values:
             parameter.defexpr = default_values[parameter.name]
     if isinstance(returns, Table):
+        if statement.returnType is None:
+            raise ValueError("shared-stream reader requires its declared result type")
         outputs = tuple(
             ast.FunctionParameter(
                 name=column.name,
@@ -61,18 +83,24 @@ def _query_function(
         statement.parameters = (*inputs, *outputs)
         statement.returnType.setof = True
     if strict:
-        statement.options = (*statement.options, ast.DefElem(
-            defname="strict", arg=ast.Boolean(boolval=True),
-        ))
+        statement.options = (
+            *(statement.options or ()),
+            ast.DefElem(
+                defname="strict",
+                arg=ast.Boolean(boolval=True),
+            ),
+        )
     revoke = ast.GrantStmt(
         is_grant=False,
         targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
         objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(ast.ObjectWithArgs(
-            objname=(ast.String(sval="ops"), ast.String(sval=name)),
-            objargs=tuple(parameter.type_ for parameter in parameters),
-            args_unspecified=False,
-        ),),
+        objects=(
+            ast.ObjectWithArgs(
+                objname=(ast.String(sval="ops"), ast.String(sval=name)),
+                objargs=tuple(parameter.type_ for parameter in parameters),
+                args_unspecified=False,
+            ),
+        ),
         grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
         grant_option=False,
         behavior=enums.DropBehavior.DROP_RESTRICT,
@@ -99,12 +127,17 @@ def shared_stream_queries_sql(model: MetaData) -> str:
     project = func.ops.pdf_stream_project(p_build)
 
     project_reader = _query_function(
-        "pdf_stream_project", (Parameter("p_build", pg_type("text")),),
-        select(request.c.project_id).select_from(
-            build.join(job, job.c.id == build.c.task_id)
-            .join(request, request.c.id == job.c.data_request_id)
-        ).where(build.c.build_id == p_build),
-        returns=pg_type("text"), strict=True,
+        "pdf_stream_project",
+        (Parameter("p_build", pg_type("text")),),
+        select(request.c.project_id)
+        .select_from(
+            build.join(job, job.c.id == build.c.task_id).join(
+                request, request.c.id == job.c.data_request_id
+            )
+        )
+        .where(build.c.build_id == p_build),
+        returns=pg_type("text"),
+        strict=True,
     )
 
     p_product = core_variable("p_product", stage.c.product_id.type)
@@ -112,17 +145,22 @@ def shared_stream_queries_sql(model: MetaData) -> str:
     p_stage = core_variable("p_stage", Boolean())
     p_streams = core_variable("p_streams", ARRAY(Text()))
     descriptors = union_all(
-        select(stage).where(p_stage, stage.c.product_id == p_product, stage.c.revision_id == p_revision),
-        select(final).where(not_(p_stage), final.c.product_id == p_product, final.c.revision_id == p_revision),
+        select(stage).where(
+            p_stage, stage.c.product_id == p_product, stage.c.revision_id == p_revision
+        ),
+        select(final).where(
+            not_(p_stage), final.c.product_id == p_product, final.c.revision_id == p_revision
+        ),
     ).cte("descriptors")
     stream_project = func.ops.pdf_stream_project(p_product)
     selected = {
         "product_id": descriptors.c.product_id,
         "revision_id": descriptors.c.revision_id,
         "stream_id": descriptors.c.stream_id,
-        **{name: parts.c[name] for name in (
-            "ordinal", "byte_offset", "byte_length", "body", "sha256_digest"
-        )},
+        **{
+            name: parts.c[name]
+            for name in ("ordinal", "byte_offset", "byte_length", "body", "sha256_digest")
+        },
     }
     upload = artifact_part_upload_table(model)
     text_array = pg_type("text")
@@ -130,38 +168,58 @@ def shared_stream_queries_sql(model: MetaData) -> str:
     part_reader = _query_function(
         "pdf_artifact_parts",
         (
-            Parameter("p_product", pg_type("text")), Parameter("p_revision", pg_type("text")),
-            Parameter("p_stage", pg_type("boolean")), Parameter("p_streams", text_array),
+            Parameter("p_product", pg_type("text")),
+            Parameter("p_revision", pg_type("text")),
+            Parameter("p_stage", pg_type("boolean")),
+            Parameter("p_streams", text_array),
         ),
-        select(*(selected[column.name] for column in upload.columns)).select_from(
-            descriptors.join(parts, and_(
-                parts.c.project_id == stream_project,
-                parts.c.encoding_profile == descriptors.c.encoding_profile,
-                parts.c.stream_length == descriptors.c.byte_length,
-                parts.c.byte_root == descriptors.c.byte_root,
-            ))
-        ).where(or_(p_streams.is_(None), descriptors.c.stream_id == any_(p_streams))),
-        returns=upload, defaults=(("p_stage", literal(False)), ("p_streams", literal(None))),
+        select(*(selected[column.name] for column in upload.columns))
+        .select_from(
+            descriptors.join(
+                parts,
+                and_(
+                    parts.c.project_id == stream_project,
+                    parts.c.encoding_profile == descriptors.c.encoding_profile,
+                    parts.c.stream_length == descriptors.c.byte_length,
+                    parts.c.byte_root == descriptors.c.byte_root,
+                ),
+            )
+        )
+        .where(or_(p_streams.is_(None), descriptors.c.stream_id == any_(p_streams))),
+        returns=upload,
+        defaults=(("p_stage", literal(False)), ("p_streams", literal(None))),
         search_path=False,
     )
 
     p_profile = core_variable("p_profile", content.c.encoding_profile.type)
     p_length = core_variable("p_length", content.c.byte_length.type)
     p_root = core_variable("p_root", content.c.byte_root.type)
-    verified_join = and_(*(
-        verified.c[name] == content.c[name]
-        for name in ("project_id", "encoding_profile", "byte_length", "byte_root")
-    ))
+    verified_join = and_(
+        *(
+            verified.c[name] == content.c[name]
+            for name in ("project_id", "encoding_profile", "byte_length", "byte_root")
+        )
+    )
     ready_reader = _query_function(
         "pdf_shared_stream_ready",
         (
-            Parameter("p_build", pg_type("text")), Parameter("p_profile", pg_type("text")),
-            Parameter("p_length", pg_type("bigint")), Parameter("p_root", pg_type("text")),
+            Parameter("p_build", pg_type("text")),
+            Parameter("p_profile", pg_type("text")),
+            Parameter("p_length", pg_type("bigint")),
+            Parameter("p_root", pg_type("text")),
         ),
-        select(exists(select(1).select_from(content.join(verified, verified_join)).where(
-            content.c.project_id == project, content.c.encoding_profile == p_profile,
-            content.c.byte_length == p_length, content.c.byte_root == p_root,
-        ))),
+        select(
+            exists(
+                select(1)
+                .select_from(content.join(verified, verified_join))
+                .where(
+                    content.c.project_id == project,
+                    content.c.encoding_profile == p_profile,
+                    content.c.byte_length == p_length,
+                    content.c.byte_root == p_root,
+                )
+            )
+        ),
         returns=pg_type("boolean"),
     )
 
@@ -171,16 +229,30 @@ def shared_stream_queries_sql(model: MetaData) -> str:
     owner_reader = _query_function(
         "pdf_pending_stream_owner_dead",
         (Parameter("content", pg_type("ops", "pdf_shared_stream")),),
-        select(not_(exists(select(1).select_from(
-            build.join(job, job.c.id == build.c.task_id)
-            .join(request, request.c.id == job.c.data_request_id)
-        ).where(
-            build.c.build_id == owner_build, build.c.state == "open",
-            build.c.attempt == owner_attempt, build.c.holder == owner_holder,
-            job.c.attempt == owner_attempt, job.c.claimed_by == owner_holder,
-            job.c.status == "running", job.c.lease_until > func.pg_catalog.clock_timestamp(),
-            request.c.live_task_id == job.c.id, request.c.generation == job.c.data_generation,
-        )))),
+        select(
+            not_(
+                exists(
+                    select(1)
+                    .select_from(
+                        build.join(job, job.c.id == build.c.task_id).join(
+                            request, request.c.id == job.c.data_request_id
+                        )
+                    )
+                    .where(
+                        build.c.build_id == owner_build,
+                        build.c.state == "open",
+                        build.c.attempt == owner_attempt,
+                        build.c.holder == owner_holder,
+                        job.c.attempt == owner_attempt,
+                        job.c.claimed_by == owner_holder,
+                        job.c.status == "running",
+                        job.c.lease_until > func.pg_catalog.clock_timestamp(),
+                        request.c.live_task_id == job.c.id,
+                        request.c.generation == job.c.data_generation,
+                    )
+                )
+            )
+        ),
         returns=pg_type("boolean"),
     )
     return project_reader + part_reader + ready_reader + owner_reader

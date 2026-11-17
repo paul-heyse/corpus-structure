@@ -37,8 +37,11 @@ def test_frozen_region_copy_tracks_quoted_columns_and_new_model_fields():
     )
     statement = parse_sql(sql)[0].stmt
     assert isinstance(statement, ast.InsertStmt)
+    assert statement.cols is not None
     assert [column.name for column in statement.cols] == [column.name for column in target.columns]
+    assert isinstance(statement.selectStmt, ast.SelectStmt)
     projection = statement.selectStmt.targetList
+    assert projection is not None
     assert all(isinstance(item.val, ast.ColumnRef) for item in projection)
     assert [item.val.fields[-1].sval for item in projection] == [
         source.c[column.key].name for column in target.columns

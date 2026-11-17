@@ -272,41 +272,73 @@ REVOKE ALL ON FUNCTION ops.require_pdf_stage_scratch(text,regclass) FROM PUBLIC;
     )
     selected = metadata if target_metadata is None else target_metadata
     from .native_program import (
-        Assign, Block, Local, Parameter, Perform, call, function, literal, pg_type, variable,
+        Assign,
+        Block,
+        Local,
+        Parameter,
+        Perform,
+        call,
+        function,
+        literal,
+        pg_type,
+        variable,
     )
     from .pdf_shared_streams import (
-        part_template, part_wire_contract_sql, pdf_scratch_prepare,
-        pdf_stage_scratch_specs, shared_streams_sql,
+        part_template,
+        part_wire_contract_sql,
+        pdf_scratch_prepare,
+        pdf_stage_scratch_specs,
+        shared_streams_sql,
     )
 
     sql += part_wire_contract_sql(selected) + shared_streams_sql(selected)
     specs = pdf_stage_scratch_specs(selected)
     relations = [spec.source for spec in specs]
     pg = dialect()
-    sql += function(
-        "ops", "prepare_pdf_stage",
-        parameters=tuple(
-            Parameter(name, pg_type(kind))
-            for name, kind in (
-                ("p_build", "text"), ("p_task", "bigint"),
-                ("p_attempt", "bigint"), ("p_holder", "text"),
-            )
-        ),
-        returns=pg_type("void"),
-        security_definer=True,
-        search_path=("pg_catalog", "pg_temp"),
-        body=Block(
-            locals=(Local("build", selected.tables["ops.pdf_stage_build"]),),
-            statements=(
-                Assign("build", call("ops", "require_pdf_build", *(
-                    variable(name) for name in ("p_build", "p_task", "p_attempt", "p_holder")
-                ))),
-                Perform(call("ops", "require_pdf_operation", variable("build", "release_id"),
-                             literal("adopt_pdf_batch"))),
-                *(statement for spec in specs for statement in pdf_scratch_prepare(spec)),
+    sql += (
+        function(
+            "ops",
+            "prepare_pdf_stage",
+            parameters=tuple(
+                Parameter(name, pg_type(kind))
+                for name, kind in (
+                    ("p_build", "text"),
+                    ("p_task", "bigint"),
+                    ("p_attempt", "bigint"),
+                    ("p_holder", "text"),
+                )
             ),
-        ),
-    ) + ";\n"
+            returns=pg_type("void"),
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+            body=Block(
+                locals=(Local("build", selected.tables["ops.pdf_stage_build"]),),
+                statements=(
+                    Assign(
+                        "build",
+                        call(
+                            "ops",
+                            "require_pdf_build",
+                            *(
+                                variable(name)
+                                for name in ("p_build", "p_task", "p_attempt", "p_holder")
+                            ),
+                        ),
+                    ),
+                    Perform(
+                        call(
+                            "ops",
+                            "require_pdf_operation",
+                            variable("build", "release_id"),
+                            literal("adopt_pdf_batch"),
+                        )
+                    ),
+                    *(statement for spec in specs for statement in pdf_scratch_prepare(spec)),
+                ),
+            ),
+        )
+        + ";\n"
+    )
     sql += """
 CREATE OR REPLACE FUNCTION ops.adopt_pdf_batch(p_build text,p_task bigint,p_attempt bigint,
  p_holder text,p_key text)

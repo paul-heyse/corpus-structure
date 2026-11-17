@@ -581,19 +581,30 @@ def _companion_adoption_sql(context, metadata) -> str:
     from .pdf_payload_validation import metadata_classes
     from .pdf_payloads import FAMILY, PROFILE
     from .pdf_shared_streams import (
-        part_template, pdf_companion_scratch_specs, pdf_scratch_prepare,
+        part_template,
+        pdf_companion_scratch_specs,
+        pdf_scratch_prepare,
     )
     from .pdf_staging_native import native_payload_size_sql
 
     specs = pdf_companion_scratch_specs(metadata)
     relations = [spec.source for spec in specs]
-    sql = function(
-        "ops", "prepare_pdf_companions", parameters=(), returns=pg_type("void"),
-        security_definer=True, search_path=("pg_catalog", "pg_temp"),
-        body=Block(statements=tuple(
-            statement for spec in specs for statement in pdf_scratch_prepare(spec)
-        )),
-    ) + ";\n"
+    sql = (
+        function(
+            "ops",
+            "prepare_pdf_companions",
+            parameters=(),
+            returns=pg_type("void"),
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+            body=Block(
+                statements=tuple(
+                    statement for spec in specs for statement in pdf_scratch_prepare(spec)
+                )
+            ),
+        )
+        + ";\n"
+    )
     sql += """
 CREATE OR REPLACE FUNCTION ops.adopt_pdf_companions(p_build text,p_task bigint,p_attempt bigint,
  p_holder text,p_key text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER

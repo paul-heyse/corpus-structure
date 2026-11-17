@@ -31,8 +31,12 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    cast,
+    func,
+    literal,
     text,
 )
+from sqlalchemy import column as sql_column
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
     BYTEA,
@@ -40,6 +44,7 @@ from sqlalchemy.dialects.postgresql import (
     JSONB,
     NUMRANGE,
     REAL,
+    REGCONFIG,
     TIMESTAMP,
     TSVECTOR,
 )
@@ -148,7 +153,8 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
         if len(subsets) != 1 or subsets[0] not in {"sem", "data", "ops", "kb", "eval"}:
             raise ModelError([f"{name}: physical table needs exactly one trusted physical subset"])
         columns = []
-        for slot in view.class_induced_slots(name):
+        slots = {str(slot.name): slot for slot in view.class_induced_slots(name)}
+        for slot in slots.values():
             rng = str(slot.range or "string")
             declared = view.get_type(rng)
             sql_type = ci_annotations(declared).get("ph:sql_type")
@@ -169,8 +175,33 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                 raise ModelError([f"{name}.{slot.name}: unsupported physical range {rng}"])
             if slot.multivalued:
                 typ = ARRAY(typ)
-            default = ci_annotations(slot).get("ph:default")
-            computed = ci_annotations(slot).get("ph:computed")
+            annotations = ci_annotations(slot)
+            default = annotations.get("ph:default")
+            computed = annotations.get("ph:computed")
+            search_source = annotations.get("ph:search_vector_source")
+            configuration = annotations.get("ph:search_configuration")
+            if search_source is not None or configuration is not None:
+                location = f"{name}.{slot.name}"
+                if (
+                    not isinstance(search_source, str)
+                    or search_source not in slots
+                    or not isinstance(configuration, str)
+                    or not configuration
+                    or default is not None
+                    or computed is not None
+                    or annotations.get("ph:identity") is not None
+                    or not isinstance(typ, TSVECTOR)
+                ):
+                    raise ModelError([f"{location}: invalid generated search-vector declaration"])
+                source = slots[search_source]
+                if source.range != "string" or source.multivalued:
+                    raise ModelError(
+                        [f"{location}: generated search-vector source must be scalar text"]
+                    )
+                computed = func.to_tsvector(
+                    cast(literal(configuration, Text()), REGCONFIG()),
+                    sql_column(search_source, Text()),
+                )
             columns.append(
                 Column[Any](
                     str(slot.name),

@@ -80,7 +80,9 @@ def capture_native_authoring_inputs(
     types = selected.info.get("physical_linkml_types")
     if not physical or not isinstance(types, bytes):
         raise ValueError("native authoring requires captured physical sources and LinkML types")
-    native = native_protocol_sources(physical_sources=physical, linkml_types=types)
+    native = native_protocol_sources(
+        physical_sources=physical, linkml_types=types, target_metadata=selected
+    )
     declarations = native_operation_declarations(native)
     calls = native_operation_calls(sources=native)
     if pdf_actions is not None and pdf_sources is not None:
@@ -115,6 +117,8 @@ def capture_native_authoring_inputs(
                 "native_objects.py",
                 "native_catalog.py",
                 "native_sql_body.py",
+                "native_program.py",
+                "native_call_contracts.py",
                 "data_operation_compilation.py",
                 "data_operation_model.py",
                 "data_operation_identity.py",
