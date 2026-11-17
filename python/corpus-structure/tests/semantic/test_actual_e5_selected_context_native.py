@@ -4,6 +4,7 @@ PDF conversion and finite primary rows are controlled inputs. The qualification
 covers E5/source context/native publication and retrieval, not parser accuracy.
 """
 
+import json
 import math
 import struct
 from dataclasses import asdict, replace
@@ -19,8 +20,11 @@ from corpus_structure.semantic.composed import (
 )
 from corpus_structure.semantic.contextual_registry import RegistryTarget
 from corpus_structure.semantic.data_operation_json import json_loads
-from corpus_structure.semantic.data_operation_service import DemandOperationSelection
-from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+from corpus_structure.semantic.data_operation_service import (
+    DemandDiscoverySelection,
+    DemandOperationSelection,
+)
+from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, source_sets_record
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
@@ -38,16 +42,22 @@ from semantic.current_pdf_source_support import (
     _current_pdf_source,
     _section_stream,
     admit_current_target,
+    current_consumer_request,
     selected_current_sources,
+    source_entry,
 )
 from semantic.selected_context_native_fixture import OPERATION, operation_sources, schema
-from semantic.structural_admission_native_support import Product, execute, request, selected
+from semantic.structural_admission_native_support import execute, request, selected
 
 pytestmark = [
     pytest.mark.provider_evidence,
     pytest.mark.prerequisite("contextual_e5_snapshot"),
     pytest.mark.xdist_group("actual-e5-selected-context"),
 ]
+
+QUERY = "retrieve.contextual_query/selected-context"
+DISCOVERY = "source.selected_views/discovery"
+INFERENCE = "actual-configured-E5-selected-context"
 
 CASES = (
     (
@@ -150,19 +160,40 @@ def actual_e5_native_case(scenario_seeds, tmp_path_factory):
         kernel = admit_current_target(
             source, provider_recipe(directory, encoder), directory / "release"
         )
-        ((row, body),) = [
-            item
-            for item in selected_current_sources(source)
-            if item[1]["source"]["section_pointer"] == "#/groups/0"
+        # Establish the actual retained-discovery parent/member before deriving
+        # any source pins. Later discovery reuses this exact selection and value.
+        ((capture_row, _),) = [
+            item for item in selected_current_sources(source)
+            if item[1]["source"]["section_pointer"] == "#/groups/0" and item[1]["text"] == TEXT
         ]
-        original = Product(row, body)
+        retained_request = current_consumer_request(
+            source, kernel, (), discover=True
+        ).model_copy(update={
+            "inference": INFERENCE,
+            "source_sets": {"selected-source-views": [source_entry(capture_row).record()]},
+        })
+        retained, result = execute(kernel, retained_request)
+        assert result.receipt_count == 1
+        (population,) = selected(
+            kernel, retained["demand_id"],
+            kind="https://corpus-structure.dev/semantic/data-operation-source-discovery/DdoSourceViewPopulation",
+        )
+        (original,) = selected(
+            kernel, retained["demand_id"],
+            kind="https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+        )
+        assert original.row["product_id"] == population.row["product_id"]
+        assert original.row["member_id"] is not None
+        assert original.context.subject_definition == "original-source-view"
+        assert original.body["source"]["section_pointer"] == "#/groups/0"
+        assert original.body["text"] == TEXT
         target_demand, _ = run_intent(
             kernel,
             target_intent(kernel, (), replicate="actual-configured-E5-targets", targets=TARGETS),
         )
         targets = retained_products(kernel, target_demand, "DdoContextualTargetVector")
         assert len(targets) == 3
-        yield kernel, original, encoder, target_demand, targets
+        yield kernel, original, encoder, target_demand, targets, retained_request
 
 
 def assert_published_cpu(kernel, product, operation):
@@ -188,33 +219,44 @@ def assert_published_cpu(kernel, product, operation):
     assert len(cpu["request_digest"]) == len(cpu["result_digest"]) == 64
 
 
-def query_request(kernel, original, primary, *, recipe, member, inference):
-    # Re-select the genuine finite producer into this demand. Its declared pin
-    # admits the source, and its fulfilled output admits the focal occurrence.
-    # Only the primary product belongs to the selected primary closure.
-    return request(
-        kernel,
-        (OPERATION, "retrieve.contextual_query/selected-context"),
-        original.context,
-        source_sets=(
+def query_request(kernel, retained_request, original, primary, *, recipe, member):
+    from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
+
+    # Discovery owns the document root; both consumers run at its actual child
+    # source context. Each named set retains only its declared role's exact pins.
+    query_relations = source_discovery_relations(kernel.model, DISCOVERY, "result", QUERY)
+    assert len(query_relations) == 1 and query_relations[0].target_role == "source"
+    discovery = (
+        DemandDiscoverySelection(**asdict(query_relations[0])),
+        DemandDiscoverySelection(
+            producer=DISCOVERY, output_role="result", target=OPERATION,
+            population=query_relations[0].population, target_role="source",
+        ),
+    )
+    sources = {
+        **retained_request.source_sets,
+        **source_sets_record((
             FrozenSourceSet("fixture-selected-context-source", (original.entry(),)),
             FrozenSourceSet("query-context-primary", (primary.entry(),)),
-        ),
-        selections=(
+        )),
+    }
+    return retained_request.model_copy(update={
+        "targets": (DISCOVERY,),
+        "discovery": discovery,
+        "source_sets": sources,
+        "selections": (
+            *retained_request.selections,
             DemandOperationSelection(operation=OPERATION, parameters={"recipe": recipe}),
             DemandOperationSelection(
-                operation="retrieve.contextual_query/selected-context",
-                replicate="actual-E5:" + recipe,
-                parameters={
-                    "context_selection": {
-                        "recipe": recipe,
-                        "evidence": {"product_id": primary.row["product_id"], "member_id": member},
-                    },
-                },
+                operation=QUERY, replicate="actual-E5:" + recipe,
+                parameters={"context_selection": {
+                    "recipe": recipe,
+                    "evidence": {"product_id": primary.row["product_id"], "member_id": member},
+                }},
             ),
         ),
-        inference=inference,
-    )
+        "inference": INFERENCE,
+    })
 
 
 def assert_query_fulfilled(result, operation):
@@ -240,8 +282,8 @@ def assert_query_fulfilled(result, operation):
             for row in uses[:8]
         ],
     }
-    assert result.receipt_count >= 1, diagnostic
-    assert len(uses) == 1 and uses[0]["fate"] == "fulfilled", diagnostic
+    if result.receipt_count < 1 or len(uses) != 1 or uses[0]["fate"] != "fulfilled":
+        raise AssertionError(json.dumps(diagnostic, sort_keys=True))
 
 
 @pytest.mark.parametrize(
@@ -250,8 +292,8 @@ def assert_query_fulfilled(result, operation):
 def test_actual_e5_selected_context_native_publication_and_retrieval(
     actual_e5_native_case, recipe, member, literal, expected_context
 ):
-    kernel, original, encoder, target_demand, targets = actual_e5_native_case
-    inference = "actual-configured-E5-selected-context:" + recipe
+    kernel, original, encoder, target_demand, targets, retained_request = actual_e5_native_case
+    inference = INFERENCE
     finite, result = execute(
         kernel,
         request(
@@ -274,12 +316,15 @@ def test_actual_e5_selected_context_native_publication_and_retrieval(
         finite["demand_id"],
         kind="https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateSourceContribution",
     )
+    assert primary.context == occurrence.context == original.context
+    assert occurrence.body["pin"]["source_product"] == original.row["product_id"]
+    assert occurrence.body["pin"]["source_member"] == original.row["member_id"]
     assert_published_cpu(kernel, primary, OPERATION)
     assert_published_cpu(kernel, occurrence, OPERATION)
-    query_operation = "retrieve.contextual_query/selected-context"
+    query_operation = QUERY
     retained, result = execute(
         kernel,
-        query_request(kernel, original, primary, recipe=recipe, member=member, inference=inference),
+        query_request(kernel, retained_request, original, primary, recipe=recipe, member=member),
     )
     assert_query_fulfilled(result, query_operation)
     query_demand = retained["demand_id"]
