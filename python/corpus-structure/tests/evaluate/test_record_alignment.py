@@ -549,3 +549,52 @@ def test_evidence_set_ordering_standing_is_not_discarded():
     finish(pred)
     got = score((ref,), (pred,), contexts)
     assert (got.counts["core"].matched, got.counts["full"].matched) == (1, 0)
+
+
+def test_prepared_reference_reused_for_validation_and_accepted_standing(monkeypatch):
+    from corpus_structure.evaluate import record_alignment
+
+    reference, contexts = reading("definition")
+    candidate = deepcopy(reference)
+    candidate["standing"] = "candidate"
+    finish(candidate)
+    binding = frame(reference, candidate)
+    calls = []
+    original = record_alignment._records
+
+    def observed(*args, **kwargs):
+        calls.append(kwargs["reference"])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(record_alignment, "_records", observed)
+    stage = record_alignment.prepare_reference_alignment(
+        RecordSide(binding, (reference,)), prepared(), model=model(), coordinate_texts=contexts,
+    )
+    assert stage.whole_reading_correct(candidate, prediction_model=model())
+    assert stage.whole_reading_correct(candidate, prediction_model=model())
+    assert calls == [True, False, False, False, False]
+    invalid = deepcopy(candidate)
+    invalid["record_id"] = "invalid"
+    with pytest.raises(ValueError):
+        stage.whole_reading_correct(invalid, prediction_model=model())
+    assert calls == [True, False, False, False, False, False]
+    assert candidate["standing"] == "candidate"
+
+
+def test_prepared_reference_keeps_complete_denominator_and_pass_isolation():
+    from corpus_structure.evaluate.record_alignment import prepare_reference_alignment
+
+    first, first_text = reading("definition")
+    second, second_text = reading("measurement")
+    binding = frame(first, second)
+    stage = prepare_reference_alignment(
+        RecordSide(binding, (first, second)), prepared(), model=model(), coordinate_texts=(*first_text, *second_text),
+    )
+    report = stage.align(RecordSide(binding, (first,)), prediction_model=model())
+    assert report.counts["full"].reference == 2
+    assert report.counts["full"].prediction == report.counts["full"].matched == 1
+    separate_pass = prepare_reference_alignment(
+        RecordSide(binding, (second,)), prepared(), model=model(), coordinate_texts=second_text,
+    )
+    assert separate_pass is not stage and set(separate_pass.records) == {second["record_id"]}
+    assert set(stage.records) == {first["record_id"], second["record_id"]}

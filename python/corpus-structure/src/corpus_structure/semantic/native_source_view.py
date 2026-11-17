@@ -148,6 +148,10 @@ class NativeSourceView:
         )
 
     @cached_property
+    def context_items_by_ref(self) -> Mapping[str, Mapping[str, Any]]:
+        return MappingProxyType({item.get("self_ref", item.get("pointer")): item for item in (*self.items, *self.ancestors)})
+
+    @cached_property
     def piece_indices_by_item(self) -> Mapping[str, tuple[int, ...]]:
         indices: dict[str, list[int]] = {}
         for index, piece in enumerate(self.pieces):
