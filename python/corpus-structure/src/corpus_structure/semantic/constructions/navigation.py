@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
+from types import MappingProxyType
 from itertools import pairwise
 from pathlib import Path
 from typing import Any, Literal
@@ -141,15 +142,18 @@ class NamedLink:
 
 def named_source_links(text, pieces, items, passages):
     """Resolve exact naming grammar and same-selection structural citations."""
+    from ..positioned_rows import PositionedRows
+
+    selected_pieces = PositionedRows.build(
+        (piece for piece in pieces if piece.get("kind") == "native_text"
+         and piece.get("source_field", "text") == "text" and "cell_index" not in piece
+         and items.get(piece["item_ref"], {}).get("content_layer") == "body"),
+        lambda piece: (piece["start"], piece["end"]),
+    )
     for passage in passages or ():
         rows = [
             (p["item_ref"], p["start"], text[p["start"] : p["end"]])
-            for p in pieces
-            if p.get("kind") == "native_text"
-            and p.get("source_field", "text") == "text"
-            and "cell_index" not in p
-            and passage.start <= p["start"] < p["end"] <= passage.end
-            and items.get(p["item_ref"], {}).get("content_layer") == "body"
+            for p in selected_pieces.contained(passage.start, passage.end)
         ]
         for pointer, start, literal in rows:
             if items[pointer].get("label") not in {"text", "paragraph", "list_item"}:
@@ -565,8 +569,13 @@ def match_named_source_links(
                     raise
                 incomplete = True
                 continue
-            matched_blocks[annotation.block_id] = view, prepared.match(view)
-        view, result = matched_blocks[annotation.block_id]
+            caution_heads = frozenset(
+                token.head for token in annotation.tokens
+                if (token.dependency == "mark" and token.lemma.lower() in {"if", "unless"})
+                or (token.dependency == "aux" and token.lemma.lower() in {"may", "might", "could", "would"})
+            )
+            matched_blocks[annotation.block_id] = view, prepared.match(view), caution_heads
+        view, result, caution_heads = matched_blocks[annotation.block_id]
         incomplete |= any(status != "available" for _, _, status in result.availability)
         inspected.add(pointer)
         tokens = annotation.tokens
@@ -603,17 +612,7 @@ def match_named_source_links(
             cautious = bool(
                 match.negation_extents
                 or re.search(r"\b(?:do|does|did) not\s*$", prefix, re.I)
-                or any(
-                    token.head in nodes.values()
-                    and (
-                        (token.dependency == "mark" and token.lemma.lower() in {"if", "unless"})
-                        or (
-                            token.dependency == "aux"
-                            and token.lemma.lower() in {"may", "might", "could", "would"}
-                        )
-                    )
-                    for token in tokens
-                )
+                or not caution_heads.isdisjoint(nodes.values())
             )
             kind = rule["kind"]
             if not complete or quoted or cautious:
@@ -1298,9 +1297,16 @@ class NavigationRecord:
     reference: Any
     payload: Mapping[str, Any]
     occurrences: Mapping[str, Any]
+    _roles: Mapping[str, tuple[Mapping[str, Any], ...]] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        roles = defaultdict(list)
+        for row in self.payload["roles"]:
+            roles[row["role"]].append(row)
+        object.__setattr__(self, "_roles", MappingProxyType({name: tuple(rows) for name, rows in roles.items()}))
 
     def fragments(self, role):
-        found = [row for row in self.payload["roles"] if row["role"] == role]
+        found = self._roles.get(role, ())
         if not found:
             return ()
         if len(found) != 1:
@@ -1327,7 +1333,7 @@ class NativeNavigationIndex:
 
         selected = source.value
         projection = selected["source"]["projection"]
-        self.records, self.coverage = [], []
+        records, coverage = [], []
         seen = set()
         for product in products:
             reference = DataProductReference(product.semantic_id)
@@ -1341,7 +1347,7 @@ class NativeNavigationIndex:
                 )
             facts = product.inventory()
             occurrences = {row["local_id"]: row for row in facts["occurrences"]}
-            self.coverage.extend(row for row in body["coverage"] if row["family"] == FAMILY)
+            coverage.extend(row for row in body["coverage"] if row["family"] == FAMILY)
             for annotation in facts["annotations"]:
                 navigation = annotation.get("navigation")
                 if navigation is None:
@@ -1372,13 +1378,21 @@ class NativeNavigationIndex:
                     raise ValueError(
                         "navigation roles require exact literal original source evidence"
                     )
-                self.records.append(
+                records.append(
                     NavigationRecord(
                         member_reference(reference, annotation["local_id"]),
                         navigation,
                         occurrences,
                     )
                 )
+
+        self.records, self.coverage = tuple(records), tuple(coverage)
+        by_kind, by_pointer = defaultdict(list), defaultdict(list)
+        for row in self.records:
+            by_kind[row.payload["kind"]].append(row)
+            by_pointer[row.payload["kind"], row.payload["pointer"]].append(row)
+        self._by_kind = {key: tuple(rows) for key, rows in by_kind.items()}
+        self._by_pointer = {key: tuple(rows) for key, rows in by_pointer.items()}
 
     @property
     def complete(self):
@@ -1388,12 +1402,7 @@ class NativeNavigationIndex:
         )
 
     def select(self, kind, pointer=None):
-        return tuple(
-            row
-            for row in self.records
-            if row.payload["kind"] == kind
-            and (pointer is None or row.payload["pointer"] == pointer)
-        )
+        return self._by_kind.get(kind, ()) if pointer is None else self._by_pointer.get((kind, pointer), ())
 
     def require(self):
         if not self.complete:
