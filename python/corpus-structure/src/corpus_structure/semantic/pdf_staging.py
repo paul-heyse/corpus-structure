@@ -55,7 +55,9 @@ class PdfBuildRef:
     recipe_digest: str
     schema_digest: str
     _write_profiles: Mapping[str, ArrowWriteProfile] = field(init=False, repr=False, compare=False)
-    _payload_family: PreparedPayloadFamily | None = field(default=None, init=False, repr=False, compare=False)
+    _payload_family: PreparedPayloadFamily | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         from types import MappingProxyType

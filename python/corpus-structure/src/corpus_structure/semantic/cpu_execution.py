@@ -226,8 +226,27 @@ _WORKER_STOP: Any = None
 _WORKER_CANCELLATION: Any = None
 _WORKER_REQUEST: tuple[int, int] | None = None
 _WORKER_NATIVE_THREADS: int | None = None
-_WORKER_NATIVE_LIMITER: Any = None
-_WORKER_NATIVE_POOLS: tuple[dict[str, Any], ...] = ()
+
+
+class _NativeThreadRuntime:
+    """One child owns mutable native-library residency and its observations."""
+
+    def __init__(self):
+        self.limiter = None
+        self.pools: tuple[dict[str, Any], ...] = ()
+
+    def apply(self, threads: int | None) -> None:
+        if threads is None:
+            return
+        from threadpoolctl import threadpool_info, threadpool_limits
+
+        self.limiter = threadpool_limits(limits=threads)
+        self.pools = tuple(threadpool_info())
+        if any(pool.get("num_threads") != threads for pool in self.pools):
+            raise RuntimeError("CPU native runtime did not apply the selected thread bound")
+
+
+_WORKER_NATIVE_RUNTIME = _NativeThreadRuntime()
 
 
 class CPURequestCancelled(RuntimeError):
@@ -240,15 +259,7 @@ def _apply_native_thread_limits() -> None:
     A fresh controller discovers newly loaded libraries. It cannot constrain unsupported
     native runtimes, Python threads, tokenizers or GPU execution.
     """
-    global _WORKER_NATIVE_LIMITER, _WORKER_NATIVE_POOLS
-    if _WORKER_NATIVE_THREADS is None:
-        return
-    from threadpoolctl import threadpool_info, threadpool_limits
-
-    _WORKER_NATIVE_LIMITER = threadpool_limits(limits=_WORKER_NATIVE_THREADS)
-    _WORKER_NATIVE_POOLS = tuple(threadpool_info())
-    if any(pool.get("num_threads") != _WORKER_NATIVE_THREADS for pool in _WORKER_NATIVE_POOLS):
-        raise RuntimeError("CPU native runtime did not apply the selected thread bound")
+    _WORKER_NATIVE_RUNTIME.apply(_WORKER_NATIVE_THREADS)
 
 
 def _initialize(capsule: bytes | None, stop, cancellation=None, native_threads: int = 1) -> None:
@@ -319,7 +330,7 @@ def _compute_formal(content: bytes, max_reply_bytes: int, request_digest: str) -
         os.getpid(),
         threading.current_thread() is threading.main_thread(),
         native_thread_limit=_WORKER_NATIVE_THREADS,
-        native_pools=_WORKER_NATIVE_POOLS,
+        native_pools=_WORKER_NATIVE_RUNTIME.pools,
     )
 
 
@@ -377,7 +388,7 @@ def _dispatch(
                 os.getpid(),
                 threading.current_thread() is threading.main_thread(),
                 native_thread_limit=_WORKER_NATIVE_THREADS,
-                native_pools=_WORKER_NATIVE_POOLS,
+                native_pools=_WORKER_NATIVE_RUNTIME.pools,
             )
         raise ValueError("CPU dispatch has no admitted source-native profile")
     except Exception as error:
@@ -389,7 +400,7 @@ def _dispatch(
             type(error).__name__,
             str(error)[:2048],
             native_thread_limit=_WORKER_NATIVE_THREADS,
-            native_pools=_WORKER_NATIVE_POOLS,
+            native_pools=_WORKER_NATIVE_RUNTIME.pools,
         )
 
 

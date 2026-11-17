@@ -14,9 +14,9 @@ from corpus_structure.methods.characterization_resources import ProviderExecutio
 from corpus_structure.methods.native_host import NativeExecutionReceipt
 
 from .cpu_receipts import CPUExecutionReceipt
+from .established_validity import ProductValidation
 from .external_receipts import ExternalExecutionReceipt
 from .identity import canonical_bytes
-from .established_validity import ProductValidation
 from .pdf_observations import PdfObservationExecutionReceipt
 from .pdf_publication import PdfExecutionReceipt
 
@@ -92,7 +92,8 @@ def bind_execution_evidence(
         "cpu_receipts": [json.loads(cpu_content)] if cpu_content is not None else [],
         "cpu_replies": [cpu_reply_content.decode("utf-8")] if cpu_reply_content is not None else [],
         "product_validations": [json.loads(product_validation_content)]
-        if product_validation_content is not None else [],
+        if product_validation_content is not None
+        else [],
         "pdf_receipts": [json.loads(pdf_content)] if pdf_content is not None else [],
         "pdf_observation_receipts": [json.loads(pdf_observation_content)]
         if pdf_observation_content is not None

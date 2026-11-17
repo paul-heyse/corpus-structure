@@ -82,7 +82,11 @@ def published_section_projections(
     sections = reader.sections()
     if exact_sections:
         available = {"#/body", *(row["pointer"] for row in sections)}
-        if not selections or len(set(selections)) != len(selections) or not set(selections) <= available:
+        if (
+            not selections
+            or len(set(selections)) != len(selections)
+            or not set(selections) <= available
+        ):
             raise ValueError("exact source projection requires distinct published section pointers")
         selected_sections = selections
     else:

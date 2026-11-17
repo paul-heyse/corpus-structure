@@ -69,7 +69,9 @@ class NativeSourceRequest(SelectedPdfSourceReference):
     @model_validator(mode="after")
     def qualified_selection(self):
         if self.projection_digest is not None and (
-            self.view != "items" or self.section_pointer is None or self.membership is None
+            self.view != "items"
+            or self.section_pointer is None
+            or self.membership is None
             or self.pointer is not None
         ):
             raise ValueError("projection digest requires an exact section items read")
@@ -424,8 +426,11 @@ def _inspect_native_source(
         if request.section_pointer is None or request.membership is None:
             raise ValueError("search hit requires its exact section/membership")
         projections = published_section_projections(
-            published, selections=(request.section_pointer,),
-            membership=request.membership, scope=None, exact_sections=True,
+            published,
+            selections=(request.section_pointer,),
+            membership=request.membership,
+            scope=None,
+            exact_sections=True,
             projection_policy=retained_section_text_policy(conn, projection_context),
             check_active=cancellation.check_active,
         )
@@ -433,9 +438,13 @@ def _inspect_native_source(
             raise ValueError("search hit no longer has its exact pinned projection")
         projection = projections[0]
         actual = FrozenNativeSource.from_projection(
-            projection_context, document=source.original_source,
-            section_pointer=projection.section_pointer, membership=projection.membership,
-            text=projection.text, pieces=projection.pieces, items=projection.items,
+            projection_context,
+            document=source.original_source,
+            section_pointer=projection.section_pointer,
+            membership=projection.membership,
+            text=projection.text,
+            pieces=projection.pieces,
+            items=projection.items,
             ancestors=projection.ancestors,
             recognition=projection.health.get("formula_outcomes", ()),
         ).value["source"]["projection"]

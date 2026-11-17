@@ -70,12 +70,13 @@ def adopt_pdf_companions(
     remain the native companion/field identities, independently of chunking.
     """
     from corpus_structure.semantic.identity import canonical_bytes
-
     from corpus_structure.semantic.pdf_payloads import EncodedPagePayload
     from corpus_structure.semantic.pdf_publication import (
         COMPANION_BATCH_BYTES,
         COMPANION_BATCH_ROWS,
         PdfCompanionRecord,
+    )
+    from corpus_structure.semantic.pdf_publication import (
         adopt_pdf_companions as adopt_companion_set,
     )
 
@@ -108,7 +109,9 @@ def adopt_pdf_companions(
         if isinstance(row, PdfCompanionRecord):
             row_size = row.encoded_length
         elif isinstance(row.get("value"), EncodedPagePayload):
-            row_size = len(row["value"].content) + len(canonical_bytes({key: value for key, value in row.items() if key != "value"}))
+            row_size = len(row["value"].content) + len(
+                canonical_bytes({key: value for key, value in row.items() if key != "value"})
+            )
         else:
             row_size = len(canonical_bytes(dict(row)))
         if pending and (
@@ -383,8 +386,10 @@ def run_private_native_pdf_build(
                         for entry in recovery.entries
                         if (
                             entry.family == "native_preparation"
-                            or (entry.page_no in numbers
-                            and entry.family in {"page", "candidate_payload", "native-raster"})
+                            or (
+                                entry.page_no in numbers
+                                and entry.family in {"page", "candidate_payload", "native-raster"}
+                            )
                         )
                     )
                     register_contributor(recovery, selected)
@@ -458,7 +463,9 @@ def run_private_native_pdf_build(
                             batch = reader.get_batch(ordinal)
 
                             def occurrences(batch=batch):
-                                from corpus_structure.semantic.pdf_publication import PdfCompanionRecord
+                                from corpus_structure.semantic.pdf_publication import (
+                                    PdfCompanionRecord,
+                                )
 
                                 for body in batch.column("body"):
                                     encoded = body.as_py().encode("utf8")
@@ -581,7 +588,9 @@ def run_private_native_pdf_build(
                     "native_completion",
                 }:
                     adopt_replay(replay)
-            from corpus_structure.semantic.pdf_publication import adopt_pdf_companions as adopt_companion_set
+            from corpus_structure.semantic.pdf_publication import (
+                adopt_pdf_companions as adopt_companion_set,
+            )
 
             with _pdf_transaction(engine, cancellation) as connection:
                 adopt_companion_set(
@@ -636,7 +645,11 @@ def run_private_native_pdf_build(
 
                 with _pdf_transaction(engine, cancellation) as connection:
                     adopt_companion_set(
-                        connection, build, "native_metadata", formula_outcomes(), "native:formulas",
+                        connection,
+                        build,
+                        "native_metadata",
+                        formula_outcomes(),
+                        "native:formulas",
                         cancellation=cancellation,
                     )
             check_active()

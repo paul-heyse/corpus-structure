@@ -23,8 +23,8 @@ from .construction_products import (
     construction_product_values,
     contextual_product_values,
     interpreted_member_contracts,
-    validate_construction_product,
     retained_construction_product,
+    validate_construction_product,
 )
 from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_model import SubjectContext
@@ -616,8 +616,11 @@ class PreparedCharacterizationPort(ABC):
         if member is None:
             return getattr(value, "subject_context", None)
         return SubjectContext(
-            binding.subject_context.project_id, member.subject, member.original_source,
-            member.analyzed_scope, subject_definition=member.subject_definition,
+            binding.subject_context.project_id,
+            member.subject,
+            member.original_source,
+            member.analyzed_scope,
+            subject_definition=member.subject_definition,
         )
 
     def _formal(self, source, values, binding):
@@ -815,9 +818,11 @@ class PreparedCharacterizationPort(ABC):
         value = product.value.model_dump(mode="python", exclude_unset=True)
         from .established_validity import bind_product_validation
 
-        proof = bind_product_validation(product, product.subject_context) if hasattr(
-            product, "established_validity"
-        ) else None
+        proof = (
+            bind_product_validation(product, product.subject_context)
+            if hasattr(product, "established_validity")
+            else None
+        )
         return PortCompletion(
             self.operation.semantic_id,
             (

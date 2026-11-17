@@ -402,9 +402,16 @@ def _companion_adoption_sql(context, metadata) -> str:
     from .pdf_payloads import FAMILY, PROFILE
     from .pdf_staging_native import native_payload_size_sql
 
-    relations = [metadata.tables["ops.pdf_stage_" + name] for name in (
-        "companion", "companion_field", "artifact_stream", "artifact_part", "endpoint",
-    )]
+    relations = [
+        metadata.tables["ops.pdf_stage_" + name]
+        for name in (
+            "companion",
+            "companion_field",
+            "artifact_stream",
+            "artifact_part",
+            "endpoint",
+        )
+    ]
     sql = """
 CREATE OR REPLACE FUNCTION ops.prepare_pdf_companions() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -481,17 +488,21 @@ BEGIN
  SELECT FROM pg_temp.pc_pdf_stage_companion_field f WHERE f.stream_id=part.stream_id)) THEN
  RAISE EXCEPTION 'companion artifact is outside its field inventory' USING ERRCODE='23514'; END IF;
 """
+
     # Artifact rows are adopted once as sets before the shared byte validator reads
     # them. A later malformed row aborts this entire call/transaction, including parts.
     def adopt(relation, message):
         columns = ",".join(quote(c.name) for c in relation.columns)
         left = ",".join("incoming." + quote(c.name) for c in relation.columns)
         right = ",".join("retained." + quote(c.name) for c in relation.columns)
-        keys = " AND ".join("incoming." + quote(c.name) + "=retained." + quote(c.name)
-                            for c in relation.primary_key)
-        return (f"IF EXISTS(SELECT FROM pg_temp.pc_{relation.name} incoming JOIN {relation.fullname} retained ON {keys} "
-                f"WHERE ROW({left}) IS DISTINCT FROM ROW({right})) THEN RAISE EXCEPTION '{message}' USING ERRCODE='23514'; END IF;\n"
-                f"INSERT INTO {relation.fullname}({columns}) SELECT {columns} FROM pg_temp.pc_{relation.name} ON CONFLICT DO NOTHING;\n")
+        keys = " AND ".join(
+            "incoming." + quote(c.name) + "=retained." + quote(c.name) for c in relation.primary_key
+        )
+        return (
+            f"IF EXISTS(SELECT FROM pg_temp.pc_{relation.name} incoming JOIN {relation.fullname} retained ON {keys} "
+            f"WHERE ROW({left}) IS DISTINCT FROM ROW({right})) THEN RAISE EXCEPTION '{message}' USING ERRCODE='23514'; END IF;\n"
+            f"INSERT INTO {relation.fullname}({columns}) SELECT {columns} FROM pg_temp.pc_{relation.name} ON CONFLICT DO NOTHING;\n"
+        )
 
     for relation in relations[2:4]:
         sql += adopt(relation, "changed companion artifact duplicate")
@@ -514,19 +525,25 @@ BEGIN
  AND f.field_name IN ('text','endpoints','evidence')),'{}'::jsonb) body_
  FROM pg_temp.pc_pdf_stage_companion c) """
     for family, cls in (
-        ("input", "PdfProductInput"), ("occurrence", "PdfProductOccurrence"),
-        ("relation", "PdfProductRelation"), ("coverage", "PdfProductCoverage"),
-        ("mapping_report", "PdfMappingDisposition"), ("request_outcome", "PdfRecognitionObservation"),
+        ("input", "PdfProductInput"),
+        ("occurrence", "PdfProductOccurrence"),
+        ("relation", "PdfProductRelation"),
+        ("coverage", "PdfProductCoverage"),
+        ("mapping_report", "PdfMappingDisposition"),
+        ("request_outcome", "PdfRecognitionObservation"),
     ):
         invalid = record_shape_predicate(context.boundary, cls, "c.body_")
         sql += f"IF EXISTS({rows} SELECT FROM rows_ c WHERE c.family={_quote(family)} AND ({invalid})) THEN RAISE EXCEPTION 'parsing record shape differs: {cls}' USING ERRCODE='23514'; END IF;\n"
-    for cls, where in (("PdfRecordNativeHealth", "c.body ? 'conversion'"), ("PdfProductHealth", "NOT c.body ? 'conversion'")):
+    for cls, where in (
+        ("PdfRecordNativeHealth", "c.body ? 'conversion'"),
+        ("PdfProductHealth", "NOT c.body ? 'conversion'"),
+    ):
         invalid = record_shape_predicate(context.boundary, cls, "c.body")
         sql += f"IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion c WHERE c.family='health' AND ({where}) AND ({invalid})) THEN RAISE EXCEPTION 'parsing record shape differs: {cls}' USING ERRCODE='23514'; END IF;\n"
     classes = metadata_classes()
     sql += f"""
  IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_companion c WHERE c.family='native_metadata' AND (
- c.body->>'kind' NOT IN ({','.join(_quote(kind) for kind in classes)})
+ c.body->>'kind' NOT IN ({",".join(_quote(kind) for kind in classes)})
  OR c.body-(CASE WHEN c.body->>'kind'='formula_outcomes' THEN ARRAY['kind','ordinal','pointer','outcome','has_diagnostic']
  WHEN c.body->>'kind'={_quote(FAMILY)} THEN ARRAY['kind','ordinal','pointer','page_no','payload_schema_digest','payload_codec','payload_logical_digest']
  ELSE ARRAY['kind','ordinal','pointer'] END)<>'{{}}'::jsonb
@@ -540,9 +557,23 @@ BEGIN
 """
     properties, alternatives = {}, []
     for property_ in ("pointer", "prose_pointer", "table_pointer"):
-        alternatives.append("jsonb_build_object('required',jsonb_build_array(" + _quote(property_) + "),'properties'," + _quote(json.dumps(properties)) + "::jsonb||jsonb_build_object(" + _quote(property_) + ",jsonb_build_object('type','string','const',c.body->'pointer')))")
+        alternatives.append(
+            "jsonb_build_object('required',jsonb_build_array("
+            + _quote(property_)
+            + "),'properties',"
+            + _quote(json.dumps(properties))
+            + "::jsonb||jsonb_build_object("
+            + _quote(property_)
+            + ",jsonb_build_object('type','string','const',c.body->'pointer')))"
+        )
         properties[property_] = {"not": {"type": "string"}}
-    projection = "CASE WHEN c.body ? 'pointer' THEN jsonb_build_object('anyOf',jsonb_build_array(" + ",".join(alternatives) + ")) ELSE " + _quote(json.dumps({"properties": properties})) + "::jsonb END"
+    projection = (
+        "CASE WHEN c.body ? 'pointer' THEN jsonb_build_object('anyOf',jsonb_build_array("
+        + ",".join(alternatives)
+        + ")) ELSE "
+        + _quote(json.dumps({"properties": properties}))
+        + "::jsonb END"
+    )
     formula = "CASE WHEN c.body->>'kind'='formula_outcomes' THEN jsonb_build_object('required',jsonb_build_array('outcome'),'properties',jsonb_build_object('outcome',jsonb_build_object('const',c.body->'outcome')))||CASE WHEN c.body->'has_diagnostic'='true'::jsonb THEN jsonb_build_object('required',jsonb_build_array('outcome','error')) ELSE jsonb_build_object('not',jsonb_build_object('required',jsonb_build_array('error'))) END ELSE '{}'::jsonb END"
     for kind, cls in classes.items():
         if kind == FAMILY:
@@ -563,8 +594,11 @@ BEGIN
  <>(SELECT count(*) FROM pg_temp.pc_pdf_stage_companion_field f WHERE f.family=c.family AND f.local_id=c.local_id)) THEN
  RAISE EXCEPTION 'changed companion field inventory' USING ERRCODE='23514'; END IF;
 """
-    sql += """INSERT INTO pg_temp.pc_pdf_stage_endpoint
- """ + rows + """
+    sql += (
+        """INSERT INTO pg_temp.pc_pdf_stage_endpoint
+ """
+        + rows
+        + """
  SELECT p_build,p_build,c.local_id,(endpoint.ordinality-1)::bigint,
  CASE WHEN endpoint.value ? 'input_index' THEN COALESCE((input.body->>'task_id')::bigint,0) ELSE 0 END,
  CASE WHEN endpoint.value ? 'input_index' THEN COALESCE(input.body->>'product_key','@missing') ELSE '@self' END,
@@ -576,14 +610,20 @@ BEGIN
  IF EXISTS(SELECT FROM pg_temp.pc_pdf_stage_endpoint WHERE target_content_digest='@missing') THEN
  RAISE EXCEPTION 'companion endpoint input is outside the admitted input inventory' USING ERRCODE='23514'; END IF;
 """
+    )
     sql += adopt(relations[4], "changed companion endpoint duplicate")
     from .pdf_staging import stage_upload_profile
 
     profile = stage_upload_profile()
-    return ((sql + "END $$;\n")
-            .replace("total>65536", "total>" + str(profile["max_rows"]))
-            .replace("total_bytes>67108864", "total_bytes>" + str(profile["max_native_bytes"]))
-            .replace("octet_length(p_key)>1024", "octet_length(p_key)>" + str(profile["max_replay_key_bytes"])))
+    return (
+        (sql + "END $$;\n")
+        .replace("total>65536", "total>" + str(profile["max_rows"]))
+        .replace("total_bytes>67108864", "total_bytes>" + str(profile["max_native_bytes"]))
+        .replace(
+            "octet_length(p_key)>1024",
+            "octet_length(p_key)>" + str(profile["max_replay_key_bytes"]),
+        )
+    )
 
 
 def publication_sql(*, target_metadata=None) -> str:
@@ -1352,8 +1392,8 @@ oduct_key',c.body->>'content_digest'
  RETURN NEXT prior;
 END $$;
 """
-    from .pdf_payloads import FAMILY, PROFILE
     from .pdf_contracts import integrated_metadata_policy, trusted_pdf_context
+    from .pdf_payloads import FAMILY, PROFILE
 
     context = trusted_pdf_context()
     from hashlib import sha256

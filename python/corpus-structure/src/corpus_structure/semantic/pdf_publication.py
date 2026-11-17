@@ -192,19 +192,23 @@ def adopt_pdf_companions(
     """COPY one typed companion set; its native adoption owns one build fence."""
     from hashlib import sha256
 
+    from .arrow_transfer import copy_arrow_stream
     from .identity import canonical_bytes
     from .pdf_record_identity import byte_root, emit_parts
-    from .arrow_transfer import copy_arrow_stream
     from .pdf_record_model import record_arrow_schema, record_write_profile
     from .pdf_records import _finite_json
     from .pdf_staging import MAX_BATCH_BYTES, MAX_BATCH_ROWS
 
     targets = {
-        "companion": "ops.pdf_stage_companion", "field": "ops.pdf_stage_companion_field",
-        "stream": "ops.pdf_stage_artifact_stream", "part": "ops.pdf_stage_artifact_part",
+        "companion": "ops.pdf_stage_companion",
+        "field": "ops.pdf_stage_companion_field",
+        "stream": "ops.pdf_stage_artifact_stream",
+        "part": "ops.pdf_stage_artifact_part",
     }
-    profiles = {name: record_write_profile(target, release_id=build.release_id)
-                for name, target in targets.items()}
+    profiles = {
+        name: record_write_profile(target, release_id=build.release_id)
+        for name, target in targets.items()
+    }
     calls.prepare_pdf_companions(conn)
     pending, streams, parts, descriptors = [], [], [], []
     byte_count = 0
@@ -214,8 +218,13 @@ def adopt_pdf_companions(
             batch = pa.RecordBatch.from_pylist(rows, schema=record_arrow_schema(targets[name]))
             if batch.num_rows > MAX_BATCH_ROWS or batch.nbytes > MAX_BATCH_BYTES:
                 raise ValueError("companion COPY transfer exceeds bounded upload profile")
-            copy_arrow_stream(conn, profiles[name], target=("pg_temp", "pc_" + targets[name].split(".")[1]),
-                              batches=(batch,), cancellation=cancellation)
+            copy_arrow_stream(
+                conn,
+                profiles[name],
+                target=("pg_temp", "pc_" + targets[name].split(".")[1]),
+                batches=(batch,),
+                cancellation=cancellation,
+            )
             rows.clear()
 
     def flush() -> None:
@@ -351,20 +360,41 @@ def adopt_pdf_companions(
                     "encoding_profile": profile,
                 }
             )
-            descriptors.append({"product_id": build.build_id, "revision_id": build.build_id,
-                                "family": family, "local_id": local, "field_name": field,
-                                "stream_id": stream, "scalar_kind": "y" if field in {"value", "endpoints"} else "s"})
-        pending.append({"product_id": build.build_id, "revision_id": build.build_id,
-                        "family": family, "local_id": local, "body": encoded_body.decode("utf8"), "ordinal": ordinal})
+            descriptors.append(
+                {
+                    "product_id": build.build_id,
+                    "revision_id": build.build_id,
+                    "family": family,
+                    "local_id": local,
+                    "field_name": field,
+                    "stream_id": stream,
+                    "scalar_kind": "y" if field in {"value", "endpoints"} else "s",
+                }
+            )
+        pending.append(
+            {
+                "product_id": build.build_id,
+                "revision_id": build.build_id,
+                "family": family,
+                "local_id": local,
+                "body": encoded_body.decode("utf8"),
+                "ordinal": ordinal,
+            }
+        )
         byte_count += size
         if byte_count > 4 * 1024 * 1024:
             flush()
     flush()
     if cancellation is not None:
         cancellation.check_active()
-    calls.adopt_pdf_companions(conn, build_id=build.build_id, task_id=TaskId(build.task_id),
-                              attempt=TaskAttempt(build.attempt), holder=build.holder,
-                              replay_key=replay_key)
+    calls.adopt_pdf_companions(
+        conn,
+        build_id=build.build_id,
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(build.attempt),
+        holder=build.holder,
+        replay_key=replay_key,
+    )
 
 
 _CAPTURE_SCHEMA = pa.schema(

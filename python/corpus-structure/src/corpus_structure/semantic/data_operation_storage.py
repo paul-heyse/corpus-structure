@@ -102,8 +102,13 @@ def native_protocol_sources(
             Path(__file__).with_name("data_operation_provider_profiles.py").read_bytes(),
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
-        SourceArtifact("native/data-operation-product-validation.sql", product_validation_native_sql().encode()),
-        SourceArtifact("native/data-operation-product-validation.py", Path(__file__).with_name("established_validity.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-product-validation.sql", product_validation_native_sql().encode()
+        ),
+        SourceArtifact(
+            "native/data-operation-product-validation.py",
+            Path(__file__).with_name("established_validity.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/pdf-observations.py",
             Path(__file__).with_name("pdf_observations.py").read_bytes(),

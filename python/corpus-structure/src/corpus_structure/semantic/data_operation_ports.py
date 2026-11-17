@@ -228,7 +228,10 @@ class PortCompletion:
     def __post_init__(self) -> None:
         if type(self.outcome) is not str or not self.outcome:
             raise TypeError("completion requires an explicit semantic outcome")
-        if self.product_validation_evidence is not None and type(self.product_validation_evidence) is not bytes:
+        if (
+            self.product_validation_evidence is not None
+            and type(self.product_validation_evidence) is not bytes
+        ):
             raise TypeError("product validation evidence requires owned immutable bytes")
         if self.execution_evidence is not None and type(self.execution_evidence) is not bytes:
             raise TypeError("execution evidence requires owned immutable bytes")

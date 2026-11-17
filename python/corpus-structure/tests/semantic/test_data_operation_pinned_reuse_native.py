@@ -239,10 +239,16 @@ def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(
     attached = json.loads(answer.native)
     with ddo_kernel["engine"].begin() as connection:
         refused = DataOperationStorage(connection).claim_data_requests(
-            typing_cast(WireClaimDataRequestsRequest, {
-                "holder": "withdrawn-exact-pin", "lease_seconds": 30,
-                "items": [{"request_id": attached["request_id"], "generation": attached["generation"]}],
-            })
+            typing_cast(
+                WireClaimDataRequestsRequest,
+                {
+                    "holder": "withdrawn-exact-pin",
+                    "lease_seconds": 30,
+                    "items": [
+                        {"request_id": attached["request_id"], "generation": attached["generation"]}
+                    ],
+                },
+            )
         )["items"]
         assert len(refused) == 1 and refused[0]["state"] == "refused"
         assert refused[0]["sqlstate"] == "23514"

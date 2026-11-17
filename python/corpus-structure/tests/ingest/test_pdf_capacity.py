@@ -122,5 +122,8 @@ def test_uncertain_group_retirement_keeps_gpu_descriptor_quarantined(monkeypatch
             "managed child", [PhysicalRetirementUncertain("group:123 remains live")]
         )
     assert pdf_capacity._quarantined_gpu_fds == [41] and not closed
-    with pytest.raises(PhysicalRetirementUncertain, match='managed group cleanup'), pdf_capacity.pdf_gpu_slot():
+    with (
+        pytest.raises(PhysicalRetirementUncertain, match="managed group cleanup"),
+        pdf_capacity.pdf_gpu_slot(),
+    ):
         pytest.fail("uncertain group retirement advertised free GPU capacity")

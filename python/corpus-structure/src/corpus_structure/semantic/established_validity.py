@@ -58,7 +58,8 @@ def _context_matches(model, context, body):
     return (
         context.subject == source_subject(body["source"])
         and context.original_source == body["source"]["document"]
-        and json_loads(context.analyzed_scope) == dict(source=body["source"], selectors=body["selectors"])
+        and json_loads(context.analyzed_scope)
+        == json_loads(_json(dict(source=body["source"], selectors=body["selectors"])))
     )
 
 
@@ -87,7 +88,10 @@ def bind_product_validation(product, context):
     body = product.value.model_dump(mode="python", exclude_unset=True)
     if proof.body_id != _body_id(body) or not _context_matches(product.model, context, body):
         return None
-    if proof.subject_context_json is not None and json_loads(proof.subject_context_json) != context.identity_record:
+    if (
+        proof.subject_context_json is not None
+        and json_loads(proof.subject_context_json) != context.identity_record
+    ):
         return None
     return proof.model_copy(update={"subject_context_json": _json(context.identity_record)})
 
@@ -146,10 +150,12 @@ BEGIN
  output:=completion->'outputs'->0;
  body:=data.ddo_normalize(output->'product'->'body');
  IF output->>'member_id' IS NOT NULL OR proof->>'body_id' IS DISTINCT FROM data.ddo_identity('body',body)
- OR data.ddo_field(body,'source') IS DISTINCT FROM data.ddo_normalize((proof->>'source_json')::jsonb)
- OR data.ddo_field(body,'selectors') IS DISTINCT FROM data.ddo_normalize((proof->>'selectors_json')::jsonb)
+ OR data.ddo_json(data.ddo_field(body,'source')) IS DISTINCT FROM (proof->>'source_json')::jsonb
+ OR data.ddo_json(data.ddo_field(body,'selectors')) IS DISTINCT FROM (proof->>'selectors_json')::jsonb
  OR expected_context->>'original_source' IS DISTINCT FROM (proof->>'source_json')::jsonb->>'document'
- OR expected_context->>'subject' IS DISTINCT FROM (proof->>'source_json')::jsonb->>'document_subject'
+ -- The admitted source-view subject is distinct from the original document's
+ -- document_subject. Its exact governed context is already bound above; the
+ -- trusted Python validator established its source-view identity relation.
  OR expected_context->'analyzed_scope' IS DISTINCT FROM jsonb_build_object(
  'source',(proof->>'source_json')::jsonb,'selectors',(proof->>'selectors_json')::jsonb) THEN
  RAISE EXCEPTION 'product validation differs from its exact canonical result/source/scope' USING ERRCODE='23514'; END IF;

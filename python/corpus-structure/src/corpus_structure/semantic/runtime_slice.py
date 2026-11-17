@@ -155,10 +155,22 @@ class AuthenticatedSlice:
     def check(self):
         for record in self.files:
             record.check()
-        for getter, expected in self._checks:
+        for index, (getter, expected) in enumerate(self._checks):
             try:
                 actual = _state(getter())
             except (AttributeError, KeyError, ValueError) as error:
                 raise ValueError("authenticated runtime slice changed; restart required") from error
             if actual != expected:
-                raise ValueError("authenticated runtime slice changed; restart required")
+                defaults = getter.__defaults__ or ()
+                owner = defaults[0] if defaults else None
+                label = (
+                    getattr(owner, "__qualname__", getattr(owner, "__name__", type(owner).__name__))
+                    if isinstance(owner, (type, FunctionType, ModuleType))
+                    else type(owner).__name__
+                )
+                member = (
+                    defaults[1] if len(defaults) > 1 and isinstance(defaults[1], str) else "state"
+                )
+                raise ValueError(
+                    f"authenticated runtime slice changed; restart required (premise {index}: {label}.{member})"
+                )

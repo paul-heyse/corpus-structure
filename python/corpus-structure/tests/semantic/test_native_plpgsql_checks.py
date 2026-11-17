@@ -199,8 +199,9 @@ def test_all_selected_function_errors_reported_together(semantic_bare_engine):
         assert context is not None and context["phase"] == "plpgsql_check"
         assert context["error_count"] == 2
         assert context["omissions"] == []
-        assert len(context["diagnostics"]) == 2
-        assert all(entry in message for entry in context["diagnostics"])
+        diagnostics = context["diagnostics"]
+        assert isinstance(diagnostics, list) and len(diagnostics) == 2
+        assert all(entry in message for entry in diagnostics)
         assert checker(connection) == before
         assert (
             connection.scalar(text("SELECT to_regprocedure('checker_test.valid(integer)')")) is None

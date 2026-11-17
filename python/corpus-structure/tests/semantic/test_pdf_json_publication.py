@@ -4,6 +4,7 @@ from copy import deepcopy
 
 import psycopg
 import pytest
+from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.native_objects import native_owner
@@ -74,14 +75,24 @@ def test_every_current_integrated_companion_is_closed_under_its_real_claim(
                     )
                     from semantic.pdf_companion_set_support import adopt_raw_companion_set
 
-                    def row():
-                        return dict(product_id=build.build_id, revision_id=build.build_id,
-                                    family=family, local_id=local, body=canonical_bytes(body).decode(), ordinal=0)
+                    def row(build=build, family=family, local=local, body=body):
+                        return dict(
+                            product_id=build.build_id,
+                            revision_id=build.build_id,
+                            family=family,
+                            local_id=local,
+                            body=canonical_bytes(body).decode(),
+                            ordinal=0,
+                        )
 
                     if label == "duplicate-occurrence":
-                        adopt_raw_companion_set(connection, build, [row()], replay_key="negative:first-occurrence")
+                        adopt_raw_companion_set(
+                            connection, build, [row()], replay_key="negative:first-occurrence"
+                        )
                         body["text"] = "changed companion duplicate"
-                    adopt_raw_companion_set(connection, build, [row()], replay_key="negative:" + label)
+                    adopt_raw_companion_set(
+                        connection, build, [row()], replay_key="negative:" + label
+                    )
                 assert isinstance(error.value.orig, psycopg.Error)
                 assert (error.value.orig.sqlstate, error.value.orig.diag.message_primary) == (
                     "23514",

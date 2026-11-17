@@ -108,7 +108,9 @@ def search_source(connection, request: SourceSearchRequest) -> SourceSearchRespo
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
     from corpus_structure.semantic.pdf_source_search import (
-        ensure_search_projection, population_identity, projection_recipe,
+        ensure_search_projection,
+        population_identity,
+        projection_recipe,
     )
     from corpus_structure.semantic.refusals import ReadLimit
 
@@ -126,14 +128,18 @@ def search_source(connection, request: SourceSearchRequest) -> SourceSearchRespo
         raise ValueError("source search requires its explicit source population")
     # Locks survive the producer call until commit. Canonical order avoids A/B
     # versus B/A deadlocks across multi-publication first searches.
-    for index in sorted(range(len(sources)), key=lambda i: population_identity(sources[i], recipes[i][0])):
+    for index in sorted(
+        range(len(sources)), key=lambda i: population_identity(sources[i], recipes[i][0])
+    ):
         recipe, policy = recipes[index]
         ensure_search_projection(connection, sources[index], recipe=recipe, policy=policy)
     payload = dict(
         binding=request.model_dump(mode="json", exclude={"cursor", "limit"}),
         cut_id=cut.identity,
-        sources=[dict(source=source.reference.model_dump(), recipe=recipe)
-                 for source, (recipe, _) in zip(sources, recipes, strict=True)],
+        sources=[
+            dict(source=source.reference.model_dump(), recipe=recipe)
+            for source, (recipe, _) in zip(sources, recipes, strict=True)
+        ],
         limit=min(request.limit, request.max_rows),
     )
     if after is not None:
@@ -166,7 +172,8 @@ def search_source(connection, request: SourceSearchRequest) -> SourceSearchRespo
                 max_rows=request.max_rows,
                 max_bytes=request.max_bytes,
             ),
-            excerpt=result["excerpt"], score=result["score"],
+            excerpt=result["excerpt"],
+            score=result["score"],
         )
         budget.reserve_rows(1)
         budget.value(hit.model_dump(mode="json"))
@@ -174,9 +181,16 @@ def search_source(connection, request: SourceSearchRequest) -> SourceSearchRespo
     cursor = None
     if ranked["more"]:
         last = ranked["rows"][-1]
-        cursor = base64.urlsafe_b64encode(canonical_bytes(dict(
-            version=1, selection=ranked["selection"], score=float(last["score"]).hex(), key=last["key"],
-        ))).decode()
+        cursor = base64.urlsafe_b64encode(
+            canonical_bytes(
+                dict(
+                    version=1,
+                    selection=ranked["selection"],
+                    score=float(last["score"]).hex(),
+                    key=last["key"],
+                )
+            )
+        ).decode()
     response = SourceSearchResponse(
         cut=cut.record, rows=rows, next_cursor=cursor, population_complete=not ranked["more"]
     )

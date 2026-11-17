@@ -201,7 +201,11 @@ def _receive_writer_lease(duplicate) -> PdfSpoolWriterLease:
 def canonical_native_options(options: dict) -> dict:
     """Canonicalize only pinned Docling VlmModelSpec's declared set fields."""
     result = dict(options)
-    for option in ("picture_description_options", "chart_extraction_options", "code_formula_options"):
+    for option in (
+        "picture_description_options",
+        "chart_extraction_options",
+        "code_formula_options",
+    ):
         value = result.get(option)
         if isinstance(value, dict) and isinstance(value.get("model_spec"), dict):
             spec = dict(value["model_spec"])
@@ -232,9 +236,9 @@ def native_preparation_identity(content: bytes) -> str:
         )
     }
     for name in ("requested_options", "effective_options"):
-        determining[name] = canonical_native_options({
-            key: value for key, value in determining[name].items() if key != "artifacts_path"
-        })
+        determining[name] = canonical_native_options(
+            {key: value for key, value in determining[name].items() if key != "artifacts_path"}
+        )
     # Asset bytes have their own exact manifest identity. Arrow pool capacity,
     # PIDs and temporary locations do not determine a page's native meaning.
     return sha256(

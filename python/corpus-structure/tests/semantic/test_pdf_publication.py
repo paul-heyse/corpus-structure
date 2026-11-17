@@ -398,7 +398,9 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
     create_private_build, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     from corpus_structure.core.db.lifetime import BorrowerCancellation
-    from corpus_structure.orchestrate.pdf_streaming import adopt_pdf_companions as adopt_companion_rows
+    from corpus_structure.orchestrate.pdf_streaming import (
+        adopt_pdf_companions as adopt_companion_rows,
+    )
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
     from corpus_structure.semantic.product_reference import ProductReference
@@ -471,14 +473,33 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
             with pytest.raises(DBAPIError, match=reason), conn.begin_nested():
                 from semantic.pdf_companion_set_support import adopt_raw_companion_set
 
-                adopt_raw_companion_set(conn, build, [dict(
-                    product_id=build.build_id, revision_id=build.build_id, family="relation",
-                    local_id=relation["relation_id"], body=json.dumps(body), ordinal=0,
-                )], replay_key="hostile", field_rows=[dict(
-                    product_id=build.build_id, revision_id=build.build_id, family="relation",
-                    local_id=relation["relation_id"], field_name=field, stream_id=stream,
-                    scalar_kind="y" if field == "endpoints" else "s",
-                ) for field, stream in fields.items()])
+                adopt_raw_companion_set(
+                    conn,
+                    build,
+                    [
+                        dict(
+                            product_id=build.build_id,
+                            revision_id=build.build_id,
+                            family="relation",
+                            local_id=relation["relation_id"],
+                            body=json.dumps(body),
+                            ordinal=0,
+                        )
+                    ],
+                    replay_key="hostile",
+                    field_rows=[
+                        dict(
+                            product_id=build.build_id,
+                            revision_id=build.build_id,
+                            family="relation",
+                            local_id=relation["relation_id"],
+                            field_name=field,
+                            stream_id=stream,
+                            scalar_kind="y" if field == "endpoints" else "s",
+                        )
+                        for field, stream in fields.items()
+                    ],
+                )
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     validate_pdf_build(commit_writer_engine, frozen)

@@ -32,10 +32,10 @@ from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .data_product_reference import DataProductReference, member_reference, reference_inputs
+from .established_validity import ProductValidation
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
 from .identity import canonical_bytes
-from .established_validity import ProductValidation
 from .sentence_products import SourceAnnotationReadings, SourceAnnotations, sentence_product_inputs
 from .source_products import (
     FrozenNativeSource,
@@ -782,8 +782,12 @@ def validate_interpreted_product(
         family = "construction" if product_type is ConstructionProduct else "contextual"
         asset = _semantic_assets(family)
         proof = successful_product_validation(
-            prepared, model, typed.model_dump(mode="python", exclude_unset=True),
-            asset.name, asset.digest, subject_context
+            prepared,
+            model,
+            typed.model_dump(mode="python", exclude_unset=True),
+            asset.name,
+            asset.digest,
+            subject_context,
         )
     return product_type(
         canonical_bytes(checked), prepared, model, subject_context, established_validity=proof
@@ -801,9 +805,17 @@ def validate_construction_product(prepared, model, value, source, formal, *, sub
     )
 
 
-def retained_construction_product(prepared, model, value, source, formal, *,
-                                  subject_context=None, member=None,
-                                  established_validity=None):
+def retained_construction_product(
+    prepared,
+    model,
+    value,
+    source,
+    formal,
+    *,
+    subject_context=None,
+    member=None,
+    established_validity=None,
+):
     from .established_validity import established_product_matches, selected_product_validation
 
     typed = prepared.validate_json(ConstructionProduct.kind_name, canonical_bytes(value))
@@ -815,12 +827,19 @@ def retained_construction_product(prepared, model, value, source, formal, *,
         raise ValueError("construction lacks its exact retained dependency closure")
     proof = selected_product_validation(member) if member is not None else established_validity
     if established_product_matches(
-        proof, prepared=prepared, model=model,
-        body=typed.model_dump(mode="python", exclude_unset=True), source=source,
-        context=subject_context, contract="characterization/construction-assets",
+        proof,
+        prepared=prepared,
+        model=model,
+        body=typed.model_dump(mode="python", exclude_unset=True),
+        source=source,
+        context=subject_context,
+        contract="characterization/construction-assets",
     ):
         product = ConstructionProduct(
-            canonical_bytes(checked), prepared, model, subject_context,
+            canonical_bytes(checked),
+            prepared,
+            model,
+            subject_context,
             established_validity=proof,
         )
     else:

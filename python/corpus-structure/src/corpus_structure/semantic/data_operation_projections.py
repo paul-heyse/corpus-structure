@@ -847,7 +847,9 @@ def binding_branches(metadata):
         .scalar_subquery()
     )
     evidence = _obj(
-        product_validation=func.ops.ddo_product_validation(candidates.c.episode_id, candidates.c.product_id),
+        product_validation=func.ops.ddo_product_validation(
+            candidates.c.episode_id, candidates.c.product_id
+        ),
         producer_output=_obj(
             member_id=candidates.c.output_member,
             role=candidates.c.output_role,

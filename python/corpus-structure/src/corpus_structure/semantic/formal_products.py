@@ -27,6 +27,7 @@ from .characterization_evidence import validate_formal_evidence
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, SubjectContext
 from .data_operation_outcomes import successful_return_outcome
+from .established_validity import ProductValidation
 from .formal_evidence import (
     FAMILIES,
     FormalIdentity,
@@ -35,7 +36,6 @@ from .formal_evidence import (
     grammar_identity,
 )
 from .identity import canonical_bytes
-from .established_validity import ProductValidation
 from .python_operation_sources import PythonSourceCollection
 from .source_products import (
     FrozenNativeSource as FrozenFormalSource,
@@ -336,8 +336,11 @@ def validate_formal_product(
     from .established_validity import successful_product_validation
 
     proof = successful_product_validation(
-        prepared, model, typed.model_dump(mode="python", exclude_unset=True),
-        "formal/profile-assets", formal_profile_assets().digest,
+        prepared,
+        model,
+        typed.model_dump(mode="python", exclude_unset=True),
+        "formal/profile-assets",
+        formal_profile_assets().digest,
         subject_context,
     )
     return FormalEvidenceProduct(
@@ -345,8 +348,9 @@ def validate_formal_product(
     )
 
 
-def retained_formal_product(prepared, value, source, *, model, subject_context=None,
-                            member=None, established_validity=None):
+def retained_formal_product(
+    prepared, value, source, *, model, subject_context=None, member=None, established_validity=None
+):
     """Decode every boundary; reuse only the exact native producer's established facts."""
     from .established_validity import established_product_matches, selected_product_validation
 
@@ -354,12 +358,19 @@ def retained_formal_product(prepared, value, source, *, model, subject_context=N
     checked = _values(typed)
     proof = selected_product_validation(member) if member is not None else established_validity
     if established_product_matches(
-        proof, prepared=prepared, model=model,
-        body=typed.model_dump(mode="python", exclude_unset=True), source=source,
-        context=subject_context, contract="formal/profile-assets",
+        proof,
+        prepared=prepared,
+        model=model,
+        body=typed.model_dump(mode="python", exclude_unset=True),
+        source=source,
+        context=subject_context,
+        contract="formal/profile-assets",
     ):
         product = FormalEvidenceProduct(
-            canonical_bytes(checked), prepared, model, subject_context,
+            canonical_bytes(checked),
+            prepared,
+            model,
+            subject_context,
             established_validity=proof,
         )
     else:

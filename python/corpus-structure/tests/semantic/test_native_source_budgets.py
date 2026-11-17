@@ -156,29 +156,58 @@ def test_current_search_bounds_returned_hits_independently_of_publication_fill(
 
     pin, cut, publication = selection()
     second = pin.model_copy(update={"product_id": "product:second", "use_id": "use:second"})
+
     def acquire(connection, reference):
         return SimpleNamespace(
-            reference=reference, cut=CutSelection(json_bytes(cut)), physical=publication,
-            prepared=object(), original_source="original:selected",
+            reference=reference,
+            cut=CutSelection(json_bytes(cut)),
+            physical=publication,
+            prepared=object(),
+            original_source="original:selected",
             receipt=SimpleNamespace(publication=publication),
         )
+
     ensured = Mock()
-    ranked = Mock(return_value=dict(selection="a" * 64, more=False, rows=[
-        dict(source_index=i, section_pointer="#/body", membership="direct",
-             projection_digest="b" * 64, key=str(i), excerpt="Alice " * 130, score=0.1)
-        for i in range(2)
-    ]))
+    ranked = Mock(
+        return_value=dict(
+            selection="a" * 64,
+            more=False,
+            rows=[
+                dict(
+                    source_index=i,
+                    section_pointer="#/body",
+                    membership="direct",
+                    projection_digest="b" * 64,
+                    key=str(i),
+                    excerpt="Alice " * 130,
+                    score=0.1,
+                )
+                for i in range(2)
+            ],
+        )
+    )
     monkeypatch.setattr(source_search, "acquire_selected_pdf_source", acquire)
     monkeypatch.setattr(pdf_source_search, "projection_recipe", lambda *args: ({}, None))
-    monkeypatch.setattr(pdf_source_search, "population_identity", lambda source, recipe: source.reference.product_id)
+    monkeypatch.setattr(
+        pdf_source_search, "population_identity", lambda source, recipe: source.reference.product_id
+    )
     monkeypatch.setattr(pdf_source_search, "ensure_search_projection", ensured)
     monkeypatch.setattr(DataOperationStorage, "rank_pdf_search_projection", ranked)
-    monkeypatch.setattr(pdf_record_reader, "PublishedPdfReader", Mock(
-        side_effect=AssertionError("cache-hit search must not materialize the population"),
-    ))
+    monkeypatch.setattr(
+        pdf_record_reader,
+        "PublishedPdfReader",
+        Mock(
+            side_effect=AssertionError("cache-hit search must not materialize the population"),
+        ),
+    )
     selected = source_search.SourceSearchRequest(
-        project_id=pin.project_id, demand_id=pin.demand_id, read_id=pin.read_id,
-        sources=(pin, second), text="Alice", max_rows=10, max_bytes=bytes_limit,
+        project_id=pin.project_id,
+        demand_id=pin.demand_id,
+        read_id=pin.read_id,
+        sources=(pin, second),
+        text="Alice",
+        max_rows=10,
+        max_bytes=bytes_limit,
     )
     if oversized:
         with pytest.raises(ReadLimit):
