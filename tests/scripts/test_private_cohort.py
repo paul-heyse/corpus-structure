@@ -459,6 +459,110 @@ def test_recovery_preserves_original_interruption_and_receipts(owned_private_res
         recovered_private_process(receipt, process)
 
 
+def test_recovery_removes_selected_sqlite_scratch_after_drain(
+    owned_private_residue, monkeypatch
+):
+    from native_private_cohort import recover_private_temporary
+
+    receipt, temporary = owned_private_residue
+    scratch = temporary / "selected-read-1v6th7ho"
+    scratch.mkdir()
+    (scratch / "support.sqlite").write_bytes(b"SQLite format 3\0")
+    (scratch / "support.sqlite-journal").write_bytes(b"interrupted rollback journal")
+    _interrupted_private_receipts(receipt)
+    # Ordinary finish retains these files; only recovery proves all child groups drained.
+    assert finish_private_temporary(receipt, {"returncode": 0})["state"] == "retained"
+    before = {path.name: path.read_bytes() for path in receipt.iterdir()}
+
+    groups = []
+
+    def absent(group, sig):
+        groups.append((group, sig))
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(os, "killpg", absent)
+    recovery = recover_private_temporary(receipt)
+    assert groups == [(101, 0), (102, 0)]
+    assert recovery["cleanup"] == {"state": "removed"} and not temporary.exists()
+    assert all((receipt / name).read_bytes() == body for name, body in before.items())
+
+
+@pytest.mark.parametrize(
+    "residue",
+    (
+        "unknown_file",
+        "unknown_directory",
+        "nested_scratch",
+        "file_symlink",
+        "directory_symlink",
+        "foreign_file",
+        "foreign_directory",
+        "hardlink",
+        "root_uid",
+        "root_inode",
+        "active_group",
+    ),
+)
+def test_sqlite_recovery_retains_entire_tree_when_ownership_or_shape_is_uncertain(
+    owned_private_residue, monkeypatch, residue
+):
+    import native_private_cohort as owner
+
+    receipt, temporary = owned_private_residue
+    scratch = temporary / "selected-read-1v6th7ho"
+    scratch.mkdir()
+    database = scratch / "support.sqlite"
+    database.write_bytes(b"owned scratch")
+    _interrupted_private_receipts(receipt)
+
+    def absent(group, sig):
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(
+        os, "killpg", (lambda group, sig: None) if residue == "active_group" else absent
+    )
+    if residue == "unknown_file":
+        (scratch / "operator-data").write_bytes(b"retain")
+    elif residue == "unknown_directory":
+        scratch.rename(temporary / "unrecognized-selected-read")
+        database = temporary / "unrecognized-selected-read/support.sqlite"
+    elif residue == "nested_scratch":
+        nested = temporary / "nested"
+        nested.mkdir()
+        scratch.rename(nested / scratch.name)
+        database = nested / scratch.name / "support.sqlite"
+    elif residue == "file_symlink":
+        (scratch / "support.sqlite-journal").symlink_to(database)
+    elif residue == "directory_symlink":
+        (temporary / "selected-read-abcdefgh").symlink_to(scratch, target_is_directory=True)
+    elif residue in {"foreign_file", "foreign_directory"}:
+        original_stat = os.stat
+        foreign_name = database.name if residue == "foreign_file" else scratch.name
+
+        def foreign_stat(path, *args, **kwargs):
+            found = original_stat(path, *args, **kwargs)
+            if path == foreign_name and kwargs.get("dir_fd") is not None:
+                fields = list(found)
+                fields[4] = os.getuid() + 1
+                return os.stat_result(fields)
+            return found
+
+        monkeypatch.setattr(owner.os, "stat", foreign_stat)
+    elif residue == "hardlink":
+        os.link(database, receipt / "outside-link")
+    elif residue in {"root_uid", "root_inode"}:
+        path = receipt / "private-host-owner.json"
+        value = json.loads(path.read_text())
+        key = "uid" if residue == "root_uid" else "inode"
+        path.write_text(json.dumps({**value, key: value[key] + 1}))
+    before = {path.name: path.read_bytes() for path in receipt.iterdir()}
+    with pytest.raises(ValueError):
+        owner.recover_private_temporary(receipt)
+    assert database.read_bytes() == b"owned scratch" and temporary.is_dir()
+    assert all((receipt / name).read_bytes() == body for name, body in before.items())
+    assert not (receipt / "private-host-cleanup-recovery.json").exists()
+
+
 @pytest.mark.parametrize("uncertainty", ("active_group", "pending", "different_child", "data"))
 def test_recovery_refuses_uncertain_settlement_or_nonempty_residue(
     owned_private_residue, monkeypatch, uncertainty

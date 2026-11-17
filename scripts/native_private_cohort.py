@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import pwd
+import re
 import signal
 import socket
 import stat
@@ -208,8 +209,10 @@ def finish_private_temporary(directory: Path, process: dict[str, Any]) -> dict[s
     return outcome
 
 
-def _remove_owned_empty_tree(owner: dict[str, Any]) -> dict[str, Any]:
-    """Never unlink a file or follow a symlink, including during a directory race."""
+def _remove_owned_empty_tree(
+    owner: dict[str, Any], *, recover_selected_scratch: bool = False
+) -> dict[str, Any]:
+    """Remove empty directories, plus known SQLite scratch only after recovery drain."""
     temporary = Path(owner["temporary"])
     base = ROOT / "build/tmp/private-postgresql"
     if temporary.parent != base or base.is_symlink() or base.stat().st_uid != os.getuid():
@@ -228,10 +231,20 @@ def _remove_owned_empty_tree(owner: dict[str, Any]) -> dict[str, Any]:
         if os.fstat(root) != identity:
             raise ValueError("private PostgreSQL temporary ownership changed")
 
-        def inspect_tree(fd):
+        def inspect_tree(fd, *, selected_scratch=False, top=False):
             children = []
             for name in os.listdir(fd):
                 found = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                if (
+                    selected_scratch
+                    and name in {"support.sqlite", "support.sqlite-journal"}
+                    and stat.S_ISREG(found.st_mode)
+                    and found.st_uid == owner["uid"]
+                    and found.st_dev == identity.st_dev
+                    and found.st_nlink == 1
+                ):
+                    children.append((name, found, None))
+                    continue
                 if (
                     not stat.S_ISDIR(found.st_mode)
                     or found.st_uid != owner["uid"]
@@ -244,13 +257,31 @@ def _remove_owned_empty_tree(owner: dict[str, Any]) -> dict[str, Any]:
                 try:
                     if os.fstat(child) != found:
                         raise ValueError("private temporary directory changed during inspection")
-                    children.append((name, found, inspect_tree(child)))
+                    scratch = bool(
+                        recover_selected_scratch
+                        and top
+                        and re.fullmatch(r"selected-read-[a-z0-9_]{8}", name)
+                    )
+                    children.append(
+                        (name, found, inspect_tree(child, selected_scratch=scratch))
+                    )
                 finally:
                     os.close(child)
             return children
 
         def remove_tree(fd, children):
             for name, found, descendants in children:
+                if descendants is None:
+                    actual = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                    if (
+                        not stat.S_ISREG(actual.st_mode)
+                        or actual.st_nlink != 1
+                        or (actual.st_dev, actual.st_ino, actual.st_uid)
+                        != (found.st_dev, found.st_ino, found.st_uid)
+                    ):
+                        raise ValueError("private temporary scratch changed before removal")
+                    os.unlink(name, dir_fd=fd)
+                    continue
                 child = os.open(name, flags, dir_fd=fd)
                 try:
                     actual = os.fstat(child)
@@ -268,7 +299,7 @@ def _remove_owned_empty_tree(owner: dict[str, Any]) -> dict[str, Any]:
                     os.close(child)
 
         try:
-            children = inspect_tree(root)
+            children = inspect_tree(root, top=True)
             remove_tree(root, children)
             latest = temporary.lstat()
             if (latest.st_dev, latest.st_ino, latest.st_uid) != (
@@ -404,7 +435,9 @@ def recover_private_temporary(directory: Path) -> dict[str, Any]:
     if (directory / _RECOVERY).exists():
         return recovered_private_process(directory, process)["cleanup_recovery"]
     _require_private_drain(original)
-    outcome = _remove_owned_empty_tree(original["private-host-owner.json"])
+    outcome = _remove_owned_empty_tree(
+        original["private-host-owner.json"], recover_selected_scratch=True
+    )
     if outcome["state"] != "removed":
         raise ValueError("private temporary residue remains nonempty or ownership is uncertain")
     observation = {
