@@ -707,7 +707,7 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg
  WHERE coalesce(reference->>'kind','computation')='computation') selected
 $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_require_binding(p_demand text,p_operation text,p_subject text,p_request_meaning jsonb,p_binding jsonb,p_trust jsonb) RETURNS void
+CREATE OR REPLACE FUNCTION ops.ddo_require_binding(p_demand text,p_operation text,p_subject text,p_request_meaning jsonb,p_binding jsonb,p_trust jsonb,p_read_checked boolean DEFAULT false) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE demand ops.data_demand; request ops.data_request; archived jsonb; projection jsonb; operation jsonb; compiled jsonb; selection jsonb; expression jsonb;
  population_refs jsonb; projection_mode text; roles jsonb:='{}'; universe jsonb; populations jsonb:='{}'; witnesses jsonb:='{}'; semantic_witnesses jsonb:='{}'; states jsonb:='{}'; context jsonb;
@@ -740,11 +740,11 @@ BEGIN
  OR roledef->'identity_requirements' IS DISTINCT FROM coalesce(authored_role->'support'->'identity_requirements','[]')
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') i WHERE i->>'owner'=authored_role->>'kind' AND i->>'domain'='kind' AND i->>'key'=roledef->>'kind_contract') THEN RAISE EXCEPTION 'native artifact role differs from effective model'; END IF;
  END LOOP;
- IF nullif(p_binding->>'read_id','') IS NULL THEN RAISE EXCEPTION 'native binding requires its authenticated read receipt'; END IF;
+ IF nullif(p_binding->>'read_id','') IS NULL THEN RAISE EXCEPTION 'native binding requires its authenticated read receipt' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p_binding->>'read_id' AND demand_id=demand.id;
  SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.ddo_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,coalesce(to_jsonb(request.original_source),'null'::jsonb),request.analyzed_scope,false,
  CASE WHEN EXISTS(WITH RECURSIVE nodes(n) AS (SELECT expression UNION ALL SELECT value FROM nodes parent CROSS JOIN LATERAL jsonb_array_elements(coalesce(parent.n->'children','[]')))
- SELECT FROM nodes WHERE n->>'operator' IN ('forall','absent','membership','covers')) THEN NULL ELSE p_binding->'inputs' END) v;
+ SELECT FROM nodes WHERE n->>'operator' IN ('forall','absent','membership','covers')) THEN NULL ELSE p_binding->'inputs' END,p_read_checked) v;
  raw:=data.ddo_json(p_binding->'request_inputs');
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
  role:=roledef->>'name'; values:='[]';
@@ -765,20 +765,20 @@ BEGIN
  witness:=raw->role->'population_witness';
  IF witness IS NOT NULL AND witness<>'null'::jsonb THEN semantic_witnesses:=jsonb_set(semantic_witnesses,ARRAY[role],witness); END IF;
  SELECT coalesce(sum((v->>'multiplicity')::bigint),0) INTO count_selected FROM jsonb_array_elements(values) v;
- IF state='present' AND (count_selected<(roledef->>'minimum')::bigint OR (roledef->>'maximum' IS NOT NULL AND count_selected>(roledef->>'maximum')::bigint)) THEN RAISE EXCEPTION 'native binding role cardinality differs'; END IF;
+ IF state='present' AND (count_selected<(roledef->>'minimum')::bigint OR (roledef->>'maximum' IS NOT NULL AND count_selected>(roledef->>'maximum')::bigint)) THEN RAISE EXCEPTION 'native binding role cardinality differs' USING ERRCODE='23514'; END IF;
  seen:='[]';
  FOR row_value IN SELECT value FROM jsonb_array_elements(values) LOOP
- IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(row_value->'support_references','[]')) reference WHERE NOT coalesce(roledef->'support'->'origins','["computation"]'::jsonb) ? (reference->>'kind')) THEN RAISE EXCEPTION 'selected support origin is outside declared eligibility'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(row_value->'support_references','[]')) reference WHERE NOT coalesce(roledef->'support'->'origins','["computation"]'::jsonb) ? (reference->>'kind')) THEN RAISE EXCEPTION 'selected support origin is outside declared eligibility' USING ERRCODE='23514'; END IF;
  multiplicity:=(row_value->>'multiplicity')::bigint; ordinal:=(row_value->>'position')::bigint;
- IF multiplicity IS NULL OR multiplicity<1 OR ordinal<0 OR (roledef->>'collection'<>'bag' AND multiplicity<>1) THEN RAISE EXCEPTION 'native binding multiplicity or ordinal differs'; END IF;
+ IF multiplicity IS NULL OR multiplicity<1 OR ordinal<0 OR (roledef->>'collection'<>'bag' AND multiplicity<>1) THEN RAISE EXCEPTION 'native binding multiplicity or ordinal differs' USING ERRCODE='23514'; END IF;
  IF roledef->>'collection'='sequence' THEN
- IF ordinal IS NULL OR seen @> jsonb_build_array(ordinal) THEN RAISE EXCEPTION 'native sequence has missing or repeated ordinal'; END IF;
+ IF ordinal IS NULL OR seen @> jsonb_build_array(ordinal) THEN RAISE EXCEPTION 'native sequence has missing or repeated ordinal' USING ERRCODE='23514'; END IF;
  seen:=seen||jsonb_build_array(ordinal);
  END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements_text(roledef->'identity_requirements') dimension WHERE dimension IN ('provider','alternative') AND nullif(row_value->>(dimension||'_identity'),'') IS NULL) THEN RAISE EXCEPTION 'required native support identity is unavailable'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements_text(roledef->'identity_requirements') dimension WHERE dimension IN ('provider','alternative') AND nullif(row_value->>(dimension||'_identity'),'') IS NULL) THEN RAISE EXCEPTION 'required native support identity is unavailable' USING ERRCODE='23514'; END IF;
  END LOOP;
  END LOOP;
- IF EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference GROUP BY reference->>'name' HAVING count(DISTINCT reference->>'population_id')<>1) THEN RAISE EXCEPTION 'one named population cannot select conflicting receipt scopes'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference GROUP BY reference->>'name' HAVING count(DISTINCT reference->>'population_id')<>1) THEN RAISE EXCEPTION 'one named population cannot select conflicting receipt scopes' USING ERRCODE='23514'; END IF;
  FOR native_population IN SELECT * FROM ops.data_population pop
  WHERE demand_id=p_demand AND ops.ddo_node_valid('population',pop.id)
  AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=pop.id AND reference->>'name'=pop.name)
@@ -798,25 +798,25 @@ BEGIN
  population_refs:=ops.ddo_binding_population_refs(expression,context);
  SELECT coalesce(jsonb_object_agg(relation->>'target_role',relation->>'population'),'{}') INTO discovery_refs
  FROM jsonb_array_elements(demand.selection->'discovery') relation WHERE relation->>'target'=p_operation AND relation ? 'target_role';
- IF EXISTS(SELECT FROM jsonb_each_text(discovery_refs) explicit WHERE population_refs ? explicit.key AND population_refs->>explicit.key IS DISTINCT FROM explicit.value) THEN RAISE EXCEPTION 'discovery input conflicts with authored population scope'; END IF;
+ IF EXISTS(SELECT FROM jsonb_each_text(discovery_refs) explicit WHERE population_refs ? explicit.key AND population_refs->>explicit.key IS DISTINCT FROM explicit.value) THEN RAISE EXCEPTION 'discovery input conflicts with authored population scope' USING ERRCODE='23514'; END IF;
  population_refs:=population_refs||discovery_refs;
  FOR item IN SELECT value FROM jsonb_array_elements(p_binding->'populations') LOOP
  role:=item->>'role';
  SELECT value INTO STRICT roledef FROM jsonb_array_elements(compiled->'input_roles') WHERE value->>'name'=role;
- IF witnesses ? role THEN RAISE EXCEPTION 'one role cannot carry two population receipt scopes'; END IF;
+ IF witnesses ? role THEN RAISE EXCEPTION 'one role cannot carry two population receipt scopes' USING ERRCODE='23514'; END IF;
  witness:=populations->(item->>'name');
  IF witness IS NULL OR witness->'evidence'->>'population_id' IS DISTINCT FROM item->>'population_id'
- OR item->>'name' IS DISTINCT FROM coalesce(population_refs->>role,role) THEN RAISE EXCEPTION 'population receipt differs from exact current named closure'; END IF;
+ OR item->>'name' IS DISTINCT FROM coalesce(population_refs->>role,role) THEN RAISE EXCEPTION 'population receipt differs from exact current named closure' USING ERRCODE='23514'; END IF;
  expected:=ops.ddo_binding_population_meaning(witness,roledef->'identity_requirements' ? 'episode');
- IF semantic_witnesses->role IS DISTINCT FROM expected THEN RAISE EXCEPTION 'semantic population witness differs from native closure meaning'; END IF;
+ IF semantic_witnesses->role IS DISTINCT FROM expected THEN RAISE EXCEPTION 'semantic population witness differs from native closure meaning' USING ERRCODE='23514'; END IF;
  witnesses:=jsonb_set(witnesses,ARRAY[role],witness);
  END LOOP;
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
  role:=roledef->>'name'; witness:=semantic_witnesses->role;
  IF role=ANY(inactive) THEN
- IF jsonb_array_length(roles->role)<>0 OR roledef->>'presence'='required' OR witness->>'reason' IS DISTINCT FROM 'unselected-declared-branch' OR witness->'selection' IS DISTINCT FROM selection->'choices' OR witness->>'complete' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'unselected branch is not authenticated by frozen demand'; END IF;
+ IF jsonb_array_length(roles->role)<>0 OR roledef->>'presence'='required' OR witness->>'reason' IS DISTINCT FROM 'unselected-declared-branch' OR witness->'selection' IS DISTINCT FROM selection->'choices' OR witness->>'complete' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'unselected branch is not authenticated by frozen demand' USING ERRCODE='23514'; END IF;
  witnesses:=jsonb_set(witnesses,ARRAY[role],witness);
- ELSIF witness IS NOT NULL AND NOT witnesses ? role THEN RAISE EXCEPTION 'population meaning lacks exact native receipt locator';
+ ELSIF witness IS NOT NULL AND NOT witnesses ? role THEN RAISE EXCEPTION 'population meaning lacks exact native receipt locator' USING ERRCODE='23514';
  END IF;
  END LOOP;
  context:=jsonb_set(context,'{witnesses}',witnesses);

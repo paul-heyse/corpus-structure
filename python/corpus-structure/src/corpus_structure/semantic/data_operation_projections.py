@@ -1670,6 +1670,94 @@ def record_grade_selected_outputs(metadata):
     return _selected_support_output_rows(metadata, one_use=False)
 
 
+def _inputs_watermarks(metadata, bounded):
+    """A set-wise readiness fingerprint; waiting fates do not advance it."""
+    uses = metadata.tables["ops.demand_use"]
+    obligations = metadata.tables["ops.data_obligation"].alias("prerequisite_obligation")
+    populations = metadata.tables["ops.data_population"]
+    originals = metadata.tables["ops.original_source_admission"]
+    selected = _items(_var("d.selection", JSONB)["operations"], "watermark_selected")
+    dependencies = (
+        func.jsonb_array_elements_text(selected.c.value["dependencies"])
+        .table_valued(column("value", Text()))
+        .render_derived(name="watermark_dependency")
+    )
+    prerequisites = (
+        select(bounded.c.id.label("obligation_id"), dependencies.c.value.label("operation_id"))
+        .select_from(
+            bounded.join(selected, selected.c.value["operation"].astext == bounded.c.operation_id)
+            .join(dependencies, literal(True))
+        )
+        .cte("watermark_prerequisites", recursive=True)
+    )
+    prerequisites = prerequisites.union(
+        select(prerequisites.c.obligation_id, dependencies.c.value)
+        .select_from(
+            prerequisites.join(selected, selected.c.value["operation"].astext == prerequisites.c.operation_id)
+            .join(dependencies, literal(True))
+        )
+    )
+    fulfilled = (
+        select(bounded.c.id.label("obligation_id"), literal("use").label("kind"),
+               uses.c.id.label("identity"), uses.c.created_at)
+        .select_from(
+            bounded.join(prerequisites, prerequisites.c.obligation_id == bounded.c.id)
+            .join(obligations, and_(obligations.c.demand_id == _var("d.id", Text),
+                                   obligations.c.operation_id == prerequisites.c.operation_id,
+                                   obligations.c.original_source.is_not_distinct_from(bounded.c.original_source)))
+            .join(uses, uses.c.obligation_id == obligations.c.id)
+        )
+        .where(uses.c.fate == "fulfilled", _visible(uses))
+    )
+    discovery = _items(_var("d.selection", JSONB)["discovery"], "watermark_discovery")
+    relevant_population = or_(
+        populations.c.selected_obligation_id == bounded.c.id,
+        exists(select(1).select_from(discovery).where(
+            discovery.c.value["population"].astext == populations.c.name,
+            or_(
+                discovery.c.value["target"].astext == bounded.c.operation_id,
+                exists(select(1).select_from(prerequisites).where(
+                    prerequisites.c.obligation_id == bounded.c.id,
+                    prerequisites.c.operation_id == discovery.c.value["target"].astext,
+                )),
+            ),
+        )),
+    )
+    population_rows = (
+        select(bounded.c.id.label("obligation_id"), literal("population").label("kind"),
+               populations.c.id.label("identity"), populations.c.created_at)
+        .select_from(bounded.join(populations, populations.c.demand_id == _var("d.id", Text)))
+        .where(relevant_population, _visible(populations))
+    )
+    # Original selections are exact frozen pins. Admission can occur after the
+    # waiting fate, including an explicitly selected source from another context.
+    original_rows = (
+        select(bounded.c.id.label("obligation_id"), literal("original").label("kind"),
+               originals.c.id.label("identity"), originals.c.created_at)
+        .select_from(bounded.join(originals, originals.c.demand_id == _var("d.id", Text)))
+        .where(_visible(originals))
+    )
+    visible = union_all(fulfilled, population_rows, original_rows).cte("watermark_visible")
+    counts = (
+        select(visible.c.obligation_id, visible.c.kind,
+               func.count().label("count"), func.max(visible.c.created_at).label("latest"),
+               func.max(visible.c.identity).label("identity"))
+        .group_by(visible.c.obligation_id, visible.c.kind)
+        .cte("watermark_counts").prefix_with("MATERIALIZED")
+    )
+    facts = (
+        select(_aggregate(_obj(kind=counts.c.kind, count=counts.c.count,
+                               latest=counts.c.latest, identity=counts.c.identity), counts.c.kind))
+        .where(counts.c.obligation_id == bounded.c.id)
+        .correlate(bounded).scalar_subquery()
+    )
+    return func.ops.ddo_digest(_obj(
+        visible=facts, source_sets=_var("d.selection", JSONB)["source_sets"],
+        original_sources=_var("d.selection", JSONB)["original_sources"],
+        kernel=_var("boundary.kernel_digest", Text), trust=_var("boundary.trust_snapshot", JSONB),
+    ))
+
+
 def read_page(metadata):
     """One pure atomic page under already acquired native pins."""
     from sqlalchemy import case
@@ -1686,7 +1774,13 @@ def read_page(metadata):
     read_scope = _requested_read_scope()
     bounded = (
         _scoped_read_obligations(metadata)
-        .where(obligations.c.id > _var("after_key", Text))
+        .where(
+            obligations.c.id > _var("after_key", Text),
+            or_(
+                ~_var("p", JSONB).op("?")(literal("obligation_id")),
+                obligations.c.id == _var("p", JSONB)["obligation_id"].astext,
+            ),
+        )
         .order_by(obligations.c.id)
         .limit(_var("lim", BigInteger))
         .cte("bounded")
@@ -1879,6 +1973,7 @@ def read_page(metadata):
         .correlate(latest)
         .scalar_subquery()
     )
+    inputs_watermark = _inputs_watermarks(metadata, bounded)
     obligation_body = (
         func.to_jsonb(bounded.table_valued())
         .op("-")(literal("created_at"))
@@ -1886,6 +1981,7 @@ def read_page(metadata):
         .op("||")(
             _obj(
                 obligation_id=bounded.c.id,
+                inputs_watermark=inputs_watermark,
                 subject_definition=select(definitions.c.subject_definition)
                 .where(
                     definitions.c.release_id == _var("d.release_id", Text),
@@ -1918,7 +2014,13 @@ def read_page(metadata):
     next_key = select(func.max(bounded.c.id)).scalar_subquery()
     more = and_(
         next_key.is_not(None),
-        exists(_scoped_read_obligations(metadata).where(obligations.c.id > next_key)),
+        exists(_scoped_read_obligations(metadata).where(
+            obligations.c.id > next_key,
+            or_(
+                ~_var("p", JSONB).op("?")(literal("obligation_id")),
+                obligations.c.id == _var("p", JSONB)["obligation_id"].astext,
+            ),
+        )),
     )
     admissions = metadata.tables["ops.original_source_admission"]
     admission_value = _obj(

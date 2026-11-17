@@ -54,6 +54,7 @@ class OperationCallBinding:
     cardinality: Literal["many", "one", "optional", "none"]
     ordered: bool
     source_digest: str | None = None
+    wire_contract_digest: str | None = None
     result_mode: Literal["table", "scalar", "void", "json"] = "table"
     result_source: str | None = None
     requires_context: bool = False

@@ -101,12 +101,6 @@ fields:
   '#/definitions/endpoint/oneOf/0/properties/member_id': WireMemberId
   '#/definitions/endpoint/oneOf/1/properties/member_id': WireMemberId
   '#/definitions/endpoint/oneOf/1/properties/product_id': WireProductId
-  '#/definitions/expand_data_obligation_request/properties/demand_id': WireDemandId
-  '#/definitions/expand_data_obligation_request/properties/operation_id': WireOperationId
-  '#/definitions/expand_data_obligation_request/properties/original_source': WireOriginalSourceId
-  '#/definitions/expand_data_obligation_request/properties/population_id': WirePopulationId
-  '#/definitions/expand_data_obligation_request/properties/subject': WireSubjectId
-  '#/definitions/expand_data_obligation_result/properties/obligation_id': WireObligationId
   '#/definitions/external_packet_head/properties/generation': WireGeneration
   '#/definitions/external_packet_head/properties/operation_id': WireOperationId
   '#/definitions/external_packet_head/properties/packet_id': WireExternalPacketId
@@ -269,3 +263,5 @@ fields:
   '#/definitions/initialize_source_project_request/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/initialize_source_project_result/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/initialize_source_project_result/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
+  '#/definitions/read_demand_result_request/properties/obligation_id': WireObligationId
+  '#/definitions/attach_data_requests_request/properties/read_id': WireReadIdentity

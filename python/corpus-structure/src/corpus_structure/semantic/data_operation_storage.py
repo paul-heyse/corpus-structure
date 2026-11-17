@@ -365,7 +365,6 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-physical.yaml",
         "native/data-operation-bindings.sql",
         "native/data-operation-binding-native.py",
-        "native/data-operation-wire.sql",
         "native/data-operation-wire-native.py",
         "native/data-operation-wire.py",
         "native/data-operation-source-admission.sql",
@@ -563,18 +562,23 @@ def native_sql(sources=None) -> str:
             raise ValueError("captured Core projection is incomplete")
     operations = _protocol(captured)
     sql = _rename_native_entrypoints(sql, {item["name"] for item in operations})
+    from .data_operation_wire import wire_contract_digest, wire_contracts
+
+    contracts = wire_contracts(captured)
+    contract_digest = wire_contract_digest(captured)
     wrappers = []
     for item in operations:
         name = item["name"]
+        schema = canonical_bytes(contracts[name]["input"]).decode().replace("'", "''")
         wrappers.append(f"""
 CREATE OR REPLACE FUNCTION ops.{name}(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $wire$
-DECLARE result jsonb;
+DECLARE result jsonb; schema constant jsonb := '{schema}'::jsonb;
 BEGIN
- PERFORM ops.ddo_require_wire('{name}','input',p_payload);
+ IF p_payload IS NULL OR NOT public.json_matches_schema(schema::json,p_payload::json) THEN
+ RAISE EXCEPTION 'native wire violates {name} input schema' USING ERRCODE='23514'; END IF;
  result:=ops.ddo_impl_{name}(p_payload);
- PERFORM ops.ddo_require_wire('{name}','output',result->'payload');
- RETURN result;
+ RETURN result||jsonb_build_object('contract_digest','{contract_digest}');
 END $wire$;
 """)
     return sql + "\n".join(wrappers)
@@ -721,7 +725,7 @@ def native_operation_calls(
     """Resolve the fixed protocol's signatures without accepting candidate SQL names."""
     sources = native_protocol_sources() if sources is None else tuple(sources)
     digest = native_source_digest(sources)
-    from .data_operation_wire import wire_contracts, wire_nominal_correspondence
+    from .data_operation_wire import wire_contract_digest, wire_contracts, wire_nominal_correspondence
 
     schemas = wire_contracts(sources)
     nominals = wire_nominal_correspondence(sources)
@@ -766,6 +770,7 @@ def native_operation_calls(
                     ordered=False,
                     result_mode="json",
                     source_digest=digest,
+                    wire_contract_digest=wire_contract_digest(sources),
                 ),
             )
         )
@@ -787,16 +792,19 @@ class DataOperationStorage(DataOperationCalls):
         self.connection = connection
 
     def _invoke(self, name: str, payload: Any) -> Any:
-        from .data_operation_wire import validate_native_wire
+        from .data_operation_wire import (
+            encode_native_wire_request, validate_native_wire, wire_contract_digest, wire_role_kind,
+        )
 
-        # Wire validation already checks the closed operation inventory. Full
-        # native/source capture belongs to admission, not every invocation.
-        payload = validate_native_wire(name, "input", payload)
+        # SQL owns request shape under its installed contract. The client keeps
+        # exact JSON encodability and authenticates that contract before results.
+        wire_role_kind(name, "input")
+        encoded_payload = encode_native_wire_request(payload)
         encoded = self.connection.scalar(
             select(
                 cast(getattr(func.ops, name)(cast(bindparam("payload", type_=Text), JSONB)), Text)
             ),
-            {"payload": json_bytes(payload).decode()},
+            {"payload": encoded_payload},
         )
         from .data_operation_wire import wire_role_kind
         from .operation_value_types import native_result_scope
@@ -808,10 +816,12 @@ class DataOperationStorage(DataOperationCalls):
             value = wire_json_loads(encoded)
             if (
                 not isinstance(value, dict)
-                or set(value) != {"payload"}
+                or set(value) != {"payload", "contract_digest"}
                 or not isinstance(value["payload"], dict)
             ):
                 raise ValueError("native data operation returned a malformed fixed envelope")
+            if value["contract_digest"] != wire_contract_digest():
+                raise ValueError("native installed wire contract differs from the prepared client")
             return validate_native_wire(name, "output", value["payload"])
 
 
@@ -1660,10 +1670,8 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
         )
     from .data_operation_binding_native import binding_native_definitions
     from .data_operation_source_native import source_native_definitions
-    from .data_operation_wire_native import wire_native_definitions
 
     return (
-        *wire_native_definitions(connection, sources=captured),
         *definitions,
         *binding_native_definitions(connection, sources=captured),
         *source_native_definitions(connection, sources=captured),

@@ -40,18 +40,17 @@ def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeyp
     monkeypatch.setattr(wire, "_prepare_protocol_content", observed)
     try:
         first = wire.wire_contracts()
-        first["claim_data_request"]["input"].clear()
-        assert wire.wire_role_kind("claim_data_request", "input").endswith(
-            "claim_data_request_request"
+        first["claim_data_requests"]["input"].clear()
+        assert wire.wire_role_kind("claim_data_requests", "input").endswith(
+            "claim_data_requests_request"
         )
         payload = {
-            "request_id": "request:x",
-            "generation": 1,
+            "items": [{"request_id": "request:x", "generation": 1}],
             "holder": "worker",
             "lease_seconds": 3,
         }
-        assert wire.validate_native_wire("claim_data_request", "input", payload) == payload
-        assert wire.wire_contracts()["claim_data_request"]["input"]
+        assert wire.validate_native_wire("claim_data_requests", "input", payload) == payload
+        assert wire.wire_contracts()["claim_data_requests"]["input"]
         assert preparations == [None]
     finally:
         wire._ambient_protocol.cache_clear()
@@ -61,8 +60,8 @@ def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeyp
 def test_ambient_validation_and_role_lookup_survive_captured_cache_eviction(monkeypatch):
     from corpus_structure.semantic import data_operation_wire as wire
 
-    payload = {"request_id": "request:x", "generation": 1, "holder": "worker", "lease_seconds": 3}
-    assert wire.validate_native_wire("claim_data_request", "input", payload) == payload
+    payload = {"items": [{"request_id": "request:x", "generation": 1}], "holder": "worker", "lease_seconds": 3}
+    assert wire.validate_native_wire("claim_data_requests", "input", payload) == payload
     wire._prepared_protocol.cache_clear()
     wire._validator.cache_clear()
 
@@ -71,12 +70,12 @@ def test_ambient_validation_and_role_lookup_survive_captured_cache_eviction(monk
 
     monkeypatch.setattr(wire, "_prepared_protocol", unexpected_preparation)
     monkeypatch.setattr(wire, "_validator", unexpected_preparation)
-    assert wire.validate_native_wire("claim_data_request", "input", payload) == payload
-    assert wire.wire_role_kind("claim_data_request", "input") == (
-        KIND_PREFIX + "claim_data_request_request"
+    assert wire.validate_native_wire("claim_data_requests", "input", payload) == payload
+    assert wire.wire_role_kind("claim_data_requests", "input") == (
+        KIND_PREFIX + "claim_data_requests_request"
     )
     with pytest.raises(ValueError, match="schema"):
-        wire.validate_native_wire("claim_data_request", "input", {**payload, "generation": "1"})
+        wire.validate_native_wire("claim_data_requests", "input", {**payload, "items": [{"request_id": "request:x", "generation": "1"}]})
 
 
 def test_prepared_wire_validator_owns_its_schema_after_caller_mutation_and_eviction(monkeypatch):
@@ -100,7 +99,7 @@ def test_prepared_wire_validator_owns_its_schema_after_caller_mutation_and_evict
 
 def controlled_wire_declaration():
     declaration: dict[str, Any] = contract(
-        id="data.claim_data_request",
+        id="controlled.claim_data_requests",
         profile="command",
         behavior="controlled-native-wire-v1",
         invariants=[],
@@ -124,13 +123,13 @@ def wire_model(sources=None, binding=None):
     declaration["roles"][0].update(
         name="request",
         parameter="payload",
-        kind=wire_role_kind("claim_data_request", "input", sources),
+        kind=wire_role_kind("claim_data_requests", "input", sources),
     )
     declaration["roles"][0]["support"]["coverage"]["role"] = "request"
     declaration["roles"][1].update(
         name="result",
         parameter="payload",
-        kind=wire_role_kind("claim_data_request", "output", sources),
+        kind=wire_role_kind("claim_data_requests", "output", sources),
     )
     declaration["binding"]["roles"] = ["request"]
     if binding is not None:
@@ -155,11 +154,10 @@ def wire_model(sources=None, binding=None):
 def test_native_wire_integer_type_and_declared_limits_do_not_coerce(lease):
     with pytest.raises(ValueError):
         validate_native_wire(
-            "claim_data_request",
+            "claim_data_requests",
             "input",
             {
-                "request_id": "request:x",
-                "generation": 1,
+                "items": [{"request_id": "request:x", "generation": 1}],
                 "holder": "worker",
                 "lease_seconds": lease,
             },
@@ -167,17 +165,17 @@ def test_native_wire_integer_type_and_declared_limits_do_not_coerce(lease):
 
 
 def test_exact_wire_fields_and_result_variants_are_explicit():
-    payload = {"request_id": "request:x", "generation": 1, "holder": "worker", "lease_seconds": 3}
-    assert validate_native_wire("claim_data_request", "input", payload) == payload
+    payload = {"items": [{"request_id": "request:x", "generation": 1}], "holder": "worker", "lease_seconds": 3}
+    assert validate_native_wire("claim_data_requests", "input", payload) == payload
     with pytest.raises(ValueError):
-        validate_native_wire("claim_data_request", "input", {**payload, "extra": 2})
-    assert validate_native_wire("claim_data_request", "output", {"state": "no-work"}) == {
-        "state": "no-work"
+        validate_native_wire("claim_data_requests", "input", {**payload, "extra": 2})
+    assert validate_native_wire("claim_data_requests", "output", {"items": [{"state": "no-work"}]}) == {
+        "items": [{"state": "no-work"}]
     }
     with pytest.raises(ValueError):
-        validate_native_wire("claim_data_request", "output", {"state": "claimed"})
+        validate_native_wire("claim_data_requests", "output", {"items": [{"state": "claimed"}]})
     with pytest.raises(ValueError):
-        validate_native_wire("claim_data_request", "output", {"state": "no-work", "task_id": 4})
+        validate_native_wire("claim_data_requests", "output", {"items": [{"state": "no-work", "task_id": 4}]})
 
 
 @pytest.mark.parametrize("direction", ["input", "output"])
@@ -198,8 +196,8 @@ def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references
     for directions in contracts.values():
         for schema in directions.values():
             checked_json_schema(schema)
-    contracts["claim_data_request"]["input"]["definitions"].clear()
-    assert wire_contracts(captured())["claim_data_request"]["input"]["definitions"]
+    contracts["claim_data_requests"]["input"]["definitions"].clear()
+    assert wire_contracts(captured())["claim_data_requests"]["input"]["definitions"]
     for schema in ({"$ref": "https://example.invalid/remote"}, {"$ref": "#/definitions/missing"}):
         with pytest.raises(ValueError):
             checked_json_schema(schema)
@@ -207,7 +205,7 @@ def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references
 
 def test_effective_wire_record_has_the_same_constrained_field_graph():
     model = wire_model(captured())
-    owner = KIND_PREFIX + "claim_data_request_request"
+    owner = KIND_PREFIX + "claim_data_requests_request"
     kind = next(k for k in model.kinds if k.semantic_id == owner)
     assert kind.category == "class"
     assert json.loads(kind.facts)["json_schema"]
@@ -250,10 +248,10 @@ def test_generated_boundaries_execute_the_captured_nested_wire_contract(monkeypa
         "payload", "native-wire", False, native_field="payload", resolved=scalar_json
     )
     call = OperationCallBinding(
-        "claim_data_request",
-        "ops.claim_data_request",
+        "controlled_wire",
+        "ops.controlled_wire",
         (parameter,),
-        result_class="ClaimDataRequestResult",
+        result_class="ControlledWireResult",
         result_fields=(result,),
         cardinality="one",
         ordered=False,
@@ -261,7 +259,7 @@ def test_generated_boundaries_execute_the_captured_nested_wire_contract(monkeypa
         result_mode="json",
     )
     artifact = compile_data_operation_artifacts(
-        model, (("data.claim_data_request", call),), native_source_digest="wire-test"
+        model, (("controlled.claim_data_requests", call),), native_source_digest="wire-test"
     )
     module = ModuleType("corpus_structure.semantic._test_captured_wire")
     module.__package__ = "corpus_structure.semantic"
@@ -282,23 +280,23 @@ def test_generated_boundaries_execute_the_captured_nested_wire_contract(monkeypa
         raise AssertionError("generated call repeated schema preparation")
 
     monkeypatch.setattr(wire, "_validator", unexpected_preparation)
-    request = module.__dict__["_claim_data_requestRequest"]
-    result_type = module.__dict__["ClaimDataRequestResult"]
+    request = module.__dict__["_controlled_wireRequest"]
+    result_type = module.__dict__["ControlledWireResult"]
     checked = request.model_validate_json(
-        '{"payload":{"request_id":"request:x","generation":1,"holder":"worker","lease_seconds":3}}',
+        '{"payload":{"items":[{"request_id":"request:x","generation":1}],"holder":"worker","lease_seconds":3}}',
         strict=True,
     )
     assert checked.payload["lease_seconds"] == 3
     with pytest.raises(ValidationError):
         request.model_validate_json(
-            '{"payload":{"request_id":"request:x","generation":1,"holder":"worker","lease_seconds":"3"}}',
+            '{"payload":{"items":[{"request_id":"request:x","generation":1}],"holder":"worker","lease_seconds":"3"}}',
             strict=True,
         )
     assert result_type.model_validate_json(
-        '{"payload":{"state":"no-work"}}', strict=True
-    ).payload == {"state": "no-work"}
+        '{"payload":{"items":[{"state":"no-work"}]}}', strict=True
+    ).payload == {"items": [{"state": "no-work"}]}
     with pytest.raises(ValidationError):
-        result_type.model_validate_json('{"payload":{"state":"claimed"}}', strict=True)
+        result_type.model_validate_json('{"payload":{"items":[{"state":"claimed"}]}}', strict=True)
 
 
 def test_nested_support_and_product_member_attributes_cannot_hide_type_coercion():
@@ -369,7 +367,7 @@ def test_unrelated_wire_definition_does_not_contaminate_rooted_kind_identity():
     }
     changed = captured(yaml.safe_dump(document).encode())
     before, after = wire_model(original), wire_model(changed)
-    owner = KIND_PREFIX + "claim_data_request_request"
+    owner = KIND_PREFIX + "claim_data_requests_request"
 
     def fingerprint(model):
         return next(i.key for i in model.identities if i.owner == owner and i.domain == "kind")
@@ -381,7 +379,7 @@ def test_unrelated_wire_definition_does_not_contaminate_rooted_kind_identity():
 def test_wire_predicate_literals_reuse_the_exact_constrained_field_authority(field, invalid, valid):
     from corpus_structure.semantic.types import PreparationError
 
-    owner = KIND_PREFIX + "claim_data_request_request"
+    owner = KIND_PREFIX + "claim_data_requests_request"
     binding = {
         "operator": "literal",
         "fields": [{"role": "request", "projection": owner, "field": field}],
@@ -496,10 +494,10 @@ def test_native_attachment_binding_requires_the_authenticated_read_receipt_refer
         "replicate": None,
     }
     with pytest.raises(ValueError):
-        validate_native_wire("attach_data_request", "input", request)
+        validate_native_wire("attach_data_requests", "input", {"read_id": "read:x", "items": [request]})
     binding["read_id"] = "read:x"
     assert (
-        validate_native_wire("attach_data_request", "input", request)["binding"]["read_id"]
+        validate_native_wire("attach_data_requests", "input", {"read_id": "read:x", "items": [request]})["items"][0]["binding"]["read_id"]
         == "read:x"
     )
 

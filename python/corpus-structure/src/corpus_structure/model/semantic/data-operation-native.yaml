@@ -1146,6 +1146,7 @@ definitions:
   result_obligation:
     type: object
     properties:
+      inputs_watermark: {type: string, minLength: 1}
       id:
         $ref: '#/definitions/identifier'
       obligation_id:
@@ -1182,6 +1183,7 @@ definitions:
         - $ref: '#/definitions/identifier'
         - type: 'null'
     required:
+    - inputs_watermark
     - id
     - obligation_id
     - demand_id
@@ -1309,6 +1311,7 @@ definitions:
   register_data_demand_result:
     type: object
     properties:
+      inserted_obligations: {type: integer, minimum: 0}
       demand_id:
         $ref: '#/definitions/identifier'
       selection:
@@ -1317,6 +1320,7 @@ definitions:
         type: string
         enum: [active, cancelled]
     required:
+    - inserted_obligations
     - demand_id
     - selection
     additionalProperties: false
@@ -1358,38 +1362,6 @@ definitions:
           required: [request_id, generation, task_id, interest, physical_retirement]
           additionalProperties: false
     required: [demand_id, state, reason, requests]
-    additionalProperties: false
-  expand_data_obligation_request:
-    type: object
-    properties:
-      demand_id:
-        $ref: '#/definitions/identifier'
-      operation_id:
-        $ref: '#/definitions/identifier'
-      subject:
-        $ref: '#/definitions/identifier'
-      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
-      analyzed_scope:
-        $ref: '#/definitions/json_value'
-      parameters:
-        $ref: '#/definitions/parameter_map'
-      population_id:
-        $ref: '#/definitions/identifier'
-    required:
-    - demand_id
-    - operation_id
-    - subject
-    - original_source
-    - analyzed_scope
-    - parameters
-    additionalProperties: false
-  expand_data_obligation_result:
-    type: object
-    properties:
-      obligation_id:
-        $ref: '#/definitions/identifier'
-    required:
-    - obligation_id
     additionalProperties: false
   record_data_fate_request:
     type: object
@@ -1466,6 +1438,7 @@ definitions:
   close_data_population_result:
     type: object
     properties:
+      inserted_obligations: {type: integer, minimum: 0}
       population_id:
         $ref: '#/definitions/identifier'
       name:
@@ -1482,6 +1455,7 @@ definitions:
       semantic_key:
         $ref: '#/definitions/identifier'
     required:
+    - inserted_obligations
     - population_id
     - name
     - complete
@@ -2134,6 +2108,7 @@ definitions:
   read_demand_result_request:
     type: object
     properties:
+      obligation_id: {$ref: '#/definitions/identifier'}
       support_after: {$ref: '#/definitions/identifier'}
       scope: {$ref: '#/definitions/demand_read_scope'}
       demand_id:
@@ -2704,13 +2679,6 @@ operations:
   purposes:
   - write
   - evaluate
-- name: expand_data_obligation
-  profile: command
-  request: expand_data_obligation_request
-  result: expand_data_obligation_result
-  purposes:
-  - write
-  - evaluate
 - name: record_data_fate
   profile: command
   request: record_data_fate_request
@@ -2733,15 +2701,34 @@ operations:
   purposes:
   - write
   - evaluate
-- name: attach_data_request
+- name: attach_data_requests
   profile: command
+  request: attach_data_requests_request
+  result: attach_data_requests_result
+  item_operation: attach_data_request
+  shared:
+    read_id: {$ref: '#/definitions/read_id'}
+  outcome_field: fate
+  purposes: [write, evaluate]
+- name: claim_data_requests
+  profile: command
+  request: claim_data_requests_request
+  result: claim_data_requests_result
+  item_operation: claim_data_request
+  shared:
+    holder: {$ref: '#/definitions/identifier'}
+    lease_seconds: {type: integer, minimum: 1, maximum: 86400}
+  outcome_field: state
+  purposes: [write, evaluate]
+- name: attach_data_request
+  profile: item
   request: attach_data_request_request
   result: attach_data_request_result
   purposes:
   - write
   - evaluate
 - name: claim_data_request
-  profile: command
+  profile: item
   request: claim_data_request_request
   result: claim_data_request_result
   purposes:

@@ -128,7 +128,7 @@ def render_call_bindings(
         if any(f.wire_schema is not None for f in (*call.parameters, *call.result_fields))
     ]
     if structural or wire_schemas:
-        out += ["from .data_operation_wire import prepare_wire_schema"]
+        out += ["from .data_operation_wire import encode_native_wire_request, prepare_wire_schema"]
     definitions, nominals = {}, {}
     if structural:
         for call in structural:
@@ -308,6 +308,8 @@ def render_call_bindings(
             if call.batch
             else f"_{name}Request"
         )
+        if operation.startswith("data.") and any(field.source == "native-wire" for field in call.parameters) and not call.wire_contract_digest:
+            raise ValueError("DDO native wire call lacks its captured installed wire contract")
         if call in structural:
             if (
                 len(call.parameters) != 1
@@ -316,6 +318,9 @@ def render_call_bindings(
             ):
                 raise ValueError("structural native call requires the fixed JSON envelope")
             parameter, result = call.parameters[0], call.result_fields[0]
+            installed_contract = call.wire_contract_digest
+            if operation.startswith("data.") and installed_contract is None:
+                raise ValueError("DDO structural call lacks its captured installed wire contract")
             request_schema, result_schema = (
                 json.loads(field.wire_schema) for field in (parameter, result)
             )
@@ -360,7 +365,7 @@ def render_call_bindings(
                 f"class {call.result_class}(TypedDict):",
                 f"    {result.name}: {result_type}",
                 "",
-                f"_{name}_validate_input = prepare_wire_schema({boundary_input!r})",
+                *([] if installed_contract else [f"_{name}_validate_input = prepare_wire_schema({boundary_input!r})"]),
                 f"_{name}_validate_output = prepare_wire_schema({boundary_output!r})",
                 "",
                 f"_{name}_statement = select(func.{call.symbol}(",
@@ -382,8 +387,13 @@ def render_call_bindings(
                     context_check("        ", operation, name),
                 ]
             out += [
-                f"    checked = _{name}_validate_input({{{parameter.name!r}: {parameter.name}}})",
-                f"    return _{name}_statement.params({parameter.name}=json_bytes(checked[{parameter.name!r}]).decode())",
+                *(
+                    [f"    return _{name}_statement.params({parameter.name}=encode_native_wire_request({parameter.name}))"]
+                    if installed_contract else [
+                        f"    checked = _{name}_validate_input({{{parameter.name!r}: {parameter.name}}})",
+                        f"    return _{name}_statement.params({parameter.name}=json_bytes(checked[{parameter.name!r}]).decode())",
+                    ]
+                ),
                 "",
                 f"def {name}(conn: Connection, *,",
                 f"    {parameter.name}: {request_annotation},",
@@ -395,6 +405,15 @@ def render_call_bindings(
                 f"    with native_result_scope({operation!r}, {call.result_class!r}):",
                 "        encoded = conn.scalar(statement)",
                 "        value = wire_json_loads(encoded)",
+                *(
+                    [
+                        "        if not isinstance(value, dict) or set(value) != {'payload', 'contract_digest'}:",
+                        "            raise ValueError('native data operation returned a malformed fixed envelope')",
+                        f"        if value['contract_digest'] != {installed_contract!r}:",
+                        "            raise ValueError('native installed wire contract differs from the captured client')",
+                        "        value = {'payload': value['payload']}",
+                    ] if installed_contract else []
+                ),
                 f"        return cast({call.result_class}, _{name}_validate_output(value))",
             ]
             continue

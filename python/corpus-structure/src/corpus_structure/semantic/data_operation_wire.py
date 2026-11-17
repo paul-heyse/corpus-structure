@@ -13,6 +13,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import lru_cache
+from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal
@@ -165,6 +166,56 @@ def _prepare_protocol_content(sources: tuple[SourceArtifact, ...] | None) -> byt
     return content
 
 
+def _lower_set_operations(protocol: dict[str, Any]) -> None:
+    """Derive set transports from their single item operation catalogue."""
+    operations = {operation["name"]: operation for operation in protocol["operations"]}
+    definitions = protocol["definitions"]
+    for operation in protocol["operations"]:
+        if "item_operation" not in operation:
+            continue
+        item = operations.get(operation["item_operation"])
+        if item is None or item["profile"] != "item":
+            raise ValueError("set transport requires a private item operation")
+        shared = operation["shared"]
+        request = definitions[item["request"]]
+        item_request = json.loads(json.dumps(request))
+        for name in shared:
+            item_request["properties"].pop(name, None)
+            if name in item_request["required"]:
+                item_request["required"].remove(name)
+        item_name = operation["name"] + "_item"
+        definitions[item_name] = item_request
+        definitions[operation["request"]] = {
+            "type": "object", "properties": {
+                **shared, "items": {"type": "array", "items": {"$ref": "#/definitions/" + item_name}}
+            }, "required": [*shared, "items"], "additionalProperties": False,
+        }
+        result = definitions[item["result"]]
+        outcomes = []
+        for variant in result.get("oneOf", [result]):
+            field = variant["properties"][operation["outcome_field"]]
+            states = field.get("enum", [field.get("const")])
+            for state in states:
+                if not isinstance(state, str):
+                    raise ValueError("set item result requires finite named outcomes")
+                properties = {"state": {"const": state}}
+                if set(variant["properties"]) != {operation["outcome_field"]}:
+                    result_name = operation["name"] + "_" + state.replace("-", "_") + "_result"
+                    result_variant = json.loads(json.dumps(variant))
+                    result_variant["properties"][operation["outcome_field"]] = {"const": state}
+                    definitions[result_name] = result_variant
+                    properties["result"] = {"$ref": "#/definitions/" + result_name}
+                outcomes.append({"type": "object", "properties": properties,
+                                 "required": list(properties), "additionalProperties": False})
+        outcomes.append({"type": "object", "properties": {
+            "state": {"const": "refused"}, "sqlstate": {"type": "string", "pattern": "^[0-9A-Z]{5}$"},
+            "reason": {"type": "string", "minLength": 1}},
+            "required": ["state", "sqlstate", "reason"], "additionalProperties": False})
+        definitions[operation["result"]] = {"type": "object", "properties": {
+            "items": {"type": "array", "items": {"oneOf": outcomes}}},
+            "required": ["items"], "additionalProperties": False}
+
+
 @lru_cache(maxsize=16)
 def _checked_protocol(content: bytes) -> bytes:
     result = yaml.safe_load(content)
@@ -181,8 +232,8 @@ def _checked_protocol(content: bytes) -> bytes:
     for operation in result["operations"]:
         if (
             not isinstance(operation, dict)
-            or set(operation) != {"name", "profile", "request", "result", "purposes"}
-            or operation["profile"] not in {"command", "read"}
+            or set(operation) - {"item_operation", "shared", "outcome_field"} != {"name", "profile", "request", "result", "purposes"}
+            or operation["profile"] not in {"command", "read", "item"}
         ):
             raise ValueError("invalid native wire operation")
         purposes = operation["purposes"]
@@ -196,12 +247,25 @@ def _checked_protocol(content: bytes) -> bytes:
             or len(purposes) != len(set(purposes))
         ):
             raise ValueError("native wire operation requires unique explicit purpose capabilities")
+        if not isinstance(operation["name"], str) or not operation["name"]:
+            raise ValueError("native wire operation requires a name")
+        set_fields = {"item_operation", "shared", "outcome_field"} & operation.keys()
+        if set_fields and (
+            set_fields != {"item_operation", "shared", "outcome_field"}
+            or operation["profile"] != "command"
+            or not isinstance(operation["item_operation"], str)
+            or not isinstance(operation["shared"], dict)
+            or not isinstance(operation["outcome_field"], str)
+        ):
+            raise ValueError("invalid native set operation")
         names.append(operation["name"])
+    if len(names) != len(set(names)):
+        raise ValueError("duplicate native wire operation")
+    _lower_set_operations(result)
+    for operation in result["operations"]:
         for direction in ("request", "result"):
             if operation[direction] not in result["definitions"]:
                 raise ValueError("unresolved native wire operation schema")
-    if len(names) != len(set(names)):
-        raise ValueError("duplicate native wire operation")
     return canonical_bytes(result)
 
 
@@ -297,6 +361,7 @@ def schema_closure(root: dict[str, Any], definitions: dict[str, Any]) -> dict[st
 class _PreparedProtocol:
     checked: bytes
     contracts: bytes
+    contract_digest: str
     operations: tuple[bytes, ...]
     schemas: Mapping[tuple[str, str], bytes]
     role_kinds: Mapping[tuple[str, str], str]
@@ -307,6 +372,7 @@ class _PreparedProtocol:
 def _prepared_protocol(content: bytes) -> _PreparedProtocol:
     checked = _checked_protocol(content)
     protocol = json.loads(checked)
+    public = [operation for operation in protocol["operations"] if operation["profile"] != "item"]
     contracts = {
         operation["name"]: {
             direction: schema_closure(
@@ -314,7 +380,7 @@ def _prepared_protocol(content: bytes) -> _PreparedProtocol:
             )
             for direction, side in (("input", "request"), ("output", "result"))
         }
-        for operation in protocol["operations"]
+        for operation in public
     }
     schemas = {
         (name, direction): canonical_bytes(schema)
@@ -324,12 +390,13 @@ def _prepared_protocol(content: bytes) -> _PreparedProtocol:
     return _PreparedProtocol(
         checked,
         canonical_bytes(contracts),
-        tuple(canonical_bytes(operation) for operation in protocol["operations"]),
+        sha256(canonical_bytes(contracts)).hexdigest(),
+        tuple(canonical_bytes(operation) for operation in public),
         MappingProxyType(schemas),
         MappingProxyType(
             {
                 (operation["name"], direction): KIND_PREFIX + operation[side]
-                for operation in protocol["operations"]
+                for operation in public
                 for direction, side in (("input", "request"), ("output", "result"))
             }
         ),
@@ -355,6 +422,16 @@ def wire_operations(
 ) -> tuple[dict[str, Any], ...]:
     """Detached operation facts, including explicit purpose capabilities, from one parser."""
     return tuple(json.loads(operation) for operation in _protocol_state(sources).operations)
+
+
+def encode_native_wire_request(value: Any) -> str:
+    """Retain exact JSON encodability without replaying the SQL request schema."""
+    return json_bytes(_JSON_VALUE.validate_python(value, strict=True)).decode()
+
+
+def wire_contract_digest(sources: tuple[SourceArtifact, ...] | None = None) -> str:
+    """Identity of the complete contract installed with the native release."""
+    return _protocol_state(sources).contract_digest
 
 
 def wire_contracts(sources: tuple[SourceArtifact, ...] | None = None) -> dict[str, Any]:
@@ -561,10 +638,37 @@ def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
         or document["version"] != "data-operation-wire-types-v1"
     ):
         raise ValueError("unsupported native wire nominal correspondence")
-    definitions = _protocol(sources)["definitions"]
+    protocol = _protocol(sources)
+    definitions = protocol["definitions"]
     fields = document["fields"]
     if not isinstance(fields, dict):
         raise ValueError("wire nominal fields must be source pointer bindings")
+    fields = dict(fields)
+    operations = {operation["name"]: operation for operation in protocol["operations"]}
+    for operation in protocol["operations"]:
+        if "item_operation" not in operation:
+            continue
+        item = operations[operation["item_operation"]]
+        prefix = "#/definitions/" + item["request"] + "/properties/"
+        for pointer, nominal in tuple(fields.items()):
+            if not pointer.startswith(prefix):
+                continue
+            suffix = pointer.removeprefix(prefix)
+            target = operation["request"] if suffix in operation["shared"] else operation["name"] + "_item"
+            fields["#/definitions/" + target + "/properties/" + suffix] = nominal
+        result = definitions[item["result"]]
+        for index, variant in enumerate(result.get("oneOf", [result])):
+            field = variant["properties"][operation["outcome_field"]]
+            prefix = "#/definitions/" + item["result"] + (
+                "/oneOf/" + str(index) if "oneOf" in result else ""
+            ) + "/properties/"
+            for state in field.get("enum", [field.get("const")]):
+                target = operation["name"] + "_" + state.replace("-", "_") + "_result"
+                if target not in definitions:
+                    continue
+                for pointer, nominal in tuple(fields.items()):
+                    if pointer.startswith(prefix):
+                        fields["#/definitions/" + target + "/properties/" + pointer.removeprefix(prefix)] = nominal
     for pointer, nominal in fields.items():
         if not isinstance(nominal, str) or any(
             not part.isidentifier() for part in nominal.split(".")
@@ -790,7 +894,7 @@ def generated_wire_source(sources=None):
         "        raise NotImplementedError",
         "",
     ]
-    for operation in protocol["operations"]:
+    for operation in wire_operations(sources):
         name = operation["name"]
         request, result = (wire_type_name(operation[side]) for side in ("request", "result"))
         out += [

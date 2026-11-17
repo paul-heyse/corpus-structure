@@ -114,7 +114,7 @@ BEGIN
  PERFORM ops.ddo_authorize_request(r);
  IF r.project_id<>p->>'project_id' OR (p ? 'demand_id' AND NOT EXISTS(SELECT FROM ops.demand_use use_ WHERE use_.demand_id=p->>'demand_id' AND (use_.request_id,use_.generation)=(packet.request_id,packet.generation) AND use_.fate='attached' AND ops.ddo_demand_active(use_.demand_id))) THEN RAISE EXCEPTION 'external packet is outside the selected project/demand'; END IF;
  IF (r.generation,r.live_task_id) IS DISTINCT FROM (packet.generation,packet.task_id) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
- RETURN ops.claim_data_request(jsonb_build_object('request_id',r.id,'generation',packet.generation,'external_packet_id',packet.id,'holder',p->>'holder','lease_seconds',p->'lease_seconds'));
+ RETURN ops.ddo_claim_data_request(jsonb_build_object('request_id',r.id,'generation',packet.generation,'external_packet_id',packet.id,'holder',p->>'holder','lease_seconds',p->'lease_seconds'));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.read_external_data_packet(p_payload jsonb) RETURNS jsonb
