@@ -11,10 +11,11 @@ application/provider qualification by preparing or installing infrastructure.
 The existing `corpus_structure_dev` remains PostgreSQL18.7 on dedicated5434, database OID25921445,
 system7701811359771751232, installed `semantic_bep_located_v2`; maintenance status reacquired this
 identity on2026-11-16. That development database has had no reset, rename, native deployment,
-activation or data conversion. The current root and thirteen successors through
-`semantic_ddo_binding_reuse` are registered and installed on the owned stage. The current v8/compiler24
-application below is admitted, checked and activated generation2 for the bounded stage-only project;
-this establishes no inference. ADR-0121's v9 selected-support correction is not installed. Historical frozen files remain
+activation or data conversion. The current root and fourteen successors through
+`semantic_ddo_selected_proofs` are registered and installed on the owned stage. Its v9/compiler24
+application admission is open. The earlier v8 application below was admitted, checked and activated
+generation2 under its prior native context; its bounded standard inference outcome remains scoped
+to that context. Historical frozen files remain
 unchanged and are not a selectable current install route. The unregistered
 [v10 preparation](../2026-11-15_ddo-v10-native/README.md) is superseded.
 
@@ -72,6 +73,29 @@ owns the shared checker repair/application recapture and actual retry; integrate
 All three originals are held, ingest children drained and custody settled. Managed Nemotron
 generation `2e3bbd058970498cb9b417251e6acac3` remains under root custody for later actual recognition;
 service availability alone establishes no inference result.
+
+## Selected-support v9 successor · 2026-11-17
+
+**passed:** [request](selected-proofs-successor.yaml), preview `1d7123901c714dc49d510caaee9c3484`,
+exact apply `bef94d330ca0450689549bb98e7e3dd0`, rollback-only candidate
+`11521fcd78244a8a880d881e462b371d`, registration `ea0be8995f5a49fc9b5337a01f3f866b` and deployment
+`af7bfdd11fbd497dafb5f6595cb7bbb6`; registered261f68157. Independent source/frozen-artifact inspection
+covered514identities:39body-only changes and4new private publisher-only helpers; no drop/recreation
+or existing ACL/owner/security/search-path/result change. Exact wrapper, operations JSON and admission
+hashes are respectively179dc0c4bbaaac53bbb388746a659a4f5264aefe937779a1031f1a5a4e33c1c7,
+8819642930515bf13af0fa0a6704372d95fd163607fb72084f0c0c7c5b52a8ac and
+6a6dd0ae9b983fff544cc14a61adb4a7818f74ed2d65c2817cac4f51b26be656.
+
+The sole ordinary operation inserts a `sem.physical_contract` row, not DDL or data conversion.
+The physical source closure includes the changed native-wire document; its new identity is
+`physical:23eb2beb453e0cf3ee7fb5dfa2567007ab386b85445f59c9768ab2555b0f6fd9`.
+All173checks and their source digest940c9bd736be942589dc680f56daf4b82a4724fa525a1be84e4c18aed5a2cc8f
+match the predecessor; the97-relation layout is unchanged. Native digest is
+30e76ae902130f7083738834dbd13f71c87d9622705cddde83be1525d777ad8a. Separate normal maintenance
+status reacquired unchanged stageOID130661481/system7701811359771751232 at revision=head=
+`semantic_ddo_selected_proofs`. Effective modelv9/demand-intent-v2/CPU-input-basis-3 are current;
+compiler24/boundary13 remain unchanged. The coordinator owns focused native4, actual consumers and
+fresh application qualification. Development remains at its original identity/revision.
 
 ## Empty authoring stage · 2026-11-16
 

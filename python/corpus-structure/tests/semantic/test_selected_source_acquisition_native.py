@@ -172,31 +172,55 @@ def test_native_source_acquisition_distinguishes_anchor_from_actual_producing_us
     _, (ready,) = _ready(ddo_kernel, consumer)
     _complete_ready(ddo_kernel, ready, value=43)
     anchor = selected(ddo_kernel, consumer)
-    with ddo_kernel["engine"].begin() as connection, selected_record_index(
-        connection, consumer["demand_id"], project_id="ddo-test", scope={}, capture_frontier=True
-    ) as (cut, index):
+    with (
+        ddo_kernel["engine"].begin() as connection,
+        selected_record_index(
+            connection,
+            consumer["demand_id"],
+            project_id="ddo-test",
+            scope={},
+            capture_frontier=True,
+        ) as (cut, index),
+    ):
         (ancestor,) = selected_source_entries(
-            index, cut, product_id=source.entry.product, member_id=None,
-            anchor_use_id=anchor.proof.support.admission_use_id, support=source.proof.support,
+            index,
+            cut,
+            product_id=source.entry.product,
+            member_id=None,
+            anchor_use_id=anchor.proof.support.admission_use_id,
+            support=source.proof.support,
         )
     assert ancestor.proof.anchor_use_id != ancestor.proof.support.admission_use_id
-    _, (dependent,) = _ready(ddo_kernel, register(
-        ddo_kernel, FrozenSourceSet.from_selected("selected", (ancestor,)), inference="ancestor-source-control"
-    ))
-    assert dependent.binding_result.roles[0].members[0].support_references == (source.proof.support,)
+    _, (dependent,) = _ready(
+        ddo_kernel,
+        register(
+            ddo_kernel,
+            FrozenSourceSet.from_selected("selected", (ancestor,)),
+            inference="ancestor-source-control",
+        ),
+    )
+    assert dependent.binding_result.roles[0].members[0].support_references == (
+        source.proof.support,
+    )
 
     # Another native admission can reuse the SAME episode. Its use node is not
     # reachable from the original anchor and cannot substitute for that support.
     extra_intent = freeze_demand(
-        ddo_kernel["model"], roots=(
+        ddo_kernel["model"],
+        roots=(
             RootSubject("source-subject:B", "source:B", b'{"page":1}'),
             RootSubject("another-source-subject", "source:B", b'{"page":1}'),
-        ), targets=(PRODUCER,), inference="source-anchor-control", execution_profile="execution:test",
+        ),
+        targets=(PRODUCER,),
+        inference="source-anchor-control",
+        execution_profile="execution:test",
     )
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         other_demand = planner.register(
-            extra_intent, project="ddo-test", release=ddo_kernel["prepared"].release_id,
+            extra_intent,
+            project="ddo-test",
+            release=ddo_kernel["prepared"].release_id,
             runtime=ddo_kernel["runtime"],
         )
         snapshot = planner.resume(other_demand["demand_id"])
@@ -207,34 +231,53 @@ def test_native_source_acquisition_distinguishes_anchor_from_actual_producing_us
     # Acquire AFTER that unrelated use exists, so refusal proves use reachability
     # rather than only the old cut's visibility fence.
     visible_source = selected(ddo_kernel, source_demand)
-    forged = replace(visible_source, proof=visible_source.proof.model_copy(update={
-        "support": unrelated.proof.support,
-    }))
+    forged = replace(
+        visible_source,
+        proof=visible_source.proof.model_copy(
+            update={
+                "support": unrelated.proof.support,
+            }
+        ),
+    )
     with pytest.raises(DBAPIError, match="selected use/output support"):
-        register(ddo_kernel, FrozenSourceSet.from_selected("selected", (forged,)), inference="unreachable-use-control")
+        register(
+            ddo_kernel,
+            FrozenSourceSet.from_selected("selected", (forged,)),
+            inference="unreachable-use-control",
+        )
 
     # Self-consistent caller bytes still must equal the actual native cut.
     from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
     from corpus_structure.semantic.demand_results import CutSelection
+
     fake_record = wire_json_loads(visible_source.read.cut_canonical_json)
     fake_record["runtime_id"] = "runtime:foreign"
     fake_read = SelectedReadReference.from_cut(CutSelection(json_bytes(fake_record)))
     forged_cut = replace(visible_source, read=fake_read)
     with pytest.raises(DBAPIError, match="native retained cut bytes"):
-        register(ddo_kernel, FrozenSourceSet.from_selected("selected", (forged_cut,)), inference="forged-cut-control")
+        register(
+            ddo_kernel,
+            FrozenSourceSet.from_selected("selected", (forged_cut,)),
+            inference="forged-cut-control",
+        )
 
     # Exercise the public native acquisition entrypoint under an actual denied
     # purpose; this is an authorization refusal, not a mocked provider outcome.
     intent = freeze_demand(
-        ddo_kernel["model"], roots=(RootSubject("focus:A", "source:A", b'{"focus":true}'),),
-        targets=(CONSUMER,), source_sets=(FrozenSourceSet.from_selected("selected", (source,)),),
-        inference="reader-purpose-refusal", execution_profile="execution:test",
+        ddo_kernel["model"],
+        roots=(RootSubject("focus:A", "source:A", b'{"focus":true}'),),
+        targets=(CONSUMER,),
+        source_sets=(FrozenSourceSet.from_selected("selected", (source,)),),
+        inference="reader-purpose-refusal",
+        execution_profile="execution:test",
     )
     with ddo_kernel["engine"].begin() as connection:
         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_reader")
         with pytest.raises(DBAPIError) as refused, connection.begin_nested():
             DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection)).register(
-                intent, project="ddo-test", release=ddo_kernel["prepared"].release_id,
+                intent,
+                project="ddo-test",
+                release=ddo_kernel["prepared"].release_id,
                 runtime=ddo_kernel["runtime"],
             )
         assert getattr(refused.value.orig, "sqlstate", None) == "42501"
@@ -260,10 +303,15 @@ def _two_role_slot_recipe():
         role["support"]["source_set"] = name
         roles.append(role)
     consumer["roles"] = roles
-    consumer["binding"] = {"operator": "all", "children": [
-        {"operator": "scan", "roles": [name]} for name in ("left", "right")
-    ]}
-    return replace(PINNED, name="selected-source-two-role-emitting-slots", declaration_content=canonical_bytes(declarations))
+    consumer["binding"] = {
+        "operator": "all",
+        "children": [{"operator": "scan", "roles": [name]} for name in ("left", "right")],
+    }
+    return replace(
+        PINNED,
+        name="selected-source-two-role-emitting-slots",
+        declaration_content=canonical_bytes(declarations),
+    )
 
 
 TWO_ROLE_SLOTS = _two_role_slot_recipe()
@@ -275,7 +323,10 @@ def test_native_source_proof_selection_is_role_local_and_preserves_original_reus
     from semantic.data_operation_demand_support import attach, claim, publish, retain
 
     demand, _, _, attached = attach(
-        ddo_kernel, subject="source-subject:B", original_source="source:B", inference="two-source-slots"
+        ddo_kernel,
+        subject="source-subject:B",
+        original_source="source:B",
+        inference="two-source-slots",
     )
     fence = claim(ddo_kernel, attached)
     receipt = publish(ddo_kernel, fence, retain(ddo_kernel, fence, outputs=(42, 42)))
@@ -286,8 +337,13 @@ def test_native_source_proof_selection_is_role_local_and_preserves_original_reus
     assert len(headers) == 2
     assert headers[0]["product_id"] == headers[1]["product_id"]
     assert {header["derivation_id"] for header in headers} == {receipt["derivation_id"]}
-    first, second = (SelectedSourceSetEntry.from_selected_header(header, read) for header in headers)
-    frozen = (FrozenSourceSet.from_selected("left", (first,)), FrozenSourceSet.from_selected("right", (second,)))
+    first, second = (
+        SelectedSourceSetEntry.from_selected_header(header, read) for header in headers
+    )
+    frozen = (
+        FrozenSourceSet.from_selected("left", (first,)),
+        FrozenSourceSet.from_selected("right", (second,)),
+    )
     consumer = register(ddo_kernel, frozen, inference="same-semantic-request")
     _, (ready,) = _ready(ddo_kernel, consumer)
     positions = {}
@@ -299,19 +355,30 @@ def test_native_source_proof_selection_is_role_local_and_preserves_original_reus
     original_request = json.loads(ready.native)["request_id"]
     original_binding = json.loads(ready.native)["binding"]
     _complete_ready(ddo_kernel, ready, value=99)
-    swapped = register(ddo_kernel, (
-        FrozenSourceSet.from_selected("left", (second,)), FrozenSourceSet.from_selected("right", (first,))
-    ), inference="same-semantic-request")
+    swapped = register(
+        ddo_kernel,
+        (
+            FrozenSourceSet.from_selected("left", (second,)),
+            FrozenSourceSet.from_selected("right", (first,)),
+        ),
+        inference="same-semantic-request",
+    )
     _, executable = _ready(ddo_kernel, swapped)
     assert executable == ()  # A new proof choice admits reuse, not new inference.
     with ddo_kernel["engine"].begin() as connection:
         page = read_demand_result(connection, swapped["demand_id"], project_id="ddo-test")
         (use,) = [use for use in page.record["uses"] if use["fate"] == "fulfilled"]
         assert use["request_id"] == original_request
-        assert {item["role"]: item["producer_output"]["position"] for item in use["selection"]["inputs"]} == {"left": 1, "right": 0}
-        retained_binding = connection.scalar(text("SELECT binding FROM ops.data_request WHERE id=:id"), {"id": original_request})
+        assert {
+            item["role"]: item["producer_output"]["position"] for item in use["selection"]["inputs"]
+        } == {"left": 1, "right": 0}
+        retained_binding = connection.scalar(
+            text("SELECT binding FROM ops.data_request WHERE id=:id"), {"id": original_request}
+        )
         assert isinstance(retained_binding, dict)
-        assert {key: value for key, value in retained_binding.items() if key != "execution_profile"} == original_binding
+        assert {
+            key: value for key, value in retained_binding.items() if key != "execution_profile"
+        } == original_binding
 
 
 def _member_source_recipe():
@@ -328,20 +395,28 @@ def _member_source_recipe():
     member["id"] = "urn:source-member"
     member["roles"][0]["kind"] = "Sample"
     consumer = declarations["operations"][1]
-    consumer.update(id=CONSUMER, dependencies=[], potential_dependencies=[whole["id"], member["id"]])
+    consumer.update(
+        id=CONSUMER, dependencies=[], potential_dependencies=[whole["id"], member["id"]]
+    )
     role = next(role for role in consumer["roles"] if role["direction"] == "input")
     role.update(maximum=1, collection="scalar", subject_target="source-set")
     role.pop("subject_field")
     role["support"].update(source="frozen-source-set", source_set="selected")
     consumer["binding"] = {"operator": "scan", "roles": [role["name"]]}
     declarations["operations"] = [whole, member, consumer]
-    return replace(POPULATION, name="selected-source-whole-and-explicit-member", declaration_content=canonical_bytes(declarations))
+    return replace(
+        POPULATION,
+        name="selected-source-whole-and-explicit-member",
+        declaration_content=canonical_bytes(declarations),
+    )
 
 
 MEMBER_SOURCES = _member_source_recipe()
 
 
-@pytest.mark.parametrize("ddo_kernel", [MEMBER_SOURCES], indirect=True, ids=["whole-and-member-output"])
+@pytest.mark.parametrize(
+    "ddo_kernel", [MEMBER_SOURCES], indirect=True, ids=["whole-and-member-output"]
+)
 def test_native_source_acquisition_preserves_emitting_member_distinction(ddo_kernel):
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from semantic.data_operation_demand_support import attach, claim, publish, retain
@@ -351,15 +426,23 @@ def test_native_source_acquisition_preserves_emitting_member_distinction(ddo_ker
         return ddo_kernel["identities"][kind.semantic_id, "kind"]
 
     packet = dict(
-        member_id="m15", kind_contract=contract("Sample"),
-        context=dict(subject="member:one", subject_definition="original-occurrence",
-                     original_source="source:B", analyzed_scope={"page": 1}),
+        member_id="m15",
+        kind_contract=contract("Sample"),
+        context=dict(
+            subject="member:one",
+            subject_definition="original-occurrence",
+            original_source="source:B",
+            analyzed_scope={"page": 1},
+        ),
         body={"value": 15, "document_subject": "source-subject:B"},
     )
     choices = []
     for operation, output_member in (("urn:source-whole", None), ("urn:source-member", "m15")):
         demand, _, _, attached = attach(
-            ddo_kernel, operation=operation, subject="source-subject:B", original_source="source:B",
+            ddo_kernel,
+            operation=operation,
+            subject="source-subject:B",
+            original_source="source:B",
             inference="member-emission-control",
         )
         fence = claim(ddo_kernel, attached)
@@ -381,32 +464,56 @@ def test_native_source_acquisition_preserves_emitting_member_distinction(ddo_ker
     assert whole.proof.output.member_id is None
     assert member.proof.output.member_id == "m15"
     for number, choice in enumerate(choices):
-        _, (ready,) = _ready(ddo_kernel, register(
-            ddo_kernel, FrozenSourceSet.from_selected("selected", (choice,)), inference="member-binding-" + str(number)
-        ))
+        _, (ready,) = _ready(
+            ddo_kernel,
+            register(
+                ddo_kernel,
+                FrozenSourceSet.from_selected("selected", (choice,)),
+                inference="member-binding-" + str(number),
+            ),
+        )
         (actual,) = ready.binding_result.roles[0].members
         assert actual.member == "m15" and actual.producer_output == choice.proof.output
 
     # The pre-existing whole-output helper remains a whole-output contract.
     with ddo_kernel["engine"].begin() as connection:
-        connection.execute(text("SELECT ops.ddo_require_selected_output(:d,:r,:u,:p,:e)"), {
-            "d": whole.read.demand_id, "r": whole.read.read_id,
-            "u": whole.proof.anchor_use_id, "p": whole.entry.product,
-            "e": whole.proof.support.derivation_id,
-        })
+        connection.execute(
+            text("SELECT ops.ddo_require_selected_output(:d,:r,:u,:p,:e)"),
+            {
+                "d": whole.read.demand_id,
+                "r": whole.read.read_id,
+                "u": whole.proof.anchor_use_id,
+                "p": whole.entry.product,
+                "e": whole.proof.support.derivation_id,
+            },
+        )
     with (
         ddo_kernel["engine"].begin() as connection,
         pytest.raises(DBAPIError, match="selected support"),
         connection.begin_nested(),
     ):
-        connection.execute(text("SELECT ops.ddo_require_selected_output(:d,:r,:u,:p,:e)"), {
-            "d": member.read.demand_id, "r": member.read.read_id,
-            "u": member.proof.anchor_use_id, "p": member.entry.product,
-            "e": member.proof.support.derivation_id,
-        })
+        connection.execute(
+            text("SELECT ops.ddo_require_selected_output(:d,:r,:u,:p,:e)"),
+            {
+                "d": member.read.demand_id,
+                "r": member.read.read_id,
+                "u": member.proof.anchor_use_id,
+                "p": member.entry.product,
+                "e": member.proof.support.derivation_id,
+            },
+        )
     for number, (choice, wrong_member) in enumerate(((whole, "m15"), (member, None))):
-        forged = replace(choice, proof=choice.proof.model_copy(update={
-            "output": choice.proof.output.model_copy(update={"member_id": wrong_member}),
-        }))
+        forged = replace(
+            choice,
+            proof=choice.proof.model_copy(
+                update={
+                    "output": choice.proof.output.model_copy(update={"member_id": wrong_member}),
+                }
+            ),
+        )
         with pytest.raises(DBAPIError, match="selected use/output support"):
-            register(ddo_kernel, FrozenSourceSet.from_selected("selected", (forged,)), inference="forged-output-member-" + str(number))
+            register(
+                ddo_kernel,
+                FrozenSourceSet.from_selected("selected", (forged,)),
+                inference="forged-output-member-" + str(number),
+            )

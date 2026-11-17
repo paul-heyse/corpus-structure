@@ -17,7 +17,7 @@ source-interface and operation interpreters retire rather than imposing historic
 Native trust, effect fencing, source fidelity and evaluation independence remain required.
 Implementation/qualification is owned by the DDO coordinator.
 
-**Accepted selected-support correction; implementation/qualification Proposed · 2026-11-17.**
+**Implemented selected-support correction; bounded Tested, actual native consumers open · 2026-11-17.**
 Qualified semantic source addresses and acquisition proof are distinct. Frozen source sets explicitly
 select exact cuts, frontier anchor uses, actual producing uses/episodes and emitting occurrences,
 or explicitly request all admissible support. A selected member remains distinct from the emitting
@@ -28,7 +28,8 @@ deduplication supplies authority. Shared cut envelopes avoid repeating cut bytes
 Semantic entries alone enter source-set request parameters; declared identity requirements still
 govern selected episode determinants. Demand-intent-v2, CPU-input-basis-3 and effective model v9
 version the changed frozen/bound-role interpretation, while compiler24/boundary13 remain unchanged.
-The DDO coordinator owns SI12/27, consumer migration, current capture and qualification.
+Current callers and frozen successor `semantic_ddo_selected_proofs` are integrated; the coordinator
+owns SI12/27, actual consumer/provider qualification and fresh v9 application admission.
 
 > Decision: [ADR-0121](../adr/0121-selected-support-acquisition.md)
 

@@ -226,7 +226,7 @@ retain scope equality. Binding and selected-support validation consume the same 
 association. Genuine semantic SourceSets pin actual products/members/contexts, while external
 references retain their original reference meaning; neither becomes a fake execution root.
 
-**Selected-support acquisition, accepted target · 2026-11-17 (ADR-0121).** A semantic source entry
+**Selected-support acquisition, implemented; actual consumer qualification open · 2026-11-17 (ADR-0121).** A semantic source entry
 does not choose between genuine producers. Every frozen source set explicitly declares selected
 support or all-admissible support. Selected acquisition groups exact cuts once and associates each
 entry with its selected frontier anchor, actual producing admission-use/derivation and emitting

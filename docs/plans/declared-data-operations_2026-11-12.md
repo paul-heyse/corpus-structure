@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-16: DDO-00–11 execution in progress. Current effective interpretation is v8. The97-relation target and normal native-only lifecycle are integrated with bounded private controls; the current root is registered and installed on the owned stage; consumer integration and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged.**
+**Status · 2026-11-17: DDO-00–11 execution in progress. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The97-relation target and normal native-only lifecycle are integrated; the root and14successors are registered and installed on the owned stage. Matching application admission, actual consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -109,8 +109,8 @@ its positive grade/fitter sibling failed later at the fitted-body substitution o
 after fitting and copied-grade controls, before revocation. That failure remains open.
 
 The registered `semantic_ddo_binding_reuse` successor and fresh application release4080c29de3c6…
-are deployed/checked on the unchanged stage. Sourceb9d49b45b/effectivev8/compiler24/boundary13
-remain the current captured basis; ADR-0121's v9 correction below is not installed. Existing archive/purpose-engine caches
+were deployed/checked on the unchanged stage at sourceb9d49b45b/effectivev8/compiler24/boundary13.
+The v9 successor below supersedes that native context; v9 application admission remains open. Existing archive/purpose-engine caches
 already supply reuse; repeated compilation is not established. Repeated-work reduction is supported
 statically; elapsed-time benefit remains unmeasured. Reassess a scoped integration-test timeout if
 the correct workflow needs longer;900s is not an acceptance requirement. Add no benchmark framework,
@@ -169,6 +169,56 @@ and lint **passed** `a39afd0d527c4c058f1abb6d4917fd6d`. Initial mistyped test-pa
 `34d9067b984d4075b236fc8d65852a09` selected0 and supplies no functional credit. The repair changes
 captured application code, not native SQL. Combine its application recapture with the v9 integration
 before actual enrichment/integration retries. Actual integrated recognition remains **not_run**.
+
+### Selected-support integration and matching native head · 2026-11-17
+
+**Implemented; bounded Tested, actual native consumer qualification open.** ADR-0121 is integrated
+through main9eb5ade0e, with independently reviewed source and current-only frozen encodings. Semantic
+entries remain separate from acquisition and request determinants. Current selected consumer,
+structural/contextual/event/artifact/E5 and protected source/grade helpers retain actual selected
+proof. Explicit all-admissible acquisition remains intentionally broad; old list decoding and implicit
+producer selection are absent. Read preparation is shared per page/cut. Native acquisition validates
+one cut and walks each distinct anchor once, retaining identity metadata, then checks every
+proof/member/context independently. It adds no global/TEMP cache or auxiliary lifecycle.
+
+Independent review found and closed two source gaps before capture: contextual primary reading now
+consumes envelope entries, and selected-population lookup filters the current role's proof before
+cardinality. Original request/completion input basis survives reuse; each new demand-use selection
+retains its own proof. Exact population guards, real fitting population and copy-grade negative
+control remain. Fitter/body/revocation and E5 explanations above still require actual confirmation.
+
+Integrated pure81 passed `e7f632d794a24285b649fb08b5baff4d`. Affected authority/source/structural13
+had10passed/3controlled-fixture failures `a213444bdfe4480d89ba2e7beb11e08c`; explicit emitting
+occurrences preserve strict production correspondence, and exact3 retry passed
+`8a33d4b14fea4574b0987db3fc3bf62a`. Whole typing passed `f1ced9f2627846f090ab4c20f6ced149` and
+Ruff passed `bfa020679677495bb6bd14a513ffbd76`; initial fixture typing failure
+`ddf9fb7d69ac4697a0d1b4c41ecb8e5b` remains held. CPU pure2 passed71d21…; PostgreSQL basis parity
+initially failed44f583… because generic JSON numbers lost integer tagging, corrected by f270f0a18,
+and exact retry8b8a284… passed. Worker pure6 e6ee672… and consumer51 3b71a595… retain their
+bounded sources. Original worktree receipts were moved with verified directory/manifest inodes
+and held through the root CLI before cleanup; no originals were reconstructed.
+
+Native proof attempts `d75ec0aada614e2180c217d145d287a6` and
+`4a683da36445405ca05da0c8fa2446a2` failed setup under the previous v8 frozen head; no new proof
+assertions ran. Matching normal preview `1d7123901c714dc49d510caaee9c3484`, apply
+`bef94d330ca0450689549bb98e7e3dd0`, rollback-only candidate `11521fcd78244a8a880d881e462b371d`,
+registration `ea0be8995f5a49fc9b5337a01f3f866b` and deployment
+`af7bfdd11fbd497dafb5f6595cb7bbb6` **passed**. Commit261f68157 registers
+`semantic_ddo_selected_proofs`; separate maintenance confirms revision=head on unchanged stage
+OID130661481/system7701811359771751232. Independent frozen-artifact inspection confirms514identities,
+39body-only updates and4private helpers, no drops/recreation or existing ACL/owner/security/path/result
+change. The sole ordinary operation registers physical-source identity23eb2beb… with the same173checks
+and source digest940c9bd7…; no ordinary DDL or data conversion. The physical import closure includes
+the changed native wire document, so its source identity changes although the97-relation layout does
+not. Native digest is30e76ae902130f7083738834dbd13f71c87d9622705cddde83be1525d777ad8a.
+
+Four focused native controls, integrated test-only dd7c1e1d6, are **not_run** at this checkpoint:
+two genuine producers/forged proof/revocation; direct versus ancestor and unrelated same-episode use;
+legal bag-output slots selected role-locally with original-basis reuse; and whole/member-output
+distinction plus actual purpose refusal. Run against the matching committed head before broader
+actual E5/grade/event/artifact/provider qualification. Fresh v9 application admission/check/activation
+must precede actual PDF enrichment/integration. Prior v8 application receipts retain their earlier
+native context; they are not current v9 admission. Development remains unchanged.
 
 ## Current execution boundary · 2026-11-16
 
@@ -443,7 +493,7 @@ lint passed `055db49f3aa24ea197280b601ab233fe`, and full ordinary collection7973
 | DDO-SI-24 | A/B/C reference authoring repeatedly reacquires one exact source cut in the same invocation. | **Implemented; bounded Tested**, merged48599df9f, pure43 `40bf89f72dc44cd99f0d8163d363c098`. One authenticated cut per pinned authoring invocation; every reference independently checked. Actual grade sibling later failed its fitted-body substitution observation, not a passing full journey. |
 | DDO-SI-25 | Empty-carrier verification captures four originals although its scope uses one. | **Implemented; bounded native Tested2026-11-17**, empty-carrier passed in `88b69d7384984e1eb5fba40c20c1d524`. Fitting/calibration retain4originals and their independent criteria. |
 | DDO-SI-26 | Explicit recovery cannot remove the owned selected-read SQLite scratch left by a watchdog interruption. | **Implemented; bounded Tested**, af7978555/628c34944, recovery38 passed `be12c03a33ee4539aa20540357b81cc1`, integrated pure43 passed. After proven process drain, recognize only exact owned scratch files; refuse unknown/symlink/foreign/hardlinked paths. Actual recovery of dd0147… established cleanup; original failure remains held. |
-| DDO-SI-27 | Frozen semantic source entries discard the selected producing proof, admitting unrelated genuine producers and their dependencies. | **Accepted repair in progress**, ADR-0121/effective modelv9/demand-intent-v2/CPU-input-basis-3. Group exact cuts; preserve anchor and actual producing-use/output/member facts, narrow role-local candidates and support seeds, migrate current selected consumers and retain attachment live checks. Current stage remains capturedv8; fresh capture and focused/native/actual-provider qualification required. No historical decoder or fallback. |
+| DDO-SI-27 | Frozen semantic source entries discard the selected producing proof, admitting unrelated genuine producers and their dependencies. | **Implemented; bounded Tested2026-11-17**, ADR-0121/currentv9/demandv2/CPU3. Current callers migrated, role-local candidates/seeds and actual use/output correspondence retained, cut/anchor work shared within invocation. Source/frozen artifact review closed; normal successor registered261f68157/deployedaf7bfdd… on stage. Pure81/affected13/CPU parity and types/lint passed at their stated bounds. Focused native4 and actual E5/grade/event/artifact/provider journeys remain required; v9 application not yet admitted. No historical decoder or fallback. |
 | DDO-SI-28 | Frozen PDF coverage validation rejects the supported residual body/direct source scope because its native group label is unspecified. | **Implemented; bounded Tested2026-11-17**, actual enriched failure31c742… retained; shared checker admits exact body/direct, real sections/chapters, and still rejects descendant-body/arbitrary nonsection scopes. Pure PDF68 passed5684f1…; types/lint passed. Application recapture and actual enrichment/integration qualification remain open. |
 
 
