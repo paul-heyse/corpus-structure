@@ -614,26 +614,61 @@ def native_sql(sources=None) -> str:
             raise ValueError("captured Core projection is incomplete")
     operations = _protocol(captured)
     sql = _rename_native_entrypoints(sql, {item["name"] for item in operations})
-    from .data_operation_wire import wire_contract_digest, wire_contracts
+    return sql + _wire_wrapper_sql(captured, operations)
 
-    contracts = wire_contracts(captured)
-    contract_digest = wire_contract_digest(captured)
+
+def _wire_wrapper_sql(sources, operations) -> str:
+    from sqlalchemy import JSON, Boolean, literal, or_
+
+    from .data_operation_wire import wire_contract_digest, wire_contracts
+    from .native_program import (
+        Block,
+        If,
+        Parameter,
+        Raise,
+        Return,
+        core_variable,
+        function,
+        pg_type,
+    )
+
+    contracts = wire_contracts(sources)
+    contract_digest = wire_contract_digest(sources)
+    payload = core_variable("p_payload", JSONB())
     wrappers = []
     for item in operations:
         name = item["name"]
-        schema = canonical_bytes(contracts[name]["input"]).decode().replace("'", "''")
-        wrappers.append(f"""
-CREATE OR REPLACE FUNCTION ops.{name}(p_payload jsonb) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $wire$
-DECLARE result jsonb; schema constant jsonb := '{schema}'::jsonb;
-BEGIN
- IF p_payload IS NULL OR NOT public.json_matches_schema(schema::json,p_payload::json) THEN
- RAISE EXCEPTION 'native wire violates {name} input schema' USING ERRCODE='23514'; END IF;
- result:=ops.ddo_impl_{name}(p_payload);
- RETURN result||jsonb_build_object('contract_digest','{contract_digest}');
-END $wire$;
-""")
-    return sql + "\n".join(wrappers)
+        schema = cast(literal(canonical_bytes(contracts[name]["input"]).decode()), JSONB())
+        conforms = func.public.json_matches_schema(
+            cast(schema, JSON()), cast(payload, JSON()), type_=Boolean()
+        )
+        result = getattr(func.ops, "ddo_impl_" + name)(payload, type_=JSONB())
+        wrappers.append(
+            function(
+                "ops",
+                name,
+                parameters=(Parameter("p_payload", pg_type("jsonb")),),
+                returns=pg_type("jsonb"),
+                body=Block(
+                    (
+                        If(
+                            or_(payload.is_(None), ~conforms),
+                            (Raise(f"native wire violates {name} input schema", "23514"),),
+                        ),
+                        Return(
+                            result.op("||", return_type=JSONB())(
+                                func.jsonb_build_object(
+                                    "contract_digest", contract_digest, type_=JSONB()
+                                )
+                            )
+                        ),
+                    )
+                ),
+                security_definer=True,
+                search_path=("pg_catalog", "pg_temp"),
+            )
+        )
+    return "\n" + ";\n".join(wrappers) + ";\n"
 
 
 def native_operation_declarations(sources=None) -> SourceArtifact:

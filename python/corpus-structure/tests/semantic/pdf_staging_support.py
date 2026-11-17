@@ -100,11 +100,11 @@ class _PrivatePdfBuildFactory:
                 release=self.kernel.prepared.release_id,
                 runtime=self.kernel.runtime,
             )
-        with self.kernel.purpose("write").begin() as conn:
+        with self.writer.begin() as conn:
             snapshot = DemandPlanner(self.kernel.model, DataOperationStorage(conn)).resume(
                 demand["demand_id"]
             )
-        with self.kernel.purpose("write").begin() as conn:
+        with self.writer.begin() as conn:
             planner = DemandPlanner(self.kernel.model, DataOperationStorage(conn))
             (ready,) = planner.ready(snapshot, authorization=b"{}")
             claim = DataOperationStorage(conn).claim_data_requests(

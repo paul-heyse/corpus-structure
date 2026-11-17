@@ -1944,7 +1944,6 @@ CREATE OR REPLACE FUNCTION ops.read_demand_result(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; d ops.data_demand; snapshot jsonb:='{}'; results jsonb; obligations jsonb; lim integer; after_key text; next_key text; more boolean; selected_view text; selected_max_bytes bigint; boundary ops.data_demand_read; scope_key text; epoch bigint; acquired_scopes jsonb;
 BEGIN
- PERFORM ops.ddo_fields(p,ARRAY['demand_id'],ARRAY['selection','after','limit','trust_snapshot','read_id','read_snapshot','frontier_at','view','max_bytes','scope','support_after','obligation_id']);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id';
  IF NOT p ? 'read_id' THEN
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(d.selection->'operations') selected

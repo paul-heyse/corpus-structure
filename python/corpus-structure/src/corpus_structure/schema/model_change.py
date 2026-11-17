@@ -50,6 +50,8 @@ if TYPE_CHECKING:
 
 _PHYSICAL_DIR = preparation.MODEL_PATH / "semantic"
 _PHYSICAL = (_PHYSICAL_DIR / PHYSICAL_ROOT).as_posix()
+_SOURCE_CALLS_OUTPUT = "semantic/_source_admission_calls.py"
+_TYPED_COLUMNS_OUTPUT = "semantic/_typed_columns.py"
 
 
 class NativeEffect(BaseModel):
@@ -372,7 +374,7 @@ def compilation_fingerprint(
             "ontology_sources": list(dependencies.ontology_sources),
             "profile": asdict(profile),
         }
-    generated = generated_output_paths()
+    generated = generated_output_paths() | {_SOURCE_CALLS_OUTPUT, _TYPED_COLUMNS_OUTPUT}
     implementation = []
     selected_package = root / preparation.PACKAGE_PATH
     running_package = Path(__file__).resolve().parents[1]
@@ -629,7 +631,7 @@ def prepare_preview(
         requested_physical = _physical_closure(
             root, physical_input if request.physical is None else request.physical
         )
-        compile_physical(requested_physical)
+        target_metadata = compile_physical(requested_physical)
         physical = (physical_sources_id(original_physical), physical_sources_id(requested_physical))
         if expected_physical is not None and expected_physical != physical[1]:
             raise model.ModelError(["physical release inputs changed during preview"])
@@ -640,6 +642,19 @@ def prepare_preview(
             {path: _read(root, path) for path in original_files.keys() | requested_files.keys()}
         )
         source.update(requested_files)
+        from corpus_structure.semantic.original_document_contracts import generated_source_calls
+        from corpus_structure.semantic.typed_generation import generated_source
+
+        generated.update(
+            {
+                (
+                    preparation.PACKAGE_PATH / _SOURCE_CALLS_OUTPUT
+                ).as_posix(): generated_source_calls(target_metadata=target_metadata),
+                (preparation.PACKAGE_PATH / _TYPED_COLUMNS_OUTPUT).as_posix(): generated_source(
+                    target_metadata
+                ),
+            }
+        )
         for path in _git(
             root, "ls-files", "-z", "--", str(preparation.PACKAGE_PATH / "semantic")
         ).split("\0"):

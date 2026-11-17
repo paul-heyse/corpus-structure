@@ -195,6 +195,43 @@ class CurrentPdfSource:
         return create_native_demand(connection, request)["demand_id"]
 
 
+def _certified_controlled_reply(result, request, on_replay):
+    """Exercise real encoding and certification over independently authored fixture content."""
+    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
+    from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
+    from corpus_structure.semantic.pdf_certification import certify_native_stream
+
+    on_replay(
+        _atomic_bytes(
+            request.spool_root / "native-preparation.json",
+            result.effective_options,
+            "native_preparation",
+        )
+    )
+    records = result.write_record_batches(
+        request.record_root,
+        build_id=request.build_id,
+        release_id=request.release_id,
+        source_digest=request.source.digest,
+        on_batch=on_replay,
+    )
+    on_replay(_ref(request.record_root / "completion.jsonl", "native_completion"))
+    companions, certificate, access = certify_native_stream(
+        result, request, records, on_replay=on_replay
+    )
+    return PdfStreamReply(
+        result.conversion_status,
+        result.errors,
+        result.recipe,
+        (),
+        records,
+        result.effective_options,
+        companions,
+        certificate,
+        access,
+    )
+
+
 def _controlled_stream(
     self,
     source,
@@ -215,7 +252,7 @@ def _controlled_stream(
         Size,
     )
 
-    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
+    from corpus_structure.ingest.pdf_stream_types import PdfStreamRequest
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 
     check_active()
@@ -234,20 +271,22 @@ def _controlled_stream(
         (),
         self.recipe.to_bytes(),
         (),
+        b'{"fixture":"controlled-source-search"}',
     )
-    occurrences = result.write_native_occurrence_batches(
-        record_root.with_name(record_root.name + "-occurrences"),
-        build_id=build_id,
-        on_batch=on_replay,
+    return _certified_controlled_reply(
+        result,
+        PdfStreamRequest(
+            source,
+            spool_root,
+            record_root,
+            build_id,
+            release_id,
+            options["validation_contract"],
+            options["lowering_identity"],
+            options["payload_schema"],
+        ),
+        on_replay,
     )
-    records = result.write_record_batches(
-        record_root,
-        build_id=build_id,
-        release_id=release_id,
-        source_digest=source.digest,
-        on_batch=on_replay,
-    )
-    return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
 
 @contextmanager
@@ -391,7 +430,7 @@ def _section_stream(
         Size,
     )
 
-    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
+    from corpus_structure.ingest.pdf_stream_types import PdfStreamRequest
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 
     check_active()
@@ -421,20 +460,22 @@ def _section_stream(
         (),
         self.recipe.to_bytes(),
         tuple(outcomes),
+        b'{"fixture":"controlled-source-search-sections"}',
     )
-    occurrences = result.write_native_occurrence_batches(
-        record_root.with_name(record_root.name + "-occurrences"),
-        build_id=build_id,
-        on_batch=on_replay,
+    return _certified_controlled_reply(
+        result,
+        PdfStreamRequest(
+            source,
+            spool_root,
+            record_root,
+            build_id,
+            release_id,
+            options["validation_contract"],
+            options["lowering_identity"],
+            options["payload_schema"],
+        ),
+        on_replay,
     )
-    records = result.write_record_batches(
-        record_root,
-        build_id=build_id,
-        release_id=release_id,
-        source_digest=source.digest,
-        on_batch=on_replay,
-    )
-    return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
 
 def admit_current_target(source, recipe, directory):

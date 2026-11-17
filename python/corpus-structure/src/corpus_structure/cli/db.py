@@ -94,12 +94,16 @@ def _create(admin: Any, name: str, template: str, creation_token: str | None = N
         encoding = conn.execute(select(func.pg_catalog.current_setting("server_encoding"))).scalar()
         if str(encoding).upper() not in ("UTF8", "UTF-8"):
             raise DbRefused(f"the server encoding is {encoding}, not UTF-8: {extensions.PROVISION}")
-        exists = conn.execute(select(1).select_from(database_catalog).where(database_catalog.c.datname == name))
+        exists = conn.execute(
+            select(1).select_from(database_catalog).where(database_catalog.c.datname == name)
+        )
         if exists.scalar() is not None:
             if creation is not None:
                 raise DbRefused(f"creation-only database already exists: {name!r}")
             return False
-        found = conn.execute(select(1).select_from(database_catalog).where(database_catalog.c.datname == template))
+        found = conn.execute(
+            select(1).select_from(database_catalog).where(database_catalog.c.datname == template)
+        )
         if found.scalar() is None:
             raise DbRefused(f"the template {template!r} is missing: {extensions.PROVISION}")
     probe = create_engine(admin.url.set(database=template), isolation_level="AUTOCOMMIT")
@@ -118,7 +122,11 @@ def _create(admin: Any, name: str, template: str, creation_token: str | None = N
             RawStream()(
                 ast.CreatedbStmt(
                     dbname=_database_name(name),
-                    options=(ast.DefElem(defname="template", arg=ast.String(sval=_database_name(template))),),
+                    options=(
+                        ast.DefElem(
+                            defname="template", arg=ast.String(sval=_database_name(template))
+                        ),
+                    ),
                 )
             ),
             execution_options={"no_parameters": True},
@@ -143,10 +151,12 @@ def _migrate(
         )
     with engine.begin() as conn:
         legacy = conn.execute(
-            select(or_(
-                func.pg_catalog.to_regclass("meta.project").is_not(None),
-                func.pg_catalog.to_regclass("public.alembic_version").is_not(None),
-            ))
+            select(
+                or_(
+                    func.pg_catalog.to_regclass("meta.project").is_not(None),
+                    func.pg_catalog.to_regclass("public.alembic_version").is_not(None),
+                )
+            )
         ).scalar_one()
         if legacy:
             raise DbRefused("legacy database refused: bootstrap a fresh owned semantic database")
@@ -450,21 +460,36 @@ def status(
             )
         )
         conn = stack.enter_context(engine.connect())
-        conn.exec_driver_sql(RawStream()(ast.VariableSetStmt(
-            kind=enums.VariableSetKind.VAR_SET_MULTI,
-            name="TRANSACTION",
-            args=(ast.DefElem(defname="transaction_read_only", arg=ast.A_Const(val=ast.Integer(ival=1))),),
-        )))
+        conn.exec_driver_sql(
+            RawStream()(
+                ast.VariableSetStmt(
+                    kind=enums.VariableSetKind.VAR_SET_MULTI,
+                    name="TRANSACTION",
+                    args=(
+                        ast.DefElem(
+                            defname="transaction_read_only",
+                            arg=ast.A_Const(val=ast.Integer(ival=1)),
+                        ),
+                    ),
+                )
+            )
+        )
         if selected == "deployment":
             verify_declared_route(conn, settings)
         acquired = acquired_target(conn, purpose=purpose)
         database, principal, server_version = conn.execute(
-            select(func.pg_catalog.current_database(), func.current_user(), func.pg_catalog.current_setting("server_version"))
+            select(
+                func.pg_catalog.current_database(),
+                func.current_user(),
+                func.pg_catalog.current_setting("server_version"),
+            )
         ).one()
         present, permitted = conn.execute(
             select(
                 func.pg_catalog.to_regclass("public.semantic_alembic_version").is_not(None),
-                func.pg_catalog.has_table_privilege(func.pg_catalog.to_regclass("public.semantic_alembic_version"), "SELECT"),
+                func.pg_catalog.has_table_privilege(
+                    func.pg_catalog.to_regclass("public.semantic_alembic_version"), "SELECT"
+                ),
             )
         ).one()
         readable = bool(permitted)

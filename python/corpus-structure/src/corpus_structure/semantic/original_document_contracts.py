@@ -218,17 +218,18 @@ def source_original_sql(sources=None) -> str:
     return sql.decode().replace("__SOURCE_ADMISSION_ASSET__", asset.digest)
 
 
-def generated_source_calls() -> str:
+def generated_source_calls(*, target_metadata=None) -> str:
     from corpus_structure.schema.generate import _format
 
     from .metadata import metadata
     from .native_call_generation import render_call_bindings
 
+    selected = metadata if target_metadata is None else target_metadata
     return _format(
         "semantic/_source_admission_calls.py",
         render_call_bindings(
-            source_call_bindings(),
-            metadata,
+            source_call_bindings(target_metadata=selected),
+            selected,
             canonical_identifiers=True,
             identifiers_module="._source_admission_enums",
             context_validator=(".original_document_contracts", "require_source_call_context"),

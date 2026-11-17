@@ -1,0 +1,4 @@
+# The captured wire schema owns native request admission. This successor changes no stored data.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n3
+native_revision: semantic_ddo_pe_n4

@@ -60,8 +60,9 @@ class DatabaseCreation:
     def acknowledge(self, connection: Connection) -> OwnedDatabase:
         # Call only after CREATE returned successfully, never following existence or cancellation.
         oid, owner = connection.execute(
-            select(database_catalog.c.oid, func.pg_catalog.pg_get_userbyid(database_catalog.c.datdba))
-            .where(database_catalog.c.datname == self.reservation.name)
+            select(
+                database_catalog.c.oid, func.pg_catalog.pg_get_userbyid(database_catalog.c.datdba)
+            ).where(database_catalog.c.datname == self.reservation.name)
         ).one()
         self.owned = OwnedDatabase(self.reservation, oid, owner)
         return self.owned
