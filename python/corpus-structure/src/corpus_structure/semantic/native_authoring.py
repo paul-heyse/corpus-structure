@@ -725,11 +725,12 @@ def compare_declared_candidate(
             row["name"]: row["owner"] for row in target_policies if row["kind"] == "table"
         }
         ordered: list[MigrateOperation] = []
+        after_data: list[MigrateOperation] = []
+        deferred_keys = {key for step in data_steps for key in step.deferred_foreign_keys}
         for item in candidate.upgrade_ops.ops:
             if isinstance(item, ModifyTableOps):
-                owner = declared_owners.get(
-                    f"{item.schema}.{item.table_name}", "corpus_sem_publisher"
-                )
+                relation = f"{item.schema}.{item.table_name}"
+                owner = declared_owners.get(relation, "corpus_sem_publisher")
                 for change in item.ops:
                     if isinstance(change, CreateForeignKeyOp):
                         remote = (
@@ -742,7 +743,8 @@ def compare_declared_candidate(
                                 dialect=connection.dialect
                             )
                         )
-                        ordered.append(
+                        destination = after_data if (relation, remote) in deferred_keys else ordered
+                        destination.append(
                             OwnedSQLOp(
                                 owner,
                                 statement,
@@ -773,6 +775,7 @@ def compare_declared_candidate(
         from corpus_structure.schema.data_steps import order_data_steps
 
         order_data_steps(candidate.upgrade_ops, data_steps, authoring)
+        candidate.upgrade_ops.ops.extend(after_data)
         candidate.upgrade_ops.ops.extend(compared_privileges)
         if physical_contract is not None:
             candidate.upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", physical_contract))
@@ -862,9 +865,16 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
             if frame.filename == "native_candidate.py" and frame.lineno is not None
         ]
         context: dict[str, object] = {"operation_kind": phase, "sqlstate": state}
+        diagnostic = getattr(error.orig, "diag", None)
+        for key in ("schema_name", "table_name", "constraint_name"):
+            identifier = getattr(diagnostic, key, None)
+            if isinstance(identifier, str) and re.fullmatch(
+                r"[a-zA-Z_][a-zA-Z0-9_]{0,62}", identifier
+            ):
+                context[key] = identifier
         # Retain a first-party literal refusal when PostgreSQL reports it exactly.
         # Interpolated messages and arbitrary SQL/data stay outside this safe view.
-        primary = getattr(getattr(error.orig, "diag", None), "message_primary", None)
+        primary = getattr(diagnostic, "message_primary", None)
         declared_refusals = {
             literal.replace("''", "'")
             for item in authoring.desired

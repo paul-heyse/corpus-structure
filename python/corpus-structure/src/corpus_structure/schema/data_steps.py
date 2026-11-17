@@ -46,6 +46,7 @@ class FrozenDataStep(BaseModel):
     libraries: tuple[tuple[str, str], ...]
     statements: tuple[str, ...]
     deferred_columns: tuple[tuple[str, str], ...]
+    deferred_foreign_keys: tuple[tuple[str, str], ...] = ()
     guarded_relations: tuple[str, ...]
     prerequisite_relations: tuple[str, ...]
     retired_relations: tuple[str, ...]
@@ -215,6 +216,7 @@ def _pdf_s36() -> FrozenDataStep:
             ),
         ),
         deferred_columns=_S36_COLUMNS,
+        deferred_foreign_keys=((validation.fullname, "ops.pdf_producer_certification"),),
         guarded_relations=("ops.pdf_build_validation",),
         prerequisite_relations=(validation.fullname,),
         retired_relations=(),
