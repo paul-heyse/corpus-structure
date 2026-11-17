@@ -530,6 +530,7 @@ def test_native_rich_function_population_has_explicit_independent_expectation():
         for statement in statements
         if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname
     } == {
+        "ddo_rich_command_eligible",
         "ddo_rich_support_population",
         "ddo_rich_role_headers",
         "ddo_rich_role_population",
