@@ -124,58 +124,197 @@ def established_product_matches(proof, *, prepared, model, body, source, context
     )
 
 
-def product_validation_native_sql():
-    return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_require_product_validations(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $validity$
-DECLARE proof jsonb; output jsonb; body jsonb; expected_context jsonb;
-BEGIN
- expected_context:=jsonb_build_object('project_id',r.project_id,'subject',r.subject,
- 'subject_definition',ops.ddo_operation_subject(r.release_id,r.operation_id),
- 'original_source',r.original_source,'analyzed_scope',r.analyzed_scope);
- FOR proof IN SELECT value FROM jsonb_array_elements(coalesce(completion->'execution_evidence'->'product_validations','[]')) LOOP
- IF jsonb_typeof(proof) IS DISTINCT FROM 'object'
- OR NOT proof ?& ARRAY['format','release_id','validator_contract','validator_revision','body_id','source_json','selectors_json','subject_context_json']
- OR proof-ARRAY['format','release_id','validator_contract','validator_revision','body_id','source_json','selectors_json','subject_context_json'] IS DISTINCT FROM '{}'::jsonb
- OR proof->>'format' IS DISTINCT FROM 'producer-product-validation-1'
- OR proof->>'release_id' IS DISTINCT FROM r.release_id
- OR (proof->>'subject_context_json')::jsonb IS DISTINCT FROM expected_context
- OR NOT EXISTS(SELECT FROM sem.data_operation_definition definition,
- jsonb_array_elements(definition.support_contract->'assets') asset
- WHERE definition.release_id=r.release_id AND definition.operation_id=r.operation_id
- AND asset->>'contract'=proof->>'validator_contract' AND asset->>'content_digest'=proof->>'validator_revision') THEN
- RAISE EXCEPTION 'product validation lacks its actual admitted validator/context' USING ERRCODE='23514'; END IF;
- IF jsonb_array_length(completion->'outputs')<>1 THEN
- RAISE EXCEPTION 'product validation requires its exact single whole result' USING ERRCODE='23514'; END IF;
- output:=completion->'outputs'->0;
- body:=data.ddo_normalize(output->'product'->'body');
- IF output->>'member_id' IS NOT NULL OR proof->>'body_id' IS DISTINCT FROM data.ddo_identity('body',body)
- OR data.ddo_json(data.ddo_field(body,'source')) IS DISTINCT FROM (proof->>'source_json')::jsonb
- OR data.ddo_json(data.ddo_field(body,'selectors')) IS DISTINCT FROM (proof->>'selectors_json')::jsonb
- OR expected_context->>'original_source' IS DISTINCT FROM (proof->>'source_json')::jsonb->>'document'
- -- The admitted source-view subject is distinct from the original document's
- -- document_subject. Its exact governed context is already bound above; the
- -- trusted Python validator established its source-view identity relation.
- OR expected_context->'analyzed_scope' IS DISTINCT FROM jsonb_build_object(
- 'source',(proof->>'source_json')::jsonb,'selectors',(proof->>'selectors_json')::jsonb) THEN
- RAISE EXCEPTION 'product validation differs from its exact canonical result/source/scope' USING ERRCODE='23514'; END IF;
- END LOOP;
-END $validity$;
-REVOKE ALL ON FUNCTION ops.ddo_require_product_validations(ops.data_request,jsonb) FROM PUBLIC;
+def product_validation_native_sql(*, target_metadata=None):
+    """Render validation correspondence from typed expressions and physical models."""
+    from pglast import ast, enums
+    from pglast.stream import RawStream
+    from sqlalchemy import Text, cast, column, func, literal, or_, select, true
+    from sqlalchemy.dialects.postgresql import JSONB, array
 
-CREATE OR REPLACE FUNCTION ops.ddo_product_validation(episode_id text,product_id text)
-RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $validity$
- SELECT proof FROM ops.data_derivation episode
- JOIN ops.data_completion_intent intent ON intent.id=episode.intent_id
- JOIN ops.data_derivation_output output ON output.derivation_id=episode.id AND output.product_id=$2 AND output.member_id IS NULL
- JOIN kb.data_product product ON product.id=output.product_id,
- jsonb_array_elements(coalesce(intent.payload->'execution_evidence'->'product_validations','[]')) proof
- WHERE episode.id=$1 AND proof->>'release_id'=episode.release_id
- AND proof->>'body_id'=product.body_digest
- AND (proof->>'subject_context_json')::jsonb=jsonb_build_object('project_id',product.project_id,
- 'subject',product.subject,'subject_definition',product.subject_definition,
- 'original_source',product.original_source,'analyzed_scope',product.analyzed_scope)
- LIMIT 1
-$validity$;
-REVOKE ALL ON FUNCTION ops.ddo_product_validation(text,text) FROM PUBLIC;
-"""
+    from .metadata import metadata as default_metadata
+    from .native_program import (
+        Assign,
+        Block,
+        ForQuery,
+        If,
+        Local,
+        Parameter,
+        Raise,
+        core_parameter,
+        core_variable,
+        function,
+        pg_type,
+        sql_function,
+    )
+
+    metadata = default_metadata if target_metadata is None else target_metadata
+    request = metadata.tables["ops.data_request"]
+    definition = metadata.tables["sem.data_operation_definition"].alias("definition")
+    jsonb = JSONB()
+    proof, output, body, expected = (
+        core_variable(name, jsonb) for name in ("proof", "output", "body", "expected_context")
+    )
+    completion = core_variable("completion", jsonb)
+
+    def r(field):
+        return core_variable("r", request.c[field].type, field)
+
+    def json_array(value, name):
+        return func.jsonb_array_elements(value).table_valued(column("value", jsonb)).alias(name)
+
+    def validations(payload):
+        return func.coalesce(
+            payload["execution_evidence"]["product_validations"], cast(literal("[]"), jsonb)
+        )
+
+    def context(values):
+        return func.jsonb_build_object(
+            *(item for key, value in values.items() for item in (key, value))
+        )
+
+    context_value = context(
+        dict(
+            project_id=r("project_id"),
+            subject=r("subject"),
+            subject_definition=func.ops.ddo_operation_subject(r("release_id"), r("operation_id")),
+            original_source=r("original_source"),
+            analyzed_scope=r("analyzed_scope"),
+        )
+    )
+    assets = json_array(definition.c.support_contract["assets"], "asset")
+    admitted = (
+        select(literal(1))
+        .select_from(definition.join(assets, true()))
+        .where(
+            definition.c.release_id == r("release_id"),
+            definition.c.operation_id == r("operation_id"),
+            assets.c.value["contract"].astext == proof["validator_contract"].astext,
+            assets.c.value["content_digest"].astext == proof["validator_revision"].astext,
+        )
+        .exists()
+    )
+    fields = array(list(ProductValidation.model_fields), type_=Text)
+    invalid_proof = or_(
+        func.jsonb_typeof(proof).is_distinct_from("object"),
+        ~proof.has_all(fields),
+        proof.op("-")(fields).is_distinct_from(cast(literal("{}"), jsonb)),
+        proof["format"].astext.is_distinct_from(ProductValidation.model_fields["format"].default),
+        proof["release_id"].astext.is_distinct_from(r("release_id")),
+        cast(proof["subject_context_json"].astext, jsonb).is_distinct_from(expected),
+        ~admitted,
+    )
+    source = cast(proof["source_json"].astext, jsonb)
+    selectors = cast(proof["selectors_json"].astext, jsonb)
+    # The admitted source-view subject differs from the original document's
+    # document_subject. Trusted Python validation established that relation;
+    # this guard retains its exact governed context and canonical input basis.
+    mismatched_result = or_(
+        output["member_id"].astext.is_not(None),
+        proof["body_id"].astext.is_distinct_from(func.data.ddo_identity("body", body)),
+        func.data.ddo_json(func.data.ddo_field(body, "source")).is_distinct_from(source),
+        func.data.ddo_json(func.data.ddo_field(body, "selectors")).is_distinct_from(selectors),
+        expected["original_source"].astext.is_distinct_from(source["document"].astext),
+        expected["analyzed_scope"].is_distinct_from(context(dict(source=source, selectors=selectors))),
+    )
+    proofs = json_array(validations(completion), "validation")
+    guard_parameters = (
+        Parameter("r", pg_type(str(request.schema), request.name)),
+        Parameter("completion", pg_type("jsonb")),
+    )
+    guard = function(
+        "ops",
+        "ddo_require_product_validations",
+        parameters=guard_parameters,
+        returns=pg_type("void"),
+        volatility="stable",
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            locals=tuple(Local(name, pg_type("jsonb")) for name in ("proof", "output", "body", "expected_context")),
+            statements=(
+                Assign("expected_context", context_value),
+                ForQuery(
+                    ("proof",),
+                    select(proofs.c.value),
+                    (
+                        If(invalid_proof, (Raise("product validation lacks its actual admitted validator/context", "23514"),)),
+                        If(
+                            func.jsonb_array_length(completion["outputs"]) != 1,
+                            (Raise("product validation requires its exact single whole result", "23514"),),
+                        ),
+                        Assign("output", completion["outputs"][0]),
+                        Assign("body", func.data.ddo_normalize(output["product"]["body"])),
+                        If(mismatched_result, (Raise("product validation differs from its exact canonical result/source/scope", "23514"),)),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    episode = metadata.tables["ops.data_derivation"].alias("episode")
+    intent = metadata.tables["ops.data_completion_intent"].alias("intent")
+    result = metadata.tables["ops.data_derivation_output"].alias("output")
+    product = metadata.tables["kb.data_product"].alias("product")
+    retained = json_array(validations(intent.c.payload), "proof")
+    value = retained.c.value
+    statement = (
+        select(value)
+        .select_from(
+            episode.join(intent, intent.c.id == episode.c.intent_id)
+            .join(
+                result,
+                (result.c.derivation_id == episode.c.id)
+                & (result.c.product_id == core_parameter(2, result.c.product_id.type))
+                & result.c.member_id.is_(None),
+            )
+            .join(product, product.c.id == result.c.product_id)
+            .join(retained, true())
+        )
+        .where(
+            episode.c.id == core_parameter(1, episode.c.id.type),
+            value["release_id"].astext == episode.c.release_id,
+            value["body_id"].astext == product.c.body_digest,
+            cast(value["subject_context_json"].astext, jsonb)
+            == context(
+                {name: product.c[name] for name in ("project_id", "subject", "subject_definition", "original_source", "analyzed_scope")}
+            ),
+        )
+        .limit(1)
+    )
+    reader_parameters = (
+        Parameter("episode_id", pg_type("text")),
+        Parameter("product_id", pg_type("text")),
+    )
+    reader = sql_function(
+        "ops",
+        "ddo_product_validation",
+        parameters=reader_parameters,
+        returns=pg_type("jsonb"),
+        body=statement,
+        volatility="stable",
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+    )
+
+    def revoke(name, parameters):
+        return RawStream()(
+            ast.GrantStmt(
+                is_grant=False,
+                targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+                objtype=enums.ObjectType.OBJECT_FUNCTION,
+                objects=(ast.ObjectWithArgs(
+                    objname=(ast.String(sval="ops"), ast.String(sval=name)),
+                    objargs=tuple(parameter.type_ for parameter in parameters),
+                    args_unspecified=False,
+                ),),
+                grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
+                behavior=enums.DropBehavior.DROP_RESTRICT,
+            )
+        )
+
+    return ";\n".join((
+        guard,
+        revoke("ddo_require_product_validations", guard_parameters),
+        reader,
+        revoke("ddo_product_validation", reader_parameters),
+    )) + ";\n"

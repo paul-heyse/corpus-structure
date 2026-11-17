@@ -22,6 +22,51 @@ from semantic.formal_products_support import publication_context, selected
 from semantic.test_data_operation_cpu_basis import cpu_basis_connection as cpu_basis_connection
 
 
+def test_retained_validation_requires_exact_whole_product_context(semantic_bare_engine):
+    """Controlled rows test immutable correspondence, not current support authority."""
+    from sqlalchemy import Column, MetaData, Table, Text
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    physical = MetaData()
+    episode = Table("data_derivation", physical, Column("id", Text), Column("intent_id", Text), Column("release_id", Text), schema="ops")
+    intent = Table("data_completion_intent", physical, Column("id", Text), Column("payload", JSONB), schema="ops")
+    output = Table("data_derivation_output", physical, Column("derivation_id", Text), Column("product_id", Text), Column("member_id", Text), schema="ops")
+    product = Table(
+        "data_product", physical,
+        *(Column(name, Text) for name in ("id", "body_digest", "project_id", "subject", "subject_definition", "original_source")),
+        Column("analyzed_scope", JSONB), schema="kb",
+    )
+    context = dict(project_id="project", subject="subject", subject_definition="definition", original_source="original", analyzed_scope={"scope": "whole"})
+    expected = dict(release_id="release", body_id="body:result", subject_context_json=json.dumps(context))
+    changed = {**expected, "subject_context_json": json.dumps({**context, "original_source": "other"})}
+    prepared = prepare_sql(product_validation_native_sql(), source="retained-validation-control")
+    declaration = next(
+        prepared.excerpt(index)
+        for index, raw in enumerate(prepared.statements)
+        if isinstance(raw.stmt, ast.CreateFunctionStmt)
+        and raw.stmt.funcname[-1].sval == "ddo_product_validation"
+    )
+    with semantic_bare_engine.connect() as conn:
+        tx = conn.begin()
+        conn.exec_driver_sql("CREATE SCHEMA ops")
+        conn.exec_driver_sql("CREATE SCHEMA kb")
+        physical.create_all(conn)
+        conn.exec_driver_sql(declaration, execution_options={"no_parameters": True})
+        conn.execute(episode.insert().values(id="episode", intent_id="intent", release_id="release"))
+        conn.execute(intent.insert().values(id="intent", payload={"execution_evidence": {"product_validations": [changed, expected]}}))
+        conn.execute(product.insert().values(id="product", body_digest="body:result", **context))
+        conn.execute(output.insert().values(derivation_id="episode", product_id="product", member_id="member"))
+        query = text("SELECT ops.ddo_product_validation(:episode,:product)")
+        assert conn.execute(query, dict(episode="episode", product="product")).scalar_one() is None
+        conn.execute(output.update().values(member_id=None))
+        assert conn.execute(query, dict(episode="episode", product="product")).scalar_one() == expected
+        assert conn.execute(query, dict(episode="other", product="product")).scalar_one() is None
+        assert conn.execute(query, dict(episode="episode", product="other")).scalar_one() is None
+        conn.execute(product.update().values(body_digest="body:other"))
+        assert conn.execute(query, dict(episode="episode", product="product")).scalar_one() is None
+        tx.rollback()
+
+
 def test_native_guard_binds_actual_validator_body_and_premises(profile, cpu_basis_connection):
     from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
 
