@@ -57,7 +57,9 @@ class NativeSourceView:
             raise ValueError("source pieces do not cover the pinned projection")
         object.__setattr__(self, "value", freeze_native(value))
         object.__setattr__(self, "columns", freeze_native(self.columns or value))
-        pointers = tuple(self.items_by_ref)
+        pointers = (*self.items_by_ref, *(
+            item.get("self_ref", item.get("pointer")) for item in self.ancestors
+        ))
         if any(not isinstance(pointer, str) or not pointer.startswith("#/") for pointer in pointers):
             raise ValueError("source context has unsupported native pointers")
         for piece in self.pieces:

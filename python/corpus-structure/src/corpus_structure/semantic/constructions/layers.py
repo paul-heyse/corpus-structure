@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
@@ -95,9 +96,12 @@ class ConstructionLayer:
             if a < b or (start == end and piece["start"] <= start <= piece["end"]):
                 pointer = piece.get("item_ref")
                 if pointer is None:
-                    pointer = next(
-                        (p["item_ref"] for p in view.pieces if p.get("item_ref") and p["end"] >= a),
-                        None,
+                    native = view.view
+                    nearest = bisect_left(native.native_ends, a)
+                    pointer = (
+                        native.native_pieces[nearest]["item_ref"]
+                        if nearest < len(native.native_pieces)
+                        else None
                     )
                 if pointer is None:
                     raise ValueError("construction source piece has no native address")
