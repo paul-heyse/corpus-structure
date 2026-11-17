@@ -266,7 +266,16 @@ reserved `left`/`right` column names without identifier quoting. The owning gene
 SQLAlchemy's PostgreSQL identifier preparer for all copied fields/keys. The affected generated
 function compiled on actual PostgreSQL in an explicitly rolled-back transaction. Standalone
 pglast PL/pgSQL parsing could not resolve application composite namespaces and is not qualification.
-Fresh capture remains due; the old native head and data are unchanged.
+The corrected-source preview9728b0… passed; final intent additionally names the deleted
+callback table's immutable guard (nine exact retirements). Preview21afe805766d4db4a96a552aa4effc87
+passed; candidateeb7283093bb642cfa5649f689df14087 rolled back with24static-check context errors:
+missing new temporary COPY shapes and untyped dynamic upload records. The shared helper now
+binds typed descriptor/part variables, and rollback-only authoring creates the exact same
+model-derived temporary upload contract plus all stage/companion scratch shapes. No checker
+exemption or persistent prototype was added. Actual PostgreSQL confirmed all seven new temporary
+contexts exist inside, and disappear after, the context. Checker/target20 **passed**,
+af94470512e44590aab35e81c4161b45; Pyreflyfb43c3f4e1644ef0aaad6b253b564a53 and
+Ruff1b85fdbe13004789b4dd25f2e07eb09c **passed**. Capture remains due; old native head/data are unchanged.
 Combined Pyrefly9a271db05654447c88cb7d0fb86daac4 and Ruffba8a32c84f8f461b84c55651501a34ef
 **passed**; shared upload-shape/omission and closed maintenance controls **passed5**,
 e752a326d56d4c7f83e5931202ece8d5. Independent static review found a stale generated typed part-table
