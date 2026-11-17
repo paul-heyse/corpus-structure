@@ -153,7 +153,6 @@ class GLiNERWork:
     correlation: str
     borrowers: tuple[Callable[[], None], ...]
     evaluation: bool = False
-    logical_sizes: tuple[int, ...] = ()
     logical_members: tuple[LogicalProviderMember, ...] = ()
 
 
@@ -368,7 +367,7 @@ class _Lane:
                     self.worker = HostedGliner(request.profile, group=self.owner.native_group)
                     self.stack.callback(self.worker.close)
                     self.key = key
-                admissions = self.worker.prepare_members(
+                batch = self.worker.extract(
                     request.pack,
                     request.inputs,
                     threshold=request.threshold,
@@ -377,35 +376,10 @@ class _Lane:
                     check_active=self.active,
                     receipt_sink=physical.append,
                 )
-                sizes = request.logical_sizes or (len(request.inputs),)
-                admitted = []
-                offset = 0
-                for length in sizes:
-                    selected = admissions[offset : offset + length]
-                    if all(member.admitted for member in selected):
-                        admitted.extend(request.inputs[offset : offset + length])
-                    offset += length
-                if offset != len(request.inputs):
-                    raise Pm2WorkerError(
-                        "logical native population differs from physical admission"
-                    )
-                reports = (
-                    self.worker.extract(
-                        request.pack,
-                        tuple(admitted),
-                        threshold=request.threshold,
-                        overlap_policy=request.overlap_policy,
-                        evaluation=request.evaluation,
-                        check_active=self.active,
-                        receipt_sink=physical.append,
-                    )
-                    if admitted
-                    else ()
-                )
                 reply = ProviderReply(
                     request.correlation,
-                    reports=reports,
-                    admissions=admissions,
+                    reports=batch.reports,
+                    admissions=batch.admissions,
                     execution_receipt=_execution_receipt(request, physical),
                 )
             handle.active()
@@ -624,11 +598,6 @@ class ProviderExecution:
         _validate_logical_members(request)
         if isinstance(request, GLiNERWork):
             validate_gliner_policy(request.profile, self.policy)
-            if request.logical_sizes and (
-                any(type(size) is not int or size < 1 for size in request.logical_sizes)
-                or sum(request.logical_sizes) != len(request.inputs)
-            ):
-                raise GlinerRefused("logical GLiNER sizes differ from admitted inputs")
             validate_request(
                 request.profile,
                 request.pack,
@@ -789,7 +758,7 @@ class ProviderExecution:
                 return False
             inputs = tuple(item for handle in (*group, following) for item in handle.request.inputs)
             try:
-                self._request_size(replace(first, inputs=inputs, logical_sizes=(), logical_members=()))
+                self._request_size(replace(first, inputs=inputs, logical_members=()))
             except GlinerRefused, CapacityExceeded:
                 return False
             return True
@@ -924,11 +893,7 @@ class ProviderExecution:
                 digest,
                 borrowers,
                 first.evaluation,
-                tuple(
-                    length
-                    for handle in group
-                    for length in (handle.request.logical_sizes or (len(handle.request.inputs),))
-                ),
+
             )
         else:
             for handle in group:
@@ -995,38 +960,14 @@ class ProviderExecution:
             report_offset = 0
             for handle, length in zip(group, lengths, strict=True):
                 members = reply.admissions[offset : offset + length]
-                refused = [member.reason for member in members if not member.admitted]
-                if handle.request.logical_sizes:
-                    count = 0
-                    local_offset = 0
-                    for logical_size in handle.request.logical_sizes:
-                        selected = members[local_offset : local_offset + logical_size]
-                        if all(member.admitted for member in selected):
-                            count += logical_size
-                        local_offset += logical_size
-                    reports = reply.reports[report_offset : report_offset + count]
-                    if len(reports) != count:
-                        raise Pm2WorkerError("native inference omitted admitted logical member")
-                    replies.append(
-                        ProviderReply(
-                            handle.request.correlation, reports=reports, admissions=members
-                        )
-                    )
-                    report_offset += count
-                elif refused:
-                    replies.append(
-                        ProviderReply(
-                            handle.request.correlation,
-                            error_type="GlinerRefused",
-                            error_message="; ".join(refused),
-                        )
-                    )
-                else:
-                    reports = reply.reports[report_offset : report_offset + length]
-                    if len(reports) != length:
-                        raise Pm2WorkerError("native inference omitted admitted logical member")
-                    replies.append(ProviderReply(handle.request.correlation, reports=reports))
-                    report_offset += length
+                count = sum(member.admitted for member in members)
+                reports = reply.reports[report_offset : report_offset + count]
+                if len(reports) != count:
+                    raise Pm2WorkerError("native inference omitted an admitted member")
+                replies.append(
+                    ProviderReply(handle.request.correlation, reports=reports, admissions=members)
+                )
+                report_offset += count
                 offset += length
             if report_offset != len(reply.reports):
                 raise Pm2WorkerError("native inference added an unadmitted logical member")

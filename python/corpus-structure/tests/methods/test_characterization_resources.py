@@ -308,7 +308,7 @@ def test_cancelled_queued_work_releases_owned_body_without_dispatch(runtime):
     assert not opened
 
 
-def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserves_valid(
+def test_gliner_coalescing_keeps_member_refusal_and_valid_reply_in_one_exchange(
     runtime, monkeypatch, tmp_path
 ):
     from dataclasses import dataclass
@@ -335,21 +335,6 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
 
             self.selection = gliner_selection(profile, {"runtime": "frozen"})
 
-        def prepare_members(self, pack, inputs, **kwargs):
-            calls.append(("prepare", tuple(item.context_id for item in inputs)))
-            result = tuple(
-                GlinerAdmission(
-                    i,
-                    item.context_id,
-                    item.context_digest,
-                    item.context_id != "native-refused",
-                    "native word bound" if item.context_id == "native-refused" else None,
-                )
-                for i, item in enumerate(inputs)
-            )
-            self.receipt("prepare", inputs, kwargs)
-            return result
-
         def receipt(self, phase, inputs, options):
             from hashlib import sha256
 
@@ -370,9 +355,20 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
                 )
 
         def extract(self, pack, inputs, **kwargs):
+            from corpus_structure.methods.gliner_worker import GlinerBatchResult
+
             calls.append(("infer", tuple(item.context_id for item in inputs)))
             self.receipt("infer", inputs, kwargs)
-            return tuple(Report(item.context_id) for item in inputs)
+            admissions = tuple(
+                GlinerAdmission(i, item.context_id, item.context_digest,
+                                item.context_id != "native-refused",
+                                "native word bound" if item.context_id == "native-refused" else None)
+                for i, item in enumerate(inputs)
+            )
+            return GlinerBatchResult(admissions, tuple(
+                Report(item.context_id) for item, member in zip(inputs, admissions, strict=True)
+                if member.admitted
+            ))
 
         def close(self):
             self.closed = True
@@ -414,20 +410,22 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
     good = execution.try_submit(request("good", "X is given"))
     used = execution.budget.used_bytes
     with pytest.raises(GlinerRefused, match="input byte bound"):
-        execution.try_submit(request("oversized", "X" * 32769))
+        execution.try_submit(request("oversized", "X" * (profile.max_batch_bytes + 1)))
     assert execution.budget.used_bytes == used
     assert len(execution._lanes["gliner"].pending) == 2
     good.flush()
     native_bad.future.result(timeout=5)
     good.future.result(timeout=5)
-    assert native_bad.collect().error_type == "GlinerRefused"
+    assert native_bad.collect().error_type is None
+    assert not native_bad.collect().admissions[0].admitted
+    assert native_bad.collect().reports == ()
     assert good.collect().reports == (Report("good"),)
     receipt = good.collect().execution_receipt
     assert receipt is not None
     assert receipt.member_offset == 1 and receipt.member_count == 1
     assert len(receipt.cohort_members) == 2
-    assert [physical.request_id for physical in receipt.physical] == ["prepare", "infer"]
-    assert calls == [("prepare", ("native-refused", "good")), ("infer", ("good",))]
+    assert [physical.request_id for physical in receipt.physical] == ["infer"]
+    assert calls == [("infer", ("native-refused", "good"))]
     native_bad.retire()
     good.retire()
 
@@ -1004,7 +1002,7 @@ def test_gliner_compatibility_sizes_physical_cohort_without_relabelling_logical_
         )
         requests.append(resources.GLiNERWork(
             gliner_profile().profile, GlinerPack("release", "1", "{}"), (value,),
-            0.5, "flat", str(index), (), logical_sizes=(1,), logical_members=(logical,),
+            0.5, "flat", str(index), (), logical_members=(logical,),
         ))
     probes = []
 

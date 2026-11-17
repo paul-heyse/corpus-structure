@@ -367,9 +367,12 @@ class ClassificationWorker:
     def infer(self, request: dict, *, check_active) -> dict:
         pack, item = _arguments(request)
         try:
-            (native,) = self._worker.extract(
+            batch = self._worker.extract(
                 pack, (item,), threshold=request["threshold"], check_active=check_active
             )
+            if not batch.admissions[0].admitted:
+                raise GlinerRefused(batch.admissions[0].reason)
+            (native,) = batch.reports
         except (GlinerRefused, GlinerWorkerError) as error:
             check_active()
             return {"outcome": "failed", "reason": str(error)}

@@ -12,7 +12,7 @@ from pydantic import TypeAdapter
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 
 from .gliner import MAX_DIAGNOSTIC_SPANS, GlinerInput, GlinerPack, GlinerRefused, GlinerReport
-from .gliner_worker import GlinerAdmission, GlinerWorkerError, _Diagnostic, validate_request
+from .gliner_worker import GlinerAdmission, GlinerBatchResult, GlinerWorkerError, _Diagnostic, validate_request
 from .native_host import NativeHostGroup, host_request_frame_size, payload_digest
 from .native_profiles import (
     NativeProfile,
@@ -22,17 +22,14 @@ from .native_profiles import (
 )
 
 
-def gliner_host_payload(
-    pack, inputs, threshold, overlap_policy, evaluation=False, prepare_only=False
-):
+def gliner_host_payload(pack, inputs, threshold, overlap_policy, evaluation=False):
     return dict(
-        version="gliner-host-1",
+        version="gliner-host-2",
         pack=asdict(pack),
         inputs=[asdict(item) for item in inputs],
         threshold=threshold,
         overlap_policy=overlap_policy,
         evaluation=evaluation,
-        prepare_only=prepare_only,
     )
 
 
@@ -102,7 +99,6 @@ class HostedGliner:
         overlap_policy="flat",
         evaluation=False,
         check_active=None,
-        prepare_only=False,
         diagnostic=None,
         receipt_sink=None,
     ):
@@ -116,9 +112,7 @@ class HostedGliner:
             overlap_policy=overlap_policy,
             evaluation=evaluation,
         )
-        payload = gliner_host_payload(
-            pack, inputs, threshold, overlap_policy, evaluation, prepare_only
-        )
+        payload = gliner_host_payload(pack, inputs, threshold, overlap_policy, evaluation)
         if diagnostic is not None:
             payload["diagnostic"] = asdict(diagnostic)
         active = check_active or (lambda: None)
@@ -150,26 +144,30 @@ class HostedGliner:
             or response.receipt.output_digest != payload_digest(reply)
         ):
             raise GlinerWorkerError("native GLiNER receipt differs from admitted exchange")
-        decoded = (
-            TypeAdapter(tuple[GlinerAdmission, ...]).validate_python(reply["admissions"])
-            if prepare_only
-            else TypeAdapter(tuple[GlinerReport, ...]).validate_python(reply["reports"])
-        )
+        reports = TypeAdapter(tuple[GlinerReport, ...]).validate_python(reply["reports"])
+        if diagnostic is None:
+            admissions = TypeAdapter(tuple[GlinerAdmission, ...]).validate_python(reply["admissions"])
+            if len(admissions) != len(inputs) or any(
+                member.ordinal != ordinal
+                or (member.context_id, member.context_digest) != (item.context_id, item.context_digest)
+                for ordinal, (member, item) in enumerate(zip(admissions, inputs, strict=True))
+            ):
+                raise GlinerWorkerError("native admission changed the requested member population")
+            admitted = tuple(item for item, member in zip(inputs, admissions, strict=True) if member.admitted)
+            if len(reports) != len(admitted) or any(
+                (report.context_id, report.context_digest) != (item.context_id, item.context_digest)
+                for report, item in zip(reports, admitted, strict=True)
+            ):
+                raise GlinerWorkerError("native inference changed the admitted member population")
+            decoded = GlinerBatchResult(admissions, reports)
+        else:
+            decoded = reports
         if receipt_sink is not None:
             receipt_sink(response.receipt)
         return decoded
 
-    def prepare_members(self, pack, inputs, **kwargs) -> tuple[GlinerAdmission, ...]:
-        # _exchange's prepare-only branch decodes exactly this existing DTO.
-        return cast(
-            tuple[GlinerAdmission, ...], self._exchange(pack, inputs, prepare_only=True, **kwargs)
-        )
-
-    def extract(self, pack, inputs, **kwargs) -> tuple[GlinerReport, ...]:
-        # Ordinary extraction cannot select the admission-only wire arm.
-        return cast(
-            tuple[GlinerReport, ...], self._exchange(pack, inputs, prepare_only=False, **kwargs)
-        )
+    def extract(self, pack, inputs, **kwargs) -> GlinerBatchResult:
+        return cast(GlinerBatchResult, self._exchange(pack, inputs, **kwargs))
 
     def diagnose(
         self,

@@ -75,12 +75,14 @@ def load(declaration, torch):
 
 def _gliner(profile, assets):
     import time
+    from functools import lru_cache
 
     from corpus_structure.methods.gliner import (
         BOUNDARY_DIAGNOSTIC,
         GlinerInput,
         GlinerPack,
         GlinerProfile,
+        GlinerRefused,
         GlinerReport,
         _digest,
         _json,
@@ -106,9 +108,15 @@ def _gliner(profile, assets):
     model, effective = load_model(selected, configure_process=False)
     reused = False
 
+    @lru_cache(maxsize=64)
+    def compiled_pack(pack):
+        schema = pack.compile()
+        schema.build()
+        return schema
+
     def infer(request):
         nonlocal reused
-        if request.get("version") != "gliner-host-1":
+        if request.get("version") != "gliner-host-2" or "prepare_only" in request:
             raise ValueError("unsupported GLiNER host request")
         pack = GlinerPack(**request["pack"])
         inputs = tuple(GlinerInput(**value) for value in request["inputs"])
@@ -122,14 +130,12 @@ def _gliner(profile, assets):
             overlap_policy=overlap,
             evaluation=evaluation,
         )
-        schema = pack.compile()
-        preparations, admissions = [], []
+        schema = compiled_pack(pack)
+        preparations, admissions, admitted_inputs = [], [], []
         for ordinal, item in enumerate(inputs):
             try:
                 preparation = prepare_input(model, schema, item, selected)
-            except ValueError as error:
-                if not request.get("prepare_only"):
-                    raise
+            except GlinerRefused as error:
                 admissions.append(
                     dict(
                         ordinal=ordinal,
@@ -141,6 +147,7 @@ def _gliner(profile, assets):
                 )
             else:
                 preparations.append(preparation)
+                admitted_inputs.append(item)
                 admissions.append(
                     dict(
                         ordinal=ordinal,
@@ -150,12 +157,12 @@ def _gliner(profile, assets):
                         reason=None,
                     )
                 )
-        if request.get("prepare_only"):
-            return {"admissions": admissions}
         if request.get("diagnostic") is not None:
             diagnostic = request["diagnostic"]
             if len(inputs) != 1:
                 raise ValueError("diagnostic requires one exact source context")
+            if not admissions[0]["admitted"]:
+                raise GlinerRefused(admissions[0]["reason"])
             item, preparation = inputs[0], preparations[0]
             started = time.monotonic()
             raw = boundary_diagnostic(
@@ -191,6 +198,9 @@ def _gliner(profile, assets):
             )
             reused = True
             return {"reports": [asdict(report)]}
+        inputs = tuple(admitted_inputs)
+        if not inputs:
+            return {"admissions": admissions, "reports": []}
         inference = installed_policy()[0]["inference"]
         settings = {key: value for key, value in inference.items() if key != "operation"}
         identity = request_digest(
@@ -245,7 +255,7 @@ def _gliner(profile, assets):
                 )
             )
         reused = True
-        return {"reports": reports}
+        return {"admissions": admissions, "reports": reports}
 
     return dict(
         dtype="torch.float32",

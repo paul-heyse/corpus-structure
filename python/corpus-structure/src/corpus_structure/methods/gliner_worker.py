@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .gliner import GlinerRefused
+from .gliner import GlinerRefused, GlinerReport
 
 if TYPE_CHECKING:
     from .native_host_clients import HostedGliner
@@ -33,6 +33,12 @@ class GlinerAdmission:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class GlinerBatchResult:
+    admissions: tuple[GlinerAdmission, ...]
+    reports: tuple[GlinerReport, ...]
+
+
 def validate_request(profile, pack, inputs, *, threshold, overlap_policy, evaluation=False):
     if not isinstance(inputs, tuple) or not inputs or len(inputs) > profile.max_batch:
         raise GlinerRefused("batch must be a nonempty bounded immutable tuple")
@@ -42,7 +48,7 @@ def validate_request(profile, pack, inputs, *, threshold, overlap_policy, evalua
     if not 0 <= threshold <= 1 or overlap_policy not in supported_overlap:
         raise GlinerRefused("unsupported threshold or overlap policy")
     sizes = [len(item.text.encode()) for item in inputs]
-    if max(sizes) > profile.max_input_bytes or sum(sizes) > profile.max_batch_bytes:
+    if sum(sizes) > profile.max_batch_bytes:
         raise GlinerRefused("live input byte bound exceeded")
     if len(pack.declaration_json.encode()) > profile.max_schema_bytes:
         raise GlinerRefused("schema byte bound exceeded")

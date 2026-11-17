@@ -385,7 +385,7 @@ def test_new_profiles_default_to_cuda_without_changing_explicit_cpu_history(prof
     assert GlinerProfile(**asdict(profile)).device == "cpu"
 
 
-@pytest.mark.parametrize("kind", ["metadata", "frame", "input"])
+@pytest.mark.parametrize("kind", ["metadata", "frame"])
 def test_hosted_gliner_refuses_invalid_request_before_native_start(profile, kind):
     from types import SimpleNamespace
 
@@ -410,8 +410,6 @@ def test_hosted_gliner_refuses_invalid_request_before_native_start(profile, kind
     item = GlinerInput("one", "a" * 64, "source")
     if kind == "metadata":
         pack = replace(pack, release="x" * (selected.max_metadata_bytes + 1))
-    elif kind == "input":
-        item = replace(item, text="x" * (selected.max_input_bytes + 1))
     with pytest.raises(GlinerRefused):
         worker.extract(pack, (item,))
     assert not calls and not worker.closed
