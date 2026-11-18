@@ -32,6 +32,9 @@ def test_generated_freeze_refuses_stale_snapshot_before_claim_inspection(
     with commit_db_engine.begin() as connection, native_owner(connection, "corpus_sem_publisher"):
         execute_native_sql(connection, pdf_freeze_native_sql(metadata))
     with commit_writer_engine.connect().execution_options(isolation_level=level) as connection:
-        with pytest.raises(DBAPIError, match="PDF freeze requires READ COMMITTED") as failure, connection.begin():
+        with (
+            pytest.raises(DBAPIError, match="PDF freeze requires READ COMMITTED") as failure,
+            connection.begin(),
+        ):
             connection.execute(text("SELECT ops.freeze_pdf_build(NULL,NULL,NULL,NULL,NULL)")).all()
         assert getattr(failure.value.orig, "sqlstate", None) == "25000"

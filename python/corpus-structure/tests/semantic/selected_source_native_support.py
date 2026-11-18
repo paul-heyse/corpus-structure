@@ -367,7 +367,9 @@ def publish_native_record_fixture(
                 dict(kind=kind, ordinal=index, value=value) for index, value in enumerate(records)
             )
         if metadata:
-            adopt_controlled_companions(conn, build, "native_metadata", metadata, "fixture-metadata")
+            adopt_controlled_companions(
+                conn, build, "native_metadata", metadata, "fixture-metadata"
+            )
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     validate_pdf_build(engine, frozen)

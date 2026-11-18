@@ -43,7 +43,11 @@ def catalog_checks(body: str) -> str:
     """Reuse the immutable guard's catalog checks without its release reads or writes."""
     from .native_admission_release import CATALOG_END
 
-    receipt_boundary = CATALOG_END if CATALOG_END in body else " IF NOT EXISTS(SELECT FROM sem.deployment_admission "
+    receipt_boundary = (
+        CATALOG_END
+        if CATALOG_END in body
+        else " IF NOT EXISTS(SELECT FROM sem.deployment_admission "
+    )
     boundaries = (
         (
             " IF NOT EXISTS(SELECT FROM sem.physical_contract ",

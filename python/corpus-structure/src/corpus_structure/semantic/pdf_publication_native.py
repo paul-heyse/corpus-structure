@@ -823,7 +823,11 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         "access": "ops.pdf_stage_access",
         "region": "ops.pdf_stage_region",
     }
-    sql = _native_shape_guard() + _companion_field_sql() + pdf_freeze_native_sql(metadata, stage, pdf_domain=pdf_domain)
+    sql = (
+        _native_shape_guard()
+        + _companion_field_sql()
+        + pdf_freeze_native_sql(metadata, stage, pdf_domain=pdf_domain)
+    )
     sql += """
 __PDF_COMPANION_ADOPTION__
 CREATE OR REPLACE FUNCTION ops.pdf_reference_bytes_equal(p_product text,p_revision text,p_left \
@@ -1583,11 +1587,24 @@ def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
     )
     from .pdf_contracts import _context_from_domain, trusted_pdf_context
 
-    stages = {
-        **STAGE_FAMILIES, "companion": "ops.pdf_stage_companion", "endpoint": "ops.pdf_stage_endpoint",
-        "companion_field": "ops.pdf_stage_companion_field", "access": "ops.pdf_stage_access", "region": "ops.pdf_stage_region",
-    } if stages is None else stages
-    inventory = {**stages, "spool_producer": "ops.pdf_spool_producer", "spool_contributor": "ops.pdf_spool_contributor", "producer_certification": "ops.pdf_producer_certification"}
+    stages = (
+        {
+            **STAGE_FAMILIES,
+            "companion": "ops.pdf_stage_companion",
+            "endpoint": "ops.pdf_stage_endpoint",
+            "companion_field": "ops.pdf_stage_companion_field",
+            "access": "ops.pdf_stage_access",
+            "region": "ops.pdf_stage_region",
+        }
+        if stages is None
+        else stages
+    )
+    inventory = {
+        **stages,
+        "spool_producer": "ops.pdf_spool_producer",
+        "spool_contributor": "ops.pdf_spool_contributor",
+        "producer_certification": "ops.pdf_producer_certification",
+    }
     build = model.tables["ops.pdf_stage_build"]
     task = model.tables["ops.task"]
     request = model.tables["ops.data_request"]
@@ -1599,125 +1616,400 @@ def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
     certified = model.tables["ops.pdf_producer_certification"]
     streams = model.tables["ops.pdf_stage_artifact_stream"]
     header = model.tables["ops.pdf_stage_document"]
-    context = trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
+    context = (
+        trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
+    )
     import yaml
 
-    policy_source = yaml.safe_load(model.info["physical_sources"]["pdf-staging.yaml"])["annotations"]["pds:projection_write_profile"]
+    policy_source = yaml.safe_load(model.info["physical_sources"]["pdf-staging.yaml"])[
+        "annotations"
+    ]["pds:projection_write_profile"]
     policy = context.boundary.validate_json("PdfProjectionWriteProfile", policy_source)
     levels = sorted(set(policy.model_dump(mode="json")["allowed_isolation"]))
-    fence = tuple(Parameter(name, column_type(field)) for name, field in (
-        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder),
-    ))
-    p_build, p_task, p_attempt, p_holder = (core_variable(name, field.type) for name, field in (
-        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder),
-    ))
+    fence = tuple(
+        Parameter(name, column_type(field))
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+        )
+    )
+    p_build, p_task, p_attempt, p_holder = (
+        core_variable(name, field.type)
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+        )
+    )
+
     def row(name, relation, field):
         return core_variable(name, relation.c[field].type, field)
 
-    owner_fields = {"project_id": request.c.project_id, "release_id": task.c.release_id,
-        "request_id": request.c.id, "generation": task.c.data_generation,
-        "document_id": document.c.id, "source_digest": document.c.content_hash}
+    owner_fields = {
+        "project_id": request.c.project_id,
+        "release_id": task.c.release_id,
+        "request_id": request.c.id,
+        "generation": task.c.data_generation,
+        "document_id": document.c.id,
+        "source_digest": document.c.content_hash,
+    }
+
     def owner(field):
         return core_variable("owner", owner_fields[field].type, field)
 
     def require_owner_query(name):
-        values = func.ops.pdf_task_context(p_task) if name == "inspect" else func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder)
-        return SelectInto(select(values.table_valued(*(column(field, source.type) for field, source in owner_fields.items()))), ("owner",), True)
+        values = (
+            func.ops.pdf_task_context(p_task)
+            if name == "inspect"
+            else func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder)
+        )
+        return SelectInto(
+            select(
+                values.table_valued(
+                    *(column(field, source.type) for field, source in owner_fields.items())
+                )
+            ),
+            ("owner",),
+            True,
+        )
 
     p_recipe = core_variable("p_recipe", BYTEA())
     recipe_digest = core_variable("digest_", Text())
-    out = [_publication_control_routine("bind_pdf_stage_recipe", (*fence[1:], Parameter("p_recipe", column_type(artifacts.c.content))), pg_type("text"), (
-        require_owner_query("lock"), SelectInto(select(sources).where(sources.c.task_id == p_task, sources.c.release_id == owner("release_id")), ("root_",), True),
-        Perform(func.ops.require_pdf_operation(owner("release_id"), "retain_pdf_stage_recipe")),
-        Perform(cast(func.convert_from(p_recipe, "UTF8"), JSONB())),
-        If(or_(p_recipe.is_(None), func.octet_length(p_recipe) == 0), (Raise("empty stage recipe", "P0001"),)),
-        Assign("digest_", func.encode(func.sha256(p_recipe), "hex")),
-        Sql(insert(artifacts).values({artifacts.c.artifact_digest: recipe_digest, artifacts.c.content: p_recipe}).on_conflict_do_nothing()),
-        If(~exists(select(1).select_from(artifacts).where(artifacts.c.artifact_digest == recipe_digest, artifacts.c.content == p_recipe)), (Raise("stage recipe custody conflict", "P0001"),)),
-        Sql(insert(recipes).values({recipes.c.task_id: p_task, recipes.c.source_digest: row("root_", sources, "artifact_digest"), recipes.c.root_recipe_digest: row("root_", sources, "recipe_digest"), recipes.c.stage_recipe_digest: recipe_digest, recipes.c.release_id: owner("release_id")}).on_conflict_do_nothing()),
-        Return(recipe_digest),
-    ), (Local("owner", pg_type("record")), Local("root_", sources), Local("digest_", pg_type("text"))))]
+    out = [
+        _publication_control_routine(
+            "bind_pdf_stage_recipe",
+            (*fence[1:], Parameter("p_recipe", column_type(artifacts.c.content))),
+            pg_type("text"),
+            (
+                require_owner_query("lock"),
+                SelectInto(
+                    select(sources).where(
+                        sources.c.task_id == p_task, sources.c.release_id == owner("release_id")
+                    ),
+                    ("root_",),
+                    True,
+                ),
+                Perform(
+                    func.ops.require_pdf_operation(owner("release_id"), "retain_pdf_stage_recipe")
+                ),
+                Perform(cast(func.convert_from(p_recipe, "UTF8"), JSONB())),
+                If(
+                    or_(p_recipe.is_(None), func.octet_length(p_recipe) == 0),
+                    (Raise("empty stage recipe", "P0001"),),
+                ),
+                Assign("digest_", func.encode(func.sha256(p_recipe), "hex")),
+                Sql(
+                    insert(artifacts)
+                    .values(
+                        {artifacts.c.artifact_digest: recipe_digest, artifacts.c.content: p_recipe}
+                    )
+                    .on_conflict_do_nothing()
+                ),
+                If(
+                    ~exists(
+                        select(1)
+                        .select_from(artifacts)
+                        .where(
+                            artifacts.c.artifact_digest == recipe_digest,
+                            artifacts.c.content == p_recipe,
+                        )
+                    ),
+                    (Raise("stage recipe custody conflict", "P0001"),),
+                ),
+                Sql(
+                    insert(recipes)
+                    .values(
+                        {
+                            recipes.c.task_id: p_task,
+                            recipes.c.source_digest: row("root_", sources, "artifact_digest"),
+                            recipes.c.root_recipe_digest: row("root_", sources, "recipe_digest"),
+                            recipes.c.stage_recipe_digest: recipe_digest,
+                            recipes.c.release_id: owner("release_id"),
+                        }
+                    )
+                    .on_conflict_do_nothing()
+                ),
+                Return(recipe_digest),
+            ),
+            (
+                Local("owner", pg_type("record")),
+                Local("root_", sources),
+                Local("digest_", pg_type("text")),
+            ),
+        )
+    ]
 
     p_frozen = core_variable("p_frozen", frozen.c.frozen_digest.type)
-    out.append(_publication_control_routine("require_pdf_frozen", (*fence, Parameter("p_frozen", column_type(frozen.c.frozen_digest))), pg_type(build.schema, build.name), (
-        require_owner_query("inspect"),
-        If(not_(func.ops.pdf_stage_owner_current(p_task, p_attempt, p_holder)), (Raise("stale frozen PDF owner", "P0004"),)),
-        SelectInto(select(build).where(build.c.build_id == p_build, build.c.task_id == p_task), ("b",), True),
-        If(or_(row("b", build, "release_id").is_distinct_from(owner("release_id")), row("b", build, "state").not_in(("frozen", "published")),
-            row("b", build, "attempt").is_distinct_from(p_attempt), row("b", build, "holder").is_distinct_from(p_holder),
-            ~exists(select(1).select_from(frozen).where(frozen.c.build_id == p_build, frozen.c.frozen_digest == p_frozen))),
-           (Raise("PDF frozen owner/inventory differs", "23514"),)),
-        Return(core_variable("b", JSONB())),
-    ), (Local("b", build), Local("owner", pg_type("record"))), writer=False))
+    out.append(
+        _publication_control_routine(
+            "require_pdf_frozen",
+            (*fence, Parameter("p_frozen", column_type(frozen.c.frozen_digest))),
+            pg_type(build.schema, build.name),
+            (
+                require_owner_query("inspect"),
+                If(
+                    not_(func.ops.pdf_stage_owner_current(p_task, p_attempt, p_holder)),
+                    (Raise("stale frozen PDF owner", "P0004"),),
+                ),
+                SelectInto(
+                    select(build).where(build.c.build_id == p_build, build.c.task_id == p_task),
+                    ("b",),
+                    True,
+                ),
+                If(
+                    or_(
+                        row("b", build, "release_id").is_distinct_from(owner("release_id")),
+                        row("b", build, "state").not_in(("frozen", "published")),
+                        row("b", build, "attempt").is_distinct_from(p_attempt),
+                        row("b", build, "holder").is_distinct_from(p_holder),
+                        ~exists(
+                            select(1)
+                            .select_from(frozen)
+                            .where(frozen.c.build_id == p_build, frozen.c.frozen_digest == p_frozen)
+                        ),
+                    ),
+                    (Raise("PDF frozen owner/inventory differs", "23514"),),
+                ),
+                Return(core_variable("b", JSONB())),
+            ),
+            (Local("b", build), Local("owner", pg_type("record"))),
+            writer=False,
+        )
+    )
 
     p_kind = core_variable("p_kind", frozen.c.kind.type)
     state, payload = core_variable("state_", BYTEA()), core_variable("payload", BYTEA())
-    count, total, family_count = (core_variable(name, BigInteger()) for name in ("count_", "total_", "family_count_"))
+    count, total, family_count = (
+        core_variable(name, BigInteger()) for name in ("count_", "total_", "family_count_")
+    )
     inventory_value = core_variable("inventory_", JSONB())
     body = core_variable("body_", JSONB())
     digest = core_variable("f", frozen.c.frozen_digest.type)
     build_query = select(build).where(build.c.build_id == p_build, build.c.task_id == p_task)
-    owner_changed = or_(row("b", build, "attempt").is_distinct_from(p_attempt), row("b", build, "holder").is_distinct_from(p_holder), row("b", build, "state") == "abandoned")
+    owner_changed = or_(
+        row("b", build, "attempt").is_distinct_from(p_attempt),
+        row("b", build, "holder").is_distinct_from(p_holder),
+        row("b", build, "state") == "abandoned",
+    )
     frozen_kind = select(frozen.c.kind).where(frozen.c.build_id == p_build).scalar_subquery()
-    frozen_digest = select(frozen.c.frozen_digest).where(frozen.c.build_id == p_build).scalar_subquery()
-    ready = ~exists(select(1).select_from(streams).where(streams.c.product_id == p_build, streams.c.revision_id == p_build,
-        not_(func.ops.pdf_shared_stream_ready(p_build, streams.c.encoding_profile, streams.c.byte_length, streams.c.byte_root))))
+    frozen_digest = (
+        select(frozen.c.frozen_digest).where(frozen.c.build_id == p_build).scalar_subquery()
+    )
+    ready = ~exists(
+        select(1)
+        .select_from(streams)
+        .where(
+            streams.c.product_id == p_build,
+            streams.c.revision_id == p_build,
+            not_(
+                func.ops.pdf_shared_stream_ready(
+                    p_build, streams.c.encoding_profile, streams.c.byte_length, streams.c.byte_root
+                )
+            ),
+        )
+    )
     statements: list[Statement] = [
-        If(not_(func.current_setting("transaction_isolation") == any_(array(levels, type_=Text()))),
-           (Raise("PDF freeze requires " + ", ".join(levels).upper(), "25000"),)),
+        If(
+            not_(
+                func.current_setting("transaction_isolation") == any_(array(levels, type_=Text()))
+            ),
+            (Raise("PDF freeze requires " + ", ".join(levels).upper(), "25000"),),
+        ),
         require_owner_query("inspect"),
-        If(not_(func.ops.pdf_stage_owner_current(p_task, p_attempt, p_holder)), (Raise("stale private PDF build owner", "P0004"),)),
-        SelectInto(build_query, ("b",), True), If(owner_changed, (Raise("PDF freeze owner differs", "23514"),)),
+        If(
+            not_(func.ops.pdf_stage_owner_current(p_task, p_attempt, p_holder)),
+            (Raise("stale private PDF build owner", "P0004"),),
+        ),
+        SelectInto(build_query, ("b",), True),
+        If(owner_changed, (Raise("PDF freeze owner differs", "23514"),)),
         SelectInto(select(frozen.c.frozen_digest).where(frozen.c.build_id == p_build), ("f",)),
-        If(core_variable("found", Boolean()), (
-            Perform(func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder)), SelectInto(build_query.with_for_update(), ("b",), True),
-            If(owner_changed, (Raise("PDF freeze owner differs", "23514"),)),
-            If(p_kind.is_distinct_from(frozen_kind), (Raise("frozen publication kind differs", "P0001"),)), Return(digest),
-        )),
+        If(
+            core_variable("found", Boolean()),
+            (
+                Perform(func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder)),
+                SelectInto(build_query.with_for_update(), ("b",), True),
+                If(owner_changed, (Raise("PDF freeze owner differs", "23514"),)),
+                If(
+                    p_kind.is_distinct_from(frozen_kind),
+                    (Raise("frozen publication kind differs", "P0001"),),
+                ),
+                Return(digest),
+            ),
+        ),
         Perform(func.ops.require_pdf_operation(row("b", build, "release_id"), "freeze_pdf_build")),
-        If(not_(ready), (Raise("PDF freeze requires verified project-scoped stream bytes", "23514"),)),
+        If(
+            not_(ready),
+            (Raise("PDF freeze requires verified project-scoped stream bytes", "23514"),),
+        ),
     ]
     for family, name in sorted(inventory.items()):
         relation = model.tables[name]
         alias = relation.alias("t")
-        owner_column = "build_id" if family.startswith("spool_") or family == "producer_certification" else "product_id"
-        statements.extend((
-            Assign("family_count_", literal(0)),
-            ForQuery(("body_",), select(func.to_jsonb(alias.table_valued())).where(alias.c[owner_column] == p_build).order_by(*(alias.c[field.name] for field in relation.primary_key)), (
-                Assign("payload", func.convert_to(cast(body, Text()), "UTF8")),
-                Assign("state_", func.ops.pdf_identity_fold_step(state, count, func.convert_to(family + ":", "UTF8").op("||")(func.sha256(payload)))),
-                Assign("count_", count + 1), Assign("total_", total + func.octet_length(payload)), Assign("family_count_", family_count + 1),
-            )),
-            Assign("inventory_", inventory_value.op("||")(func.jsonb_build_object(family, family_count))),
-        ))
-    statements.extend((
-        If(~exists(select(1).select_from(certified).where(certified.c.build_id == p_build, certified.c.kind == p_kind,
-            certified.c.lowering_identity == func.ops.pdf_lowering_identity(row("b", build, "release_id")),
-            tuple_(certified.c.source_digest, certified.c.recipe_digest, certified.c.schema_digest) == tuple_(row("b", build, "source_digest"), row("b", build, "recipe_digest"), row("b", build, "schema_digest")))),
-           (Raise("PDF freeze requires exact producer certification", "23514"),)),
-        If(~exists(select(1).select_from(header).where(header.c.product_id == p_build)), (Raise("PDF freeze has no native document header", "23514"),)),
-        Assign("f", func.encode(func.ops.pdf_identity_fold_finish(state, count, total), "hex")),
-        require_owner_query("lock"), SelectInto(build_query.with_for_update(), ("b",), True),
-        If(or_(row("b", build, "release_id").is_distinct_from(owner("release_id")), owner_changed), (Raise("PDF freeze owner differs", "23514"),)),
-        If(exists(select(1).select_from(frozen).where(frozen.c.build_id == p_build)), (
-            If(p_kind.is_distinct_from(frozen_kind), (Raise("frozen publication kind differs", "P0001"),)), Return(frozen_digest),
-        )),
-        If(row("b", build, "state") != "open", (Raise("PDF freeze build is not open", "23514"),)),
-        If(not_(ready), (Raise("PDF freeze requires verified project-scoped stream bytes", "23514"),)),
-    ))
+        owner_column = (
+            "build_id"
+            if family.startswith("spool_") or family == "producer_certification"
+            else "product_id"
+        )
+        statements.extend(
+            (
+                Assign("family_count_", literal(0)),
+                ForQuery(
+                    ("body_",),
+                    select(func.to_jsonb(alias.table_valued()))
+                    .where(alias.c[owner_column] == p_build)
+                    .order_by(*(alias.c[field.name] for field in relation.primary_key)),
+                    (
+                        Assign("payload", func.convert_to(cast(body, Text()), "UTF8")),
+                        Assign(
+                            "state_",
+                            func.ops.pdf_identity_fold_step(
+                                state,
+                                count,
+                                func.convert_to(family + ":", "UTF8").op("||")(
+                                    func.sha256(payload)
+                                ),
+                            ),
+                        ),
+                        Assign("count_", count + 1),
+                        Assign("total_", total + func.octet_length(payload)),
+                        Assign("family_count_", family_count + 1),
+                    ),
+                ),
+                Assign(
+                    "inventory_",
+                    inventory_value.op("||")(func.jsonb_build_object(family, family_count)),
+                ),
+            )
+        )
+    statements.extend(
+        (
+            If(
+                ~exists(
+                    select(1)
+                    .select_from(certified)
+                    .where(
+                        certified.c.build_id == p_build,
+                        certified.c.kind == p_kind,
+                        certified.c.lowering_identity
+                        == func.ops.pdf_lowering_identity(row("b", build, "release_id")),
+                        tuple_(
+                            certified.c.source_digest,
+                            certified.c.recipe_digest,
+                            certified.c.schema_digest,
+                        )
+                        == tuple_(
+                            row("b", build, "source_digest"),
+                            row("b", build, "recipe_digest"),
+                            row("b", build, "schema_digest"),
+                        ),
+                    )
+                ),
+                (Raise("PDF freeze requires exact producer certification", "23514"),),
+            ),
+            If(
+                ~exists(select(1).select_from(header).where(header.c.product_id == p_build)),
+                (Raise("PDF freeze has no native document header", "23514"),),
+            ),
+            Assign("f", func.encode(func.ops.pdf_identity_fold_finish(state, count, total), "hex")),
+            require_owner_query("lock"),
+            SelectInto(build_query.with_for_update(), ("b",), True),
+            If(
+                or_(
+                    row("b", build, "release_id").is_distinct_from(owner("release_id")),
+                    owner_changed,
+                ),
+                (Raise("PDF freeze owner differs", "23514"),),
+            ),
+            If(
+                exists(select(1).select_from(frozen).where(frozen.c.build_id == p_build)),
+                (
+                    If(
+                        p_kind.is_distinct_from(frozen_kind),
+                        (Raise("frozen publication kind differs", "P0001"),),
+                    ),
+                    Return(frozen_digest),
+                ),
+            ),
+            If(
+                row("b", build, "state") != "open",
+                (Raise("PDF freeze build is not open", "23514"),),
+            ),
+            If(
+                not_(ready),
+                (Raise("PDF freeze requires verified project-scoped stream bytes", "23514"),),
+            ),
+        )
+    )
     for family, name in sorted(inventory.items()):
         relation = model.tables[name]
-        owner_column = "build_id" if family.startswith("spool_") or family == "producer_certification" else "product_id"
-        statements.extend((SelectInto(select(func.count()).select_from(relation).where(relation.c[owner_column] == p_build), ("family_count_",)),
-            If(family_count.is_distinct_from(cast(inventory_value[family].astext, BigInteger())), (Raise("PDF freeze inventory changed; retry from the current private build", "40001"),))))
-    statements.extend((Sql(insert(frozen).values({frozen.c.build_id: p_build, frozen.c.frozen_digest: digest, frozen.c.kind: p_kind})),
-        Sql(update(build).values({build.c.state: "frozen"}).where(build.c.build_id == p_build)), Return(digest)))
-    out.append(_publication_control_routine("freeze_pdf_build", (*fence, Parameter("p_kind", column_type(frozen.c.kind))), pg_type("text"), statements, (
-        Local("b", build), Local("owner", pg_type("record")), Local("f", pg_type("text")),
-        Local("state_", pg_type("bytea"), func.ops.pdf_identity_fold_start("pdf-frozen-inventory-v1")),
-        Local("body_", pg_type("jsonb")), Local("payload", pg_type("bytea")), Local("count_", pg_type("bigint"), literal(0)),
-        Local("total_", pg_type("bigint"), literal(0)), Local("family_count_", pg_type("bigint")), Local("inventory_", pg_type("jsonb"), cast(literal("{}"), JSONB())),
-    )))
+        owner_column = (
+            "build_id"
+            if family.startswith("spool_") or family == "producer_certification"
+            else "product_id"
+        )
+        statements.extend(
+            (
+                SelectInto(
+                    select(func.count())
+                    .select_from(relation)
+                    .where(relation.c[owner_column] == p_build),
+                    ("family_count_",),
+                ),
+                If(
+                    family_count.is_distinct_from(
+                        cast(inventory_value[family].astext, BigInteger())
+                    ),
+                    (
+                        Raise(
+                            "PDF freeze inventory changed; retry from the current private build",
+                            "40001",
+                        ),
+                    ),
+                ),
+            )
+        )
+    statements.extend(
+        (
+            Sql(
+                insert(frozen).values(
+                    {
+                        frozen.c.build_id: p_build,
+                        frozen.c.frozen_digest: digest,
+                        frozen.c.kind: p_kind,
+                    }
+                )
+            ),
+            Sql(update(build).values({build.c.state: "frozen"}).where(build.c.build_id == p_build)),
+            Return(digest),
+        )
+    )
+    out.append(
+        _publication_control_routine(
+            "freeze_pdf_build",
+            (*fence, Parameter("p_kind", column_type(frozen.c.kind))),
+            pg_type("text"),
+            statements,
+            (
+                Local("b", build),
+                Local("owner", pg_type("record")),
+                Local("f", pg_type("text")),
+                Local(
+                    "state_",
+                    pg_type("bytea"),
+                    func.ops.pdf_identity_fold_start("pdf-frozen-inventory-v1"),
+                ),
+                Local("body_", pg_type("jsonb")),
+                Local("payload", pg_type("bytea")),
+                Local("count_", pg_type("bigint"), literal(0)),
+                Local("total_", pg_type("bigint"), literal(0)),
+                Local("family_count_", pg_type("bigint")),
+                Local("inventory_", pg_type("jsonb"), cast(literal("{}"), JSONB())),
+            ),
+        )
+    )
     return "\n".join(out)
 
 
@@ -1727,21 +2019,53 @@ def _publication_control_routine(name, parameters, returns, statements, locals_,
 
     from .native_program import Block, function
 
-    declaration = parse_sql(function("ops", name, parameters=parameters, returns=returns,
-        body=Block(tuple(statements), tuple(locals_)), security_definer=True,
-        search_path=("pg_catalog", "pg_temp")))[0].stmt
+    declaration = parse_sql(
+        function(
+            "ops",
+            name,
+            parameters=parameters,
+            returns=returns,
+            body=Block(tuple(statements), tuple(locals_)),
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+        )
+    )[0].stmt
     if not isinstance(declaration, ast.CreateFunctionStmt):
         raise ValueError("PDF frozen custody requires a typed function declaration")
-    identity = ast.ObjectWithArgs(objname=(ast.String(sval="ops"), ast.String(sval=name)), objargs=tuple(parameter.type_ for parameter in parameters), args_unspecified=False)
-    statements_ = [declaration, ast.GrantStmt(is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,),
-        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),), grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT)]
+    identity = ast.ObjectWithArgs(
+        objname=(ast.String(sval="ops"), ast.String(sval=name)),
+        objargs=tuple(parameter.type_ for parameter in parameters),
+        args_unspecified=False,
+    )
+    statements_ = [
+        declaration,
+        ast.GrantStmt(
+            is_grant=False,
+            targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+            objtype=enums.ObjectType.OBJECT_FUNCTION,
+            objects=(identity,),
+            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
+            grant_option=False,
+            behavior=enums.DropBehavior.DROP_RESTRICT,
+        ),
+    ]
     if writer:
-        statements_.append(ast.GrantStmt(is_grant=True, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-            objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,), privileges=(ast.AccessPriv(priv_name="execute"),),
-            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"),), behavior=enums.DropBehavior.DROP_RESTRICT))
+        statements_.append(
+            ast.GrantStmt(
+                is_grant=True,
+                targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+                objtype=enums.ObjectType.OBJECT_FUNCTION,
+                objects=(identity,),
+                privileges=(ast.AccessPriv(priv_name="execute"),),
+                grantees=(
+                    ast.RoleSpec(
+                        roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"
+                    ),
+                ),
+                behavior=enums.DropBehavior.DROP_RESTRICT,
+            )
+        )
     return ";\n".join(RawStream()(statement) for statement in statements_) + ";\n"
-
 
 
 def pdf_publication_controls_sql(model):
@@ -1775,78 +2099,261 @@ def pdf_publication_controls_sql(model):
     published = model.tables["ops.pdf_published_revision"]
     access = model.tables["ops.pdf_stage_access"]
     region = model.tables["ops.pdf_stage_region"]
-    p_build, p_task, p_attempt, p_holder = (core_variable(name, field.type) for name, field in (
-        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder),
-    ))
-    fence = tuple(Parameter(name, column_type(field)) for name, field in (
-        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder),
-    ))
+    p_build, p_task, p_attempt, p_holder = (
+        core_variable(name, field.type)
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+        )
+    )
+    fence = tuple(
+        Parameter(name, column_type(field))
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+        )
+    )
     owner_rows = func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder).table_valued(
         column("release_id", task.c.release_id.type)
     )
     require_owner = Perform(func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder))
     require_build = Assign("b", func.ops.require_pdf_build(p_build, p_task, p_attempt, p_holder))
     p_frozen = core_variable("p_frozen", frozen.c.frozen_digest.type)
-    body, row, family = (core_variable(name, type_) for name, type_ in (
-        ("body_", JSONB()), ("row_", JSONB()), ("family_", Text()),
-    ))
+    body, row, family = (
+        core_variable(name, type_)
+        for name, type_ in (
+            ("body_", JSONB()),
+            ("row_", JSONB()),
+            ("family_", Text()),
+        )
+    )
     payload = core_variable("p_rows", JSONB())
     incoming = func.jsonb_array_elements(payload).table_valued(column("value", JSONB()))
 
     def projection_statements(relation, local, family_name):
         alias = relation.alias("r")
-        row_equal = func.to_jsonb(alias.table_valued(), type_=JSONB()) - "product_id" - "revision_id"
-        conditions = [alias.c.product_id == p_build, alias.c.revision_id == p_build,
-                      alias.c.pointer == body["pointer"].astext, row_equal == body]
+        row_equal = (
+            func.to_jsonb(alias.table_valued(), type_=JSONB()) - "product_id" - "revision_id"
+        )
+        conditions = [
+            alias.c.product_id == p_build,
+            alias.c.revision_id == p_build,
+            alias.c.pointer == body["pointer"].astext,
+            row_equal == body,
+        ]
         if family_name == "region":
-            conditions.append(alias.c.region_index == cast(body["region_index"].astext, BigInteger()))
+            conditions.append(
+                alias.c.region_index == cast(body["region_index"].astext, BigInteger())
+            )
         return (
-            Assign(local, call("pg_catalog", "jsonb_populate_record",
-                ast.TypeCast(arg=ast.A_Const(isnull=True), typeName=pg_type(relation.schema, relation.name)), variable("owned_"))),
-            Sql(insert(relation).values({field: core_variable(local, field.type, field.name) for field in relation.c}).on_conflict_do_nothing()),
-            If(~exists(select(1).select_from(alias).where(*conditions)), (Raise("changed " + family_name + " projection", "23514"),)),
+            Assign(
+                local,
+                call(
+                    "pg_catalog",
+                    "jsonb_populate_record",
+                    ast.TypeCast(
+                        arg=ast.A_Const(isnull=True),
+                        typeName=pg_type(relation.schema, relation.name),
+                    ),
+                    variable("owned_"),
+                ),
+            ),
+            Sql(
+                insert(relation)
+                .values(
+                    {field: core_variable(local, field.type, field.name) for field in relation.c}
+                )
+                .on_conflict_do_nothing()
+            ),
+            If(
+                ~exists(select(1).select_from(alias).where(*conditions)),
+                (Raise("changed " + family_name + " projection", "23514"),),
+            ),
         )
 
-    out = [_publication_control_routine("stage_pdf_access_batch", (*fence, Parameter("p_rows", pg_type("jsonb"))), pg_type("void"), (
-        require_build, Perform(func.ops.require_pdf_operation(core_variable("b", build.c.release_id.type, "release_id"), "stage_pdf_producer")),
-        If(or_(func.jsonb_typeof(payload).is_distinct_from("array"), func.jsonb_array_length(payload) > 128, func.octet_length(cast(payload, Text())) > 16777216), (Raise("access projection batch exceeds profile", "P0001"),)),
-        ForQuery(("row_",), select(incoming.c.value), (
-            Assign("family_", row["family"].astext), Assign("body_", row["body"]),
-            Assign("owned_", body.op("||")(func.jsonb_build_object("product_id", p_build, "revision_id", p_build))),
-            If(family == "access", projection_statements(access, "access_", "access"), (
-                If(family == "region", projection_statements(region, "region_", "region"), (Raise("invalid projection family", "P0001"),)),
-            )),
-        )),
-    ), (Local("b", build), Local("row_", pg_type("jsonb")), Local("body_", pg_type("jsonb")),
-        Local("family_", pg_type("text")), Local("owned_", pg_type("jsonb")), Local("access_", access), Local("region_", region)))]
+    out = [
+        _publication_control_routine(
+            "stage_pdf_access_batch",
+            (*fence, Parameter("p_rows", pg_type("jsonb"))),
+            pg_type("void"),
+            (
+                require_build,
+                Perform(
+                    func.ops.require_pdf_operation(
+                        core_variable("b", build.c.release_id.type, "release_id"),
+                        "stage_pdf_producer",
+                    )
+                ),
+                If(
+                    or_(
+                        func.jsonb_typeof(payload).is_distinct_from("array"),
+                        func.jsonb_array_length(payload) > 128,
+                        func.octet_length(cast(payload, Text())) > 16777216,
+                    ),
+                    (Raise("access projection batch exceeds profile", "P0001"),),
+                ),
+                ForQuery(
+                    ("row_",),
+                    select(incoming.c.value),
+                    (
+                        Assign("family_", row["family"].astext),
+                        Assign("body_", row["body"]),
+                        Assign(
+                            "owned_",
+                            body.op("||")(
+                                func.jsonb_build_object(
+                                    "product_id", p_build, "revision_id", p_build
+                                )
+                            ),
+                        ),
+                        If(
+                            family == "access",
+                            projection_statements(access, "access_", "access"),
+                            (
+                                If(
+                                    family == "region",
+                                    projection_statements(region, "region_", "region"),
+                                    (Raise("invalid projection family", "P0001"),),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                Local("b", build),
+                Local("row_", pg_type("jsonb")),
+                Local("body_", pg_type("jsonb")),
+                Local("family_", pg_type("text")),
+                Local("owned_", pg_type("jsonb")),
+                Local("access_", access),
+                Local("region_", region),
+            ),
+        )
+    ]
 
     build_type = pg_type(build.schema, build.name)
     build_type.setof = True
-    out.append(_publication_control_routine("lookup_pdf_build", (*fence[1:], Parameter("p_key", column_type(build.c.replay_key))), build_type, (
-        SelectInto(select(owner_rows), ("owner",), True),
-        Perform(func.ops.require_pdf_operation(core_variable("owner", task.c.release_id.type, "release_id"), "inspect_pdf_build")),
-        ReturnQuery(select(build).where(build.c.task_id == p_task, build.c.replay_key == core_variable("p_key", build.c.replay_key.type), build.c.release_id == core_variable("owner", task.c.release_id.type, "release_id"))),
-    ), (Local("owner", pg_type("record")),)))
-    for name, field in (("lookup_pdf_frozen_digest", frozen.c.frozen_digest), ("lookup_pdf_frozen_kind", frozen.c.kind)):
-        out.append(_publication_control_routine(name, fence, column_type(field), (
-            require_owner,
-            If(~exists(select(1).select_from(build).where(build.c.build_id == p_build, build.c.task_id == p_task)), (Raise("build outside task", "P0001"),)),
-            SelectInto(select(field).where(frozen.c.build_id == p_build), ("value_",)),
-            Return(core_variable("value_", field.type)),
-        ), (Local("value_", column_type(field)),)))
+    out.append(
+        _publication_control_routine(
+            "lookup_pdf_build",
+            (*fence[1:], Parameter("p_key", column_type(build.c.replay_key))),
+            build_type,
+            (
+                SelectInto(select(owner_rows), ("owner",), True),
+                Perform(
+                    func.ops.require_pdf_operation(
+                        core_variable("owner", task.c.release_id.type, "release_id"),
+                        "inspect_pdf_build",
+                    )
+                ),
+                ReturnQuery(
+                    select(build).where(
+                        build.c.task_id == p_task,
+                        build.c.replay_key == core_variable("p_key", build.c.replay_key.type),
+                        build.c.release_id
+                        == core_variable("owner", task.c.release_id.type, "release_id"),
+                    )
+                ),
+            ),
+            (Local("owner", pg_type("record")),),
+        )
+    )
+    for name, field in (
+        ("lookup_pdf_frozen_digest", frozen.c.frozen_digest),
+        ("lookup_pdf_frozen_kind", frozen.c.kind),
+    ):
+        out.append(
+            _publication_control_routine(
+                name,
+                fence,
+                column_type(field),
+                (
+                    require_owner,
+                    If(
+                        ~exists(
+                            select(1)
+                            .select_from(build)
+                            .where(build.c.build_id == p_build, build.c.task_id == p_task)
+                        ),
+                        (Raise("build outside task", "P0001"),),
+                    ),
+                    SelectInto(select(field).where(frozen.c.build_id == p_build), ("value_",)),
+                    Return(core_variable("value_", field.type)),
+                ),
+                (Local("value_", column_type(field)),),
+            )
+        )
     contract = core_variable("native_contract_", validation.c.native_contract_digest.type)
     validation_type = pg_type(validation.schema, validation.name)
     validation_type.setof = True
-    out.append(_publication_control_routine("lookup_pdf_validation", (*fence, Parameter("p_frozen", column_type(frozen.c.frozen_digest))), validation_type, (
-        Assign("b", func.ops.require_pdf_frozen(p_build, p_task, p_attempt, p_holder, p_frozen)),
-        Assign("native_contract_", func.ops.pdf_validation_contract(core_variable("b", build.c.release_id.type, "release_id"))),
-        If(exists(select(1).select_from(validation).where(validation.c.build_id == p_build, validation.c.frozen_digest == p_frozen, validation.c.native_contract_digest.is_distinct_from(contract))),
-           (Raise("PDF validation profile differs; rebuild from retained evidence in a fresh current storage build; do not alter stored pins", "23514"),)),
-        ReturnQuery(select(validation).where(validation.c.build_id == p_build, validation.c.frozen_digest == p_frozen, validation.c.native_callbacks, validation.c.native_contract_digest == contract)),
-    ), (Local("b", build), Local("native_contract_", column_type(validation.c.native_contract_digest)))))
+    out.append(
+        _publication_control_routine(
+            "lookup_pdf_validation",
+            (*fence, Parameter("p_frozen", column_type(frozen.c.frozen_digest))),
+            validation_type,
+            (
+                Assign(
+                    "b", func.ops.require_pdf_frozen(p_build, p_task, p_attempt, p_holder, p_frozen)
+                ),
+                Assign(
+                    "native_contract_",
+                    func.ops.pdf_validation_contract(
+                        core_variable("b", build.c.release_id.type, "release_id")
+                    ),
+                ),
+                If(
+                    exists(
+                        select(1)
+                        .select_from(validation)
+                        .where(
+                            validation.c.build_id == p_build,
+                            validation.c.frozen_digest == p_frozen,
+                            validation.c.native_contract_digest.is_distinct_from(contract),
+                        )
+                    ),
+                    (
+                        Raise(
+                            "PDF validation profile differs; rebuild from retained evidence in a fresh current storage build; do not alter stored pins",
+                            "23514",
+                        ),
+                    ),
+                ),
+                ReturnQuery(
+                    select(validation).where(
+                        validation.c.build_id == p_build,
+                        validation.c.frozen_digest == p_frozen,
+                        validation.c.native_callbacks,
+                        validation.c.native_contract_digest == contract,
+                    )
+                ),
+            ),
+            (
+                Local("b", build),
+                Local("native_contract_", column_type(validation.c.native_contract_digest)),
+            ),
+        )
+    )
     published_type = pg_type(published.schema, published.name)
     published_type.setof = True
-    out.append(_publication_control_routine("lookup_pdf_published_build", fence, published_type, (
-        require_owner, ReturnQuery(select(published).where(published.c.build_id == p_build, published.c.task_id == p_task)),
-    ), ()))
+    out.append(
+        _publication_control_routine(
+            "lookup_pdf_published_build",
+            fence,
+            published_type,
+            (
+                require_owner,
+                ReturnQuery(
+                    select(published).where(
+                        published.c.build_id == p_build, published.c.task_id == p_task
+                    )
+                ),
+            ),
+            (),
+        )
+    )
     return "\n".join(out)

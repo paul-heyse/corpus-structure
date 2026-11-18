@@ -26,9 +26,7 @@ def setup_transfer(monkeypatch):
     monkeypatch.setattr(arrow_transfer, "copy_arrow_stream", copy)
     from corpus_structure.semantic.pdf_shared_streams import PdfSharedStreamTransfer
 
-    monkeypatch.setattr(
-        PdfSharedStreamTransfer, "omit_verified_parts", lambda *args: False
-    )
+    monkeypatch.setattr(PdfSharedStreamTransfer, "omit_verified_parts", lambda *args: False)
     build = cast(
         Any,
         SimpleNamespace(

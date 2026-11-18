@@ -16,5 +16,10 @@ BINDING_VALUE_TYPES = {
     "datetime": datetime,
     "bytes": bytes,
 }
-BINDING_PRIMITIVE_ALIASES = {"str": "string", "int": "integer", "bool": "boolean", "Decimal": "decimal"}
+BINDING_PRIMITIVE_ALIASES = {
+    "str": "string",
+    "int": "integer",
+    "bool": "boolean",
+    "Decimal": "decimal",
+}
 BINDING_PRIMITIVES = (*BINDING_VALUE_TYPES, "json")

@@ -456,7 +456,10 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
             owner()
             with commit_writer_engine.begin() as connection:
                 adopt_prepared_pdf_companion_batches(
-                    connection, build, (batch,), f"occurrences:{ordinal}",
+                    connection,
+                    build,
+                    (batch,),
+                    f"occurrences:{ordinal}",
                     cancellation=BorrowerCancellation(),
                 )
     with commit_writer_engine.begin() as conn:

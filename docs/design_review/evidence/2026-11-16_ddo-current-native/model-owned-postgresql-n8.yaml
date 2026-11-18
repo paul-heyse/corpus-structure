@@ -1,0 +1,4 @@
+# Model-owned PDF freeze/publication controls, binding helpers, and release receipt guards.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n7
+native_revision: semantic_ddo_pe_n8

@@ -29,9 +29,7 @@ def prepare_controlled_companions(connection, build, family, records, *, start_o
     return batches
 
 
-def adopt_controlled_companions(
-    connection, build, family, records, replay_key, *, start_ordinal=0
-):
+def adopt_controlled_companions(connection, build, family, records, replay_key, *, start_ordinal=0):
     from corpus_structure.semantic.pdf_publication import adopt_prepared_pdf_companion_batches
 
     batches = prepare_controlled_companions(

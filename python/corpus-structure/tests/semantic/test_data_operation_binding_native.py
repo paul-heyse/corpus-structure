@@ -823,11 +823,22 @@ def test_native_explicit_empty_source_set_is_valid_and_never_matches_a_row(
         )
 
 
-@pytest.mark.parametrize("statement,message", (
-    ("SELECT ops.ddo_binding_scalar('\"value\"'::jsonb,NULL)", "unsupported native binding scalar type <NULL>"),
-    ("SELECT ops.ddo_binding_compare('null'::jsonb,'null'::jsonb,'lower')", "binding range does not support type <NULL>"),
-))
-def test_native_scalar_null_type_refusal_keeps_exact_diagnostic(binding_native_connection, statement, message):
+@pytest.mark.parametrize(
+    "statement,message",
+    (
+        (
+            "SELECT ops.ddo_binding_scalar('\"value\"'::jsonb,NULL)",
+            "unsupported native binding scalar type <NULL>",
+        ),
+        (
+            "SELECT ops.ddo_binding_compare('null'::jsonb,'null'::jsonb,'lower')",
+            "binding range does not support type <NULL>",
+        ),
+    ),
+)
+def test_native_scalar_null_type_refusal_keeps_exact_diagnostic(
+    binding_native_connection, statement, message
+):
     with pytest.raises(DBAPIError) as refusal, binding_native_connection.begin_nested():
         binding_native_connection.execute(text(statement))
     assert getattr(refusal.value.orig, "sqlstate", None) == "23514"

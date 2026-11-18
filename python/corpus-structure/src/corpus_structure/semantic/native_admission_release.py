@@ -15,11 +15,15 @@ def release_preconditions(metadata):
     release = metadata.tables["sem.release"]
     selected = core_variable("r", Text())
     return (
-        If(~exists(select(1).select_from(finalized).where(finalized.c.release_id == selected)),
-           (Raise("release is not finalized", "23514"),)),
+        If(
+            ~exists(select(1).select_from(finalized).where(finalized.c.release_id == selected)),
+            (Raise("release is not finalized", "23514"),),
+        ),
         Perform(func.sem.require_execution_projection(selected)),
-        If(~exists(select(1).select_from(release).where(release.c.release_id == selected)),
-           (Raise("unknown execution release", "23514"),)),
+        If(
+            ~exists(select(1).select_from(release).where(release.c.release_id == selected)),
+            (Raise("unknown execution release", "23514"),),
+        ),
         Assign("expected", func.data.execution_contract_descriptor()),
     )
 
@@ -32,18 +36,37 @@ def native_receipt_admission(metadata):
     content = func.convert_to(cast(expected, Text()), "UTF8")
     identity = func.encode(func.sha256(content), "hex")
     physical_id = expected["physical_id"].astext
-    recorded = exists(select(1).select_from(receipt).where(
-        receipt.c.release_id == selected, receipt.c.physical_id == physical_id,
-        receipt.c.deployment_id == identity, receipt.c.kind == "native", receipt.c.content == content,
-    ))
+    recorded = exists(
+        select(1)
+        .select_from(receipt)
+        .where(
+            receipt.c.release_id == selected,
+            receipt.c.physical_id == physical_id,
+            receipt.c.deployment_id == identity,
+            receipt.c.kind == "native",
+            receipt.c.content == content,
+        )
+    )
     authorized = or_(
         func.pg_has_role(func.session_user(), "corpus_sem_admitter", "USAGE"),
         func.pg_has_role(func.session_user(), owner, "MEMBER"),
     )
-    return (If(~recorded, (
-        If(~authorized, (Raise("native admission requires restricted admission phase", "42501"),)),
-        Perform(func.sem.record_deployment_admission(selected, physical_id, identity, "native", content)),
-    )),)
+    return (
+        If(
+            ~recorded,
+            (
+                If(
+                    ~authorized,
+                    (Raise("native admission requires restricted admission phase", "42501"),),
+                ),
+                Perform(
+                    func.sem.record_deployment_admission(
+                        selected, physical_id, identity, "native", content
+                    )
+                ),
+            ),
+        ),
+    )
 
 
 def admission_kernel(source: str, metadata) -> str:
@@ -53,7 +76,10 @@ def admission_kernel(source: str, metadata) -> str:
     if len(declarations) != 1:
         raise ValueError("admission source requires one enforcing function")
     declaration = declarations[0]
-    if tuple(part.sval for part in declaration.funcname or ()) != ("data", "require_execution_release"):
+    if tuple(part.sval for part in declaration.funcname or ()) != (
+        "data",
+        "require_execution_release",
+    ):
         raise ValueError("admission source names another enforcing function")
     options = [option for option in declaration.options or () if option.defname == "as"]
     if len(options) != 1 or not isinstance(options[0].arg, tuple) or len(options[0].arg) != 1:
@@ -70,14 +96,16 @@ def admission_kernel(source: str, metadata) -> str:
     if not openings or not endings:
         raise ValueError("admission source lacks its outer procedural body")
     first, last = openings[0], endings[-1]
-    if last.start <= first.end or body[last.end + 1:].strip() not in {"", ";"}:
+    if last.start <= first.end or body[last.end + 1 :].strip() not in {"", ";"}:
         raise ValueError("admission source has an invalid outer procedural body")
-    body_literal.sval = "\n".join((
-        body[:first.end + 1],
-        _statements(release_preconditions(metadata), " "),
-        body[first.end + 1:last.start],
-        CATALOG_END,
-        _statements(native_receipt_admission(metadata), " "),
-        body[last.start:],
-    ))
+    body_literal.sval = "\n".join(
+        (
+            body[: first.end + 1],
+            _statements(release_preconditions(metadata), " "),
+            body[first.end + 1 : last.start],
+            CATALOG_END,
+            _statements(native_receipt_admission(metadata), " "),
+            body[last.start :],
+        )
+    )
     return RawStream()(statements) + ";"
