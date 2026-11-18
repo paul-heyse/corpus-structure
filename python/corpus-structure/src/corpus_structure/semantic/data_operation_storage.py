@@ -73,6 +73,7 @@ def native_protocol_sources(
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_protocol import recordable_fate_sql
+    from .data_operation_renewal import renewal_native_sql
     from .data_operation_source_native import source_native_sources
     from .data_operation_subjects import subject_scope_values
     from .data_operation_support import (
@@ -333,6 +334,8 @@ def native_protocol_sources(
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
+        SourceArtifact("native/data-operation-renewal.sql", renewal_native_sql(target_metadata, protocol).encode()),
+        SourceArtifact("native/data-operation-renewal.py", Path(__file__).with_name("data_operation_renewal.py").read_bytes()),
         SourceArtifact(
             "native/data-operation-support-scopes.sql",
             _SQL.with_name("data_operation_support_scopes.sql").read_bytes(),
@@ -577,6 +580,7 @@ def native_sql(sources=None) -> str:
             # SQL-language structural helpers resolve the tagged-value functions
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
+            "native/data-operation-renewal.sql",
             "native/data-operation-product-validation.sql",
             "native/contextual-neighborhood.sql",
             "native/data-operation-definition-admission.sql",

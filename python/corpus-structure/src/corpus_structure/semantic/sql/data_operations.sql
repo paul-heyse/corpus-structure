@@ -1235,42 +1235,6 @@ BEGIN
  RETURN jsonb_build_object('payload',jsonb_build_object('items',results));
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_lost_attempt(p jsonb,reason text) RETURNS jsonb
-LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
- SELECT jsonb_build_object('payload',jsonb_build_object('state','lost','reason',reason,
- 'request_id',p->>'request_id','generation',(p->>'generation')::integer,'task_id',(p->>'task_id')::bigint,
- 'attempt',(p->>'attempt')::integer,'holder',p->>'holder'))
-$$;
-
-CREATE OR REPLACE FUNCTION ops.renew_data_request(p_payload jsonb) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb;
-BEGIN
- PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','lease_seconds']);
- IF nullif(p->>'holder','') IS NULL OR (p->>'lease_seconds')::integer NOT BETWEEN 1 AND 86400
- OR (p->>'generation')::integer<1 OR (p->>'attempt')::integer<1 OR (p->>'task_id')::bigint<1 THEN RAISE EXCEPTION 'invalid request attempt/holder/lease'; END IF;
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
- PERFORM ops.ddo_authorize_request(r);
- snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
- SELECT * INTO t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
- IF NOT ops.ddo_request_useful(r) THEN RETURN ops.ddo_lost_attempt(p,CASE WHEN t.status IN ('done','empty','failed') THEN 'fence' ELSE 'cancelled' END); END IF;
- IF t.id IS NULL OR r.generation IS DISTINCT FROM (p->>'generation')::integer
- OR (t.data_request_id,t.data_generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM
- (r.id,r.generation,(p->>'task_id')::bigint,(p->>'attempt')::integer,p->>'holder')
- OR t.status IS DISTINCT FROM 'running' OR t.lease_until IS NULL OR t.lease_until<=clock_timestamp() THEN
- RETURN ops.ddo_lost_attempt(p,'fence'); END IF;
- IF EXISTS(SELECT FROM ops.data_revocation v WHERE v.scope=ops.ddo_scope(r.project_id,r.original_source)
- AND ((v.selector_kind='runtime' AND v.selector=r.runtime_id)
- OR (v.selector_kind='recipe' AND v.selector=r.recipe))) THEN
- RETURN ops.ddo_lost_attempt(p,'revoked'); END IF;
- IF NOT ops.ddo_support_available(r,r.binding->'support') THEN RETURN ops.ddo_lost_attempt(p,'support-unavailable'); END IF;
- UPDATE ops.task SET lease_until=greatest(t.lease_until,clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer))
- WHERE id=t.id RETURNING * INTO t;
- RETURN jsonb_build_object('payload',jsonb_build_object('state','renewed','request_id',r.id,'generation',r.generation,
- 'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot));
-END $$;
-
 CREATE OR REPLACE FUNCTION ops.release_data_attempt(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; old ops.data_attempt_failure;
