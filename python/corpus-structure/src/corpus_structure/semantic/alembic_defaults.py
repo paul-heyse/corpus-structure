@@ -28,6 +28,11 @@ def compare_type(ctx, inspected_column, metadata_column, inspected_type, metadat
     return None
 
 
+def _bound_column(context, column):
+    columns = context.opts.get("declared_physical_columns", {})
+    return columns.get(column.table.fullname, {}).get(column.name)
+
+
 def compare_generated_default(
     autogen_context: Any,
     alter_column_op: Any,
@@ -38,6 +43,12 @@ def compare_generated_default(
     declared: Any,
 ) -> PriorityDispatchResult:
     if inspected.computed is not None or declared.computed is not None:
+        bound = _bound_column(autogen_context.migration_context, declared)
+        if (bound is not None and bound["generated"] and inspected.computed is not None
+            and declared.computed is not None
+            and str(inspected.computed.sqltext).strip() == bound["default"]
+            and inspected.computed.persisted == declared.computed.persisted):
+            return PriorityDispatchResult.STOP
         return _compare_computed_default(
             autogen_context, alter_column_op, schema, tname, cname, inspected, declared
         )
@@ -57,29 +68,11 @@ def compare_default(
     metadata_default: Any,
     rendered_default: str | None,
 ) -> bool | None:
-    """Avoid evaluating one volatile UUID default to compare it with itself.
-
-    Other defaults retain Alembic's normal comparison, including changed expressions.
-    """
-    if (
-        inspected.table.schema != "ops"
-        or inspected.table.name != "task"
-        or inspected.name != "invocation_key"
-    ):
+    """Compare server-bound declarations without evaluating default expressions."""
+    bound = _bound_column(ctx, declared)
+    if bound is None:
         return None
-
-    def normalized(value: str | None) -> str:
-        return (
-            "".join((value or "").split())
-            .replace("'legacy-task:'::text", "'legacy-task:'")
-            .replace("(", "")
-            .replace(")", "")
-        )
-
-    expected = "gen_random_uuid::text"
-    if normalized(inspected_default) == normalized(rendered_default) == expected:
-        return False
-    return None
+    return inspected_default != bound["default"]
 
 
 plugin = Plugin("corpus.semantic.defaults")

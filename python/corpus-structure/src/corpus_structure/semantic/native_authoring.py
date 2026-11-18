@@ -356,7 +356,7 @@ def _declared_physical_catalog(connection, target_metadata):
                 """),
                 {"relation": scratch_relation},
             )
-            normalized = expressions.tuples().all()
+            normalized = expressions.all()
             generated[relation.fullname] = {
                 name: expression for name, expression, kind in normalized if kind
             }
@@ -719,6 +719,10 @@ def compare_declared_candidate(
             ],
             "native_authoring": authoring,
             "declared_physical_indexes": descriptor["indexes"],
+            "declared_physical_columns": {
+                table["relation"]: {column["name"]: column for column in table["columns"]}
+                for table in descriptor["tables"]
+            },
             "declared_privileges": target_policies,
             "predecessor_privileges": before_policies,
             "legacy_privilege_tables": old_descriptor["tables"],
