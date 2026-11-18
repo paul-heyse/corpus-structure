@@ -92,3 +92,35 @@ def test_postgresql_enforces_generated_cross_field_constraint(semantic_bare_engi
         with pytest.raises(IntegrityError, match="ordered_span"), connection.begin_nested():
             connection.execute(relation.insert(), {"start": 4, "end": 3})
         assert connection.execute(relation.select()).all() == [(1, 2), (3, 3)]
+
+
+def test_postgresql_same_name_check_change_has_ordered_drop_and_create(semantic_bare_engine):
+    from alembic.autogenerate import produce_migrations
+    from alembic.migration import MigrationContext
+    from alembic.operations.ops import CreateCheckConstraintOp, DropConstraintOp, ModifyTableOps
+    from sqlalchemy.schema import CreateSchema
+
+    from corpus_structure.semantic.alembic_checks import plugin
+
+    original = compile_checks(
+        [{"name": "ordered_span", "predicate": {"op": "ge", "args": [{"field": "end"}, {"field": "start"}]}}]
+    )
+    proposed = compile_checks(
+        [{"name": "ordered_span", "predicate": {"op": "gt", "args": [{"field": "end"}, {"field": "start"}]}}]
+    )
+    with semantic_bare_engine.begin() as connection:
+        connection.execute(CreateSchema("data"))
+        original.create(connection)
+        context = MigrationContext.configure(connection, opts={
+            "include_schemas": True,
+            "include_name": lambda name, kind, parents: name == "data" if kind == "schema" else True,
+            "autogenerate_plugins": ["alembic.autogenerate.*", "alembic.ext.checkconstraint_byname", plugin.name],
+        })
+        unchanged = produce_migrations(context, original.metadata)
+        assert unchanged.upgrade_ops is not None and unchanged.upgrade_ops.is_empty()
+        changed = produce_migrations(context, proposed.metadata)
+        assert changed.upgrade_ops is not None
+        (table_changes,) = changed.upgrade_ops.ops
+        assert isinstance(table_changes, ModifyTableOps)
+        assert [type(operation) for operation in table_changes.ops] == [DropConstraintOp, CreateCheckConstraintOp]
+        assert [operation.constraint_name for operation in table_changes.ops] == ["ordered_span", "ordered_span"]

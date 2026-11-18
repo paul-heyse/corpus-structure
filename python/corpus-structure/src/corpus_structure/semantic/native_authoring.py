@@ -15,6 +15,7 @@ from pglast import ast
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from .alembic_checks import plugin as checks_plugin
 from .alembic_defaults import compare_default, compare_type
 from .alembic_defaults import plugin as defaults_plugin
 from .alembic_indexes import plugin as indexes_plugin
@@ -706,6 +707,7 @@ def compare_declared_candidate(
             "autogenerate_plugins": [
                 "alembic.autogenerate.*",
                 "alembic.ext.checkconstraint_byname",
+                checks_plugin.name,
                 defaults_plugin.name,
                 indexes_plugin.name,
                 native_plugin.name,
