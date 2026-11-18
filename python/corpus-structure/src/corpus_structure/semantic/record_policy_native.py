@@ -123,13 +123,58 @@ def read_selected_feature_fit_frame(
     return {**result, "frame": restored.model_dump(mode="json")}
 
 
-def record_policy_native_sql():
-    import json
+def _revoke_policy(name, parameters):
+    from pglast import ast, enums
+    from pglast.stream import RawStream
+
+    return (
+        RawStream()(
+            ast.GrantStmt(
+                is_grant=False,
+                targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+                objtype=enums.ObjectType.OBJECT_FUNCTION,
+                objects=(
+                    ast.ObjectWithArgs(
+                        objname=(ast.String(sval="ops"), ast.String(sval=name)),
+                        objargs=tuple(parameter.type_ for parameter in parameters),
+                        args_unspecified=False,
+                    ),
+                ),
+                grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
+                grant_option=False,
+                behavior=enums.DropBehavior.DROP_RESTRICT,
+            )
+        )
+        + ";\n"
+    )
+
+
+def record_policy_native_sql(*, target_metadata=None):
+    """Generate protected authority and feature-frame reads over captured metadata."""
     from dataclasses import asdict
+
+    from sqlalchemy import Boolean, and_, case, cast, func, literal, or_, select
+    from sqlalchemy.dialects.postgresql import JSONB
 
     from corpus_structure.evaluate.declared_operation_events import PARAMETERS_KIND
 
+    from .binding_recursive_native import _check, _json, _value
     from .declared_structural_admission import ADMISSION_KIND
+    from .identity import canonical_bytes
+    from .native_program import (
+        Assign,
+        Block,
+        If,
+        Local,
+        Parameter,
+        Return,
+        SelectInto,
+        core_relation_row,
+        core_variable,
+        function,
+        pg_type,
+        sql_function,
+    )
     from .record_policy_authority import (
         AUTHORIZATION_EFFECT,
         AUTHORIZATION_FACTORY,
@@ -137,196 +182,811 @@ def record_policy_native_sql():
         AUTHORIZATION_OPERATION,
     )
 
-    return (
-        r"""
-CREATE OR REPLACE FUNCTION ops.ddo_policy_command_eligible(definition sem.data_operation_definition)
-RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $policy$
- SELECT definition.operation_id='__OPERATION__' AND definition.profile='command'
- AND definition.support_contract->'capabilities'->>'preparation'='native-publication'
- AND definition.support_contract->'capabilities'->'forms'='["scalar"]'::jsonb
- AND definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint'='__FACTORY__'
- AND definition.support_contract->'effects'='__EFFECTS__'::jsonb
- AND definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$'
- AND definition.implementation_revision LIKE 'implementation-slice:%'
-$policy$;
-REVOKE ALL ON FUNCTION ops.ddo_policy_command_eligible(sem.data_operation_definition) FROM PUBLIC;
+    if target_metadata is None:
+        from .metadata import metadata
 
-CREATE OR REPLACE FUNCTION ops.ddo_policy_authority_leaf(episode text) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $policy$
- SELECT NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_evaluator','MEMBER')
- AND EXISTS(SELECT FROM ops.data_derivation d JOIN ops.data_request request ON request.id=d.request_id
- JOIN sem.data_operation_definition definition ON definition.release_id=d.release_id AND definition.operation_id=request.operation_id
- JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=d.id AND receipt.intent_id=d.intent_id
- JOIN ops.data_derivation_output output ON output.derivation_id=d.id
- JOIN sem.data_kind_contract kind ON kind.kind_contract=(SELECT product.kind_contract FROM kb.data_product product WHERE product.id=output.product_id)
- WHERE d.id=episode AND d.outcome='success'
- AND (((definition.command_class='policy') AND output.role='authorization' AND kind.kind='__KIND__')
- OR ((definition.command_class='structural') AND output.role='admission' AND kind.kind='__STRUCTURAL_KIND__')
- OR ((definition.command_class='operation_event') AND output.role='parameters' AND kind.kind='__EVENT_PARAMETERS_KIND__'))
- AND output.position=0 AND output.multiplicity=1 AND output.member_id IS NULL
- AND kind.universe='ordinary'
- AND (SELECT count(*) FROM ops.data_derivation_output other WHERE other.derivation_id=d.id)=1)
-$policy$;
-REVOKE ALL ON FUNCTION ops.ddo_policy_authority_leaf(text) FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION ops.ddo_policy_authority_summary(episode text,selected_use text,read_id text) RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $policy$
-DECLARE d ops.data_derivation; chosen ops.demand_use; boundary ops.data_demand_read;
- output ops.data_derivation_output; receipt ops.data_publication_receipt; standing text;
-BEGIN
- IF NOT coalesce(ops.ddo_policy_authority_leaf(episode),false) THEN
- RAISE EXCEPTION 'ordinary policy authority summary requires an authenticated native issuer' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=read_id;
- SELECT * INTO STRICT d FROM ops.data_derivation WHERE id=episode;
- -- Publication records its fulfilled demand uses in the same transaction as
- -- the episode. Those immutable rows carry the full transaction visibility
- -- marker; the episode itself carries only its completion timestamp.
- IF d.completed_at>boundary.frontier_at OR NOT EXISTS(
- SELECT FROM ops.demand_use published WHERE published.derivation_id=d.id
- AND published.fate='fulfilled'
- AND ops.ddo_read_visible(published.created_at,published.created_xid,boundary)) THEN
- RAISE EXCEPTION 'policy issuer is outside selected native visibility' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT output FROM ops.data_derivation_output WHERE derivation_id=episode;
- SELECT * INTO STRICT receipt FROM ops.data_publication_receipt WHERE derivation_id=episode AND intent_id=d.intent_id;
- IF selected_use IS NOT NULL THEN
- SELECT * INTO STRICT chosen FROM ops.demand_use WHERE id=selected_use AND derivation_id=episode;
- IF NOT ops.ddo_read_visible(chosen.created_at,chosen.created_xid,boundary) THEN
- RAISE EXCEPTION 'policy authority use is outside selected native visibility' USING ERRCODE='23514'; END IF;
- standing:=CASE WHEN ops.ddo_node_valid('use',chosen.id,boundary) THEN 'valid' ELSE 'unavailable' END;
- ELSE standing:=CASE WHEN ops.ddo_node_valid('episode',episode,boundary) THEN 'valid' ELSE 'unavailable' END;
- END IF;
- RETURN jsonb_build_object('format','ddo-native-authority-leaf-v1','derivation_id',episode,
- 'use_id',selected_use,'issuer_operation',(SELECT operation_id FROM ops.data_request WHERE id=d.request_id),'release_id',d.release_id,'runtime_id',d.runtime_id,
- 'recipe',d.recipe,'product_id',output.product_id,
- 'kind_contract',(SELECT kind_contract FROM kb.data_product WHERE id=output.product_id),
- 'intent_id',d.intent_id,'receipt_id',receipt.id,'standing',standing,'protected_dependencies','undisclosed');
-END $policy$;
-REVOKE ALL ON FUNCTION ops.ddo_policy_authority_summary(text,text,text) FROM PUBLIC;
-""".replace("__OPERATION__", AUTHORIZATION_OPERATION)
-        .replace("__FACTORY__", AUTHORIZATION_FACTORY)
-        .replace("__KIND__", AUTHORIZATION_KIND)
-        .replace("__STRUCTURAL_KIND__", ADMISSION_KIND)
-        .replace("__EVENT_PARAMETERS_KIND__", PARAMETERS_KIND)
-        .replace("__EFFECTS__", json.dumps([asdict(AUTHORIZATION_EFFECT)], separators=(",", ":")))
-        + _feature_fit_sql()
+        target_metadata = metadata
+    model = target_metadata
+    definitions, episodes, requests, receipts, outputs, products, kinds, boundaries, uses = (
+        model.tables[name]
+        for name in (
+            "sem.data_operation_definition",
+            "ops.data_derivation",
+            "ops.data_request",
+            "ops.data_publication_receipt",
+            "ops.data_derivation_output",
+            "kb.data_product",
+            "sem.data_kind_contract",
+            "ops.data_demand_read",
+            "ops.demand_use",
+        )
     )
 
+    def row(name, relation, field):
+        return core_variable(name, relation.c[field].type, field)
 
-def _feature_fit_sql():
+    def definition(field):
+        return row("definition", definitions, field)
+
+    def d(field):
+        return row("d", episodes, field)
+
+    def boundary(field):
+        return row("boundary", boundaries, field)
+
+    def chosen(field):
+        return row("chosen", uses, field)
+
+    def output(field):
+        return row("output", outputs, field)
+
+    def receipt(field):
+        return row("receipt", receipts, field)
+
+    def obj(**fields):
+        return func.jsonb_build_object(
+            *(part for pair in fields.items() for part in pair), type_=JSONB()
+        )
+
+    def selected(table, condition, target):
+        return SelectInto(
+            select(core_relation_row(table)).select_from(table).where(condition), (target,), True
+        )
+
+    def sql(name, parameters, body, *, immutable=False, strict=False, definer=False):
+        return (
+            sql_function(
+                "ops",
+                name,
+                parameters=parameters,
+                returns=pg_type("boolean"),
+                body=body,
+                volatility="immutable" if immutable else "stable",
+                strict=strict,
+                security_definer=definer,
+                search_path=("pg_catalog", "pg_temp"),
+            )
+            + ";\n"
+            + _revoke_policy(name, parameters)
+        )
+
+    parameters = (Parameter("definition", pg_type(str(definitions.schema), definitions.name)),)
+    capabilities = definition("support_contract")["capabilities"]
+    eligible = sql(
+        "ddo_policy_command_eligible",
+        parameters,
+        select(
+            and_(
+                definition("operation_id") == AUTHORIZATION_OPERATION,
+                definition("profile") == "command",
+                capabilities["preparation"].astext == "native-publication",
+                capabilities["forms"] == _json('["scalar"]'),
+                capabilities["prepared_factory"]["entrypoint"].astext == AUTHORIZATION_FACTORY,
+                definition("support_contract")["effects"]
+                == cast(literal(canonical_bytes([asdict(AUTHORIZATION_EFFECT)]).decode()), JSONB()),
+                capabilities["prepared_factory"]["source_digest"].astext.op("~")("^[0-9a-f]{64}$"),
+                definition("implementation_revision").like("implementation-slice:%"),
+            )
+        ),
+        immutable=True,
+        strict=True,
+    )
+    episode = _value("episode")
+    native_episode = episodes.alias("native_episode")
+    native_request = requests.alias("native_request")
+    native_definition = definitions.alias("native_definition")
+    native_receipt = receipts.alias("native_receipt")
+    native_output = outputs.alias("native_output")
+    native_product = products.alias("native_product")
+    native_kind = kinds.alias("native_kind")
+    other_output = outputs.alias("other_output")
+    principal = func.coalesce(
+        func.nullif(func.current_setting("role"), "none"), func.session_user()
+    )
+    only_one_output = (
+        select(func.count())
+        .where(other_output.c.derivation_id == native_episode.c.id)
+        .correlate(native_episode)
+        .scalar_subquery()
+        == 1
+    )
+    authority = (
+        select(native_episode.c.id)
+        .select_from(
+            native_episode.join(native_request, native_request.c.id == native_episode.c.request_id)
+            .join(
+                native_definition,
+                and_(
+                    native_definition.c.release_id == native_episode.c.release_id,
+                    native_definition.c.operation_id == native_request.c.operation_id,
+                ),
+            )
+            .join(
+                native_receipt,
+                and_(
+                    native_receipt.c.derivation_id == native_episode.c.id,
+                    native_receipt.c.intent_id == native_episode.c.intent_id,
+                ),
+            )
+            .join(native_output, native_output.c.derivation_id == native_episode.c.id)
+            .join(native_product, native_product.c.id == native_output.c.product_id)
+            .join(native_kind, native_kind.c.kind_contract == native_product.c.kind_contract)
+        )
+        .where(
+            native_episode.c.id == episode,
+            native_episode.c.outcome == "success",
+            or_(
+                and_(
+                    native_definition.c.command_class == "policy",
+                    native_output.c.role == "authorization",
+                    native_kind.c.kind == AUTHORIZATION_KIND,
+                ),
+                and_(
+                    native_definition.c.command_class == "structural",
+                    native_output.c.role == "admission",
+                    native_kind.c.kind == ADMISSION_KIND,
+                ),
+                and_(
+                    native_definition.c.command_class == "operation_event",
+                    native_output.c.role == "parameters",
+                    native_kind.c.kind == PARAMETERS_KIND,
+                ),
+            ),
+            native_output.c.position == 0,
+            native_output.c.multiplicity == 1,
+            native_output.c.member_id.is_(None),
+            native_kind.c.universe == "ordinary",
+            only_one_output,
+        )
+        .exists()
+    )
+    leaf = sql(
+        "ddo_policy_authority_leaf",
+        (Parameter("episode", pg_type("text")),),
+        select(
+            and_(
+                ~func.pg_has_role(principal, "corpus_sem_evaluator", "MEMBER", type_=Boolean()),
+                authority,
+            )
+        ),
+        definer=True,
+    )
+    selected_use, read_id, standing = (
+        _value(name) for name in ("selected_use", "read_id", "standing")
+    )
+    published = uses.alias("published")
+    visible_publication = (
+        select(published.c.id)
+        .where(
+            published.c.derivation_id == d("id"),
+            published.c.fate == "fulfilled",
+            func.ops.ddo_read_visible(
+                published.c.created_at, published.c.created_xid, _value("boundary"), type_=Boolean()
+            ),
+        )
+        .exists()
+    )
+    parameters = tuple(
+        Parameter(name, pg_type("text")) for name in ("episode", "selected_use", "read_id")
+    )
+    summary = (
+        function(
+            "ops",
+            "ddo_policy_authority_summary",
+            parameters=parameters,
+            returns=pg_type("jsonb"),
+            volatility="stable",
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+            body=Block(
+                (
+                    _check(
+                        ~func.coalesce(
+                            func.ops.ddo_policy_authority_leaf(episode, type_=Boolean()), False
+                        ),
+                        "ordinary policy authority summary requires an authenticated native issuer",
+                        "23514",
+                    ),
+                    selected(boundaries, boundaries.c.id == read_id, "boundary"),
+                    selected(episodes, episodes.c.id == episode, "d"),
+                    _check(
+                        or_(d("completed_at") > boundary("frontier_at"), ~visible_publication),
+                        "policy issuer is outside selected native visibility",
+                        "23514",
+                    ),
+                    selected(outputs, outputs.c.derivation_id == episode, "output"),
+                    selected(
+                        receipts,
+                        and_(
+                            receipts.c.derivation_id == episode,
+                            receipts.c.intent_id == d("intent_id"),
+                        ),
+                        "receipt",
+                    ),
+                    If(
+                        selected_use.is_not(None),
+                        (
+                            selected(
+                                uses,
+                                and_(uses.c.id == selected_use, uses.c.derivation_id == episode),
+                                "chosen",
+                            ),
+                            _check(
+                                ~func.ops.ddo_read_visible(
+                                    chosen("created_at"),
+                                    chosen("created_xid"),
+                                    _value("boundary"),
+                                    type_=Boolean(),
+                                ),
+                                "policy authority use is outside selected native visibility",
+                                "23514",
+                            ),
+                            Assign(
+                                "standing",
+                                case(
+                                    (
+                                        func.ops.ddo_node_valid(
+                                            "use", chosen("id"), _value("boundary"), type_=Boolean()
+                                        ),
+                                        "valid",
+                                    ),
+                                    else_="unavailable",
+                                ),
+                            ),
+                        ),
+                        (
+                            Assign(
+                                "standing",
+                                case(
+                                    (
+                                        func.ops.ddo_node_valid(
+                                            "episode", episode, _value("boundary"), type_=Boolean()
+                                        ),
+                                        "valid",
+                                    ),
+                                    else_="unavailable",
+                                ),
+                            ),
+                        ),
+                    ),
+                    Return(
+                        obj(
+                            format="ddo-native-authority-leaf-v1",
+                            derivation_id=episode,
+                            use_id=selected_use,
+                            issuer_operation=select(requests.c.operation_id)
+                            .where(requests.c.id == d("request_id"))
+                            .scalar_subquery(),
+                            release_id=d("release_id"),
+                            runtime_id=d("runtime_id"),
+                            recipe=d("recipe"),
+                            product_id=output("product_id"),
+                            kind_contract=select(products.c.kind_contract)
+                            .where(products.c.id == output("product_id"))
+                            .scalar_subquery(),
+                            intent_id=d("intent_id"),
+                            receipt_id=receipt("id"),
+                            standing=standing,
+                            protected_dependencies="undisclosed",
+                        )
+                    ),
+                ),
+                (
+                    *(
+                        Local(name, table)
+                        for name, table in (
+                            ("d", episodes),
+                            ("chosen", uses),
+                            ("boundary", boundaries),
+                            ("output", outputs),
+                            ("receipt", receipts),
+                        )
+                    ),
+                    Local("standing", pg_type("text")),
+                ),
+            ),
+        )
+        + ";\n"
+        + _revoke_policy("ddo_policy_authority_summary", parameters)
+    )
+    return "\n".join((eligible, leaf, summary, _feature_fit_sql(model)))
+
+
+def _feature_fit_sql(model):
+    from sqlalchemy import (
+        BigInteger,
+        Boolean,
+        Text,
+        and_,
+        case,
+        cast,
+        column,
+        func,
+        literal,
+        or_,
+        select,
+        table,
+        tuple_,
+    )
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.sql.elements import Grouping
+
+    from .binding_recursive_native import _check, _json, _value
+    from .data_operation_projections import cut_selection_projection, selected_support_output
+    from .native_catalog import namespace, relation
+    from .native_program import (
+        Assign,
+        Block,
+        If,
+        Local,
+        Parameter,
+        Perform,
+        Return,
+        SelectInto,
+        core_relation_row,
+        core_variable,
+        function,
+        pg_type,
+    )
     from .record_policy_authority import GRADE_FACTORY, GRADE_KIND, GRADE_OPERATION
 
-    return (
-        r"""
-CREATE OR REPLACE FUNCTION ops.ddo_require_feature_fit_principal() RETURNS void
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
-DECLARE principal name:=session_user;
-BEGIN
- IF NOT pg_has_role(principal,'corpus_sem_fitter','USAGE')
- OR current_setting('role') NOT IN ('none',principal::text)
- OR pg_has_role(principal,'corpus_sem_evaluator','MEMBER')
- OR pg_has_role(principal,'corpus_sem_publisher','MEMBER')
- OR has_database_privilege(principal,current_database(),'TEMP')
- OR EXISTS(SELECT FROM pg_roles WHERE oid=principal::regrole
- AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls OR rolreplication))
- OR EXISTS(SELECT FROM pg_namespace WHERE nspname IN ('sem','data','ops','kb','eval')
- AND (pg_has_role(principal,nspowner,'MEMBER') OR has_schema_privilege(principal,oid,'CREATE')))
- OR EXISTS(SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname IN ('ops','kb','eval') AND c.relkind IN ('r','p','v','m')
- AND (has_table_privilege(principal,c.oid,'SELECT') OR has_any_column_privilege(principal,c.oid,'SELECT'))) THEN
- RAISE EXCEPTION 'feature fitting requires a restricted actual fitting principal' USING ERRCODE='42501'; END IF;
-END $fit$;
-REVOKE ALL ON FUNCTION ops.ddo_require_feature_fit_principal() FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION ops.ddo_feature_fit_body_access(contract text,body jsonb) RETURNS boolean
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
-BEGIN
- PERFORM ops.ddo_require_feature_fit_principal();
- RETURN EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=contract
- AND kind.universe='evaluator' AND (
- (kind.kind='__GRADE_KIND__' AND data.ddo_json(body)->>'version'='record-grade-1'
- AND data.ddo_json(body)->'frame'->>'partition'='feature_fit') OR
- (kind.kind='__EVENT_FRAME_KIND__' AND data.ddo_json(body)->>'version'='selected-operation-event-frame-product-1'
- AND data.ddo_json(body)->'frame'->'question'->>'partition' IN ('development','feature_fit'))));
-END $fit$;
-REVOKE ALL ON FUNCTION ops.ddo_feature_fit_body_access(text,jsonb) FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION ops.read_selected_feature_fit_frame(p_payload jsonb) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
-DECLARE p jsonb:=p_payload; d ops.data_demand; boundary ops.data_demand_read;
- p_use text:=p->>'use_id'; p_product text:=p->>'product_id'; p_derivation text:=p->>'derivation_id';
- snapshot jsonb; admitted boolean; cut jsonb;
- grade jsonb; receipt_id text; result jsonb; definition sem.data_operation_definition;
- episode ops.data_derivation; intent ops.data_completion_intent; variant text:=p->>'variant';
- expected_operation text; expected_factory text; expected_kind text; expected_role text;
-BEGIN
- PERFORM ops.ddo_require_feature_fit_principal();
- CASE variant
- WHEN 'record-feature-grade' THEN
- expected_operation:='__GRADE_OPERATION__'; expected_factory:='__GRADE_FACTORY__';
- expected_kind:='__GRADE_KIND__'; expected_role:='grade';
- WHEN 'operation-event-frame' THEN
- expected_operation:='__EVENT_FRAME_OPERATION__'; expected_factory:='__EVENT_FRAME_FACTORY__';
- expected_kind:='__EVENT_FRAME_KIND__'; expected_role:='frame';
- ELSE RAISE EXCEPTION 'unknown selected feature fit frame variant' USING ERRCODE='23514';
- END CASE;
- SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id' AND project_id=p->>'project_id';
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=d.id;
- p:=p||jsonb_build_object('scope',boundary.scope);
- -- This route has its own narrower live fitter principal and selected-body
- -- policy. Share acquisition/epoch custody without widening that purpose.
- snapshot:=ops.ddo_require_read_epochs(boundary,d.project_id);
- __DDO_CORE_SELECTED_FEATURE_FIT_OUTPUT__ INTO admitted;
- IF NOT coalesce(admitted,false) THEN
- RAISE EXCEPTION 'feature fit grade is outside exact current selected support' USING ERRCODE='23514'; END IF;
- __DDO_CORE_CUT_SELECTION__ INTO cut;
- IF (p->>'cut_canonical_json')::jsonb IS DISTINCT FROM cut
- OR p->>'expected_cut' IS DISTINCT FROM 'cut-selection:'||encode(sha256(convert_to(p->>'cut_canonical_json','UTF8')),'hex') THEN
- RAISE EXCEPTION 'feature fit cut bytes or native pins differ' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=p_derivation AND outcome='success';
- SELECT operation.* INTO STRICT definition FROM sem.data_operation_definition operation
- JOIN ops.data_request request ON operation.release_id=episode.release_id AND request.operation_id=operation.operation_id
- WHERE request.id=episode.request_id AND request.project_id=d.project_id;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id
- AND request_id=episode.request_id AND generation=episode.generation;
- IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (episode.producer_task_id,episode.producer_attempt,episode.runtime_id) THEN
- RAISE EXCEPTION 'feature fit frame differs from original producer fences' USING ERRCODE='23514'; END IF;
- IF definition.operation_id IS DISTINCT FROM expected_operation
- OR definition.profile IS DISTINCT FROM 'derivation'
- OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
- OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM expected_factory
- OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
- OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
- OR intent.payload->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
- OR jsonb_array_length(coalesce(intent.payload->'execution_evidence'->'cpu_receipts','[]'))<>1
- OR episode.recipe IS DISTINCT FROM definition.recipe THEN
- RAISE EXCEPTION 'feature fit requires the actual admitted protected grade implementation' USING ERRCODE='23514'; END IF;
- SELECT receipt.id INTO STRICT receipt_id FROM ops.data_publication_receipt receipt
- JOIN ops.data_derivation_output output ON output.derivation_id=receipt.derivation_id
- WHERE receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
- AND output.product_id=p_product AND output.member_id IS NULL AND output.role=expected_role
- AND output.position=0 AND output.multiplicity=1;
- IF NOT EXISTS(SELECT FROM kb.data_product product JOIN sem.data_kind_contract kind
- ON kind.kind_contract=product.kind_contract WHERE product.id=p_product AND product.project_id=d.project_id
- AND kind.kind=expected_kind AND kind.universe='evaluator') THEN
- RAISE EXCEPTION 'feature fit variant differs from actual protected frame kind' USING ERRCODE='23514'; END IF;
- SELECT data.ddo_json(product.canonical_body) INTO STRICT grade FROM kb.data_product product WHERE id=p_product AND project_id=d.project_id;
- IF grade->>'frame_digest' IS DISTINCT FROM p->>'frame_digest'
- OR grade->>'frame_digest' IS DISTINCT FROM encode(sha256(convert_to(grade->>'frame_canonical_json','UTF8')),'hex')
- OR (grade->>'frame_canonical_json')::jsonb IS DISTINCT FROM grade->'frame'
- OR (CASE variant WHEN 'record-feature-grade' THEN grade->'frame'->>'project_id'
- ELSE grade->'frame'->'question'->'prediction_selection'->>'project_id' END) IS DISTINCT FROM d.project_id THEN
- RAISE EXCEPTION 'feature fit grade canonical frame differs' USING ERRCODE='23514'; END IF;
- result:=jsonb_build_object('variant',variant,'cut',cut,'product_id',p_product,'derivation_id',p_derivation,'receipt_id',receipt_id,'frame',grade);
- IF octet_length(data.canonical_json(result))>coalesce((p->>'max_bytes')::bigint,8388608) THEN
- RAISE EXCEPTION 'feature fit frame exceeds explicit byte bound' USING ERRCODE='23514'; END IF;
- RETURN jsonb_build_object('payload',result);
-END $fit$;
-REVOKE ALL ON FUNCTION ops.read_selected_feature_fit_frame(jsonb) FROM PUBLIC;
-""".replace("__GRADE_KIND__", GRADE_KIND)
-        .replace("__GRADE_OPERATION__", GRADE_OPERATION)
-        .replace("__GRADE_FACTORY__", GRADE_FACTORY)
-        .replace("__EVENT_FRAME_KIND__", EVENT_FRAME_KIND)
-        .replace("__EVENT_FRAME_OPERATION__", EVENT_FRAME_OPERATION)
-        .replace("__EVENT_FRAME_FACTORY__", EVENT_FRAME_FACTORY)
+    (
+        demands,
+        boundaries,
+        episodes,
+        definitions,
+        requests,
+        intents,
+        receipts,
+        outputs,
+        products,
+        kinds,
+    ) = (
+        model.tables[name]
+        for name in (
+            "ops.data_demand",
+            "ops.data_demand_read",
+            "ops.data_derivation",
+            "sem.data_operation_definition",
+            "ops.data_request",
+            "ops.data_completion_intent",
+            "ops.data_publication_receipt",
+            "ops.data_derivation_output",
+            "kb.data_product",
+            "sem.data_kind_contract",
+        )
     )
+
+    def row(name, table, field):
+        return core_variable(name, table.c[field].type, field)
+
+    def d(field):
+        return row("d", demands, field)
+
+    def boundary(field):
+        return row("boundary", boundaries, field)
+
+    def episode(field):
+        return row("episode", episodes, field)
+
+    def definition(field):
+        return row("definition", definitions, field)
+
+    def intent(field):
+        return row("intent", intents, field)
+
+    def obj(**fields):
+        return func.jsonb_build_object(
+            *(part for pair in fields.items() for part in pair), type_=JSONB()
+        )
+
+    def selected(table, condition, target):
+        return SelectInto(
+            select(core_relation_row(table)).select_from(table).where(condition), (target,), True
+        )
+
+    def routine(name, parameters, steps, locals_=(), *, result="jsonb", stable=True):
+        return (
+            function(
+                "ops",
+                name,
+                parameters=parameters,
+                returns=pg_type(result),
+                body=Block(tuple(steps), tuple(locals_)),
+                volatility="stable" if stable else None,
+                security_definer=True,
+                search_path=("pg_catalog", "pg_temp"),
+            )
+            + ";\n"
+            + _revoke_policy(name, parameters)
+        )
+
+    principal = _value("principal")
+    roles = table(
+        "pg_roles",
+        column("rolname", Text()),
+        *(
+            column(name, Boolean())
+            for name in (
+                "rolsuper",
+                "rolcreatedb",
+                "rolcreaterole",
+                "rolbypassrls",
+                "rolreplication",
+            )
+        ),
+        schema="pg_catalog",
+    )
+    elevated_role = (
+        select(roles.c.rolname)
+        .where(
+            roles.c.rolname == principal,
+            or_(
+                *(
+                    roles.c[name]
+                    for name in (
+                        "rolsuper",
+                        "rolcreatedb",
+                        "rolcreaterole",
+                        "rolbypassrls",
+                        "rolreplication",
+                    )
+                )
+            ),
+        )
+        .exists()
+    )
+    owned_schema = (
+        select(namespace.c.oid)
+        .where(
+            namespace.c.nspname.in_(("sem", "data", "ops", "kb", "eval")),
+            or_(
+                func.pg_has_role(principal, namespace.c.nspowner, "MEMBER", type_=Boolean()),
+                func.has_schema_privilege(principal, namespace.c.oid, "CREATE", type_=Boolean()),
+            ),
+        )
+        .exists()
+    )
+    table_read = (
+        select(relation.c.oid)
+        .select_from(relation.join(namespace, namespace.c.oid == relation.c.relnamespace))
+        .where(
+            namespace.c.nspname.in_(("ops", "kb", "eval")),
+            relation.c.relkind.in_(("r", "p", "v", "m")),
+            or_(
+                func.has_table_privilege(principal, relation.c.oid, "SELECT", type_=Boolean()),
+                func.has_any_column_privilege(principal, relation.c.oid, "SELECT", type_=Boolean()),
+            ),
+        )
+        .exists()
+    )
+    principal_guard = routine(
+        "ddo_require_feature_fit_principal",
+        (),
+        (
+            _check(
+                or_(
+                    ~func.pg_has_role(principal, "corpus_sem_fitter", "USAGE", type_=Boolean()),
+                    ~func.current_setting("role").in_(("none", cast(principal, Text()))),
+                    func.pg_has_role(principal, "corpus_sem_evaluator", "MEMBER", type_=Boolean()),
+                    func.pg_has_role(principal, "corpus_sem_publisher", "MEMBER", type_=Boolean()),
+                    func.has_database_privilege(
+                        principal, func.current_database(), "TEMP", type_=Boolean()
+                    ),
+                    elevated_role,
+                    owned_schema,
+                    table_read,
+                ),
+                "feature fitting requires a restricted actual fitting principal",
+                "42501",
+            ),
+        ),
+        (Local("principal", pg_type("name"), func.session_user()),),
+        result="void",
+    )
+    contract, body = _value("contract"), _value("body", JSONB())
+    decoded = func.data.ddo_json(body, type_=JSONB())
+    body_access = routine(
+        "ddo_feature_fit_body_access",
+        (Parameter("contract", pg_type("text")), Parameter("body", pg_type("jsonb"))),
+        (
+            Perform(func.ops.ddo_require_feature_fit_principal()),
+            Return(
+                select(kinds.c.kind_contract)
+                .where(
+                    kinds.c.kind_contract == contract,
+                    kinds.c.universe == "evaluator",
+                    or_(
+                        and_(
+                            kinds.c.kind == GRADE_KIND,
+                            decoded["version"].astext == "record-grade-1",
+                            decoded["frame"]["partition"].astext == "feature_fit",
+                        ),
+                        and_(
+                            kinds.c.kind == EVENT_FRAME_KIND,
+                            decoded["version"].astext == "selected-operation-event-frame-product-1",
+                            decoded["frame"]["question"]["partition"].astext.in_(
+                                ("development", "feature_fit")
+                            ),
+                        ),
+                    ),
+                )
+                .exists()
+            ),
+        ),
+        result="boolean",
+    )
+    p = _value("p", JSONB())
+    p_product, p_derivation, variant = (
+        _value(name) for name in ("p_product", "p_derivation", "variant")
+    )
+    grade, cut, result = (_value(name, JSONB()) for name in ("grade", "cut", "result"))
+    expected_operation, expected_factory, expected_kind, expected_role, receipt_id = (
+        _value(name)
+        for name in (
+            "expected_operation",
+            "expected_factory",
+            "expected_kind",
+            "expected_role",
+            "receipt_id",
+        )
+    )
+    capabilities = definition("support_contract")["capabilities"]
+    source_digest = capabilities["prepared_factory"]["source_digest"].astext
+    project_for_frame = case(
+        (variant == "record-feature-grade", grade["frame"]["project_id"].astext),
+        else_=grade["frame"]["question"]["prediction_selection"]["project_id"].astext,
+    )
+    parameters = (Parameter("p_payload", pg_type("jsonb")),)
+    read_frame = routine(
+        "read_selected_feature_fit_frame",
+        parameters,
+        (
+            Perform(func.ops.ddo_require_feature_fit_principal()),
+            If(
+                variant == "record-feature-grade",
+                (
+                    Assign("expected_operation", literal(GRADE_OPERATION)),
+                    Assign("expected_factory", literal(GRADE_FACTORY)),
+                    Assign("expected_kind", literal(GRADE_KIND)),
+                    Assign("expected_role", literal("grade")),
+                ),
+                (
+                    If(
+                        variant == "operation-event-frame",
+                        (
+                            Assign("expected_operation", literal(EVENT_FRAME_OPERATION)),
+                            Assign("expected_factory", literal(EVENT_FRAME_FACTORY)),
+                            Assign("expected_kind", literal(EVENT_FRAME_KIND)),
+                            Assign("expected_role", literal("frame")),
+                        ),
+                        (
+                            _check(
+                                literal(True), "unknown selected feature fit frame variant", "23514"
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            selected(
+                demands,
+                and_(
+                    demands.c.id == p["demand_id"].astext,
+                    demands.c.project_id == p["project_id"].astext,
+                ),
+                "d",
+            ),
+            selected(
+                boundaries,
+                and_(boundaries.c.id == p["read_id"].astext, boundaries.c.demand_id == d("id")),
+                "boundary",
+            ),
+            Assign("p", p.op("||")(obj(scope=boundary("scope")))),
+            Assign(
+                "snapshot", func.ops.ddo_require_read_epochs(_value("boundary"), d("project_id"))
+            ),
+            SelectInto(selected_support_output(model, purpose="feature-fit"), ("admitted",)),
+            _check(
+                ~func.coalesce(_value("admitted", Boolean()), False),
+                "feature fit grade is outside exact current selected support",
+                "23514",
+            ),
+            SelectInto(cut_selection_projection(), ("cut",)),
+            _check(
+                or_(
+                    cast(p["cut_canonical_json"].astext, JSONB()).is_distinct_from(cut),
+                    p["expected_cut"].astext.is_distinct_from(
+                        literal("cut-selection:")
+                        + func.encode(
+                            func.sha256(func.convert_to(p["cut_canonical_json"].astext, "UTF8")),
+                            "hex",
+                        )
+                    ),
+                ),
+                "feature fit cut bytes or native pins differ",
+                "23514",
+            ),
+            selected(
+                episodes,
+                and_(episodes.c.id == p_derivation, episodes.c.outcome == "success"),
+                "episode",
+            ),
+            SelectInto(
+                select(core_relation_row(definitions))
+                .select_from(
+                    definitions.join(
+                        requests,
+                        and_(
+                            definitions.c.release_id == episode("release_id"),
+                            requests.c.operation_id == definitions.c.operation_id,
+                        ),
+                    )
+                )
+                .where(
+                    requests.c.id == episode("request_id"), requests.c.project_id == d("project_id")
+                ),
+                ("definition",),
+                True,
+            ),
+            selected(
+                intents,
+                and_(
+                    intents.c.id == episode("intent_id"),
+                    intents.c.request_id == episode("request_id"),
+                    intents.c.generation == episode("generation"),
+                ),
+                "intent",
+            ),
+            _check(
+                tuple_(
+                    intent("producer_task_id"), intent("producer_attempt"), intent("runtime_id")
+                ).is_distinct_from(
+                    tuple_(
+                        episode("producer_task_id"),
+                        episode("producer_attempt"),
+                        episode("runtime_id"),
+                    )
+                ),
+                "feature fit frame differs from original producer fences",
+                "23514",
+            ),
+            _check(
+                or_(
+                    definition("operation_id").is_distinct_from(expected_operation),
+                    definition("profile").is_distinct_from("derivation"),
+                    definition("support_contract")["effects"].is_distinct_from(_json("[]")),
+                    capabilities["prepared_factory"]["entrypoint"].astext.is_distinct_from(
+                        expected_factory
+                    ),
+                    source_digest.op("~")("^[0-9a-f]{64}$").is_not(True),
+                    definition("implementation_revision")
+                    .like("implementation-slice:%")
+                    .is_not(True),
+                    intent("payload")["implementation_revision"].astext.is_distinct_from(
+                        definition("implementation_revision")
+                    ),
+                    func.jsonb_array_length(
+                        func.coalesce(
+                            intent("payload")["execution_evidence"]["cpu_receipts"], _json("[]")
+                        )
+                    )
+                    != 1,
+                    episode("recipe").is_distinct_from(definition("recipe")),
+                ),
+                "feature fit requires the actual admitted protected grade implementation",
+                "23514",
+            ),
+            SelectInto(
+                select(receipts.c.id)
+                .select_from(
+                    receipts.join(outputs, outputs.c.derivation_id == receipts.c.derivation_id)
+                )
+                .where(
+                    receipts.c.derivation_id == episode("id"),
+                    receipts.c.intent_id == episode("intent_id"),
+                    outputs.c.product_id == p_product,
+                    outputs.c.member_id.is_(None),
+                    outputs.c.role == expected_role,
+                    outputs.c.position == 0,
+                    outputs.c.multiplicity == 1,
+                ),
+                ("receipt_id",),
+                True,
+            ),
+            _check(
+                ~select(products.c.id)
+                .select_from(
+                    products.join(kinds, kinds.c.kind_contract == products.c.kind_contract)
+                )
+                .where(
+                    products.c.id == p_product,
+                    products.c.project_id == d("project_id"),
+                    kinds.c.kind == expected_kind,
+                    kinds.c.universe == "evaluator",
+                )
+                .exists(),
+                "feature fit variant differs from actual protected frame kind",
+                "23514",
+            ),
+            SelectInto(
+                select(func.data.ddo_json(products.c.canonical_body)).where(
+                    products.c.id == p_product, products.c.project_id == d("project_id")
+                ),
+                ("grade",),
+                True,
+            ),
+            _check(
+                or_(
+                    grade["frame_digest"].astext.is_distinct_from(p["frame_digest"].astext),
+                    grade["frame_digest"].astext.is_distinct_from(
+                        func.encode(
+                            func.sha256(
+                                func.convert_to(grade["frame_canonical_json"].astext, "UTF8")
+                            ),
+                            "hex",
+                        )
+                    ),
+                    cast(grade["frame_canonical_json"].astext, JSONB()).is_distinct_from(
+                        grade["frame"]
+                    ),
+                    Grouping(project_for_frame).is_distinct_from(d("project_id")),
+                ),
+                "feature fit grade canonical frame differs",
+                "23514",
+            ),
+            Assign(
+                "result",
+                obj(
+                    variant=variant,
+                    cut=cut,
+                    product_id=p_product,
+                    derivation_id=p_derivation,
+                    receipt_id=receipt_id,
+                    frame=grade,
+                ),
+            ),
+            _check(
+                func.octet_length(func.data.canonical_json(result))
+                > func.coalesce(cast(p["max_bytes"].astext, BigInteger()), 8388608),
+                "feature fit frame exceeds explicit byte bound",
+                "23514",
+            ),
+            Return(obj(payload=result)),
+        ),
+        (
+            Local("p", pg_type("jsonb"), _value("p_payload", JSONB())),
+            *(
+                Local(name, relation)
+                for name, relation in (
+                    ("d", demands),
+                    ("boundary", boundaries),
+                    ("definition", definitions),
+                    ("episode", episodes),
+                    ("intent", intents),
+                )
+            ),
+            *(
+                Local(name, pg_type("text"), p[field].astext)
+                for name, field in (
+                    ("p_use", "use_id"),
+                    ("p_product", "product_id"),
+                    ("p_derivation", "derivation_id"),
+                    ("variant", "variant"),
+                )
+            ),
+            *(Local(name, pg_type("jsonb")) for name in ("snapshot", "cut", "grade", "result")),
+            Local("admitted", pg_type("boolean")),
+            *(
+                Local(name, pg_type("text"))
+                for name in (
+                    "expected_operation",
+                    "expected_factory",
+                    "expected_kind",
+                    "expected_role",
+                    "receipt_id",
+                )
+            ),
+        ),
+        stable=False,
+    )
+    return "\n".join((principal_guard, body_access, read_frame))

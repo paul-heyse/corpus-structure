@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.schema import CreateTable
 
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.record_policy_authority import (
     AUTHORIZATION_EFFECT,
@@ -46,7 +47,7 @@ def test_native_issuer_requires_exact_command_effect_factory(semantic_bare_engin
         connection.execute(
             CreateTable(table("sem.data_operation_definition"), include_foreign_key_constraints=[])
         )
-        connection.execute(text(prepared.excerpt(0)))
+        execute_native_sql(connection, prepared.excerpt(0))
         assert connection.scalar(statement, {"declaration": json.dumps(declaration)}) is True
         for changed in (
             "operation",
@@ -119,7 +120,7 @@ def policy_visibility_connection(semantic_bare_engine):
                 and raw.stmt.funcname
                 and raw.stmt.funcname[-1].sval == "ddo_read_visible"
             ):
-                connection.exec_driver_sql(boundary_helpers.excerpt(index))
+                execute_native_sql(connection, boundary_helpers.excerpt(index))
         prepared = prepare_sql(record_policy_native_sql(), source="policy-visibility-control")
         for index, statement in enumerate(prepared.statements):
             function = statement.stmt
@@ -128,7 +129,7 @@ def policy_visibility_connection(semantic_bare_engine):
                 and function.funcname
                 and function.funcname[-1].sval == "ddo_policy_authority_summary"
             ):
-                connection.exec_driver_sql(prepared.excerpt(index))
+                execute_native_sql(connection, prepared.excerpt(index))
         now, snapshot, xid = connection.execute(
             text("SELECT clock_timestamp(),pg_current_snapshot()::text,pg_current_xact_id()::text")
         ).one()
