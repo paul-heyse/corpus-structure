@@ -16,9 +16,11 @@ from sqlalchemy import (
     column,
     func,
     literal,
+    null,
     select,
     table,
     true,
+    type_coerce,
 )
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, OID, REGCLASS, aggregate_order_by, dialect
 from sqlalchemy.types import UserDefinedType
@@ -454,7 +456,7 @@ def privilege_acl(kind, name, *, columns=False, owner_columns=None):
             ).label("grantee"),
             edges.c.privilege_type.label("privilege"),
             edges.c.is_grantable.label("grantable"),
-            (attribute.c.attname if columns else literal(None, Text)).label("column"),
+            (attribute.c.attname if columns else type_coerce(null(), Text)).label("column"),
             pg.pg_get_userbyid(owner).label("owner"),
         )
         .select_from(target.join(edges, true()))
