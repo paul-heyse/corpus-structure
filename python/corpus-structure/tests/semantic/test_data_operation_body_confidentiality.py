@@ -62,6 +62,7 @@ classes:
   Context:
     attributes:
       subject: {range: string, required: true}
+      subject_definition: {range: string, required: true}
       original_source: {range: string, required: true}
       analyzed_scope: {range: Scope, required: true, inlined: true}
   Value:
@@ -111,7 +112,10 @@ def publish_mixed(kernel, *, protected, nested=False, sibling=False, mislabel=Fa
             member_id="ordinary",
             kind_contract=contracts["Ordinary"],
             context=dict(
-                subject="subject:one", original_source="source:test", analyzed_scope={"page": 1}
+                subject="subject:one",
+                subject_definition="original-occurrence",
+                original_source="source:test",
+                analyzed_scope={"page": 1},
             ),
             body={"value": 7, "tag": "ordinary"},
         )
@@ -122,7 +126,10 @@ def publish_mixed(kernel, *, protected, nested=False, sibling=False, mislabel=Fa
                 member_id="reference",
                 kind_contract=contracts["Reference"],
                 context=dict(
-                    subject="subject:one", original_source="source:test", analyzed_scope={"page": 1}
+                    subject="subject:one",
+                    subject_definition="original-occurrence",
+                    original_source="source:test",
+                    analyzed_scope={"page": 1},
                 ),
                 body={"value": 918273, "tag": "reference"},
             )
@@ -218,10 +225,12 @@ def test_actual_member_body_closure_guards_native_reads_and_hydration(
             o="urn:body-privacy:container-consumer",
             t=json.dumps(pins["trust_snapshot"]),
             r=pins["read_id"],
+            source=json.dumps("source:test"),
             scope=json.dumps({"page": 1}),
         )
         statement = text(
-            "SELECT meaning_body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb),:r,'subject:one','source:test',CAST(:scope AS jsonb))"
+            "SELECT meaning_body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb),:r,"
+            "'subject:one',CAST(:source AS jsonb),CAST(:scope AS jsonb))"
         )
         if protected:
             with pytest.raises(DBAPIError, match="evaluator"), connection.begin_nested():
