@@ -1,0 +1,372 @@
+{
+  "controller_kill": {
+    "collection_items": null,
+    "exit": -9,
+    "final_json": false,
+    "reportlog_phases": [
+      [
+        "test_cases.py::test_01_pass",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "call",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "teardown",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_05_wait",
+        "setup",
+        "passed"
+      ]
+    ],
+    "reportlog_session_finished": false,
+    "session_metadata": null,
+    "tests": {}
+  },
+  "interrupt": {
+    "collection_items": 8,
+    "exit": 2,
+    "final_json": true,
+    "reportlog_phases": [
+      [
+        "test_cases.py::test_01_pass",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "call",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "teardown",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_05_wait",
+        "setup",
+        "passed"
+      ]
+    ],
+    "reportlog_session_finished": true,
+    "session_metadata": null,
+    "tests": {
+      "test_cases.py::test_01_pass": {
+        "captured_stdout": true,
+        "item_metadata": "present",
+        "outcome": "passed",
+        "phases": {
+          "call": "passed",
+          "setup": "passed",
+          "teardown": "passed"
+        }
+      },
+      "test_cases.py::test_05_wait": {
+        "captured_stdout": false,
+        "item_metadata": null,
+        "outcome": "passed",
+        "phases": {
+          "setup": "passed"
+        }
+      }
+    }
+  },
+  "presentation": {
+    "pipe": {
+      "exit": 1,
+      "stderr_bytes": 0,
+      "stdout": {
+        "outcome": "failed"
+      }
+    },
+    "stderr_tty": {
+      "exit": 1,
+      "stderr_has_progress": true,
+      "stdout": {
+        "outcome": "failed"
+      }
+    }
+  },
+  "python": "3.14.10",
+  "serial": {
+    "collection_items": 8,
+    "exit": 1,
+    "final_json": true,
+    "reportlog_phases": [
+      [
+        "test_cases.py::test_01_pass",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "call",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "teardown",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_02_setup",
+        "setup",
+        "failed"
+      ],
+      [
+        "test_cases.py::test_02_setup",
+        "teardown",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_03_call",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_03_call",
+        "call",
+        "failed"
+      ],
+      [
+        "test_cases.py::test_03_call",
+        "teardown",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_04_teardown",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_04_teardown",
+        "call",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_04_teardown",
+        "teardown",
+        "failed"
+      ]
+    ],
+    "reportlog_session_finished": true,
+    "session_metadata": null,
+    "tests": {
+      "test_cases.py::test_01_pass": {
+        "captured_stdout": true,
+        "item_metadata": "present",
+        "outcome": "passed",
+        "phases": {
+          "call": "passed",
+          "setup": "passed",
+          "teardown": "passed"
+        }
+      },
+      "test_cases.py::test_02_setup": {
+        "captured_stdout": false,
+        "item_metadata": null,
+        "outcome": "error",
+        "phases": {
+          "setup": "failed",
+          "teardown": "passed"
+        }
+      },
+      "test_cases.py::test_03_call": {
+        "captured_stdout": false,
+        "item_metadata": null,
+        "outcome": "failed",
+        "phases": {
+          "call": "failed",
+          "setup": "passed",
+          "teardown": "passed"
+        }
+      },
+      "test_cases.py::test_04_teardown": {
+        "captured_stdout": false,
+        "item_metadata": null,
+        "outcome": "error",
+        "phases": {
+          "call": "passed",
+          "setup": "passed",
+          "teardown": "failed"
+        }
+      }
+    }
+  },
+  "versions": {
+    "pluggy": "1.7.0",
+    "pytest": "9.1.1",
+    "pytest-json-report": "1.5.0",
+    "pytest-metadata": "3.1.1",
+    "pytest-reportlog": "1.0.0",
+    "pytest-xdist": "3.8.0",
+    "rich": "15.0.0",
+    "typer": "0.28.0"
+  },
+  "worker_loss": {
+    "collection_items": 0,
+    "exit": 1,
+    "final_json": true,
+    "reportlog_phases": [
+      [
+        "test_cases.py::test_06_crash",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "call",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "teardown",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_06_crash",
+        "???",
+        "failed"
+      ]
+    ],
+    "reportlog_session_finished": true,
+    "session_metadata": null,
+    "tests": {
+      "test_cases.py::test_01_pass": {
+        "captured_stdout": true,
+        "item_metadata": "present",
+        "outcome": "passed",
+        "phases": {
+          "call": "passed",
+          "setup": "passed",
+          "teardown": "passed"
+        }
+      },
+      "test_cases.py::test_06_crash": {
+        "captured_stdout": false,
+        "item_metadata": null,
+        "outcome": "failed",
+        "phases": {
+          "setup": "passed"
+        }
+      }
+    }
+  },
+  "xdist": {
+    "collection_items": 0,
+    "exit": 1,
+    "final_json": true,
+    "reportlog_phases": [
+      [
+        "test_cases.py::test_03_call",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "call",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_01_pass",
+        "teardown",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_02_setup",
+        "setup",
+        "failed"
+      ],
+      [
+        "test_cases.py::test_02_setup",
+        "teardown",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_03_call",
+        "call",
+        "failed"
+      ],
+      [
+        "test_cases.py::test_03_call",
+        "teardown",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_04_teardown",
+        "setup",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_04_teardown",
+        "call",
+        "passed"
+      ],
+      [
+        "test_cases.py::test_04_teardown",
+        "teardown",
+        "failed"
+      ]
+    ],
+    "reportlog_session_finished": true,
+    "session_metadata": null,
+    "tests": {
+      "test_cases.py::test_01_pass": {
+        "captured_stdout": true,
+        "item_metadata": "present",
+        "outcome": "passed",
+        "phases": {
+          "call": "passed",
+          "setup": "passed",
+          "teardown": "passed"
+        }
+      },
+      "test_cases.py::test_02_setup": {
+        "captured_stdout": false,
+        "item_metadata": null,
+        "outcome": "error",
+        "phases": {
+          "setup": "failed",
+          "teardown": "passed"
+        }
+      },
+      "test_cases.py::test_03_call": {
+        "captured_stdout": false,
+        "item_metadata": null,
+        "outcome": "failed",
+        "phases": {
+          "call": "failed",
+          "setup": "passed",
+          "teardown": "passed"
+        }
+      },
+      "test_cases.py::test_04_teardown": {
+        "captured_stdout": false,
+        "item_metadata": null,
+        "outcome": "error",
+        "phases": {
+          "call": "passed",
+          "setup": "passed",
+          "teardown": "failed"
+        }
+      }
+    }
+  }
+}

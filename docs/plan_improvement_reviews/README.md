@@ -41,6 +41,12 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Test domain model, execution, and managed test review](test-domain-model-and-execution_2026-11-18.md).
+  Refines TDM entry and evidence, deployment identity, capture reuse and fixture resolution.
+  Proposes a bounded `ci test review` view over managed receipts. An isolated comparison
+  distinguishes final pytest JSON from the incremental evidence needed for retries and
+  interrupted attempts.
+
 - [DDO domain model against its own target](declared-data-operations-domain-model_2026-11-15.md):
   audited outcome-led review of the whole series: checked subject/enforcement contracts, complete
   legacy-operation retirement, generated lifecycle types, shared prepared execution, rich-domain

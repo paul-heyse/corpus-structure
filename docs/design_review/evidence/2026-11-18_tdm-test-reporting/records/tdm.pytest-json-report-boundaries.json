@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "tdm.pytest-json-report-boundaries",
+  "title": "Final pytest JSON report versus incremental phase events",
+  "group": "test-domain-model-and-execution",
+  "package": null,
+  "finalized": "2026-11-18",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which reporting and presentation information survives normal, parallel and interrupted execution on the selected library versions?",
+  "answers": [],
+  "method": "Synthetic local test sessions emit both report formats under serial, xdist, SIGINT, controller kill and worker exit conditions. A separate Typer command compares piped and TTY stderr with piped JSON stdout.",
+  "commands": [
+    "uv run --isolated --no-project --python \"$(readlink -f .venv/bin/python)\" --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with pytest-reportlog==1.0.0 --with pytest-json-report==1.5.0 --with pytest-metadata==3.1.1 --with pluggy==1.7.0 --with typer==0.28.0 --with rich==15.0.0 python docs/design_review/evidence/2026-11-18_tdm-test-reporting/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "Synthetic cases, subprocess experiments and projection code",
+      "sha256": "aa51574eb9434b1308306e6dd2187bd8c53697cc7bb4be4a313f661da071fe27"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "observed.json",
+      "role": "Recorded version, phase, collection, metadata and stream observations",
+      "sha256": "c5b5ab43c86ce3e5c1a1f023841a88ef4ba511f7b95c39816f8e0c45d1445852"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The probe distinguished the reporting boundaries. Normal runs supplied useful per-phase JSON, but the final report omitted session metadata, lacked a distributed collection inventory, labeled a setup-only interrupted item passed, and was absent after controller kill. Incremental reports survived. Rich rendered progress only on TTY stderr while piped stdout and the failing exit status stayed intact.",
+  "consumed_by": [
+    "test-domain-model-and-execution plan-improvement review"
+  ]
+}
