@@ -1,0 +1,4 @@
+# Capture the shared typed catalog verification and positioned occurrence integration.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n28
+native_revision: semantic_ddo_pe_n29
