@@ -615,3 +615,51 @@ def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance
     ]
     assert "policy authorization requires native evaluator purpose" in issuer
     assert "corpus_sem_evaluator" in issuer and "ERRCODE = '42501'" in issuer
+
+
+def test_generated_rich_producer_authority_binds_actual_native_model(native_rollback):
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
+
+    connection = native_rollback.connection
+    execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
+    signatures = (
+        "ops.ddo_rich_selected_value(text,jsonb,text,jsonb)",
+        "ops.ddo_rich_producing_request(text,jsonb,text,text,text,boolean)",
+        "ops.ddo_rich_family_contract(text,text)",
+        "ops.ddo_rich_require_proposal_context(jsonb,jsonb)",
+        "ops.ddo_rich_require_preparation_producer(ops.data_request,jsonb)",
+        "ops.ddo_rich_require_admission_producer(ops.data_request,jsonb)",
+        "ops.ddo_rich_admission_dependencies_valid(text)",
+    )
+    with native_owner(connection, "corpus_sem_publisher"):
+        execute_native_sql(connection, rich_admission_native_sql(target_metadata=metadata))
+        for signature in signatures:
+            errors = connection.execute(text(
+                "SELECT message FROM public.plpgsql_check_function_tb(CAST(:signature AS regprocedure),fatal_errors=>false) WHERE level='error'"
+            ), {"signature": signature}).scalars().all()
+            assert errors == [], (signature, errors)
+            assert connection.scalar(text(
+                "SELECT has_function_privilege('corpus_sem_writer',CAST(:signature AS regprocedure),'EXECUTE')"
+            ), {"signature": signature}) is False
+
+
+def test_rich_authority_resolves_the_explicit_captured_relations():
+    import re
+
+    from sqlalchemy import MetaData
+
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_products import function_bodies
+
+    captured = MetaData()
+    for relation in metadata.sorted_tables:
+        relation.to_metadata(captured)
+    captured.tables["ops.data_derivation"].name = "captured_rich_episode"
+    captured.tables["kb.data_product"].name = "captured_rich_product"
+    bodies = function_bodies(rich_admission_native_sql(target_metadata=captured))
+    for name in ("ddo_rich_producing_request", "ddo_rich_admission_dependencies_valid"):
+        assert "ops.captured_rich_episode" in bodies["ops." + name]
+        assert re.search(r"\bops\.data_derivation\b", bodies["ops." + name]) is None
+    assert "kb.captured_rich_product" in bodies["ops.ddo_rich_selected_value"]
+    assert "kb.data_product " not in bodies["ops.ddo_rich_selected_value"]

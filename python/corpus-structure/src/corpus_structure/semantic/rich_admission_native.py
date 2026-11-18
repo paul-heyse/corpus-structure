@@ -7,176 +7,232 @@ child reply rather than interpreting an ungrounded accepted flag.
 
 from __future__ import annotations
 
+import json
 
-def rich_admission_native_sql() -> str:
-    return _rich_input_correspondence_sql() + _rich_completion_sql()
+from sqlalchemy import Boolean, Integer, Text, and_, cast, column, func, literal, or_, select
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
+from sqlalchemy.types import NullType
+
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Assign,
+    Block,
+    CatchDependencyInvalidity,
+    If,
+    Local,
+    Parameter,
+    Raise,
+    Return,
+    SelectInto,
+    core_relation_row,
+    core_variable,
+    function,
+    pg_type,
+    sql_function,
+)
 
 
-def _rich_input_correspondence_sql() -> str:
-    return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_rich_support_population(support jsonb)
-RETURNS jsonb LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $rich$
- SELECT coalesce(jsonb_agg(reference ORDER BY convert_to(data.canonical_json(reference),'UTF8')),'[]')
- FROM (SELECT DISTINCT jsonb_strip_nulls(value)-'admission_use_id' AS reference FROM jsonb_array_elements(support)) references_
-$rich$;
+def _json(value):
+    return cast(literal(json.dumps(value, separators=(",", ":"))), JSONB())
 
-CREATE OR REPLACE FUNCTION ops.ddo_rich_role_headers(basis jsonb)
-RETURNS SETOF jsonb LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $rich$
- SELECT data.ddo_json(jsonb_build_array('mapping',(
- SELECT coalesce(jsonb_agg(pair ORDER BY (pair->>0) COLLATE "C"),'[]')
- FROM jsonb_array_elements(role_meaning->1) pair WHERE pair->>0 NOT IN ('body','context'))))
- FROM jsonb_array_elements(data.ddo_field(basis,'roles')->1) role_meaning
-$rich$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_rich_role_population(basis jsonb,role_name text)
-RETURNS jsonb LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $rich$
- SELECT coalesce(jsonb_agg(item ORDER BY convert_to(data.canonical_json(item),'UTF8')),'[]') FROM (
- SELECT jsonb_build_object('product_id',row_value->'product_id','member_id',row_value->'member_id',
- 'multiplicity',row_value->'multiplicity','support',ops.ddo_rich_support_population(row_value->'support')) AS item
- FROM ops.ddo_rich_role_headers(basis) row_value WHERE row_value->>'role'=role_name
- ) population
-$rich$;
+def _field(value, *path):
+    for name in path:
+        value = func.data.ddo_field(value, name, type_=JSONB())
+    return value
 
-CREATE OR REPLACE FUNCTION ops.ddo_rich_selected_value(project text,basis jsonb,role_name text,selected jsonb)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE bound jsonb; product kb.data_product; member kb.data_product_member;
-BEGIN
- SELECT value INTO STRICT bound FROM jsonb_array_elements(data.ddo_field(basis,'roles')->1)
- WHERE data.ddo_field(value,'role')->>1=role_name
- AND data.ddo_field(value,'product_id')->>1=selected->>'product_id'
- AND data.ddo_field(value,'member_id')='["null"]'::jsonb;
- IF data.ddo_field(bound,'support') IS DISTINCT FROM data.ddo_normalize(data.ddo_json_meaning(jsonb_strip_nulls(selected->'support_references'))) THEN
- RAISE EXCEPTION 'rich selection differs from actual whole-role support' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT product FROM kb.data_product WHERE id=selected->>'product_id' AND project_id=project;
- IF selected->>'member_id' IS NULL THEN
- IF product.kind_contract IS DISTINCT FROM selected->>'kind_contract' THEN
- RAISE EXCEPTION 'rich whole selection differs from its actual kind' USING ERRCODE='23514'; END IF;
- RETURN product.canonical_body;
- END IF;
- SELECT * INTO STRICT member FROM kb.data_product_member WHERE product_id=product.id AND member_id=selected->>'member_id';
- IF member.kind_contract IS DISTINCT FROM selected->>'kind_contract' THEN
- RAISE EXCEPTION 'rich nominal member differs from its actual whole-report kind' USING ERRCODE='23514'; END IF;
- RETURN member.body;
-END $rich$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_rich_producing_request(project text,selected jsonb,operation_name text,factory_name text,output_role text,requires_cpu boolean)
-RETURNS ops.data_request LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE request ops.data_request; producer ops.data_derivation; definition sem.data_operation_definition; intent ops.data_completion_intent;
-BEGIN
- SELECT episode.* INTO STRICT producer FROM ops.data_derivation episode
- JOIN ops.data_derivation_output output ON output.derivation_id=episode.id
- JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
- WHERE output.product_id=selected->>'product_id' AND output.member_id IS NULL
- AND (output_role IS NULL OR output.role=output_role) AND output.multiplicity=1 AND episode.outcome='success'
- AND EXISTS(SELECT FROM jsonb_array_elements(selected->'support_references') reference
- WHERE reference->>'kind'='computation' AND reference->>'derivation_id'=episode.id);
- SELECT * INTO STRICT request FROM ops.data_request WHERE id=producer.request_id AND project_id=project;
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=request.release_id AND operation_id=request.operation_id;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producer.intent_id;
- IF (operation_name IS NOT NULL AND definition.operation_id IS DISTINCT FROM operation_name)
- OR (factory_name IS NOT NULL AND definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM factory_name)
- OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
- OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
- OR intent.payload->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
- OR producer.recipe IS DISTINCT FROM definition.recipe OR request.recipe IS DISTINCT FROM definition.recipe
- OR (requires_cpu AND (definition.profile IS DISTINCT FROM 'derivation'
- OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
- OR jsonb_array_length(coalesce(intent.payload->'execution_evidence'->'cpu_receipts','[]'))<>1)) THEN
- RAISE EXCEPTION 'rich selection lacks its actual admitted producer and CPU/common receipt' USING ERRCODE='23514'; END IF;
- RETURN request;
-END $rich$;
+def _text(value, *path):
+    return _field(value, *path)[1].astext
 
-CREATE OR REPLACE FUNCTION ops.ddo_rich_family_contract(p_release text,local_name text)
-RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE archive jsonb; result text;
-BEGIN
- SELECT convert_from(content,'UTF8')::jsonb INTO STRICT archive FROM sem.artifact
- WHERE release_id=p_release AND artifact_name='data_operations.json';
- SELECT identity->>'key' INTO STRICT result FROM jsonb_array_elements(archive->'kinds') kind
- JOIN jsonb_array_elements(archive->'identities') identity ON identity->>'owner'=kind->>'semantic_id'
- WHERE kind->>'name'=local_name AND kind->>'category'='class' AND kind->'complete'='true'::jsonb AND identity->>'domain'='kind';
- RETURN result;
-END $rich$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_rich_require_proposal_context(consolidation_basis jsonb,located_basis jsonb)
-RETURNS void LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE consumed jsonb;
-BEGIN
- SELECT value INTO STRICT consumed FROM ops.ddo_rich_role_headers(located_basis) value WHERE value->>'role'='packet';
- IF consumed->>'member_id' IS NOT NULL OR NOT EXISTS(
- SELECT FROM ops.ddo_rich_role_headers(consolidation_basis) context_input
- WHERE context_input->>'role'='proposal_contexts' AND context_input->>'product_id'=consumed->>'product_id'
- AND context_input->>'member_id' IS NULL
- AND ops.ddo_rich_support_population(context_input->'support')=ops.ddo_rich_support_population(consumed->'support')) THEN
- RAISE EXCEPTION 'rich located proposal differs from actual consumed whole packet/context support' USING ERRCODE='23514'; END IF;
-END $rich$;
+def _plain(value):
+    return func.data.ddo_json(value, type_=JSONB())
 
-CREATE OR REPLACE FUNCTION ops.ddo_rich_carried_reading(packet jsonb,known_packets jsonb)
-RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $rich$
- SELECT coalesce(data.ddo_field(data.ddo_field(packet,'body'),'member_type')='["string","source-reading-assertion"]'::jsonb
- AND known_packets->ops.ddo_digest(data.ddo_normalize(packet))=data.ddo_normalize(packet),false)
-$rich$;
 
-REVOKE ALL ON FUNCTION ops.ddo_rich_role_population(jsonb,text),ops.ddo_rich_selected_value(text,jsonb,text,jsonb),
- ops.ddo_rich_producing_request(text,jsonb,text,text,text,boolean),ops.ddo_rich_family_contract(text,text),
- ops.ddo_rich_support_population(jsonb),ops.ddo_rich_require_proposal_context(jsonb,jsonb),ops.ddo_rich_role_headers(jsonb),
- ops.ddo_rich_carried_reading(jsonb,jsonb) FROM PUBLIC;
-"""
+def _items(value, name="item"):
+    return func.jsonb_array_elements(value).table_valued(column("value", JSONB())).render_derived(name=name)
+
+
+def _value(name, type_=None):
+    return core_variable(name, JSONB() if type_ is None else type_)
+
+
+def _reject(condition, message):
+    return If(condition, (Raise(message, "23514"),))
+
+
+class _RichPrograms:
+    """Resolve rich native authority queries against the captured relation model."""
+
+    def __init__(self, metadata):
+        if metadata is None:
+            from .metadata import metadata
+        self.model = metadata
+        self.output = []
+
+    def table(self, name):
+        return self.model.tables[name]
+
+    def row(self, name, relation, field=None):
+        return core_variable(name, NullType() if field is None else self.table(relation).c[field].type, field)
+
+    def local(self, name, kind="jsonb", initial=None):
+        return Local(name, self.table(kind) if kind in self.model.tables else pg_type(kind), initial)
+
+    def lookup(self, target, relation, *conditions):
+        selected = self.table(relation)
+        return SelectInto(select(core_relation_row(selected)).select_from(selected).where(*conditions), (target,), strict=True)
+
+    def add(self, name, parameters, body, locals_=(), *, returns="void", sql=False, immutable=False, strict=False, definer=True, setof=False):
+        arguments = tuple(Parameter(key, pg_type(*kind.split("."))) for key, kind in parameters)
+        result_type = pg_type(*returns.split("."))
+        result_type.setof = setof
+        if sql:
+            rendered = sql_function("ops", name, parameters=arguments, returns=result_type, body=body, volatility="immutable" if immutable else "stable", strict=strict, security_definer=definer, search_path=("pg_catalog", "pg_temp"))
+        else:
+            rendered = function("ops", name, parameters=arguments, returns=result_type, body=Block(tuple(body), tuple(locals_)), volatility="immutable" if immutable else "stable", strict=strict, security_definer=definer, search_path=("pg_catalog", "pg_temp"))
+        self.output.extend((rendered, native_privilege_sql(NativeIdentity("function", "ops", name, tuple(kind for _, kind in parameters)), "PUBLIC", grant=False)))
+
+
+def _rich_input_programs(p):
+    support = _value("support")
+    refs = _items(support, "support_item")
+    distinct = select((func.jsonb_strip_nulls(refs.c.value).op("-")("admission_use_id")).label("reference")).distinct().subquery("references_")
+    p.add("ddo_rich_support_population", (("support", "jsonb"),), select(func.coalesce(func.jsonb_agg(aggregate_order_by(distinct.c.reference, func.convert_to(func.data.canonical_json(distinct.c.reference), "UTF8"))), _json([]))), returns="jsonb", sql=True, immutable=True, strict=True, definer=False)
+    basis = _value("basis")
+    roles = _items(_field(basis, "roles")[1], "role_meaning")
+    pairs = _items(roles.c.value[1], "pair")
+    header = select(func.coalesce(func.jsonb_agg(aggregate_order_by(pairs.c.value, pairs.c.value[0].astext.collate("C"))), _json([]))).select_from(pairs).where(pairs.c.value[0].astext.not_in(("body", "context"))).correlate(roles).scalar_subquery()
+    p.add("ddo_rich_role_headers", (("basis", "jsonb"),), select(_plain(func.jsonb_build_array("mapping", header))).select_from(roles), returns="jsonb", sql=True, immutable=True, strict=True, definer=False, setof=True)
+    headers = func.ops.ddo_rich_role_headers(basis).table_valued(column("value", JSONB())).render_derived(name="row_value")
+    population = select(func.jsonb_build_object("product_id", headers.c.value["product_id"], "member_id", headers.c.value["member_id"], "multiplicity", headers.c.value["multiplicity"], "support", func.ops.ddo_rich_support_population(headers.c.value["support"])).label("item")).where(headers.c.value["role"].astext == _value("role_name", Text())).subquery("population")
+    p.add("ddo_rich_role_population", (("basis", "jsonb"), ("role_name", "text")), select(func.coalesce(func.jsonb_agg(aggregate_order_by(population.c.item, func.convert_to(func.data.canonical_json(population.c.item), "UTF8"))), _json([]))), returns="jsonb", sql=True, immutable=True, strict=True, definer=False)
+    products, members = p.table("kb.data_product"), p.table("kb.data_product_member")
+    selected, bound = _value("selected"), _value("bound")
+    bound_roles = _items(_field(basis, "roles")[1], "bound_role")
+    p.add("ddo_rich_selected_value", (("project", "text"), ("basis", "jsonb"), ("role_name", "text"), ("selected", "jsonb")), (
+        SelectInto(select(bound_roles.c.value).where(_text(bound_roles.c.value, "role") == _value("role_name", Text()), _text(bound_roles.c.value, "product_id") == selected["product_id"].astext, _field(bound_roles.c.value, "member_id") == _json(["null"])), ("bound",), strict=True),
+        _reject(_field(bound, "support").is_distinct_from(func.data.ddo_normalize(func.data.ddo_json_meaning(func.jsonb_strip_nulls(selected["support_references"])))), "rich selection differs from actual whole-role support"),
+        p.lookup("product", "kb.data_product", products.c.id == selected["product_id"].astext, products.c.project_id == _value("project", Text())),
+        If(selected["member_id"].astext.is_(None), (
+            _reject(p.row("product", "kb.data_product", "kind_contract").is_distinct_from(selected["kind_contract"].astext), "rich whole selection differs from its actual kind"), Return(p.row("product", "kb.data_product", "canonical_body")),
+        )),
+        p.lookup("member", "kb.data_product_member", members.c.product_id == p.row("product", "kb.data_product", "id"), members.c.member_id == selected["member_id"].astext),
+        _reject(p.row("member", "kb.data_product_member", "kind_contract").is_distinct_from(selected["kind_contract"].astext), "rich nominal member differs from its actual whole-report kind"),
+        Return(p.row("member", "kb.data_product_member", "body")),
+    ), (p.local("bound"), p.local("product", "kb.data_product"), p.local("member", "kb.data_product_member")), returns="jsonb")
+    episodes, outputs, receipts, requests, definitions, intents = (p.table(name) for name in ("ops.data_derivation", "ops.data_derivation_output", "ops.data_publication_receipt", "ops.data_request", "sem.data_operation_definition", "ops.data_completion_intent"))
+    evidence = _items(selected["support_references"], "reference")
+    contract, payload = p.row("definition", "sem.data_operation_definition", "support_contract"), p.row("intent", "ops.data_completion_intent", "payload")
+    p.add("ddo_rich_producing_request", (("project", "text"), ("selected", "jsonb"), ("operation_name", "text"), ("factory_name", "text"), ("output_role", "text"), ("requires_cpu", "boolean")), (
+        SelectInto(select(core_relation_row(episodes)).select_from(episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(receipts, and_(receipts.c.derivation_id == episodes.c.id, receipts.c.intent_id == episodes.c.intent_id))).where(
+            outputs.c.product_id == selected["product_id"].astext, outputs.c.member_id.is_(None), or_(_value("output_role", Text()).is_(None), outputs.c.role == _value("output_role", Text())), outputs.c.multiplicity == 1, episodes.c.outcome == "success",
+            select(1).select_from(evidence).where(evidence.c.value["kind"].astext == "computation", evidence.c.value["derivation_id"].astext == episodes.c.id).exists(),
+        ), ("producer",), strict=True),
+        p.lookup("request", "ops.data_request", requests.c.id == p.row("producer", "ops.data_derivation", "request_id"), requests.c.project_id == _value("project", Text())),
+        p.lookup("definition", "sem.data_operation_definition", definitions.c.release_id == p.row("request", "ops.data_request", "release_id"), definitions.c.operation_id == p.row("request", "ops.data_request", "operation_id")),
+        p.lookup("intent", "ops.data_completion_intent", intents.c.id == p.row("producer", "ops.data_derivation", "intent_id")),
+        _reject(or_(
+            and_(_value("operation_name", Text()).is_not(None), p.row("definition", "sem.data_operation_definition", "operation_id").is_distinct_from(_value("operation_name", Text()))),
+            and_(_value("factory_name", Text()).is_not(None), contract["capabilities"]["prepared_factory"]["entrypoint"].astext.is_distinct_from(_value("factory_name", Text()))),
+            contract["capabilities"]["prepared_factory"]["source_digest"].astext.op("~")("^[0-9a-f]{64}$").is_not(True),
+            p.row("definition", "sem.data_operation_definition", "implementation_revision").like("implementation-slice:%").is_not(True),
+            payload["implementation_revision"].astext.is_distinct_from(p.row("definition", "sem.data_operation_definition", "implementation_revision")),
+            p.row("producer", "ops.data_derivation", "recipe").is_distinct_from(p.row("definition", "sem.data_operation_definition", "recipe")),
+            p.row("request", "ops.data_request", "recipe").is_distinct_from(p.row("definition", "sem.data_operation_definition", "recipe")),
+            and_(_value("requires_cpu", Boolean()), or_(p.row("definition", "sem.data_operation_definition", "profile").is_distinct_from("derivation"), contract["effects"].is_distinct_from(_json([])), func.jsonb_array_length(func.coalesce(payload["execution_evidence"]["cpu_receipts"], _json([]))) != 1)),
+        ), "rich selection lacks its actual admitted producer and CPU/common receipt"),
+        Return(p.row("request", "ops.data_request")),
+    ), (p.local("request", "ops.data_request"), p.local("producer", "ops.data_derivation"), p.local("definition", "sem.data_operation_definition"), p.local("intent", "ops.data_completion_intent")), returns="ops.data_request")
+    artifacts = p.table("sem.artifact")
+    archive = _value("archive")
+    kinds = _items(archive["kinds"], "kind")
+    identities = _items(archive["identities"], "identity")
+    p.add("ddo_rich_family_contract", (("p_release", "text"), ("local_name", "text")), (
+        SelectInto(select(cast(func.convert_from(artifacts.c.content, "UTF8"), JSONB())).where(artifacts.c.release_id == _value("p_release", Text()), artifacts.c.artifact_name == "data_operations.json"), ("archive",), strict=True),
+        SelectInto(select(identities.c.value["key"].astext).select_from(kinds.join(identities, identities.c.value["owner"].astext == kinds.c.value["semantic_id"].astext)).where(kinds.c.value["name"].astext == _value("local_name", Text()), kinds.c.value["category"].astext == "class", kinds.c.value["complete"] == _json(True), identities.c.value["domain"].astext == "kind"), ("result",), strict=True),
+        Return(_value("result", Text())),
+    ), (p.local("archive"), p.local("result", "text")), returns="text")
+    context = func.ops.ddo_rich_role_headers(_value("consolidation_basis")).table_valued(column("value", JSONB())).render_derived(name="context_input")
+    consumed = _value("consumed")
+    located = func.ops.ddo_rich_role_headers(_value("located_basis")).table_valued(column("value", JSONB())).render_derived(name="located")
+    p.add("ddo_rich_require_proposal_context", (("consolidation_basis", "jsonb"), ("located_basis", "jsonb")), (
+        SelectInto(select(located.c.value).where(located.c.value["role"].astext == "packet"), ("consumed",), strict=True),
+        _reject(or_(consumed["member_id"].astext.is_not(None), ~select(1).select_from(context).where(context.c.value["role"].astext == "proposal_contexts", context.c.value["product_id"].astext == consumed["product_id"].astext, context.c.value["member_id"].astext.is_(None), func.ops.ddo_rich_support_population(context.c.value["support"]) == func.ops.ddo_rich_support_population(consumed["support"])).exists()), "rich located proposal differs from actual consumed whole packet/context support"),
+    ), (p.local("consumed"),), immutable=True, strict=True, definer=False)
+    packet = _value("packet")
+    normalized = func.data.ddo_normalize(packet, type_=JSONB())
+    p.add("ddo_rich_carried_reading", (("packet", "jsonb"), ("known_packets", "jsonb")), select(func.coalesce(and_(_field(packet, "body", "member_type") == _json(["string", "source-reading-assertion"]), _value("known_packets")[func.ops.ddo_digest(normalized)] == normalized), False)), returns="boolean", sql=True, immutable=True, strict=True, definer=False)
+
+
+def _rich_producer_programs(p):
+    definitions, kinds, requests, episodes, intents = (p.table(name) for name in ("sem.data_operation_definition", "sem.data_kind_contract", "ops.data_request", "ops.data_derivation", "ops.data_completion_intent"))
+    contract = p.row("definition", "sem.data_operation_definition", "support_contract")
+    definition_op = p.row("definition", "sem.data_operation_definition", "operation_id")
+    effects = [{"name": "native-rich-knowledge-admission", "authorization": ["exact-rich-consolidation-and-record-policy"], "idempotency": "request-generation/exact-input-population", "fulfillment": "native-publication-receipt"}]
+    p.add("ddo_rich_command_eligible", (("definition", "sem.data_operation_definition"),), select(and_(
+        definition_op == "rich.admit", p.row("definition", "sem.data_operation_definition", "profile") == "command", contract["capabilities"]["preparation"].astext == "native-publication", contract["capabilities"]["forms"] == _json(["scalar"]), contract["capabilities"]["prepared_factory"]["entrypoint"].astext == "corpus_structure.methods.rich_knowledge.RichKnowledgeAdmission.acquire_port", contract["effects"] == _json(effects), contract["capabilities"]["prepared_factory"]["source_digest"].astext.op("~")("^[0-9a-f]{64}$"), p.row("definition", "sem.data_operation_definition", "implementation_revision").like("implementation-slice:%"),
+    )), returns="boolean", sql=True, immutable=True, strict=True, definer=False)
+    operation = p.row("r", "ops.data_request", "operation_id")
+    completion, output = _value("completion"), _value("output")
+    binding = p.row("r", "ops.data_request", "binding")
+    preparations = {
+        "prepare.external_extraction": ("corpus_structure.methods.external_extraction.RichExtractionInputOperation.acquire_port", "result", "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoExternalExtractionPacket"),
+        "locate.external_extraction": ("corpus_structure.methods.external_extraction.RichExtractionPlacementOperation.acquire_port", "result", "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoLocatedExternalExtraction"),
+        "rich.consolidate": ("corpus_structure.methods.rich_knowledge.RichKnowledgeConsolidation.acquire_port", "consolidated", "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation"),
+    }
+    producer_selection = (Raise("rich preparation requires its actual operation owner", "23514"),)
+    for name, (factory, role, kind) in reversed(tuple(preparations.items())):
+        producer_selection = (If(operation == name, (Assign("factory", literal(factory)), Assign("output_role", literal(role)), Assign("output_kind", literal(kind))), producer_selection),)
+    output_shape = or_(output["member_id"].astext.is_not(None), cast(output["position"].astext, Integer()).is_distinct_from(0), cast(output["multiplicity"].astext, Integer()).is_distinct_from(1))
+    p.add("ddo_rich_require_preparation_producer", (("r", "ops.data_request"), ("completion", "jsonb")), (
+        *producer_selection,
+        p.lookup("definition", "sem.data_operation_definition", definitions.c.release_id == p.row("r", "ops.data_request", "release_id"), definitions.c.operation_id == operation),
+        _reject(or_(
+            p.row("definition", "sem.data_operation_definition", "profile").is_distinct_from("derivation"), contract["effects"].is_distinct_from(_json([])), contract["capabilities"]["prepared_factory"]["entrypoint"].astext.is_distinct_from(_value("factory", Text())), contract["capabilities"]["prepared_factory"]["source_digest"].astext.op("~")("^[0-9a-f]{64}$").is_not(True), p.row("definition", "sem.data_operation_definition", "implementation_revision").like("implementation-slice:%").is_not(True), completion["implementation_revision"].astext.is_distinct_from(p.row("definition", "sem.data_operation_definition", "implementation_revision")), p.row("r", "ops.data_request", "recipe").is_distinct_from(p.row("definition", "sem.data_operation_definition", "recipe")), and_(operation == "rich.consolidate", p.row("r", "ops.data_request", "original_source").is_not(None)), completion["inputs"].is_distinct_from(binding["inputs"]), completion["support"].is_distinct_from(binding["support"]), func.jsonb_array_length(func.coalesce(completion["execution_evidence"]["cpu_receipts"], _json([]))) != 1,
+        ), "rich preparation requires actual derivation/factory/CPU and declared inputs"),
+        _reject(or_(completion["outcome"].astext.is_distinct_from("success"), func.jsonb_array_length(completion["outputs"]) != 1), "rich preparation requires one exact successful conclusion"),
+        Assign("output", completion["outputs"][0]),
+        _reject(or_(output["role"].astext.is_distinct_from(_value("output_role", Text())), output_shape, ~select(1).select_from(kinds).where(kinds.c.kind_contract == output["product"]["kind_contract"].astext, kinds.c.kind == _value("output_kind", Text()), kinds.c.universe == "ordinary").exists()), "rich preparation differs from its actual whole nominal output"),
+    ), (p.local("definition", "sem.data_operation_definition"), p.local("output"), *(p.local(name, "text") for name in ("factory", "output_role", "output_kind"))))
+    inputs = _items(binding["inputs"], "input")
+    p.add("ddo_rich_require_admission_producer", (("r", "ops.data_request"), ("completion", "jsonb")), (
+        p.lookup("definition", "sem.data_operation_definition", definitions.c.release_id == p.row("r", "ops.data_request", "release_id"), definitions.c.operation_id == operation),
+        _reject(or_(
+            ~func.coalesce(p.row("definition", "sem.data_operation_definition", "command_class") == "rich", False), completion["implementation_revision"].astext.is_distinct_from(p.row("definition", "sem.data_operation_definition", "implementation_revision")), p.row("r", "ops.data_request", "recipe").is_distinct_from(p.row("definition", "sem.data_operation_definition", "recipe")), p.row("r", "ops.data_request", "original_source").is_not(None), completion["inputs"].is_distinct_from(binding["inputs"]), completion["support"].is_distinct_from(binding["support"]), func.jsonb_array_length(func.coalesce(completion["execution_evidence"]["cpu_receipts"], _json([]))) != 1,
+        ), "rich admission requires actual command/effect/factory/CPU and whole declared inputs"),
+        _reject(or_(completion["outcome"].astext.is_distinct_from("success"), func.jsonb_array_length(completion["outputs"]) != 1), "rich admission requires one exact successful conclusion"),
+        Assign("output", completion["outputs"][0]),
+        _reject(or_(output["role"].astext.is_distinct_from("admission"), output_shape,
+            ~select(1).select_from(kinds).where(kinds.c.kind_contract == output["product"]["kind_contract"].astext, kinds.c.kind == "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichAdmission", kinds.c.universe == "ordinary").exists(),
+            select(func.count()).select_from(inputs).where(inputs.c.value["role"].astext == "consolidation").scalar_subquery() != 1,
+            select(1).select_from(inputs).where(or_(inputs.c.value["member_id"].astext.is_not(None), cast(inputs.c.value["multiplicity"].astext, Integer()).is_distinct_from(1), inputs.c.value["role"].astext.not_in(("consolidation", "records", "readings", "policy_authorizations")))).exists(),
+        ), "rich admission differs from its actual whole populations and nominal output"),
+    ), (p.local("definition", "sem.data_operation_definition"), p.local("output")))
+    p.add("ddo_rich_admission_dependencies_valid", (("episode", "text"),), (
+        CatchDependencyInvalidity((
+            SelectInto(select(core_relation_row(requests)).select_from(requests.join(episodes, episodes.c.request_id == requests.c.id)).where(episodes.c.id == _value("episode", Text())), ("r",), strict=True),
+            If(operation.not_in(("rich.admit", "rich.consolidate", "prepare.external_extraction", "locate.external_extraction")), (Return(literal(True)),)),
+            p.lookup("producing", "ops.data_derivation", episodes.c.id == _value("episode", Text())),
+            If(p.row("producing", "ops.data_derivation", "outcome").is_distinct_from("success"), (Return(literal(False)),)),
+            p.lookup("intent", "ops.data_completion_intent", intents.c.id == p.row("producing", "ops.data_derivation", "intent_id")),
+            Assign("r", func.ops.ddo_require_episode_correspondence(p.row("producing", "ops.data_derivation"), p.row("intent", "ops.data_completion_intent"))),
+            Return(literal(True)),
+        ), (Return(literal(False)),)),
+    ), (p.local("r", "ops.data_request"), p.local("producing", "ops.data_derivation"), p.local("intent", "ops.data_completion_intent")), returns="boolean")
+
+
+def rich_admission_native_sql(*, target_metadata=None) -> str:
+    programs = _RichPrograms(target_metadata)
+    _rich_input_programs(programs)
+    _rich_producer_programs(programs)
+    return native_sql_script((*programs.output, _rich_completion_sql()))
 
 
 def _rich_completion_sql() -> str:
+    """Remaining exact completion traversals; input and producer authority is model-owned."""
     return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_rich_command_eligible(definition sem.data_operation_definition)
-RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $rich$
- SELECT definition.operation_id='rich.admit' AND definition.profile='command'
- AND definition.support_contract->'capabilities'->>'preparation'='native-publication'
- AND definition.support_contract->'capabilities'->'forms'='["scalar"]'::jsonb
- AND definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint'='corpus_structure.methods.rich_knowledge.RichKnowledgeAdmission.acquire_port'
- AND definition.support_contract->'effects'='[{"name":"native-rich-knowledge-admission","authorization":["exact-rich-consolidation-and-record-policy"],"idempotency":"request-generation/exact-input-population","fulfillment":"native-publication-receipt"}]'::jsonb
- AND definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$'
- AND definition.implementation_revision LIKE 'implementation-slice:%'
-$rich$;
-REVOKE ALL ON FUNCTION ops.ddo_rich_command_eligible(sem.data_operation_definition) FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION ops.ddo_rich_require_preparation_producer(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE definition sem.data_operation_definition; output jsonb; factory text; output_role text; output_kind text;
-BEGIN
- CASE r.operation_id
- WHEN 'prepare.external_extraction' THEN
- factory:='corpus_structure.methods.external_extraction.RichExtractionInputOperation.acquire_port';
- output_role:='result'; output_kind:='https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoExternalExtractionPacket';
- WHEN 'locate.external_extraction' THEN
- factory:='corpus_structure.methods.external_extraction.RichExtractionPlacementOperation.acquire_port';
- output_role:='result'; output_kind:='https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoLocatedExternalExtraction';
- WHEN 'rich.consolidate' THEN
- factory:='corpus_structure.methods.rich_knowledge.RichKnowledgeConsolidation.acquire_port';
- output_role:='consolidated'; output_kind:='https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation';
- ELSE RAISE EXCEPTION 'rich preparation requires its actual operation owner' USING ERRCODE='23514';
- END CASE;
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF definition.profile IS DISTINCT FROM 'derivation'
- OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
- OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM factory
- OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
- OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
- OR completion->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
- OR r.recipe IS DISTINCT FROM definition.recipe
- OR (r.operation_id='rich.consolidate' AND r.original_source IS NOT NULL)
- OR completion->'inputs' IS DISTINCT FROM r.binding->'inputs'
- OR completion->'support' IS DISTINCT FROM r.binding->'support'
- OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>1 THEN
- RAISE EXCEPTION 'rich preparation requires actual derivation/factory/CPU and declared inputs' USING ERRCODE='23514'; END IF;
- IF completion->>'outcome' IS DISTINCT FROM 'success' OR jsonb_array_length(completion->'outputs')<>1 THEN
- RAISE EXCEPTION 'rich preparation requires one exact successful conclusion' USING ERRCODE='23514'; END IF;
- output:=completion->'outputs'->0;
- IF output->>'role' IS DISTINCT FROM output_role OR output->>'member_id' IS NOT NULL
- OR (output->>'position')::integer IS DISTINCT FROM 0 OR (output->>'multiplicity')::integer IS DISTINCT FROM 1
- OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
- AND kind.kind=output_kind AND kind.universe='ordinary') THEN
- RAISE EXCEPTION 'rich preparation differs from its actual whole nominal output' USING ERRCODE='23514'; END IF;
-END $rich$;
-
 CREATE OR REPLACE FUNCTION ops.ddo_require_rich_preparation_completion(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
 BEGIN
@@ -218,32 +274,6 @@ BEGIN
  ops.ddo_rich_selected_value(project,basis,'proposal_contexts',reference) THEN
  RAISE EXCEPTION 'rich proposal context differs from actual prepared CPU packet' USING ERRCODE='23514'; END IF;
  END LOOP;
-END $rich$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_rich_require_admission_producer(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE definition sem.data_operation_definition; output jsonb;
-BEGIN
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF NOT coalesce((definition.command_class='rich'),false)
- OR completion->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
- OR r.recipe IS DISTINCT FROM definition.recipe OR r.original_source IS NOT NULL
- OR completion->'inputs' IS DISTINCT FROM r.binding->'inputs'
- OR completion->'support' IS DISTINCT FROM r.binding->'support'
- OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>1 THEN
- RAISE EXCEPTION 'rich admission requires actual command/effect/factory/CPU and whole declared inputs' USING ERRCODE='23514'; END IF;
- IF completion->>'outcome' IS DISTINCT FROM 'success' OR jsonb_array_length(completion->'outputs')<>1 THEN
- RAISE EXCEPTION 'rich admission requires one exact successful conclusion' USING ERRCODE='23514'; END IF;
- output:=completion->'outputs'->0;
- IF output->>'role' IS DISTINCT FROM 'admission' OR output->>'member_id' IS NOT NULL
- OR (output->>'position')::integer IS DISTINCT FROM 0 OR (output->>'multiplicity')::integer IS DISTINCT FROM 1
- OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
- AND kind.kind='https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichAdmission' AND kind.universe='ordinary')
- OR (SELECT count(*) FROM jsonb_array_elements(r.binding->'inputs') input WHERE input->>'role'='consolidation')<>1
- OR EXISTS(SELECT FROM jsonb_array_elements(r.binding->'inputs') input WHERE input->>'member_id' IS NOT NULL
- OR (input->>'multiplicity')::integer IS DISTINCT FROM 1
- OR input->>'role' NOT IN ('consolidation','records','readings','policy_authorizations')) THEN
- RAISE EXCEPTION 'rich admission differs from its actual whole populations and nominal output' USING ERRCODE='23514'; END IF;
 END $rich$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_require_rich_admission_completion(r ops.data_request,completion jsonb)
@@ -474,22 +504,5 @@ BEGIN
  RAISE EXCEPTION 'rich selected readings differ from actual retained assertion packets' USING ERRCODE='23514'; END IF;
 END $rich$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_rich_admission_dependencies_valid(episode text)
-RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
-BEGIN
- SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
- IF r.operation_id NOT IN ('rich.admit','rich.consolidate','prepare.external_extraction','locate.external_extraction') THEN RETURN true; END IF;
- SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
- IF producing.outcome IS DISTINCT FROM 'success' THEN RETURN false; END IF;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id;
- r:=ops.ddo_require_episode_correspondence(producing,intent);
- RETURN true;
- EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
-END $rich$;
-
-REVOKE ALL ON FUNCTION ops.ddo_rich_require_admission_producer(ops.data_request,jsonb),
- ops.ddo_rich_require_preparation_producer(ops.data_request,jsonb),ops.ddo_require_rich_preparation_completion(ops.data_request,jsonb),
- ops.ddo_rich_require_proposal_inputs(text,jsonb),
- ops.ddo_require_rich_admission_completion(ops.data_request,jsonb),ops.ddo_rich_admission_dependencies_valid(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.ddo_require_rich_preparation_completion(ops.data_request,jsonb),ops.ddo_rich_require_proposal_inputs(text,jsonb),ops.ddo_require_rich_admission_completion(ops.data_request,jsonb) FROM PUBLIC;
 """
