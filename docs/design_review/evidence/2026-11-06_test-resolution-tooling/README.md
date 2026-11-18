@@ -131,10 +131,10 @@ views if generic TEMP is enabled and the admission restriction is relaxed. It is
 a source-identified trust gap, **not an executed privilege-escalation exploit**.
 
 Today, admission rejects any canonical runtime role with TEMP
-([admission.sql lines150–152](../../../../python/corpus-structure/src/corpus_structure/semantic/sql/admission.sql#L150)),
+([archived admission.sql lines150–152](https://github.com/paul-heyse/corpus-structure/blob/a1e500c8dc2a4860fc878356a4149df798775707/python/corpus-structure/src/corpus_structure/semantic/sql/admission.sql#L150)),
 and actual-purpose startup independently rejects the caller's TEMP
-([closure.sql lines133–146](../../../../python/corpus-structure/src/corpus_structure/semantic/sql/closure.sql#L133);
-[runtime.py lines84–93](../../../../python/corpus-structure/src/corpus_structure/semantic/runtime.py#L84)).
+([archived closure.sql lines133–146](https://github.com/paul-heyse/corpus-structure/blob/a1e500c8dc2a4860fc878356a4149df798775707/python/corpus-structure/src/corpus_structure/semantic/sql/closure.sql#L133),
+[archived runtime.py lines84–93](https://github.com/paul-heyse/corpus-structure/blob/a1e500c8dc2a4860fc878356a4149df798775707/python/corpus-structure/src/corpus_structure/semantic/runtime.py#L84)).
 A grant alone would therefore break supported runtime opening/admission. These
 checks are changeable policy owners, but removing them alone would expose the
 ordering gap. Other inspected paths already have independent protections:

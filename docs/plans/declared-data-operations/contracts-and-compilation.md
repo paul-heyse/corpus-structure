@@ -413,9 +413,9 @@ semantic field aliases/identifiers rather than letting a JSON mapping silently o
 Canonical semantic encoding uses tagged values with numeric lexical/hex forms represented as
 strings, then deterministic JSON framing; do not hash driver-dependent JSONB number spelling.
 Keep the primitive normalization contract shared with native enforcement. Extend the existing
-[native identity functions](../../../python/corpus-structure/src/corpus_structure/semantic/sql/identity.sql)
-where they are the owning boundary; their current `canonical_json` and `value_meaning` are
-starting mechanisms, not proof that every new typed encoding already matches Python. Native
+[native identity functions](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_value_native.py)
+where they are the owning boundary. `canonical_json`, `decimal_canonical` and `ddo_normalize`
+have independent native and Python correspondence requirements. Native
 publication compares the declared canonical form/digest to admitted content, while exact artifact
 digests authenticate original bytes. No new per-read whole-artifact rehash is required.
 

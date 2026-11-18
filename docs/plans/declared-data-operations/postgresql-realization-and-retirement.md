@@ -398,6 +398,15 @@ operation bundle and the serialized projection fragment intermediary were remove
 artifacts retain the generated programs and captured inputs. Direct row-type loads use server
 composite order across schema histories.
 
+N14 source generates canonical value and closure guards, the task fence, original-document
+registration, selected-source and visual readers, PDF descriptor and recognition helpers, and
+contextual neighborhood. The CHECK-bound descriptor has an explicit recreation effect. The
+candidate acquires the owning table locks, recreates the routine and reinstalls the same
+captured CHECK predicates to validate retained rows before commit. The release admission
+generator now owns the semantic checks. Physical catalog and principal checks still use the
+maintained `admission.sql` and its catalog/body/ACL composition. Other maintained inline
+native programs remain with their existing component owners.
+
 Remaining catalog, scientific, public-read and maintenance routines follow their owning
 boundaries. Preserve frozen migrations, independent test controls and explicitly submitted
 read-only SQL. Qualification covers each deployed native/application pair. The final DDO-12

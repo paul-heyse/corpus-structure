@@ -506,6 +506,12 @@ descriptor (`04e277393dea4554a20c520fbade633a`). The production edit was reverte
 the registered head usable. The production event reply type and its frozen native descriptor
 must be updated together.
 
+The DDO implementation integrates the scope declarations, public cut authorization, external
+kind schema conversion and event reply contracts in the N14 source. The
+[DDO coordinator](declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
+owns the matching native consumer reruns and deployment evidence. The original TDM failure
+receipts retain their observed boundaries.
+
 **Scoped execution.** The actual Docling spool-resume provider selection passed
 (`5fc23c205c7f406599ba81df4c1c1a26`). Native PDF worker retirement, complete export,
 sealed capture and writable materialization passed in the mixed native attempt

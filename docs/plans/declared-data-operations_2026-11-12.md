@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-18. The owned stage and canonical development database run model-built N13. The handwritten DDO operation bundle is retired. The stage has an N13 application active at generation 14. Development admitted the application capture and registered 29 originals across nine projects. Remaining consumers, residual SQL authoring, whole-book execution and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-18. Canonical development runs model-built N13 and holds 29 registered originals across nine projects. The owned stage runs model-built N16. Its last application activation was N13 at generation 14. Matching application adoption, remaining consumers, residual SQL authoring, whole-book execution and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -449,6 +449,126 @@ byte sequences to the inventory and the local originals. `ci release activate` a
 `nce-grinstead-snell-full-book` from generation 0 to 1. The [adoption companion](declared-data-operations/preservation-adoption-and-qualification.md#actual-preservation-basis)
 owns the regeneration boundary. The book demand, its interruption and resume, and actual-book
 PE-S33 remain open. Chandra OCR stays outside scope.
+
+### Scoped acquisition and native authoring integration · 2026-11-18
+
+**Implemented source; scoped controls Tested.** The document composer declares selected-view
+discovery and accepts explicit retained selected and active product sets. Source-only requests
+bind empty analytical sets, and the active members must be a subset of the selected products.
+Rich admission declares consolidation as a producer dependency. A scoped ordinary demand cut
+acquires the disclosed support and its authenticated authority leaves. Its public intent carries
+the exact retained intent digest and public selection. Protected values and full issuer bindings
+retain evaluator custody. The native read inserts its complete immutable boundary once.
+
+`generated_json_schema` compiles Pydantic result schemas into checked local Draft7 contracts.
+The event frame, fit
+and score CPU kernels declare their reply type and preserve the prepared capsule route.
+Construction validation computes each immutable dependency identity once, decodes its member
+inventory once and reuses the exact member lookup for premises.
+
+The [N14 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n14.yaml)
+binds the registered TDM PDF stream predecessor. It retires the old structural report support
+overload and recreates the typed PDF descriptor with its unchanged declared CHECK revalidated
+against retained rows. Typed programs now generate the canonical JSON and decimal primitives,
+release archive and principal guards, PDF descriptor and recognition routines, original document
+custody, task fence, and contextual neighborhood. The selected-source and visual readers and
+release semantic guards also lower from typed programs. Deleted six unused SQL files and nine
+maintained files replaced by generated programs. The registered historical migrations retain
+their artifacts.
+
+Managed ordinary selections passed the characterization/identity/validity controls
+(`62ed40c57e19400ca4f26323f83d1ca0`, 67), explicit source sets and rich declarations
+(`de9a7ae4bd0a4fc581e9456d04b70b96`, 10), public cuts and detached verification
+(`39ce7e873d944e34aacce98ddb0e2024`, 65), external wire contracts (`5910df0f9b8a43a98becc67429efb35d`,
+53), and generated protocol and capture controls (`d0ca900b75c44d8ab385d6a670f16cbb`, 20).
+The actual PE-S28 encoder and PE-S30 CUDA GLiNER panel passed all 10 selected provider cases in
+`f9915746efeb4acab5b282585a0db218`. That receipt covers the declared book excerpt population
+and batch regroupings. Native publication, larger cohort consumers and whole-book qualification
+remain independently scoped.
+
+**N14 native replay and owned-stage deployment passed · 2026-11-18.** The stage at OID 130661481
+first replayed `semantic_tdm_pdf_stream_protocol` from N13. N14 preview `2c2aca2eeb4b4859bbba072781c88bfd`,
+apply `da4608f8fd614c3291a059862c0746eb`, rollback candidate `d0ab1e49c3e6472482cca2ad0e3c4834`,
+registration `20545e727608433d9a995dc703ba7c27` and deployment `ac56ce92352c4f51a127661f11875612`
+passed on the same target. Rollback replay covered 78 native transitions and three ordinary
+operations, including dropping and reinstalling the captured PDF descriptor CHECK. Failed
+candidates `9059c47f715b4594a540ab8db67f461f` and `8e92a2f9c2a24a17a5a4ee95b90c11c9` retain the
+CHECK digest accessor and generated-program separator defects repaired before registration.
+The coherent source passed capture and admission controls (`9719f7d9036d4b08a3b7b7572250b7a9`,
+13), Pyrefly `fb447cd996b94d7da64f729a578d8bc6` and Ruff `168eccc18e664d6ea68c5dbcf0adbbf7`.
+
+Stage application preview and candidate `5d5cf4685dfc4d86bf066b22b9851f88` and
+`11a8b328910b4cb1a2a440e1a292c84c` passed. Deployment `0a48201c4c48490dbe942de2bfebed39`
+retained the archive and failed admission at `sem.ddo_lower_data_operation_definitions` with
+`P0001`, “kind contract changed under stable identity.” N14 changed stored class schema bytes
+while preserving their nominal kind identity. The correction retains the stored native schema
+and prepares its Draft7 realization at the external result boundary. The failed application
+was never activated.
+
+N14 native consumer selection `a1d699af9d714071b58e35875b7be1d4` passed four cases, including
+actual visual packet submission, NCE list host, native neighborhood tie ordering and exact
+population binding. Its five failures remain retained. The event journey reached exact-cut
+authentication after typed CPU reply binding. The scoped public projection varied with the
+principal used to reopen the cut. The structural test reached an unscoped read of a protected
+issuer demand. Composition omitted selected analytical inputs, and the rich journey stopped
+at its earlier reading-production prerequisite. The storage refusal matrix reached the exact
+manifest test for substituted required episode identity.
+
+Provider receipt `03f8d4609b994202886c65f991716e0f` passed the real two-region PM2 journey within
+the existing per-test timeout. All three actual E5 cases acquired vector output and failed at
+selected support disclosure. The query batch's logical member produces both `query` and `vector`.
+The execution leaf incorrectly required the entire retained completion to publish one output.
+N15 owns the correction and the final-source reruns.
+
+**N15 source integration.** The [N15 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n15.yaml)
+captures the stable kind schema and prepared external validators, immutable read disclosure,
+per-output CPU evidence leaves, and role-qualified readiness for operations whose eligible
+producer is selected from the demand. Composition acquires the exact manifest members of
+retained formal and construction products. The binding refusal matrix tests a substituted
+required episode and a separately unrequested original-source identity. Four unused scalar
+encoder kernels were retired after moving their controls to authenticated batch replies.
+
+The 38 PE-S31/S32 coordination controls passed (`effe477abf4a4a0ca487b50f102a6c1b`). The final
+N15 source passed Pyrefly `500ac0c9e2864044b3f7ca6ff70ae797` and Ruff
+`efeeb30098c04296a46a151e416710f0`. Preview `4f3e78d1571c4571bf1c87c718bdb4f4` and apply
+`adfe0741d3124227a39b3d6326c68eb9` bound the N14 predecessor at stage OID 130661481 and
+regenerated the typed-column descriptor. The final-source native and provider obligations
+remain open until their exact successors settle.
+
+**N15 rollback replay and owned-stage deployment passed · 2026-11-18.** Candidate
+`3f3a743275cb4693b127df1ae4a228d4`, registration `1716ec1128a54524bd76eeb436a29b45` and
+deployment `718f06f528d4496cbffe715047d7e29f` passed on OID 130661481. Replay applied 60 native
+transitions and two ordinary effects. The modeled read-disclosure column has a `false` default
+for prior full-intent receipts. Current cuts pin their acquired disclosure and kernel digest.
+Application preview `08dbfddb90ac4395821eace539c50a85`, apply
+`7c4cf324fb184ddca49e83154a42e310`, candidate `06bcd730aa0940caa209d10f80b13613`, and
+deployment `a5b7d9d394e14f7fb4a11135148a8af3` passed. The deployment archived, admitted,
+and verified `release:54e2053f48bd09a46954d48fa8fd39ea43f338554eccecfad2e8f4d63f366f36`
+on that same stage. A separate `ci db check --release` confirmed database correspondence.
+The application remains unactivated pending correction of the discovery failure below.
+
+The N15 native retry `782cac5f9dca4076a92f4d180f087e46` passed the binding-substitution case
+and exposed four remaining failures. The composition case waited for the source population
+after publication. Event setup found no produced source member. Two fixtures tried to consume
+public authority through full evaluator cuts. The actual E5 selection
+`9521539b61c04ed5a54d50def8a13fa5` failed setup for all three cases because no retained
+target vectors were available. The ordinary writer's whole-demand frontier had withheld the
+fresh discovery population until another use selected it. Consumers require that population
+to establish their first binding. Both failed receipts remain held.
+
+The [N16 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n16.yaml)
+restores fresh closed populations to the whole-demand frontier. Scoped cuts project populations
+through their exact support walk. The structural and rich fixtures acquire ordinary authorization
+from exact public scoped cuts and retain the independent evaluator refusal controls. The 26 Core
+and execution-leaf controls passed (`56761a60bdb6476d83ac2ebff8323b2e`).
+
+**N16 rollback replay and owned-stage deployment passed · 2026-11-18.** Preview
+`b2511f2c3b6241e59c7a2e4e12a353bf`, apply `7348bb1c97244b88b4fbdaba12313a77`,
+candidate `d284fe223b534dcca94fae316efefcca`, registration `d7915f985f1542b7a789b97b8b90a44d`
+and deployment `f4fd194928d74160a1624babc3186e45` bound the same stage OID 130661481.
+Rollback replay applied eight native transitions. The native consumer cohort
+`598dda98ef574fa7898ffc87c1bd232d`, real E5 cohort `63a74abd48db43a9a501a3d28ed14285`,
+and matching stage application acquisition are in progress.
 
 ## Production-efficiency integration · 2026-11-17
 
@@ -2714,7 +2834,7 @@ coherent integrated native source; prior previews establish only their recorded 
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
 | DDO-09 | Source currentness/impact and graph foundations implemented within bounded receipts | I03 deliberate fate partition; I05 full rich cut/policy/standing/contracts and reuse consumers; copied-task/twin/stale-cut retirement; CA-11/12 Python repairs have scoped controls; actual native journeys remain. |
 | DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection within focused receipts | I06 literals/typed artifact reader/variant association; rich named-query/reference/grading callers; target model difference distinct from source drift/currentness; old reader retirement; CA-12 selected graph pin repair has scoped controls; native continuation remains to qualify. |
-| DDO-11 | Current root and eleven exact successors through rich_refusals registered and installed on owned stage; persistent development remains located_v2, no adoption | I09 selected current-root route; classify useful import/regeneration, verify recovery, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
+| DDO-11 | Model-built N13 adopted on canonical development, with 29 originals verified across nine projects. Model-built N16 is registered and deployed on the owned stage. | Admit and verify the matching stage application, finish development adoption, verify maintained consumers and retire superseded routes. Regenerate changed-basis results and retain inert historical custody where useful. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
 First settle decision records and shared I01/I03 contracts; operation classification and shared-port
@@ -3861,9 +3981,9 @@ in main; named dependent receipts are held. Complete series qualification remain
 ## Execution queue and readiness
 
 The [PostgreSQL amendment](#postgresql-domain-alignment-amendment--accepted-2026-11-14)
-adds open scoped extensions to these packages; earlier foundation completion is not completion of
-those extensions. Read its readiness/question table alongside this queue before resuming. The
-current-turn closeout ends new campaigns after repair integration and diagnostics; the latest consumer findings above own the next executable work.
+adds scoped extensions to these packages. Use its readiness and question table with the
+[current integration](#scoped-acquisition-and-native-authoring-integration--2026-11-18)
+to determine which work remains.
 
 DDO-00 is **complete at its scoped preparation boundary**. DDO-01–11 retain the source and bounded evidence recorded in the current package table and consumer findings; no scoped foundation pass or accepted decision establishes enclosing completion. The operator authorized all remaining DDO scope on2026-11-16 and subsequently requested this turn's closeout. Earlier dated campaign cancellations retain their original bounds rather than cancelling the later accepted scope. Current native/public/provider retries, recovery and development adoption remain open; DDO-12 owns final-source qualification. Resume from the current consumer findings, not superseded v10 or legacy installation instructions.
 
@@ -3889,7 +4009,7 @@ performing final physical retirement. The contracts companion incorporates test-
 ## Finding and recommendation disposition
 
 Each multi-package finding remains **open**. DDO-00–02 contributions are recorded below; closure
-requires the complete contributing package behavior, not acceptance or a foundation-only pass.
+requires the complete contributing package behavior and applicable verification.
 Preserve original source IDs; do not relabel prior plan findings.
 
 See [the current finding account](#current-finding-account).

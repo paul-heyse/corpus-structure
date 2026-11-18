@@ -71,9 +71,9 @@ display are retired; no current producer consumes that display. Preserve exact o
 source-owned adjacent context, wrong-source and partial/ambiguous-frame refusals in current controls,
 without reconstructing task/view or retained-contribution aliases. The old source-contribution and
 operation-event-fitting SQL are not executable authorities. The sole surviving mutual-neighborhood
-kernel has its dedicated
-[`contextual_neighborhood.sql`](../../../python/corpus-structure/src/corpus_structure/semantic/sql/contextual_neighborhood.sql)
-owner; its captured function body and numerical policy retain their existing identity.
+kernel has a dedicated
+[typed compiler](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_neighborhood.py).
+The captured program uses the existing declared numerical policy.
 
 Historical SQL navigation, artifact-likelihood replay, dossier projection and source-dependency
 fixtures are retired with their closed SQL owners. Current numerical/source meaning belongs to

@@ -32,7 +32,7 @@ The DDO coordinator owns native/scientific consumer qualification and retirement
 
 ## Selected structural report and admission bindings
 
-**Accepted target; implementation/qualification Proposed · 2026-11-15.** The existing selected
+**Implemented source; scoped controls Tested · 2026-11-18; native qualification pending.** The selected
 structural request keeps explicit report roots and adds explicit report/admission root pairs.
 Each paired report must be an explicit root. One cut acquires both roots and required support;
 the reader exposes the ordinary permitted statement with its actual native authority leaf.
@@ -45,6 +45,15 @@ authenticates it as this issued conclusion's finite ordinary report input. Both 
 output must be explicitly requested; source/project/context, visibility and trust must agree.
 Only that actual report edge and its ordinary/source support become visible. The protected issuer
 episode, A/B/C, frames and actors remain hidden; a copied conclusion cannot open this path.
+
+The selected read authenticates current trust and support before storing its immutable boundary.
+Its public intent carries a digest of the exact retained selection and its disclosed roots, targets
+and discovery. Protected authored values, source-set internals and the issuer's binding stay in
+the protected acquisition. A public issuer row carries the authenticated native authority leaf
+and its ordinary conclusion. The immutable read boundary pins the disclosure audience. An authorized
+evaluator can reopen the same public cut with identical disclosed evidence, and continuations check
+the same selection and acquired trust. Full-demand and direct protected reads retain their declared
+purpose checks.
 
 > Decision: [ADR-0115](../adr/0115-structural-policy-issuer.md)
 

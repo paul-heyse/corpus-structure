@@ -380,6 +380,13 @@ native catalog.
 
 ## Acceptance across the series
 
+**Provider panels Tested · 2026-11-18.** The actual book excerpt encoder panel and CUDA GLiNER
+panel passed all ten selected PE-S28 and PE-S30 cases. The coordinator records the managed receipt.
+Keep the same population and attribution checks for PE-S29, S31 and S32 production consumers.
+PE-S08 source removes repeated dependency identity and member inventory work. The real two-region
+PM2 journey passed within the existing per-test timeout at N14. The whole-book PE-S33 comparison
+remains open.
+
 Each companion states the evidence for its slices. The common rules:
 
 - Evidence must be able to expose a wrong implementation: products, identities, refusals and

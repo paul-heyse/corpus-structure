@@ -1,6 +1,6 @@
 # Target-native adoption and qualification
 
-**Accepted target amendment · 2026-11-15; implementation Proposed.** DDO-00 preparation receipts
+**Accepted target amendment · 2026-11-15; initial development cutover complete, qualification open.** DDO-00 preparation receipts
 remain dated evidence; DDO-11 owns adoption/retirement and DDO-12 assembled qualification.
 The coordinator owns state and source-qualified Domain-model I09 disposition. This file retains its
 path; it no longer requires preserving obsolete readers or completing all historical conversion.
@@ -36,6 +36,12 @@ committed all 29 originals across nine projects. A separate read-principal conne
 every descriptor field and verified every retained byte sequence against its file and content
 identity. The book project activated the development capture at generation 1. Regeneration
 and reassessment of derived data are open. [Cutover receipts](../declared-data-operations_2026-11-12.md#generated-ddo-acquisition-settlement-and-inspection--2026-11-18)
+
+The whole-book qualification uses project `nce-grinstead-snell-full-book`, document
+`doc:38d5d93379c3320aa88457511d38fc25` and SHA256
+`763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e`. The source inventory and
+local 518-page PDF agree. The resumed demand and PE-S33 comparison use the exact retained
+population acquired for that original.
 
 The operator now requires complete freedom from legacy code and prefers faithful target-native data
 migration where practical. Preserve useful data through import when actual evidence suffices;
