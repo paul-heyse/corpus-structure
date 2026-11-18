@@ -170,6 +170,30 @@ dependencies, but nothing maps an operation back to the source family that must 
 compiled demand closure, not this composition, decides what executes
 (`primary_operations.py:1–6, 82–86`).
 
+<a id="da-081"></a>
+
+## DA-081 — The generated native facades are registered a second time by hand, outside the self-checking generator registry
+
+**FP-04; DP-01, DP-02.** Found in the delta of 2026-11-17 at `1afa63f88`
+([delta](README.md#delta-1afa63f88)); new in commit `708c119a6`.
+
+The native preview re-renders seven generated Python facades from the candidate model. Their
+paths are one tuple (`schema/model_change.py:53–61`) and their generator calls a second,
+positional tuple (`:536–548`), paired by `zip(strict=True)` (`:549–552`). Each owner also names
+its own path and writer (`semantic/typed_generation.py:87, 105, 115–117`;
+`semantic/pdf_call_generation.py:27, 35`; `semantic/original_document_contracts.py:229, 243`).
+The canonical generator registry checks that declared ownership equals emitted paths
+(`schema/generate.py:556–578`); these facades are outside it.
+
+**Consequence.** A facade that an owner writes but the tuple does not list is not re-rendered
+from the candidate, so a preview could approve SQL whose Python call surface is the working
+tree's copy, which is the drift ADR-0131 sets out to remove. The strict pairing catches a
+length difference, not a reordering. The consequence is inferred; the duplication is
+established.
+
+**Contrary evidence.** Seven entries, all current facades listed, count checked. Whether a
+freshness check elsewhere catches a stale facade was not examined.
+
 ## Lower-weight observations
 
 - The token-to-type table is duplicated between the writer and the reader

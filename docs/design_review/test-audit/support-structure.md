@@ -33,6 +33,8 @@ fixtures through real certification (`tests/pdf_acceptance_support.py:34–143`)
 
 ### DTA-041 — The controlled PDF converter is hand-copied nine times, and the copies no longer produce what production requires
 
+**Delta, 2026-11-17, source `1afa63f88`.** Partly corrected. Two of the nine copies, both in `tests/semantic/current_pdf_source_support.py`, now go through `_certified_controlled_reply` (`:198–232`, commit `f511833df`), which emits the preparation and completion entries and runs production `certify_native_stream`. The other seven are unchanged and both production refusals still exist. One regression: `tests/semantic/test_current_pdf_source_inputs.py:58–68` calls the changed double without the options it now reads (`current_pdf_source_support.py:472`). The text below describes `fbd3f2a98` ([delta](README.md#delta-1afa63f88)).
+
 **FP-02, FP-03, FP-06; DP-16, DP-23; H1; companion §2, §3, §5.** The cause DTA-029 described,
 now in the scenarios most source tests share.
 

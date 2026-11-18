@@ -34,6 +34,8 @@ entry-point execution. Concurrency at the transport level was not checked.
 
 ## DA-080 — Superseded machinery remains in the production tree, kept alive only by tests or by nothing
 
+**Delta, 2026-11-17, source `1afa63f88`.** Partly corrected: `native_finalization.sql` was deleted (`708c119a6`); the other thirteen unreferenced SQL files remain. `semantic/target_installation.py:209, 215` still dispatches on the name `scientific_layout.sql` after that file was converted ([delta](README.md#delta-1afa63f88)).
+
 **FP-01, FP-03; DP-01, DP-16; H27.** This is the production home for a cause that also shows
 in the test account ([DTA-035](../test-audit/retirement-transfer.md#dta-035)).
 

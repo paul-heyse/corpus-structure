@@ -179,6 +179,28 @@ means present in source, not qualified.
 | PE-F30 | Implemented | No two-settler concurrency case was found; the settlement SQL was not read for this |
 | PE-F31 | Partly | See [DA-080](boundaries-and-composition.md#da-080) |
 
+<a id="planned-change"></a>
+
+## Planned change not yet in source
+
+This section is **plan, not evidence**. It maps the remaining steps of the model-owned SQL
+conversion, as the operator described them on 2026-11-17 and as owned by the
+[PostgreSQL companion](../../plans/declared-data-operations/postgresql-realization-and-retirement.md#model-owned-sql-authoring),
+onto the findings they would affect if delivered as described. The mapping is inference from
+the plan text against source at `1afa63f88`. Statuses change only when a later audit reads the
+delivered source.
+
+| Planned step | Findings it would change | Condition, and what would remain |
+|---|---|---|
+| Shared bytes and PDF publication as typed programs; new generators captured in lowering and certification custody; controlled fixtures moved through the certified producer; fixture-only occurrence replay writer deleted | [DTA-041](../test-audit/support-structure.md#dta-041) for the seven remaining copies; [DTA-035](../test-audit/retirement-transfer.md#dta-035) lineage; [DA-074](native-integrity.md#da-074) shared-stream trigger membership; [DA-068](execution-fit.md#da-068) | DTA-041 is corrected only if every copy moves, including those inside test bodies. DA-074 is corrected only if trigger membership is read from a declaration. DA-068 widens further as generators join lowering custody. [DTA-044](../test-audit/evidence-and-discrimination.md#dta-044)'s oracle-skip and lowering-manifest gaps remain |
+| DDO kernels and readers through Core and a finite native program compiler; body markers, substring rewrites and duplicate field lists replaced | [DA-070](semantic-model-and-authority.md#da-070), [DA-071](semantic-model-and-authority.md#da-071), [DA-068](execution-fit.md#da-068); [DTA-047](../test-audit/execution-and-qualification.md#dta-047) | DA-070 is corrected only if the compiler takes family membership from the model and refuses an undeclared operation; a Python transcription of the list keeps the cause. DA-071 goes from three encodings to two at best, since change impact is outside the step. Every test that slices `data_operations.sql` by text loses its subject and must take it from the generator |
+| Native admission and administration: catalog admission, archive and activation guards, runtime bindings, scientific policy checks, scoring wrappers; generated declarations, triggers, roles and ACLs; host bootstrap and test provisioning through shared builders; orphan SQL removed | [DA-074](native-integrity.md#da-074), [DA-033](execution-fit.md#da-033), [DA-080](boundaries-and-composition.md#da-080); test provisioning in [DTA-038](../test-audit/execution-and-qualification.md#dta-038), [DTA-039](../test-audit/execution-and-qualification.md#dta-039) | DA-074 is corrected only if role sets and grants come from declarations; typed rendering alone does not. DA-033 changes footprint; correcting it needs a decision on carrying established assurance. The plan's example orphan, `native_finalization.sql`, is already gone; thirteen others remain. Shared provisioning builders change what the deployment key must cover |
+| DuckDB 2.0 relations for the rich evaluator, companion export and PDF derived analysis | [DA-077](served-claims.md#da-077) | Corrected only if the archived scientific recipe is derived from the kernel's parameters. Tests need expected rows independent of the relation code |
+
+Across the steps: the plan text commits to typed programs and generated statements. It does not
+state that membership and family facts will be read from the model, which is the condition on
+which the model-restatement findings close.
+
 ## Unresolved premises
 
 - Whether a content-based key is sound for served results. One consumer already relies on it ([DA-075](execution-fit.md#da-075)).

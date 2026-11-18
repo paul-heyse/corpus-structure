@@ -80,6 +80,8 @@ accumulate was not counted.
 
 ### DTA-038 — The deployment key cannot see imports made by executed upgrade bodies, and includes much that a deployment does not depend on
 
+**Delta, 2026-11-17, source `1afa63f88`.** Stands; revisions `semantic_ddo_pe_n3` and `_n4` have the same shape ([delta](README.md#delta-1afa63f88)).
+
 **FP-04/FP-05, FP-07/A4; DP-10, DP-20; companion §6, §8.**
 
 The reusable head database is keyed by `deployment_key()`. Its module component is a walk over
@@ -151,6 +153,8 @@ conditions is open.
 <a id="dta-047"></a>
 
 ### DTA-047 — Pure SQL-expression checks create a database per case and execute production SQL spliced by string offsets
+
+**Delta, 2026-11-17, source `1afa63f88`.** Changed footprint. Three tests now take their SQL from the generator instead of a deleted file. One site is stale: `tests/semantic/test_native_sql_body.py:200–216` still reads `execution_projection_check.sql`, deleted in `708c119a6`. About fourteen test modules still read hand-written production SQL by file path, so each further retirement can orphan a reader ([delta](README.md#delta-1afa63f88)).
 
 **FP-02, FP-07/A4; DP-23; H5, H12; companion §5, §6, §8.** Residue of DTA-031.
 

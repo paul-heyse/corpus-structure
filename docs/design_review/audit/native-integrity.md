@@ -10,6 +10,8 @@ about source.
 
 ## DA-074 — Native authorization and guard membership are code lists outside the declaration
 
+**Delta, 2026-11-17, source `1afa63f88`.** Stands. Grant and catalog statements are now rendered by typed builders (`30bf7ec6c`, `e2b291df5`); membership is still held in code lists (`semantic/data_operation_storage.py:1755–1768`; `semantic/target_installation.py:186–255, 332–351`; `semantic/alembic_privileges.py:25–33`) ([delta](README.md#delta-1afa63f88)).
+
 **FP-04/A2; DP-01, DP-02, DP-03.**
 
 The physical model declares tables, columns, keys, checks, indexes, read roles and an

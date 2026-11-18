@@ -28,6 +28,39 @@ from stored results with their run id
 ([evidence](../evidence/2026-11-17_joint-audit-refresh/README.md)). No product behavior is
 labelled Tested by this audit, and no speedup is measured.
 
+<a id="delta-1afa63f88"></a>
+
+## Delta of 2026-11-17 at `1afa63f88`
+
+A scoped re-read, not a refresh. `main` moved 34 commits from `fbd3f2a98` to
+`1afa63f883f07873c8b4d3cccb9fc6622b558d50` while the model-owned SQL conversion
+([ADR-0131](../../adr/0131-model-owned-postgresql-programs.md)) was in progress. Twenty test
+files changed; root `conftest.py`, `tests/conftest.py` and `scripts/` did not. Only findings
+whose cited files are in that diff were re-read, in a frozen export of the pin.
+**Interface-checked by source inspection, 2026-11-17.** No test was run, so every "cannot
+pass" is read from source. Later commits and uncommitted work are outside this delta. The
+remaining planned conversion steps are mapped to findings on the
+[joint page](../audit/model-and-execution.md#planned-change).
+
+| Finding | Status at `1afa63f88` |
+|---|---|
+| [DTA-041](support-structure.md#dta-041) | Partly corrected (two of nine copies certify through production); seven copies still stale; one new breakage in `test_current_pdf_source_inputs.py` |
+| [DTA-047](execution-and-qualification.md#dta-047) | Changed footprint: three tests moved to generator output; `test_native_sql_body.py:200–216` reads a deleted SQL file; one new per-case database site (`test_established_validity_native.py:25–124`) |
+| [DTA-038](execution-and-qualification.md#dta-038), [DTA-039](execution-and-qualification.md#dta-039) | Stand; two more revisions of the same shape |
+| [DTA-040](execution-and-qualification.md#dta-040) | Stands; the per-test path is now passed at `current_pdf_source_support.py:325` |
+| [DTA-044](evidence-and-discrimination.md#dta-044) | Stands. The new validity test covers retained product-validation context, not the set-wise closure gap. The hand-kept lowering manifest (`src/…/semantic/pdf_lowering.py:33–64`) was edited twice in the range and no test perturbs it |
+| DTA-037, 042, 033, 001 | Stand; cited files unchanged (DTA-001's site moved to `test_established_validity_native.py:224`) |
+| DTA-034, 036, 043, 045, 046, 048 | Not affected by the diff |
+
+No new finding. The tests added for generated SQL were read for independence: none compares
+generator output with itself. Most carry hand-written expectations, real PostgreSQL behavior,
+or a model perturbation that every generated artifact must follow
+(`test_pdf_prepare_model.py:17–51`, `test_pdf_source_search_projection.py:63–125`,
+`test_physical_checks.py:59–167`). Weak spots: four literals rewritten to the new renderer's
+spelling, and search-projection tests that parse the SQL but never execute it. The certified
+converter helper restates the worker's ordering and uses two private functions; its
+preparation bytes are not a valid preparation report, which no fresh-directory path reads.
+
 <a id="refresh-2026-11-17"></a>
 
 ## Refresh of 2026-11-17: what changed and what was found
