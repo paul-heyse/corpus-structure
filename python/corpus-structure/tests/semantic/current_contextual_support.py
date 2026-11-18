@@ -262,12 +262,11 @@ def query_intent(kernel, source, occurrence, *, replicate, context_selection=Non
     from semantic.current_pdf_source_support import PROJECT
 
     def chosen(value):
-        pin = value.read
+        # The fixture selected its member from a whole-demand page. Acquire a
+        # separate single-product cut with the public contextual reader.
         return ContextualSelectedProduct(
-            pin.demand_id,
+            value.read.demand_id,
             value.row["product_id"],
-            read_id=pin.read_id,
-            expected_cut=pin.cut_id,
             member_id=value.row["member_id"],
         )
 

@@ -269,9 +269,9 @@ def test_current_native_list_host_requires_exact_selected_membership(
         _, original, products, _ = produce_source_reports(source, kernel, PREDICATES, text=spelling)
         frame, annotations_, primary = actual_basis(kernel, original, products)
         whole = scoped_evidence(frame, annotations_, primary)
-        rows = {row["contribution_id"]: row for row in whole.contributions}
 
         def hosts(evidence):
+            rows = {row["contribution_id"]: row for row in evidence.contributions}
             selected = {}
             for row in evidence.contributions:
                 attachment = row.get("component", {})
