@@ -1,8 +1,9 @@
 # Library-discovery tooling — plan series coordinator
 
-**Status:** Proposed; owns LDT-00–08 and LDT-C1–C3 and the disposition of
+**Status:** LDT-00–08 implemented and qualified for this scope on 2026-11-17; LDT-C1–C3 remain
+conditional and unstarted. Owns the disposition of
 [the tooling review](../../../docs/functional_reviews/library-discovery-tooling_2026-11-17.md)
-O01–O10. Nothing is implemented. **Revised:** 2026-11-17.
+O01–O10. **Revised:** 2026-11-17.
 
 This coordinator owns the combined target, shared contracts, rule changes, package readiness and
 opportunity disposition. The four companions own their designs and package descriptions:
@@ -357,8 +358,66 @@ LDT-05, LDT-07, LDT-08.
 
 ## Current state
 
-Nothing is implemented. Next executable work: operator confirmation of RC1–RC3 and RC6, then
-LDT-00.
+**Implemented, 2026-11-17.** The `tooling` command is installed with seven `library` commands:
+`baseline`, `selection`, `metadata`, `inventory`, `census`, `compare` and `overview`. The
+discovery guide and skill point to them, and the `cli-and-logging` account's mechanical facts
+were regenerated with them, which corrected its stale claim that structlog was not installed.
+
+| Package | State | Evidence |
+|---|---|---|
+| LDT-00 | Done | [ADR-0132](../../../docs/adr/0132-tooling-package.md) accepted; AGENTS.md rows; `tooling/docs/` published |
+| LDT-01 | Done | Reviewed once; nine findings repaired |
+| LDT-02 | Done | structlog 26.1.0 reported as selected and installed |
+| LDT-03 | Done | typer inventory lists `Typer`, `Option`, `Argument` as public with declared paths under `typer.main` and `typer.params`; pydantic reports its seven unresolved aliases without failing `--strict` |
+| LDT-04 | Done | LibCST kept after the opening slice; pydantic census over the product source: `Field` 885 calls, `BaseModel` 304 bases |
+| LDT-05 | Done | Reviewed once; ten findings repaired, including five confirmed false or wrong states; pyrefly confirmed for deprecated use |
+| LDT-06 | Done | typer and ty overviews reported as older than the installed versions |
+| LDT-07 | Done | Guide, skill, account index and the `cli-and-logging` refresh |
+| LDT-08 | Done for this scope | See below |
+
+**Qualification, 2026-11-17, at `6556a0b45` plus the account edit** (Python 3.14.10, uv 0.13.7,
+pyrefly 1.4.0):
+
+- **passed:** `uv run ci test -- tooling/tests tests/scripts/test_test_receipts.py`, result
+  `8cd3bc5aa2b24d5a9e5d8d4c4a69270b`, 302 tests (138 under `tooling/tests`). This is the
+  functional scope the series changed: the new package and the edited managed-test selector.
+- **passed:** `uv run ci check`, result `34811b452107403d90e5035f8a2e0550`: lint-agents,
+  adr-lint, ruff-check, types, docs-check, deps and clippy passed; rules-scan and rules-test
+  are `not_run` (the repository has no rules yet).
+- **passed:** each of the seven commands returns one `tooling.library/1` envelope under `--json`
+  with exit 0 against the root project.
+- **Lock:** across the series the lock gained `corpus-tooling` and the three D1 extensions and
+  nothing else.
+- **not_run:** the full product suite (`uv run ci test` with no selector). No product source
+  changed, and another agent was changing the product tree throughout.
+
+Formatting and auto-fixes were run on `tooling/` and the one edited script only, not through
+`just turn-end`, because another agent was working in the tree.
+
+**What execution changed from the design** (each recorded where it is owned):
+
+- Selection reads `uv tree --frozen --universal` and reports the lock as not verified, because
+  every lock-checking route executes the project interpreter (D4).
+- The class-member rule in `compare` was widened to any class with a use in scope, after review
+  found real false `unreferenced` rows.
+- All first-set dependencies were declared in one lock change.
+- The inventory leaves out names bound only under a `__main__` guard and lists members
+  inherited through private bases.
+
+**Known limits, stated by the tool in its results:**
+
+- `unreferenced in scope` covers direct, attributable reference in the named scope only.
+- Members reached through instances, subclasses, star imports, dynamic imports and strings are
+  unresolved, so `compare` is most useful for libraries used by direct reference.
+- Members of classes reached through repository subclasses or instances are attributed only
+  where the class or instance is bound in the same file.
+- `TypedDict` keys passed in dictionary literals are not seen.
+- The census worker processes start from the tool's own interpreter, which in this repository is
+  the same environment as the root target.
+
+**Next:** nothing is owed. LDT-C1 (summary snapshot) becomes due when an account is refreshed
+with the commands a second time; LDT-C2 and LDT-C3 wait for their triggers. The other three
+discovery accounts adopt the commands and the shared vocabulary at their next refresh.
 
 ## Risks
 

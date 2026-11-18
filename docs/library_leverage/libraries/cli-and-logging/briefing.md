@@ -29,12 +29,12 @@ The overview reading, the topic briefings' source analysis and the research prio
 
 | Item | Inspected scope |
 | --- | --- |
-| Source | `f699005497d2876804516bea9cb1a59e273fa2b4`, main, 2026-11-17 (`baseline`); the 2026-11-10 analysis read `0a384a64ef022fb3ce874ac9180a1a89ebb82061` |
+| Source | `6556a0b45`, main, 2026-11-17 (`baseline`; totals regenerated at this revision); the 2026-11-10 analysis read `0a384a64ef022fb3ce874ac9180a1a89ebb82061` |
 | Worktree | 13 dirty paths from concurrent work at the refresh, none under the scanned scope's library use; not qualified |
 | Environment | Root uv workspace, `.venv`, CPython 3.14.10, linux-x86_64 |
 | Selected | Typer 0.28.0, Rich 15.0.0 and structlog 26.1.0 are each selected directly by `corpus-structure` (`selection`: every platform, default groups, lock read as it stands and not verified). Typer and Rich are also reached transitively, through 132 and 149 paths (Docling, spaCy, fastmcp and others); structlog through one |
 | Installed | The same three versions, each shipping `py.typed` (`metadata`). Rich advertises the `jupyter` extra, which is not selected; structlog and Typer advertise no selected extras |
-| Offered and used | `compare typer rich structlog --scope python/corpus-structure/src`: 785 files scanned, none skipped, pyrefly checked exactly the scope's 730 Python files; 2,467 offered symbols, 39 referenced, 1,690 unreferenced in scope, 738 unresolved; no deprecated API in use |
+| Offered and used | `compare typer rich structlog --scope python/corpus-structure/src`: 785 files scanned, none skipped, pyrefly checked exactly the scope's 730 Python files; 2,342 offered symbols, 39 referenced, 1,565 unreferenced in scope, 738 unresolved; no deprecated API in use. 238 names bound only under `__main__` guards (Rich's demonstration blocks) are not counted as offered |
 | Coverage | All three supplied overviews including addenda read end to end during the 2026-11-10 planning; [coverage and conditional territory](coverage.md) |
 
 What changed since 2026-11-10:
@@ -66,9 +66,7 @@ Limits of these facts. `unreferenced in scope` describes direct, attributable re
 `python/corpus-structure/src` only; tests, `scripts`, `tools/evidence`, `tooling` and `services`
 were outside this scope, where the 2026-11-10 source search had covered representative parts of
 them. Fifteen census rows reach no offered symbol (fourteen dynamic imports with computed module
-names, one member of a call result). At the refresh the inventory still counted demonstration
-names bound under `if __name__ == "__main__":` blocks in Rich as offered symbols, so the
-unreferenced total is inflated; the per-module facts above do not depend on them. The overviews
+names, one member of a call result). The overviews
 describe Typer 0.27.3 against the installed 0.28.0 (`overview` reports the mismatch), so older
 observations are not automatically 0.28.0 contracts. Independently locked provider projects were
 not inspected. Existing November 7 journey evidence retains its original date and scope; no
