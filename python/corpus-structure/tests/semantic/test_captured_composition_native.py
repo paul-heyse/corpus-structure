@@ -149,12 +149,14 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
         ]
         assert discovered["fate"] == "fulfilled"
         (product,) = discovered["products"]
+        derivation = discovered["derivation_id"]
+        assert derivation is not None
         with kernel.purpose("write").begin() as connection:
             DemandPlanner(kernel.model, DataOperationStorage(connection)).expand_discovery(
                 snapshot,
                 population="selected-source-views",
                 product=product["product_id"],
-                derivation=discovered["derivation_id"],
+                derivation=derivation,
             )
         with kernel.purpose("write").begin() as connection:
             snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
@@ -177,5 +179,7 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             if obligations[use["obligation_id"]]["operation_id"] == target
         ]
         assert composition["fate"] == "awaiting-inputs"
-        reasons = composition["selection"]["reasons"]
+        selection = composition["selection"]
+        assert "reasons" in selection
+        reasons = selection["reasons"]
         assert reasons and {row["code"] for row in reasons} == {"binding-covers"}

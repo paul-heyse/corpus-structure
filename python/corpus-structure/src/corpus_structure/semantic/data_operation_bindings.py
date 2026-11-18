@@ -1067,7 +1067,7 @@ def compile_binding(
         queries.append((name, query))
     checks = []
     if independent_optional:
-        null_comparisons = [condition.is_(None)]
+        null_comparisons: list[ColumnElement[bool]] = [condition.is_(None)]
         null_comparisons.extend(
             select(literal(1))
             .select_from(joined_relation({}, (name,)))
