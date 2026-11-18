@@ -411,14 +411,32 @@ pin guard, returned column declarations and private SQL-standard input-body func
 captured PDF domain. It authenticates the same demand, selected support and producing receipt
 before returning records. N18 generates the rest of native admission from declared expectations
 and typed PostgreSQL catalog observations. The last standalone SQL source template is removed.
-The frozen migration archive retains its exact guards. Maintained inline SQL programs remain with
-their component owners, including selected PDF publication, archive and specialized DDO admission.
-The coordinator owns native qualification.
+The frozen migration archive retains its exact guards.
 
-Remaining catalog, scientific, public-read and maintenance routines follow their owning
-boundaries. Preserve frozen migrations, independent test controls and explicitly submitted
-read-only SQL. Qualification covers each deployed native/application pair. The final DDO-12
-union has its own assembled acceptance boundary. [Deployment and verification](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
+N19 generates nine public PDF document reader envelopes and their private SQL-standard query
+bodies. Input and return fields come from captured table and query types. Pin acquisition,
+`read_native_source` authorization, selector validation and row retrieval retain their order.
+The obsolete pre-DDO publication-address migration helper and its mechanism-only tests are
+removed. Maintained inline SQL remains in PDF publication and spool custody, archive, and
+specialized DDO admission. The coordinator owns deployment and native qualification.
+
+N20 generates the contextual linguistic observation functions from the existing typed catalog
+query and closed observation schema. The same program owns ordinal, locale and privilege
+checks. The former compile-to-text adapter and placeholder substitutions are retired.
+
+N23 source converts the remaining publication envelopes, views and spool functions, and the
+archive scratch/publication routines. It uses captured physical and PDF domain shape for columns,
+exact dependency selection and access effects. The old execution-namespace selection is gone.
+Current typed recognition observations retain their own live occurrence and relation storage.
+Captured CPU basis and reply authority, artifact, definition and contextual admission, install
+triggers and observation privileges now use typed programs. N23 native replay and matching
+application acceptance follow the source integration.
+
+The rich and structural admission owners and remaining authoring-maintenance statements still
+contain inline SQL. Convert their maintained paths at coherent owner boundaries. Preserve
+frozen migrations, independent test controls and explicitly submitted read-only SQL.
+Qualification covers each deployed native/application pair. The final DDO-12 union has its own
+assembled acceptance boundary. [Deployment and verification](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
 ### Broader conversion mechanisms · 2026-11-17
 

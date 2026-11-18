@@ -1,0 +1,4 @@
+{
+  "max_reply_bytes": 134217728,
+  "max_source_read_rows": 1000000
+}

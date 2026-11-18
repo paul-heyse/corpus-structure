@@ -1,12 +1,12 @@
 # DDO current native root and development adoption
 
-**In progress · updated 2026-11-17.** The [DDO coordinator](../../../plans/declared-data-operations_2026-11-12.md#current-execution-boundary--2026-11-16)
+**In progress · updated 2026-11-18.** The [DDO coordinator](../../../plans/declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 owns readiness and disposition. [ADR-0118](../../../adr/0118-current-target-installation.md) selects
 the single current native basis and normal native-only lifecycle. This folder retains its
 actual request, stage identity, reviewed artifacts and execution outcomes; it does not establish
 application/provider qualification by preparing or installing infrastructure.
 
-## Current boundary
+## Stage authoring baseline · 2026-11-17
 
 The existing `corpus_structure_dev` remains PostgreSQL18.7 on dedicated5434, database OID25921445,
 system7701811359771751232, installed `semantic_bep_located_v2`; maintenance status reacquired both
@@ -839,6 +839,24 @@ reader compared all project/document identities, paths, source URIs, MIME types,
 metadata, then read and byte-compared all 29 retained originals through the normal API. The
 whole-book project activation reached generation 1 and its release check passed. This evidence
 covers original custody. Generated products, judgments and whole-book execution remain open.
+
+## Whole-book recovery and successor · 2026-11-18
+
+The [adoption companion](../../../plans/declared-data-operations/preservation-adoption-and-qualification.md#actual-preservation-basis)
+owns current standing. The original invocation recovered 135 durably spooled pages and published
+the 518-page capture. The [byte policy](whole-book-execution-policy.json) admits the measured
+capture envelope. The [successor policy](whole-book-successor-execution-policy.json) also supplies
+the whole-book physical row allowance. The N21 successor attached to the original fulfilled
+capture request and published section organization and organized-source discovery. The
+[downstream policy](whole-book-downstream-execution-policy.json) admits larger formal results and
+keeps the same owned-state limit. The application, source identities, and retained failed and
+interrupted results are recorded in the coordinator.
+
+The [construction comparison](compare_retained_book_construction.py) consumes an exact retained
+whole-book demand id. It requires the complete admitted source population and matching native
+formal, sentence and construction products. It authenticates the captured preparation source
+and compares the two construction paths on the same bounds. A refusal while products are
+pending supplies no PE-S33 qualification.
 
 ## Records
 

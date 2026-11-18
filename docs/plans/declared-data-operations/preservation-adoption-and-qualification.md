@@ -1,6 +1,6 @@
 # Target-native adoption and qualification
 
-**Accepted target amendment · 2026-11-15; initial development cutover complete, qualification open.** DDO-00 preparation receipts
+**Accepted target amendment · 2026-11-15. N18 development cutover verified 2026-11-18. Qualification open.** DDO-00 preparation receipts
 remain dated evidence; DDO-11 owns adoption/retirement and DDO-12 assembled qualification.
 The coordinator owns state and source-qualified Domain-model I09 disposition. This file retains its
 path; it no longer requires preserving obsolete readers or completing all historical conversion.
@@ -34,14 +34,36 @@ through N13 at OID 131763263. The predecessor OID 25921445 remains inert with co
 disabled. The dev-bound application passed admission and `ci db check`. Native registration
 committed all 29 originals across nine projects. A separate read-principal connection compared
 every descriptor field and verified every retained byte sequence against its file and content
-identity. The book project activated the development capture at generation 1. Regeneration
-and reassessment of derived data are open. [Cutover receipts](../declared-data-operations_2026-11-12.md#generated-ddo-acquisition-settlement-and-inspection--2026-11-18)
+identity. The book project activated the development capture at generation 1. The frozen forward
+chain moved the same OID from N13 to N18 after stage replay and application admission. The matching
+development application passed database and release admission, activated the book project at
+generation 2, and a fresh reader verified all 29 descriptors and retained byte hashes again.
+The same OID later advanced to N21, the matching application passed admission, and the book
+project advanced to generation 3 after another exact 29-original reader verification.
+Regeneration and reassessment of derived data are open. [Cutover receipts](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
 The whole-book qualification uses project `nce-grinstead-snell-full-book`, document
 `doc:38d5d93379c3320aa88457511d38fc25` and SHA256
 `763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e`. The source inventory and
 local 518-page PDF agree. The resumed demand and PE-S33 comparison use the exact retained
 population acquired for that original.
+
+**Recovery execution · 2026-11-18.** Demand
+`demand:5c35425891ef81e29e6fffc611d92e2f90288c637b852997e2270d135b890e25` is the whole-book
+intent on canonical development. It uses the ordinary phase0/standard profile and organized
+descendant-view discovery. The interrupted invocation had durably acknowledged 135 pages in
+its private spool and drained without cancelling the demand. The next invocation reused
+pages 1–135 from the spool and only prepared pages 136–518 anew. Certified capture
+published on the same demand. Subsequent organization exceeded the default input-byte budget,
+then the independent default physical-row budget. An explicit policy now supplies both bounds
+for the N21 successor demand
+`demand:1bfbb8f55e0866ad0b3c09bd60f84d2a56b87a25cf0f525693d6ad670ec35f45`.
+That demand reused the already-published capture under its original request and published section
+organization and organized-source discovery. The invocation drained after some formal-evidence
+regions exceeded the 64 MiB reply limit. The same demand resumed with a 128 MiB reply allowance,
+the ordinary 256 MiB packet limit and the same 2 GiB owned-state limit. The declared family
+coverage and no-work repeat remain open.
+[Managed receipts](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
 The operator now requires complete freedom from legacy code and prefers faithful target-native data
 migration where practical. Preserve useful data through import when actual evidence suffices;
@@ -124,7 +146,7 @@ No test count or earlier successful campaign substitutes for the declared union.
 | Reuse/change | New executable with unchanged recipe, semantic/model change, equal-content cutoff, changed support, membership addition/deletion/optional presence, newly applicable subjects and explicit replicates |
 | Serving/evaluation | Actual native/ci/MCP/resources, definition/assertion/all3contextual recipes, exact export/verify/detached replay; source and prediction releases separate; protected labels excluded from production |
 | Source evolution | Adopted finite transformations and ongoing `ci model change` preview/apply: independently expected source and domain meaning, actual migrated callers, complete required population, proposed-source compilation, staleness and concurrent/partial-apply recovery; former route removed |
-| Retained whole document | One frozen original316-view/518-page source demand, complete demanded-family fate/coverage account and controlled interruption/resume; reuse faithful target-native completed products where available, otherwise permit regeneration/reassessment without retaining old readers |
+| Retained whole document | One frozen 518-page original and its actual retained source-member population, complete demanded-family fate/coverage account and controlled interruption/resume. Reuse faithful target-native completed products where available and regenerate or reassess otherwise. |
 | PostgreSQL realization | Protocol-only structural/nominal changes at real callers; exact recursive/Decimal/absent/null fidelity; selected versus necessary population verification; actual renewal/port acquisition and once-only physical initialization; honest rollback versus uncertain-effect recovery; complete public/reference migration and live Arrow/helper/historical-import retirement. Conditional Arrow/SQL cross-check cases join only when triggered and selected. |
 | Generality | Independently specified non-statistics context involving attributed/quoted material and meaningful relationships; no page/corpus-specific planner logic |
 

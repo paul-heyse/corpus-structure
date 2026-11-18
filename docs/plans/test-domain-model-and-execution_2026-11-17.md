@@ -263,7 +263,7 @@ binds. A package is not automatically one worker's assignment.
 | Package | Delivers | Needs | Findings | State |
 |---|---|---|---|---|
 | <a id="tdm-00"></a>TDM-00 | Re-read changed code, affected consumers and relevant failure receipts; superseding ADRs for RC07, RC08, RC10 and RC11 with their owning design sections; RC09 recorded | — (the conversion is complete) | RC07–RC11, I01 | Implemented. RC07, RC08, RC10 and RC11 in ADR-0133/0134; RC09 recorded in the rule-change table. |
-| <a id="tdm-01"></a>TDM-01 | Evidence restored at the baseline repair sites and newly confirmed impacted sites; collection and actual setup accounted for separately | TDM-00 | DTA-037 (dangling request), DTA-047 (two stale readers), I01 | Setup and test-body repairs implemented. Composition and public structural acquisition are blocked on production contracts. |
+| <a id="tdm-01"></a>TDM-01 | Evidence restored at the baseline repair sites and newly confirmed impacted sites; collection and actual setup accounted for separately | TDM-00 | DTA-037 (dangling request), DTA-047 (two stale readers), I01 | Setup and test-body repairs implemented. Scoped native composition and structural acquisition passed. |
 | TDM-02 | The model-binding rule in the test-assessment companion, version 1.3 | — | §3 | Implemented. Test assessment 1.3 published. |
 | TDM-03 | Scenarios bound to production acquisition and the release's model; one PDF recipe composer, which still takes the directory it takes today; one recipe-extension helper; `admit_kernel` as the single test-side owner of the persist, admit and bind order | TDM-02 | DTA-042 | Implemented. Scoped model, pack and admission controls passed. |
 | TDM-04 | Identity vector records carry every authored input, so neither consumer supplies a constant and the native consumer keeps the authored number spelling (`1.2500`); a request-identity vector against the generated `data.ddo_identity` | TDM-02 | DTA-033 | Implemented. Python and installed native identity controls passed. |
@@ -271,7 +271,7 @@ binds. A package is not automatically one worker's assignment.
 | TDM-06 | Head key over the production migration chain and actual construction inputs, with observed effective role policy; frozen replay and failed-key repair; redundant policy comparison and dead `--principals` mode removed | TDM-00 | DTA-038/039, RC07, I02 | Implemented. Key, policy replay and stale-head replacement controls passed. |
 | TDM-07 | Recipe and binding split: TDM-03's one composer changes to take content and a binding separately, and recipes become location-free; binding-aware bounded memo; per-consumer recipes never sealed | TDM-00; TDM-03 for the one composer | DTA-040, RC08 | Implemented. Direct writable acquisition and worker binding memo integrated. |
 | TDM-08 | Piloted sealed-capture and writable routes; eligible consumers moved to completed-capture clones under the workspace reservation | TDM-07; TDM-09; TDM-01 for the three repaired factory and seed-directory consumers | F06, RC11, I03 | Sealed and writable capture verified. Consumer evidence includes production blocks and separately recorded provider attempts. |
-| TDM-09 | Seam 1 completed in front of the conversion's `certified_reply`: one production owner of the sequence from preparation to reply, and a request-taking `PdfWorker.stream`; one controlled converter owner whose content is recipe data; every hand-written preparation entry and copy of request assembly removed; contract control | TDM-00 | DTA-041 | Production and controlled seams implemented. Generated successor registered; native composition acceptance is blocked. |
+| TDM-09 | Seam 1 completed in front of the conversion's `certified_reply`: one production owner of the sequence from preparation to reply, and a request-taking `PdfWorker.stream`; one controlled converter owner whose content is recipe data; every hand-written preparation entry and copy of request assembly removed; contract control | TDM-00 | DTA-041 | Production and controlled seams implemented. Scoped native composition and real Docling spool recovery passed. The final required union belongs to TDM-18. |
 | TDM-10 | Public executor construction; real and controlled packet custody and settlement comparisons; reservation pinned by literals | The production seam needs nothing; the test migration needs TDM-07's memoized kernel recipe | DTA-043; DTA-034 (claim double); DTA-009 (`controlled_executor`); I03 | Public executor and typed native I/O implemented. Controlled cases and real prepared-batch path passed. |
 | TDM-11 | Profile determinant and completeness cases, real-peer reach and cleanup, test-only startup matcher retirement | — | DTA-045, I05 | Implemented. Pure compatibility matrix and real-peer refusal controls passed. |
 | TDM-12 | Remaining substitutes wire-checked and owned by support modules; identity-bearing encoder fake; test modules no longer imported from another test directory | TDM-10 for the population-close double only | DTA-034, DTA-046, DTA-009 (each with TDM-10) | Implemented. Wire, paging and encoder controls passed. |
@@ -444,25 +444,25 @@ the required lane union.
 | 16 | Installed, reusable rollback and narrow bare-database cohorts passed (`83905f5eb7b84ef891639c65be560ee2`, `c37a616b63144c488f0477a243db247b`, `0cf30e4d8d3c4fd3b7e0def8183e7e58`, `460925a1d94643248f1870e34499b965`). The remaining bare databases cover empty, forward migration or era-specific claims. |
 | 19 | Managed review passed the existing classifier/CLI suite (`d37d367332814fcbb18d9472501e2c07`) and six final controls (`514502f63bee4f2e9b9384abfb2a170c`). The public command and generated reference are available. |
 
-**Open native composition boundary.** The migrated analytical tests register a real selected
-source cut through the declared discovery path. The composition control still stops at
-`text.compose_view/source-native` awaiting inputs in `132a35c400974ee7b2e82cd6966bedf5`.
-Its [document-level operation](../../python/corpus-structure/src/corpus_structure/methods/characterization.py)
-omits the discovery dependency, so completed discovery cannot advance its readiness watermark. Its optional analytical roles also lack an explicit acquisition
-path for products retained by earlier demands. The production declaration and acquisition owners
-need to settle those contracts. The native composition test retains its independent expected
-result. This is an open prerequisite to verifying that consumer.
+**Native composition dependency passed · 2026-11-18.** The migrated analytical test registers a
+real selected source cut through declared discovery. The earlier awaiting-inputs receipt
+`132a35c400974ee7b2e82cd6966bedf5` remains held. Its source-only and selected-analytical
+composition journey passed in N17's mixed receipt `c4b4bb09147a44efa2b1a86a097c4803` after the
+DDO owner added explicit producer dependencies and exact retained analytical selections. Current
+companion access/export cases also passed in that scoped receipt. TDM-18 retains its assembled
+qualification obligation. [Owning DDO verification](declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
-**Open rich admission boundary.** The four-original record-publication stage now builds in one
+**Native rich admission passed · 2026-11-18.** The four-original record-publication stage builds in one
 controlled capture sequence per seed. Those synthetic originals share stream parts, so the test
 builder admits one capture at a time before testing record publication. The authored publication
-case completed `rich.consolidate` and left `rich.admit` awaiting inputs
-(`24d7b2fa63a84dbd8120bd0893a41869`). The latter requires the consolidation input but declares
-no dependency on that producer, so the readiness watermark cannot observe its completion.
-The current declaration and readiness owners are
-[`methods/rich_knowledge.py`](../../python/corpus-structure/src/corpus_structure/methods/rich_knowledge.py)
-and [`semantic/data_operation_projections.py`](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_projections.py).
-The test keeps its independent publication assertions and reports the two fates.
+case initially completed `rich.consolidate` and left `rich.admit` awaiting inputs
+(`24d7b2fa63a84dbd8120bd0893a41869`). The production owner now declares the dependency.
+N19 reached native rich completion using the actual ordinary authorization and exposed an
+evaluator-only issuance guard called during consumption (`1e1ebd573f94402f9cc65f110cb2ddee`).
+The replacement authenticates the exact selected sealed issuance. The N21 retry passed all
+native rich publication, ordinary query and refusal assertions in the mixed result
+`6d414accdd724b48800cef504934d4d8`. TDM-18 retains final-source union qualification.
+[Owning DDO verification](declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
 **PM2 provider evidence.** The selected source-demand and table cases initially reported
 `blocked` because `CORPUS_PM2_NATIVE_TEST_ASSETS` was unset
@@ -472,8 +472,10 @@ The two-region full-native demand reached execution and exceeded the harness's 1
 limit. At the deadline its main thread was validating an interpreted product and computing
 the product's semantic identity in `construction_products.py` and
 `data_operation_identity.py`. That retained stack identifies where execution was interrupted.
-Cleanup settled. Two cases remained `not_run`. Both passed when selected separately
-(`149a296834074df48871df92edc498d8`): the empty-source control and the actual literal native model answer.
+Cleanup settled. Two cases remained `not_run` in that attempt. Both passed when selected separately
+(`149a296834074df48871df92edc498d8`): the empty-source control and the actual literal native model
+answer. The real two-region case subsequently passed at N14 within its existing timeout
+(`03f8d4609b994202886c65f991716e0f`). [Owning DDO verification](declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
 **Other native consumer boundaries.** The seven-module capture selection recorded 23 passes
 and two failures (`e3ceec079cab49c785f7b742c2897f6f`). The render fixture supplies explicit capacity for its temporary unmanaged engine and points
@@ -549,7 +551,7 @@ it has been.
 
 | Finding | Package | Closure evidence | State |
 |---|---|---|---|
-| [DTA-041](../design_review/test-audit/support-structure.md#dta-041) converter copies | TDM-09 | Partly corrected by the conversion: every controlled reply is now emitted and certified by production. Remaining to observe: no test writes a preparation entry or assembles a stream request by hand; controlled content is a recipe value; the contract control passes; the consumers of the nine doubles pass in a run | Implemented; PDF protocol and capture controls passed. Native composition remains open. |
+| [DTA-041](../design_review/test-audit/support-structure.md#dta-041) converter copies | TDM-09 | Every controlled reply is emitted and certified by production. Remaining to observe: no test writes a preparation entry or assembles a stream request by hand; controlled content is a recipe value; the contract control passes; the consumers of the nine doubles pass in a run | Implemented. PDF protocol, capture controls and scoped native composition passed. TDM-18 owns final-source applicability. |
 | [DTA-037](../design_review/test-audit/retirement-transfer.md#dta-037) fixture lists | TDM-01 (dangling request), TDM-15 | Every native item carries `db`; resolved overrides and parent requests give the correct group under xdist; global lists are retired | Fixture declarations and collection controls passed. |
 | [DTA-033](../design_review/test-audit/evidence-and-discrimination.md#dta-033) vector inputs | TDM-04 (TDM-05 for the search selection site) | The native cases take every input from the vector record and pass, including the case whose number spelling the consumer loses today; a framing change made on both sides fails a vector; the search selection test no longer recomputes its expected digest with the production projection. The conversion supplied the missing field as a constant in the consumer, which makes the cases passable and leaves the finding open | Authored identity vectors and independent native cursor controls passed. |
 | [DTA-047](../design_review/test-audit/execution-and-qualification.md#dta-047) SQL readers, per-case databases | TDM-01 (stale readers), TDM-16 | Partly corrected by the conversion: ten readers now import their generator and the absent anchors are gone. Remaining to observe: none of the ten remaining modules reads production SQL by path or cuts text from it; no check that does not claim a bare database creates a database per case, which 61 files do at the revision baseline against 45 at authoring | The scheduled SQL subjects and isolation routes were migrated. Scoped native results passed. |
