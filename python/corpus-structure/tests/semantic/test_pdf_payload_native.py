@@ -66,8 +66,8 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
                 "top": 1,
                 "right": 2,
                 "bottom": 3,
-                "origin": "top_left",
-                "basis": "native-font",
+                "origin": "TOPLEFT",
+                "basis": "native-math-font-v1",
             }
         ],
     }

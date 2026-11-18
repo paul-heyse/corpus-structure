@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pyarrow as pa
 from docling_core.types.doc import (
     BoundingBox,
     DocItemLabel,
@@ -15,6 +14,7 @@ from docling_core.types.doc import (
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
+from corpus_structure.orchestrate.pdf_streaming import ipc_replay_batches
 from corpus_structure.semantic.pdf_certification import (
     PdfProducerPayloads,
     prepare_pdf_producer_contract,
@@ -117,17 +117,9 @@ def stage_pdf_document(
         )
     finally:
         payloads.close()
-    for replay in replays:
-        with pa.memory_map(str(replay.path), "r") as source:
-            reader = pa.ipc.open_file(source)
-            for index in range(reader.num_record_batches):
-                with engine.begin() as conn:
-                    adopt_pdf_batch(
-                        conn,
-                        build,
-                        f"{replay.family}:{index}",
-                        {replay.family: (reader.get_batch(index),)},
-                    )
+    for batch in ipc_replay_batches(replays, check_active=lambda: None):
+        with engine.begin() as conn:
+            adopt_pdf_batch(conn, build, batch.replay_key, batch.relations)
     for group in prepared:
         batches = prepared_pdf_companion_batches(group)
         try:

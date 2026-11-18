@@ -1,7 +1,5 @@
 """Actual projected region keys preserve exact replay and finalized membership."""
 
-import json
-
 import pytest
 from docling_core.types.doc import (
     BoundingBox,
@@ -14,6 +12,8 @@ from docling_core.types.doc import (
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic import _pdf_native_calls as calls
+from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
 from corpus_structure.semantic.pdf_publication import (
     freeze_pdf_build,
     prepare_pdf_build,
@@ -65,20 +65,20 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
         ("#/texts/0", 0, 1, 10, 20, "top_left"),
         ("#/texts/0", 1, 2, 10, 20, "top_left"),
     ]
-    params = dict(
-        build=build.build_id,
-        task=build.task_id,
-        attempt=build.attempt,
-        holder=build.holder,
-    )
-    statement = text(
-        "SELECT ops.stage_pdf_access_batch(:build,:task,:attempt,:holder,"
-        "jsonb_build_array(jsonb_build_object('family',:family,'body',CAST(:body AS jsonb))))"
-    )
+    def write(connection, family, row):
+        calls.stage_pdf_access_batch(
+            connection,
+            build_id=build.build_id,
+            task_id=TaskId(build.task_id),
+            attempt=TaskAttempt(build.attempt),
+            holder=build.holder,
+            rows=[{"family": family, "body": row}],
+        )
+
     for family, rows in bodies.items():
         for row in rows:
             with commit_writer_engine.begin() as conn:
-                conn.execute(statement, params | {"family": family, "body": json.dumps(row)})
+                write(conn, family, row)
         row = rows[0]
         changes = ({"left": row["left"] + 1},) if family == "region" else ({"text": "changed"},)
         for change in changes:
@@ -86,9 +86,7 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
                 pytest.raises(DBAPIError, match=f"changed {family} projection"),
                 commit_writer_engine.begin() as conn,
             ):
-                conn.execute(
-                    statement, params | {"family": family, "body": json.dumps(row | change)}
-                )
+                write(conn, family, row | change)
 
     with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
@@ -101,4 +99,4 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
             pytest.raises(DBAPIError, match="not owned/open"),
             commit_writer_engine.begin() as conn,
         ):
-            conn.execute(statement, params | {"family": family, "body": json.dumps(rows[0])})
+            write(conn, family, rows[0])

@@ -97,12 +97,18 @@ def test_companion_set_exact_replay_is_neutral_and_changed_duplicate_refuses(
     assert rows == [("one", occurrence("one")), ("two", occurrence("two"))]
 
 
-def test_companion_set_rechecks_owner_after_scratch_transfer(private_build, commit_writer_engine):
+def test_companion_set_rechecks_owner_after_scratch_transfer(
+    private_build, commit_writer_engine, commit_db_engine
+):
     build = private_build
     stale = replace(build, attempt=build.attempt + 1)
-    with commit_writer_engine.begin() as connection:
-        with pytest.raises(DBAPIError, match=r"stale|owned/open"), connection.begin_nested():
-            adopt_raw_companion_set(connection, stale, [raw(build)], replay_key="stale-owner")
+    with (
+        commit_writer_engine.begin() as connection,
+        pytest.raises(DBAPIError, match=r"stale|owned/open"),
+        connection.begin_nested(),
+    ):
+        adopt_raw_companion_set(connection, stale, [raw(build)], replay_key="stale-owner")
+    with commit_db_engine.connect() as connection:
         assert (
             connection.scalar(
                 text("SELECT count(*) FROM ops.pdf_stage_companion WHERE product_id=:build"),
