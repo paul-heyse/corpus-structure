@@ -672,10 +672,11 @@ def verify_detached_result(
     receipts = row_map("ops.data_publication_receipt", "derivation_id")
     from .execution_evidence_leaf import (
         NativeExecutionEvidenceLeaf,
+        combine_execution_evidence_leaves,
         validate_execution_evidence_leaf,
     )
 
-    execution_leaves = {}
+    selected_execution_leaves: list[NativeExecutionEvidenceLeaf] = []
     for value in rows("ops.data_execution_evidence_leaf"):
         if validate_closure and (definitions is None or runtimes is None):
             raise ValueError(
@@ -702,10 +703,8 @@ def verify_detached_result(
         )
         if leaf.intent_id in intents:
             raise ValueError("bounded execution evidence also discloses its private whole intent")
-        previous = execution_leaves.get(leaf.intent_id)
-        if previous is not None and previous != leaf:
-            raise ValueError("bounded execution evidence repeats conflicting member custody")
-        execution_leaves[leaf.intent_id] = leaf
+        selected_execution_leaves.append(leaf)
+    execution_leaves = combine_execution_evidence_leaves(selected_execution_leaves)
     supports = row_map("ops.data_derivation_support", "derivation_id", "occurrence")
     original_supports = row_map(
         "ops.data_derivation_original_support", "derivation_id", "occurrence"
@@ -821,10 +820,9 @@ def verify_detached_result(
             if episode["intent_id"] in execution_leaves:
                 # This native assertion preserves the selected completion facts.
                 # Its hidden whole reply cannot be independently replayed here.
-                leaf = execution_leaves[episode["intent_id"]]
+                leaf, payload = execution_leaves[episode["intent_id"]]
                 if receipt["intent_id"] != leaf.intent_id or leaf.derivation_id != episode["id"]:
                     raise ValueError("bounded execution evidence names another publication")
-                payload = leaf.selected_completion
             else:
                 intent = required(intents, episode["intent_id"], "completion intent")
                 if receipt["intent_id"] != intent["id"] or any(
@@ -919,7 +917,7 @@ def verify_detached_result(
                         )
                     }
                 )
-                if not original:
+                if reference["kind"] == "computation":
                     expected["support_derivation_id"] = reference["derivation_id"]
                 if any(edge[name] != value for name, value in expected.items()):
                     raise ValueError("detached support edge differs from the sealed completion")

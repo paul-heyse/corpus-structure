@@ -6,6 +6,7 @@ check its declared correspondence, not replay the undisclosed whole physical rep
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
@@ -163,6 +164,18 @@ def validate_execution_evidence_leaf(
         raise ValueError(
             "execution evidence leaf lacks its explicit captured prepared batch contract"
         )
+    roles = definition["output_roles"]
+    result_fields = definition["support_contract"].get("result_fields")
+    if (
+        not any(role["name"] == leaf.output_role and role["kind_contract"] == leaf.kind_contract for role in roles)
+        or not isinstance(result_fields, dict)
+        or (
+            result_fields
+            and (not isinstance(result_fields.get(leaf.output_role), str) or not result_fields[leaf.output_role])
+        )
+        or (not result_fields and (len(roles) != 1 or roles[0]["name"] != leaf.output_role))
+    ):
+        raise ValueError("execution evidence leaf lacks its exact archived output projection")
     selected_outputs = leaf.selected_completion["outputs"]
     if len(selected_outputs) != 1 or any(
         (
@@ -182,53 +195,173 @@ def validate_execution_evidence_leaf(
     return leaf
 
 
-def execution_evidence_leaf_native_sql() -> str:
-    return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_cpu_execution_leaf(episode_id text,selected_product text,selected_role text,selected_position bigint,selected_use text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $cpu_leaf$
-DECLARE episode ops.data_derivation; request ops.data_request; intent ops.data_completion_intent;
- receipt ops.data_publication_receipt; product kb.data_product; reply jsonb; projected jsonb; chosen jsonb;
- member_index bigint; cohort jsonb; fence jsonb;
-BEGIN
- SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=episode_id;
- SELECT * INTO STRICT request FROM ops.data_request WHERE id=episode.request_id;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id
- AND request_id=request.id AND generation=episode.generation;
- SELECT * INTO STRICT receipt FROM ops.data_publication_receipt WHERE derivation_id=episode.id AND intent_id=intent.id;
- IF selected_use IS NOT NULL AND NOT EXISTS(SELECT FROM ops.demand_use use_ WHERE use_.id=selected_use
- AND use_.derivation_id=episode.id AND use_.request_id=episode.request_id AND use_.generation=episode.generation
- AND use_.fate='fulfilled') THEN
- RAISE EXCEPTION 'execution leaf differs from actual selected use' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT product FROM kb.data_product WHERE id=selected_product AND project_id=request.project_id;
- IF NOT EXISTS(SELECT FROM ops.data_derivation_output output WHERE output.derivation_id=episode.id
- AND output.product_id=product.id AND output.role=selected_role AND output.position=selected_position AND output.member_id IS NULL)
- OR jsonb_array_length(intent.payload->'outputs')<>1 THEN
- RAISE EXCEPTION 'execution projection requires its exact single-output logical member' USING ERRCODE='23514'; END IF;
- -- The original episode owns the proof even after request rebinding/adoption.
- request.release_id:=episode.release_id; request.runtime_id:=episode.runtime_id;
- request.recipe:=episode.recipe; request.generation:=episode.generation;
- projected:=ops.ddo_cpu_reply_output(request,intent.payload);
- IF projected IS DISTINCT FROM product.canonical_body THEN
- RAISE EXCEPTION 'execution projection differs from its actual selected member output' USING ERRCODE='23514'; END IF;
- reply:=ops.ddo_cpu_reply_value(intent.payload);
- IF reply->>'version'<>'cpu-authority-batch-reply-1' THEN
- RAISE EXCEPTION 'execution evidence leaf requires its actual whole batch reply' USING ERRCODE='23514'; END IF;
- fence:=ops.ddo_cpu_original_producer(request,intent.payload);
- SELECT item,ordinal-1 INTO STRICT chosen,member_index FROM jsonb_array_elements(reply->'members') WITH ORDINALITY batch(item,ordinal)
- WHERE item->'producer'=fence;
- SELECT jsonb_agg(item-'output' ORDER BY ordinal) INTO cohort FROM jsonb_array_elements(reply->'members') WITH ORDINALITY batch(item,ordinal);
- RETURN jsonb_build_object('format','ddo-native-execution-evidence-leaf-v1',
- 'derivation_id',episode.id,'use_id',selected_use,'issuer_operation',request.operation_id,
- 'release_id',episode.release_id,'runtime_id',intent.runtime_id,'recipe',episode.recipe,'producer',fence,
- 'intent_id',intent.id,'intent_payload_digest',intent.payload_digest,'publication_receipt_id',receipt.id,
- 'selected_completion',jsonb_set(intent.payload,'{execution_evidence}',(intent.payload->'execution_evidence')-'cpu_replies'),
- 'product_id',product.id,'kind_contract',product.kind_contract,'output_role',selected_role,'output_position',selected_position,
- 'cpu_receipt',intent.payload->'execution_evidence'->'cpu_receipts'->0,
- 'whole_reply_digest',intent.payload->'execution_evidence'->'cpu_receipts'->0->>'result_digest',
- 'member',chosen->>'member','member_ordinal',member_index,'cohort_size',jsonb_array_length(reply->'members'),
- 'cohort_membership_digest',ops.ddo_digest(cohort),'input_basis_digest',chosen->>'input_basis_digest',
- 'member_output_digest',ops.ddo_digest(projected),'physical_cohort','undisclosed',
- 'verification','native-checked-member-projection');
-END $cpu_leaf$;
-REVOKE ALL ON FUNCTION ops.ddo_cpu_execution_leaf(text,text,text,bigint,text) FROM PUBLIC;
-"""
+def combine_execution_evidence_leaves(
+    leaves: Iterable[NativeExecutionEvidenceLeaf],
+) -> dict[str, tuple[NativeExecutionEvidenceLeaf, WireCompletion]]:
+    """Join exact output projections while preserving their common original custody.
+
+    Each leaf authenticates one output occurrence. The caller checks the combined
+    output inventory against the retained episode edges to detect missing leaves.
+    This reconstructs disclosed semantic completion facts, never the private intent.
+    """
+    grouped: dict[str, dict[tuple[str, int], NativeExecutionEvidenceLeaf]] = {}
+    output_fields = {"product_id", "kind_contract", "output_role", "output_position", "member_output_digest", "selected_completion"}
+    for leaf in leaves:
+        common = leaf.model_dump(mode="python", exclude=output_fields)
+        completion = {name: value for name, value in leaf.selected_completion.items() if name != "outputs"}
+        outputs = grouped.setdefault(leaf.intent_id, {})
+        if outputs:
+            previous = next(iter(outputs.values()))
+            previous_common = previous.model_dump(mode="python", exclude=output_fields)
+            previous_completion = {name: value for name, value in previous.selected_completion.items() if name != "outputs"}
+            if common != previous_common or completion != previous_completion:
+                raise ValueError("bounded execution evidence repeats conflicting member custody")
+        key = (leaf.output_role, leaf.output_position)
+        if key in outputs and outputs[key] != leaf:
+            raise ValueError("bounded execution evidence repeats conflicting output custody")
+        outputs[key] = leaf
+    result: dict[str, tuple[NativeExecutionEvidenceLeaf, WireCompletion]] = {}
+    for intent_id, outputs in grouped.items():
+        first = next(iter(outputs.values()))
+        result[intent_id] = (first, {
+            **first.selected_completion,
+            "outputs": [leaf.selected_completion["outputs"][0] for _, leaf in sorted(outputs.items())],
+        })
+    return result
+
+
+def execution_evidence_leaf_native_sql(model) -> str:
+    """Project one declared output while retaining its original private CPU proof."""
+    from sqlalchemy import BigInteger, Text, and_, cast, column, func, literal, select
+    from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
+    from sqlalchemy.types import NullType
+
+    from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+    from .native_program import Assign, Block, If, Local, Parameter, Raise, Return, SelectInto, core_relation_row, core_variable, function, pg_type
+
+    episodes, requests, intents, receipts, products, outputs, uses, definitions = (
+        model.tables[name] for name in (
+            "ops.data_derivation", "ops.data_request", "ops.data_completion_intent",
+            "ops.data_publication_receipt", "kb.data_product", "ops.data_derivation_output",
+            "ops.demand_use", "sem.data_operation_definition",
+        )
+    )
+
+    def value(name, kind=Text()):
+        return core_variable(name, kind)
+
+    def row(name, table, field):
+        return core_variable(name, table.c[field].type, field)
+
+    def episode(field):
+        return row("episode", episodes, field)
+
+    def request(field):
+        return row("request", requests, field)
+
+    def intent(field):
+        return row("intent", intents, field)
+
+    def product(field):
+        return row("product", products, field)
+
+    def definition(field):
+        return row("definition", definitions, field)
+
+    def selected(table, where, name):
+        return SelectInto(select(core_relation_row(table)).select_from(table).where(where), (name,), strict=True)
+
+    def refuse(condition, message):
+        return If(condition, (Raise(message, "23514"),))
+
+    payload = intent("payload")
+    evidence = payload["execution_evidence"]
+    actual = value("projected", JSONB())
+    reply = value("reply", JSONB())
+    fence = value("fence", JSONB())
+    chosen = value("chosen", JSONB())
+    selected_output = value("selected_output", JSONB())
+    role, position = value("selected_role"), value("selected_position", BigInteger())
+    selected_use = value("selected_use")
+    result_field = value("result_field")
+    result_fields = definition("support_contract")["result_fields"]
+    output_items = func.jsonb_array_elements(payload["outputs"]).table_valued(column("value", JSONB())).render_derived(name="declared_output")
+    item = output_items.c.value
+    batch = func.jsonb_array_elements(reply["members"]).table_valued(column("item", JSONB()), with_ordinality="ordinal").render_derived(name="batch")
+    batch_item = batch.c.item
+    cohort = select(func.jsonb_agg(aggregate_order_by(batch_item.op("-")(literal("output")), batch.c.ordinal))).select_from(batch).scalar_subquery()
+    request_record = value("request", NullType())
+    scalar_contract = and_(
+        func.jsonb_array_length(definition("output_roles")) == 1,
+        definition("output_roles")[0]["name"].astext == role,
+    )
+    parameters = (
+        Parameter("episode_id", pg_type("text")), Parameter("selected_product", pg_type("text")),
+        Parameter("selected_role", pg_type("text")), Parameter("selected_position", pg_type("int8")),
+        Parameter("selected_use", pg_type("text")),
+    )
+    program = function(
+        "ops", "ddo_cpu_execution_leaf", parameters=parameters, returns=pg_type("jsonb"),
+        volatility="stable", security_definer=True, search_path=("pg_catalog", "pg_temp"),
+        body=Block((
+            selected(episodes, episodes.c.id == value("episode_id"), "episode"),
+            selected(requests, requests.c.id == episode("request_id"), "request"),
+            selected(intents, and_(intents.c.id == episode("intent_id"), intents.c.request_id == request("id"), intents.c.generation == episode("generation")), "intent"),
+            selected(receipts, and_(receipts.c.derivation_id == episode("id"), receipts.c.intent_id == intent("id")), "receipt"),
+            refuse(and_(selected_use.is_not(None), ~select(1).select_from(uses).where(
+                uses.c.id == selected_use, uses.c.derivation_id == episode("id"), uses.c.request_id == episode("request_id"),
+                uses.c.generation == episode("generation"), uses.c.fate == "fulfilled",
+            ).exists()), "execution leaf differs from actual selected use"),
+            selected(products, and_(products.c.id == value("selected_product"), products.c.project_id == request("project_id")), "product"),
+            refuse(~select(1).select_from(outputs).where(
+                outputs.c.derivation_id == episode("id"), outputs.c.product_id == product("id"),
+                outputs.c.role == role, outputs.c.position == position, outputs.c.member_id.is_(None), outputs.c.multiplicity == 1,
+            ).exists(), "execution projection requires its exact logical output occurrence"),
+            SelectInto(select(item).select_from(output_items).where(
+                item["role"].astext == role, cast(item["position"].astext, BigInteger()) == position,
+                item["member_id"].astext.is_(None), cast(item["multiplicity"].astext, BigInteger()) == 1,
+                item["product"]["kind_contract"].astext == product("kind_contract"),
+                item["product"]["body"] == product("canonical_body"),
+            ), ("selected_output",), strict=True),
+            Assign(("request", "release_id"), episode("release_id")),
+            Assign(("request", "runtime_id"), episode("runtime_id")),
+            Assign(("request", "recipe"), episode("recipe")),
+            Assign(("request", "generation"), episode("generation")),
+            selected(definitions, and_(definitions.c.release_id == episode("release_id"), definitions.c.operation_id == request("operation_id")), "definition"),
+            Assign("projected", cast(func.ops.ddo_cpu_reply_output(request_record, payload), JSONB())),
+            refuse(func.jsonb_typeof(result_fields).is_distinct_from("object"), "execution output lacks its archived result-field projection"),
+            If(result_fields != cast(literal("{}"), JSONB()), (
+                Assign("result_field", result_fields[role].astext),
+                refuse(result_field.is_(None), "execution output lacks its exact archived result field"),
+                Assign("projected", cast(func.data.ddo_field(actual, result_field), JSONB())),
+            ), (
+                refuse(~scalar_contract, "execution output requires its archived single-output contract"),
+            )),
+            refuse(actual.is_distinct_from(product("canonical_body")), "execution projection differs from its actual selected member output"),
+            Assign("reply", cast(func.ops.ddo_cpu_reply_value(payload), JSONB())),
+            refuse(reply["version"].astext.is_distinct_from("cpu-authority-batch-reply-1"), "execution evidence leaf requires its actual whole batch reply"),
+            Assign("fence", cast(func.ops.ddo_cpu_original_producer(request_record, payload), JSONB())),
+            SelectInto(select(batch_item, batch.c.ordinal - 1).select_from(batch).where(batch_item["producer"] == fence), ("chosen", "member_index"), strict=True),
+            Return(func.jsonb_build_object(
+                "format", "ddo-native-execution-evidence-leaf-v1",
+                "derivation_id", episode("id"), "use_id", selected_use, "issuer_operation", request("operation_id"),
+                "release_id", episode("release_id"), "runtime_id", intent("runtime_id"), "recipe", episode("recipe"), "producer", fence,
+                "intent_id", intent("id"), "intent_payload_digest", intent("payload_digest"), "publication_receipt_id", row("receipt", receipts, "id"),
+                "selected_completion", func.jsonb_set(
+                    func.jsonb_set(payload, "{execution_evidence}", evidence.op("-")(literal("cpu_replies"))),
+                    "{outputs}", func.jsonb_build_array(selected_output),
+                ),
+                "product_id", product("id"), "kind_contract", product("kind_contract"), "output_role", role, "output_position", position,
+                "cpu_receipt", evidence["cpu_receipts"][0], "whole_reply_digest", evidence["cpu_receipts"][0]["result_digest"].astext,
+                "member", chosen["member"].astext, "member_ordinal", value("member_index", BigInteger()), "cohort_size", func.jsonb_array_length(reply["members"]),
+                "cohort_membership_digest", func.ops.ddo_digest(cohort), "input_basis_digest", chosen["input_basis_digest"].astext,
+                "member_output_digest", func.ops.ddo_digest(actual), "physical_cohort", "undisclosed", "verification", "native-checked-member-projection",
+            )),
+        ), tuple(Local(name, table) for name, table in (
+            ("episode", episodes), ("request", requests), ("intent", intents), ("receipt", receipts),
+            ("product", products), ("definition", definitions),
+        )) + tuple(Local(name, pg_type("jsonb")) for name in ("reply", "projected", "chosen", "fence", "selected_output"))
+        + (Local("member_index", pg_type("int8")), Local("result_field", pg_type("text")))),
+    )
+    identity = NativeIdentity("function", "ops", "ddo_cpu_execution_leaf", ("text", "text", "text", "bigint", "text"))
+    return native_sql_script((program, native_privilege_sql(identity, "PUBLIC", grant=False)))

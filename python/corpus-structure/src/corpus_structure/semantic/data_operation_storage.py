@@ -318,7 +318,7 @@ def native_protocol_sources(
         *source_value_native_sources(logical["observations.yaml"]),
         SourceArtifact(
             "native/data-operation-execution-evidence-leaf.sql",
-            execution_evidence_leaf_native_sql().encode(),
+            execution_evidence_leaf_native_sql(target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-execution-evidence-leaf.json",

@@ -369,7 +369,7 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     )
     assert result.receipt_count == 1
     (admission,) = selected(
-        kernel, retained["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission"
+        kernel, retained["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission", purpose="evaluate"
     )
     assert admission.body["assessment_basis"] == "independently_attributed_authored_judgments"
     assert admission.body["scientific_truth"] == "not_established"
@@ -542,13 +542,13 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         author=True,
     )
     (actual_comparison,) = selected(
-        kernel, complete["demand_id"], kind="urn:corpus:structural:DeclaredComparisonReport"
+        kernel, complete["demand_id"], kind="urn:corpus:structural:DeclaredComparisonReport", purpose="evaluate"
     )
     (actual_admission,) = selected(
-        kernel, complete["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission"
+        kernel, complete["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission", purpose="evaluate"
     )
     (dossier,) = selected(
-        kernel, complete["demand_id"], kind="urn:corpus:structural:DeclaredDossierReport"
+        kernel, complete["demand_id"], kind="urn:corpus:structural:DeclaredDossierReport", purpose="evaluate"
     )
     assert actual_comparison.row["product_id"] == comparison.row["product_id"]
     assert dossier.row["product_id"] == ordinary_dossier.row["product_id"]
