@@ -328,7 +328,7 @@ def refuse_resolution_score_substitution(fitted, authorization, monkeypatch):
     from corpus_structure.semantic.record_policy_authority import DdoFittedRecordPolicy
 
     journey = fitted.journey
-    private = DdoFittedRecordPolicy.model_validate(fitted.fitted)
+    private = DdoFittedRecordPolicy.model_validate_json(json_bytes(fitted.fitted))
     source = next(
         source
         for source in journey.sources
