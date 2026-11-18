@@ -186,7 +186,7 @@ def primary_profile_inputs(tmp_path):
         native = NativeProfile(
             provider,
             {"fixture": "no provider execution"},
-            {"files": {}},
+            {"files": {}} if provider == "spacy" else {"model": {"files": {}}},
             configuration.model_dump(mode="json") if provider == "spacy" else {},
             "float32",
             "cupy" if provider == "spacy" else "torch",
