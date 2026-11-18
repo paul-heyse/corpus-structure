@@ -83,19 +83,6 @@ def _shape_definition(connection, sql, *, source):
     raise NativeAuthoringError(f"{source}: native record shape declaration is absent")
 
 
-def _context_definition(connection, sql, *, source):
-    prepared = prepare_sql(sql, source=source)
-    for index, raw in enumerate(prepared.statements):
-        statement = raw.stmt
-        if isinstance(statement, ast.CreateFunctionStmt) and tuple(
-            part.sval for part in statement.funcname or ()
-        ) == ("ops", "pdf_record_context_rows"):
-            return definition_from_sql(
-                connection, prepared.excerpt(index), source=source, owner="corpus_sem_publisher"
-            )
-    raise NativeAuthoringError(f"{source}: native context rows declaration is absent")
-
-
 def _pdf_payload_definitions(connection, sql, *, source):
     from .native_function_signatures import function_signature
     from .native_inventory import update_function_inventory
@@ -112,8 +99,8 @@ def _pdf_payload_definitions(connection, sql, *, source):
             name[0] != "ops" and name != ("sem", "admit_pdf_operation_contracts")
         ):
             continue
-        # These two have dedicated current shape/context owners below.
-        if name[1] in {"pdf_native_record_shape", "pdf_record_context_rows"}:
+        # The compiled shape declaration has a dedicated owner.
+        if name[1] == "pdf_native_record_shape":
             continue
         descriptor = inventory[function_signature(statement)]
         definition = definition_from_sql(

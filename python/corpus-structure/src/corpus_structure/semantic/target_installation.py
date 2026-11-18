@@ -177,7 +177,6 @@ def target_native_definitions(connection, installation: TargetInstallation):
     from .companion_projection_native import companion_projection_definitions
     from .data_operation_storage import data_operation_native_definitions
     from .native_authoring import (
-        _context_definition,
         _pdf_payload_definitions,
         _publication_view_definitions,
         _release_guard_definitions,
@@ -266,11 +265,6 @@ def target_native_definitions(connection, installation: TargetInstallation):
     definitions.extend(
         (
             _shape_definition(connection, payload, source="target-current:PDF shape"),
-            _context_definition(
-                connection,
-                sql.joinpath("pdf_record_context.sql").read_text(),
-                source="target-current:PDF context",
-            ),
             *_pdf_payload_definitions(connection, payload, source="target-current:PDF publication"),
             *_publication_view_definitions(connection, payload, source="target-current:PDF views"),
             *published_reader_definitions(connection, target_metadata=selected),
