@@ -138,6 +138,33 @@ def test_native_authority_classification_has_no_reopening_principal_dependency()
     assert "native_receipt" in classifier and "native_output" in classifier
 
 
+def test_public_family_replies_guard_full_scoped_intent_presentation():
+    from pglast import ast
+
+    from corpus_structure.semantic.native_sql_body import body_source
+    from corpus_structure.semantic.prepared_sql import prepare_sql
+    from corpus_structure.semantic.source_admission_native import source_admission_native_sql
+    from corpus_structure.semantic.visual_read_native import visual_read_programs
+
+    programs = (
+        source_admission_native_sql(metadata),
+        visual_read_programs(metadata, b"{}"),
+    )
+    bodies = {
+        statement.stmt.funcname[-1].sval: body_source(statement.stmt)
+        for source in programs
+        for statement in prepare_sql(source, source="family-cut-presentation").statements
+        if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname
+    }
+    for name in (
+        "read_selected_pdf_source",
+        "read_selected_pdf_observations",
+        "read_selected_visual_evidence",
+    ):
+        assert "boundary.public_disclosure" in bodies[name]
+        assert "ops.ddo_authorize('evaluator')" in bodies[name]
+
+
 def test_native_sql_uses_frozen_core_products_without_ambient_builder(monkeypatch):
     captured = native_protocol_sources()
     first = native_sql(captured)
