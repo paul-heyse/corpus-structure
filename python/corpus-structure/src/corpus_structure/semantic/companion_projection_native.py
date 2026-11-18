@@ -6,8 +6,10 @@ from sqlalchemy import Column, Text, cast, column, func, null, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import NullType
 
+from corpus_structure.schema.integrity import role_name
+
 from .companion_projection import FAMILIES, captured_projection, projection
-from .native_objects import definition_from_sql
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, definition_from_sql
 from .native_program import (
     Assign,
     Block,
@@ -241,8 +243,8 @@ def input_body_definition(connection, *, target_metadata=None, domain=None):
         connection,
         source,
         source="companion-input:private-body",
-        owner="corpus_sem_publisher",
-        grants=(),
+        owner=role_name("publisher"),
+        program_access=INTERNAL_PROGRAM,
     )
     return sql_standard_definition(definition, statement)
 
@@ -261,13 +263,10 @@ def companion_projection_definitions(connection, *, target_metadata=None, domain
             connection,
             sql,
             source="companion-projections:" + name,
-            owner="corpus_sem_publisher",
-            grants=()
+            owner=role_name("publisher"),
+            program_access=INTERNAL_PROGRAM
             if name == "pin"
-            else tuple(
-                (role, "EXECUTE", False)
-                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
-            ),
+            else NativeProgramAccess(purposes=("read", "write", "evaluate")),
         )
         for name, sql in sources
     )

@@ -1,17 +1,10 @@
 id: https://corpus-structure.dev/semantic/data-operation-pdf-capture
 name: data_operation_pdf_capture
+imports: [pdf-observation-vocabulary]
 prefixes:
   dpc: https://corpus-structure.dev/semantic/data-operation-pdf-capture/
 default_prefix: dpc
 default_range: string
-enums:
-  DdoPdfObservationOutcome:
-    permissible_values:
-      succeeded: {}
-      partial: {}
-      failed: {}
-      unknown: {}
-      unsupported: {}
 classes:
   DdoPdfObservedRequest:
     is_a: SourceRecordProduct
@@ -20,13 +13,13 @@ classes:
       ordinal: {range: integer, minimum_value: 0, required: true}
       meaning_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
       pass_role: {required: true, pattern: '^[ABC]$'}
-      outcome: {range: DdoPdfObservationOutcome, required: true}
+      outcome: {range: PdfObservationOutcome, required: true}
   DdoPdfObservedPage:
     is_a: SourceRecordProduct
     attributes:
       page_no: {range: integer, minimum_value: 1, required: true}
       recipe_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
-      outcome: {range: DdoPdfObservationOutcome, required: true}
+      outcome: {range: PdfObservationOutcome, required: true}
       observations: {range: DdoPdfObservedRequest, required: true, minimum_cardinality: 1, multivalued: true, inlined: true, inlined_as_list: true}
   DdoPdfObservationSet:
     is_a: SourceRecordProduct

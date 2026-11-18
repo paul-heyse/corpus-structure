@@ -10,7 +10,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_attempt_release_native import attempt_release_native_sql
 from corpus_structure.semantic.data_operation_execution_evidence import execution_evidence_schema
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import (
     definition_from_sql,
     execute_native_sql,
@@ -20,15 +20,15 @@ from corpus_structure.semantic.native_objects import (
 
 def render(protocol=None):
     protocol = (
-        metadata.info["physical_sources"]["data-operation-native.yaml"]
+        get_metadata().info["physical_sources"]["data-operation-native.yaml"]
         if protocol is None
         else protocol
     )
-    return attempt_release_native_sql(metadata, protocol, execution_evidence_schema())
+    return attempt_release_native_sql(get_metadata(), protocol, execution_evidence_schema())
 
 
 def test_attempt_release_binds_diagnostic_limits_to_the_captured_wire():
-    protocol = yaml.safe_load(metadata.info["physical_sources"]["data-operation-native.yaml"])
+    protocol = yaml.safe_load(get_metadata().info["physical_sources"]["data-operation-native.yaml"])
     protocol["definitions"]["d1_known_limitation"]["properties"]["request_json"]["maxLength"] = 777
     for alternative in protocol["definitions"]["d1_limitation_reply"]["oneOf"]:
         if alternative["properties"]["reason"].get("const") == "question_count":

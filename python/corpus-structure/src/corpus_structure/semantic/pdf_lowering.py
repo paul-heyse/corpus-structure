@@ -98,6 +98,9 @@ LOWERING_FILES = (
     "model/semantic/pdf-records.yaml",
     "model/semantic/pdf-staging.yaml",
     "model/semantic/pdf-products.yaml",
+    "model/semantic/pdf-observation-vocabulary.yaml",
+    "model/compiled.py",
+    "model/semantic/native-field-kinds.yaml",
     "model/semantic/pdf-payloads.yaml",
     "model/semantic/core.yaml",
     "model/semantic/docling-validation.schema.json",
@@ -116,6 +119,7 @@ def _current_boundary():
     records = []
     logical_files = {
         "pdf_products": "pdf-products.yaml",
+        "pdf-observation-vocabulary": "pdf-observation-vocabulary.yaml",
         "core": "core.yaml",
         "pdf_records": "pdf-records.yaml",
         "pdf_staging": "pdf-staging.yaml",
@@ -197,6 +201,7 @@ def _prepared_lowering_sources(boundary_sources):
             "pdf_domain_schema",
             (
                 SourceArtifact("pdf_products", logical["pdf_products"]),
+                SourceArtifact("pdf-observation-vocabulary", logical["pdf-observation-vocabulary"]),
                 SourceArtifact("core", logical["core"]),
                 SourceArtifact(
                     "pdf_domain_schema",
@@ -280,7 +285,7 @@ def require_lowering_identity(context) -> str:
     if context.domain is None:
         raise ValueError("PDF certification requires its released lowering contract")
     retained = context.domain.source(LOWERING_CONTRACT)
-    from .metadata import metadata
+    from .metadata import get_metadata
 
     current_boundary, _records = _current_boundary()
     actual_physical = {
@@ -294,8 +299,8 @@ def require_lowering_identity(context) -> str:
         if source.name == "pdf-domain/logical/linkml:types"
     )
     if (
-        metadata.info["physical_sources"] != actual_physical
-        or metadata.info["physical_linkml_types"] != actual_types
+        get_metadata().info["physical_sources"] != actual_physical
+        or get_metadata().info["physical_linkml_types"] != actual_types
     ):
         raise ValueError("PDF runtime metadata differs from the lowering basis; restart required")
     current = lowering_sources()

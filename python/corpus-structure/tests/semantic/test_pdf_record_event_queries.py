@@ -6,7 +6,7 @@ from sqlalchemy import Column, MetaData, Table, literal, select
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.pdf_record_event_queries import (
     native_event_query,
     native_event_relations,
@@ -18,7 +18,7 @@ def test_typed_native_events_preserve_nested_order_and_parts(infrastructure_roll
     conn.exec_driver_sql("CREATE SCHEMA ops; CREATE SCHEMA kb")
     models = {}
     for name in ("ops.pdf_record_document", "kb.pdf_record_native", "kb.pdf_record_membership"):
-        source = metadata.tables[name]
+        source = get_metadata().tables[name]
         relation = Table(
             source.name,
             MetaData(),
@@ -80,7 +80,7 @@ def test_typed_native_events_preserve_nested_order_and_parts(infrastructure_roll
             ),
         )
     published = select(literal("b").label("build_id")).cte("published")
-    query = native_event_query(native_event_relations(metadata, published))
+    query = native_event_query(native_event_relations(get_metadata(), published))
     events = conn.execute(query).scalars().all()
     encoded = "".join(
         event["value"]
@@ -94,9 +94,11 @@ def test_typed_native_events_preserve_nested_order_and_parts(infrastructure_roll
     )
     assert all(event["kind"] in {"literal", "inline"} for event in events)
     empty = select(literal("absent").label("build_id")).cte("empty_published")
-    assert conn.execute(native_event_query(native_event_relations(metadata, empty))).all() == []
+    assert (
+        conn.execute(native_event_query(native_event_relations(get_metadata(), empty))).all() == []
+    )
     selected = native_event_relations(
-        metadata,
+        get_metadata(),
         published,
         roots=lambda nodes: select(
             nodes.c.record_id.label("record_id"), array([9]).label("path")
@@ -127,7 +129,7 @@ def test_typed_companion_events_preserve_field_and_part_scope(infrastructure_rol
         "kb.pdf_record_companion_field",
         "ops.pdf_artifact_stream",
     ):
-        source = metadata.tables[name]
+        source = get_metadata().tables[name]
         relation = Table(
             source.name,
             MetaData(),
@@ -138,7 +140,7 @@ def test_typed_companion_events_preserve_field_and_part_scope(infrastructure_rol
         tables[name] = relation
     from corpus_structure.semantic.pdf_record_model import record_upload_table
 
-    source = record_upload_table("ops.pdf_stage_artifact_part", metadata)
+    source = record_upload_table("ops.pdf_stage_artifact_part", get_metadata())
     parts = Table(
         "event_parts",
         MetaData(),
@@ -206,7 +208,7 @@ $$
     chosen = select(companions).where(
         companions.c.product_id == "b", companions.c.revision_id == "b"
     )
-    events = companion_event_relation(metadata, chosen.subquery("chosen"), prefix="selected_")
+    events = companion_event_relation(get_metadata(), chosen.subquery("chosen"), prefix="selected_")
     actual = conn.execute(companion_event_query(events)).scalars().all()
     assert [event["kind"] for event in actual] == [
         "row",

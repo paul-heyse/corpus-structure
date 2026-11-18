@@ -7,7 +7,7 @@ from alembic.operations import Operations
 from sqlalchemy import text
 
 from corpus_structure.semantic.alembic_native import NativeTransitionOp
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_admission import _admission_descriptor, native_admission_sql
 from corpus_structure.semantic.native_objects import (
     admit_native,
@@ -53,12 +53,12 @@ def test_managed_acl_replacement_removes_reader_in_native_and_descriptor(infrast
         predecessor=before.desired,
         owned_authoring=True,
     )
-    captured = capture_target_installation(metadata)
+    captured = capture_target_installation(get_metadata())
     admission = native_admission_sql(
         admission_kernel() + "\n" + definition.sql,
         captured.authoring_inputs,
         base_descriptor=target_admission_descriptor(captured, ()),
-        target_metadata=metadata,
+        target_metadata=get_metadata(),
         native_objects=after.desired,
     )
     selected = next(

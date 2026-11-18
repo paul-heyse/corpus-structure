@@ -11,6 +11,8 @@ from alembic.runtime.plugins import Plugin
 from sqlalchemy import or_, select
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.schema.integrity import integrity, schema_read_roles
+
 from . import native_catalog as catalog_queries
 from .native_objects import (
     NativeAuthoringError,
@@ -21,16 +23,8 @@ from .native_objects import (
     native_privilege_sql,
 )
 
-PUBLISHER = "corpus_sem_publisher"
-DEFAULT_READ_ROLES = (
-    "corpus_sem_writer",
-    "corpus_sem_reader",
-    "corpus_sem_admitter",
-    "corpus_sem_evaluator",
-)
-
-
-PURPOSE_ROLES = (*DEFAULT_READ_ROLES, "corpus_sem_fitter")
+PUBLISHER = integrity().publisher
+PURPOSE_ROLES = integrity().purpose_roles
 
 
 class PrivilegePolicy(TypedDict):
@@ -72,7 +66,7 @@ def _deny_purpose_create(connection, schema):
 
 
 def table_policy(relation) -> PrivilegePolicy:
-    roles = relation.info.get("read_roles", DEFAULT_READ_ROLES)
+    roles = relation.info["read_roles"]
     return {
         "kind": "table",
         "name": relation.fullname,
@@ -325,7 +319,7 @@ def _execute_privileges(operations, operation, failure_context):
                 )
             if observed["owner"] != before["owner"]:
                 raise NativeAuthoringError("stale recorded table owner")
-            for role in sorted(set(DEFAULT_READ_ROLES) | set(before["read_roles"])):
+            for role in sorted(set(schema_read_roles("sem")) | set(before["read_roles"])):
                 allowed = connection.scalar(
                     select(
                         catalog_queries.pg.has_table_privilege(
@@ -433,7 +427,7 @@ def privilege_operations(before, desired, legacy_tables):
                     "kind": "table",
                     "name": after["name"],
                     "owner": prior.get("owner", PUBLISHER),
-                    "read_roles": prior.get("read_roles", list(DEFAULT_READ_ROLES)),
+                    "read_roles": prior.get("read_roles", list(schema_read_roles("sem"))),
                     "unrecorded": ["acl", "columns"],
                 }
             )

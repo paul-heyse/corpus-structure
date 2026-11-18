@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 from corpus_structure.semantic.pdf_staging_native import (
     stage_batch_adoption_sql,
@@ -15,8 +15,8 @@ from corpus_structure.semantic.pdf_staging_native import (
 def test_generated_lifecycle_preserves_writer_and_private_fences(native_rollback):
     connection = native_rollback.connection
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, stage_lifecycle_sql(metadata))
-        execute_native_sql(connection, stage_batch_adoption_sql(metadata))
+        execute_native_sql(connection, stage_lifecycle_sql(get_metadata()))
+        execute_native_sql(connection, stage_batch_adoption_sql(get_metadata()))
     arguments = {
         "task": None,
         "attempt": None,
@@ -99,7 +99,7 @@ def test_generated_scratch_authorization_checks_actual_owner_columns_and_checks(
 def test_generated_stage_ownership_preserves_absence_and_private_entrypoints(native_rollback):
     connection = native_rollback.connection
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, stage_lifecycle_sql(metadata))
+        execute_native_sql(connection, stage_lifecycle_sql(get_metadata()))
     assert connection.scalar(text("SELECT ops.pdf_stage_owner_current(-1,1,'holder')")) is False
     assert connection.execute(text("SELECT * FROM ops.pdf_task_context(NULL)")).all() == []
     with (
@@ -129,13 +129,13 @@ def test_begin_build_uses_the_supplied_physical_upload_profile():
     from corpus_structure.schema.physical import compile_physical
     from corpus_structure.semantic.pdf_staging import stage_upload_profile
 
-    sources = dict(metadata.info["physical_sources"])
+    sources = dict(get_metadata().info["physical_sources"])
     declaration = yaml.safe_load(sources["pdf-staging.yaml"])
     profile = json.loads(declaration["annotations"]["pds:upload_profile"])
     profile["max_replay_key_bytes"] = 17
     declaration["annotations"]["pds:upload_profile"] = json.dumps(profile)
     sources["pdf-staging.yaml"] = yaml.safe_dump(declaration).encode()
-    supplied = compile_physical(sources, linkml_types=metadata.info["physical_linkml_types"])
+    supplied = compile_physical(sources, linkml_types=get_metadata().info["physical_linkml_types"])
     assert stage_upload_profile(physical_sources=sources)["max_replay_key_bytes"] == 17
     assert "octet_length(p_key) > 17" in stage_lifecycle_sql(supplied)
     assert "octet_length(p_key) > 17" in stage_batch_adoption_sql(supplied)

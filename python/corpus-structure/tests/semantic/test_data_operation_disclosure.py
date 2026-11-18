@@ -13,7 +13,7 @@ from corpus_structure.semantic.data_operation_projections import (
     _disclosed_kind_access,
     _selected_support_output_rows,
 )
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.native_program import (
     Block,
@@ -58,8 +58,8 @@ def disclosure_control(infrastructure_rollback):
     )
     kind, body = core_variable("kind", Text()), core_variable("body", JSONB())
     for name, expression in (
-        ("disclosed_kind", _disclosed_kind_access(metadata, kind)),
-        ("disclosed_body", _disclosed_body_access(metadata, kind, body)),
+        ("disclosed_kind", _disclosed_kind_access(get_metadata(), kind)),
+        ("disclosed_body", _disclosed_body_access(get_metadata(), kind, body)),
     ):
         execute_native_sql(
             connection,
@@ -137,7 +137,7 @@ def test_selected_output_authorization_is_inside_exact_reached_public_support():
     from pglast import ast, parse_sql
     from sqlalchemy.dialects.postgresql import dialect
 
-    query = _selected_support_output_rows(metadata)
+    query = _selected_support_output_rows(get_metadata())
     source = str(query.compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
     parsed = parse_sql(source)[0].stmt
     assert isinstance(parsed, ast.SelectStmt)
@@ -148,7 +148,7 @@ def test_selected_output_authorization_is_inside_exact_reached_public_support():
     assert "boundary.public_disclosure" in source
     assert "ddo_policy_authority_leaf" in source
     assert "support_closure.kind IN ('episode', 'authority')" in source
-    feature = _selected_support_output_rows(metadata, purpose="feature-fit")
+    feature = _selected_support_output_rows(get_metadata(), purpose="feature-fit")
     feature_source = str(feature.compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
     assert "ddo_feature_fit_body_access" in feature_source
     assert "ddo_structural_report_support" not in feature_source

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.pdf_companion_read_native import pdf_companion_field_read_sql
 from corpus_structure.semantic.pdf_record_context_native import (
     pdf_record_context_page_sql,
@@ -142,9 +142,12 @@ def context_connection(infrastructure_rollback):
         ",1,12,'B',repeat('b',64),'prior','input')"
     )
     conn.exec_driver_sql(
-        pdf_companion_field_read_sql(metadata), execution_options={"no_parameters": True}
+        pdf_companion_field_read_sql(get_metadata()), execution_options={"no_parameters": True}
     )
-    for sql in (pdf_record_context_sql(metadata), pdf_record_context_page_sql(metadata)):
+    for sql in (
+        pdf_record_context_sql(get_metadata()),
+        pdf_record_context_page_sql(get_metadata()),
+    ):
         conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
     yield infrastructure_rollback
 

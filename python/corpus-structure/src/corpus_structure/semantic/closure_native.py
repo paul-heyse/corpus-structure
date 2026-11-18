@@ -18,6 +18,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, OID, aggregate_order_by, insert
 
+from corpus_structure.schema.integrity import integrity, physical_schemas, role_name
+
 from .native_program import (
     Assign,
     Block,
@@ -111,7 +113,7 @@ def _principal_guards():
         select(namespace.c.nspowner).where(namespace.c.nspname == "sem"), ("owner_oid",)
     )
     elevated = or_(
-        has_role("corpus_sem_publisher", "MEMBER"),
+        has_role(role_name("publisher"), "MEMBER"),
         select(roles.c.oid)
         .where(
             roles.c.rolname == principal,
@@ -127,7 +129,7 @@ def _principal_guards():
         pg.has_database_privilege(principal, pg.current_database(), "TEMP"),
         select(namespace.c.oid)
         .where(
-            namespace.c.nspname.in_(("sem", "data", "ops", "kb", "eval")),
+            namespace.c.nspname.in_(physical_schemas()),
             pg.has_schema_privilege(principal, namespace.c.oid, "CREATE"),
         )
         .exists(),
@@ -173,10 +175,9 @@ def _principal_guards():
                 "required_role",
                 case(
                     {
-                        "read": "corpus_sem_reader",
-                        "write": "corpus_sem_writer",
-                        "evaluate": "corpus_sem_evaluator",
-                        "admit": "corpus_sem_admitter",
+                        purpose: role
+                        for purpose, role in integrity().purposes.items()
+                        if role is not None
                     },
                     value=purpose,
                 ),
@@ -242,10 +243,10 @@ def _principal_guards():
             If(has_role(owner, "MEMBER"), (Return(),)),
             If(
                 or_(
-                    ~has_role("corpus_sem_admitter", "USAGE"),
+                    ~has_role(role_name("admitter"), "USAGE"),
                     elevated,
                     reference_access,
-                    differing_grants("corpus_sem_admitter"),
+                    differing_grants(role_name("admitter")),
                 ),
                 (Raise("unrestricted admission caller", "42501"),),
             ),

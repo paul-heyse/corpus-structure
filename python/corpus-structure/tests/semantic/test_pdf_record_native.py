@@ -10,7 +10,11 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
 from corpus_structure.schema.physical import compile_physical, physical_source_closure
-from corpus_structure.semantic.metadata import PHYSICAL_MODEL, PHYSICAL_MODEL_ID, physical_model_id
+from corpus_structure.semantic.metadata import (
+    PHYSICAL_MODEL,
+    get_physical_model_id,
+    physical_model_id,
+)
 from corpus_structure.semantic.migrations import head_revision
 from corpus_structure.semantic.pdf_record_model import (
     derived_record_tables,
@@ -50,7 +54,7 @@ def test_record_field_order_types_and_model_constraints():
         adapter = record_boundary_adapter(name)
         assert schema.names == list(table.c.keys()) == list(adapter.json_schema()["properties"])
         assert [field.nullable for field in schema] == [column.nullable for column in table.c]
-        assert schema.metadata[b"physical_model_id"].decode() == PHYSICAL_MODEL_ID
+        assert schema.metadata[b"physical_model_id"].decode() == get_physical_model_id()
     with pytest.raises(ValidationError, match="greater than or equal"):
         record_boundary_adapter("kb.pdf_record_membership").validate_python(
             dict(
@@ -104,13 +108,13 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
     changed.info["physical_model_id"] = changed_id
     ddl = str(CreateTable(changed.tables["kb.pdf_record_membership"]).compile(dialect=dialect()))
     assert "ordinal >= 2" in ddl
-    assert changed_id != PHYSICAL_MODEL_ID
+    assert changed_id != get_physical_model_id()
     before = native_products.current_admission_fields()
     before_arrow = record_arrow_schema("kb.pdf_record_membership")
     monkeypatch.setattr(pdf_record_model, "metadata", changed)
     after = native_products.current_admission_fields(target_metadata=changed)
     assert before["physical_checks_source_digest"] != after["physical_checks_source_digest"]
-    assert before["physical_id"] == PHYSICAL_MODEL_ID
+    assert before["physical_id"] == get_physical_model_id()
     assert after["physical_id"] == changed_id
     assert not before_arrow.equals(
         record_arrow_schema("kb.pdf_record_membership"), check_metadata=True
@@ -169,7 +173,7 @@ def test_private_native_foundations_and_constraints(commit_db_engine):
         assert (
             conn.execute(
                 text("SELECT count(*) FROM sem.physical_contract WHERE physical_id=:id"),
-                {"id": PHYSICAL_MODEL_ID},
+                {"id": get_physical_model_id()},
             ).scalar_one()
             == 1
         )
@@ -509,10 +513,10 @@ def test_table_return_inventory_and_model_owned_read_roles(monkeypatch):
     from corpus_structure.semantic.native_products import relation_descriptor
 
     functions = {}
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.pdf_binary_identity_native import pdf_artifact_identity_sql
 
-    update_function_inventory(functions, pdf_artifact_identity_sql(metadata))
+    update_function_inventory(functions, pdf_artifact_identity_sql(get_metadata()))
     signature = "ops.pdf_identity_verify_artifact(text,text,text)"
     assert "ops.pdf_identity_verify_artifact(text,text,text,bytea)" not in functions
     assert functions[signature]["result"] == "pg_catalog.record"

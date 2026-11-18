@@ -45,14 +45,12 @@ classes:
         - product_key
         - content_digest
     annotations:
+      ph:frontier_guard: exempt
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
-        {"columns": ["release_id", "runtime_id"], "target": "sem.runtime_binding.release_id,runtime_id"},
-        {"columns": ["base_task_id", "base_product_key", "base_content_digest"], "target":
-        "ops.pdf_product.task_id,product_key,content_digest"}]'
-      ph:checks: '[{"name":"ck_characterization_product_physical_fe4df2b87b","predicate":{"op":"in","args":[{"field":"kind"},{"value":"layer"},{"value":"view"}]}},{"name":"ck_characterization_product_physical_6452181ff1","predicate":{"op":"regex","args":[{"field":"content_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_characterization_product_physical_c133bbe042","predicate":{"op":"eq","args":[{"field":"product_key"},{"op":"concat","args":[{"op":"concat","args":[{"op":"concat","args":[{"value":"characterization-"},{"field":"kind"}]},{"value":":"}]},{"field":"content_digest"}]}]}},{"name":"ck_characterization_product_physical_f24a821e55","predicate":{"op":"eq","args":[{"call":"jsonb_typeof","args":[{"field":"payload"}]},{"value":"object"}]}}]'
-      ph:indexes: '[["base_task_id","base_product_key","base_content_digest","kind"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","release_id"],"target":"ops.task.id,release_id"},{"columns":["release_id","runtime_id"],"target":"sem.runtime_binding.release_id,runtime_id"},{"columns":["base_task_id","base_product_key","base_content_digest"],"target":"ops.pdf_product.task_id,product_key,content_digest"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_characterization_product_physical_fe4df2b87b","predicate":{"op":"in","args":[{"field":"kind"},{"value":"layer"},{"value":"view"}]}},{"name":"ck_characterization_product_physical_6452181ff1","predicate":{"op":"regex","args":[{"field":"content_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_characterization_product_physical_c133bbe042","predicate":{"op":"eq","args":[{"field":"product_key"},{"op":"concat","args":[{"op":"concat","args":[{"op":"concat","args":[{"value":"characterization-"},{"field":"kind"}]},{"value":":"}]},{"field":"content_digest"}]}]}},{"name":"ck_characterization_product_physical_f24a821e55","predicate":{"op":"eq","args":[{"call":"jsonb_typeof","args":[{"field":"payload"}]},{"value":"object"}]}}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["base_task_id","base_product_key","base_content_digest","kind"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_occurrence:
     in_subset:
     - kb
@@ -90,11 +88,10 @@ classes:
         - local_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:checks: '[{"name":"ck_characterization_occurrence_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]'
-      ph:indexes: '[["task_id","product_key","content_digest","occurrence_id"],["task_id","product_key","content_digest","source_view_id","projection"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_characterization_occurrence_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","occurrence_id"],["task_id","product_key","content_digest","source_view_id","projection"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_annotation:
     in_subset:
     - kb
@@ -129,11 +126,10 @@ classes:
         - local_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:checks: '[{"name":"ck_characterization_annotation_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]'
-      ph:indexes: '[["task_id","product_key","content_digest","kind"],["task_id","product_key","content_digest","family"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_characterization_annotation_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","kind"],["task_id","product_key","content_digest","family"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_membership:
     in_subset:
     - kb
@@ -177,11 +173,10 @@ classes:
         - local_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:checks: '[{"name":"ck_characterization_membership_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]'
-      ph:indexes: '[["task_id","product_key","content_digest","owner_id"],["task_id","product_key","content_digest","member_id"],["task_id","product_key","content_digest","family"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_characterization_membership_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","owner_id"],["task_id","product_key","content_digest","member_id"],["task_id","product_key","content_digest","family"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_role:
     in_subset:
     - kb
@@ -222,11 +217,10 @@ classes:
         - local_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:checks: '[{"name":"ck_characterization_role_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]'
-      ph:indexes: '[["task_id","product_key","content_digest","owner_id"],["task_id","product_key","content_digest","member_id"],["task_id","product_key","content_digest","family"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_characterization_role_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","owner_id"],["task_id","product_key","content_digest","member_id"],["task_id","product_key","content_digest","family"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_term:
     in_subset:
     - kb
@@ -261,11 +255,10 @@ classes:
         - local_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:checks: '[{"name":"ck_characterization_term_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]'
-      ph:indexes: '[["task_id","product_key","content_digest","kind"],["task_id","product_key","content_digest","family"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_characterization_term_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","kind"],["task_id","product_key","content_digest","family"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_choice:
     in_subset:
     - kb
@@ -297,11 +290,10 @@ classes:
         - local_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:checks: '[{"name":"ck_characterization_choice_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]'
-      ph:indexes: '[["task_id","product_key","content_digest","family"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_characterization_choice_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","family"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_coverage:
     in_subset:
     - kb
@@ -336,11 +328,10 @@ classes:
         - local_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:checks: '[{"name":"ck_characterization_coverage_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]'
-      ph:indexes: '[["task_id","product_key","content_digest","family","outcome"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_characterization_coverage_physical_fb16c44a5e","predicate":{"op":"ne","args":[{"field":"local_id"},{"value":""}]}}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","family","outcome"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_extent:
     in_subset:
     - kb
@@ -391,10 +382,9 @@ classes:
         - position
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:indexes: '[["task_id","product_key","content_digest","projection","native_pointer"],["task_id","product_key","content_digest","source_view_id","start","end"],["task_id","product_key","content_digest","page"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","projection","native_pointer"],["task_id","product_key","content_digest","source_view_id","start","end"],["task_id","product_key","content_digest","page"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_term_edge:
     in_subset:
     - kb
@@ -430,10 +420,9 @@ classes:
         - position
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:indexes: '[["task_id","product_key","content_digest","target_id"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","target_id"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_choice_member:
     in_subset:
     - kb
@@ -463,10 +452,9 @@ classes:
         - local_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
-        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
-      ph:indexes: '[["task_id","product_key","content_digest","local_id"],["task_id","product_key","content_digest","root_id"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["task_id","product_key","content_digest","local_id"],["task_id","product_key","content_digest","root_id"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
   characterization_source_scope:
     in_subset:
     - kb
@@ -495,8 +483,6 @@ classes:
         - source_view_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"], "target":
-        "ops.characterization_product.task_id,product_key,content_digest"}, {"columns":
-        ["source_view_id"], "target": "kb.source_view.id"}]'
-      ph:indexes: '[["source_view_id","task_id","product_key","content_digest"]]'
-      ph:read_roles: '[]'
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["task_id","product_key","content_digest"],"target":"ops.characterization_product.task_id,product_key,content_digest"},{"columns":["source_view_id"],"target":"kb.source_view.id"}]}
+      ph:indexes: {"tag":"ph:indexes","value":[["source_view_id","task_id","product_key","content_digest"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}

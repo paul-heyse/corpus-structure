@@ -40,12 +40,15 @@ def test_application_settings_resolve_original_credentials_before_clone_substitu
 
 def test_db_migrate_uses_current_target_root_and_refuses_legacy(commit_db_engine):
     from corpus_structure.cli.db import DbRefused, _migrate
-    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
     from corpus_structure.semantic.migrations import head_revision
 
+    with commit_db_engine.connect() as connection:
+        installed_physical_id = connection.exec_driver_sql(
+            "SELECT data.execution_contract_descriptor()->>'physical_id'"
+        ).scalar_one()
     report = _migrate(commit_db_engine, "owned-test", False)
     assert report.revision == head_revision()
-    assert report.model_revision == PHYSICAL_MODEL_ID
+    assert report.model_revision == installed_physical_id
     assert report.applied == []
     with commit_db_engine.begin() as conn:
         conn.execute(text("CREATE SCHEMA meta"))

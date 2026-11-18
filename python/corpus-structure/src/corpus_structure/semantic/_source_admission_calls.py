@@ -85,7 +85,7 @@ _source_document_registration_function = func.ops.register_original_document(
     bindparam("original_path", type_=Text()),
     bindparam("mime", type_=Text()),
     bindparam("title", type_=Text()),
-    bindparam("meta", type_=JSONB()),
+    bindparam("meta", type_=JSONB(astext_type=Text())),
     bindparam("original", type_=BYTEA()),
 ).table_valued(
     column("id", BigInteger()),
@@ -96,7 +96,7 @@ _source_document_registration_function = func.ops.register_original_document(
     column("original_path", Text()),
     column("mime", Text()),
     column("title", Text()),
-    column("meta", JSONB()),
+    column("meta", JSONB(astext_type=Text())),
 )
 
 

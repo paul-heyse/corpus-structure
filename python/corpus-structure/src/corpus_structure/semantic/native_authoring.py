@@ -17,6 +17,8 @@ from sqlalchemy import cast, func, literal, select
 from sqlalchemy.dialects.postgresql import JSONB, dialect
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.schema.integrity import role_name
+
 from . import native_catalog as catalog
 from .alembic_checks import plugin as checks_plugin
 from .alembic_defaults import compare_default, compare_type
@@ -25,9 +27,11 @@ from .alembic_indexes import plugin as indexes_plugin
 from .alembic_native import plugin as native_plugin
 from .alembic_privileges import PrivilegePolicy, policy_fact, table_policy
 from .native_objects import (
+    INTERNAL_PROGRAM,
     NativeAuthoringError,
     NativeIdentity,
     NativeObject,
+    NativeProgramAccess,
     definition_from_sql,
     execute_native_sql,
     native_owner_sql,
@@ -84,17 +88,24 @@ def _shape_definition(connection, sql, *, source):
             part.sval for part in statement.funcname or ()
         ) == ("ops", "pdf_native_record_shape"):
             return definition_from_sql(
-                connection, prepared.excerpt(index), source=source, owner="corpus_sem_publisher"
+                connection,
+                prepared.excerpt(index),
+                source=source,
+                owner=role_name("publisher"),
+                program_access=INTERNAL_PROGRAM,
             )
     raise NativeAuthoringError(f"{source}: native record shape declaration is absent")
 
 
 def _pdf_payload_definitions(connection, sql, *, source):
+    from corpus_structure.schema.integrity import integrity
+
     from .native_function_signatures import function_signature
     from .native_inventory import update_function_inventory
 
     inventory = {}
     prepared = update_function_inventory(inventory, sql)
+    purposes_by_role = {role: purpose for purpose, role in integrity().purposes.items() if role}
     definitions = {}
     for index, raw in enumerate(prepared.statements):
         statement = raw.stmt
@@ -109,12 +120,22 @@ def _pdf_payload_definitions(connection, sql, *, source):
         if name[1] == "pdf_native_record_shape":
             continue
         descriptor = inventory[function_signature(statement)]
+        roles = descriptor["execute_roles"]
+        owner = descriptor["owner"]
+        try:
+            purposes = tuple(purposes_by_role[role] for role in roles if role != owner)
+        except KeyError as exc:
+            raise NativeAuthoringError(
+                f"{source}: undeclared PDF execute role {exc.args[0]}"
+            ) from exc
         definition = definition_from_sql(
             connection,
             prepared.excerpt(index),
             source=source,
-            owner=descriptor["owner"],
-            grants=tuple((role, "EXECUTE", False) for role in descriptor["execute_roles"]),
+            owner=owner,
+            program_access=NativeProgramAccess(
+                purposes=purposes, internal=not purposes, owner_execute=owner in roles
+            ),
         )
         # CREATE OR REPLACE can recur in a frozen collection; the last declaration
         # is the source authority, while the inventory carries its cumulative ACL.
@@ -140,14 +161,14 @@ def _publication_view_definitions(connection, sql, *, source):
                 "pdf_published_coverage",
             }
         ):
-            roles = ("corpus_sem_writer", "corpus_sem_reader", "corpus_sem_evaluator")
+            roles = (role_name("writer"), role_name("reader"), role_name("evaluator"))
             if statement.view.relname == "pdf_selected_product":
-                roles = (*roles, "corpus_sem_admitter")
+                roles = (*roles, role_name("admitter"))
             definition = definition_from_sql(
                 connection,
                 prepared.excerpt(index),
                 source=source,
-                owner="corpus_sem_publisher",
+                owner=role_name("publisher"),
                 grants=tuple((role, "SELECT", False) for role in roles),
             )
             definitions[definition.identity] = definition
@@ -162,12 +183,12 @@ def _task_call_definition(
     *,
     name,
     source,
-    grants=(("corpus_sem_writer", "EXECUTE", False),),
+    program_access,
     schema="ops",
 ):
     """Require one exact declaration; overloaded owners select their complete family."""
     selected = _task_call_definitions(
-        connection, sql, name=name, source=source, grants=grants, schema=schema
+        connection, sql, name=name, source=source, program_access=program_access, schema=schema
     )
     if len(selected) != 1:
         raise NativeAuthoringError("singular native function selection is ambiguous: " + name)
@@ -180,7 +201,7 @@ def _task_call_definitions(
     *,
     name,
     source,
-    grants=(("corpus_sem_writer", "EXECUTE", False),),
+    program_access,
     schema="ops",
 ):
     """Bind every declared overload with its own normalized ABI and ACL facts."""
@@ -196,8 +217,8 @@ def _task_call_definitions(
                     connection,
                     prepared.excerpt(index),
                     source=source,
-                    owner="corpus_sem_publisher",
-                    grants=grants,
+                    owner=role_name("publisher"),
+                    program_access=program_access,
                 )
             )
     if definitions:
@@ -218,7 +239,8 @@ def _release_guard_definitions(connection, sql, *, source):
                     connection,
                     prepared.excerpt(index),
                     source=source,
-                    owner="corpus_sem_publisher",
+                    owner=role_name("publisher"),
+                    program_access=INTERNAL_PROGRAM,
                 )
             )
     if len(definitions) != 2:
@@ -240,22 +262,17 @@ def current_admission_definitions(connection, sql, *, source, require_descriptor
             ("data", "require_execution_release"),
         }:
             continue
-        roles = (
-            ("corpus_sem_admitter",)
+        purposes = (
+            ("admit",)
             if name[1] == "execution_contract_descriptor"
-            else (
-                "corpus_sem_writer",
-                "corpus_sem_reader",
-                "corpus_sem_evaluator",
-                "corpus_sem_admitter",
-            )
+            else ("write", "read", "evaluate", "admit")
         )
         definition = definition_from_sql(
             connection,
             prepared.excerpt(index),
             source=source + ":" + name[1],
-            owner="corpus_sem_publisher",
-            grants=tuple((role, "EXECUTE", False) for role in roles),
+            owner=role_name("publisher"),
+            program_access=NativeProgramAccess(purposes=purposes),
         )
         definitions.append(definition)
     if len(definitions) != (2 if require_descriptor else 1) or (
@@ -795,7 +812,7 @@ def compare_declared_candidate(
         from .native_admission import _admission_descriptor
 
         declared_owners = {
-            row["relation"]: row.get("owner", "corpus_sem_publisher")
+            row["relation"]: row.get("owner", role_name("publisher"))
             for row in old_descriptor["tables"]
         }
         target_owners = {
@@ -807,7 +824,7 @@ def compare_declared_candidate(
         for item in candidate.upgrade_ops.ops:
             if isinstance(item, ModifyTableOps):
                 relation = f"{item.schema}.{item.table_name}"
-                owner = declared_owners.get(relation, "corpus_sem_publisher")
+                owner = declared_owners.get(relation, role_name("publisher"))
                 for change in item.ops:
                     if isinstance(change, CreateForeignKeyOp):
                         remote = (
@@ -829,7 +846,7 @@ def compare_declared_candidate(
                                     (
                                         remote,
                                         column,
-                                        declared_owners.get(remote, "corpus_sem_publisher"),
+                                        declared_owners.get(remote, role_name("publisher")),
                                     )
                                     for column in change.remote_cols
                                 ),
@@ -861,7 +878,7 @@ def compare_declared_candidate(
         candidate.upgrade_ops.ops.extend(after_data)
         candidate.upgrade_ops.ops.extend(compared_privileges)
         if physical_contract is not None:
-            candidate.upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", physical_contract))
+            candidate.upgrade_ops.ops.append(OwnedSQLOp(role_name("publisher"), physical_contract))
     return NativeCandidate(candidate, tuple(map(policy_fact, target_policies))), replace(
         authoring, desired=final_native_catalog(authoring.desired, target_policies)
     )

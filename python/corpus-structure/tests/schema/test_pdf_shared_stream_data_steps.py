@@ -11,15 +11,17 @@ from corpus_structure.schema import data_steps
 from corpus_structure.schema.data_step_programs import RETIRED_PARTS, predecessor_parts
 from corpus_structure.schema.data_steps import DataStepRequest
 from corpus_structure.semantic.alembic_privileges import OwnedOperationsOp
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import NativeAuthoring, NativeAuthoringError
 
 PREDECESSOR = "semantic_ddo_pe_n2"
 PREDECESSOR_PARTS = ("ops.pdf_artifact_part", "ops.pdf_stage_artifact_part")
 prepare_data_steps = partial(
-    data_steps.prepare_data_steps, target=metadata, predecessor=PREDECESSOR
+    data_steps.prepare_data_steps, target=get_metadata(), predecessor=PREDECESSOR
 )
-order_data_steps = partial(data_steps.order_data_steps, target=metadata, predecessor=PREDECESSOR)
+order_data_steps = partial(
+    data_steps.order_data_steps, target=get_metadata(), predecessor=PREDECESSOR
+)
 
 
 def flatten(operations):

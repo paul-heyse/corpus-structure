@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 from semantic.data_operation_kernel_support import STORAGE
 
@@ -79,7 +79,7 @@ def test_read_inspection_refuses_actual_missing_changed_and_extra_rows(ddo_kerne
                 {"release": release, "counterfeit": '{"inspection_counterfeit":true}'},
             )
         else:
-            relation = metadata.tables["sem.data_operation_definition"]
+            relation = get_metadata().tables["sem.data_operation_definition"]
             original = relation.alias("original")
             fields = {
                 field.name: literal("unexpected:inspection")

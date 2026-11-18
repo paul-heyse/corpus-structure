@@ -443,6 +443,7 @@ def test_real_score_operation_has_owned_facts():
     operation = score_model.operations[0]
     assert operation.semantic_id == "urn:corpus:operation:score-operation-event"
     assert [p.name for p in operation.callable_surfaces[0].parameters] == [
+        "self",
         "parameters",
         "features",
         "corpus_id",

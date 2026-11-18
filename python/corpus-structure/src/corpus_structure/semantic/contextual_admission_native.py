@@ -80,7 +80,9 @@ class _ContextualPrograms:
 
     def __init__(self, metadata=None):
         if metadata is None:
-            from .metadata import metadata
+            from .metadata import get_metadata
+
+            metadata = get_metadata()
         self.model = metadata
         self.output = []
 

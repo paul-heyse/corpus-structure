@@ -14,7 +14,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic.data_operation_compiler_native import compiler_native_sql
 from corpus_structure.semantic.data_operation_subjects import subject_scope_values
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
 from semantic.data_operation_kernel_support import STORAGE
 from semantic.test_data_operation_provider_profiles import _facts
@@ -24,7 +24,7 @@ RELEASE = "release:literal-native-compiler"
 
 
 def _install(connection):
-    program = compiler_native_sql(metadata, subject_scopes=subject_scope_values())
+    program = compiler_native_sql(get_metadata(), subject_scopes=subject_scope_values())
     digest = sha256(program.encode()).hexdigest()
     execute_native_sql(
         connection,
@@ -134,7 +134,7 @@ def _archive(connection, *, binding=None, mutation=None, provider=None):
         ],
         operations=[projected_operation],
     )
-    release = metadata.tables["sem.release"]
+    release = get_metadata().tables["sem.release"]
     connection.execute(
         insert(release).values(
             release_id=RELEASE,
@@ -144,7 +144,7 @@ def _archive(connection, *, binding=None, mutation=None, provider=None):
             manifest_bytes=b"{}",
         )
     )
-    artifacts = metadata.tables["sem.artifact"]
+    artifacts = get_metadata().tables["sem.artifact"]
     for name, content in (
         ("data_operations.json", model_bytes),
         ("data_operation_native_definitions.json", canonical_bytes(payload)),
@@ -161,7 +161,7 @@ def _archive(connection, *, binding=None, mutation=None, provider=None):
     if provider is not None:
         _, source = provider
         connection.execute(
-            insert(metadata.tables["sem.input"]).values(
+            insert(get_metadata().tables["sem.input"]).values(
                 release_id=RELEASE,
                 input_kind="dependency",
                 input_name="data-operations/contracts/" + source.name,
@@ -188,8 +188,8 @@ def test_current_native_compiler_lowers_exact_literal_archive_and_replays(native
     assert _admit(connection, payload) == expected
     retained = (
         connection.execute(
-            select(metadata.tables["sem.data_operation_definition"]).where(
-                metadata.tables["sem.data_operation_definition"].c.release_id == RELEASE
+            select(get_metadata().tables["sem.data_operation_definition"]).where(
+                get_metadata().tables["sem.data_operation_definition"].c.release_id == RELEASE
             )
         )
         .mappings()
@@ -227,7 +227,7 @@ def test_native_compiler_refuses_changed_evidence_without_partial_facts(native_r
         payload["model_digest"] = "c" * 64
     elif mutation == "stable-kind":
         wrong = {**payload["kinds"][0], "body_schema": {"type": "integer"}}
-        connection.execute(insert(metadata.tables["sem.data_kind_contract"]).values(**wrong))
+        connection.execute(insert(get_metadata().tables["sem.data_kind_contract"]).values(**wrong))
     expected_error = {
         "native": "native source correspondence mismatch",
         "projection": "native definition projection disagrees with archived operation facts",
@@ -319,7 +319,7 @@ def test_native_provider_profile_authenticates_exact_canonical_asset(native_roll
     )
     digest = sha256(content).hexdigest()
     connection.execute(
-        insert(metadata.tables["sem.input"]).values(
+        insert(get_metadata().tables["sem.input"]).values(
             release_id=RELEASE,
             input_kind="dependency",
             input_name="data-operations/contracts/" + source.name,
@@ -385,7 +385,7 @@ def test_native_relower_requires_finalization_and_retains_admitted_immutable_fac
             {"release": RELEASE},
         )
     connection.execute(
-        insert(metadata.tables["sem.release_finalization"]).values(
+        insert(get_metadata().tables["sem.release_finalization"]).values(
             release_id=RELEASE, content_digest=sha256(b"literal").hexdigest()
         )
     )
@@ -462,7 +462,7 @@ def test_native_runtime_provider_requires_its_captured_operation_and_attestation
         },
     )
     connection.execute(
-        insert(metadata.tables["sem.runtime_binding"]).values(
+        insert(get_metadata().tables["sem.runtime_binding"]).values(
             release_id=RELEASE,
             runtime_id="runtime:literal",
             manifest_bytes=canonical_bytes(manifest),

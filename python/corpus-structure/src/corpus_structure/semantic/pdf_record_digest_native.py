@@ -412,11 +412,11 @@ def _fold_digest(model, product, revision, placement_params):
 
 def pdf_record_logical_identity_sql(*, target_metadata: MetaData | None = None) -> str:
     """Compile the scalar, target lineage and ordered record identity programs."""
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .pdf_identity_frames_native import pdf_identity_frame_declarations
     from .pdf_target_identity_native import logical_target_identity
 
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     header = model.tables["ops.pdf_record_document"]
     params = (
         ("p_product", column_type(header.c.product_id)),

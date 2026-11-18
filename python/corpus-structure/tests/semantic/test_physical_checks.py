@@ -3,13 +3,13 @@
 import json
 
 import pytest
-from linkml_runtime.utils.schemaview import SchemaView
 from sqlalchemy import CheckConstraint
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import CreateIndex
 
+from corpus_structure.model.compiled import compiled_model, running_model
 from corpus_structure.schema.model import ModelError
-from corpus_structure.schema.relational import compile_metadata, physical_expression_sql
+from corpus_structure.schema.relational import physical_expression_sql
 
 
 def compile_checks(checks, indexes=()):
@@ -17,19 +17,30 @@ def compile_checks(checks, indexes=()):
         "id": "https://corpus-structure.org/model/semantic/physical",
         "name": "physical",
         "prefixes": {"linkml": "https://w3id.org/linkml/"},
-        "imports": ["linkml:types"],
-        "subsets": {"data": {}},
+        "imports": ["linkml:types", "operation-integrity-vocabularies", "physical-profile"],
+        "subsets": {
+            "data": {
+                "annotations": {
+                    "ph:physical_schema": True,
+                    "ph:read_roles": {"tag": "ph:read_roles", "value": []},
+                    "ph:frontier_guard": "exempt",
+                }
+            }
+        },
         "classes": {
             "span": {
                 "in_subset": ["data"],
                 "attributes": {"start": {"range": "integer"}, "end": {"range": "integer"}},
-                "annotations": {"ph:checks": json.dumps(checks), "ph:indexes": json.dumps(indexes)},
+                "annotations": {
+                    "ph:checks": {"tag": "ph:checks", "value": checks},
+                    "ph:indexes": {"tag": "ph:indexes", "value": list(indexes)},
+                },
             }
         },
     }
-    return compile_metadata(SchemaView(json.dumps(declaration)), target="semantic").tables[
-        "data.span"
-    ]
+    sources = dict(running_model().sources)
+    sources["physical.yaml"] = json.dumps(declaration).encode()
+    return compiled_model(sources).physical().tables["data.span"]
 
 
 def test_cross_field_check_and_partial_index_bind_real_columns():

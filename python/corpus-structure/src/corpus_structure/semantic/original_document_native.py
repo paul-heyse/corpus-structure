@@ -16,6 +16,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, array, insert
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_objects import native_sql_script
 from .native_program import (
     Assign,
@@ -120,7 +122,7 @@ def source_original_programs(model: MetaData, asset_digest: str) -> str:
     )
     writer = func.pg_has_role(
         func.coalesce(func.nullif(func.current_setting("role"), "none"), func.session_user()),
-        "corpus_sem_writer",
+        role_name("writer"),
         "MEMBER",
         type_=Boolean(),
     )

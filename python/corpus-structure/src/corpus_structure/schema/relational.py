@@ -7,7 +7,6 @@ candidate schemas remain separate semantic definitions, never physical authority
 from __future__ import annotations
 
 import hashlib
-import json
 import keyword
 from collections.abc import Iterable, Mapping
 from typing import Any, Literal
@@ -57,6 +56,12 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.sqltypes import ARRAY as BaseARRAY
 from sqlalchemy.types import TypeEngine
 
+from corpus_structure.schema.integrity import (
+    annotation_values,
+    integrity_from_view,
+    relation_annotations,
+    validate_relation_profile,
+)
 from corpus_structure.schema.model import (
     ModelError,
     View,
@@ -294,9 +299,9 @@ def physical_expression_sql(expression: ColumnElement[Any]) -> str:
     )
 
 
-def _physical_checks(value: str, table: Table) -> tuple[PhysicalCheck, ...]:
+def _physical_checks(value, table: Table) -> tuple[PhysicalCheck, ...]:
     try:
-        return TypeAdapter(tuple[PhysicalCheck, ...]).validate_json(value)
+        return TypeAdapter(tuple[PhysicalCheck, ...]).validate_python(value)
     except ValidationError as error:
         raise ModelError([f"{table.fullname}: invalid typed physical checks: {error}"]) from error
 
@@ -389,6 +394,42 @@ def compile_metadata(view: View, *, target: str) -> MetaData:
     return _compile_physical(view, read_only=target == "semantic-read")
 
 
+def physical_range_type(view: View, rng: str) -> TypeEngine[Any]:
+    """Resolve a declared range through the same backend used by physical columns."""
+    physical_types = {
+        "int8": BigInteger,
+        "text": Text,
+        "bool": Boolean,
+        "float8": Double,
+        "bytea": BYTEA,
+        "jsonb": JSONB,
+        "numeric": Numeric,
+        "int8range": INT8RANGE,
+        "numrange": NUMRANGE,
+        "vector": Vector,
+        "timestamptz": lambda: TIMESTAMP(timezone=True),
+        "tsvector": TSVECTOR,
+    }
+    declared = view.get_type(rng)
+    sql_type = ci_annotations(declared).get("ph:sql_type")
+    if sql_type is not None:
+        try:
+            return physical_types[str(sql_type)]()
+        except KeyError as error:
+            raise ModelError([f"unsupported physical SQL type {sql_type}"]) from error
+    if view.get_enum(rng) is not None:
+        return Text()
+    if rng == "integer":
+        return BigInteger()
+    if rng == "boolean":
+        return Boolean()
+    if rng == "string":
+        return Text()
+    if declared is not None and str(declared.uri) in URI_TYPES:
+        return URI_TYPES[str(declared.uri)]()
+    raise ModelError([f"unsupported physical range {rng}"])
+
+
 def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
     expected = "read-projections" if read_only else "physical"
     if str(view.schema.id) != "https://corpus-structure.org/model/semantic/" + expected:
@@ -399,7 +440,24 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
         raise ModelError(
             ["referenced physical value sets require compile_physical with captured inputs"]
         )
+    integrity_policy = integrity_from_view(view)
+    schemas = {}
+    for name, subset in view.all_subsets().items():
+        policy = annotation_values(subset)
+        if policy.get("ph:physical_schema") is not True:
+            continue
+        if "ph:read_roles" not in policy or policy.get("ph:frontier_guard") not in {
+            "guarded",
+            "exempt",
+        }:
+            raise ModelError([f"physical schema {name} lacks read/guard defaults"])
+        policy["ph:read_roles"] = integrity_policy.require_roles(policy["ph:read_roles"])
+        schemas[str(name)] = policy
+    if not schemas:
+        raise ModelError(["physical model declares no physical schemas"])
     md = MetaData(naming_convention=dict(NAMING_CONVENTION))
+    md.info["physical_schemas"] = tuple(schemas)
+    md.info["integrity_policy"] = integrity_policy
     # Trusted physical imports may contribute stored relations. Imported payload
     # classes without a physical subset remain boundary types, never tables.
     physical_classes = dict(view.schema.classes)
@@ -409,49 +467,24 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                 name: cls
                 for name, cls in view.all_classes().items()
                 if name not in physical_classes
-                and any(
-                    str(subset) in {"sem", "data", "ops", "kb", "eval"} for subset in cls.in_subset
-                )
+                and any(str(subset) in schemas for subset in cls.in_subset)
             }
         )
-    physical_types = {
-        "bytea": BYTEA,
-        "jsonb": JSONB,
-        "numeric": Numeric,
-        "int8range": INT8RANGE,
-        "numrange": NUMRANGE,
-        "vector": Vector,
-        "timestamptz": lambda: TIMESTAMP(timezone=True),
-        "tsvector": TSVECTOR,
-    }
     nominal = _physical_nominals(view)
     for name, cls in physical_classes.items():
         subsets = [str(s) for s in cls.in_subset]
-        if len(subsets) != 1 or subsets[0] not in {"sem", "data", "ops", "kb", "eval"}:
+        if len(subsets) != 1 or subsets[0] not in schemas:
             raise ModelError([f"{name}: physical table needs exactly one trusted physical subset"])
         columns = []
         slots = {str(slot.name): slot for slot in view.class_induced_slots(name)}
         for slot in slots.values():
             rng = str(slot.range or "string")
-            declared = view.get_type(rng)
-            sql_type = ci_annotations(declared).get("ph:sql_type")
-            typ: TypeEngine[Any]
-            if sql_type is not None:
-                typ = physical_types[str(sql_type)]()
-            elif view.get_enum(rng) is not None:
-                typ = Text()
-            elif rng == "integer":
-                typ = BigInteger()
-            elif rng == "boolean":
-                typ = Boolean()
-            elif rng == "string":
-                typ = Text()
-            elif declared is not None and str(declared.uri) in URI_TYPES:
-                typ = URI_TYPES[str(declared.uri)]()
-            else:
-                raise ModelError([f"{name}.{slot.name}: unsupported physical range {rng}"])
+            typ = physical_range_type(view, rng)
             if slot.multivalued:
                 typ = ARRAY(typ)
+            validate_relation_profile(
+                view, annotation_values(slot), f"{name}.{slot.name}", profile="PhysicalColumn"
+            )
             annotations = ci_annotations(slot)
             location = f"{name}.{slot.name}"
             default = _physical_default(typ, annotations, location)
@@ -501,9 +534,17 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
             if boundary_role is not None:
                 table_info["pdf_record_boundary_role"] = str(boundary_role)
                 break
-        read_roles = ci_annotations(cls).get("ph:read_roles")
-        if read_roles is not None:
-            table_info["read_roles"] = json.loads(read_roles)
+        physical_annotations = relation_annotations(view, name)
+        validate_relation_profile(view, physical_annotations, str(name))
+        schema_policy = schemas[subsets[0]]
+        read_roles = physical_annotations.get("ph:read_roles", schema_policy["ph:read_roles"])
+        if not isinstance(read_roles, (list, tuple)):
+            raise ModelError([f"{name}: physical read roles must be structured roles"])
+        table_info["read_roles"] = integrity_policy.require_roles(read_roles)
+        frontier = physical_annotations.get("ph:frontier_guard", schema_policy["ph:frontier_guard"])
+        if frontier not in {"guarded", "exempt"}:
+            raise ModelError([f"{name}: invalid frontier guard policy"])
+        table_info["frontier_guard"] = frontier
         table = Table(str(name), md, *columns, schema=subsets[0], info=table_info)
         for slot in view.class_induced_slots(name):
             if slot.equals_string is not None:
@@ -544,8 +585,8 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
     for name, cls in physical_classes.items():
         schema = str(cls.in_subset[0])
         table = md.tables[f"{schema}.{name}"]
-        ann = ci_annotations(cls)
-        for fk in json.loads(ann.get("ph:foreign_keys", "[]")):
+        ann = relation_annotations(view, name)
+        for fk in ann.get("ph:foreign_keys", []):
             target_name, remote = fk["target"].rsplit(".", 1)
             local = fk["columns"]
             target = [f"{target_name}.{col}" for col in remote.split(",")]
@@ -554,13 +595,13 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                     local, target, name=fk.get("name"), info={"shared": tuple(local[:-1])}
                 )
             )
-        for declaration in _physical_checks(ann.get("ph:checks", "[]"), table):
+        for declaration in _physical_checks(ann.get("ph:checks", []), table):
             table.append_constraint(
                 CheckConstraint(
                     _physical_expression(declaration.predicate, table), name=declaration.name
                 )
             )
-        for raw in json.loads(ann.get("ph:indexes", "[]")):
+        for raw in ann.get("ph:indexes", []):
             try:
                 declaration = PhysicalIndex.model_validate(
                     raw if isinstance(raw, dict) else {"columns": raw}

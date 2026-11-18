@@ -12,6 +12,8 @@ from hashlib import sha256
 from pglast import ast, enums
 from pglast.stream import RawStream
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_function_signatures import (
     function_signature,
     qualified_name,
@@ -83,9 +85,10 @@ def _object_signature(obj):
 
 
 def update_function_inventory(
-    functions: dict[str, dict], sql: str | PreparedSQL, *, owner="corpus_sem_publisher"
+    functions: dict[str, dict], sql: str | PreparedSQL, *, owner: str | None = None
 ) -> PreparedSQL:
     """Apply current function declarations and explicit owner/EXECUTE effects to a copy's facts."""
+    owner = role_name("publisher") if owner is None else owner
     prepared = prepare_sql(sql, source="<native declarations>")
     remove_output_signature_aliases(functions, prepared.statements)
     for raw in prepared.statements:

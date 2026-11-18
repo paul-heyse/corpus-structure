@@ -20,6 +20,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, array
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
@@ -257,7 +259,7 @@ def _privileges(name, parameters, *, readers=False):
         *(
             native_privilege_sql(identity, role, "execute")
             for role in (
-                ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+                (role_name("reader"), role_name("writer"), role_name("evaluator"))
                 if readers
                 else ()
             )

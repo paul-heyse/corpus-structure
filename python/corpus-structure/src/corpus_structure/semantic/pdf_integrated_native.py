@@ -1,11 +1,13 @@
 """Forward native realization of the model-owned PDF companion contract."""
 
+from corpus_structure.schema.integrity import role_name
+
 
 def observation_publication_sql(context=None, *, target_metadata=None) -> str:
     """Compile protected observation definitions from current captured models."""
     from pglast.stream import RawStream
 
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .native_objects import (
         NativeIdentity,
         native_owner_sql,
@@ -19,7 +21,7 @@ def observation_publication_sql(context=None, *, target_metadata=None) -> str:
     )
 
     context = trusted_pdf_context() if context is None else context
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     declarations = observation_value_declarations(context, target_metadata=model)
     programs = [
         RawStream()(declarations["ops", name])
@@ -51,11 +53,11 @@ def observation_publication_sql(context=None, *, target_metadata=None) -> str:
     for name, parameters, writer in signatures:
         identity = NativeIdentity("function", "ops", name, parameters)
         programs += [
-            native_owner_sql(identity, "corpus_sem_publisher"),
+            native_owner_sql(identity, role_name("publisher")),
             native_privilege_sql(identity, "PUBLIC", grant=False),
         ]
         if writer:
-            programs.append(native_privilege_sql(identity, "corpus_sem_writer", "EXECUTE"))
+            programs.append(native_privilege_sql(identity, role_name("writer"), "EXECUTE"))
     return native_sql_script(programs) + "\n"
 
 
@@ -65,7 +67,7 @@ def observation_value_declarations(context, *, target_metadata=None):
     from sqlalchemy import BigInteger, Text, cast, column, func, or_, select
     from sqlalchemy.dialects.postgresql import JSONB, array
 
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .native_program import (
         Block,
         If,
@@ -87,7 +89,7 @@ def observation_value_declarations(context, *, target_metadata=None):
         observation_meaning_program,
     )
 
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     task = model.tables["ops.task"]
     request = model.tables["ops.data_request"]
     definition = model.tables["sem.data_operation_definition"]

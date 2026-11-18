@@ -18,7 +18,9 @@ from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import BindParameter, ClauseElement, ColumnClause, TextClause
 from sqlalchemy.types import TypeEngine
 
-from .native_call_contracts import NATIVE_FIELD_TYPES, OperationCallBinding
+from corpus_structure.model.compiled import field_kinds
+
+from .native_call_contracts import OperationCallBinding
 from .prepared_sql import prepare_sql
 
 type Expression = ast.Node | ClauseElement
@@ -647,14 +649,10 @@ def void_call_function(
     parameters = []
     for field in binding.parameters:
         resolved = field.resolved
-        if (
-            resolved is None
-            or field.native_parameter is None
-            or resolved.kind not in NATIVE_FIELD_TYPES
-        ):
+        if resolved is None or field.native_parameter is None or resolved.kind not in field_kinds():
             raise ValueError(f"{binding.id}.{field.name}: unresolved native parameter")
         native = pg_type(
-            "int4" if field.native_type == "integer" else NATIVE_FIELD_TYPES[resolved.kind][0]
+            "int4" if field.native_type == "integer" else field_kinds()[resolved.kind].postgres
         )
         if resolved.multivalued:
             native.arrayBounds = (ast.Integer(ival=-1),)

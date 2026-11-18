@@ -2,7 +2,9 @@
 
 from sqlalchemy.dialects.postgresql import dialect
 
-from .metadata import metadata
+from corpus_structure.schema.integrity import role_name
+
+from .metadata import get_metadata
 
 
 def native_payload_size_expression(relation):
@@ -63,7 +65,7 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
             physical_sources=target_metadata.info["physical_sources"],
             linkml_types=target_metadata.info["physical_linkml_types"],
         )
-    selected = metadata if target_metadata is None else target_metadata
+    selected = get_metadata() if target_metadata is None else target_metadata
     sql = pdf_domain_native_sql(sources=pdf_sources, target_metadata=selected)
     from .native_program import (
         Assign,
@@ -146,7 +148,7 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
         (
             True,
             ast.RoleSpec(
-                roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"
+                roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=role_name("writer")
             ),
         ),
     ):
@@ -334,7 +336,7 @@ def stage_lifecycle_sql(model):
                     grantees=(
                         ast.RoleSpec(
                             roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
-                            rolename="corpus_sem_writer",
+                            rolename=role_name("writer"),
                         ),
                     ),
                     behavior=enums.DropBehavior.DROP_RESTRICT,
@@ -1069,7 +1071,7 @@ def stage_scratch_authorization_sql():
     scratch = core_variable("scratch", OID())
     expected = core_variable("p_relation", REGCLASS())
     owned_role = (
-        select(roles.c.oid).where(roles.c.rolname == "corpus_sem_publisher").scalar_subquery()
+        select(roles.c.oid).where(roles.c.rolname == role_name("publisher")).scalar_subquery()
     )
     safe_relation = exists(
         select(1)
@@ -1514,7 +1516,7 @@ def stage_batch_adoption_sql(model):
         privileges=(ast.AccessPriv(priv_name="execute"),),
         grantees=(
             ast.RoleSpec(
-                roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"
+                roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=role_name("writer")
             ),
         ),
         behavior=enums.DropBehavior.DROP_RESTRICT,

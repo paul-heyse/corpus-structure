@@ -537,6 +537,12 @@ waiting obligation is bound again once, and frozen revisions keep their bytes.
 
 ### UDM-08 — The execution path generates nothing
 
+UDM-08 was moved ahead of captured generator edits in the UDM-00–03 increment. The older
+renderer embeds a digest of the generator capture, so changing the checkout can change rendered
+bytes even when the installed behavior is equivalent. Execution uses the exact archived and
+installed identities. Authoring preserves the real source digest and routes resulting native
+deltas through the existing revision order.
+
 **Implementation vision.** `require_data_operation_native` receives the connection and the
 prepared release, as today. After the existing call to `require_native_execution` it makes the
 comparison described under [The execution path generates nothing](#the-execution-path-generates-nothing)
@@ -816,8 +822,8 @@ resolved by its exact intent, publication, or recovery authority before addition
 
 | Package | State |
 |---|---|
-| UDM-08 | Not started |
-| UDM-09 | Not started |
+| UDM-08 | Acquisition and export use retained identities and the running wire protocol. See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for evidence. |
+| UDM-09 | Grant declarations landed with UDM-03. Direct producer registration, callee analysis, generated installation order and the program manifest remain open. |
 | UDM-10 | Not started |
 | UDM-11 | Not started |
 | UDM-12 | Not started |

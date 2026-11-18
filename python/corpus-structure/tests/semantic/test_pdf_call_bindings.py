@@ -150,7 +150,7 @@ def test_projected_requiredness_refines_nullable_source_without_losing_native_di
     import sys
     from types import ModuleType
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_call_generation import render_call_bindings
     from corpus_structure.semantic.native_call_sources import resolve_call_bindings
 
@@ -184,7 +184,7 @@ def test_projected_requiredness_refines_nullable_source_without_losing_native_di
         compile(
             render_call_bindings(
                 resolved,
-                metadata,
+                get_metadata(),
                 identifiers_module="._pdf_native_ids",
                 canonical_identifiers=True,
                 context_validator=(".pdf_domain", "require_pdf_call_context"),

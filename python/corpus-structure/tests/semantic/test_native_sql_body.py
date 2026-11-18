@@ -193,7 +193,7 @@ LANGUAGE sql AS $$ SELECT 'unrelated overload'::text $$""")
 
 
 def test_unbound_sql_standard_body_cannot_author_native_admission():
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_admission import native_admission_sql
     from corpus_structure.semantic.native_products import admission_kernel
     from corpus_structure.semantic.target_installation import (
@@ -203,13 +203,13 @@ def test_unbound_sql_standard_body_cannot_author_native_admission():
 
     source = """CREATE OR REPLACE FUNCTION ops.unbound_preview() RETURNS integer
 LANGUAGE sql BEGIN ATOMIC SELECT 1; END;"""
-    capture = capture_target_installation(metadata)
+    capture = capture_target_installation(get_metadata())
     with pytest.raises(ValueError, match="server-bound normalized native object"):
         native_admission_sql(
             admission_kernel() + "\n" + source,
             capture.authoring_inputs,
             base_descriptor=target_admission_descriptor(capture, ()),
-            target_metadata=metadata,
+            target_metadata=get_metadata(),
         )
 
 
@@ -219,9 +219,9 @@ def test_current_release_guards_require_current_archive_and_projection_compiler(
 
     archive = function_bodies(foundation_programs().closure)["sem.require_archive_bytes"]
     from corpus_structure.semantic.archive_projection_native import execution_projection_check_sql
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
 
-    projection = function_bodies(execution_projection_check_sql(metadata))[
+    projection = function_bodies(execution_projection_check_sql(get_metadata()))[
         "sem.require_execution_projection"
     ]
     assert "document ->> 'format') IS DISTINCT FROM 'semantic-release-archive-3'" in archive

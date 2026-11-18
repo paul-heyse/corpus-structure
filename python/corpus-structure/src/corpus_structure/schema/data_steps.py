@@ -11,11 +11,13 @@ from copy import copy
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import dialect
+
+from corpus_structure.schema.integrity import role_name
 
 if TYPE_CHECKING:
     from alembic.operations.ops import MigrateOperation, UpgradeOps
@@ -51,6 +53,10 @@ class FrozenDataStep(BaseModel):
     guarded_relations: tuple[str, ...]
     prerequisite_relations: tuple[str, ...]
     retired_relations: tuple[str, ...]
+
+
+if get_args(FrozenDataStep.model_fields["owner"].annotation) != (role_name("publisher"),):
+    raise ValueError("frozen data-step owner type disagrees with the integrity vocabulary")
 
 
 _N1_COLUMNS = (
@@ -297,7 +303,7 @@ def order_data_steps(
             if relation in captured_retirements:
                 raise NativeAuthoringError("revision data step repeats a retired relation")
             captured_retirements.add(relation)
-            final_drops.append(OwnedOperationsOp("corpus_sem_publisher", [operation]))
+            final_drops.append(OwnedOperationsOp(role_name("publisher"), [operation]))
             return None
         if isinstance(operation, ops.AddColumnOp):
             relation = f"{operation.schema}.{operation.table_name}"
@@ -315,7 +321,7 @@ def order_data_steps(
                 operation.column = staged
                 final.append(
                     OwnedOperationsOp(
-                        "corpus_sem_publisher",
+                        role_name("publisher"),
                         [
                             ops.AlterColumnOp(
                                 operation.table_name,
@@ -333,7 +339,7 @@ def order_data_steps(
             if (relation, operation.column_name) in deferred and operation.modify_nullable is False:
                 final.append(
                     OwnedOperationsOp(
-                        "corpus_sem_publisher",
+                        role_name("publisher"),
                         [
                             ops.AlterColumnOp(
                                 operation.table_name,

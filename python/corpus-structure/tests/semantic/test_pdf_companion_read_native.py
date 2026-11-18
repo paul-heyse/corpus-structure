@@ -5,7 +5,7 @@ from sqlalchemy import Column, MetaData, Table, bindparam, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.pdf_companion_read_native import (
     pdf_companion_field_read_sql,
@@ -26,7 +26,7 @@ def generated_companion_reads(infrastructure_rollback):
             "kb.pdf_record_companion",
             "ops.pdf_published_revision",
         ):
-            owner = metadata.tables[name]
+            owner = get_metadata().tables[name]
             Table(
                 owner.name,
                 controls,
@@ -46,7 +46,7 @@ def generated_companion_reads(infrastructure_rollback):
             $control$;
         """)
         execute_native_sql(connection, pdf_native_record_shape_sql())
-        execute_native_sql(connection, pdf_companion_field_read_sql(metadata))
+        execute_native_sql(connection, pdf_companion_field_read_sql(get_metadata()))
         yield connection
     finally:
         transaction.rollback()
@@ -149,7 +149,7 @@ def test_companion_reads_keep_exact_bytes_scope_json_null_and_published_guards(
         )
         == b""
     )
-    fields = metadata.tables["kb.pdf_record_companion_field"]
+    fields = get_metadata().tables["kb.pdf_record_companion_field"]
     connection.execute(
         fields.insert(),
         [
@@ -213,10 +213,10 @@ def test_companion_reads_keep_exact_bytes_scope_json_null_and_published_guards(
     with pytest.raises(DBAPIError, match="not in a published revision"), connection.begin_nested():
         read("pdf_companion_body", {"id": "one"})
     connection.execute(
-        metadata.tables["ops.pdf_published_revision"].insert(), {"build_id": "product"}
+        get_metadata().tables["ops.pdf_published_revision"].insert(), {"build_id": "product"}
     )
     connection.execute(
-        metadata.tables["kb.pdf_record_companion"].insert(),
+        get_metadata().tables["kb.pdf_record_companion"].insert(),
         [
             dict(
                 product_id="product",

@@ -1,0 +1,89 @@
+id: https://corpus-structure.dev/semantic/operation-vocabularies
+name: operation_vocabularies
+prefixes:
+  cs: https://corpus-structure.dev/semantic/
+  linkml: https://w3id.org/linkml/
+imports: [linkml:types, operation-integrity-vocabularies]
+default_prefix: cs
+default_range: string
+enums:
+  Profile:
+    annotations: {cs:openness: closed}
+    permissible_values: {derivation: {}, discovery: {}, selection: {}, command: {}, read: {}}
+  KindUniverse:
+    annotations: {cs:openness: closed}
+    permissible_values: {ordinary: {}, source: {}, evaluator: {}}
+  Form:
+    annotations: {cs:openness: closed}
+    permissible_values: {scalar: {}, batch: {}, stream: {}}
+  BindingOperator:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      scan: {}
+      join: {}
+      equal: {}
+      literal: {}
+      same: {}
+      distinct: {}
+      cardinality: {}
+      collection: {}
+      all: {}
+      choice: {}
+      optional: {}
+      forall: {}
+      absent: {}
+      range: {}
+      membership: {}
+      covers: {}
+  ProjectionFamily:
+    annotations: {cs:openness: closed}
+    permissible_values: {coordinate: {}, role: {}, endpoint: {}, coverage: {}, choice: {}}
+  RoleDirection:
+    annotations: {cs:openness: closed}
+    permissible_values: {input: {}, output: {}}
+  ValidityFamily:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      none: {}
+      undetermined: {status: provisional}
+      record-grade: {}
+      record-fit: {}
+      operation-event: {}
+      contextual: {}
+      definition: {}
+      artifact: {}
+      rich: {}
+  SupportEdgeKind:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      original: {}
+      use: {}
+      producer: {}
+      population: {}
+      episode: {}
+  Ownership:
+    annotations: {cs:openness: open}
+    permissible_values:
+      immutable: {}
+      owned-pdf-build: {status: provisional}
+      existing-invocation-cpu-owner: {status: provisional}
+      invocation-owned-cpu: {status: provisional}
+      selected-original-render: {status: provisional}
+      immutable-input-value: {status: provisional}
+      owned-visual-mapping: {status: provisional}
+      pinned-read-borrow: {status: provisional}
+      native-connection: {status: provisional}
+      native-task-packet: {status: provisional}
+      immutable-invocation-inputs: {status: provisional}
+      invocation-owned-cpu-coroutine-and-native-host: {status: provisional}
+      invocation-owned-db-borrow: {status: provisional}
+      invocation-owned-reusable-cpu-worker: {status: provisional}
+      native-residency-borrow: {status: provisional}
+  Preparation:
+    annotations: {cs:openness: open}
+    permissible_values:
+      none: {}
+      external: {}
+      pdf-native: {}
+      resource: {}
+      native-publication: {}

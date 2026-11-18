@@ -17,11 +17,11 @@ from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 from sqlalchemy.sql.ddl import sort_tables
 
 from .arrow_transfer import ArrowTransferError, ArrowWriteProfile
-from .metadata import PHYSICAL_MODEL_ID, metadata
+from .metadata import get_metadata, get_physical_model_id
 
 
 def archive_tables(target_metadata=None) -> tuple[Table, ...]:
-    selected_metadata = metadata if target_metadata is None else target_metadata
+    selected_metadata = get_metadata() if target_metadata is None else target_metadata
     selected = sorted(
         (t for t in selected_metadata.tables.values() if t.info.get("archive_role") is not None),
         key=lambda t: t.fullname,
@@ -63,7 +63,7 @@ def archive_write_profile(relation: Table, release_id: str) -> ArrowWriteProfile
         wires.append(wire)
     return ArrowWriteProfile.prepare(
         release_id=release_id,
-        physical_id=PHYSICAL_MODEL_ID,
+        physical_id=get_physical_model_id(),
         operation="archive:" + relation.fullname,
         schema=pa.schema(fields),
         wire_types=wires,

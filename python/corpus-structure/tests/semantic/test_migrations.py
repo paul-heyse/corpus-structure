@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import Engine, inspect, text
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.migrations import current_revision, downgrade, upgrade
 
 
@@ -24,7 +24,7 @@ def test_native_bootstrap_and_subsequent_projection(semantic_bare_engine: Engine
         assert not {"realization", "fact", "typed_value", "source_view"} & set(
             catalog.get_table_names(schema="data")
         )
-        for item in metadata.tables.values():
+        for item in get_metadata().tables.values():
             assert {c["name"] for c in catalog.get_columns(item.name, schema=item.schema)} == set(
                 item.c.keys()
             )

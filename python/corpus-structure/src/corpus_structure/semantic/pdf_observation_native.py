@@ -30,7 +30,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, aggregate_order_by, array, insert
 
-from .native_call_contracts import NATIVE_FIELD_TYPES
+from corpus_structure.model.compiled import field_kinds
+
 from .native_program import (
     Assign,
     Block,
@@ -1893,13 +1894,9 @@ def observation_publisher_declaration(context, model):
     parameters = []
     for field in binding_.parameters:
         resolved = field.resolved
-        if (
-            resolved is None
-            or resolved.kind not in NATIVE_FIELD_TYPES
-            or field.native_parameter is None
-        ):
+        if resolved is None or resolved.kind not in field_kinds() or field.native_parameter is None:
             raise ValueError("observation publication has an unresolved native field")
-        kind = pg_type(NATIVE_FIELD_TYPES[resolved.kind][0])
+        kind = pg_type(field_kinds()[resolved.kind].postgres)
         if resolved.multivalued:
             kind.arrayBounds = (ast.Integer(ival=-1),)
         parameters.append(Parameter(field.native_parameter, kind))

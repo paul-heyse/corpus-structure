@@ -17,11 +17,7 @@ from pglast.stream import RawStream
 from sqlalchemy import Boolean, Connection, Text, column, exists, func, literal, or_, select, table
 from sqlalchemy.dialects.postgresql import OID, aggregate_order_by, dialect
 
-from corpus_structure.semantic.alembic_privileges import (
-    DEFAULT_READ_ROLES,
-    PUBLISHER,
-    PURPOSE_ROLES,
-)
+from corpus_structure.schema.integrity import integrity
 from corpus_structure.semantic.native_objects import native_sql_script
 from corpus_structure.semantic.native_program import Block, Do, If, Raise, Sql
 
@@ -38,15 +34,18 @@ class Principal:
 
 PEER_MAP = "corpus_semantic"
 
-_WRITER, _READER, _ADMITTER, _EVALUATOR = DEFAULT_READ_ROLES
-PRINCIPALS = (
-    Principal("publisher", PUBLISHER, login=False),
-    Principal("write", _WRITER),
-    Principal("read", _READER),
-    Principal("evaluate", _EVALUATOR),
-    Principal("fit", PURPOSE_ROLES[-1], inherit=False),
-    Principal("admit", _ADMITTER),
-)
+
+def _principals():
+    policy = integrity()
+    result = [Principal("publisher", policy.publisher, login=False)]
+    for purpose, name in policy.purposes.items():
+        if name is not None:
+            role = policy.roles[name]
+            result.append(Principal(purpose, name, login=role.login, inherit=role.inherit))
+    return tuple(result)
+
+
+PRINCIPALS = _principals()
 
 
 def _catalog(name, **columns):
@@ -234,7 +233,7 @@ def semantic_roles(operator: str, *, fitter_only: bool = False) -> str:
         steps.append(
             If(memberships, (Raise("semantic principals must not inherit any role", "P0001"),))
         )
-        steps.append(Sql(_grant_role(PUBLISHER, operator, set_only=True)))
+        steps.append(Sql(_grant_role(integrity().publisher, operator, set_only=True)))
     return Do(Block(tuple(steps)))
 
 

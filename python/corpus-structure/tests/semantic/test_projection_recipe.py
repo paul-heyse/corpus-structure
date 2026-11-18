@@ -20,7 +20,7 @@ from corpus_structure.semantic.companion_projection import (
     render_static_columns,
 )
 from corpus_structure.semantic.companion_projection_native import family_sql
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.projection_recipe import (
     Conditional,
     Constant,
@@ -38,7 +38,7 @@ def prepared(view, family="coverage"):
         view,
         family,
         projection_id="independent-mutated-recipe",
-        physical=metadata,
+        physical=get_metadata(),
     )
 
 
@@ -282,7 +282,7 @@ def test_native_companion_authoring_consumes_captured_recipe_without_installed_m
 
     contract, *sources = pdf_domain_sources()
     original_domain = PdfDomainContract(contract.content, tuple(sources))
-    original = captured_projection("coverage", original_domain, target_metadata=metadata)
+    original = captured_projection("coverage", original_domain, target_metadata=get_metadata())
     assert original.projection_id == projection("coverage").projection_id
     logical_name = "pdf-domain/logical/companion_projections"
     document = yaml.safe_load(
@@ -303,16 +303,16 @@ def test_native_companion_authoring_consumes_captured_recipe_without_installed_m
     ]
     captured = PdfDomainContract(canonical_bytes(changed_contract), changed_sources)
     monkeypatch.setattr(owner, "MODEL", Path("/unavailable-installed-companion-model.yaml"))
-    selected = captured_projection("coverage", captured, target_metadata=metadata)
+    selected = captured_projection("coverage", captured, target_metadata=get_metadata())
     assert selected.function_name == "ops.read_captured_coverage_batch"
     assert selected.projection_id != original.projection_id
     assert [(item.name, type(item.type)) for item in selected.columns] == [
         (item.name, type(item.type)) for item in original.columns
     ]
-    assert parse_sql(family_sql("coverage", target_metadata=metadata, domain=captured))
-    assert parse_sql(pin_guard_sql(target_metadata=metadata, domain=captured))
+    assert parse_sql(family_sql("coverage", target_metadata=get_metadata(), domain=captured))
+    assert parse_sql(pin_guard_sql(target_metadata=get_metadata(), domain=captured))
     assert "read_captured_coverage_batch" in family_sql(
-        "coverage", target_metadata=metadata, domain=captured
+        "coverage", target_metadata=get_metadata(), domain=captured
     )
     assert render_static_columns(captured)
 

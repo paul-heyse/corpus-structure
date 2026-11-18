@@ -4,14 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Literal
+from typing import Literal, get_args
 
 from sqlalchemy import Connection, Engine, Text, func, select
 from sqlalchemy.engine import URL, make_url
 
+from corpus_structure.schema.integrity import integrity
 from corpus_structure.settings import Settings
 
 type Purpose = Literal["read", "write", "evaluate", "admit", "maintenance", "fit"]
+
+if set(get_args(Purpose.__value__)) != set(integrity().purposes):
+    raise ValueError("runtime Purpose type disagrees with the integrity vocabulary")
 
 
 def connection_settings(settings: Settings, purpose: Purpose = "write") -> Settings:
@@ -31,13 +35,7 @@ def connection_settings(settings: Settings, purpose: Purpose = "write") -> Setti
     }
     if purpose == "write":
         return settings
-    role = {
-        "read": "corpus_sem_reader",
-        "evaluate": "corpus_sem_evaluator",
-        "fit": "corpus_sem_fitter",
-        "admit": "corpus_sem_admitter",
-        "maintenance": None,
-    }[purpose]
+    role = integrity().purpose_role(purpose)
     credentials = make_url(declared[purpose] or URL.create("postgresql", username=role))
     if credentials.drivername not in {"postgresql", "postgres", "postgresql+psycopg"}:
         raise ValueError(f"database credentials for {purpose} must use a PostgreSQL URL")

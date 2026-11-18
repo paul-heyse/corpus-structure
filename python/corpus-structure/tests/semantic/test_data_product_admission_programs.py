@@ -11,7 +11,7 @@ from sqlalchemy.schema import CreateTable
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
 from corpus_structure.semantic.data_product_admission_native import product_admission_native_sql
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
@@ -31,7 +31,9 @@ def product_connection(infrastructure_rollback):
             for name in ("coordinate", "role", "endpoint", "coverage", "choice")
         ),
     ):
-        connection.execute(CreateTable(metadata.tables[name], include_foreign_key_constraints=[]))
+        connection.execute(
+            CreateTable(get_metadata().tables[name], include_foreign_key_constraints=[])
+        )
     from corpus_structure.semantic.target_installation import foundation_programs
 
     identity = prepare_sql(foundation_programs().identity, source="product-identity-test-helpers")
@@ -70,7 +72,9 @@ def product_connection(infrastructure_rollback):
             execute_native_sql(connection, parsed.excerpt(i))
     # This isolated database intentionally omits request/source tables. The
     # directly tested product program uses real codecs, policy and schemas.
-    selected = prepare_sql(product_admission_native_sql(metadata), source="product-realization")
+    selected = prepare_sql(
+        product_admission_native_sql(get_metadata()), source="product-realization"
+    )
     for i, statement in enumerate(selected.statements):
         node = statement.stmt
         if (
@@ -84,7 +88,7 @@ def product_connection(infrastructure_rollback):
         ("leaf", {"not": {}}, []),
     ):
         connection.execute(
-            insert(metadata.tables["sem.data_kind_contract"]).values(
+            insert(get_metadata().tables["sem.data_kind_contract"]).values(
                 kind_contract=name,
                 kind="urn:" + name,
                 body_schema={},
@@ -96,7 +100,7 @@ def product_connection(infrastructure_rollback):
             )
         )
         connection.execute(
-            insert(metadata.tables["sem.data_kind_release"]).values(
+            insert(get_metadata().tables["sem.data_kind_release"]).values(
                 release_id="release", kind_contract=name
             )
         )
@@ -231,7 +235,7 @@ def test_generated_product_admission_binds_in_actual_native_model(native_rollbac
     connection = native_rollback.connection
     execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, product_admission_native_sql(metadata))
+        execute_native_sql(connection, product_admission_native_sql(get_metadata()))
         for signature in (
             "ops.ddo_install_product_context(jsonb,jsonb,jsonb)",
             "ops.ddo_admit_original_source(jsonb)",

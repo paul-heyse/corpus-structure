@@ -2,12 +2,14 @@
 
 from sqlalchemy import Text, column, false, func, or_, select, values
 
+from corpus_structure.schema.integrity import physical_schemas, role_name
+
 from . import native_catalog as catalog
 from .native_program import If, Raise, core_variable
 
-_SOURCE_PRINCIPALS = ("corpus_sem_writer", "corpus_sem_reader")
-_RUNTIME_PRINCIPALS = (*_SOURCE_PRINCIPALS, "corpus_sem_admitter", "corpus_sem_evaluator")
-_APPLICATION_SCHEMAS = ("sem", "data", "ops", "kb")
+_SOURCE_PRINCIPALS = (role_name("writer"), role_name("reader"))
+_RUNTIME_PRINCIPALS = (*_SOURCE_PRINCIPALS, role_name("admitter"), role_name("evaluator"))
+_APPLICATION_SCHEMAS = tuple(name for name in physical_schemas() if name != "eval")
 _PRIVATE_KERNELS = (
     "data.publish_contract_batch(text,text,text,bytea)",
     "data.validate_state(text,text)",
@@ -27,7 +29,7 @@ def _refuse(condition, message, sqlstate="23514"):
 def principal_catalog_checks():
     """Check evaluator/source restrictions before the generic native CHECK contract."""
     pg = catalog.pg
-    evaluator = "corpus_sem_evaluator"
+    evaluator = role_name("evaluator")
     roles = catalog.roles.alias("r")
     memberships = catalog.auth_members.alias("m")
     relation = catalog.relation.alias("c")
@@ -137,7 +139,7 @@ def principal_catalog_checks():
                 .exists(),
                 *(
                     pg.pg_has_role(principal, target, "MEMBER")
-                    for target in ("corpus_sem_publisher", owner)
+                    for target in (role_name("publisher"), owner)
                     for principal in _SOURCE_PRINCIPALS
                 ),
             ),
@@ -205,7 +207,7 @@ def restricted_principal_checks():
                 namespace.c.nspname == "eval",
                 relation.c.relkind.in_(("r", "p")),
                 pg.has_table_privilege(
-                    "corpus_sem_admitter", relation.c.oid, "SELECT,INSERT,UPDATE,DELETE,TRUNCATE"
+                    role_name("admitter"), relation.c.oid, "SELECT,INSERT,UPDATE,DELETE,TRUNCATE"
                 ),
             )
             .exists(),
@@ -218,7 +220,7 @@ def restricted_principal_checks():
             .where(
                 or_(
                     pg.has_database_privilege(principals.c.name, pg.current_database(), "TEMP"),
-                    pg.pg_has_role(principals.c.name, "corpus_sem_publisher", "MEMBER"),
+                    pg.pg_has_role(principals.c.name, role_name("publisher"), "MEMBER"),
                     pg.pg_has_role(principals.c.name, owner, "MEMBER"),
                 ),
             )

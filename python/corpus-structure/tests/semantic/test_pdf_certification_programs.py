@@ -10,7 +10,7 @@ from pglast.stream import RawStream
 from sqlalchemy import Column, MetaData, Table, text
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 from corpus_structure.semantic.pdf_certification_native import pdf_certification_native_sql
 from corpus_structure.semantic.pdf_record_identity import IdentityFold, record_frame
@@ -289,14 +289,14 @@ def test_installed_certification_entrypoints_require_exact_writer_fence(
 
 
 def test_generated_stream_inventory_matches_independent_python_frames(native_rollback):
-    source = metadata.tables["ops.pdf_artifact_stream"]
+    source = get_metadata().tables["ops.pdf_artifact_stream"]
     fixture = Table(
         "certification_streams",
         MetaData(),
         *(Column(column.name, column.type, nullable=column.nullable) for column in source.c),
         schema="pg_temp",
     )
-    supplied = SimpleNamespace(tables={**metadata.tables, "ops.pdf_artifact_stream": fixture})
+    supplied = SimpleNamespace(tables={**get_metadata().tables, "ops.pdf_artifact_stream": fixture})
     declaration = next(
         item.stmt
         for item in parse_sql(pdf_certification_native_sql(target_metadata=supplied))

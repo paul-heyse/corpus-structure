@@ -22,6 +22,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, aggregate_order_by, array
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_program import (
     Assign,
     Block,
@@ -352,7 +354,7 @@ def pdf_companion_field_read_sql(metadata):
                 locals_,
             ),
             definer=True,
-            readers=("corpus_sem_reader", "corpus_sem_evaluator", "corpus_sem_writer"),
+            readers=(role_name("reader"), role_name("evaluator"), role_name("writer")),
         )
     )
     return "".join(out)

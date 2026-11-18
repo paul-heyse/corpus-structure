@@ -101,10 +101,10 @@ def policy_visibility_connection(infrastructure_rollback):
         "RETURNS boolean LANGUAGE sql AS 'SELECT true'"
     )
     from corpus_structure.semantic.data_read_boundary_native import read_boundary_native_sql
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
 
     boundary_helpers = prepare_sql(
-        read_boundary_native_sql(metadata), source="read-visibility-control"
+        read_boundary_native_sql(get_metadata()), source="read-visibility-control"
     )
     for index, raw in enumerate(boundary_helpers.statements):
         if (

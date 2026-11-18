@@ -15,6 +15,8 @@ from hashlib import sha256
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Any
 
+from corpus_structure.schema.integrity import role_name
+
 if TYPE_CHECKING:
     from .types import PreparedRelease, ResolvedDependencies
 
@@ -182,7 +184,7 @@ def _syntax(sql: str | PreparedSQL, metadata: MetaData) -> tuple[tuple[str, ...]
 
 @contextmanager
 def _analysis_snapshot(
-    conn: Connection, *, execution_role: str = "corpus_sem_reader"
+    conn: Connection, *, execution_role: str = role_name("reader")
 ) -> Generator[Connection]:
     if conn.in_transaction():
         raise SQLAdmissionError("admission needs a fresh reader connection")
@@ -223,7 +225,7 @@ def admit_sql(
     release_id: str,
     metadata: MetaData,
     physical_id: str,
-    execution_role: str = "corpus_sem_reader",
+    execution_role: str = role_name("reader"),
 ) -> AuthoredSQL:
     """Analyze supported SQL without execution on a fresh restricted connection."""
     with _analysis_snapshot(conn, execution_role=execution_role):

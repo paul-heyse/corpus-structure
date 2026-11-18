@@ -6,7 +6,15 @@ from pathlib import Path
 
 from pglast import ast
 
-from .native_objects import NativeDefinition, definition_from_sql, native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import (
+    INTERNAL_PROGRAM,
+    NativeDefinition,
+    NativeProgramAccess,
+    definition_from_sql,
+    native_sql_script,
+)
 from .prepared_sql import prepare_sql
 from .source_admission_native import source_admission_native_sql
 from .source_capture_native import source_capture_native_sql
@@ -21,9 +29,9 @@ def source_native_sources(
 
     if target_metadata is None:
         if physical_sources is None:
-            from .metadata import metadata
+            from .metadata import get_metadata
 
-            target_metadata = metadata
+            target_metadata = get_metadata()
         else:
             from corpus_structure.schema.physical import compile_physical
 
@@ -59,10 +67,10 @@ def source_native_sql(sources=None) -> str:
 
     selected = None if sources is None else {source.name: source.content for source in sources}
     if selected is None:
-        from .metadata import metadata
+        from .metadata import get_metadata
 
-        admission_sql = source_admission_native_sql(metadata)
-        capture_sql = source_capture_native_sql(metadata)
+        admission_sql = source_admission_native_sql(get_metadata())
+        capture_sql = source_capture_native_sql(get_metadata())
     else:
         admission_sql = selected["native/data-operation-source-admission.sql"].decode()
         capture_sql = selected["native/data-operation-source-capture.sql"].decode()
@@ -93,26 +101,18 @@ def source_native_definitions(connection, *, sources=None) -> tuple[NativeDefini
                 connection,
                 prepared.excerpt(index),
                 source=source,
-                owner="corpus_sem_publisher",
-                grants=(
-                    (("corpus_sem_writer", "EXECUTE", False),)
+                owner=role_name("publisher"),
+                program_access=(
+                    NativeProgramAccess(purposes=("write",))
                     if statement.funcname[-1].sval
                     in {
                         "ddo_pdf_capture_source",
                         "ddo_pdf_observation_source",
                         "register_original_document",
                     }
-                    else tuple(
-                        (role, "EXECUTE", False)
-                        for role in (
-                            "corpus_sem_writer",
-                            "corpus_sem_reader",
-                            "corpus_sem_admitter",
-                            "corpus_sem_evaluator",
-                        )
-                    )
+                    else NativeProgramAccess(purposes=("write", "read", "admit", "evaluate"))
                     if statement.funcname[-1].sval == "require_source_admission"
-                    else ()
+                    else INTERNAL_PROGRAM
                 ),
             )
         )

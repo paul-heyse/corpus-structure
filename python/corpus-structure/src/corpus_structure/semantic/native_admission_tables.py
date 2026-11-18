@@ -6,6 +6,8 @@ absent primary key is SQL NULL; an absent FK inventory is an empty JSON array.
 Effective role privileges and explicit PUBLIC ACL edges remain separate facts.
 """
 
+import json
+
 from sqlalchemy import (
     Boolean,
     SmallInteger,
@@ -21,14 +23,16 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, OID, aggregate_order_by, array
 
+from corpus_structure.schema.integrity import role_name, schema_read_roles
+
 from . import native_catalog as catalog
 from .native_program import If, Raise, SelectInto, core_variable
 
 _ACTORS = (
-    "corpus_sem_writer",
-    "corpus_sem_reader",
-    "corpus_sem_evaluator",
-    "corpus_sem_admitter",
+    role_name("writer"),
+    role_name("reader"),
+    role_name("evaluator"),
+    role_name("admitter"),
 )
 
 
@@ -177,9 +181,7 @@ def table_catalog_checks():
     read_roles = func.coalesce(
         item["read_roles"],
         cast(
-            literal(
-                '["corpus_sem_writer","corpus_sem_reader","corpus_sem_admitter","corpus_sem_evaluator"]'
-            ),
+            literal(json.dumps(schema_read_roles("sem"), separators=(",", ":"))),
             JSONB(),
         ),
     )

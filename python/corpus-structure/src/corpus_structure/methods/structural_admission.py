@@ -131,7 +131,7 @@ class StructuralAdmission:
             {
                 "name": "native-evaluator-structural-admission",
                 "authorization": [
-                    "native-purpose:evaluator",
+                    "native-purpose:evaluate",
                     "exact-protected-structural-adjudication",
                 ],
                 "idempotency": "request-generation/exact-structural-statement",

@@ -10,7 +10,9 @@ from pglast.stream import RawStream
 from sqlalchemy import MetaData, Table, Text, case, cast, func, null, select, union_all
 from sqlalchemy.dialects.postgresql import JSONB, Insert, array, dialect, insert
 
-from .metadata import metadata as default_metadata
+from corpus_structure.schema.integrity import role_name
+
+from .metadata import get_metadata as default_metadata
 from .native_call_contracts import OperationCallBinding
 from .native_objects import (
     NativeIdentity,
@@ -227,7 +229,7 @@ def _schema_json(schema: dict) -> str:
 
 def _coverage_support_violation_statement(*, target_metadata=None):
     """Set-shaped resolution of the existing exact-pin support/complete rule."""
-    metadata = default_metadata if target_metadata is None else target_metadata
+    metadata = default_metadata() if target_metadata is None else target_metadata
     from sqlalchemy import (
         and_,
         cast,
@@ -426,7 +428,7 @@ def _published_revision_sql(model) -> str:
 def _published_validation_sql(*, target_metadata=None) -> str:
     from .native_sql_body import published_validation_statement
 
-    model = default_metadata if target_metadata is None else target_metadata
+    model = default_metadata() if target_metadata is None else target_metadata
     returns = pg_type("ops", "pdf_build_validation")
     returns.setof = True
     return (
@@ -491,14 +493,14 @@ def _published_views_sql(model, domain) -> str:
                         withCheckOption=enums.ViewCheckOption.NO_CHECK_OPTION,
                     )
                 ),
-                native_owner_sql(identity, "corpus_sem_publisher"),
+                native_owner_sql(identity, role_name("publisher")),
                 *(
                     native_privilege_sql(identity, role, "select")
                     for role in (
-                        "corpus_sem_writer",
-                        "corpus_sem_reader",
-                        "corpus_sem_evaluator",
-                        *(("corpus_sem_admitter",) if admitter else ()),
+                        role_name("writer"),
+                        role_name("reader"),
+                        role_name("evaluator"),
+                        *((role_name("admitter"),) if admitter else ()),
                     )
                 ),
             )
@@ -621,15 +623,15 @@ def _publication_privileges_sql() -> str:
         statements.extend(
             (
                 native_privilege_sql(identity, "PUBLIC", grant=False),
-                native_privilege_sql(identity, "corpus_sem_writer", "execute"),
+                native_privilege_sql(identity, role_name("writer"), "execute"),
             )
         )
         if name in {"read_pdf_published_revision", "read_pdf_published_validation"}:
             statements.extend(
                 native_privilege_sql(identity, role, "execute")
                 for role in (
-                    "corpus_sem_reader",
-                    "corpus_sem_evaluator",
+                    role_name("reader"),
+                    role_name("evaluator"),
                 )
             )
     return native_sql_script(statements) + "\n"
@@ -642,7 +644,7 @@ def _companion_adoption_sql(context, metadata) -> str:
 
 
 def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
-    metadata = default_metadata if target_metadata is None else target_metadata
+    metadata = default_metadata() if target_metadata is None else target_metadata
     from .pdf_companion_read_native import (
         pdf_companion_field_read_sql,
         pdf_native_record_shape_sql,
@@ -1220,7 +1222,7 @@ def _publication_control_routine(
                 privileges=(ast.AccessPriv(priv_name="execute"),),
                 grantees=(
                     ast.RoleSpec(
-                        roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"
+                        roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=role_name("writer")
                     ),
                 ),
                 behavior=enums.DropBehavior.DROP_RESTRICT,

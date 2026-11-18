@@ -4,6 +4,8 @@ from pglast.stream import RawStream
 from sqlalchemy import BigInteger, MetaData, Text, column, func, literal, select, true
 from sqlalchemy.dialects.postgresql import JSONB
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import Parameter, column_type, core_variable, pg_type, sql_function
 
@@ -130,8 +132,8 @@ def pdf_record_proof_sql(model: MetaData) -> str:
                     volatility="stable",
                 ),
                 native_privilege_sql(identity, "PUBLIC", grant=False),
-                native_privilege_sql(identity, "corpus_sem_reader", "execute"),
-                native_privilege_sql(identity, "corpus_sem_evaluator", "execute"),
+                native_privilege_sql(identity, role_name("reader"), "execute"),
+                native_privilege_sql(identity, role_name("evaluator"), "execute"),
             )
         )
     return native_sql_script(statements)

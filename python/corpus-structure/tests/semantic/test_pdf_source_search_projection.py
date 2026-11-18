@@ -101,7 +101,7 @@ def test_generated_search_tracks_quoted_physical_fields_and_result_types():
     from pglast import ast, parse_plpgsql, parse_sql
     from sqlalchemy import MetaData, String
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
 
     target = MetaData()
     for name in (
@@ -110,7 +110,7 @@ def test_generated_search_tracks_quoted_physical_fields_and_result_types():
         "ops.pdf_source_search_population",
         "ops.pdf_source_search_section",
     ):
-        metadata.tables[name].to_metadata(target)
+        get_metadata().tables[name].to_metadata(target)
     target.tables["ops.pdf_published_revision"].c.logical_digest.name = 'publication "digest"'
     section = target.tables["ops.pdf_source_search_section"]
     section.c.text.name = 'section "text"'
@@ -148,14 +148,14 @@ def test_search_configuration_changes_the_vector_program_and_wire_together():
 
     from corpus_structure.schema.physical import compile_physical
     from corpus_structure.semantic.data_operation_wire import wire_contracts
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_products import capture_native_authoring_inputs
 
-    physical = dict(metadata.info["physical_sources"])
+    physical = dict(get_metadata().info["physical_sources"])
     physical["physical.yaml"] = physical["physical.yaml"].replace(
         b"ph:search_configuration: english", b"ph:search_configuration: simple"
     )
-    target = compile_physical(physical, linkml_types=metadata.info["physical_linkml_types"])
+    target = compile_physical(physical, linkml_types=get_metadata().info["physical_linkml_types"])
     captured = capture_native_authoring_inputs(target_metadata=target)
     wire = wire_contracts(captured.native_sources)["ensure_pdf_search_projection"]["input"]
     request = wire["definitions"]["ensure_pdf_search_projection_request"]

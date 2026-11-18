@@ -3,13 +3,13 @@
 import pytest
 from pglast import ast
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.pdf_completion_native import pdf_completion_native_sql
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
 
 def test_pdf_completion_proof_is_closed_private_and_preserves_semantic_non_success():
-    sql = pdf_completion_native_sql(metadata)
+    sql = pdf_completion_native_sql(get_metadata())
     prepared = prepare_sql(sql, source="PDF completion proof")
     function = prepared.statements[2].stmt
     assert isinstance(function, ast.CreateFunctionStmt)
@@ -86,7 +86,7 @@ def test_native_pdf_command_eligibility_refuses_changed_effect_or_uncaptured_fac
     from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, pdf_completion_native_sql(metadata))
+        execute_native_sql(connection, pdf_completion_native_sql(get_metadata()))
     assert connection.scalar(query, {"value": json_bytes(definition).decode()}) is True
     for change in (
         "factory",
@@ -139,7 +139,7 @@ def test_generated_pdf_completion_binds_in_native_model_and_retains_strict_looku
     connection = native_rollback.connection
     execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, pdf_completion_native_sql(metadata))
+        execute_native_sql(connection, pdf_completion_native_sql(get_metadata()))
         failures = (
             connection.execute(
                 text(

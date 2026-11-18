@@ -566,7 +566,7 @@ def test_native_rich_function_population_has_explicit_independent_expectation():
 def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance():
     from pglast import parse_sql
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_products import function_bodies
     from corpus_structure.semantic.record_policy_completion_native import (
         record_policy_completion_native_sql,
@@ -636,7 +636,7 @@ def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance
             "AND sem.data_kind_contract.universe='ordinary')"
         )[0].stmt
     )
-    issuer = function_bodies(record_policy_completion_native_sql(metadata))[
+    issuer = function_bodies(record_policy_completion_native_sql(get_metadata()))[
         "ops.ddo_require_policy_authorization_completion"
     ]
     assert "policy authorization requires native evaluator purpose" in issuer
@@ -644,7 +644,7 @@ def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance
 
 
 def test_generated_rich_producer_authority_binds_actual_native_model(native_rollback):
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 
     connection = native_rollback.connection
@@ -662,7 +662,7 @@ def test_generated_rich_producer_authority_binds_actual_native_model(native_roll
         "ops.ddo_rich_admission_dependencies_valid(text)",
     )
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, rich_admission_native_sql(target_metadata=metadata))
+        execute_native_sql(connection, rich_admission_native_sql(target_metadata=get_metadata()))
         for signature in signatures:
             errors = (
                 connection.execute(
@@ -691,11 +691,11 @@ def test_rich_authority_resolves_the_explicit_captured_relations():
 
     from sqlalchemy import MetaData
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_products import function_bodies
 
     captured = MetaData()
-    for relation in metadata.sorted_tables:
+    for relation in get_metadata().sorted_tables:
         relation.to_metadata(captured)
     captured.tables["ops.data_derivation"].name = "captured_rich_episode"
     captured.tables["kb.data_product"].name = "captured_rich_product"

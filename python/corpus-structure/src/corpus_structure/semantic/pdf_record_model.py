@@ -18,11 +18,11 @@ from sqlalchemy import BigInteger, Boolean, Integer, MetaData, Numeric, Text
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 
 from .arrow_transfer import ArrowWriteProfile
-from .metadata import metadata
+from .metadata import get_metadata
 
 
 def _record_tables(model: MetaData | None, *, derived: bool | None):
-    selected = metadata if model is None else model
+    selected = get_metadata() if model is None else model
     return {
         name: table
         for name, table in selected.tables.items()
@@ -72,7 +72,7 @@ def artifact_part_upload_table(model: MetaData | None = None):
 
     from corpus_structure.schema.physical import compile_physical
 
-    selected = metadata if model is None else model
+    selected = get_metadata() if model is None else model
     sources = dict(selected.info["physical_sources"])
     root = yaml.safe_load(sources["physical.yaml"])
     owner = yaml.safe_load(sources["pdf-records.yaml"])["classes"]["PdfArtifactPart"]["annotations"]
@@ -80,7 +80,9 @@ def artifact_part_upload_table(model: MetaData | None = None):
         "is_a": "PdfArtifactPart",
         "in_subset": ["ops"],
         "unique_keys": {"primary_key": {"unique_key_slots": json.loads(owner["pds:upload_key"])}},
-        "annotations": {"ph:checks": owner["pds:upload_checks"]},
+        "annotations": {
+            "ph:checks": {"tag": "ph:checks", "value": json.loads(owner["pds:upload_checks"])}
+        },
     }
     sources["physical.yaml"] = yaml.safe_dump(root, sort_keys=False).encode()
     overlay = compile_physical(sources, linkml_types=selected.info["physical_linkml_types"])
@@ -92,7 +94,7 @@ def artifact_part_upload_table(model: MetaData | None = None):
 
 
 def record_upload_table(name: str, model: MetaData | None = None):
-    selected = metadata if model is None else model
+    selected = get_metadata() if model is None else model
     return (
         artifact_part_upload_table(selected)
         if name == "ops.pdf_stage_artifact_part"
@@ -101,7 +103,7 @@ def record_upload_table(name: str, model: MetaData | None = None):
 
 
 def record_arrow_schema(name: str, *, model: MetaData | None = None) -> pa.Schema:
-    selected = metadata if model is None else model
+    selected = get_metadata() if model is None else model
     table = record_upload_table(name, selected)
     if table.info.get("pdf_record_boundary_role") == "derived_core":
         raise ValueError(f"derived PDF record projection {name} uses the SQLAlchemy Core boundary")
@@ -158,7 +160,7 @@ def record_write_profile(
 
 @lru_cache(maxsize=128)
 def _default_write_profile(name: str, release_id: str) -> ArrowWriteProfile:
-    return _write_profile(name, release_id, metadata)
+    return _write_profile(name, release_id, get_metadata())
 
 
 def _write_profile(name: str, release_id: str, selected: MetaData) -> ArrowWriteProfile:

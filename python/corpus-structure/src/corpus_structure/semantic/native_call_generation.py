@@ -6,9 +6,10 @@ import json
 from dataclasses import asdict
 from hashlib import sha256
 
+from corpus_structure.model.compiled import field_kinds
+
 from .identity import canonical_bytes
-from .native_call_contracts import NATIVE_FIELD_TYPES
-from .native_call_sources import _PRIMITIVES, _integer_bounds
+from .native_call_sources import _integer_bounds
 
 
 def _enum_alias(field):
@@ -23,7 +24,7 @@ def _all_call_fields(call):
 def render_call_identifiers(calls, *, canonical_identifiers=False):
     """Keep identifiers importable without inventing another semantic model."""
     aliases = {
-        field.semantic_type: _PRIMITIVES[field.resolved.kind]
+        field.semantic_type: field_kinds()[field.resolved.kind].python
         for _, call in calls
         for field in _all_call_fields(call)
         if field.semantic_type
@@ -98,11 +99,11 @@ def render_call_bindings(
         + "Any, Literal, Never, NewType, NotRequired, Protocol, Required, TypedDict, cast",
         "",
         "from pydantic import Field, JsonValue, TypeAdapter",
-        "from sqlalchemy import (ARRAY, BigInteger, Boolean, Column, Connection, DateTime, "
+        "from sqlalchemy import (ARRAY, BigInteger, Boolean, Column, Connection, DateTime, Double, "
         "Float, Integer, Named, Numeric, Result, Select, Text, TypedColumns, "
         "bindparam, column, func, null, select)",
         "from sqlalchemy.sql import ColumnElement",
-        "from sqlalchemy.dialects.postgresql import BYTEA, JSONB",
+        "from sqlalchemy.dialects.postgresql import BYTEA, JSONB, TIMESTAMP",
         "from corpus_structure.core.vocab import TaskUnitType",
         "from .types import PreparedRelease",
         "from .metadata import table as _core_table",
@@ -166,7 +167,7 @@ def render_call_bindings(
             raise ValueError("call source fields have not been resolved")
         if json_text and typ.kind == "json_payload":
             return "str"
-        kind = typ.model_class if typ.model_class and not native else _PRIMITIVES[typ.kind]
+        kind = typ.model_class if typ.model_class and not native else field_kinds()[typ.kind].python
         if typ.enum_values and not native:
             kind = enum_aliases.get(field.source) or (
                 "Literal[" + ", ".join(repr(v) for v in typ.enum_values) + "]"
@@ -202,7 +203,7 @@ def render_call_bindings(
         expression = (
             "JSONB(none_as_null=True)"
             if typ.kind == "json_payload" and field.nullable
-            else NATIVE_FIELD_TYPES[typ.kind][1]
+            else field_kinds()[typ.kind].expression
         )
         return "ARRAY(" + expression + ")" if typ.multivalued else expression
 
@@ -255,7 +256,7 @@ def render_call_bindings(
     for _, call in calls:
         for field in _all_call_fields(call):
             if field.semantic_type:
-                aliases[field.semantic_type] = _PRIMITIVES[field.resolved.kind]
+                aliases[field.semantic_type] = field_kinds()[field.resolved.kind].python
     if canonical_identifiers:
         if metadata is None:
             raise ValueError("canonical call identities require explicit physical metadata")

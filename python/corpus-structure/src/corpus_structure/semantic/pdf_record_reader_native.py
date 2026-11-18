@@ -4,7 +4,9 @@ from pglast.stream import RawStream
 from sqlalchemy import BigInteger, MetaData, Numeric, Table, Text, cast, column, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .metadata import metadata
+from corpus_structure.schema.integrity import role_name
+
+from .metadata import get_metadata
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
@@ -31,7 +33,7 @@ from .pdf_record_pages_native import pdf_record_page_sql
 
 
 def pdf_record_reader_sql(*, target_metadata: MetaData | None = None) -> str:
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     return pdf_record_page_sql(model) + pdf_materialization_bound_sql(model)
 
 
@@ -73,7 +75,7 @@ def _export_definition(model, name, product_parameter, query_builder, *, family=
                 native_privilege_sql(identity, "PUBLIC", grant=False),
                 *(
                     native_privilege_sql(identity, role, "execute")
-                    for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+                    for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
                 ),
             )
         )
@@ -83,7 +85,7 @@ def _export_definition(model, name, product_parameter, query_builder, *, family=
 
 def pdf_native_export_sql(*, target_metadata: MetaData | None = None) -> str:
     """Read the ordered containment cursor for a published product."""
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     return _export_definition(
         model,
         "read_pdf_native_events",
@@ -112,7 +114,7 @@ def pdf_companion_export_sql(*, target_metadata: MetaData | None = None) -> str:
         )
         return companion_event_query(companion_event_relation(model, companions))
 
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     return _export_definition(
         model, "read_pdf_companion_export_events", "p_key", query, family=True
     )
@@ -221,7 +223,7 @@ def pdf_materialization_bound_sql(model: MetaData) -> str:
                 native_privilege_sql(identity, "PUBLIC", grant=False),
                 *(
                     native_privilege_sql(identity, role, "execute")
-                    for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+                    for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
                 ),
             )
         )

@@ -8,7 +8,7 @@ from pglast.stream import RawStream
 from sqlalchemy import text
 
 from corpus_structure.semantic.data_operation_renewal import renewal_native_sql
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import (
     definition_from_sql,
     execute_native_sql,
@@ -17,7 +17,7 @@ from corpus_structure.semantic.native_objects import (
 
 
 def protocol():
-    return metadata.info["physical_sources"]["data-operation-native.yaml"]
+    return get_metadata().info["physical_sources"]["data-operation-native.yaml"]
 
 
 def test_renewal_program_uses_captured_contract_bounds():
@@ -25,7 +25,7 @@ def test_renewal_program_uses_captured_contract_bounds():
     declaration["definitions"]["renew_data_request_request"]["properties"]["lease_seconds"][
         "maximum"
     ] = 75
-    rendered = renewal_native_sql(metadata, yaml.safe_dump(declaration).encode())
+    rendered = renewal_native_sql(get_metadata(), yaml.safe_dump(declaration).encode())
     functions = parse_sql(rendered)
     assert len(functions) == 2
     assert all(isinstance(item.stmt, ast.CreateFunctionStmt) for item in functions)
@@ -43,7 +43,7 @@ def test_renewal_program_uses_captured_contract_bounds():
 
 def test_renewal_programs_bind_against_real_tables_and_preserve_lost_envelope(commit_db_engine):
     with commit_db_engine.connect() as connection, connection.begin():
-        statements = parse_sql(renewal_native_sql(metadata, protocol()))
+        statements = parse_sql(renewal_native_sql(get_metadata(), protocol()))
         definitions = tuple(
             definition_from_sql(
                 connection,

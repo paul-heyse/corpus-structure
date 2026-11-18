@@ -350,13 +350,15 @@ def test_execution_leaf_program_uses_explicit_target_metadata_and_archived_resul
     from sqlalchemy import MetaData
 
     from corpus_structure.semantic.execution_evidence_leaf import execution_evidence_leaf_native_sql
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
 
-    proposed_output = metadata.tables["ops.data_derivation_output"].to_metadata(
-        MetaData(), name="captured_output"
+    proposed_output = (
+        get_metadata()
+        .tables["ops.data_derivation_output"]
+        .to_metadata(MetaData(), name="captured_output")
     )
     target = SimpleNamespace(
-        tables={**metadata.tables, "ops.data_derivation_output": proposed_output}
+        tables={**get_metadata().tables, "ops.data_derivation_output": proposed_output}
     )
     source = execution_evidence_leaf_native_sql(target)
     assert parse_sql(source)

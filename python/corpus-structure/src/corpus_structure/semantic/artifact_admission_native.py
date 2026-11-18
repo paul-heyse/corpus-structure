@@ -4,7 +4,7 @@ from pglast.stream import RawStream
 from sqlalchemy import MetaData, Text, cast, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .metadata import metadata
+from .metadata import get_metadata
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
@@ -27,7 +27,7 @@ from .native_program import (
 
 
 def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) -> str:
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     definition = model.tables["sem.data_operation_definition"]
     request = model.tables["ops.data_request"]
     episode = model.tables["ops.data_derivation"]

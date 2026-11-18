@@ -14,7 +14,7 @@ from corpus_structure.semantic.data_operation_read_native import (
     _cpu_reply_program,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 
 
@@ -64,7 +64,7 @@ def _body_fixture(connection):
         ("reference", "evaluator", False, []),
     ):
         connection.execute(
-            insert(metadata.tables["sem.data_kind_contract"]).values(
+            insert(get_metadata().tables["sem.data_kind_contract"]).values(
                 kind_contract="kind:" + name,
                 kind="literal:" + name,
                 body_schema={"type": "object" if nominal else "integer"},
@@ -75,7 +75,7 @@ def _body_fixture(connection):
                 universe=universe,
             )
         )
-    for program in _body_access_programs(metadata):
+    for program in _body_access_programs(get_metadata()):
         execute_native_sql(connection, program)
 
 
@@ -190,8 +190,8 @@ def test_program_binding_requires_exact_read_and_frozen_operation_before_project
 
     from corpus_structure.semantic.data_operation_read_native import _binding_programs
 
-    demand = metadata.tables["ops.data_demand"]
-    read = metadata.tables["ops.data_demand_read"]
+    demand = get_metadata().tables["ops.data_demand"]
+    read = get_metadata().tables["ops.data_demand_read"]
     connection = infrastructure_rollback
     connection.exec_driver_sql("CREATE SCHEMA ops")
     for relation in (demand, read):
@@ -219,7 +219,7 @@ def test_program_binding_requires_exact_read_and_frozen_operation_before_project
             scope=[],
         )
     )
-    for program in _binding_programs(metadata):
+    for program in _binding_programs(get_metadata()):
         execute_native_sql(connection, program)
     query = text(
         "SELECT * FROM ops.ddo_binding_rows('demand:literal',:operation,'{}'::jsonb,:read,NULL,CAST(:source AS jsonb),NULL,true,NULL,true)"
@@ -257,11 +257,11 @@ def test_program_execution_inspection_returns_only_exact_selected_contract_runti
     _install(connection)
     payload, _ = _archive(connection)
     _admit(connection, payload)
-    for program in _inspection_programs(metadata):
+    for program in _inspection_programs(get_metadata()):
         execute_native_sql(connection, program)
     manifest, archive = b'{"retained":"manifest"}', b"actual retained runtime archive"
     connection.execute(
-        insert(metadata.tables["sem.runtime_binding"]).values(
+        insert(get_metadata().tables["sem.runtime_binding"]).values(
             release_id=RELEASE,
             runtime_id="runtime:exact",
             manifest_bytes=manifest,

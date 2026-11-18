@@ -143,7 +143,6 @@ def export_demand_result(
     Parquet conversion consumes the same-session native rows already read under
     their pins. There is no second database connection or imported snapshot.
     """
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources
     from corpus_structure.semantic.data_operation_wire import wire_contracts
     from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
 
@@ -278,7 +277,7 @@ def export_demand_result(
         # historical producer's release and exact archived body/kind contracts.
         write(
             "reader-contract.json",
-            json_bytes(wire_contracts(native_protocol_sources())["read_demand_result"]["output"]),
+            json_bytes(wire_contracts()["read_demand_result"]["output"]),
         )
         from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
 

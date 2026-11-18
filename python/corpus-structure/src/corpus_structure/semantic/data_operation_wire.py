@@ -73,9 +73,9 @@ def _prepare_protocol_content(sources: tuple[SourceArtifact, ...] | None) -> byt
         from .pdf_source_search import CONTRACT, search_configuration
 
         if sources is None:
-            from .metadata import metadata
+            from .metadata import get_metadata
 
-            configuration = search_configuration(metadata)
+            configuration = search_configuration(get_metadata())
         else:
             captured_configuration = [s.content for s in sources if s.name == CONTRACT]
             if len(captured_configuration) != 1:
@@ -261,6 +261,8 @@ def _lower_set_operations(protocol: dict[str, Any]) -> None:
 
 @lru_cache(maxsize=16)
 def _checked_protocol(content: bytes) -> bytes:
+    from corpus_structure.schema.integrity import integrity
+
     result = yaml.safe_load(content)
     if (
         not isinstance(result, dict)
@@ -285,7 +287,9 @@ def _checked_protocol(content: bytes) -> bytes:
             not isinstance(purposes, list)
             or not purposes
             or any(
-                not isinstance(p, str) or p not in {"read", "write", "evaluate", "admit", "fit"}
+                not isinstance(p, str)
+                or p not in integrity().purposes
+                or integrity().purpose_role(p) is None
                 for p in purposes
             )
             or len(purposes) != len(set(purposes))

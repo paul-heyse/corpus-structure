@@ -10,7 +10,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
 from corpus_structure.semantic.data_read_boundary_native import read_boundary_native_sql
-from corpus_structure.semantic.metadata import metadata, table
+from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
 
@@ -42,7 +42,7 @@ def read_boundary_control(infrastructure_rollback):
             + "(d ops.data_demand,boundary ops.data_demand_read) RETURNS void LANGUAGE plpgsql STABLE AS $$BEGIN IF d.id='infinite' THEN RAISE EXCEPTION 'not finite' USING ERRCODE='23514'; ELSIF d.id='forbidden' THEN RAISE EXCEPTION 'census refused' USING ERRCODE='42501'; END IF; END$$"
         )
     prepared = prepare_sql(
-        read_boundary_native_sql(metadata).replace("__DDO_SOURCE_DIGEST__", "kernel:control"),
+        read_boundary_native_sql(get_metadata()).replace("__DDO_SOURCE_DIGEST__", "kernel:control"),
         source="read-boundary-control",
     )
     for index, _ in enumerate(prepared.statements):
@@ -267,7 +267,9 @@ def test_program_boundary_declarations_keep_defaults_security_and_order():
     assert sql.index("FUNCTION ops.ddo_read_acquisition_present(") < sql.index(
         "FUNCTION ops.ddo_validity_edges("
     )
-    prepared = prepare_sql(read_boundary_native_sql(metadata), source="read-boundary-declarations")
+    prepared = prepare_sql(
+        read_boundary_native_sql(get_metadata()), source="read-boundary-declarations"
+    )
     functions = {
         raw.stmt.funcname[-1].sval: raw.stmt
         for raw in prepared.statements

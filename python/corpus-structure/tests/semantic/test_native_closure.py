@@ -267,13 +267,13 @@ def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
 def test_current_context_model_changes_are_visible():
     from sqlalchemy import MetaData
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_products import function_bodies
     from corpus_structure.semantic.pdf_record_context_native import pdf_record_context_sql
 
-    before = function_bodies(pdf_record_context_sql(metadata))
+    before = function_bodies(pdf_record_context_sql(get_metadata()))
     changed = MetaData()
-    for relation in metadata.tables.values():
+    for relation in get_metadata().tables.values():
         relation.to_metadata(changed)
     changed.tables["kb.pdf_record_companion"].c.body.name = "changed_body"
     after = function_bodies(pdf_record_context_sql(changed))
@@ -293,11 +293,11 @@ def test_current_context_model_changes_are_visible():
 def test_current_physical_constraint_changes_admission_identity(relation_name, expression):
     from sqlalchemy import CheckConstraint
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_products import current_admission_fields
 
     before = current_admission_fields()
-    relation = metadata.tables[relation_name]
+    relation = get_metadata().tables[relation_name]
     constraint = CheckConstraint(expression, name="counterfactual_reproduction")
     relation.append_constraint(constraint)
     try:
@@ -310,13 +310,13 @@ def test_current_physical_constraint_changes_admission_identity(relation_name, e
 def test_alembic_current_physical_comparison(commit_db_engine):
     from alembic import command
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.migrations import alembic_config
     from corpus_structure.semantic.native_objects import NativeAuthoring
 
     with commit_db_engine.connect() as conn:
         config = alembic_config(conn)
-        config.attributes["target_metadata"] = metadata
+        config.attributes["target_metadata"] = get_metadata()
         config.attributes["native_authoring"] = NativeAuthoring(())
         command.check(config)
 

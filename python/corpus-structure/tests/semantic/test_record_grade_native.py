@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.semantic.metadata import metadata, table
+from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.record_grade_native import record_grade_native_sql
 
@@ -33,7 +33,7 @@ def grade_guard_connection(infrastructure_rollback):
         connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     for name in required:
         connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
-    sql = record_grade_native_sql(metadata)
+    sql = record_grade_native_sql(get_metadata())
     assert "__DDO_CORE_" not in sql
     connection.exec_driver_sql(sql, execution_options={"no_parameters": True})
     yield connection
@@ -131,7 +131,7 @@ def test_native_class_contract_requires_one_complete_owner_in_the_finalized_arch
 
 def test_program_grade_function_population_has_independent_expected_signatures():
     statements = prepare_sql(
-        record_grade_native_sql(metadata), source="record-grade-native"
+        record_grade_native_sql(get_metadata()), source="record-grade-native"
     ).statements
     names = {
         statement.stmt.funcname[-1].sval

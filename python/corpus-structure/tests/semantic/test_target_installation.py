@@ -9,13 +9,14 @@ from pglast import ast, enums, parse_plpgsql, parse_sql
 from corpus_structure.schema.physical import compile_physical
 from corpus_structure.semantic.archive_native import archive_native_sql
 from corpus_structure.semantic.archive_transport import archive_tables
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.pdf_domain import CONTRACT, pdf_domain_sources
 
 
 def prepared_target():
     return compile_physical(
-        metadata.info["physical_sources"], linkml_types=metadata.info["physical_linkml_types"]
+        get_metadata().info["physical_sources"],
+        linkml_types=get_metadata().info["physical_linkml_types"],
     )
 
 
@@ -306,18 +307,20 @@ def test_generated_projection_guard_rejects_legacy_kind_after_current_baseline(
         "sem.scientific_decision_rule",
         "sem.operation_property_role",
     ):
-        connection.execute(CreateTable(metadata.tables[name], include_foreign_key_constraints=[]))
+        connection.execute(
+            CreateTable(get_metadata().tables[name], include_foreign_key_constraints=[])
+        )
     # Archive-byte authentication has separate controls. This full generated guard owns
     # registry correspondence and rejection of the legacy row kind.
     connection.exec_driver_sql(
         "CREATE FUNCTION sem.require_archive_bytes(text) RETURNS void LANGUAGE sql AS 'SELECT'"
     )
     connection.exec_driver_sql(
-        execution_projection_check_sql(metadata), execution_options={"no_parameters": True}
+        execution_projection_check_sql(get_metadata()), execution_options={"no_parameters": True}
     )
     document = {"products": {"registry_rows": [], "definitions": []}}
     connection.execute(
-        metadata.tables["sem.release"].insert(),
+        get_metadata().tables["sem.release"].insert(),
         {
             "release_id": "guard-control",
             "content_digest": "authored-control",
@@ -332,7 +335,7 @@ def test_generated_projection_guard_rejects_legacy_kind_after_current_baseline(
         },
     )
     connection.execute(
-        metadata.tables["sem.artifact"].insert(),
+        get_metadata().tables["sem.artifact"].insert(),
         {
             "release_id": "guard-control",
             "artifact_name": "data_operations.json",
@@ -345,7 +348,7 @@ def test_generated_projection_guard_rejects_legacy_kind_after_current_baseline(
     connection.execute(call)
     body = b"legacy entry"
     connection.execute(
-        metadata.tables["sem.registry_row"].insert(),
+        get_metadata().tables["sem.registry_row"].insert(),
         {
             "release_id": "guard-control",
             "kind": "execution_model",
@@ -357,7 +360,10 @@ def test_generated_projection_guard_rejects_legacy_kind_after_current_baseline(
         {"kind": "execution_model", "name": "retired", "body_hex": body.hex()}
     ]
     connection.execute(
-        metadata.tables["sem.release"].update().values(prepared_bytes=json.dumps(document).encode())
+        get_metadata()
+        .tables["sem.release"]
+        .update()
+        .values(prepared_bytes=json.dumps(document).encode())
     )
     with native_refusal("23514", message="target archive contains legacy execution projection"):
         connection.execute(call)
@@ -427,11 +433,11 @@ def test_native_definition_source_cohort_cannot_be_mixed_with_another_physical_c
     from corpus_structure.semantic.target_installation import capture_target_installation
 
     capture = capture_target_installation(prepared_target())
-    changed = dict(metadata.info["physical_sources"])
+    changed = dict(get_metadata().info["physical_sources"])
     document = yaml.safe_load(changed["physical.yaml"])
     document["description"] = "A different explicitly captured physical source."
     changed["physical.yaml"] = yaml.safe_dump(document).encode()
-    other = compile_physical(changed, linkml_types=metadata.info["physical_linkml_types"])
+    other = compile_physical(changed, linkml_types=get_metadata().info["physical_linkml_types"])
     # Refusal precedes any database type lookup or normalization effect.
     with pytest.raises(ValueError, match="same captured physical sources"):
         data_operation_native_definitions(

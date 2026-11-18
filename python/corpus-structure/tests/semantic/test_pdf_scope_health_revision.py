@@ -4,7 +4,7 @@ from hashlib import sha256
 
 from pglast import ast
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.pdf_publication_native import publication_sql
 from corpus_structure.semantic.pdf_publication_read_native import pdf_reference_bytes_equal_sql
@@ -73,7 +73,7 @@ def test_reference_byte_equality_requires_both_root_and_exact_scoped_length(
         "('b','b','stored',2,%s),('b','b','wrong-length',3,%s),('b','other','foreign',2,%s)",
         (root, root, root),
     )
-    execute_native_sql(conn, pdf_reference_bytes_equal_sql(metadata))
+    execute_native_sql(conn, pdf_reference_bytes_equal_sql(get_metadata()))
     statement = "SELECT ops.pdf_reference_bytes_equal('b','b','β',NULL,%s,%s)"
     for text, stream, equal in (
         ("β", None, True),
@@ -130,7 +130,7 @@ INSERT INTO kb.pdf_record_companion VALUES
  ('build','wrong-revision','health','{"conversion":"wrong"}'),
  ('build','build','health','{"conversion":"success","display_coverage":"complete"}');
 """)
-    execute_native_sql(conn, pdf_publication_projection_sql(metadata))
+    execute_native_sql(conn, pdf_publication_projection_sql(get_metadata()))
     publication = conn.exec_driver_sql(
         "SELECT to_jsonb(p) FROM ops.pdf_published_revision p"
     ).scalar_one()

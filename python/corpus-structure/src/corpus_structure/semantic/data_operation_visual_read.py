@@ -91,9 +91,9 @@ def visual_read_sources(*, target_metadata=None) -> tuple[SourceArtifact, ...]:
     from .visual_read_native import visual_read_programs
 
     if target_metadata is None:
-        from .metadata import metadata
+        from .metadata import get_metadata
 
-        target_metadata = metadata
+        target_metadata = get_metadata()
     artifact_schema = _schema(VisualEvidenceArtifact)
     return (
         SourceArtifact(ARTIFACT_SOURCE, artifact_schema),

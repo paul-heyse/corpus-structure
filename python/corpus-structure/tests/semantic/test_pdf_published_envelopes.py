@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import Column, MetaData, Table, select, text
 from sqlalchemy.schema import CreateSchema, CreateTable
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import (
     NativeIdentity,
     execute_native_sql,
@@ -24,7 +24,7 @@ from corpus_structure.semantic.pdf_publication_native import (
 @pytest.fixture
 def published_envelopes(infrastructure_rollback):
     connection = infrastructure_rollback
-    model = MetaData(info=metadata.info)
+    model = MetaData(info=get_metadata().info)
     for name in (
         "ops.pdf_published_revision",
         "ops.pdf_stage_build",
@@ -38,7 +38,7 @@ def published_envelopes(infrastructure_rollback):
         "kb.pdf_record_companion",
         "sem.input",
     ):
-        source = metadata.tables[name]
+        source = get_metadata().tables[name]
         Table(
             source.name,
             model,

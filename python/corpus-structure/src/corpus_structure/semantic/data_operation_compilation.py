@@ -9,11 +9,19 @@ from __future__ import annotations
 import ast
 import json
 from dataclasses import asdict, fields, replace
-from typing import Any, Never, cast, get_args
+from typing import TYPE_CHECKING, Any, Never, cast, get_args
 
 import yaml
 from linkml_runtime.dumpers import json_dumper
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
+
+from corpus_structure.schema.operation_declarations import (
+    OperationDeclarations,
+    captured_declaration_model,
+)
+from corpus_structure.schema.operation_declarations import (
+    declarations as operation_declarations,
+)
 
 from .data_operation_json import json_loads, scope_identity, wire_json_loads
 from .data_operation_model import (
@@ -68,6 +76,9 @@ from .types import (
     VocabularySnapshot,
 )
 
+if TYPE_CHECKING:
+    from corpus_structure.model.compiled import CompiledModel
+
 _PRIMITIVES = {
     "string",
     "integer",
@@ -81,62 +92,6 @@ _PRIMITIVES = {
     "uriorcurie",
     "bytes",
     "json",
-}
-_PROFILES = {"derivation", "discovery", "selection", "command", "read"}
-_BINDING_OPERATORS = {
-    "scan",
-    "join",
-    "equal",
-    "literal",
-    "same",
-    "distinct",
-    "cardinality",
-    "collection",
-    "all",
-    "choice",
-    "optional",
-    "forall",
-    "absent",
-    "range",
-    "membership",
-    "covers",
-}
-_METADATA_FIELDS = {
-    "id",
-    "profile",
-    "subject",
-    "subject_definition",
-    "subject_definitions",
-    "discovery_relation",
-    "context",
-    "roles",
-    "applicability",
-    "invariants",
-    "coverage",
-    "outcomes",
-    "precision_description",
-    "numerical_policy",
-    "dependencies",
-    "potential_dependencies",
-    "state_dimensions",
-    "transitions",
-    "effects",
-    "capabilities",
-    "behavior",
-    "parameters",
-    "assets",
-    "binding",
-    "kinds",
-    "entrypoints",
-    "opaque",
-    "bound_inputs",
-    "abstract",
-    "replicate_policy",
-    "support_policy",
-    "result_fields",
-    "consumer_selection",
-    "output_witnesses",
-    "external",
 }
 
 
@@ -189,25 +144,8 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     value = _mapping(
         value,
         operation + "/binding",
-        {
-            "operator",
-            "roles",
-            "fields",
-            "value",
-            "children",
-            "minimum",
-            "maximum",
-            "collection",
-            "selected",
-            "population",
-            "impact",
-            "operands",
-            "choice_parameter",
-        },
     )
     operator = value.get("operator")
-    if operator not in _BINDING_OPERATORS:
-        _fail(operation, "unsupported relational binding construct " + str(operator))
     impact = value.get("impact", "result")
     if impact not in {"result", "eligibility"}:
         _fail(operation, "binding predicate requires result/eligibility semantics")
@@ -216,7 +154,7 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
         _fail(operation, "binding uses an undeclared role")
     fields = []
     for record in value.get("fields", []):
-        record = _mapping(record, operation, {"role", "projection", "field"})
+        record = _mapping(record, operation)
         if record.get("role") not in roles:
             _fail(operation, "binding field uses an undeclared role")
         fields.append(
@@ -263,7 +201,6 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
         operand = _mapping(
             operand,
             operation + "/operand",
-            {"kind", "value_type", "field", "name", "value", "population_projection"},
         )
         kind = operand.get("kind")
         if kind not in {"field", "literal", "parameter", "population"}:
@@ -285,7 +222,7 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
             _fail(operation, "operand fields do not match its declared source kind")
         field = None
         if kind == "field":
-            raw_field = _mapping(operand.get("field"), operation, {"role", "projection", "field"})
+            raw_field = _mapping(operand.get("field"), operation)
             if raw_field.get("role") not in roles:
                 _fail(operation, "binding operand uses an undeclared role")
             field = BindingField(
@@ -338,16 +275,19 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     )
 
 
-_KIND_UNIVERSES = frozenset({"ordinary", "source", "evaluator"})
-_PROJECTION_FAMILIES = frozenset({"coordinate", "role", "endpoint", "coverage", "choice"})
-
-
-def _kind_policies(universe: Any, families: Any, owner: str) -> dict[str, Any]:
+def _kind_policies(
+    universe: Any, families: Any, owner: str, grammar: OperationDeclarations
+) -> dict[str, Any]:
     """Normalize explicit kind-owned access/projection capabilities once."""
-    if not isinstance(universe, str) or universe not in _KIND_UNIVERSES:
+    if (
+        not isinstance(universe, str)
+        or universe not in grammar.vocabularies["KindUniverse"].members
+    ):
         _fail(owner, "kind universe must be ordinary, source or evaluator")
     if not isinstance(families, (list, tuple)) or any(
-        not isinstance(family, str) or family not in _PROJECTION_FAMILIES for family in families
+        not isinstance(family, str)
+        or family not in grammar.vocabularies["ProjectionFamily"].members
+        for family in families
     ):
         _fail(owner, "projection_families must be an array of supported projection family names")
     if len(set(families)) != len(families):
@@ -355,18 +295,21 @@ def _kind_policies(universe: Any, families: Any, owner: str) -> dict[str, Any]:
     return {"universe": universe, "projection_families": sorted(families)}
 
 
-def _annotation_kind_policies(annotations: dict[str, str], owner: str) -> dict[str, Any]:
+def _annotation_kind_policies(
+    annotations: dict[str, str], owner: str, grammar: OperationDeclarations
+) -> dict[str, Any]:
     try:
         families = json.loads(annotations.get("cs:projection_families", "[]"))
     except (ValueError, TypeError) as exc:
         _fail(owner, "cs:projection_families must be a JSON array string: " + str(exc))
-    return _kind_policies(annotations.get("cs:data_universe", "ordinary"), families, owner)
+    return _kind_policies(annotations.get("cs:data_universe", "ordinary"), families, owner, grammar)
 
 
 def _kind_products(
     bundle: SourceBundle | None,
     definitions: tuple[ClassDefinition, ...] | None,
     vocabularies: tuple[VocabularySnapshot, ...],
+    grammar: OperationDeclarations,
 ):
     kinds: dict[str, EffectiveKind] = {}
     nodes: dict[str, SemanticNode] = {}
@@ -385,7 +328,9 @@ def _kind_products(
                 semantic_id,
                 name,
                 "primitive",
-                canonical_bytes({"primitive": name, **_kind_policies("ordinary", [], semantic_id)}),
+                canonical_bytes(
+                    {"primitive": name, **_kind_policies("ordinary", [], semantic_id, grammar)}
+                ),
             )
         )
         aliases[name] = semantic_id
@@ -432,7 +377,7 @@ def _kind_products(
             annotations = _annotations(view.get_class(definition.name))
             facts["source_scope"] = annotations.get("cs:scope", "global")
             facts["case_policy"] = annotations.get("cs:case", "preserve")
-            facts.update(_annotation_kind_policies(annotations, definition.iri))
+            facts.update(_annotation_kind_policies(annotations, definition.iri, grammar))
             facts["policies"] = {
                 key: value
                 for key, value in annotations.items()
@@ -811,6 +756,7 @@ def compile_data_operations(
     definitions: tuple[ClassDefinition, ...] | None = None,
     vocabularies: tuple[VocabularySnapshot, ...] = (),
     captured_contracts: tuple[SourceArtifact, ...] = (),
+    declaration_model: CompiledModel | None = None,
 ) -> EffectiveDataOperationModel:
     """Compile supplied inputs without importing candidate code or ambient models.
 
@@ -819,7 +765,15 @@ def compile_data_operations(
     supplied source artifact. Producer implementation custody separately owns Python
     validators and algorithms that JSON Schema cannot express.
     """
-    kinds, nodes, edges, aliases = _kind_products(schema, definitions, vocabularies)
+    declaration_grammar = operation_declarations(
+        declaration_model
+        if declaration_model is not None
+        else captured_declaration_model(captured_contracts)
+    )
+    diagnostics: list[Diagnostic] = []
+    kinds, nodes, edges, aliases = _kind_products(
+        schema, definitions, vocabularies, declaration_grammar
+    )
     supplied_contracts = {}
     for artifact in (
         *captured_contracts,
@@ -843,7 +797,8 @@ def compile_data_operations(
             raw = _source_values(yaml.load(source.content, Loader=DupCheckYamlLoader))
         except (ValueError, yaml.YAMLError) as exc:
             _fail(source.name, str(exc))
-        raw = _mapping(raw, source.name, {"version", "operations", "kinds"})
+        raw = _mapping(raw, source.name)
+        declaration_grammar.validate(raw, source.name, "DataOperationDocument")
         if raw.get("version") != MODEL_VERSION:
             _fail(source.name, "unsupported operation declaration version")
         if raw.get("kinds") and not raw.get("operations"):
@@ -874,27 +829,17 @@ def compile_data_operations(
                     facts.implementation.root,
                 )
             )
+    # Validate shape once before any semantic pass consumes nested records.
+    for raw, _, _, _ in authored:
+        diagnostics.extend(declaration_grammar.validate(raw, str(raw.get("id", "operation"))))
     # Register all semantic kind owners before resolving any operation/role references.
     namespace_owners = {}
     for raw, _, origins, _ in (*authored, *kind_documents):
         for record in raw.get("kinds", []):
+            declaration_grammar.validate(record, "kinds", "OperationKind")
             record = _mapping(
                 record,
                 "kinds",
-                {
-                    "id",
-                    "name",
-                    "python",
-                    "primitive",
-                    "scope",
-                    "invariants",
-                    "interpretation",
-                    "references",
-                    "json_schema",
-                    "nominal_namespace",
-                    "universe",
-                    "projection_families",
-                },
             )
             semantic_id = _text(record.get("id"), "kind/id")
             namespace = record.get("nominal_namespace")
@@ -929,6 +874,7 @@ def compile_data_operations(
                     record.get("universe", "ordinary"),
                     record.get("projection_families", []),
                     semantic_id,
+                    declaration_grammar,
                 ),
             }
             if record.get("python"):
@@ -1057,6 +1003,7 @@ def compile_data_operations(
                 owner_facts.get("universe", "ordinary"),
                 owner_facts.get("projection_families", []),
                 owner.semantic_id,
+                declaration_grammar,
             )
             kinds[kind_id] = replace(
                 kind, facts=canonical_bytes({**json.loads(kind.facts), **policy})
@@ -1065,33 +1012,16 @@ def compile_data_operations(
     subject_definitions = {}
     bindings = []
     for raw, surfaces, origins, implementation_root in authored:
-        raw = _mapping(raw, "operation", _METADATA_FIELDS)
+        raw = _mapping(raw, "operation")
         semantic_id = _text(raw.get("id"), "operation/id")
         if any(operation.semantic_id == semantic_id for operation in operations):
             _fail(semantic_id, "duplicate operation semantic identity")
-        if raw.get("profile") not in _PROFILES:
-            _fail(semantic_id, "operation requires an explicit supported profile")
         roles = []
         role_names = set()
         for record in raw.get("roles", []):
             record = _mapping(
                 record,
                 semantic_id,
-                {
-                    "name",
-                    "kind",
-                    "direction",
-                    "minimum",
-                    "maximum",
-                    "collection",
-                    "presence",
-                    "support",
-                    "parameter",
-                    "alternatives",
-                    "selected",
-                    "subject_field",
-                    "subject_target",
-                },
             )
             name = _text(record.get("name"), semantic_id + "/role")
             if name in role_names:
@@ -1102,8 +1032,6 @@ def compile_data_operations(
             if kind not in kinds:
                 _fail(semantic_id + "/" + name, "unresolved role kind " + kind)
             direction = record.get("direction")
-            if direction not in {"input", "output"}:
-                _fail(semantic_id, "role direction must be explicit")
             minimum, maximum = record.get("minimum"), record.get("maximum")
             if (
                 type(minimum) is not int
@@ -1130,16 +1058,6 @@ def compile_data_operations(
                 data = _mapping(
                     record.get("support"),
                     semantic_id,
-                    {
-                        "provenance",
-                        "source",
-                        "coverage",
-                        "authorization",
-                        "closure",
-                        "identity_requirements",
-                        "source_set",
-                        "origins",
-                    },
                 )
                 if data.get("provenance") not in {"exact", "value_substitution"}:
                     _fail(semantic_id, "input provenance substitution policy must be explicit")
@@ -1397,7 +1315,7 @@ def compile_data_operations(
                 annotation_kind(logical_annotation(surface.returns), outputs[0])
         dimensions = []
         for record in raw.get("state_dimensions", []):
-            record = _mapping(record, semantic_id, {"name", "values"})
+            record = _mapping(record, semantic_id)
             dimensions.append(
                 StateDimension(
                     _text(record.get("name"), semantic_id),
@@ -1408,9 +1326,7 @@ def compile_data_operations(
             _fail(semantic_id, "duplicate state dimension")
         effects = []
         for record in raw.get("effects", []):
-            record = _mapping(
-                record, semantic_id, {"name", "authorization", "idempotency", "fulfillment"}
-            )
+            record = _mapping(record, semantic_id)
             effects.append(
                 EffectContract(
                     _text(record.get("name"), semantic_id),
@@ -1428,9 +1344,7 @@ def compile_data_operations(
         outcomes = _strings(raw.get("outcomes"), semantic_id, empty=False)
         transitions = []
         for record in raw.get("transitions", []):
-            record = _mapping(
-                record, semantic_id, {"dimension", "before", "after", "outcome", "effects"}
-            )
+            record = _mapping(record, semantic_id)
             transition = StateTransition(
                 record["dimension"],
                 record["before"],
@@ -1478,25 +1392,13 @@ def compile_data_operations(
         capabilities = _mapping(
             raw.get("capabilities"),
             semantic_id,
-            {
-                "forms",
-                "preparation",
-                "cancellation",
-                "ownership",
-                "limits",
-                "stream_settlement",
-                "prepared_factory",
-            },
         )
         forms = _strings(capabilities.get("forms"), semantic_id, empty=False)
-        if not set(forms) <= {"scalar", "batch", "stream"}:
-            _fail(semantic_id, "unsupported invocation capability")
         settlement = None
         if capabilities.get("stream_settlement") is not None:
             record = _mapping(
                 capabilities["stream_settlement"],
                 semantic_id,
-                {"mode", "output_role", "terminal_outcome"},
             )
             if record.get("mode") != "terminal-atomic" or forms != ("stream",):
                 _fail(semantic_id, "terminal settlement requires exactly the stream form")
@@ -1588,9 +1490,7 @@ def compile_data_operations(
                 _fail(semantic_id, "invalid captured semantic asset: " + str(exc))
         numerical_policy = None
         if raw.get("numerical_policy") is not None:
-            policy_reference = _mapping(
-                raw["numerical_policy"], semantic_id, {"asset", "pointer", "kind"}
-            )
+            policy_reference = _mapping(raw["numerical_policy"], semantic_id)
             asset_name = _text(policy_reference.get("asset"), semantic_id)
             asset = supplied_contracts.get(asset_name)
             if asset is None or not any(
@@ -1644,13 +1544,6 @@ def compile_data_operations(
             record = _mapping(
                 raw["external"],
                 semantic_id,
-                {
-                    "version",
-                    "instructions",
-                    "requested_actor",
-                    "requested_model",
-                    "reference_scope",
-                },
             )
             if (
                 record.get("version") != "external-executor-v1"
@@ -1715,7 +1608,6 @@ def compile_data_operations(
         subject_record = _mapping(
             raw.get("subject_definition"),
             semantic_id,
-            {"id", "identifier_kind", "scope"},
         )
         if subject_record.get("id") != subject:
             _fail(semantic_id, "operation subject differs from its declared subject definition")
@@ -1723,9 +1615,7 @@ def compile_data_operations(
         if not isinstance(additional_subjects, list):
             _fail(semantic_id, "additional subject definitions require a declaration list")
         for declared_subject in (subject_record, *additional_subjects):
-            declared_subject = _mapping(
-                declared_subject, semantic_id, {"id", "identifier_kind", "scope"}
-            )
+            declared_subject = _mapping(declared_subject, semantic_id)
             subject_id = _text(declared_subject.get("id"), semantic_id)
             identifier_name = _text(declared_subject.get("identifier_kind"), semantic_id)
             identifier_kind = aliases.get(identifier_name, identifier_name)
@@ -1859,18 +1749,19 @@ def compile_data_operations(
         source_interfaces=export_source_interfaces(frontend, python_facts, model).content
         if frontend is not None
         else None,
+        diagnostics=tuple(diagnostics),
     )
 
 
 def _input_coverage(value, role, owner):
-    value = _mapping(value, owner, {"role", "description"})
+    value = _mapping(value, owner)
     if value.get("role") != role:
         _fail(owner, "input coverage must reference its actual bound role")
     return InputCoverage(role, _text(value.get("description"), owner))
 
 
 def _coverage_contract(value, binding, owner):
-    value = _mapping(value, owner, {"binding", "result_owners", "description"})
+    value = _mapping(value, owner)
     if value.get("binding") != "self":
         _fail(owner, "coverage must resolve its own actual relational binding")
     entries = value.get("result_owners")
@@ -1883,7 +1774,7 @@ def _coverage_contract(value, binding, owner):
         "declared-contract": "authored-result-contract-v1",
     }
     for entry in entries:
-        entry = _mapping(entry, owner, {"kind", "reference"})
+        entry = _mapping(entry, owner)
         kind = entry.get("kind")
         if kind not in interpretations:
             _fail(
@@ -1913,10 +1804,10 @@ def _enforcement_claims(value, owner):
     for entry in value:
         entry = _mapping(entry, owner)
         if entry.get("kind") == "documentation":
-            entry = _mapping(entry, owner, {"kind", "text"})
+            entry = _mapping(entry, owner)
             claims.append(EnforcementClaim("documentation", text=_text(entry.get("text"), owner)))
             continue
-        entry = _mapping(entry, owner, {"kind", "reference", "interpretation", "parameters"})
+        entry = _mapping(entry, owner)
         kind = entry.get("kind")
         if kind not in revisions or entry.get("interpretation") != revisions[kind]:
             _fail(owner, "unsupported enforcement interpretation")

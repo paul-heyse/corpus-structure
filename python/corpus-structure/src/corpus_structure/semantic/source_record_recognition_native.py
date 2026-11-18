@@ -3,6 +3,8 @@
 from sqlalchemy import MetaData, Text, and_, cast, column, exists, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import JSONB, array
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
@@ -221,7 +223,7 @@ def source_record_recognition_sql(model: MetaData) -> str:
             native_privilege_sql(identity, "PUBLIC", grant=False),
             *(
                 native_privilege_sql(identity, role, "EXECUTE")
-                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+                for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
             ),
         )
     )

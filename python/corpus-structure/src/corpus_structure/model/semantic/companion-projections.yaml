@@ -123,6 +123,7 @@ classes:
     is_a: PublishedCompanionProvenance
     annotations:
       cp:family: input
+      cp:group_by: input_role
       cp:function: ops.read_published_input_batch
       cp:consumers: '["ops.read_published_input_batch","corpus_structure.serve.companion_export.export_companion_parquet"]'
       cp:keys: '[''input_ordinal'']'
@@ -158,6 +159,8 @@ classes:
     is_a: PublishedCompanionProvenance
     annotations:
       cp:family: relation
+      cp:group_by: relation_kind
+      cp:inventory_distinct: relation_id
       cp:function: ops.read_published_relation_batch
       cp:consumers: '["ops.read_published_relation_batch","corpus_structure.serve.companion_export.export_companion_parquet"]'
       cp:keys: '[''relation_id'', ''endpoint_ordinal'']'
@@ -228,6 +231,7 @@ classes:
     is_a: PublishedCompanionProvenance
     annotations:
       cp:family: coverage
+      cp:group_by: outcome
       cp:function: ops.read_published_coverage_batch
       cp:consumers: '["ops.read_published_coverage_batch","corpus_structure.serve.companion_export.export_companion_parquet"]'
       cp:keys: '[''coverage_id'']'
@@ -273,6 +277,7 @@ classes:
     is_a: PublishedCompanionProvenance
     annotations:
       cp:family: mapping_report
+      cp:group_by: outcome
       cp:function: ops.read_published_mapping_report_batch
       cp:consumers: '["ops.read_published_mapping_report_batch","corpus_structure.serve.companion_export.export_companion_parquet"]'
       cp:keys: '[''report_ordinal'']'

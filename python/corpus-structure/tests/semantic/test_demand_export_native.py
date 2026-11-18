@@ -24,6 +24,7 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
 ):
     clone, stage = declared_serving_case, declared_serving_case.stage.agent
     destination = tmp_path / encoding
+    from corpus_structure.semantic import data_operation_storage
     from corpus_structure.serve import demand_export
 
     support_calls = []
@@ -34,6 +35,11 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
         return original_support(*args, **kwargs)
 
     monkeypatch.setattr(demand_export, "stream_selected_support", support_once)
+
+    def unexpected_generation(*args, **kwargs):
+        raise AssertionError("export must use the acquiring reader's wire contract")
+
+    monkeypatch.setattr(data_operation_storage, "native_protocol_sources", unexpected_generation)
     with clone.reader.begin() as connection:
         manifest = export_demand_result(
             connection,

@@ -7,6 +7,8 @@ from hashlib import sha256
 import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 
+from corpus_structure.schema.integrity import role_name
+
 # These are semantic projections, not independently authored membership lists.
 VALUE_SET_PATHS = {
     "DataTaskState": ("definitions", "data_task_state", "enum"),
@@ -205,7 +207,7 @@ def render_data_task_guard(content: bytes, *, target_metadata) -> str:
                 ),
                 check(
                     or_(
-                        func.current_user() != "corpus_sem_publisher",
+                        func.current_user() != role_name("publisher"),
                         ~exists(
                             select(1)
                             .select_from(requests)

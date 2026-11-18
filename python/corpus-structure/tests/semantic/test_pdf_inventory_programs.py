@@ -17,7 +17,7 @@ from sqlalchemy import Column, MetaData, Table, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 from corpus_structure.semantic.pdf_publication import write_pdf_access_projection
 from corpus_structure.semantic.pdf_publication_native import pdf_inventory_native_sql
@@ -191,13 +191,13 @@ def test_generated_inventory_retains_independent_containment_expectations(
             MetaData(),
             *(
                 Column(field.name, field.type, nullable=field.nullable)
-                for field in metadata.tables[key].c
+                for field in get_metadata().tables[key].c
             ),
             schema="pg_temp",
         )
         for family, key in relations.items()
     }
-    model = SimpleNamespace(tables={**metadata.tables, **tables})
+    model = SimpleNamespace(tables={**get_metadata().tables, **tables})
     connection = native_rollback.connection
     with native_owner(connection, "corpus_sem_publisher"):
         for family, key in relations.items():

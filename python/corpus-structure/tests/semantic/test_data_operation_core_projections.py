@@ -14,7 +14,7 @@ from corpus_structure.semantic.data_operation_projections import (
     read_scope_rows,
 )
 from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 
 
 def _compile(query):
@@ -24,16 +24,16 @@ def _compile(query):
 
 
 def test_core_builders_own_return_shape_and_keep_scoped_native_parameters():
-    computed, original = map(_compile, binding_branches(metadata))
-    scopes = _compile(read_scope_rows(metadata))
-    page = _compile(read_page(metadata))
+    computed, original = map(_compile, binding_branches(get_metadata()))
+    scopes = _compile(read_scope_rows(get_metadata()))
+    page = _compile(read_page(get_metadata()))
     assert {column.name for column in binding_columns()} == {
         column.name for column in binding_columns(decoder=True)
     }
     assert "provider_identity" in member_columns()
     columns = {column.name: column.type for column in binding_columns()}
     assert isinstance(columns["analyzed_scope"], JSONB)
-    for source in (scopes, _compile(cancellation_scopes(metadata)), computed, original, page):
+    for source in (scopes, _compile(cancellation_scopes(get_metadata())), computed, original, page):
         assert pglast.parse_sql(source)
     assert "support_closure" in scopes
     assert "data_derivation_original_support" in scopes
@@ -50,7 +50,7 @@ def test_dependency_free_waiting_watermark_filters_local_publications_by_actual_
 
     query = _compile(
         _unconstrained_watermark_uses(
-            metadata, metadata.tables["ops.data_obligation"].alias("waiting_obligation")
+            get_metadata(), get_metadata().tables["ops.data_obligation"].alias("waiting_obligation")
         )
     )
     parsed = pglast.parse_sql(query)
@@ -87,7 +87,7 @@ def test_dependency_free_waiting_watermark_filters_local_publications_by_actual_
         ("ops", "ddo_kind_access"),
         ("ops", "ddo_body_access"),
     } <= calls
-    page = _compile(read_page(metadata))
+    page = _compile(read_page(get_metadata()))
     assert "watermark_local_use" in page and "watermark_prerequisites" in page
 
 
@@ -101,15 +101,15 @@ def test_selected_cut_disclosure_is_pinned_before_any_role_reacquisition():
         read_selection,
     )
 
-    receipt = metadata.tables["ops.data_demand_read"]
+    receipt = get_metadata().tables["ops.data_demand_read"]
     assert not receipt.c.public_disclosure.nullable
     assert receipt.c.public_disclosure.server_default is not None
     assert "public_disclosure BOOLEAN DEFAULT false NOT NULL" in _compile(CreateTable(receipt))
     for query in (
         select(read_selection()),
         cut_selection_projection(),
-        read_access_universes(metadata),
-        read_page(metadata),
+        read_access_universes(get_metadata()),
+        read_page(get_metadata()),
     ):
         compiled = _compile(query)
         assert pglast.parse_sql(compiled)
@@ -149,8 +149,8 @@ def test_public_family_replies_guard_full_scoped_intent_presentation():
     from corpus_structure.semantic.visual_read_native import visual_read_programs
 
     programs = (
-        source_admission_native_sql(metadata),
-        visual_read_programs(metadata, b"{}"),
+        source_admission_native_sql(get_metadata()),
+        visual_read_programs(get_metadata(), b"{}"),
     )
     bodies = {
         statement.stmt.funcname[-1].sval: body_source(statement.stmt)
@@ -242,8 +242,8 @@ def test_core_projection_capture_consumes_explicit_counterfactual_metadata_witho
 
     import corpus_structure.schema.physical as physical
 
-    sources = dict(metadata.info["physical_sources"])
-    types = metadata.info["physical_linkml_types"]
+    sources = dict(get_metadata().info["physical_sources"])
+    types = get_metadata().info["physical_linkml_types"]
     document = yaml.safe_load(sources["data-operation-physical.yaml"])
     document["classes"]["data_obligation"]["attributes"]["counterfactual_marker"] = {
         "range": "string"
@@ -284,9 +284,9 @@ def test_intrinsic_trigger_inventory_follows_captured_target_classes_without_amb
 
     from corpus_structure.schema.physical import compile_physical
     from corpus_structure.semantic import data_operation_storage as storage
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
 
-    sources = dict(metadata.info["physical_sources"])
+    sources = dict(get_metadata().info["physical_sources"])
     declaration = yaml.safe_load(sources["data-operation-physical.yaml"])
     name = "data_attempt_failure"
     if change == "retire":
@@ -296,7 +296,7 @@ def test_intrinsic_trigger_inventory_follows_captured_target_classes_without_amb
     else:
         declaration["classes"][name]["annotations"]["ph:immutability"] = "physical"
     sources["data-operation-physical.yaml"] = yaml.safe_dump(declaration).encode()
-    proposed = compile_physical(sources, linkml_types=metadata.info["physical_linkml_types"])
+    proposed = compile_physical(sources, linkml_types=get_metadata().info["physical_linkml_types"])
     # This table has no incoming foreign keys; each proposed physical declaration
     # remains coherent independently of the fixed current read function's support.
     assert proposed.sorted_tables

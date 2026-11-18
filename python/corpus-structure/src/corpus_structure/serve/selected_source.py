@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.demand_results import CutSelection, selected_read_snapshot
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
+from corpus_structure.semantic.metadata import get_physical_model_id
 from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
@@ -184,8 +184,8 @@ def _write_selected_package(
         context_policy=request.context_policy,
         schema_digest=schema,
         projection_id="selected-source:"
-        + sha256(canonical_bytes([schema, PHYSICAL_MODEL_ID])).hexdigest(),
-        physical_model_id=PHYSICAL_MODEL_ID,
+        + sha256(canonical_bytes([schema, get_physical_model_id()])).hexdigest(),
+        physical_model_id=get_physical_model_id(),
         analysis_context_profile_id=analysis_context_profile_id,
         implementation_digests=list(implementation_digests),
         included_families=spec["included_families"],

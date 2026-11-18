@@ -5,14 +5,9 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from hashlib import sha256
-from typing import Any, Literal
+from typing import Literal
 
-import yaml
-from linkml_runtime.dumpers import json_dumper
-from linkml_runtime.linkml_model.meta import SchemaDefinition
-from linkml_runtime.loaders import yaml_loader
 from linkml_runtime.utils.schemaview import SchemaView
-from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 from pydantic.dataclasses import dataclass
 
@@ -77,34 +72,9 @@ def read_projection_analysis(prepared: PreparedRelease) -> ProjectionAnalysisPro
 
 def _projection_view(bundle: SourceBundle) -> SchemaView:
     """Resolve the declared native recipe closure, without domain-boundary annotations."""
-    schemas: dict[str, SchemaDefinition] = {}
-    for source in bundle.sources:
-        schema = yaml_loader.load(
-            yaml.load(source.content, Loader=DupCheckYamlLoader), SchemaDefinition
-        )
-        if not isinstance(schema, SchemaDefinition):
-            raise ValueError("Retained projection source is not a SchemaDefinition")
-        schemas[source.name] = schema
-    for name, schema in schemas.items():
-        for imported in schema.imports or ():
-            if str(imported) not in schemas:
-                raise ValueError(f"Retained projection import not supplied: {name}/{imported}")
-    importmap: dict[str, dict[str, Any] | str] = {}
-    for name, schema in schemas.items():
-        value = json_dumper.to_dict(schema)
-        if not isinstance(value, dict):
-            raise ValueError("Retained projection source does not serialize as a mapping")
-        importmap[name] = value
-    view = SchemaView(
-        schemas[bundle.root],
-        importmap=importmap,
-    )
-    view.merge_imports()
-    merged = view.schema
-    if merged is None:
-        raise ValueError("Retained projection closure is unavailable")
-    merged.imports = []
-    return SchemaView(merged)
+    from corpus_structure.model.compiled import compiled_model
+
+    return compiled_model({s.name: s.content for s in bundle.sources}).private_view(bundle.root)
 
 
 def _unavailable(*unknowns: str) -> PreparedArtifact:
@@ -150,7 +120,13 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
             "companion-projections",
             tuple(
                 SourceArtifact(name, logical[name])
-                for name in ("companion-projections", "pdf-products", "pdf-records", "pdf-staging")
+                for name in (
+                    "companion-projections",
+                    "pdf-products",
+                    "pdf-observation-vocabulary",
+                    "pdf-records",
+                    "pdf-staging",
+                )
             ),
         )
         view = _projection_view(bundle)

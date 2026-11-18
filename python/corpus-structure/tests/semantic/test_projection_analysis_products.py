@@ -159,14 +159,14 @@ import json,sys
 from corpus_structure.schema.physical import linkml_types_source
 from corpus_structure.semantic.pdf_domain import pdf_domain_sources
 from corpus_structure.semantic.projection_analysis_products import prepare_projection_analysis
-from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
+from corpus_structure.semantic.metadata import get_physical_model_id
 from corpus_structure.semantic.types import ResolvedDependencies
 sources=json.load(sys.stdin)
 kwargs=dict(physical_sources={n:bytes.fromhex(c) for n,c in sources.items()},linkml_types=linkml_types_source()) if sources else {}
 artifact=prepare_projection_analysis(ResolvedDependencies(pdf_domain_sources(**kwargs)))
 value=json.loads(artifact.content)
 assert len(value['projections'])==4,value
-print(json.dumps(dict(installed=PHYSICAL_MODEL_ID,physical=value['physical_id'],source=value['source_id'],digest=artifact.digest)))
+print(json.dumps(dict(installed=get_physical_model_id(),physical=value['physical_id'],source=value['source_id'],digest=artifact.digest)))
 """
 
     def analyze(sources):

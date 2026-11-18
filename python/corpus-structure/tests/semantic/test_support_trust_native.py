@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.semantic.metadata import metadata, table
+from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.native_program import Parameter, pg_type, sql_function
 from corpus_structure.semantic.prepared_sql import prepare_sql
@@ -23,7 +23,7 @@ from semantic.data_operation_binding_support import (
 @pytest.fixture
 def support_control(binding_native_connection):
     connection = binding_native_connection
-    execute_native_sql(connection, support_trust_native_sql(metadata))
+    execute_native_sql(connection, support_trust_native_sql(get_metadata()))
     # These independent providers isolate canonical union/lock orchestration.
     # Their owning census and event implementations retain separate qualification.
     for family, completion_values in (
@@ -215,7 +215,9 @@ def test_read_acquisition_barrier_rejects_later_graph_writes_in_same_transaction
     connection.execute(
         CreateTable(table("ops.data_demand_read"), include_foreign_key_constraints=[])
     )
-    programs = prepare_sql(support_trust_native_sql(metadata), source="acquisition-barrier-control")
+    programs = prepare_sql(
+        support_trust_native_sql(get_metadata()), source="acquisition-barrier-control"
+    )
     for index, raw in enumerate(programs.statements):
         if (
             isinstance(raw.stmt, ast.CreateFunctionStmt)

@@ -15,9 +15,9 @@ from corpus_structure.schema.physical import compile_physical, physical_source_c
 from corpus_structure.schema.relational import compile_metadata
 from corpus_structure.semantic.metadata import (
     PHYSICAL_MODEL,
-    PHYSICAL_MODEL_ID,
     decimal_projection,
-    metadata,
+    get_metadata,
+    get_physical_model_id,
     table,
 )
 from corpus_structure.semantic.migrations import head_revision
@@ -35,136 +35,28 @@ def _foreign_keys(name: str) -> set[tuple[tuple[str, ...], tuple[str, ...]]]:
     ("name", "local", "target"),
     [
         (
-            "data.typed_value",
-            ("realization_id", "release_id", "entity_id"),
-            ("data.entity.realization_id", "data.entity.release_id", "data.entity.entity_id"),
-        ),
-        (
-            "data.value_role",
-            ("realization_id", "release_id", "child_value_id"),
+            "ops.data_request",
+            ("release_id", "operation_id"),
             (
-                "data.typed_value.realization_id",
-                "data.typed_value.release_id",
-                "data.typed_value.value_id",
+                "sem.data_operation_definition.release_id",
+                "sem.data_operation_definition.operation_id",
             ),
         ),
-        (
-            "data.fact",
-            ("release_id", "property_id"),
-            ("sem.property_definition.release_id", "sem.property_definition.property_id"),
-        ),
-        (
-            "data.membership",
-            ("release_id", "class_id"),
-            ("sem.class_definition.release_id", "sem.class_definition.class_id"),
-        ),
-        (
-            "data.occurrence",
-            ("realization_id", "release_id", "report_object_value_id"),
-            (
-                "data.typed_value.realization_id",
-                "data.typed_value.release_id",
-                "data.typed_value.value_id",
-            ),
-        ),
-        (
-            "data.occurrence",
-            ("realization_id", "release_id", "report_qualification_value_id"),
-            (
-                "data.typed_value.realization_id",
-                "data.typed_value.release_id",
-                "data.typed_value.value_id",
-            ),
-        ),
-        (
-            "data.support",
-            ("realization_id", "release_id", "occurrence_id", "fact_id"),
-            (
-                "data.occurrence.realization_id",
-                "data.occurrence.release_id",
-                "data.occurrence.occurrence_id",
-                "data.occurrence.fact_id",
-            ),
-        ),
+        ("ops.task", ("data_request_id",), ("ops.data_request.id",)),
+        ("kb.data_product", ("kind_contract",), ("sem.data_kind_contract.kind_contract",)),
+        ("ops.data_derivation", ("intent_id",), ("ops.data_completion_intent.id",)),
     ],
 )
-def test_required_scoped_relationships(
-    name: str, local: tuple[str, ...], target: tuple[str, ...]
-) -> None:
+def test_required_scoped_relationships(name, local, target):
     assert (local, target) in _foreign_keys(name)
 
 
-def test_all_data_children_are_pinned_to_the_realization_release() -> None:
-    for name, item in metadata.tables.items():
-        if item.schema == "data" and item.name not in {"project", "realization"}:
-            if item.name == "publication_intent":
-                # A receipt extension inherits target scope through its qualified batch FK.
-                assert (
-                    ("release_id", "realization_id", "batch_id"),
-                    ("data.batch.release_id", "data.batch.realization_id", "data.batch.batch_id"),
-                ) in _foreign_keys(name)
-                name = "data.batch"
-            if item.name == "identity_exclusion_evidence":
-                assert (
-                    ("realization_id", "release_id", "exclusion_id"),
-                    (
-                        "data.identity_exclusion.realization_id",
-                        "data.identity_exclusion.release_id",
-                        "data.identity_exclusion.exclusion_id",
-                    ),
-                ) in _foreign_keys(name)
-                name = "data.identity_exclusion"
-            if name == "data.identity_exclusion":
-                assert (
-                    ("realization_id", "release_id", "left_entity_id"),
-                    (
-                        "data.entity.realization_id",
-                        "data.entity.release_id",
-                        "data.entity.entity_id",
-                    ),
-                ) in _foreign_keys(name)
-                name = "data.entity"
-            if item.name == "entity_resolution":
-                assert (
-                    ("realization_id", "release_id", "entity_id"),
-                    (
-                        "data.entity.realization_id",
-                        "data.entity.release_id",
-                        "data.entity.entity_id",
-                    ),
-                ) in _foreign_keys(name)
-                name = "data.entity"
-            if item.name == "scientific_representative":
-                for reference in ("fact_id", "representative_fact_id"):
-                    assert (
-                        ("realization_id", "release_id", reference),
-                        (
-                            "data.fact.realization_id",
-                            "data.fact.release_id",
-                            "data.fact.fact_id",
-                        ),
-                    ) in _foreign_keys(name)
-                name = "data.fact"
-            if item.name == "record_assertion_support":
-                # Support inherits scope through its complete required assertion identity.
-                # A nullable FK would permit an unbound row under MATCH SIMPLE.
-                identity = (
-                    "realization_id",
-                    "release_id",
-                    "record_id",
-                    "interpretation_id",
-                    "role",
-                )
-                assert all(not item.c[column].nullable for column in identity)
-                assert (
-                    identity,
-                    tuple(f"data.record_assertion.{column}" for column in identity),
-                ) in _foreign_keys(name)
-                name = "data.record_assertion"
-            assert (
-                ("realization_id", "release_id"),
-                ("data.realization.realization_id", "data.realization.release_id"),
-            ) in _foreign_keys(name)
+@pytest.mark.parametrize("name", ["ops.data_completion_intent", "ops.data_derivation"])
+def test_request_children_keep_exact_generation(name):
+    assert (
+        ("request_id", "generation"),
+        ("ops.data_request_generation.request_id", "ops.data_request_generation.generation"),
+    ) in _foreign_keys(name)
 
 
 def test_metadata_deterministic_and_fixed() -> None:
@@ -174,13 +66,13 @@ def test_metadata_deterministic_and_fixed() -> None:
         )
     )
     dialect = postgresql.dialect()
-    for name, item in metadata.tables.items():
+    for name, item in get_metadata().tables.items():
         assert str(CreateTable(item).compile(dialect=dialect)) == str(
             CreateTable(again.tables[name]).compile(dialect=dialect)
         )
-    assert set(t.schema for t in metadata.tables.values()) == {"sem", "data", "ops", "kb", "eval"}
-    assert table("sem.release") is metadata.tables["sem.release"]
-    assert PHYSICAL_MODEL_ID.startswith("physical:")
+    assert set(t.schema for t in get_metadata().tables.values()) == {"sem", "data", "ops", "kb"}
+    assert table("sem.release") is get_metadata().tables["sem.release"]
+    assert get_physical_model_id().startswith("physical:")
     assert head_revision() is not None
 
 
@@ -201,14 +93,11 @@ def test_exact_decimal_projection_preserves_lexical_semantics() -> None:
             decimal_projection(lexical)
 
 
-def test_large_scalars_do_not_require_btree_index_entries() -> None:
-    indexes = {tuple(c.name for c in i.columns): i for i in table("data.typed_value").indexes}
-    for column, cast in [("text_value", ""), ("numeric_value", "::text")]:
-        index = indexes[("realization_id", "release_id", "kind", column)]
-        assert (
-            str(index.dialect_options["postgresql"]["where"])
-            == f"octet_length({column}{cast}) <= 1024"
-        )
+def test_product_payloads_are_not_btree_index_entries():
+    product = table("kb.data_product")
+    assert "canonical_body" in product.c
+    for index in product.indexes:
+        assert "canonical_body" not in {column.name for column in index.columns}
 
 
 def test_read_shapes_never_supply_stored_table_ddl():
@@ -229,7 +118,7 @@ def test_read_shapes_never_supply_stored_table_ddl():
         "ops.pdf_published_derivation",
     }
     assert set(read.tables) == expected
-    assert expected.isdisjoint(metadata.tables)
+    assert expected.isdisjoint(get_metadata().tables)
     assert table("ops.pdf_published_item").c.pointer.type.python_type is str
     assert table("ops.pdf_published_region").c.left.type.python_type is Decimal
     assert table("ops.pdf_selected_product").c.payload.nullable
@@ -245,4 +134,4 @@ def test_read_shapes_never_supply_stored_table_ddl():
         "ops.parsing_product",
         "ops.parsing_layer_product",
     ):
-        assert relation not in metadata.tables
+        assert relation not in get_metadata().tables

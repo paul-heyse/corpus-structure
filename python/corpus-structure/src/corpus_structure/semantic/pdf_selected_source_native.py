@@ -23,6 +23,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, aggregate_order_by, array
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
@@ -568,10 +570,10 @@ def _selected_events(model, revision, section, part_bytes):
 
 
 def selected_source_reader_sql(*, target_metadata: MetaData | None = None, pdf_domain=None) -> str:
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .pdf_contracts import trusted_pdf_context
 
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     domain = trusted_pdf_context().domain if pdf_domain is None else pdf_domain
     declaration = yaml.safe_load(domain.source("logical/selected_source").content)
     profile = json.loads(declaration["annotations"]["selected-source"])
@@ -647,7 +649,7 @@ def selected_source_reader_sql(*, target_metadata: MetaData | None = None, pdf_d
             native_privilege_sql(identity, "PUBLIC", grant=False),
             *(
                 native_privilege_sql(identity, role, "execute")
-                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+                for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
             ),
         )
     )

@@ -5,6 +5,7 @@ from dataclasses import replace
 from hashlib import sha256
 
 import pytest
+from pglast import ast
 from pydantic import ValidationError
 
 from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
@@ -110,9 +111,19 @@ def test_pdf_domain_call_projection_checks_exact_variant_and_digest(domain, mode
 
 def test_pdf_domain_native_checks_exact_frozen_facet_and_declared_action(domain):
     sql = pdf_domain_native_sql()
-    assert len(prepare_sql(sql, source="PDF domain").statements) == 5
+    statements = [item.stmt for item in prepare_sql(sql, source="PDF domain").statements]
+    assert {
+        tuple(part.sval for part in statement.funcname or ())
+        for statement in statements
+        if isinstance(statement, ast.CreateFunctionStmt)
+    } == {
+        ("ops", "pdf_contract_input"),
+        ("sem", "admit_pdf_operation_contracts"),
+        ("ops", "require_pdf_operation"),
+    }
     assert sha256(domain.content).hexdigest() in sql
-    assert "facet->'actions'->p_operation->'contract'->>'id'" in sql
+    assert "PDF action contract identity differs" in sql
+    assert "pdf_operation_contract.operation_id = p_operation" in sql
     assert "sem.require_execution_operation" not in sql
     assert "current PDF domain contract is required" in sql
     assert "native-pdf-helper-bindings" in sql

@@ -1,5 +1,6 @@
 id: https://corpus-structure.dev/semantic/pdf-products
 name: pdf_products
+imports: [pdf-observation-vocabulary]
 prefixes:
   pdf: https://corpus-structure.dev/pdf/
   xsd: http://www.w3.org/2001/XMLSchema#
@@ -135,13 +136,6 @@ enums:
       native: {}
       chandra_page: {}
       chandra_crop: {}
-  PdfObservationOutcome:
-    permissible_values:
-      succeeded: {}
-      partial: {}
-      failed: {}
-      unknown: {}
-      unsupported: {}
   PdfComparisonFamily:
     permissible_values:
       text: {}

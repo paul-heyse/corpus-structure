@@ -8,14 +8,10 @@ from struct import pack
 from typing import Any
 
 import yaml
-from linkml_runtime.linkml_model.meta import SchemaDefinition
-from linkml_runtime.loaders import yaml_loader
-from linkml_runtime.utils.schemaview import SchemaView
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from sqlalchemy import MetaData
 
 from .model import ModelError
-from .relational import compile_metadata
 
 PHYSICAL_ROOT = "physical.yaml"
 _LINKML_TYPES = "linkml:types"
@@ -171,29 +167,18 @@ def compile_physical(
     target: str = "semantic",
 ) -> MetaData:
     """Compile the exact closure. The only nonlocal import is the pinned LinkML types."""
-    root_name = root
-    documents = physical_model_documents(sources, root=root_name)
-    root_document = documents.pop(root_name)
-    importmap: dict[str, str | dict[str, Any]] = {
-        name.removesuffix(".yaml"): document for name, document in documents.items()
-    }
+    from corpus_structure.model.compiled import compiled_model
+
+    captured = dict(sources)
+    if _LINKML_TYPES in captured:
+        raise ModelError(["unexpected sources in the physical declaration closure"])
     types_content = linkml_types_source() if linkml_types is None else linkml_types
-    types = _document(_LINKML_TYPES, types_content)
-    if _imports(_LINKML_TYPES, types):
-        raise ModelError(["unsupported imports in retained LinkML types"])
-    importmap[_LINKML_TYPES] = types
-    try:
-        schema = yaml_loader.load(root_document, SchemaDefinition)
-        if not isinstance(schema, SchemaDefinition):
-            raise ValueError("root is not a SchemaDefinition")
-        # Include the root in the map so even a local cycle cannot reach the filesystem.
-        importmap[root_name.removesuffix(".yaml")] = root_document
-        metadata = compile_metadata(SchemaView(schema, importmap=importmap), target=target)
-    except ModelError:
-        raise
-    except (ValueError, TypeError, KeyError) as error:
-        raise ModelError([f"invalid physical declaration: {error}"]) from error
-    metadata.info["physical_model_id"] = physical_sources_id(sources)
-    metadata.info["physical_sources"] = dict(sources)
-    metadata.info["physical_linkml_types"] = types_content
-    return metadata
+    model = compiled_model({**captured, _LINKML_TYPES: types_content})
+
+    def project():
+        # Exact explicit-closure admission is a property of these captured bytes,
+        # so repeated access must not parse and prove the same closure again.
+        physical_model_documents(captured, root=root)
+        return model.physical(root, target=target)
+
+    return model.projection(("exact-physical", root, target), project)

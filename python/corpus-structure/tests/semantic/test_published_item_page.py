@@ -5,7 +5,7 @@ from pglast.stream import RawStream
 from sqlalchemy import Column, MetaData, Table, Text, column, func, select
 from sqlalchemy.schema import CreateSchema
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.published_document import (
     published_read_statements,
     published_readers_sql,
@@ -22,7 +22,7 @@ def test_body_direct_page_includes_unsectioned_body_and_preserves_section_bounda
         "kb.pdf_record_companion",
         "ops.pdf_published_revision",
     ):
-        source = metadata.tables[name]
+        source = get_metadata().tables[name]
         Table(
             source.name,
             selected,

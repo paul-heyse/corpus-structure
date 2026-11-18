@@ -34,7 +34,7 @@ AUTHORIZATION_FACTORY = (
 )
 AUTHORIZATION_EFFECT = EffectContract(
     "native-evaluator-operation-event-authorization",
-    ("native-purpose:evaluator", "exact-protected-operation-event-fit"),
+    ("native-purpose:evaluate", "exact-protected-operation-event-fit"),
     "request-generation/exact-fit",
     "native-publication-receipt",
 )

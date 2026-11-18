@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import MetaData
 
+from corpus_structure.schema.integrity import role_name
+
 from .types import SourceArtifact
 
 if TYPE_CHECKING:
@@ -29,11 +31,11 @@ def foundation_programs(target: MetaData | None = None) -> FoundationPrograms:
     """Generate the primitive programs used by current target installation."""
     from .closure_native import closure_foundation_sql
     from .data_operation_value_native import canonical_identity_sql
-    from .metadata import metadata
+    from .metadata import get_metadata
 
     return FoundationPrograms(
         identity=canonical_identity_sql(),
-        closure=closure_foundation_sql(metadata if target is None else target),
+        closure=closure_foundation_sql(get_metadata() if target is None else target),
     )
 
 
@@ -128,6 +130,7 @@ def capture_target_installation(
 def target_physical_prerequisites(connection, installation: TargetInstallation):
     """The table-free current function used by the PDF body CHECK declaration."""
     from .native_authoring import _task_call_definition
+    from .native_objects import INTERNAL_PROGRAM
 
     source = next(
         item.content.decode()
@@ -141,7 +144,7 @@ def target_physical_prerequisites(connection, installation: TargetInstallation):
             schema="ops",
             name="pdf_product_descriptor",
             source="target-current:PDF descriptor CHECK prerequisite",
-            grants=(),
+            program_access=INTERNAL_PROGRAM,
         ),
     )
 
@@ -211,7 +214,12 @@ def target_native_definitions(connection, installation: TargetInstallation):
         _shape_definition,
         _task_call_definition,
     )
-    from .native_objects import definition_from_sql, native_before_trigger_sql
+    from .native_objects import (
+        INTERNAL_PROGRAM,
+        NativeProgramAccess,
+        definition_from_sql,
+        native_before_trigger_sql,
+    )
     from .native_sql_body import published_revision_definition, published_validation_definition
     from .pdf_domain import CONTRACT, PdfDomainContract
     from .published_document import published_reader_definitions
@@ -224,26 +232,21 @@ def target_native_definitions(connection, installation: TargetInstallation):
     definitions = []
     captured = {item.name: item.content for item in installation.authoring_inputs.sources}
     closure = captured["authoring/closure.sql"].decode()
-    for filename, schema, name, roles in (
+    for filename, schema, name, purposes in (
         ("identity.sql", "data", "canonical_json", ()),
         ("identity.sql", "data", "decimal_canonical", ()),
         ("closure.sql", "data", "require_float_lexical", ()),
         ("closure.sql", "sem", "require_admission_caller", ()),
         ("closure-native.sql", "sem", "refuse_immutable_mutation", ()),
         ("closure-native.sql", "sem", "guard_finalized_insert", ()),
-        ("closure-native.sql", "sem", "record_deployment_admission", ("corpus_sem_admitter",)),
-        ("closure-native.sql", "sem", "record_sql_admission", ("corpus_sem_admitter",)),
-        ("closure-native.sql", "sem", "activate_release", ("corpus_sem_admitter",)),
+        ("closure-native.sql", "sem", "record_deployment_admission", ("admit",)),
+        ("closure-native.sql", "sem", "record_sql_admission", ("admit",)),
+        ("closure-native.sql", "sem", "activate_release", ("admit",)),
         (
             "closure.sql",
             "data",
             "require_runtime_principal",
-            (
-                "corpus_sem_reader",
-                "corpus_sem_writer",
-                "corpus_sem_evaluator",
-                "corpus_sem_admitter",
-            ),
+            ("read", "write", "evaluate", "admit"),
         ),
         ("scientific_layout.sql", "sem", "require_scientific_layout", ()),
     ):
@@ -260,7 +263,9 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 name=name,
                 schema=schema,
                 source="target-current:" + filename,
-                grants=tuple((role, "EXECUTE", False) for role in roles),
+                program_access=NativeProgramAccess(purposes=purposes)
+                if purposes
+                else INTERNAL_PROGRAM,
             )
         )
     definitions.extend(
@@ -286,12 +291,9 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 schema="sem",
                 name=name,
                 source="target-current:runtime binding",
-                grants=tuple(
-                    (role, "EXECUTE", False)
-                    for role in ("corpus_sem_writer", "corpus_sem_admitter")
-                )
+                program_access=NativeProgramAccess(purposes=("write", "admit"))
                 if name == "register_runtime_binding"
-                else (),
+                else INTERNAL_PROGRAM,
             )
         )
     payload = target_pdf_sql(installation)
@@ -337,7 +339,8 @@ def target_native_definitions(connection, installation: TargetInstallation):
             connection,
             task_guard,
             source="target-current:request task fence",
-            owner="corpus_sem_publisher",
+            owner=role_name("publisher"),
+            program_access=INTERNAL_PROGRAM,
         )
     )
     definitions.append(
@@ -345,7 +348,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
             connection,
             _task_guard_trigger_sql(selected),
             source="target-current:request task fence",
-            owner="corpus_sem_publisher",
+            owner=role_name("publisher"),
         )
     )
     for relation in sorted(selected.tables.values(), key=lambda item: item.fullname):
@@ -365,7 +368,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
                         events=("update", "delete", "truncate"),
                     ),
                     source="target-current:physical immutability",
-                    owner="corpus_sem_publisher",
+                    owner=role_name("publisher"),
                 )
             )
         if relation.fullname in {"ops.pdf_shared_stream", "ops.pdf_shared_stream_part"}:
@@ -390,7 +393,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
                             row=row,
                         ),
                         source="target-current:pending and verified PDF bytes",
-                        owner="corpus_sem_publisher",
+                        owner=role_name("publisher"),
                     )
                 )
         if relation.info.get("archive_role") is not None:
@@ -405,11 +408,15 @@ def target_native_definitions(connection, installation: TargetInstallation):
                         row=True,
                     ),
                     source="target-current:finalized archive",
-                    owner="corpus_sem_publisher",
+                    owner=role_name("publisher"),
                 )
             )
     unique = {}
     for item in definitions:
+        if item.identity.kind == "function" and item.program_access is None:
+            raise ValueError(
+                "target function has no access declaration: " + item.identity.qualified
+            )
         if item.identity in unique:
             previous = unique[item.identity]
             if (
@@ -419,6 +426,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 previous.enabled,
                 previous.role_bindings,
                 previous.bind_owner,
+                previous.program_access,
             ) != (
                 item.sql,
                 item.owner,
@@ -426,6 +434,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 item.enabled,
                 item.role_bindings,
                 item.bind_owner,
+                item.program_access,
             ):
                 raise ValueError(
                     "target native declaration differs under repeated identity: "

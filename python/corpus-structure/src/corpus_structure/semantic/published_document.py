@@ -28,6 +28,8 @@ from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by, array
 from sqlalchemy.sql import Select, visitors
 from sqlalchemy.sql.elements import BindParameter
 
+from corpus_structure.schema.integrity import role_name
+
 from .metadata import table
 from .native_objects import NativeDefinition, NativeIdentity, native_privilege_sql
 from .native_program import (
@@ -465,7 +467,7 @@ def published_readers_sql(*, target_metadata=None) -> str:
                     search_path=("pg_catalog", "pg_temp"),
                 ),
                 "published-document:private-body",
-                owner="corpus_sem_publisher",
+                owner=role_name("publisher"),
             ),
             native,
         )
@@ -519,7 +521,7 @@ def published_readers_sql(*, target_metadata=None) -> str:
                 native_privilege_sql(public_identity, "PUBLIC", grant=False),
                 *(
                     native_privilege_sql(public_identity, role, "EXECUTE")
-                    for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+                    for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
                 ),
             )
         )
@@ -530,7 +532,7 @@ def published_reader_definitions(connection, *, target_metadata=None):
     """Explicit native definitions for the same public envelopes and private bodies."""
     from pglast import ast
 
-    from .native_objects import definition_from_sql
+    from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, definition_from_sql
     from .prepared_sql import prepare_sql
 
     prepared = prepare_sql(
@@ -547,13 +549,10 @@ def published_reader_definitions(connection, *, target_metadata=None):
                 connection,
                 prepared.excerpt(index),
                 source="published-document:forward",
-                owner="corpus_sem_publisher",
-                grants=()
+                owner=role_name("publisher"),
+                program_access=INTERNAL_PROGRAM
                 if private
-                else tuple(
-                    (role, "EXECUTE", False)
-                    for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
-                ),
+                else NativeProgramAccess(purposes=("read", "write", "evaluate")),
             )
         )
     return tuple(result)

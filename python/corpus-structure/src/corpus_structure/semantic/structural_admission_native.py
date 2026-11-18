@@ -18,6 +18,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, distinct_on
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
@@ -1499,7 +1501,7 @@ def _structural_issuance_completion(model):
                     func.coalesce(
                         func.nullif(func.current_setting("role"), "none"), func.session_user()
                     ),
-                    "corpus_sem_evaluator",
+                    role_name("evaluator"),
                     "MEMBER",
                     type_=Boolean(),
                 ),

@@ -25,6 +25,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, OID, REGCLASS, array
 
+from corpus_structure.schema.integrity import role_name
+
 from . import native_catalog as catalog
 from .archive_transport import archive_tables, scratch_name
 from .identifiers import ReleaseId
@@ -96,7 +98,7 @@ def _scratch_guard():
     expected = core_variable("p_relation", REGCLASS())
     publisher = (
         select(catalog.roles.c.oid)
-        .where(catalog.roles.c.rolname == "corpus_sem_publisher")
+        .where(catalog.roles.c.rolname == role_name("publisher"))
         .scalar_subquery()
     )
     safe = (
@@ -254,7 +256,7 @@ class ArchiveScratchSpec:
                     subtype=enums.AlterTableType.AT_ChangeOwner,
                     newowner=ast.RoleSpec(
                         roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
-                        rolename="corpus_sem_publisher",
+                        rolename=role_name("publisher"),
                     ),
                 ),
             ),
@@ -274,7 +276,7 @@ class ArchiveScratchSpec:
                     roletype=enums.RoleSpecType.ROLESPEC_CSTRING
                     if grant
                     else enums.RoleSpecType.ROLESPEC_PUBLIC,
-                    rolename="corpus_sem_admitter" if grant else None,
+                    rolename=role_name("admitter") if grant else None,
                 ),
             ),
             grant_option=False,
@@ -509,6 +511,8 @@ def archive_native_sql(*, target_metadata=None) -> str:
 
 
 def archive_native_definitions(connection, *, target_metadata=None):
+    from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
+
     source = "typed release archive:forward"
     prepared = prepare_sql(archive_native_sql(target_metadata=target_metadata), source=source)
     return tuple(
@@ -516,10 +520,10 @@ def archive_native_definitions(connection, *, target_metadata=None):
             connection,
             prepared.excerpt(index),
             source=source,
-            owner="corpus_sem_publisher",
-            grants=()
+            owner=role_name("publisher"),
+            program_access=INTERNAL_PROGRAM
             if statement.stmt.funcname[-1].sval == "require_archive_scratch"
-            else (("corpus_sem_admitter", "EXECUTE", False),),
+            else NativeProgramAccess(purposes=("admit",)),
         )
         for index, statement in enumerate(prepared.statements)
         if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname

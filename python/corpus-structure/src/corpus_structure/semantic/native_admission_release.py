@@ -17,6 +17,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, array
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_program import (
     Assign,
     Block,
@@ -76,7 +78,7 @@ def native_receipt_admission(metadata):
         )
     )
     authorized = or_(
-        func.pg_has_role(func.session_user(), "corpus_sem_admitter", "USAGE"),
+        func.pg_has_role(func.session_user(), role_name("admitter"), "USAGE"),
         func.pg_has_role(func.session_user(), owner, "MEMBER"),
     )
     return (
@@ -398,13 +400,13 @@ def admission_kernel(metadata) -> str:
             *(
                 native_privilege_sql(guard, role, "EXECUTE")
                 for role in (
-                    "corpus_sem_writer",
-                    "corpus_sem_reader",
-                    "corpus_sem_evaluator",
-                    "corpus_sem_admitter",
+                    role_name("writer"),
+                    role_name("reader"),
+                    role_name("evaluator"),
+                    role_name("admitter"),
                 )
             ),
-            native_privilege_sql(descriptor, "corpus_sem_admitter", "EXECUTE"),
+            native_privilege_sql(descriptor, role_name("admitter"), "EXECUTE"),
         )
     )
 

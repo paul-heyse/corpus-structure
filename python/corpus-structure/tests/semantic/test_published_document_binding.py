@@ -2,11 +2,11 @@
 
 from sqlalchemy import UniqueConstraint
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 
 
 def test_published_revision_keeps_exact_semantic_pin_composite_key():
-    published = metadata.tables["ops.pdf_published_revision"]
+    published = get_metadata().tables["ops.pdf_published_revision"]
     assert any(
         isinstance(constraint, UniqueConstraint)
         and tuple(column.name for column in constraint.columns)

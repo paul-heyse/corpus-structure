@@ -197,7 +197,7 @@ def test_generated_contextual_guards_bind_captured_rows_and_keep_private_custody
         contextual_definition_native_sql,
     )
     from corpus_structure.semantic.contextual_witness_native import contextual_witness_native_sql
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 
     connection = native_rollback.connection
@@ -218,7 +218,7 @@ def test_generated_contextual_guards_bind_captured_rows_and_keep_private_custody
             contextual_definition_native_sql,
             contextual_witness_native_sql,
         ):
-            execute_native_sql(connection, build(target_metadata=metadata))
+            execute_native_sql(connection, build(target_metadata=get_metadata()))
         for signature in signatures:
             errors = (
                 connection.execute(

@@ -21,6 +21,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, array, insert
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_program import (
     Assign,
     Block,
@@ -99,7 +101,7 @@ def _routine(name, parameters, body, *, result=None, writer=False, defaults=(), 
             privileges=(ast.AccessPriv(priv_name="execute"),),
             grantees=(
                 ast.RoleSpec(
-                    roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"
+                    roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=role_name("writer")
                 ),
             ),
             behavior=enums.DropBehavior.DROP_RESTRICT,

@@ -9,15 +9,11 @@ from __future__ import annotations
 import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from types import MappingProxyType
 
-from sqlalchemy import Table
+from sqlalchemy import MetaData, Table
 
-from corpus_structure.schema.physical import (
-    compile_physical,
-    physical_source_closure,
-    physical_sources_id,
-)
+from corpus_structure.model.compiled import running_model
+from corpus_structure.schema.physical import physical_source_closure, physical_sources_id
 
 PHYSICAL_MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "physical.yaml"
 
@@ -29,32 +25,29 @@ def physical_model_id(root: Path) -> str:
     )
 
 
-PHYSICAL_MODEL_ID = physical_model_id(PHYSICAL_MODEL)
-metadata = compile_physical(
-    physical_source_closure(
-        PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes()
-    )
-)
-tables = MappingProxyType(dict(metadata.tables))
-SCHEMAS = frozenset(str(relation.schema) for relation in metadata.tables.values())
+def get_metadata() -> MetaData:
+    return running_model().physical()
+
+
+def get_physical_model_id() -> str:
+    return str(get_metadata().info["physical_model_id"])
+
+
 _DECIMAL = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
 
 
 # Released view/record projections are modeled separately from stored-table authority.
 # Alembic and physical admission consume only metadata above, never this read selection.
 READ_MODEL = PHYSICAL_MODEL.with_name("read-projections.yaml")
-_read_metadata = compile_physical(
-    physical_source_closure(READ_MODEL.name, lambda name: READ_MODEL.with_name(name).read_bytes()),
-    root=READ_MODEL.name,
-    target="semantic-read",
-)
 
 
 def table(name: str) -> Table:
     """Return a shared, explicitly qualified stored relation or owned read shape."""
-    if name in _read_metadata.tables:
-        return _read_metadata.tables[name]
-    return tables[name]
+    model = running_model()
+    read = model.physical(READ_MODEL.name, target="semantic-read")
+    if name in read.tables:
+        return read.tables[name]
+    return get_metadata().tables[name]
 
 
 def decimal_projection(lexical: str) -> Decimal | None:

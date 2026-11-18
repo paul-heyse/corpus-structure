@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 from corpus_structure.semantic.pdf_record_access_native import pdf_access_correspondence_sql
 
@@ -16,7 +16,7 @@ def test_generated_access_programs_bind_in_actual_native_context(native_rollback
     conn = native_rollback.connection
     execute_native_sql(conn, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
     with native_owner(conn, "corpus_sem_publisher"):
-        execute_native_sql(conn, pdf_access_correspondence_sql(metadata))
+        execute_native_sql(conn, pdf_access_correspondence_sql(get_metadata()))
         for signature in (
             "ops.pdf_projection_scalar_matches(jsonb,jsonb)",
             "ops.pdf_projection_stream_value(text,text)",

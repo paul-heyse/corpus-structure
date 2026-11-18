@@ -121,7 +121,7 @@ def test_generated_archive_program_executes_with_actual_admitter_custody(native_
     from sqlalchemy import select
 
     from corpus_structure.semantic.archive_native import archive_native_definitions
-    from corpus_structure.semantic.metadata import metadata, table
+    from corpus_structure.semantic.metadata import get_metadata, table
     from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
     from corpus_structure.semantic.releases import persist_release
     from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
@@ -136,7 +136,7 @@ def test_generated_archive_program_executes_with_actual_admitter_custody(native_
             table("sem.release").c.release_id == captured.prepared.release_id
         )
     )
-    definitions = archive_native_definitions(connection, target_metadata=metadata)
+    definitions = archive_native_definitions(connection, target_metadata=get_metadata())
     assert {item.identity.name: item.grants for item in definitions} == {
         "require_archive_scratch": (),
         "prepare_release_archive": (("corpus_sem_admitter", "EXECUTE", False),),

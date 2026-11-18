@@ -96,10 +96,10 @@ def _expire_task(connection, task_id):
 
 
 def test_part_wire_remains_model_owned_without_a_per_build_part_store():
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
 
-    assert "ops.pdf_artifact_part" not in metadata.tables
-    assert "ops.pdf_stage_artifact_part" not in metadata.tables
+    assert "ops.pdf_artifact_part" not in get_metadata().tables
+    assert "ops.pdf_stage_artifact_part" not in get_metadata().tables
     assert "artifact_part" not in STAGE_FAMILIES and "artifact_part" in UPLOAD_STAGE_FAMILIES
     upload = artifact_part_upload_table()
     assert record_arrow_schema("ops.pdf_stage_artifact_part").names == list(upload.c.keys())
@@ -561,15 +561,15 @@ def test_supplied_physical_sources_bind_actual_arrow_and_upload_only_schema_ids(
     import yaml
 
     from corpus_structure.schema.physical import compile_physical
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
 
-    sources = dict(metadata.info["physical_sources"])
+    sources = dict(get_metadata().info["physical_sources"])
     owner = yaml.safe_load(sources["pdf-records.yaml"])
     owner["classes"]["PdfArtifactPart"]["attributes"]["byte_offset"]["minimum_value"] = 7
     sources["pdf-records.yaml"] = yaml.safe_dump(owner, sort_keys=False).encode()
-    supplied = compile_physical(sources, linkml_types=metadata.info["physical_linkml_types"])
+    supplied = compile_physical(sources, linkml_types=get_metadata().info["physical_linkml_types"])
     expected_id = supplied.info["physical_model_id"]
-    assert expected_id != metadata.info["physical_model_id"]
+    assert expected_id != get_metadata().info["physical_model_id"]
     ordinary = record_arrow_schema("ops.pdf_stage_native", model=supplied)
     upload = record_arrow_schema("ops.pdf_stage_artifact_part", model=supplied)
     assert ordinary.metadata[b"physical_model_id"].decode() == expected_id

@@ -12,7 +12,7 @@ from sqlalchemy.schema import CreateColumn
 
 from corpus_structure.schema.relational import render_typed_column_class
 from corpus_structure.semantic import _typed_columns
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.pdf_record_model import record_arrow_schema, record_write_profile
 from corpus_structure.semantic.typed_generation import generated_identifiers, generated_source
 
@@ -21,7 +21,7 @@ REPO = Path(__file__).resolve().parents[4]
 
 def test_generated_surface_is_current_and_attaches_existing_table():
     assert Path(_typed_columns.__file__).read_text() == generated_source()
-    assert _typed_columns.ops_pdf_stage_document is metadata.tables["ops.pdf_stage_document"]
+    assert _typed_columns.ops_pdf_stage_document is get_metadata().tables["ops.pdf_stage_document"]
     from corpus_structure.semantic import identifiers
 
     assert Path(identifiers.__file__).read_text() == generated_identifiers()
@@ -29,7 +29,7 @@ def test_generated_surface_is_current_and_attaches_existing_table():
 
 def test_one_modeled_field_updates_static_native_and_arrow_products():
     changed = MetaData()
-    target = metadata.tables["ops.pdf_stage_native"].to_metadata(changed)
+    target = get_metadata().tables["ops.pdf_stage_native"].to_metadata(changed)
     target.append_column(Column("modeled_extra", Text, nullable=False))
     generated = render_typed_column_class("ChangedColumns", target.columns)
     assert "modeled_extra: Named[str]" in generated
@@ -91,7 +91,7 @@ def test_selected_columns_reuse_nominal_anchors_and_keep_unbound_values_generic(
     assert "family:Named[Literal[" in "".join(source.split())
     assert (
         _typed_columns.ops_pdf_stage_document.c.release_id
-        is metadata.tables["ops.pdf_stage_document"].c.release_id
+        is get_metadata().tables["ops.pdf_stage_document"].c.release_id
     )
     assert len(_typed_columns.TYPE_MODEL_ID) == 64
 
@@ -124,7 +124,7 @@ def test_explicit_type_correspondence_refuses_invalid_sources(target, message):
 def _changed_physical_sources(mutate):
     import yaml
 
-    sources = dict(metadata.info["physical_sources"])
+    sources = dict(get_metadata().info["physical_sources"])
     changed = yaml.safe_load(sources["physical.yaml"])
     mutate(changed)
     sources["physical.yaml"] = yaml.safe_dump(changed, sort_keys=False).encode()
@@ -136,7 +136,7 @@ def _correspondence_bindings(sources):
 
     return source_bindings(
         (),
-        logical_sources={"linkml:types": metadata.info["physical_linkml_types"]},
+        logical_sources={"linkml:types": get_metadata().info["physical_linkml_types"]},
         physical_sources=sources,
     )
 
@@ -160,7 +160,8 @@ def test_anchored_correspondence_is_validated_during_compilation(target, message
 
     with pytest.raises(ModelError, match=message):
         compile_physical(
-            _changed_physical_sources(mutate), linkml_types=metadata.info["physical_linkml_types"]
+            _changed_physical_sources(mutate),
+            linkml_types=get_metadata().info["physical_linkml_types"],
         )
 
 
@@ -298,7 +299,8 @@ def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
 
     with pytest.raises(ModelError, match="cyclic"):
         compile_physical(
-            _changed_physical_sources(mutate), linkml_types=metadata.info["physical_linkml_types"]
+            _changed_physical_sources(mutate),
+            linkml_types=get_metadata().info["physical_linkml_types"],
         )
 
 
@@ -317,7 +319,7 @@ def test_physical_nominal_correspondences_are_checked_without_execution_catalog(
     from corpus_structure.schema.model import ModelError
     from corpus_structure.schema.physical import compile_physical
 
-    sources = dict(metadata.info["physical_sources"])
+    sources = dict(get_metadata().info["physical_sources"])
     document = yaml.safe_load(sources["physical.yaml"])
     # Preserve each independent nominal declaration while deliberately corrupting its edge.
     cls = "document" if target != "physical:data.project.project_id" else "release"
@@ -340,10 +342,10 @@ def test_current_wire_and_column_nominals_share_the_canonical_owner():
     assert get_origin(release_type) is Required
     assert get_args(release_type) == (identifiers.ReleaseId,)
     assert (
-        metadata.tables["ops.pdf_stage_document"].c.release_id.info["python_type"]
+        get_metadata().tables["ops.pdf_stage_document"].c.release_id.info["python_type"]
         == "corpus_structure.semantic.identifiers.ReleaseId"
     )
     assert (
-        metadata.tables["sem.runtime_binding"].c.runtime_id.info["python_type"]
+        get_metadata().tables["sem.runtime_binding"].c.runtime_id.info["python_type"]
         == "corpus_structure.semantic.identifiers.RuntimeId"
     )

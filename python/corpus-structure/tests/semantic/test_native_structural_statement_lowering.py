@@ -9,7 +9,7 @@ from sqlalchemy import text
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.structural_admission_native import structural_admission_native_sql
 from corpus_structure.semantic.structural_products import DIMENSIONS
 from semantic.test_declared_structural_admission import comparison_report
@@ -70,7 +70,8 @@ def test_native_lowering_preserves_source_citations_and_numeric_kinds(commit_db_
     )
     with commit_db_engine.connect() as connection, connection.begin():
         connection.exec_driver_sql(
-            structural_admission_native_sql(metadata), execution_options={"no_parameters": True}
+            structural_admission_native_sql(get_metadata()),
+            execution_options={"no_parameters": True},
         )
         actual = connection.scalar(
             text(
@@ -94,7 +95,8 @@ def test_native_lowering_preserves_source_citations_and_numeric_kinds(commit_db_
 def test_native_structural_reference_uses_json_context_meaning(commit_db_engine, scope, meaning):
     with commit_db_engine.connect() as connection, connection.begin():
         connection.exec_driver_sql(
-            structural_admission_native_sql(metadata), execution_options={"no_parameters": True}
+            structural_admission_native_sql(get_metadata()),
+            execution_options={"no_parameters": True},
         )
         # Named composite assignment preserves an actual JSON null. In contrast,
         # jsonb_populate_record translates a null field to SQL NULL before the

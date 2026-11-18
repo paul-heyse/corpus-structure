@@ -4,7 +4,7 @@ from pglast import ast, parse_sql
 from sqlalchemy import Column, MetaData, Text
 from sqlalchemy.dialects.postgresql import dialect
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_inventory import update_function_inventory
 from corpus_structure.semantic.pdf_publication_native import (
     _FINAL,
@@ -24,7 +24,7 @@ def test_frozen_region_copy_tracks_quoted_columns_and_new_model_fields():
     }
     target_metadata = MetaData()
     for relation in (*_FINAL.values(), *stages.values()):
-        metadata.tables[relation].to_metadata(target_metadata)
+        get_metadata().tables[relation].to_metadata(target_metadata)
     target = target_metadata.tables[_FINAL["region"]]
     source = target_metadata.tables[stages["region"]]
     target.c.left.name = 'left "edge"'

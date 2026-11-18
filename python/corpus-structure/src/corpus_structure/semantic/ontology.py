@@ -40,6 +40,8 @@ from pyshacl import validate
 from rdflib import Graph
 from rdflib.namespace import RDF
 
+from corpus_structure.model.compiled import private_schema_view
+
 
 class OntologyError(ValueError):
     """A declared ontology or vocabulary could not be resolved completely."""
@@ -156,7 +158,7 @@ def _scope_projected_schema(view: SchemaView, default_scope: str) -> SchemaDefin
         raise OntologyError(f"unsupported constraint scope {default_scope!r}")
     # SchemaView induced-slot resolution can populate domain_of on source slots;
     # compute against a private view as well as a private output schema.
-    view = SchemaView(copy.deepcopy(_schema(view)))
+    view = private_schema_view(_schema(view))
     schema = copy.deepcopy(_schema(view))
     classes = schema.classes
     slots = schema.slots
@@ -257,7 +259,8 @@ def build_graph_artifacts(
 
 def generate_ontology_artifacts(schema: SchemaDefinition) -> tuple[OntologyArtifact, ...]:
     return tuple(
-        OntologyArtifact(k, v) for k, v in sorted(build_graph_artifacts(SchemaView(schema)).items())
+        OntologyArtifact(k, v)
+        for k, v in sorted(build_graph_artifacts(private_schema_view(schema)).items())
     )
 
 
@@ -623,7 +626,7 @@ def _meaning_checks(
                 )
             },
         )
-        messages = validate_enum_meanings(SchemaView(schema), ontology_sources[source])
+        messages = validate_enum_meanings(private_schema_view(schema), ontology_sources[source])
         if messages:
             raise OntologyError("; ".join(messages))
         checks.append(f"meaning:{pv.meaning}:checked")

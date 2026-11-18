@@ -1,5 +1,7 @@
 """Model-owned native producer attestation and reconstruction oracle custody."""
 
+from corpus_structure.schema.integrity import role_name
+
 
 def pdf_certification_native_sql(*, target_metadata=None) -> str:
     from pglast import ast, enums, parse_sql
@@ -21,7 +23,7 @@ def pdf_certification_native_sql(*, target_metadata=None) -> str:
     )
     from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, array, insert
 
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .native_program import (
         Assign,
         Block,
@@ -41,7 +43,7 @@ def pdf_certification_native_sql(*, target_metadata=None) -> str:
         pg_type,
     )
 
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     build = model.tables["ops.pdf_stage_build"]
     stream = model.tables["ops.pdf_artifact_stream"]
     certification = model.tables["ops.pdf_producer_certification"]
@@ -141,7 +143,7 @@ def pdf_certification_native_sql(*, target_metadata=None) -> str:
                     grantees=(
                         ast.RoleSpec(
                             roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
-                            rolename="corpus_sem_writer",
+                            rolename=role_name("writer"),
                         ),
                     ),
                     behavior=enums.DropBehavior.DROP_RESTRICT,

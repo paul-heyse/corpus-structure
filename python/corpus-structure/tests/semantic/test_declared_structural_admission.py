@@ -15,7 +15,7 @@ from corpus_structure.semantic.data_operation_identity import (
 )
 from corpus_structure.semantic.declared_structural_admission import DdoStructuralAdmission
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.structural_admission import structural_statement
 from corpus_structure.semantic.structural_admission_native import (
     structural_admission_native_sql,
@@ -271,7 +271,7 @@ def test_public_statement_encoding_refuses_retagged_or_unversioned_meaning():
 
 def test_native_structural_admission_sql_has_parseable_closed_definitions():
     # Syntax only. Actual native validation belongs to the integrated target capture.
-    assert parse_sql(structural_admission_native_sql(metadata))
+    assert parse_sql(structural_admission_native_sql(get_metadata()))
     assert parse_plpgsql(structural_statement_native_sql())
 
 

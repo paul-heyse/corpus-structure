@@ -21,6 +21,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, array, insert
 
+from corpus_structure.schema.integrity import role_name
+
 from .binding_recursive_native import _check, _each, _elements, _json, _value
 from .data_operation_projections import lock_support_scopes
 from .native_definition_projection import NativeKindProjection
@@ -77,7 +79,7 @@ def support_trust_native_sql(model):
     principal = func.coalesce(
         func.nullif(func.current_setting("role"), "none"), func.session_user()
     )
-    authorized = func.pg_has_role(principal, "corpus_sem_evaluator", "MEMBER", type_=Boolean())
+    authorized = func.pg_has_role(principal, role_name("evaluator"), "MEMBER", type_=Boolean())
     authorize = _routine(
         "ddo_authorize",
         (Parameter("universe", pg_type("text")),),

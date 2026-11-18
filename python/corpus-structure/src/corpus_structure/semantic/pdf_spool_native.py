@@ -19,7 +19,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, insert
 
-from .metadata import metadata
+from corpus_structure.schema.integrity import role_name
+
+from .metadata import get_metadata
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
@@ -45,7 +47,7 @@ from .native_program import (
 
 def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
     """Compile current spool fences from the supplied captured physical model."""
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     build = model.tables["ops.pdf_stage_build"]
     producers = model.tables["ops.pdf_spool_producer"]
     contributors = model.tables["ops.pdf_spool_contributor"]
@@ -595,7 +597,7 @@ def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
                 *programs,
                 *(native_privilege_sql(identity, "PUBLIC", grant=False) for identity in identities),
                 *(
-                    native_privilege_sql(identity, "corpus_sem_writer", "execute")
+                    native_privilege_sql(identity, role_name("writer"), "execute")
                     for identity in identities
                     if identity.name != "pdf_spool_contributors"
                 ),

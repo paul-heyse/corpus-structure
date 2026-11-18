@@ -4,12 +4,13 @@ from pathlib import Path
 
 from corpus_structure.schema.generate import _format
 
-from .metadata import metadata
+from .metadata import get_metadata
 from .native_call_generation import render_call_bindings, render_call_identifiers
 from .pdf_domain import pdf_call_bindings
 
 
-def generated_source(*, target_metadata=metadata, domain=None) -> str:
+def generated_source(*, target_metadata=None, domain=None) -> str:
+    target_metadata = get_metadata() if target_metadata is None else target_metadata
     return _format(
         "semantic/_pdf_native_calls.py",
         render_call_bindings(

@@ -3,7 +3,9 @@
 from sqlalchemy import Boolean, Text, cast, column, func, literal, select
 from sqlalchemy.dialects.postgresql import JSONB, insert
 
-from .metadata import metadata
+from corpus_structure.schema.integrity import role_name
+
+from .metadata import get_metadata
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
@@ -25,7 +27,7 @@ from .pdf_domain import CONTRACT, HELPER_CONTRACT, PREFIX, pdf_domain_sources
 
 
 def pdf_domain_native_sql(*, sources=None, target_metadata=None) -> str:
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     captured = pdf_domain_sources() if sources is None else sources
     digest = next(source.digest for source in captured if source.name == CONTRACT)
     inputs = model.tables["sem.input"]
@@ -257,10 +259,10 @@ def pdf_domain_native_sql(*, sources=None, target_metadata=None) -> str:
                 *(
                     native_privilege_sql(require_id, role, "execute")
                     for role in (
-                        "corpus_sem_writer",
-                        "corpus_sem_reader",
-                        "corpus_sem_admitter",
-                        "corpus_sem_evaluator",
+                        role_name("writer"),
+                        role_name("reader"),
+                        role_name("admitter"),
+                        role_name("evaluator"),
                     )
                 ),
             )

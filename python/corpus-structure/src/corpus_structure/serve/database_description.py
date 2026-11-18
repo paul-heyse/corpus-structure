@@ -174,7 +174,7 @@ def _describe_database(request: DatabaseDescriptionRequest, settings: Settings, 
     import adbc_driver_manager
 
     from corpus_structure.semantic.authored_sql import admit_sql
-    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID, metadata
+    from corpus_structure.semantic.metadata import get_metadata, get_physical_model_id
     from corpus_structure.semantic.releases import open_release
 
     if request.query is not None:
@@ -193,8 +193,8 @@ def _describe_database(request: DatabaseDescriptionRequest, settings: Settings, 
                 conn,
                 request.query,
                 release_id=request.release_id,
-                metadata=metadata,
-                physical_id=PHYSICAL_MODEL_ID,
+                metadata=get_metadata(),
+                physical_id=get_physical_model_id(),
             )
     read = connection_settings(settings, "read")
     uri = make_url(read.database.url).render_as_string(hide_password=False)
@@ -472,7 +472,7 @@ def _describe_database(request: DatabaseDescriptionRequest, settings: Settings, 
                         "kind": "query_output",
                         "status": "available",
                         "release_id": request.release_id,
-                        "physical_id": PHYSICAL_MODEL_ID,
+                        "physical_id": get_physical_model_id(),
                         "fields": _fields(shape, remaining=remaining, columns=columns_remaining),
                         "schema_metadata": _metadata(shape.metadata, remaining),
                     }

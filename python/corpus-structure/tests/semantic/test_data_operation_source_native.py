@@ -118,10 +118,10 @@ def test_native_source_helper_capture_and_compilation():
 
 
 def test_source_admission_compiler_keeps_producer_and_recursive_lineage_contracts():
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.source_admission_native import source_admission_native_sql
 
-    source = source_admission_native_sql(metadata)
+    source = source_admission_native_sql(get_metadata())
     parsed = prepare_sql(source, source="generated source admission")
     declarations = [raw.stmt for raw in parsed.statements]
     assert all(isinstance(declaration, ast.CreateFunctionStmt) for declaration in declarations)

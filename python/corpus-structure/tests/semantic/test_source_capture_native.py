@@ -12,7 +12,7 @@ from corpus_structure.semantic.data_operation_source_native import (
     source_native_sources,
     source_native_sql,
 )
-from corpus_structure.semantic.metadata import metadata, table
+from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.source_capture_native import source_capture_native_sql
 
@@ -59,7 +59,7 @@ def source_capture_control(infrastructure_rollback):
     )
     for statement in controls:
         connection.exec_driver_sql(statement)
-    prepared = prepare_sql(source_capture_native_sql(metadata), source="capture-control")
+    prepared = prepare_sql(source_capture_native_sql(get_metadata()), source="capture-control")
     for index, _ in enumerate(prepared.statements):
         connection.exec_driver_sql(
             prepared.excerpt(index), execution_options={"no_parameters": True}

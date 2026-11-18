@@ -5,7 +5,7 @@ from pathlib import Path
 from corpus_structure.schema.generate import _format
 from corpus_structure.schema.relational import render_typed_columns
 
-from .metadata import metadata
+from .metadata import get_metadata
 
 # Operation selection only; every field, type and optionality comes from the model.
 TYPED_RELATIONS = (
@@ -18,10 +18,11 @@ TYPED_RELATIONS = (
 )
 
 
-def generated_identifiers(model=metadata) -> str:
+def generated_identifiers(model=None) -> str:
     """One current nominal owner, projected from explicit physical declarations."""
     from keyword import iskeyword
 
+    model = get_metadata() if model is None else model
     declarations = {}
     for relation in model.tables.values():
         for column in relation.columns:
@@ -54,13 +55,14 @@ def generated_identifiers(model=metadata) -> str:
     )
 
 
-def generated_source(model=metadata) -> str:
+def generated_source(model=None) -> str:
     from hashlib import sha256
 
     from corpus_structure.schema.relational import column_type_annotation
 
     from .identity import canonical_bytes
 
+    model = get_metadata() if model is None else model
     bindings, imports, facts = {}, set(), {}
     for relation in TYPED_RELATIONS:
         target = model.tables[relation]

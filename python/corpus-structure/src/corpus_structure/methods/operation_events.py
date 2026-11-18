@@ -327,7 +327,7 @@ class OperationEventAuthorization:
             {
                 "name": "native-evaluator-operation-event-authorization",
                 "authorization": [
-                    "native-purpose:evaluator",
+                    "native-purpose:evaluate",
                     "exact-protected-operation-event-fit",
                 ],
                 "idempotency": "request-generation/exact-fit",

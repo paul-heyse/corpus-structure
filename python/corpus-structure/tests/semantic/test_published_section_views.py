@@ -522,7 +522,7 @@ def test_published_reader_selector_refusals_preserve_independent_predicates(fami
     from sqlalchemy.dialects.postgresql import dialect
     from sqlalchemy.sql.elements import ClauseElement
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_program import Raise, core_variable
     from corpus_structure.semantic.published_document import (
         _published_read_guards,
@@ -530,14 +530,14 @@ def test_published_reader_selector_refusals_preserve_independent_predicates(fami
     )
 
     statement = published_read_statements()[family]
-    publication = metadata.tables["ops.pdf_published_revision"]
+    publication = get_metadata().tables["ops.pdf_published_revision"]
     published = {
         field.name: core_variable("published", field.type, field.name) for field in publication.c
     }
     (guard,) = _published_read_guards(
         family,
         _published_read_selectors(family, statement),
-        metadata.tables["kb.pdf_record_access"],
+        get_metadata().tables["kb.pdf_record_access"],
         published,
     )
     assert isinstance(guard.condition, ClauseElement)

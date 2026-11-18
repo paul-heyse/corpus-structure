@@ -15,7 +15,7 @@ from corpus_structure.schema import data_steps, model
 from corpus_structure.schema.model_change import ChangeRequest, check_preview, prepare_preview
 from corpus_structure.semantic.alembic_native import NativeTransitionOp
 from corpus_structure.semantic.alembic_privileges import OwnedOperationsOp
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import (
     NativeAuthoring,
     NativeAuthoringError,
@@ -25,9 +25,11 @@ from corpus_structure.semantic.native_objects import (
 
 PREDECESSOR = None
 prepare_data_steps = partial(
-    data_steps.prepare_data_steps, target=metadata, predecessor=PREDECESSOR
+    data_steps.prepare_data_steps, target=get_metadata(), predecessor=PREDECESSOR
 )
-order_data_steps = partial(data_steps.order_data_steps, target=metadata, predecessor=PREDECESSOR)
+order_data_steps = partial(
+    data_steps.order_data_steps, target=get_metadata(), predecessor=PREDECESSOR
+)
 
 
 def n1():
@@ -296,7 +298,7 @@ def test_data_builder_uses_proposed_column_identity():
     from sqlalchemy import MetaData
 
     target = MetaData()
-    for table in metadata.tables.values():
+    for table in get_metadata().tables.values():
         table.to_metadata(target)
     target.tables["ops.data_population"].c.context_key.name = "proposed_context_key"
 

@@ -14,6 +14,7 @@ from sqlalchemy.schema import (
     MetaData,
 )
 
+from corpus_structure.schema.integrity import role_name
 from corpus_structure.schema.relational import physical_expression_sql
 
 from .prepared_sql import PreparedSQL
@@ -83,9 +84,9 @@ def capture_native_authoring_inputs(
     from .types import SourceArtifact
 
     if target_metadata is None:
-        from .metadata import metadata
+        from .metadata import get_metadata
 
-        target_metadata = metadata
+        target_metadata = get_metadata()
     selected = target_metadata
     physical = selected.info.get("physical_sources")
     types = selected.info.get("physical_linkml_types")
@@ -221,7 +222,6 @@ def current_authoring_provenance(
 
 def relation_descriptor(relation) -> dict:
     """Complete named physical row shape; PK/FK vectors retain their declared order."""
-    from .alembic_privileges import DEFAULT_READ_ROLES
 
     columns = []
     for column in sorted(relation.columns, key=lambda column: column.name):
@@ -266,8 +266,8 @@ def relation_descriptor(relation) -> dict:
         )
     result = dict(
         relation=relation.fullname,
-        read_roles=list(relation.info.get("read_roles", DEFAULT_READ_ROLES)),
-        owner="corpus_sem_publisher",
+        read_roles=list(relation.info["read_roles"]),
+        owner=role_name("publisher"),
         columns=columns,
         primary_key=[c.name for c in relation.primary_key.columns],
         foreign_keys=[
@@ -347,9 +347,9 @@ def current_admission_fields(
     from .identity import canonical_bytes
 
     if target_metadata is None:
-        from .metadata import metadata
+        from .metadata import get_metadata
 
-        target_metadata = metadata
+        target_metadata = get_metadata()
     captured = (
         capture_native_authoring_inputs(target_metadata=target_metadata)
         if inputs is None
@@ -396,7 +396,7 @@ def admission_kernel(*, target_metadata: MetaData | None = None) -> str:
     from .native_admission_release import admission_kernel as compile_admission
 
     if target_metadata is None:
-        from .metadata import metadata
+        from .metadata import get_metadata
 
-        target_metadata = metadata
+        target_metadata = get_metadata()
     return compile_admission(target_metadata)

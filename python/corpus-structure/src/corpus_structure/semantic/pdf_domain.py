@@ -89,6 +89,7 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
         name: physical[filename] if filename in physical else root.joinpath(filename).read_bytes()
         for name, filename in (
             ("pdf_products", "pdf-products.yaml"),
+            ("pdf-observation-vocabulary", "pdf-observation-vocabulary.yaml"),
             ("core", "core.yaml"),
             ("pdf_records", "pdf-records.yaml"),
             ("pdf_staging", "pdf-staging.yaml"),
@@ -114,6 +115,10 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
     }
     sources = (
         action_source,
+        SourceArtifact(
+            PREFIX + "native/field-kinds.yaml",
+            root.joinpath("native-field-kinds.yaml").read_bytes(),
+        ),
         *(
             SourceArtifact(PREFIX + "logical/" + name, content)
             for name, content in sorted(logical.items())
@@ -150,6 +155,10 @@ def pdf_domain_sources(
             PREFIX + "schema/pdf_products", root.joinpath("pdf-products.yaml").read_bytes()
         ),
         SourceArtifact(
+            PREFIX + "schema/pdf-observation-vocabulary",
+            root.joinpath("pdf-observation-vocabulary.yaml").read_bytes(),
+        ),
+        SourceArtifact(
             PREFIX + "schema/pdf_observation_meaning",
             root.joinpath("pdf-observation-meaning.json").read_bytes(),
         ),
@@ -182,7 +191,12 @@ def pdf_domain_sources(
                 "version": "pdf-domain-contract-v2",
                 "schema": {
                     "root": "pdf_domain_schema",
-                    "sources": ["pdf_products", "core", "pdf_domain_schema"],
+                    "sources": [
+                        "pdf_products",
+                        "pdf-observation-vocabulary",
+                        "core",
+                        "pdf_domain_schema",
+                    ],
                 },
                 "actions": actions,
                 "diagnostics": diagnostics,

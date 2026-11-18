@@ -14,6 +14,8 @@ from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import visitors
 
+from corpus_structure.schema.integrity import role_name
+
 from .pdf_record_model import artifact_part_upload_table, record_upload_table
 
 if TYPE_CHECKING:
@@ -43,7 +45,7 @@ class PdfScratchSpec:
 
     @property
     def owner(self) -> str:
-        return "corpus_sem_publisher"
+        return role_name("publisher")
 
     @property
     def qualified_name(self) -> str:
@@ -167,7 +169,7 @@ def pdf_scratch_prepare(spec: PdfScratchSpec) -> tuple[Statement, ...]:
                     grantees=(
                         ast.RoleSpec(
                             roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
-                            rolename="corpus_sem_writer",
+                            rolename=role_name("writer"),
                         ),
                     ),
                     behavior=enums.DropBehavior.DROP_RESTRICT,

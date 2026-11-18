@@ -2,7 +2,7 @@
 
 from sqlalchemy import BigInteger, Column, Identity, Integer, MetaData, Table, Text, text
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_admission import _admission_descriptor, native_admission_sql
 from corpus_structure.semantic.native_authoring import _declared_physical_catalog
 from corpus_structure.semantic.native_products import relation_descriptor
@@ -33,16 +33,16 @@ def test_current_descriptor_freezes_declared_visual_geometry_and_indexes(infrast
         target_admission_descriptor,
     )
 
-    capture = capture_target_installation(metadata)
+    capture = capture_target_installation(get_metadata())
     conn = infrastructure_rollback
-    catalog = _declared_physical_catalog(conn, metadata)
+    catalog = _declared_physical_catalog(conn, get_metadata())
     assert conn.scalar(text("SELECT to_regclass('pg_temp.semantic_candidate_catalog')")) is None
     current = _admission_descriptor(
         native_admission_sql(
             admission_kernel(),
             capture.authoring_inputs,
             base_descriptor=target_admission_descriptor(capture, ()),
-            target_metadata=metadata,
+            target_metadata=get_metadata(),
             physical_catalog=catalog,
         )
     )

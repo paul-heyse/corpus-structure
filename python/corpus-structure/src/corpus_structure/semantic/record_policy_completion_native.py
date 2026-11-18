@@ -29,6 +29,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
+from corpus_structure.schema.integrity import role_name
+
 from .data_operation_projections import (
     cut_selection_projection,
     record_grade_census_nodes,
@@ -446,7 +448,7 @@ def _authorization_completion(p):
                     func.coalesce(
                         func.nullif(func.current_setting("role"), "none"), func.session_user()
                     ),
-                    "corpus_sem_evaluator",
+                    role_name("evaluator"),
                     "MEMBER",
                 ),
                 "policy authorization requires native evaluator purpose",

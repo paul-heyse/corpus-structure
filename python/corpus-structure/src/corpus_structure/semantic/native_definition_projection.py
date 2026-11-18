@@ -5,6 +5,8 @@ Reading authenticates the model binding; it grants no native admission or effect
 
 from __future__ import annotations
 
+import json
+import re
 from hashlib import sha256
 from typing import Any, Literal, TypedDict
 
@@ -49,11 +51,7 @@ class NativeDefinitionProjection(TypedDict):
 _ADAPTER = TypeAdapter(NativeDefinitionProjection)
 
 
-def read_native_definition_projection(prepared, *, model=None) -> NativeDefinitionProjection:
-    from .data_operation_admission import bound_data_operation_model
-
-    if model is None:
-        model = bound_data_operation_model(prepared)
+def _projection_content(prepared) -> bytes:
     artifacts = [
         artifact
         for artifact in prepared.artifacts
@@ -61,7 +59,24 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
     ]
     if len(artifacts) != 1:
         raise ValueError("release requires exactly one native definition projection")
-    projection = _ADAPTER.validate_json(artifacts[0].content, strict=True)
+    return artifacts[0].content
+
+
+def recorded_native_digest(prepared) -> str:
+    """Read the kernel identity from the same immutable artifact as the native guard."""
+    payload = json.loads(_projection_content(prepared))
+    digest = payload.get("native_digest") if isinstance(payload, dict) else None
+    if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError("release native definition projection has no valid kernel digest")
+    return digest
+
+
+def read_native_definition_projection(prepared, *, model=None) -> NativeDefinitionProjection:
+    from .data_operation_admission import bound_data_operation_model
+
+    if model is None:
+        model = bound_data_operation_model(prepared)
+    projection = _ADAPTER.validate_json(_projection_content(prepared), strict=True)
     if projection["model_digest"] != sha256(model.content).hexdigest():
         raise ValueError("native definition projection belongs to another effective model")
     kinds = [row["kind_contract"] for row in projection["kinds"]]
@@ -102,8 +117,6 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
         raise ValueError(
             "native operation replicate policies differ from the checked effective model"
         )
-    import json
-
     expected_coverage = {
         operation["semantic_id"]: operation["coverage"]
         for operation in json.loads(model.content)["operations"]
@@ -122,7 +135,6 @@ DefinitionVariant = Literal["components", "applicability", "location"]
 
 def definition_variant_contract(model, projection, variant: DefinitionVariant) -> str | None:
     """Resolve an explicit kind-owned association, never an IRI/name convention."""
-    import json
     from typing import get_args
 
     owners = {}

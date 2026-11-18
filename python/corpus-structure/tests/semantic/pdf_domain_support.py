@@ -6,6 +6,7 @@ from hashlib import sha256
 import yaml
 
 from corpus_structure.semantic.composed import data_operation_dependencies
+from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_storage import (
     native_operation_declarations,
@@ -42,7 +43,12 @@ def bound_model(domain):
 def dependencies(domain):
     return data_operation_dependencies(
         ResolvedDependencies(
-            (SourceArtifact(CONTRACT, domain.content), *domain.sources, *native_protocol_sources())
+            (
+                SourceArtifact(CONTRACT, domain.content),
+                *domain.sources,
+                *native_protocol_sources(),
+                *capture_port_generator_sources(),
+            )
         ),
         (declarations(domain),),
     )

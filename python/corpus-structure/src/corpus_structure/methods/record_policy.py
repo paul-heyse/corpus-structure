@@ -68,7 +68,7 @@ class RecordPolicyAuthorization:
         "effects": [
             {
                 "name": "native-evaluator-policy-authorization",
-                "authorization": ["native-purpose:evaluator", "exact-protected-policy-basis"],
+                "authorization": ["native-purpose:evaluate", "exact-protected-policy-basis"],
                 "idempotency": "request-generation/exact-instance",
                 "fulfillment": "native-publication-receipt",
             }

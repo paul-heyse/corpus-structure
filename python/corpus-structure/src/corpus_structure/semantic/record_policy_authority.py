@@ -41,7 +41,7 @@ GRADE_FACTORY = "corpus_structure.methods.declared_record_policy.RecordPolicyGra
 GRADE_KIND = NAMESPACE + "protected/DdoRecordGrade"
 AUTHORIZATION_EFFECT = EffectContract(
     "native-evaluator-policy-authorization",
-    ("native-purpose:evaluator", "exact-protected-policy-basis"),
+    ("native-purpose:evaluate", "exact-protected-policy-basis"),
     "request-generation/exact-instance",
     "native-publication-receipt",
 )

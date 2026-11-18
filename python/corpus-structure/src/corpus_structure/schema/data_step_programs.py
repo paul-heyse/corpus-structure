@@ -33,6 +33,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert
 
+from corpus_structure.schema.integrity import role_name
 from corpus_structure.semantic.native_admission import _admission_descriptor
 from corpus_structure.semantic.native_program import (
     Assign,
@@ -98,7 +99,7 @@ def predecessor_parts(predecessor: str | None) -> tuple[dict[str, Table], bytes]
     relations = {}
     for name in RETIRED_PARTS:
         shape = shapes[name]
-        if shape["owner"] != "corpus_sem_publisher":
+        if shape["owner"] != role_name("publisher"):
             raise ValueError("S40 predecessor part ownership differs")
         schema, relation = name.split(".")
         relations[name] = Table(

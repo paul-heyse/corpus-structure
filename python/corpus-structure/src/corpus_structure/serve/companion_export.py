@@ -242,7 +242,7 @@ def export_companion_parquet(
 def _export_schema(
     spec, pin: SelectedPdfSourceReference, *, producer_release_id: str, cut, publication
 ) -> pa.Schema:
-    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
+    from corpus_structure.semantic.metadata import get_physical_model_id
 
     return spec.arrow_schema.with_metadata(
         {
@@ -252,7 +252,7 @@ def _export_schema(
             b"cs.selection_release": cut["release_id"].encode(),
             b"cs.cut": CutSelection.from_native(cut).content,
             b"cs.producer_release": producer_release_id.encode(),
-            b"cs.physical": PHYSICAL_MODEL_ID.encode(),
+            b"cs.physical": get_physical_model_id().encode(),
             b"cs.family": spec.family.encode(),
             b"cs.product": publication.logical_digest.encode(),
         }
@@ -406,6 +406,9 @@ def _inventory_verified_export(manifest, files) -> dict:
     supported = (
         manifest.projection_id == installed_projection_id() and manifest.profile_id == PROFILE_ID
     )
+    from corpus_structure.model.compiled import running_model
+
+    declared_columns = running_model().companion_columns()
     inventory = {}
     with duckdb.connect() as db:
         for name, file in files.items():
@@ -416,13 +419,9 @@ def _inventory_verified_export(manifest, files) -> dict:
                 }
                 continue
             family = db.from_parquet(str(file))
-            group = {
-                "input": "input_role",
-                "relation": "relation_kind",
-                "coverage": "outcome",
-                "mapping_report": "outcome",
-            }[name]
-            count = col("relation_id").n_unique() if name == "relation" else count_all()
+            columns = declared_columns[name]
+            group = columns.group
+            count = col(columns.distinct).n_unique() if columns.distinct else count_all()
             counts = family.aggregate([col(group), count]).sort(col(group)).fetchall()
             detail: dict[str, Any] = {
                 "rows": manifest.families[name].rows,
@@ -554,13 +553,9 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
             if "input" not in lf:
                 result.update(comparable=False, reason="source comparability requires input family")
                 return result
-            source_columns = (
-                "input_ordinal",
-                "input_role",
-                "input_task_id",
-                "input_product_key",
-                "input_content_digest",
-            )
+            from corpus_structure.model.compiled import running_model
+
+            source_columns = running_model().companion_columns()["input"].values
             projection = [col(name) for name in source_columns]
             left_input = db.from_parquet(str(lf["input"])).select(*projection)
             right_input = db.from_parquet(str(rf["input"])).select(*projection)
@@ -573,20 +568,9 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
             left_family = db.from_parquet(str(lf[name]))
             right_family = db.from_parquet(str(rf[name]))
             # Provenance differs by product; all projected value columns retain exact multiplicity.
-            excluded = {
-                "project_id",
-                "demand_id",
-                "read_id",
-                "use_id",
-                "product_id",
-                "derivation_id",
-                "selection_release_id",
-                "producer_release_id",
-                "task_id",
-                "product_key",
-                "content_digest",
-                "projection_id",
-            }
+            from corpus_structure.model.compiled import running_model
+
+            excluded = running_model().companion_columns()[name].provenance
             columns = [x for x in left_family.columns if x not in excluded]
             projection = [col(name) for name in columns]
             left_values = left_family.select(*projection)

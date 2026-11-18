@@ -93,10 +93,10 @@ def test_admission_native_compilers_follow_captured_episode_identifier_type(owne
     from corpus_structure.semantic.definition_admission_native import (
         definition_admission_native_sql,
     )
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
 
     captured = MetaData()
-    for table in metadata.tables.values():
+    for table in get_metadata().tables.values():
         table.to_metadata(captured)
     captured.tables["ops.data_derivation"].c.id.type = String(127)
     render = (

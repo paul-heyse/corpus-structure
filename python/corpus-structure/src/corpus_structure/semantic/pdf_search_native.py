@@ -9,7 +9,6 @@ from pglast.stream import RawStream
 from sqlalchemy import (
     ARRAY,
     BigInteger,
-    Boolean,
     Float,
     Integer,
     Text,
@@ -96,19 +95,15 @@ def _field(relation, name: str, column_name: str):
 def _reader(bindings: dict[str, OperationCallBinding], name: str, *arguments):
     binding = bindings[name]
     schema, symbol = binding.symbol.split(".")
-    types = {
-        "integer": BigInteger,
-        "string": Text,
-        "boolean": Boolean,
-        "json_payload": JSONB,
-        "float": Float,
-    }
+    from corpus_structure.model.compiled import field_kinds
+
+    types = field_kinds()
     fields = []
     for field in binding.result_fields:
         resolved = field.resolved
         if resolved is None or resolved.kind not in types:
             raise ValueError(f"{binding.id}.{field.name}: unresolved search reader field")
-        kind: TypeEngine[Any] = types[resolved.kind]()
+        kind: TypeEngine[Any] = types[resolved.kind].sqlalchemy
         if resolved.multivalued:
             kind = ARRAY(kind)
         fields.append(column(field.native_field or field.name, kind))

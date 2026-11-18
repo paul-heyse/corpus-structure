@@ -167,13 +167,13 @@ def test_release_semantic_guards_follow_explicit_physical_relations():
 
     from pglast import parse_plpgsql, parse_sql
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_admission_release import release_semantic_checks
 
-    captured_artifact = metadata.tables["sem.artifact"].to_metadata(
-        MetaData(), name="captured_artifact"
+    captured_artifact = (
+        get_metadata().tables["sem.artifact"].to_metadata(MetaData(), name="captured_artifact")
     )
-    proposed = SimpleNamespace(tables={**metadata.tables, "sem.artifact": captured_artifact})
+    proposed = SimpleNamespace(tables={**get_metadata().tables, "sem.artifact": captured_artifact})
     source = function(
         "public",
         "captured_release_semantics",
@@ -201,11 +201,13 @@ def test_catalog_programs_bind_the_explicit_physical_contract_relation():
 
     from pglast import parse_plpgsql, parse_sql
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_admission_release import physical_catalog_checks
 
-    declared = metadata.tables["sem.physical_contract"].to_metadata(
-        MetaData(), name="captured_physical_contract"
+    declared = (
+        get_metadata()
+        .tables["sem.physical_contract"]
+        .to_metadata(MetaData(), name="captured_physical_contract")
     )
     proposed = SimpleNamespace(tables={"sem.physical_contract": declared})
     source = function(

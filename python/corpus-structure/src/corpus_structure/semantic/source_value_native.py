@@ -5,9 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-from linkml_runtime.linkml_model import SchemaDefinition
-from linkml_runtime.utils.schemaview import SchemaView
 from pglast import ast, enums
 from pglast.stream import RawStream
 from sqlalchemy import (
@@ -53,14 +50,19 @@ class SourceVariant:
 
 
 def _layout(source: bytes) -> dict[str, SourceVariant]:
-    view = SchemaView(SchemaDefinition(**yaml.safe_load(source)))
+    from corpus_structure.model.compiled import compiled_model
+
+    view = compiled_model({"source-values.yaml": source}).private_view("source-values.yaml")
     variants = {}
     for name in ("Text", "Integer", "Float", "Boolean", "Null", "Array", "Object"):
         slots = {str(slot.name): slot for slot in view.class_induced_slots("Source" + name)}
         kind = slots.pop("kind")
         if not kind.equals_string or len(slots) != (0 if name == "Null" else 1):
             raise ValueError(f"Source{name} does not declare one finite codec variant")
-        variants[name] = SourceVariant(kind.equals_string, next(iter(slots), None))
+        variants[name] = SourceVariant(
+            str.__str__(kind.equals_string),
+            str.__str__(next(iter(slots))) if slots else None,
+        )
     fields = {slot.name for slot in view.class_induced_slots("SourceField")}
     if fields != {"name", "position", "value"}:
         raise ValueError("SourceField requires the ordered name/position/value codec contract")

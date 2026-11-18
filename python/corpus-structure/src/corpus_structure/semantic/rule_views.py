@@ -12,9 +12,6 @@ from functools import cached_property
 from typing import Any, Literal, NamedTuple, overload
 
 import yaml
-from linkml_runtime.linkml_model import SchemaDefinition
-from linkml_runtime.loaders import yaml_loader
-from linkml_runtime.utils.schemaview import SchemaView
 from pydantic import AwareDatetime, BaseModel, ConfigDict, TypeAdapter, create_model
 from rule_engine import DataType
 
@@ -396,10 +393,9 @@ def build_rule_language(
                 actual=document.get("version"),
             )
         )
-    schema = yaml_loader.loads(artifact.content.decode(), target_class=SchemaDefinition)
-    if not isinstance(schema, SchemaDefinition):
-        raise ValueError("archived semantic rule-view is not a LinkML schema")
-    view = SchemaView(schema)
+    from corpus_structure.model.compiled import compiled_model
+
+    view = compiled_model({"rule-view.yaml": artifact.content}).private_view("rule-view.yaml")
     declarations: dict[str, dict[str, _Field]] = {}
     for name in view.all_classes():
         declarations[str(name)] = {

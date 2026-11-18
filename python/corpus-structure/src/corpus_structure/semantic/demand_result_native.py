@@ -18,6 +18,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.types import NullType
 
+from corpus_structure.schema.integrity import role_name
+
 from .data_operation_projections import (
     read_access_universes,
     read_page,
@@ -206,7 +208,7 @@ def _read_demand_result(model, kernel_digest):
                                 func.nullif(func.current_setting("role"), "none"),
                                 func.session_user(),
                             ),
-                            "corpus_sem_evaluator",
+                            role_name("evaluator"),
                             "MEMBER",
                             type_=Boolean(),
                         ),

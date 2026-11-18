@@ -1,0 +1,38 @@
+id: https://corpus-structure.org/model/native-field-kinds
+name: native_field_kinds
+prefixes:
+  xsd: http://www.w3.org/2001/XMLSchema#
+  ph: https://corpus-structure.org/physical/
+types:
+  integer:
+    base: int
+    uri: xsd:long
+    annotations: {ph:sql_type: int8}
+  string:
+    base: str
+    uri: xsd:string
+    annotations: {ph:sql_type: text}
+  boolean:
+    base: bool
+    uri: xsd:boolean
+    annotations: {ph:sql_type: bool}
+  timestamp:
+    base: datetime
+    uri: xsd:dateTime
+    annotations: {ph:sql_type: timestamptz}
+  json_payload:
+    base: JsonValue
+    uri: xsd:string
+    annotations: {ph:sql_type: jsonb}
+  bytes:
+    base: bytes
+    uri: xsd:base64Binary
+    annotations: {ph:sql_type: bytea}
+  decimal:
+    base: Decimal
+    uri: xsd:decimal
+    annotations: {ph:sql_type: numeric}
+  float:
+    base: float
+    uri: xsd:double
+    annotations: {ph:sql_type: float8}

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from sqlalchemy import MetaData
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_products import NativeAuthoringProvenance
 
 
@@ -138,7 +140,7 @@ def _descriptor_sql(descriptor):
         kind=enums.VariableSetKind.VAR_SET_VALUE,
         name="role",
         is_local=True,
-        args=(ast.A_Const(val=ast.String(sval="corpus_sem_publisher")),),
+        args=(ast.A_Const(val=ast.String(sval=role_name("publisher"))),),
     )
     definition = sql_function(
         "data",
@@ -365,7 +367,7 @@ def native_admission_sql(
             if reader["relation"].split(".", 1)[0] == policy["name"]:
                 roles.update(reader["roles"])
         policy["acl"] = sorted(
-            [(role, "USAGE", False) for role in roles] + [("corpus_sem_publisher", "CREATE", False)]
+            [(role, "USAGE", False) for role in roles] + [(role_name("publisher"), "CREATE", False)]
         )
     required = admission_kernel(target_metadata=target_metadata)
     if any("body_profile" in item and "dependencies" not in item for item in functions.values()):

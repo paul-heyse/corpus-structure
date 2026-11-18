@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
 from corpus_structure.semantic import _source_admission_calls as calls
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_call_sources import resolve_call_bindings
 from corpus_structure.semantic.operation_value_types import NativeResultViolation
 from corpus_structure.semantic.original_document_contracts import OPERATION, source_call_bindings
@@ -66,7 +66,7 @@ def test_native_registration_request_and_selected_result_are_independently_typed
 
 def test_core_projections_resolve_actual_physical_columns_without_native_dispatch():
     statement = select(*calls.projection_original_document_descriptor)
-    assert statement.get_final_froms() == [metadata.tables["kb.document"]]
+    assert statement.get_final_froms() == [get_metadata().tables["kb.document"]]
     sql = str(statement.compile(dialect=postgresql.dialect()))
     assert "kb.document.project_id" in sql
     assert "ops." not in sql
@@ -92,7 +92,7 @@ def test_core_boundaries_refuse_native_identity_or_unowned_executor(mutation):
     with pytest.raises(PreparationError):
         resolve_call_bindings(
             ((OPERATION, changed),),
-            logical_sources={"linkml:types": metadata.info["physical_linkml_types"]},
-            physical_sources=metadata.info["physical_sources"],
+            logical_sources={"linkml:types": get_metadata().info["physical_linkml_types"]},
+            physical_sources=get_metadata().info["physical_sources"],
             core_owners={(OPERATION, original.id): original.symbol},
         )

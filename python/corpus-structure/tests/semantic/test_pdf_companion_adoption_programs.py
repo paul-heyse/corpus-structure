@@ -9,7 +9,7 @@ from sqlalchemy import Column, MetaData, Table, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.pdf_companion_adoption_native import companion_adoption_sql
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
@@ -22,15 +22,15 @@ def adoption(infrastructure_rollback):
     execute_native_sql(conn, "CREATE SCHEMA ops")
     names = [
         "ops.pdf_stage_build",
-        *(spec.source.fullname for spec in pdf_companion_scratch_specs(metadata)),
+        *(spec.source.fullname for spec in pdf_companion_scratch_specs(get_metadata())),
     ]
     for name in dict.fromkeys(names):
         source = (
-            metadata.tables[name]
-            if name in metadata.tables
+            get_metadata().tables[name]
+            if name in get_metadata().tables
             else next(
                 spec.source
-                for spec in pdf_companion_scratch_specs(metadata)
+                for spec in pdf_companion_scratch_specs(get_metadata())
                 if spec.source.fullname == name
             )
         )
@@ -41,7 +41,7 @@ def adoption(infrastructure_rollback):
             schema=source.schema,
         )
         conn.execute(CreateTable(relation))
-    for spec in pdf_companion_scratch_specs(metadata):
+    for spec in pdf_companion_scratch_specs(get_metadata()):
         relation = Table(
             spec.name,
             MetaData(),
@@ -69,7 +69,7 @@ CREATE FUNCTION ops.pdf_verify_shared_stream(text,text) RETURNS void LANGUAGE sq
 CREATE FUNCTION ops.pdf_companion_field_bytes(text,text,text,boolean) RETURNS bytea LANGUAGE sql RETURN ''::bytea;
 """,
     )
-    execute_native_sql(conn, companion_adoption_sql(trusted_pdf_context(), metadata))
+    execute_native_sql(conn, companion_adoption_sql(trusted_pdf_context(), get_metadata()))
     yield conn
 
 
@@ -140,14 +140,14 @@ def test_generated_set_refuses_independent_invalid_inputs(adoption, mutation, me
 
 def test_adoption_upload_limits_come_from_captured_physical_source(adoption):
     conn = adoption
-    selected = copy(metadata)
-    sources = dict(metadata.info["physical_sources"])
+    selected = copy(get_metadata())
+    sources = dict(get_metadata().info["physical_sources"])
     staging = yaml.safe_load(sources["pdf-staging.yaml"])
     profile = json.loads(staging["annotations"]["pds:upload_profile"])
     profile["max_rows"] = 1
     staging["annotations"]["pds:upload_profile"] = json.dumps(profile)
     sources["pdf-staging.yaml"] = yaml.safe_dump(staging).encode()
-    selected.info = {**metadata.info, "physical_sources": sources}
+    selected.info = {**get_metadata().info, "physical_sources": sources}
     execute_native_sql(conn, companion_adoption_sql(trusted_pdf_context(), selected))
     upload(conn, "one", 0)
     upload(conn, "two", 1)
@@ -161,7 +161,7 @@ def test_generated_adoption_binds_against_actual_native_catalog(native_rollback)
 
     execute_native_sql(conn, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
     with native_owner(conn, "corpus_sem_publisher"):
-        execute_native_sql(conn, companion_adoption_sql(trusted_pdf_context(), metadata))
+        execute_native_sql(conn, companion_adoption_sql(trusted_pdf_context(), get_metadata()))
         conn.exec_driver_sql("SELECT ops.prepare_pdf_companions()")
         failures = (
             conn.execute(

@@ -4,6 +4,8 @@ from pglast import ast
 from sqlalchemy import Text, and_, any_, case, cast, func, literal, select
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, array
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import Parameter, column_type, core_variable, pg_type, sql_function
 
@@ -162,8 +164,8 @@ def pdf_record_scope_health_sql(metadata):
             (
                 routine,
                 native_privilege_sql(identity, "PUBLIC", grant=False),
-                native_privilege_sql(identity, "corpus_sem_writer", "execute"),
-                native_privilege_sql(identity, "corpus_sem_reader", "execute"),
+                native_privilege_sql(identity, role_name("writer"), "execute"),
+                native_privilege_sql(identity, role_name("reader"), "execute"),
             )
         )
         + "\n"

@@ -106,6 +106,10 @@ def _report_sources() -> SourceBundle:
                 for name in modules
             ),
             SourceArtifact(
+                "pdf-observation-vocabulary",
+                root.joinpath("pdf-observation-vocabulary.yaml").read_bytes(),
+            ),
+            SourceArtifact(
                 "report_root",
                 b"id: urn:corpus:report-boundary\nname: report_boundary\nimports: [operation_reports, pdf_products, observations, characterization, core]\n",
             ),
@@ -374,6 +378,7 @@ def validation_report(
         "unsupported": "unassessed",
         "unresolved": "unassessed",
         "unchecked": "unassessed",
+        "advisory": "unassessed",
     }
     from .correction_detail import preparation_diagnostic
 
@@ -406,7 +411,7 @@ def validation_report(
             ),
             projection_dependencies=projection_dependencies,
             complete=all(
-                item.outcome not in {"unsupported", "unresolved", "unchecked"}
+                item.outcome not in {"unsupported", "unresolved", "unchecked", "advisory"}
                 for item in diagnostics
             ),
         ),

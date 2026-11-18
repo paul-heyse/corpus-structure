@@ -147,11 +147,11 @@ def test_archive_native_consumes_exact_supplied_model_for_columns_keys_and_scrat
     from sqlalchemy import Column, MetaData, Text
 
     from corpus_structure.semantic import archive_transport
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_products import function_bodies
 
     target = MetaData()
-    for relation in (*archive_tables(), metadata.tables["sem.release_finalization"]):
+    for relation in (*archive_tables(), get_metadata().tables["sem.release_finalization"]):
         relation.to_metadata(target)
     target.tables["sem.input"].append_column(Column("quoted payload", Text()))
     monkeypatch.setattr(archive_transport, "metadata", MetaData())

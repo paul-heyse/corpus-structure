@@ -1,5 +1,7 @@
 """Native policy issuer recognition and bounded ordinary provenance disclosure."""
 
+from corpus_structure.schema.integrity import role_name
+
 GRADE_SCHEMA_SOURCE = "native/data-operation-record-grade.schema.json"
 EVENT_FRAME_SCHEMA_SOURCE = "native/data-operation-operation-event-frame.schema.json"
 EVENT_FRAME_KIND = (
@@ -181,9 +183,9 @@ def record_policy_native_sql(*, target_metadata=None):
     )
 
     if target_metadata is None:
-        from .metadata import metadata
+        from .metadata import get_metadata
 
-        target_metadata = metadata
+        target_metadata = get_metadata()
     model = target_metadata
     definitions, episodes, requests, receipts, outputs, products, kinds, boundaries, uses = (
         model.tables[name]
@@ -661,10 +663,10 @@ def _feature_fit_sql(model):
         (
             _check(
                 or_(
-                    ~func.pg_has_role(principal, "corpus_sem_fitter", "USAGE", type_=Boolean()),
+                    ~func.pg_has_role(principal, role_name("fitter"), "USAGE", type_=Boolean()),
                     ~func.current_setting("role").in_(("none", cast(principal, Text()))),
-                    func.pg_has_role(principal, "corpus_sem_evaluator", "MEMBER", type_=Boolean()),
-                    func.pg_has_role(principal, "corpus_sem_publisher", "MEMBER", type_=Boolean()),
+                    func.pg_has_role(principal, role_name("evaluator"), "MEMBER", type_=Boolean()),
+                    func.pg_has_role(principal, role_name("publisher"), "MEMBER", type_=Boolean()),
                     func.has_database_privilege(
                         principal, func.current_database(), "TEMP", type_=Boolean()
                     ),

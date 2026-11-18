@@ -1,0 +1,53 @@
+id: https://corpus-structure.org/model/semantic/physical-profile
+name: physical_profile
+prefixes:
+  ph: https://corpus-structure.org/physical/
+  linkml: https://w3id.org/linkml/
+imports: [linkml:types]
+default_prefix: ph
+default_range: string
+classes:
+  ProfileAny:
+    class_uri: linkml:Any
+  PhysicalRelation:
+    attributes:
+      immutability: {}
+      archive_role: {}
+      read_roles: {multivalued: true}
+      frontier_guard: {range: FrontierGuard}
+      foreign_keys: {range: ForeignKey, multivalued: true, inlined_as_list: true}
+      checks: {range: Check, multivalued: true, inlined_as_list: true}
+      indexes: {range: Index, multivalued: true, inlined_as_list: true}
+  PhysicalColumn:
+    attributes:
+      sql_type: {}
+      python_type: {}
+      identity: {}
+      generated_as: {}
+      generated_source: {}
+      server_default_factory: {}
+      server_default_value: {range: ProfileAny}
+      search_configuration: {}
+  ForeignKey:
+    attributes:
+      columns: {multivalued: true, required: true}
+      target: {required: true}
+      name: {}
+  Check:
+    attributes:
+      name: {required: true}
+      predicate: {range: ProfileAny}
+  Index:
+    attributes:
+      name: {}
+      columns: {multivalued: true}
+      expression: {range: ProfileAny}
+      where: {range: ProfileAny}
+      collations: {range: ProfileAny}
+      using: {}
+      include: {multivalued: true}
+enums:
+  FrontierGuard:
+    permissible_values:
+      guarded:
+      exempt:

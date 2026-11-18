@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from contextlib import suppress
 from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
@@ -89,6 +90,7 @@ _SAFE_ANNOTATIONS = frozenset(
         "cs:data_universe",
         "cs:projection_families",
         "cs:definition_variant",
+        "cs:openness",
     }
 )
 _PRIMITIVES: dict[str, Any] = {
@@ -223,6 +225,8 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
             if not named_definition and key in _UNSUPPORTED and item:
                 _fail("unsupported_construct", child, f"{key} is outside semantic-1", "unsupported")
             if key == "annotations" and not named_definition:
+                if parent == "enums" and set(item or ()) <= {"cs:openness"}:
+                    continue
                 if item and parent not in {"slots", "attributes", "slot_usage", "classes"}:
                     _fail(
                         "unsupported_annotation_placement",
@@ -243,6 +247,13 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
                             "unsupported_annotation_placement",
                             child,
                             str(annotation),
+                            "unsupported",
+                        )
+                    if annotation == "cs:openness":
+                        _fail(
+                            "unsupported_annotation_placement",
+                            child,
+                            "vocabulary openness belongs to enumerations",
                             "unsupported",
                         )
                     if (
@@ -314,35 +325,6 @@ def _view(
                 if (kind, name) in elements:
                     _fail("definition_collision", source.name, f"duplicate {kind}/{name}")
                 elements[kind, name] = source.name
-        # Materialize source-relative semantic identifiers before flattening imports.
-        # A merged root's default_prefix must never relabel an imported declaration.
-        prefix = str(schema.default_prefix or schema.id)
-        for cls in cast(dict[str, Any], schema.classes or {}).values():
-            if cls.class_uri is None:
-                cls.class_uri = (
-                    f"{prefix}:{cls.name}" if schema.default_prefix else f"{schema.id}/{cls.name}"
-                )
-            for attr in cast(dict[str, Any], cls.attributes or {}).values():
-                if attr.range is None:
-                    attr.range = schema.default_range or "string"
-                if attr.slot_uri is None:
-                    attr.slot_uri = (
-                        f"{prefix}:{attr.name}"
-                        if schema.default_prefix
-                        else f"{schema.id}/{attr.name}"
-                    )
-        for enum in cast(dict[str, Any], schema.enums or {}).values():
-            if enum.enum_uri is None:
-                enum.enum_uri = (
-                    f"{prefix}:{enum.name}" if schema.default_prefix else f"{schema.id}/{enum.name}"
-                )
-        for slot in cast(dict[str, Any], schema.slots or {}).values():
-            if slot.range is None:
-                slot.range = schema.default_range or "string"
-            if slot.slot_uri is None:
-                slot.slot_uri = (
-                    f"{prefix}:{slot.name}" if schema.default_prefix else f"{schema.id}/{slot.name}"
-                )
         schemas[source.name] = schema
     names: set[str] = set()
     for key, schema in schemas.items():
@@ -357,21 +339,14 @@ def _view(
         for imp in schema.imports or ():
             if str(imp) not in schemas:
                 _fail("missing_import", source, f"import {imp} is not supplied", "unresolved")
-    from linkml_runtime.dumpers import json_dumper
+    from corpus_structure.model.compiled import compiled_model
 
-    view = SchemaView(
-        schemas[bundle.root],
-        importmap={
-            key: cast(dict[str, Any], json_dumper.to_dict(value)) for key, value in schemas.items()
-        },
-    )
-    view.imports_closure()
-    # Generators work on the explicit, fully materialized import closure only.
-    view.merge_imports()
-    merged = view.schema
-    assert merged is not None
-    merged.imports = []
-    return SchemaView(merged)
+    try:
+        return compiled_model({s.name: s.content for s in bundle.sources}).private_view(
+            bundle.root, normalize=True
+        )
+    except (ValueError, TypeError, KeyError) as error:
+        _fail("schema", bundle.root, str(error))
 
 
 def _primitive(view: SchemaView, name: str, seen: tuple[str, ...] = ()) -> Any:
@@ -389,10 +364,15 @@ def _primitive(view: SchemaView, name: str, seen: tuple[str, ...] = ()) -> Any:
     return _primitive(view, base, (*seen, name))
 
 
-def _annotations(element: Any) -> dict[str, str]:
-    raw = element.annotations or {}
-    items = raw.items() if hasattr(raw, "items") else vars(raw).items()
-    return {str(k): str(getattr(v, "value", v)) for k, v in items if str(k) in _SAFE_ANNOTATIONS}
+def _annotations(element: Any) -> dict[str, Any]:
+    from corpus_structure.model.compiled import annotation_boolean, annotation_values
+
+    values = {k: v for k, v in annotation_values(element).items() if k in _SAFE_ANNOTATIONS}
+    for name in ("cs:functional", "cs:nullable"):
+        if name in values:
+            with suppress(ValueError):
+                values[name] = annotation_boolean(values[name], name)
+    return values
 
 
 def _bounds(view: SchemaView, rng: str) -> tuple[list[Decimal], list[Decimal], list[str]]:
@@ -445,6 +425,9 @@ def _view_and_vocabularies(
     ontology_preparation=None,
 ) -> tuple[SchemaView, tuple[VocabularySnapshot, ...], tuple[Diagnostic, ...]]:
     view = _view(bundle, profile, inspection_index=inspection_index)
+    from corpus_structure.schema.operation_declarations import check_declared_openness
+
+    check_declared_openness(view)
     supplied = {s.enum: s for s in dependencies.vocabularies}
     if len(supplied) != len(dependencies.vocabularies):
         _fail("vocabulary", "dependencies", "duplicate vocabulary snapshots")
@@ -643,7 +626,7 @@ def effective_class_definitions(
                 _fail("case_policy", f"{name}/{sn}", "unsupported case policy", "unsupported")
             if ann.get("cs:key_role", "meaning") not in {"meaning", "identity", "provenance"}:
                 _fail("key_role", f"{name}/{sn}", "unsupported key role", "unsupported")
-            if "cs:functional" in ann and ann["cs:functional"].lower() not in {"true", "false"}:
+            if "cs:functional" in ann and not isinstance(ann["cs:functional"], bool):
                 _fail(
                     "functional_policy",
                     f"{name}/{sn}",
@@ -662,15 +645,15 @@ def effective_class_definitions(
                     "fact references require a string range",
                     "unsupported",
                 )
-            nullable_annotation = ann.get("cs:nullable", "false").lower()
-            if nullable_annotation not in {"true", "false"}:
+            nullable_annotation = ann.get("cs:nullable", False)
+            if not isinstance(nullable_annotation, bool):
                 _fail(
                     "nullable_policy",
                     f"{name}/{sn}",
                     "nullable must be an explicit boolean",
                     "unsupported",
                 )
-            nullable = nullable_annotation == "true"
+            nullable = nullable_annotation
             if nullable and (slot.identifier or ann.get("cs:key_role") == "identity"):
                 _fail("nullable_identity", f"{name}/{sn}", "identity fields cannot be nullable")
             scope = ann.get("cs:constraint_scope", profile.constraint_scope)
@@ -684,10 +667,8 @@ def effective_class_definitions(
             if nullable:
                 for ancestor in view.class_ancestors(name, reflexive=False):
                     for inherited in view.class_induced_slots(ancestor):
-                        if (
-                            str(inherited.name) == sn
-                            and _annotations(inherited).get("cs:nullable", "false").lower()
-                            != "true"
+                        if str(inherited.name) == sn and not _annotations(inherited).get(
+                            "cs:nullable", False
                         ):
                             _fail(
                                 "nullable_override",
@@ -744,13 +725,18 @@ def effective_class_definitions(
                     "unsupported scalar cardinality",
                     "unsupported",
                 )
-            minimum_cardinality = slot.minimum_cardinality
+            minimum_cardinality = (
+                None if slot.minimum_cardinality is None else int.__int__(slot.minimum_cardinality)
+            )
+            maximum_cardinality = (
+                None if slot.maximum_cardinality is None else int.__int__(slot.maximum_cardinality)
+            )
             if slot.required or slot.identifier:
                 minimum_cardinality = max(minimum_cardinality or 0, 1)
             if (
                 minimum_cardinality is not None
-                and slot.maximum_cardinality is not None
-                and minimum_cardinality > slot.maximum_cardinality
+                and maximum_cardinality is not None
+                and minimum_cardinality > maximum_cardinality
             ):
                 _fail("incompatible_cardinality", f"{name}/{sn}", "minimum exceeds maximum")
             low, high, patterns = _bounds(view, rng)
@@ -781,7 +767,7 @@ def effective_class_definitions(
                 ),
                 bool(slot.multivalued),
                 minimum_cardinality,
-                slot.maximum_cardinality,
+                maximum_cardinality,
                 str(max(low)) if low else None,
                 str(min(high)) if high else None,
                 slot.pattern if slot.pattern else None,
@@ -954,6 +940,8 @@ def _prepare_release_uncached(
     data_operations = data_operations_from_dependencies(
         bundle, dependencies, tuple(definitions), vocabularies
     )
+    if data_operations is not None:
+        diagnostics = (*diagnostics, *data_operations.diagnostics)
     manifest = canonical_bytes(
         {
             "root": bundle.root,

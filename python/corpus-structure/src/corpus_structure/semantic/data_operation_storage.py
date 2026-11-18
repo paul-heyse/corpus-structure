@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
+from corpus_structure.schema.integrity import role_name
 from corpus_structure.semantic._data_operation_wire import (
     WireDemandId,
     WireReadIdentity,
@@ -518,6 +519,18 @@ def native_protocol_sources(
             Path(__file__).with_name("data_operation_protocol.py").read_bytes(),
         ),
         SourceArtifact("native/data-operation-storage.py", Path(__file__).read_bytes()),
+        SourceArtifact(
+            "native/model-compiler.py",
+            Path(__file__).resolve().parents[1].joinpath("model/compiled.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/native-field-kinds.yaml",
+            Path(__file__)
+            .resolve()
+            .parents[1]
+            .joinpath("model/semantic/native-field-kinds.yaml")
+            .read_bytes(),
+        ),
         SourceArtifact(
             "native/identifiers.py",
             Path(__file__).with_name("identifiers.py").read_bytes(),
@@ -1026,13 +1039,28 @@ def native_operation_calls(
     schemas = wire_contracts(sources)
     nominals = wire_nominal_correspondence(sources)
     resolved = OperationFieldType("json_payload", False, False)
+    protocol = _protocol(sources)
+    captured = {"data." + item["name"] for item in protocol}
+    owners = (
+        captured if model is None else {operation.semantic_id for operation in model.operations}
+    )
+    if model is not None:
+        for operation in model.operations:
+            if (
+                operation.semantic_id in captured or operation.behavior.startswith("ddo-native-v1:")
+            ) and (
+                operation.semantic_id not in captured
+                or operation.behavior != "ddo-native-v1:" + digest
+            ):
+                raise ValueError(
+                    f"incompatible captured native protocol operation {operation.semantic_id}"
+                )
     result = []
-    owners = {operation.semantic_id for operation in model.operations} if model else None
-    for item in _protocol(sources):
+    for item in protocol:
         name = item["name"]
         owner = "data." + name
-        if owners is not None and owner not in owners:
-            raise ValueError(f"missing captured native protocol operation {owner}")
+        if owner not in owners:
+            continue
         result.append(
             (
                 owner,
@@ -1132,14 +1160,15 @@ def require_data_operation_native(connection: Connection, prepared: PreparedRele
     # release guard under the admission purpose. The maintenance-only catalog DO
     # requires access to protected schema names that this principal must not gain.
     require_native_execution(connection, prepared)
+    expected = prepared.native_kernel_digest
     actual = connection.scalar(text("SELECT sem.data_operation_native_descriptor()"))
     if (
         not isinstance(actual, dict)
         or actual.get("version") != "data-operation-native-v1"
-        or actual.get("source_digest") != native_source_digest()
+        or actual.get("source_digest") != expected
     ):
-        raise ValueError("native data-operation implementation differs from prepared code")
-    return native_source_digest()
+        raise ValueError("release was prepared for a different native kernel; re-prepare it")
+    return expected
 
 
 def _kind_schema(prepared: PreparedRelease, kind) -> dict[str, Any]:
@@ -1558,7 +1587,7 @@ def admit_data_operation_definitions(
     connection: Connection, prepared: PreparedRelease, model: EffectiveDataOperationModel
 ) -> str:
     """Install the authenticated exact fixed projection, never caller-shaped contracts."""
-    require_data_operation_native(connection, prepared)
+    native_digest = require_data_operation_native(connection, prepared)
     from .native_definition_projection import read_native_definition_projection
 
     payload = read_native_definition_projection(prepared, model=model)
@@ -1568,7 +1597,7 @@ def admit_data_operation_definitions(
     )
     if not isinstance(value, dict) or value.get("release_id") != prepared.release_id:
         raise ValueError("native definition admission did not return exact release identity")
-    return native_source_digest()
+    return native_digest
 
 
 _UNQUALIFIED_CONTEXT_FIELD = object()
@@ -1849,6 +1878,7 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
     from pglast import ast
 
     from .native_objects import definition_from_sql, native_before_trigger_sql
+    from .native_program_capabilities import program_access
     from .prepared_sql import prepare_sql
 
     if sources is not None:
@@ -1895,44 +1925,14 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
         if len(parts) != 2:
             raise ValueError("native function must have a schema-qualified identity")
         schema, name = parts
-        if name in public:
-            roles = tuple(
-                {
-                    "read": "corpus_sem_reader",
-                    "write": "corpus_sem_writer",
-                    "evaluate": "corpus_sem_evaluator",
-                    "admit": "corpus_sem_admitter",
-                    "fit": "corpus_sem_fitter",
-                }[purpose]
-                for purpose in public[name]["purposes"]
-            )
-        elif name == "admit_data_operation_definitions":
-            roles = ("corpus_sem_admitter",)
-        elif name == "ddo_require_feature_fit_principal":
-            roles = ("corpus_sem_fitter",)
-        elif name == "data_operation_native_descriptor":
-            roles = (
-                "corpus_sem_reader",
-                "corpus_sem_writer",
-                "corpus_sem_admitter",
-                "corpus_sem_evaluator",
-            )
-        elif schema == "data" and name == "ddo_field":
-            # The compiled read projection extracts a field from caller-visible
-            # tagged values. This immutable function uses only pg_catalog JSON,
-            # and grants no protected-row access or effect authority.
-            roles = ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
-        elif name == "data_binding_rows":
-            roles = ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
-        else:
-            roles = ()
+        access = program_access(schema, name, public)
         definitions.append(
             definition_from_sql(
                 connection,
                 prepared.excerpt(index),
                 source="data-operations:forward",
-                owner="corpus_sem_publisher",
-                grants=tuple((role, "EXECUTE", False) for role in roles),
+                owner=role_name("publisher"),
+                program_access=access,
             )
         )
     for relation in data_operation_immutable_relations(target_metadata, physical_sources):
@@ -1946,24 +1946,12 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
                     events=("update", "delete", "truncate"),
                 ),
                 source="data-operation physical immutability:forward",
-                owner="corpus_sem_publisher",
+                owner=role_name("publisher"),
             )
         )
-    for name in (
-        "data_obligation",
-        "data_request",
-        "data_request_generation",
-        "demand_use",
-        "data_population",
-        "data_derivation",
-        "data_derivation_input",
-        "data_derivation_output",
-        "data_derivation_support",
-        "data_derivation_original_support",
-        "original_source_admission",
-        "data_demand_cancellation",
-    ):
-        relation = target_metadata.tables["ops." + name]
+    for relation in target_metadata.tables.values():
+        if relation.info["frontier_guard"] != "guarded":
+            continue
         definitions.append(
             definition_from_sql(
                 connection,
@@ -1974,7 +1962,7 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
                     events=("insert", "update", "delete", "truncate"),
                 ),
                 source="data-operation pinned frontier:forward",
-                owner="corpus_sem_publisher",
+                owner=role_name("publisher"),
             )
         )
     from .data_operation_binding_native import binding_native_definitions

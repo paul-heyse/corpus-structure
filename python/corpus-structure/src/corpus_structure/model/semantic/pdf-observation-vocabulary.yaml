@@ -1,0 +1,15 @@
+id: https://corpus-structure.dev/semantic/pdf-observation-vocabulary
+name: pdf_observation_vocabulary
+prefixes:
+  pdf: https://corpus-structure.dev/pdf/
+  cs: https://corpus-structure.dev/semantic/
+default_prefix: pdf
+enums:
+  PdfObservationOutcome:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      succeeded: {}
+      partial: {}
+      failed: {}
+      unknown: {}
+      unsupported: {}

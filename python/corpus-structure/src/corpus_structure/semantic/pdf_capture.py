@@ -21,6 +21,13 @@ _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-pdf-capture.
 
 def pdf_capture_inputs(bundle):
     bundle = source_product_inputs(bundle)
+    from corpus_structure.model.compiled import running_model
+
+    vocabulary_name = "pdf-observation-vocabulary"
+    vocabulary_content = running_model().sources[vocabulary_name + ".yaml"]
+    previous = next((source for source in bundle.sources if source.name == vocabulary_name), None)
+    if previous is not None and previous.content != vocabulary_content:
+        raise ValueError("PDF observation vocabulary differs from its declared owner")
     name, root = "data_operation_pdf_capture", "data_operation_pdf_capture_root"
     if {name, root} & {item.name for item in bundle.sources}:
         raise ValueError("PDF capture uses reserved schema names")
@@ -28,6 +35,7 @@ def pdf_capture_inputs(bundle):
         root,
         (
             *bundle.sources,
+            *((SourceArtifact(vocabulary_name, vocabulary_content),) if previous is None else ()),
             SourceArtifact(name, _MODEL.read_bytes()),
             SourceArtifact(
                 root,

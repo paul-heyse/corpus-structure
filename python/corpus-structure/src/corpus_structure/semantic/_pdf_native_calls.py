@@ -1852,7 +1852,7 @@ _read_published_section_nodes_function = func.ops.read_pdf_published_section_nod
     column("section_pointer", Text()),
     column("content_layer", Text()),
     column("text", Text()),
-    column("native_json", JSONB()),
+    column("native_json", JSONB(astext_type=Text())),
 )
 
 
@@ -2038,7 +2038,7 @@ _read_published_items_function = func.ops.read_pdf_published_items(
     column("section_pointer", Text()),
     column("content_layer", Text()),
     column("text", Text()),
-    column("native_json", JSONB()),
+    column("native_json", JSONB(astext_type=Text())),
 )
 
 
@@ -2347,7 +2347,7 @@ _read_published_section_reports_function = func.ops.read_pdf_published_section_r
 ).table_valued(
     column("local_id", Text()),
     column("ordinal", BigInteger()),
-    column("body", JSONB()),
+    column("body", JSONB(astext_type=Text())),
 )
 
 
@@ -3068,10 +3068,10 @@ _read_pdf_record_rows_function = func.ops.read_pdf_record_rows(
     bindparam("product_key", type_=Text()),
     bindparam("content_digest", type_=Text()),
     bindparam("family", type_=Text()),
-    bindparam("filters", type_=JSONB()),
+    bindparam("filters", type_=JSONB(astext_type=Text())),
     bindparam("after", type_=JSONB(none_as_null=True)),
     bindparam("limit", type_=Integer()),
-    type_=JSONB(),
+    type_=JSONB(astext_type=Text()),
 )
 _read_pdf_record_rows_statement = select(_read_pdf_record_rows_function.cast(Text()))
 
@@ -3179,7 +3179,7 @@ _read_pdf_record_context_rows_function = func.ops.read_pdf_record_context_rows(
     bindparam("family", type_=Text()),
     bindparam("after", type_=Text()),
     bindparam("limit", type_=Integer()),
-    type_=JSONB(),
+    type_=JSONB(astext_type=Text()),
 )
 _read_pdf_record_context_rows_statement = select(
     _read_pdf_record_context_rows_function.cast(Text())
@@ -3286,7 +3286,7 @@ _read_pdf_companion_export_events_function = func.ops.read_pdf_companion_export_
     bindparam("product_key", type_=Text()),
     bindparam("content_digest", type_=Text()),
     bindparam("family", type_=Text()),
-    type_=JSONB(),
+    type_=JSONB(astext_type=Text()),
 )
 _read_pdf_companion_export_events_statement = select(
     _read_pdf_companion_export_events_function.cast(Text())
@@ -3371,7 +3371,7 @@ _read_pdf_native_events_function = func.ops.read_pdf_native_events(
     bindparam("task_id", type_=BigInteger()),
     bindparam("product_key", type_=Text()),
     bindparam("content_digest", type_=Text()),
-    type_=JSONB(),
+    type_=JSONB(astext_type=Text()),
 )
 _read_pdf_native_events_statement = select(_read_pdf_native_events_function.cast(Text()))
 
@@ -3457,7 +3457,7 @@ _record_integrated_source_context_function = func.ops.record_integrated_source_c
     bindparam("section", type_=Text()),
     bindparam("membership", type_=Text()),
     bindparam("row_budget", type_=BigInteger()),
-    type_=JSONB(),
+    type_=JSONB(astext_type=Text()),
 )
 _record_integrated_source_context_statement = select(
     _record_integrated_source_context_function.cast(Text())
@@ -3568,7 +3568,7 @@ _read_pdf_selected_source_events_function = func.ops.read_pdf_selected_source_ev
     bindparam("section", type_=Text()),
     bindparam("membership", type_=Text()),
     bindparam("policy", type_=Text()),
-    type_=JSONB(),
+    type_=JSONB(astext_type=Text()),
 )
 _read_pdf_selected_source_events_statement = select(
     _read_pdf_selected_source_events_function.cast(Text())
@@ -5157,7 +5157,7 @@ _stage_pdf_access_batch_function = func.ops.stage_pdf_access_batch(
     bindparam("task_id", type_=BigInteger()),
     bindparam("attempt", type_=BigInteger()),
     bindparam("holder", type_=Text()),
-    bindparam("rows", type_=JSONB()),
+    bindparam("rows", type_=JSONB(astext_type=Text())),
 )
 _stage_pdf_access_batch_statement = select(_stage_pdf_access_batch_function)
 
@@ -5599,7 +5599,7 @@ _read_pdf_certification_targets_function = func.ops.read_pdf_certification_targe
     bindparam("task_id", type_=BigInteger()),
     bindparam("attempt", type_=BigInteger()),
     bindparam("holder", type_=Text()),
-    bindparam("targets", type_=JSONB()),
+    bindparam("targets", type_=JSONB(astext_type=Text())),
     type_=BYTEA(),
 )
 _read_pdf_certification_targets_statement = select(_read_pdf_certification_targets_function)
@@ -6107,8 +6107,8 @@ _read_pdf_frozen_rows_function = func.ops.read_pdf_frozen_rows(
     bindparam("family", type_=Text()),
     bindparam("after", type_=JSONB(none_as_null=True)),
     bindparam("limit", type_=Integer()),
-    bindparam("filters", type_=JSONB()),
-    type_=JSONB(),
+    bindparam("filters", type_=JSONB(astext_type=Text())),
+    type_=JSONB(astext_type=Text()),
 )
 _read_pdf_frozen_rows_statement = select(_read_pdf_frozen_rows_function.cast(Text()))
 

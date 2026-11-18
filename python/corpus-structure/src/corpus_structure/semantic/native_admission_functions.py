@@ -3,7 +3,8 @@
 from sqlalchemy import Boolean, Text, and_, case, cast, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB, OID
 
-from .alembic_privileges import DEFAULT_READ_ROLES
+from corpus_structure.schema.integrity import schema_read_roles
+
 from .native_catalog import language, pg, procedure
 from .native_program import core_variable
 from .native_sql_body import admission_body_comparison
@@ -146,7 +147,7 @@ def function_catalog_checks():
                     pg.has_function_privilege(role, columns.oid, "EXECUTE").is_distinct_from(
                         item["execute_roles"].has_key(role)
                     )
-                    for role in DEFAULT_READ_ROLES
+                    for role in schema_read_roles("sem")
                 ),
                 select(1)
                 .select_from(acl)

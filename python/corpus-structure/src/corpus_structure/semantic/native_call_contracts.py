@@ -10,20 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-# The SQLAlchemy generator spells the driver type, while native declarations
-# use the corresponding PostgreSQL base type. Array shape and JSON null policy
-# belong to the resolved field.
-NATIVE_FIELD_TYPES = {
-    "integer": ("int8", "BigInteger()"),
-    "string": ("text", "Text()"),
-    "boolean": ("bool", "Boolean()"),
-    "timestamp": ("timestamptz", "DateTime(timezone=True)"),
-    "json_payload": ("jsonb", "JSONB()"),
-    "bytes": ("bytea", "BYTEA()"),
-    "decimal": ("numeric", "Numeric()"),
-    "float": ("float8", "Float()"),
-}
-
 
 @dataclass(frozen=True)
 class OperationFieldType:

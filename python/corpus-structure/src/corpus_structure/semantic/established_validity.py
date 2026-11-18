@@ -131,7 +131,7 @@ def product_validation_native_sql(*, target_metadata=None):
     from sqlalchemy import Text, cast, column, func, literal, or_, select, true
     from sqlalchemy.dialects.postgresql import JSONB, array
 
-    from .metadata import metadata as default_metadata
+    from .metadata import get_metadata as default_metadata
     from .native_program import (
         Assign,
         Block,
@@ -147,7 +147,7 @@ def product_validation_native_sql(*, target_metadata=None):
         sql_function,
     )
 
-    metadata = default_metadata if target_metadata is None else target_metadata
+    metadata = default_metadata() if target_metadata is None else target_metadata
     request = metadata.tables["ops.data_request"]
     definition = metadata.tables["sem.data_operation_definition"].alias("definition")
     jsonb = JSONB()

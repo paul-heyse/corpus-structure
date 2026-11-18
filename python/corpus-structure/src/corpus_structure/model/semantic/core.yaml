@@ -612,6 +612,7 @@ enums:
       unanalysed: {}
       failed: {}
   StatementKind:
+    annotations: {cs:openness: pack-extensible}
     description: What the source calls a statement (D1 §4.3).
     permissible_values:
       definition:
@@ -668,6 +669,7 @@ enums:
         in_subset:
         - claim_bearing
   ClaimModality:
+    annotations: {cs:openness: pack-extensible}
     description: How the source holds a claim (D1 §5.2; guideline §10.6).
     permissible_values:
       asserted:

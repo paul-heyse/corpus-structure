@@ -63,15 +63,15 @@ def test_current_admission_kernel_has_no_historical_execution_fallback():
 def test_explicit_physical_capture_reaches_native_helper_assets_and_guards():
     from corpus_structure.schema.physical import compile_physical
     from corpus_structure.semantic.data_operation_source_native import source_native_sql
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.original_document_contracts import ASSET
     from corpus_structure.semantic.pdf_domain import CONTRACT
     from corpus_structure.semantic.pdf_domain_native import pdf_domain_native_sql
 
     before = capture_native_authoring_inputs()
-    sources = dict(metadata.info["physical_sources"])
+    sources = dict(get_metadata().info["physical_sources"])
     sources["physical.yaml"] += b"\n# exact counterfactual authoring input\n"
-    changed = compile_physical(sources, linkml_types=metadata.info["physical_linkml_types"])
+    changed = compile_physical(sources, linkml_types=get_metadata().info["physical_linkml_types"])
     after = capture_native_authoring_inputs(target_metadata=changed)
     original = {source.name: source for source in before.sources}
     captured = {source.name: source for source in after.sources}
@@ -115,10 +115,10 @@ def test_visual_native_lowering_uses_captured_sql_and_artifact_schema(monkeypatc
     selected = {source.name: source for source in visual_read_sources()}
     schema = json.loads(selected[ARTIFACT_SOURCE].content)
     schema["description"] = "captured visual schema marker"
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.visual_read_native import visual_read_programs
 
-    program = visual_read_programs(metadata, json.dumps(schema).encode()).encode()
+    program = visual_read_programs(get_metadata(), json.dumps(schema).encode()).encode()
     changed = tuple(
         SourceArtifact(source.name, json.dumps(schema).encode())
         if source.name == ARTIFACT_SOURCE
@@ -161,10 +161,10 @@ def test_contextual_guards_resolve_the_explicit_captured_relation(owner):
         contextual_definition_native_sql,
     )
     from corpus_structure.semantic.contextual_witness_native import contextual_witness_native_sql
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
 
     captured = MetaData()
-    for relation in metadata.sorted_tables:
+    for relation in get_metadata().sorted_tables:
         relation.to_metadata(captured)
     captured.tables["ops.data_derivation"].name = "captured_contextual_episode"
     build = {

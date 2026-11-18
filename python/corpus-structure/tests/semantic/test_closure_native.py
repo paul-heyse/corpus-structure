@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.closure_native import closure_native_sql
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import (
     definition_from_sql,
     execute_native_sql,
@@ -27,7 +27,7 @@ def test_generated_closure_receipts_bind_and_keep_mutation_guards(commit_db_engi
                 source="generated-closure",
                 owner="corpus_sem_publisher",
             )
-            for item in parse_sql(closure_native_sql(metadata))
+            for item in parse_sql(closure_native_sql(get_metadata()))
         )
         ordinary = frozenset(
             item.identity
@@ -103,7 +103,7 @@ def test_generated_closure_receipts_bind_and_keep_mutation_guards(commit_db_engi
 def test_closure_capture_includes_exact_compiler_and_generated_effect():
     from corpus_structure.semantic.target_installation import capture_target_installation
 
-    captured = capture_target_installation(metadata)
+    captured = capture_target_installation(get_metadata())
     sources = {source.name: source.content for source in captured.authoring_inputs.sources}
     assert sources["authoring/closure-native.sql"] == closure_native_sql(captured.metadata).encode()
     assert b"def closure_native_sql" in sources["authoring/closure-native.py"]

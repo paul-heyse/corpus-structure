@@ -72,7 +72,7 @@ class Diagnostic:
     code: str
     location: str
     message: str
-    outcome: Literal["invalid", "unsupported", "unresolved", "unchecked"] = "invalid"
+    outcome: Literal["invalid", "unsupported", "unresolved", "unchecked", "advisory"] = "invalid"
     contract_id: str | None = None
     consumer: str | None = None
     expected: str | None = None
@@ -266,6 +266,13 @@ class PreparedRelease:
     _relational_preparations: dict[str, Any] = field(
         default_factory=dict, repr=False, compare=False, init=False
     )
+
+    @cached_property
+    def native_kernel_digest(self) -> str:
+        """Kernel identity declared by this release's immutable native projection."""
+        from .native_definition_projection import recorded_native_digest
+
+        return recorded_native_digest(self)
 
     @cached_property
     def inspection_metadata(self) -> Mapping[str, Any]:

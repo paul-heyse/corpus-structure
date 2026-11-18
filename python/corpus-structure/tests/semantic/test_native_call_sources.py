@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 import yaml
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_call_contracts import (
     OperationCallBinding,
     OperationFieldBinding,
@@ -38,8 +38,8 @@ def _activation_call():
 def _resolve(call, physical=None, logical=None):
     return resolve_call_bindings(
         (("release-activation-asset", call),),
-        physical_sources=metadata.info["physical_sources"] if physical is None else physical,
-        logical_sources={"linkml:types": metadata.info["physical_linkml_types"]}
+        physical_sources=get_metadata().info["physical_sources"] if physical is None else physical,
+        logical_sources={"linkml:types": get_metadata().info["physical_linkml_types"]}
         if logical is None
         else logical,
     )[0][1]
@@ -56,7 +56,7 @@ def test_current_call_assets_preserve_exact_source_constraints_and_nominal_type(
     assert resolved.cardinality == "none"
     assert resolved.source_digest is not None and len(resolved.source_digest) == 64
 
-    sources = dict(metadata.info["physical_sources"])
+    sources = dict(get_metadata().info["physical_sources"])
     document = yaml.safe_load(sources["physical.yaml"])
     document["classes"]["release"]["attributes"]["release_id"]["pattern"] = "^release:"
     sources["physical.yaml"] = yaml.safe_dump(document).encode()
@@ -67,7 +67,7 @@ def test_current_call_assets_preserve_exact_source_constraints_and_nominal_type(
 
 
 def test_native_call_sources_do_not_acquire_missing_logical_imports():
-    with pytest.raises(PreparationError, match="undeclared import linkml:types"):
+    with pytest.raises(PreparationError, match="model import is not supplied: linkml:types"):
         _resolve(_activation_call(), logical={})
 
 
@@ -99,7 +99,7 @@ def test_current_call_facade_imports_the_actual_physical_nominal_owner(monkeypat
     call = _resolve(_activation_call())
     calls = (("release-activation-asset", call),)
     source = render_call_bindings(
-        calls, metadata, canonical_identifiers=True, identifiers_module="._unused_call_enums"
+        calls, get_metadata(), canonical_identifiers=True, identifiers_module="._unused_call_enums"
     )
     module = ModuleType("corpus_structure.semantic._canonical_call_control")
     module.__package__ = "corpus_structure.semantic"
@@ -111,7 +111,7 @@ def test_current_call_facade_imports_the_actual_physical_nominal_owner(monkeypat
     with pytest.raises(ValueError, match="canonical physical encoding: TaskId"):
         render_call_bindings(
             (("release-activation-asset", wrong),),
-            metadata,
+            get_metadata(),
             canonical_identifiers=True,
             identifiers_module="._unused_call_enums",
         )

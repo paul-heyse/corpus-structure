@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.pdf_binary_identity_native import pdf_binary_identity_sql
 from corpus_structure.semantic.pdf_record_access_native import pdf_access_correspondence_sql
 from corpus_structure.semantic.pdf_record_identity import byte_root, emit_parts
@@ -181,7 +181,7 @@ def access_connection(infrastructure_rollback, request):
         execution_options={"no_parameters": True},
     )
     conn.exec_driver_sql(
-        pdf_access_correspondence_sql(metadata),
+        pdf_access_correspondence_sql(get_metadata()),
         execution_options={"no_parameters": True},
     )
     yield infrastructure_rollback

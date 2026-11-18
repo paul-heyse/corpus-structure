@@ -21,6 +21,8 @@ from sqlalchemy.dialects.postgresql import OID, dialect
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.schema.integrity import role_name
+
 from . import native_catalog as catalog_queries
 from .prepared_sql import prepare_sql
 
@@ -293,6 +295,40 @@ class NativeIdentity:
 
 
 @dataclass(frozen=True)
+class NativeProgramAccess:
+    """Current program purpose declaration, separate from frozen ACL evidence."""
+
+    purposes: tuple[str, ...] = ()
+    internal: bool = False
+    owner_execute: bool = False
+
+    def __post_init__(self):
+        if bool(self.purposes) == self.internal or len(set(self.purposes)) != len(self.purposes):
+            raise NativeAuthoringError(
+                "program requires distinct purposes or an explicit internal marking"
+            )
+
+    def grants(self, owner: str | None) -> tuple[tuple[str, str, bool], ...]:
+        from corpus_structure.schema.integrity import integrity
+
+        policy = integrity()
+        roles = []
+        for purpose in self.purposes:
+            role = policy.purpose_role(purpose)
+            if role is None:
+                raise NativeAuthoringError(f"program purpose has no executable role: {purpose}")
+            roles.append(role)
+        if self.owner_execute:
+            if owner is None:
+                raise NativeAuthoringError("owner execute grant requires a declared owner")
+            roles.append(owner)
+        return tuple((role, "EXECUTE", False) for role in dict.fromkeys(roles))
+
+
+INTERNAL_PROGRAM = NativeProgramAccess(internal=True)
+
+
+@dataclass(frozen=True)
 class NativeDefinition:
     identity: NativeIdentity
     sql: str
@@ -303,6 +339,7 @@ class NativeDefinition:
     enabled: str = "O"
     role_bindings: tuple[tuple[str, str], ...] = ()
     bind_owner: bool = False
+    program_access: NativeProgramAccess | None = None
 
     @property
     def catalog_version(self) -> int:
@@ -410,6 +447,7 @@ def definition_from_sql(
     owner: str | None = None,
     grants: tuple[tuple[str, str, bool], ...] = (),
     enabled: str = "O",
+    program_access: NativeProgramAccess | None = None,
 ) -> NativeDefinition:
     statement = prepare_sql(sql, source=source).statements
     if len(statement) != 1:
@@ -461,7 +499,13 @@ def definition_from_sql(
         raise NativeAuthoringError(
             f"{source}: unsupported native declaration {type(stmt).__name__}"
         )
-    return NativeDefinition(identity, sql, source, owner, grants, enabled)
+    if program_access is not None:
+        if grants or identity.kind != "function":
+            raise NativeAuthoringError(f"{source}: program purposes must own the function grants")
+        grants = program_access.grants(owner)
+    return NativeDefinition(
+        identity, sql, source, owner, grants, enabled, program_access=program_access
+    )
 
 
 def observe_native(
@@ -729,11 +773,11 @@ def _require_owned_authoring(connection: Connection, owned_authoring: bool) -> N
         )
     principal = connection.execute(select(func.current_user())).scalar_one()
     if principal in {
-        "corpus_sem_reader",
-        "corpus_sem_writer",
-        "corpus_sem_admitter",
-        "corpus_sem_evaluator",
-        "corpus_sem_fitter",
+        role_name("reader"),
+        role_name("writer"),
+        role_name("admitter"),
+        role_name("evaluator"),
+        role_name("fitter"),
     }:
         raise NativeAuthoringError("native preparation cannot use a runtime principal")
 

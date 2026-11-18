@@ -448,5 +448,6 @@ def preparation_diagnostic(item, *, raw_evidence=False):
 
     facts = asdict(item)
     if not raw_evidence:
-        facts.update(message="Model constraint failed: " + item.code, expected=None, actual=None)
+        label = "Model advisory: " if item.outcome == "advisory" else "Model constraint failed: "
+        facts.update(message=label + item.code, expected=None, actual=None)
     return facts

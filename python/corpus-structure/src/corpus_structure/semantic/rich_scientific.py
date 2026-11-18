@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.core.evidence import MacroDef
+from corpus_structure.model.compiled import annotation_boolean
 
 from .data_operation_identity import canonical_identity, semantic_value
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
@@ -208,7 +209,10 @@ def assess_rich_scientific(
         if not (
             prop.constraint_scope == "accepted_value"
             and metadata.get("cs:role") == "predicate"
-            and (not prop.multivalued or str(metadata.get("cs:functional", "")).lower() == "true")
+            and (
+                not prop.multivalued
+                or annotation_boolean(metadata.get("cs:functional", False), "cs:functional")
+            )
         ):
             continue
         # Provenance is excluded by the checked qualification-meaning owner. Scope,

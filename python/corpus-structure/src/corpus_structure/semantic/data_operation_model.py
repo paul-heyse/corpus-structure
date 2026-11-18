@@ -10,7 +10,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from functools import cached_property, lru_cache
-from typing import Literal, get_args
+from typing import Literal, get_args, get_type_hints
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_support import (
@@ -21,6 +21,7 @@ from .data_operation_support import (
 )
 from .identity import canonical_bytes
 from .selected_support import ProducerOutputOccurrence
+from .types import Diagnostic
 
 MODEL_VERSION = "data-operation-model-v9"
 
@@ -888,6 +889,7 @@ class EffectiveDataOperationModel:
     subject_definitions: tuple[SubjectDefinition, ...] = ()
 
     source_interfaces: bytes | None = field(default=None, repr=False, compare=False)
+    diagnostics: tuple[Diagnostic, ...] = field(default=(), repr=False, compare=False)
 
     def semantic_records(self) -> dict:
         return {
@@ -992,6 +994,7 @@ class EffectiveDataOperationModel:
 
         record = asdict(self)
         record.pop("source_interfaces")
+        record.pop("diagnostics")
         if self.version != MODEL_VERSION:
             raise ValueError(
                 "unsupported data-operation model version; regenerate target-native data"
@@ -1263,7 +1266,11 @@ def _effective_model_structure():
     def structure_record(cls):
         build = make_dict_structure_fn(cls, converter, _cattrs_forbid_extra_keys=True)
         expected = {field.name for field in fields(cls)}
-        omitted = {"source_interfaces": None} if cls is EffectiveDataOperationModel else {}
+        omitted = (
+            {"source_interfaces": None, "diagnostics": []}
+            if cls is EffectiveDataOperationModel
+            else {}
+        )
         archived_fields = expected - omitted.keys()
 
         def structure(value, _):
@@ -1288,3 +1295,15 @@ def _effective_model_structure():
     converter.register_structure_hook(bytes, structure_bytes)
     converter.register_structure_hook_factory(is_dataclass, structure_record)
     return converter.get_structure_hook(EffectiveDataOperationModel)
+
+
+def _check_declared_literal_copies() -> None:
+    from corpus_structure.schema.operation_declarations import check_literal_members
+
+    check_literal_members("Profile", get_type_hints(EffectiveOperation)["profile"])
+    check_literal_members("Form", get_args(get_type_hints(ImplementationCapabilities)["forms"])[0])
+    check_literal_members("RoleDirection", get_type_hints(OperationRole)["direction"])
+    check_literal_members("BindingOperator", get_type_hints(BindingExpression)["operator"])
+
+
+_check_declared_literal_copies()

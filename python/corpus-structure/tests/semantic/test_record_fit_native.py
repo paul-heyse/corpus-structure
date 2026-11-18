@@ -14,7 +14,7 @@ from sqlalchemy.schema import CreateTable
 from corpus_structure.evaluate.declared_record_policy import fit_declared_record_policy
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import metadata, table
+from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.record_policy_completion_native import (
     record_policy_completion_native_sql,
@@ -36,7 +36,10 @@ def fit_correspondence_connection(policy_projection_connection):
 
     for source, names in (
         (native_sql(native_protocol_sources()), {"ddo_digest"}),
-        (record_policy_completion_native_sql(metadata), {"ddo_require_record_fit_correspondence"}),
+        (
+            record_policy_completion_native_sql(get_metadata()),
+            {"ddo_require_record_fit_correspondence"},
+        ),
     ):
         parsed = prepare_sql(source, source="fit-correspondence-control")
         for index, statement in enumerate(parsed.statements):
@@ -178,7 +181,7 @@ def test_actual_grade_frame_change_cannot_reuse_old_fit_provenance(
 
 @pytest.fixture
 def fit_guard_connection(infrastructure_rollback):
-    sql = record_policy_completion_native_sql(metadata)
+    sql = record_policy_completion_native_sql(get_metadata())
     connection = infrastructure_rollback
     for name in ("sem", "data", "ops", "kb"):
         connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {name}")
@@ -261,7 +264,7 @@ def test_generated_policy_completion_programs_bind_in_actual_native_model(native
     connection = native_rollback.connection
     execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, record_policy_completion_native_sql(metadata))
+        execute_native_sql(connection, record_policy_completion_native_sql(get_metadata()))
         for signature in (
             "ops.ddo_policy_authorization_value(jsonb)",
             "ops.ddo_policy_authorization_meaning(jsonb)",

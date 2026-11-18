@@ -22,6 +22,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, array
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
@@ -275,7 +277,7 @@ def pdf_record_page_sql(model: MetaData, *, frozen: bool = False) -> str:
             ),
         )
         name = "read_pdf_frozen_rows"
-        roles = ("corpus_sem_writer",)
+        roles = (role_name("writer"),)
     else:
         parameters = (
             task_parameter,
@@ -301,7 +303,7 @@ def pdf_record_page_sql(model: MetaData, *, frozen: bool = False) -> str:
             strict=True,
         )
         name = "read_pdf_record_rows"
-        roles = ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+        roles = (role_name("reader"), role_name("writer"), role_name("evaluator"))
 
     branches = []
     for spec in _FAMILIES:

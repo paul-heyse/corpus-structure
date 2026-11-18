@@ -1,0 +1,57 @@
+id: https://corpus-structure.org/model/semantic/operation-integrity-vocabularies
+name: operation_integrity_vocabularies
+prefixes:
+  cs: https://corpus-structure.org/semantic/
+default_range: string
+enums:
+  Role:
+    annotations:
+      cs:openness: closed
+    permissible_values:
+      corpus_sem_publisher:
+        annotations:
+          cs:login: false
+          cs:memberships: {tag: 'cs:memberships', value: []}
+          cs:publisher: true
+      corpus_sem_writer:
+        annotations:
+          cs:login: true
+          cs:memberships: {tag: 'cs:memberships', value: []}
+          cs:publisher: false
+      corpus_sem_reader:
+        annotations:
+          cs:login: true
+          cs:memberships: {tag: 'cs:memberships', value: []}
+          cs:publisher: false
+      corpus_sem_admitter:
+        annotations:
+          cs:login: true
+          cs:memberships: {tag: 'cs:memberships', value: []}
+          cs:publisher: false
+      corpus_sem_evaluator:
+        annotations:
+          cs:login: true
+          cs:memberships: {tag: 'cs:memberships', value: []}
+          cs:publisher: false
+      corpus_sem_fitter:
+        annotations:
+          cs:login: true
+          cs:memberships: {tag: 'cs:memberships', value: []}
+          cs:publisher: false
+          cs:inherit: false
+  Purpose:
+    annotations:
+      cs:openness: closed
+    permissible_values:
+      write:
+        annotations: {cs:role: corpus_sem_writer}
+      read:
+        annotations: {cs:role: corpus_sem_reader}
+      evaluate:
+        annotations: {cs:role: corpus_sem_evaluator}
+      fit:
+        annotations: {cs:role: corpus_sem_fitter}
+      admit:
+        annotations: {cs:role: corpus_sem_admitter}
+      maintenance:
+        annotations: {cs:no_role: true}

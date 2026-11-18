@@ -15,7 +15,7 @@ from corpus_structure.evaluate.declared_operation_events import (
     AUTHORIZATION_FACTORY,
     AUTHORIZATION_OPERATION,
 )
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 from corpus_structure.semantic.operation_event_native import operation_event_native_sql
 from corpus_structure.semantic.prepared_sql import prepare_sql
@@ -25,7 +25,7 @@ def test_generated_operation_event_guards_bind_and_keep_exact_eligibility(native
     connection = native_rollback.connection
     execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, operation_event_native_sql(metadata))
+        execute_native_sql(connection, operation_event_native_sql(get_metadata()))
         for signature in (
             "ops.ddo_operation_event_completion_scopes(ops.data_request)",
             "ops.ddo_operation_event_dependency_scopes(text)",
@@ -122,7 +122,7 @@ def event_scope_connection(infrastructure_rollback):
     connection = infrastructure_rollback
     connection.exec_driver_sql("CREATE SCHEMA ops")
     connection.execute(
-        CreateTable(metadata.tables["ops.data_request"], include_foreign_key_constraints=[])
+        CreateTable(get_metadata().tables["ops.data_request"], include_foreign_key_constraints=[])
     )
     # Controlled input and cut ports let the actual generated scope consumer
     # select and validate its original/prediction/frame values independently.
@@ -135,7 +135,7 @@ def event_scope_connection(infrastructure_rollback):
     connection.exec_driver_sql(
         "CREATE FUNCTION ops.ddo_record_fit_cut_scopes(project text,selection jsonb) RETURNS SETOF text LANGUAGE sql IMMUTABLE AS $$ SELECT 'fit:'||(selection->>'use_id') $$"
     )
-    parsed = prepare_sql(operation_event_native_sql(metadata), source="event-scopes")
+    parsed = prepare_sql(operation_event_native_sql(get_metadata()), source="event-scopes")
     for i, statement in enumerate(parsed.statements):
         node = statement.stmt
         if (

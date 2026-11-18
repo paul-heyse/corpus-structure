@@ -454,7 +454,7 @@ def author_native_candidate(
 
     from corpus_structure.semantic.alembic_native import NativeTransitionOp
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.migrations import current_revision, migration_fence
     from corpus_structure.semantic.native_authoring import (
         authored_admission_sql,
@@ -503,7 +503,7 @@ def author_native_candidate(
     )
     if assert_explicit_route(selected)["dbname"] != authoring_database:
         raise SemanticRefusal("configured authoring database conflicts with its libpq route")
-    target_metadata = metadata if target_metadata is None else target_metadata
+    target_metadata = get_metadata() if target_metadata is None else target_metadata
     installation = capture_target_installation(target_metadata, logical_sources=logical_sources)
     with (
         open_runtime_engine(selected, "ci-native-candidate", purpose="maintenance") as engine,

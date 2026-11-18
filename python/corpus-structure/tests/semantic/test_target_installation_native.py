@@ -1,6 +1,8 @@
 """Actual empty-database target authoring, frozen Alembic installation and purpose ACLs."""
 
+import json
 import shutil
+from dataclasses import replace
 from hashlib import sha256
 
 import pytest
@@ -11,7 +13,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.cli.schema import _native_candidate_python
 from corpus_structure.semantic.alembic_privileges import admit_privileges
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.migrations import (
     ALEMBIC_DIR,
     alembic_config,
@@ -40,7 +42,7 @@ from native_test_support import principal_engine
 
 @pytest.fixture(scope="module")
 def fresh_target_epoch():
-    return capture_target_installation(metadata)
+    return capture_target_installation(get_metadata())
 
 
 def application_namespaces(connection):
@@ -54,8 +56,6 @@ def application_namespaces(connection):
 
 
 def runtime_temp_privileges(connection):
-    from corpus_structure.semantic.alembic_privileges import PURPOSE_ROLES
-
     return tuple(
         (
             role,
@@ -64,7 +64,13 @@ def runtime_temp_privileges(connection):
                 {"role": role},
             ),
         )
-        for role in PURPOSE_ROLES
+        for role in (
+            "corpus_sem_writer",
+            "corpus_sem_reader",
+            "corpus_sem_admitter",
+            "corpus_sem_evaluator",
+            "corpus_sem_fitter",
+        )
     )
 
 
@@ -263,11 +269,15 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     tmp_path,
     monkeypatch,
 ):
-    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic import data_operation_storage, migrations
     from corpus_structure.semantic.execution_admission import (
         ExecutionAdmissionError,
         require_archive_fence,
     )
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
+    from semantic.data_operation_demand_support import attach, claim, publish, retain
+    from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
 
     engine = semantic_bare_engine
     target, authoring, _, admission, revision, location = install_target_root(
@@ -275,6 +285,11 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         fresh_target_epoch,
         tmp_path,
     )
+    frozen = load_native_state(ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n29_native.json")
+    assert {
+        item.identity: (item.catalog["owner"], item.catalog.get("acl"))
+        for item in authoring.desired
+    } == {item.identity: (item.catalog["owner"], item.catalog.get("acl")) for item in frozen}
     # Resolve this genuinely registered immutable root. A reader must not need
     # access to the maintenance-only Alembic table to authenticate its contract.
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
@@ -282,6 +297,51 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     try:
         with admitter.begin() as connection:
             require_archive_fence(connection)
+
+        preparation = prepare_kernel(STORAGE, directory=tmp_path / "recorded-basis")
+
+        def unexpected_generation(*args, **kwargs):
+            raise AssertionError("acquisition must use the release's recorded native kernel")
+
+        with monkeypatch.context() as execution:
+            execution.setattr(
+                data_operation_storage, "native_protocol_sources", unexpected_generation
+            )
+            with engine.begin() as connection:
+                kernel = admit_kernel(connection, STORAGE, preparation=preparation)
+            with admitter.begin() as connection:
+                descriptor = connection.scalar(
+                    text("SELECT sem.data_operation_native_descriptor()")
+                )
+                assert descriptor[
+                    "source_digest"
+                ] == data_operation_storage.require_data_operation_native(
+                    connection, kernel.prepared
+                )
+                incorrect = replace(
+                    kernel.prepared,
+                    artifacts=tuple(
+                        replace(
+                            artifact,
+                            content=canonical_bytes(
+                                {**json.loads(artifact.content), "native_digest": "0" * 64}
+                            ),
+                        )
+                        if artifact.kind == "data_operation_native_definitions.json"
+                        else artifact
+                        for artifact in kernel.prepared.artifacts
+                    ),
+                )
+                with pytest.raises(ValueError, match="different native kernel"):
+                    data_operation_storage.require_data_operation_native(connection, incorrect)
+                assert descriptor[
+                    "source_digest"
+                ] == data_operation_storage.require_data_operation_native(
+                    connection, kernel.prepared
+                )
+        demand, _, _, attached = attach(kernel)
+        fence = claim(kernel, attached)
+        publish(kernel, fence, retain(kernel, fence, outputs=(7,)))
         with engine.begin() as connection:
             selected = next(
                 item for item in authoring.desired if item.identity.name == "read_demand_result"
@@ -378,6 +438,24 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
             with pytest.raises(DBAPIError) as denied, connection.begin_nested():
                 connection.exec_driver_sql("SELECT * FROM kb.data_product")
             assert getattr(denied.value.orig, "sqlstate", None) == "42501"
+        with monkeypatch.context() as execution, reader.begin() as connection:
+            execution.setattr(
+                data_operation_storage, "native_protocol_sources", unexpected_generation
+            )
+            destination = tmp_path / "demand-export"
+            exported = export_demand_result(
+                connection,
+                demand["demand_id"],
+                project_id="ddo-test",
+                destination=destination,
+                page_rows=1,
+            )
+        assert (
+            verify_demand_export(destination, manifest_digest=exported["manifest_digest"])[
+                "outcome"
+            ]
+            == "passed"
+        )
     finally:
         reader.dispose()
 
@@ -401,7 +479,7 @@ def test_actual_target_successor_uses_registered_state_and_preserves_installatio
         digest=registered.module.NATIVE_STATE_SHA256,
     )
     assert predecessor == root_authoring.desired
-    sources = dict(metadata.info["physical_sources"])
+    sources = dict(get_metadata().info["physical_sources"])
     declaration = yaml.safe_load(sources["physical.yaml"])
     declaration["classes"]["project"]["attributes"]["native_installation_note"] = {
         "range": "string",
@@ -411,7 +489,7 @@ def test_actual_target_successor_uses_registered_state_and_preserves_installatio
     from corpus_structure.schema.physical import compile_physical
 
     successor = capture_target_installation(
-        compile_physical(sources, linkml_types=metadata.info["physical_linkml_types"])
+        compile_physical(sources, linkml_types=get_metadata().info["physical_linkml_types"])
     )
     with engine.begin() as connection:
         verify_target(connection, target, purpose="maintenance")

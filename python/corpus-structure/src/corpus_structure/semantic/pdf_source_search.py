@@ -68,9 +68,9 @@ def search_projection_sources(
     renderer_digest = sha256(canonical_bytes(renderer)).hexdigest()
     policy_digest = sha256(policy).hexdigest()
     if target_metadata is None:
-        from .metadata import metadata
+        from .metadata import get_metadata
 
-        target_metadata = metadata
+        target_metadata = get_metadata()
     configuration = search_configuration(target_metadata)
     if pdf_domain is None and target_metadata.info.get("physical_sources"):
         pdf_sources = pdf_domain_sources(

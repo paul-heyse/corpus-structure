@@ -7,7 +7,7 @@ from sqlalchemy import Column, Integer, MetaData, Table, Text, func, insert, sel
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_claim_batch_native import claim_batch_native_sql
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import (
     definition_from_sql,
     execute_native_sql,
@@ -29,7 +29,7 @@ def test_set_claim_preserves_order_and_duplicate_refusal_without_external_work(c
     with commit_db_engine.connect() as connection, connection.begin_nested():
         definition = definition_from_sql(
             connection,
-            claim_batch_native_sql(metadata),
+            claim_batch_native_sql(get_metadata()),
             source="generated-set-claim",
             owner="corpus_sem_publisher",
         )

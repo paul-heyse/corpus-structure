@@ -14,7 +14,7 @@ ADMISSION_KIND = "urn:corpus:structural-admission:DdoStructuralAdmission"
 REFERENCE_KIND = "urn:corpus:structural-admission:protected:DdoStructuralReferencePass"
 ADMISSION_EFFECT = EffectContract(
     "native-evaluator-structural-admission",
-    ("native-purpose:evaluator", "exact-protected-structural-adjudication"),
+    ("native-purpose:evaluate", "exact-protected-structural-adjudication"),
     "request-generation/exact-structural-statement",
     "native-publication-receipt",
 )

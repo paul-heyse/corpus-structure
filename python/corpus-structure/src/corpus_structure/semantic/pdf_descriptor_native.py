@@ -3,6 +3,8 @@
 from sqlalchemy import Text, cast, column, func, literal, select
 from sqlalchemy.dialects.postgresql import BYTEA, JSON, JSONB
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_objects import (
     NativeIdentity,
     native_owner_sql,
@@ -122,7 +124,7 @@ def pdf_descriptor_sql() -> str:
     return native_sql_script(
         (
             definition,
-            native_owner_sql(identity, "corpus_sem_publisher"),
+            native_owner_sql(identity, role_name("publisher")),
             native_privilege_sql(identity, "PUBLIC", grant=False),
         )
     )

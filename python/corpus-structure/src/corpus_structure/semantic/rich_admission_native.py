@@ -74,7 +74,9 @@ class _RichPrograms:
 
     def __init__(self, metadata):
         if metadata is None:
-            from .metadata import metadata
+            from .metadata import get_metadata
+
+            metadata = get_metadata()
         self.model = metadata
         self.output = []
 

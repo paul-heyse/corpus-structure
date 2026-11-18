@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 from .identity import canonical_bytes
 from .types import ResolvedDependencies, SourceArtifact, SourceBundle
+
+if TYPE_CHECKING:
+    from corpus_structure.model.compiled import CompiledModel
 
 _PREFIX = "execution/"
 
@@ -19,8 +23,15 @@ def data_operation_dependencies(
     dependencies: ResolvedDependencies,
     declarations: tuple[SourceArtifact, ...] = (),
     python_sources=None,
+    *,
+    declaration_model: CompiledModel | None = None,
 ) -> ResolvedDependencies:
-    """Package explicitly acquired operation inputs; never discover installed sources."""
+    """Package operation inputs with the acquired declaration grammar."""
+    from corpus_structure.schema.operation_declarations import (
+        captured_declaration_model,
+        declaration_sources,
+    )
+
     from .data_operation_model import MODEL_VERSION
 
     if any(item.name.startswith(_PREFIX) for item in dependencies.artifacts):
@@ -29,6 +40,8 @@ def data_operation_dependencies(
         )
     if any(item.name.startswith(_DATA_PREFIX) for item in dependencies.artifacts):
         raise ValueError("data-operation inputs are already supplied or use a reserved name")
+    if captured_declaration_model(dependencies.artifacts) is not None:
+        raise ValueError("operation declaration sources are already supplied")
     names = [source.name for source in declarations]
     if len(names) != len(set(names)):
         raise ValueError("duplicate data-operation declaration source")
@@ -73,7 +86,7 @@ def data_operation_dependencies(
         SourceArtifact(_DATA_PREFIX + "contracts/" + s.name, s.content) for s in contracts
     ]
     return ResolvedDependencies(
-        (*dependencies.artifacts, *artifacts),
+        (*dependencies.artifacts, *artifacts, *declaration_sources(declaration_model)),
         dependencies.vocabularies,
         dependencies.ontology_sources,
     )
@@ -191,6 +204,10 @@ def data_operations_from_dependencies(
     captured = read_data_operation_inputs(dependencies)
     if captured is None:
         return None
+    from corpus_structure.schema.operation_declarations import captured_declaration_model
+
+    if captured_declaration_model(dependencies.artifacts) is None:
+        raise ValueError("release preparation requires captured operation declaration sources")
     declarations, inputs = captured
     return prepare_data_operation_model(
         bundle,

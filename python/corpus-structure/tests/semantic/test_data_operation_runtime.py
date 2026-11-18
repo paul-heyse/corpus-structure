@@ -157,12 +157,12 @@ def test_native_runtime_validator_refuses_previous_versions(native_rollback, ver
     from sqlalchemy import text
     from sqlalchemy.exc import DBAPIError
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.prepared_sql import prepare_sql
     from corpus_structure.semantic.runtime_binding_native import runtime_binding_sql
 
     connection = native_rollback.connection
-    source = runtime_binding_sql(metadata)
+    source = runtime_binding_sql(get_metadata())
     validator = prepare_sql(source, source="current-runtime-validator").excerpt(0)
     connection.exec_driver_sql(validator, execution_options={"no_parameters": True})
     with (
@@ -205,11 +205,11 @@ def test_generated_runtime_replay_reads_named_fields_on_predecessor_column_order
 ):
     from sqlalchemy import text
 
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.prepared_sql import prepare_sql
     from corpus_structure.semantic.runtime_binding_native import runtime_binding_sql
 
-    sql = prepare_sql(runtime_binding_sql(metadata), source="runtime-replay-order")
+    sql = prepare_sql(runtime_binding_sql(get_metadata()), source="runtime-replay-order")
     sql_register = sql.excerpt(1)
     with semantic_bare_engine.connect() as connection:
         transaction = connection.begin()

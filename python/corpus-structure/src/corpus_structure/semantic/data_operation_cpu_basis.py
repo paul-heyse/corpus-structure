@@ -477,7 +477,7 @@ def cpu_input_basis_native_sql(*, target_metadata=None) -> str:
     )
     from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array
 
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
     from .native_program import (
         Assign,
@@ -497,7 +497,7 @@ def cpu_input_basis_native_sql(*, target_metadata=None) -> str:
         variable,
     )
 
-    model = metadata if target_metadata is None else target_metadata
+    model = get_metadata() if target_metadata is None else target_metadata
     requests = model.tables["ops.data_request"]
     products = model.tables["kb.data_product"]
     members = model.tables["kb.data_product_member"]

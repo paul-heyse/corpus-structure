@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_claim_native import claim_native_sql
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import (
     definition_from_sql,
     execute_native_sql,
@@ -20,15 +20,15 @@ from corpus_structure.semantic.native_objects import (
 
 def render(protocol=None):
     return claim_native_sql(
-        metadata,
-        metadata.info["physical_sources"]["data-operation-native.yaml"]
+        get_metadata(),
+        get_metadata().info["physical_sources"]["data-operation-native.yaml"]
         if protocol is None
         else protocol,
     )
 
 
 def test_claims_use_the_captured_wire_lease_contract_and_original_lock_order():
-    protocol = yaml.safe_load(metadata.info["physical_sources"]["data-operation-native.yaml"])
+    protocol = yaml.safe_load(get_metadata().info["physical_sources"]["data-operation-native.yaml"])
     protocol["definitions"]["claim_data_request_request"]["properties"]["lease_seconds"][
         "maximum"
     ] = 61

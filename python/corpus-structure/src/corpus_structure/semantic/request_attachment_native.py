@@ -20,6 +20,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, insert
 from sqlalchemy.sql.elements import Grouping
 
+from corpus_structure.schema.integrity import role_name
+
 from .binding_recursive_native import _check, _each, _elements, _json, _value
 from .native_program import (
     Assign,
@@ -1446,7 +1448,7 @@ def attachment_native_sql(model, protocol: bytes):
                     func.coalesce(defn("command_class") == "rich", False),
                     (
                         _check(
-                            ~purpose("corpus_sem_writer"),
+                            ~purpose(role_name("writer")),
                             "rich admission requires native write purpose",
                             "42501",
                         ),
@@ -1461,7 +1463,7 @@ def attachment_native_sql(model, protocol: bytes):
                             ),
                             (
                                 _check(
-                                    ~purpose("corpus_sem_evaluator"),
+                                    ~purpose(role_name("evaluator")),
                                     "policy authorization requires native evaluator purpose",
                                     "42501",
                                 ),
@@ -1477,7 +1479,7 @@ def attachment_native_sql(model, protocol: bytes):
                                     ),
                                     (
                                         _check(
-                                            ~purpose("corpus_sem_writer"),
+                                            ~purpose(role_name("writer")),
                                             "external command requires native write purpose",
                                             "42501",
                                         ),

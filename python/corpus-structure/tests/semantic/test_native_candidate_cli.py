@@ -96,6 +96,7 @@ def test_native_authoring_refuses_existing_output_before_connection(cli, tmp_pat
 
 def test_explicit_overload_owner_keeps_each_abi_and_its_grants(monkeypatch):
     from corpus_structure.semantic import native_authoring
+    from corpus_structure.semantic.native_objects import NativeProgramAccess
 
     calls = []
 
@@ -109,21 +110,41 @@ def test_explicit_overload_owner_keeps_each_abi_and_its_grants(monkeypatch):
     CREATE FUNCTION eval.unrelated(text) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;
     CREATE FUNCTION eval.fit(bigint,bigint) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;
     """
-    grants = (("corpus_sem_fitter", "EXECUTE", False),)
+    access = NativeProgramAccess(purposes=("fit",))
     actual = native_authoring._task_call_definitions(
-        object(), sql, schema="eval", name="fit", source="declared fitting ABI", grants=grants
+        object(),
+        sql,
+        schema="eval",
+        name="fit",
+        source="declared fitting ABI",
+        program_access=access,
     )
     assert len(actual) == 2
     assert "eval.fit(bigint)" in actual[0].sql
     assert "eval.fit(bigint,bigint)" in actual[1].sql
     assert all(facts["owner"] == "corpus_sem_publisher" for _, facts in calls)
-    assert all(facts["grants"] == grants for _, facts in calls)
+    assert all(facts["program_access"] == access for _, facts in calls)
+    assert access.grants("corpus_sem_publisher") == (("corpus_sem_fitter", "EXECUTE", False),)
     assert all("unrelated" not in definition.sql for definition in actual)
     calls.clear()
     with pytest.raises(ValueError, match="selection is ambiguous"):
         native_authoring._task_call_definition(
-            object(), sql, schema="eval", name="fit", source="singular ABI", grants=grants
+            object(), sql, schema="eval", name="fit", source="singular ABI", program_access=access
         )
+
+
+def test_current_program_requires_explicit_access_and_a_real_purpose_role():
+    from corpus_structure.semantic.native_objects import (
+        INTERNAL_PROGRAM,
+        NativeAuthoringError,
+        NativeProgramAccess,
+    )
+
+    assert INTERNAL_PROGRAM.grants("corpus_sem_publisher") == ()
+    with pytest.raises(NativeAuthoringError, match="explicit internal marking"):
+        NativeProgramAccess()
+    with pytest.raises(NativeAuthoringError, match="no executable role"):
+        NativeProgramAccess(purposes=("maintenance",)).grants("corpus_sem_publisher")
 
 
 def test_current_pdf_payload_owns_all_current_helpers_and_exact_grants(monkeypatch):
@@ -147,13 +168,17 @@ def test_current_pdf_payload_owns_all_current_helpers_and_exact_grants(monkeypat
     CREATE FUNCTION sem.admit_pdf_operation_contracts(text) RETURNS void
       LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
     REVOKE ALL ON FUNCTION sem.admit_pdf_operation_contracts(text) FROM PUBLIC;
+    REVOKE ALL ON FUNCTION ops.require_pdf_stage_owner(bigint) FROM PUBLIC;
+    REVOKE ALL ON FUNCTION ops.pdf_record_context_rows(text) FROM PUBLIC;
     REVOKE ALL ON FUNCTION ops.new_pdf_helper(text) FROM PUBLIC;
     GRANT EXECUTE ON FUNCTION ops.new_pdf_helper(text) TO corpus_sem_writer;
     """
     current = native_authoring._pdf_payload_definitions(object(), sql, source="current PDF owner")
-    assert len(current) == 3
+    assert len(current) == 4
     assert "require_pdf_stage_owner" in current[0].sql
     assert "new_pdf_helper" in current[1].sql
-    assert calls[1][1]["grants"] == (("corpus_sem_writer", "EXECUTE", False),)
-    assert "sem.admit_pdf_operation_contracts" in current[2].sql
-    assert calls[2][1]["grants"] == ()
+    assert calls[1][1]["program_access"].purposes == ("write",)
+    assert "pdf_record_context_rows" in current[2].sql
+    assert calls[2][1]["program_access"].internal
+    assert "sem.admit_pdf_operation_contracts" in current[3].sql
+    assert calls[3][1]["program_access"].internal

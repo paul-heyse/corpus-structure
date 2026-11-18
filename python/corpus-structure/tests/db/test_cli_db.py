@@ -15,7 +15,7 @@ from sqlalchemy.engine import make_url
 
 from corpus_structure.core.db import extensions
 from corpus_structure.core.db.ownership import DatabaseReservation
-from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
+from corpus_structure.semantic.metadata import get_physical_model_id
 from corpus_structure.semantic.migrations import alembic_config, head_revision
 from corpus_structure.settings import Settings
 from native_test_support import database_name
@@ -49,7 +49,7 @@ def test_init_creates_and_migrates_then_migrate_reports(
     report = json.loads(made.stdout)
     assert report["database"] == name and report["created"] is True
     assert report["revision"] == report["head"] == head_revision()
-    assert report["model_revision"] == PHYSICAL_MODEL_ID
+    assert report["model_revision"] == get_physical_model_id()
     scripts = ScriptDirectory.from_config(alembic_config())
     assert report["applied"] == [
         item.revision for item in reversed(list(scripts.iterate_revisions(head, "base")))

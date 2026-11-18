@@ -12,7 +12,7 @@ from pglast.stream import RawStream
 from sqlalchemy import Column, MetaData, Table, UniqueConstraint, func, literal, select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.pdf_binary_identity_native import pdf_binary_identity_sql
 from corpus_structure.semantic.pdf_contracts import integrated_metadata_policy, trusted_pdf_context
@@ -48,7 +48,7 @@ def validation_controls(infrastructure_engine, request):
                 "kb.pdf_record_membership",
                 "ops.pdf_artifact_stream",
             ):
-                owner = metadata.tables[name]
+                owner = get_metadata().tables[name]
                 table = Table(
                     owner.name,
                     controls,
@@ -108,13 +108,13 @@ def validation_controls(infrastructure_engine, request):
                 CREATE FUNCTION ops.pdf_record_logical_identity(text,text) RETURNS text LANGUAGE sql AS $$ SELECT repeat('a',64) $$;
             """)
             programs = pdf_validation_native_programs(
-                metadata, pdf_domain=trusted_pdf_context().domain
+                get_metadata(), pdf_domain=trusted_pdf_context().domain
             )
             for program in programs.values():
                 execute_native_sql(connection, program)
             dependencies = [("β", b"second"), ("A", b"first")]
             connection.execute(
-                metadata.tables["sem.input"].insert(),
+                get_metadata().tables["sem.input"].insert(),
                 [
                     dict(
                         release_id="release",
@@ -126,7 +126,7 @@ def validation_controls(infrastructure_engine, request):
                 ],
             )
             connection.execute(
-                metadata.tables["ops.pdf_stage_build"].insert(),
+                get_metadata().tables["ops.pdf_stage_build"].insert(),
                 dict(
                     build_id="build",
                     task_id=1,
@@ -153,7 +153,7 @@ def test_contract_folds_match_independent_frames_and_projection_multisets(valida
     connection, dependencies = validation_controls
     import yaml
 
-    staging = yaml.safe_load(metadata.info["physical_sources"]["pdf-staging.yaml"])
+    staging = yaml.safe_load(get_metadata().info["physical_sources"]["pdf-staging.yaml"])
     profile = json.loads(staging["annotations"]["pds:projection_write_profile"])
     levels = sorted(set(profile["allowed_isolation"]))
     expected = IdentityFold("pdf-validation-contract-v5")
@@ -173,7 +173,7 @@ def test_contract_folds_match_independent_frames_and_projection_multisets(valida
     with pytest.raises(DBAPIError, match="dependencies missing"), connection.begin_nested():
         connection.scalar(select(func.ops.pdf_validation_contract("absent")))
 
-    access = metadata.tables["kb.pdf_record_access"]
+    access = get_metadata().tables["kb.pdf_record_access"]
     row: dict[str, Any] = {column.name: None for column in access.columns}
     row.update(product_id="build", revision_id="build", pointer="#/β")
     connection.execute(
@@ -270,7 +270,7 @@ def test_typed_row_equivalence_preserves_json_number_spelling_and_duplicate_mult
         VALUES('current','current','one','{"value":1}'::jsonb),('prior','prior','one','{"value":1.0}'::jsonb)
     """)
     equal = select(
-        _equal_rows(metadata, literal("current"), literal("prior"), "kb.pdf_record_native")
+        _equal_rows(get_metadata(), literal("current"), literal("prior"), "kb.pdf_record_native")
     )
     assert connection.scalar(equal) is False
     connection.exec_driver_sql(
@@ -288,9 +288,9 @@ def test_predecessor_reuse_requires_exact_project_rows_and_foreign_revision_refu
 ):
     connection, _ = validation_controls
     contract = connection.scalar(select(func.ops.pdf_validation_contract("release")))
-    connection.execute(metadata.tables["ops.task"].insert(), [{"id": 10}, {"id": 20}])
+    connection.execute(get_metadata().tables["ops.task"].insert(), [{"id": 10}, {"id": 20}])
     connection.execute(
-        metadata.tables["ops.data_derivation"].insert(),
+        get_metadata().tables["ops.data_derivation"].insert(),
         [
             {"id": "episode-10", "producer_task_id": 10},
             {"id": "episode-20", "producer_task_id": 20},
@@ -301,7 +301,7 @@ def test_predecessor_reuse_requires_exact_project_rows_and_foreign_revision_refu
     )
     for name, task in (("prior", 10), ("other-project", 20)):
         connection.execute(
-            metadata.tables["ops.pdf_published_revision"].insert(),
+            get_metadata().tables["ops.pdf_published_revision"].insert(),
             dict(
                 build_id=name,
                 task_id=task,
@@ -315,7 +315,7 @@ def test_predecessor_reuse_requires_exact_project_rows_and_foreign_revision_refu
             ),
         )
         connection.execute(
-            metadata.tables["ops.pdf_build_validation"].insert(),
+            get_metadata().tables["ops.pdf_build_validation"].insert(),
             dict(
                 build_id=name,
                 frozen_digest="old-frozen",
@@ -326,7 +326,8 @@ def test_predecessor_reuse_requires_exact_project_rows_and_foreign_revision_refu
             ),
         )
     connection.execute(
-        metadata.tables["ops.pdf_frozen_build"].insert(), {"build_id": "build", "kind": "native"}
+        get_metadata().tables["ops.pdf_frozen_build"].insert(),
+        {"build_id": "build", "kind": "native"},
     )
 
     def check(name):
@@ -360,7 +361,7 @@ def test_predecessor_reuse_requires_exact_project_rows_and_foreign_revision_refu
     )
     connection.exec_driver_sql("DELETE FROM ops.pdf_validation_check WHERE check_name='access'")
     connection.execute(
-        metadata.tables["kb.pdf_record_access"].insert(),
+        get_metadata().tables["kb.pdf_record_access"].insert(),
         {"product_id": "build", "revision_id": "foreign"},
     )
     connection.exec_driver_sql("DELETE FROM control_events")
@@ -384,14 +385,14 @@ def test_check_isolation_policy_comes_from_supplied_capture(validation_controls,
     from corpus_structure.semantic import pdf_contracts
 
     domain = trusted_pdf_context().domain
-    captured = copy(metadata)
-    sources = dict(metadata.info["physical_sources"])
+    captured = copy(get_metadata())
+    sources = dict(get_metadata().info["physical_sources"])
     staging = yaml.safe_load(sources["pdf-staging.yaml"])
     profile = json.loads(staging["annotations"]["pds:projection_write_profile"])
     profile["allowed_isolation"] = ["serializable"]
     staging["annotations"]["pds:projection_write_profile"] = json.dumps(profile)
     sources["pdf-staging.yaml"] = yaml.safe_dump(staging).encode()
-    captured.info = {**metadata.info, "physical_sources": sources}
+    captured.info = {**get_metadata().info, "physical_sources": sources}
 
     def forbidden():
         raise AssertionError("explicit captured authoring must not reacquire current PDF context")
@@ -399,7 +400,7 @@ def test_check_isolation_policy_comes_from_supplied_capture(validation_controls,
     monkeypatch.setattr(pdf_contracts, "trusted_pdf_context", forbidden)
     with pytest.raises(ValueError, match="read committed"):
         pdf_validation_native_programs(captured, pdf_domain=domain)
-    program = pdf_validation_native_programs(metadata, pdf_domain=domain)["check_build"]
+    program = pdf_validation_native_programs(get_metadata(), pdf_domain=domain)["check_build"]
     execute_native_sql(connection, program)
     with (
         pytest.raises(DBAPIError, match="requires READ COMMITTED") as failure,

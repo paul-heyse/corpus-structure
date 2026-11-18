@@ -16,6 +16,8 @@ from typing import Any, Never, cast
 import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 
+from corpus_structure.model.compiled import field_kinds
+
 from .identity import canonical_bytes
 from .native_call_contracts import OperationCallBinding
 from .types import Diagnostic, PreparationError
@@ -25,16 +27,6 @@ def _fail(code: str, location: str, message: str) -> Never:
     raise PreparationError((Diagnostic(code, location, message),))
 
 
-_PRIMITIVES = {
-    "integer": "int",
-    "boolean": "bool",
-    "string": "str",
-    "timestamp": "datetime",
-    "json_payload": "JsonValue",
-    "bytes": "bytes",
-    "decimal": "Decimal",
-    "float": "float",
-}
 _TRANSFORMS = {
     "task_unit_type": "physical:ops.task.unit_type",
     "held_progress": "physical:ops.task.error",
@@ -48,11 +40,6 @@ def _integer_bounds(field):
 
 def _source_view(logical_sources: Mapping[str, bytes], physical_sources: Mapping[str, bytes]):
     """Resolve supplied model modules, including package data acquired at the entry point."""
-    from linkml_runtime.dumpers import json_dumper
-    from linkml_runtime.linkml_model.meta import SchemaDefinition
-    from linkml_runtime.loaders import yaml_loader
-    from linkml_runtime.utils.schemaview import SchemaView
-
     from corpus_structure.schema.physical import physical_model_documents
 
     aliases = {
@@ -73,7 +60,9 @@ def _source_view(logical_sources: Mapping[str, bytes], physical_sources: Mapping
         supplied[name] = yaml.safe_dump(document, sort_keys=False).encode()
         if filename == "physical.yaml" and name not in roots:
             roots.append(name)
-    schemas = {}
+    from corpus_structure.model.compiled import compiled_model
+
+    documents = {}
     try:
         for name, content in supplied.items():
             body = yaml.load(content, Loader=DupCheckYamlLoader)
@@ -88,33 +77,13 @@ def _source_view(logical_sources: Mapping[str, bytes], physical_sources: Mapping
                         "slot_uri",
                         f"{prefix}:{attr_name}" if prefix else body["id"] + "/" + attr_name,
                     )
-            schema = yaml_loader.load(body, SchemaDefinition)
-            if not isinstance(schema, SchemaDefinition):
-                _fail("operation_source", name, "source must define a schema")
-            schemas[name] = schema
-    except (ValueError, TypeError, yaml.YAMLError) as exc:
+            documents[name] = yaml.safe_dump(body, sort_keys=False).encode()
+        documents["operation_sources"] = yaml.safe_dump(
+            {"id": "urn:corpus:operation-sources", "name": "operation_sources", "imports": roots}
+        ).encode()
+        return compiled_model(documents).private_view("operation_sources")
+    except (ValueError, TypeError, KeyError, yaml.YAMLError) as exc:
         _fail("operation_source", "operations/calls", str(exc))
-    for name, schema in schemas.items():
-        for imported in schema.imports or ():
-            if str(imported) not in schemas:
-                _fail("operation_source", name, "undeclared import " + str(imported))
-    root = SchemaDefinition(
-        id="urn:corpus:operation-sources", name="operation_sources", imports=roots
-    )
-    schemas["operation_sources"] = root
-    importmap: dict[str, dict[str, Any] | str] = {}
-    for name, schema in schemas.items():
-        entry = json_dumper.to_dict(schema)
-        if not isinstance(entry, dict):
-            _fail("operation_source", name, "serialized schema must be a mapping")
-        importmap[name] = dict(entry)
-    view = SchemaView(root, importmap=importmap)
-    view.merge_imports()
-    merged = view.schema
-    if merged is None:
-        _fail("operation_source", "operations/calls", "merged source schema is unavailable")
-    merged.imports = []
-    return SchemaView(merged)
 
 
 def _kind(view, name, trail=()):
@@ -152,7 +121,7 @@ def _kind(view, name, trail=()):
                 return kind, ()
         if typ.typeof:
             return _kind(view, str(typ.typeof), (*trail, name))
-    if name in _PRIMITIVES:
+    if name in field_kinds():
         return name, ()
     _fail("operation_source", name, "unsupported value representation")
 
@@ -285,7 +254,7 @@ def source_bindings(
             }
         if reference.startswith("primitive:"):
             kind = reference.removeprefix("primitive:")
-            if kind not in _PRIMITIVES:
+            if kind not in field_kinds():
                 _fail("operation_source", reference, "unsupported primitive parameter")
             resolved = OperationFieldType(kind, field.nullable, field.multivalued)
             return resolved, asdict(resolved)
@@ -436,7 +405,7 @@ def resolve_call_bindings(
                     or name.startswith("_")
                     or name
                     in {
-                        *_PRIMITIVES.values(),
+                        *(kind.python for kind in field_kinds().values()),
                         "Connection",
                         "Column",
                         "Protocol",

@@ -42,7 +42,7 @@ def test_extension_type_signature_result_and_defaults_are_guard_path_canonical(
     assert item.catalog["result_type"] == item.catalog["result"] == "public.vector"
     assert item.catalog["arguments"] == "p public.vector DEFAULT '[1,2]'::public.vector"
     assert item.catalog["defaults"] == "'[1,2]'::public.vector"
-    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.native_admission import native_admission_sql
     from corpus_structure.semantic.native_products import (
         admission_kernel,
@@ -53,12 +53,12 @@ def test_extension_type_signature_result_and_defaults_are_guard_path_canonical(
         target_admission_descriptor,
     )
 
-    captured = capture_target_installation(metadata)
+    captured = capture_target_installation(get_metadata())
     admission = native_admission_sql(
         admission_kernel() + "\n" + definition.sql,
         captured.authoring_inputs,
         base_descriptor=target_admission_descriptor(captured, ()),
-        target_metadata=metadata,
+        target_metadata=get_metadata(),
         native_objects=authoring.desired,
     )
     descriptor = literal_json_descriptor(admission, "data.execution_contract_descriptor")

@@ -7,7 +7,7 @@ import json
 import re
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from functools import cached_property, lru_cache
+from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -68,17 +68,21 @@ RECIPE_VERSION = "pdf-companion-projection-v4"
 JSON_MATERIALIZATION = {"python": "jsonb-text-v1", "arrow": "jsonb-arrow-json-v1"}
 
 
-@lru_cache(maxsize=4)
 def installed_projection_id(physical_id=None) -> str:
-    from .metadata import PHYSICAL_MODEL_ID, physical_model_id
+    from corpus_structure.model.compiled import running_model
+    from corpus_structure.schema.physical import physical_source_closure, physical_sources_id
+
+    from .metadata import get_physical_model_id
 
     return (
         RECIPE_VERSION
         + ":"
         + sha256(
             (
-                physical_model_id(MODEL)
-                + (PHYSICAL_MODEL_ID if physical_id is None else physical_id)
+                physical_sources_id(
+                    physical_source_closure(MODEL.name, running_model().sources.get)
+                )
+                + (get_physical_model_id() if physical_id is None else physical_id)
             ).encode()
         ).hexdigest()
     )
@@ -544,22 +548,34 @@ def prepare_projection(
         return refuse("companion-projections." + family, str(error))
 
 
-@lru_cache(maxsize=4)
 def projection(family: str, *, target_metadata=None) -> CompanionProjection:
-    from .metadata import metadata
+    from corpus_structure.model.compiled import running_model
 
-    return prepare_projection(
-        SchemaView(str(MODEL)),
-        family,
-        projection_id=installed_projection_id(
-            None if target_metadata is None else target_metadata.info["physical_model_id"]
+    from .metadata import get_metadata
+
+    model = running_model()
+    physical = get_metadata() if target_metadata is None else target_metadata
+    return model.projection(
+        ("companion", family, physical),
+        lambda: prepare_projection(
+            model.private_view(MODEL.name),
+            family,
+            projection_id=installed_projection_id(physical.info["physical_model_id"]),
+            physical=physical,
         ),
-        physical=metadata if target_metadata is None else target_metadata,
     )
 
 
-@lru_cache(maxsize=4)
 def _captured_projection_inputs(domain: PdfDomainContract, target_metadata=None):
+    from corpus_structure.model.compiled import compiled_model
+
+    return compiled_model({s.name: s.content for s in domain.sources}).projection(
+        ("companion-inputs", target_metadata),
+        lambda: _build_captured_projection_inputs(domain, target_metadata),
+    )
+
+
+def _build_captured_projection_inputs(domain: PdfDomainContract, target_metadata=None):
     from linkml_runtime.linkml_model.meta import SchemaDefinition
     from linkml_runtime.loaders import yaml_loader
 
@@ -603,8 +619,11 @@ def _captured_projection_inputs(domain: PdfDomainContract, target_metadata=None)
     from corpus_structure.schema.physical import physical_source_closure, physical_sources_id
 
     def captured_model(name):
-        logical_name = name.removesuffix(".yaml").replace("-", "_")
-        return logical[logical_name] if logical_name in logical else physical[name]
+        logical_name = name.removesuffix(".yaml")
+        if logical_name in logical:
+            return logical[logical_name]
+        alias = logical_name.replace("-", "_")
+        return logical[alias] if alias in logical else physical.get(name)
 
     model_id = physical_sources_id(
         physical_source_closure("companion-projections.yaml", captured_model)
@@ -617,7 +636,6 @@ def _captured_projection_inputs(domain: PdfDomainContract, target_metadata=None)
     return view, compiled_physical, projection_id, model_field, resolve
 
 
-@lru_cache(maxsize=8)
 def captured_projection(
     family: str, domain: PdfDomainContract, *, target_metadata=None
 ) -> CompanionProjection:
@@ -629,7 +647,8 @@ def captured_projection(
 def render_static_columns(domain: PdfDomainContract | None = None) -> str:
     from dataclasses import replace
 
-    from .native_call_sources import _PRIMITIVES
+    from corpus_structure.model.compiled import field_kinds
+
     from .pdf_domain import PdfDomainContract, pdf_domain_sources
 
     if domain is None:
@@ -655,7 +674,7 @@ def render_static_columns(domain: PdfDomainContract | None = None) -> str:
             kind = field.semantic_type or (
                 "Literal[" + ", ".join(repr(v) for v in typ.enum_values) + "]"
                 if typ.enum_values
-                else _PRIMITIVES[typ.kind]
+                else field_kinds()[typ.kind].python
             )
             if typ.kind == "json_payload":
                 kind = "str"  # This materialized direction carries raw JSON text.

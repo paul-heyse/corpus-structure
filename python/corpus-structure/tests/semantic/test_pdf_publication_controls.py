@@ -7,7 +7,7 @@ from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 from corpus_structure.semantic.pdf_publication_native import (
     pdf_freeze_native_sql,
@@ -19,8 +19,8 @@ from semantic.pdf_staging_support import private_build as private_build
 def test_generated_publication_controls_keep_writer_fences(native_rollback):
     connection = native_rollback.connection
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, pdf_freeze_native_sql(metadata))
-        execute_native_sql(connection, pdf_publication_controls_sql(metadata))
+        execute_native_sql(connection, pdf_freeze_native_sql(get_metadata()))
+        execute_native_sql(connection, pdf_publication_controls_sql(get_metadata()))
     calls = (
         ("ops.stage_pdf_access_batch(NULL,NULL,NULL,NULL,'[]'::jsonb)", "P0004"),
         ("ops.lookup_pdf_build(NULL,NULL,NULL,NULL)", "P0004"),
@@ -41,7 +41,7 @@ def test_generated_lookups_and_access_admission_keep_actual_private_pins(
 ):
     build = private_build
     with commit_db_engine.begin() as connection, native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, pdf_publication_controls_sql(metadata))
+        execute_native_sql(connection, pdf_publication_controls_sql(get_metadata()))
     parameters = {
         "build": build.build_id,
         "task": build.task_id,

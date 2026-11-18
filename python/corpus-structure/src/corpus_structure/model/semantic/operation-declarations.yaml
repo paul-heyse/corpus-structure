@@ -1,0 +1,217 @@
+id: https://corpus-structure.dev/semantic/operation-declarations
+name: operation_declarations
+prefixes:
+  cs: https://corpus-structure.dev/semantic/
+  linkml: https://w3id.org/linkml/
+imports: [linkml:types, operation-vocabularies]
+default_prefix: cs
+default_range: string
+types:
+  SemanticText:
+    typeof: string
+    pattern: '\S'
+classes:
+  OperationAny:
+    class_uri: linkml:Any
+    description: An intentionally uninterpreted payload whose semantic owner validates it.
+  DataOperationDocument:
+    attributes:
+      version: {range: SemanticText, required: true}
+      operations: {range: OperationAny, multivalued: true}
+      kinds: {range: OperationAny, multivalued: true}
+  DataOperationDeclaration:
+    attributes:
+      id: {range: SemanticText, required: true}
+      profile: {range: Profile, required: true}
+      subject: {range: SemanticText, required: true}
+      subject_definition: {range: OperationSubject, inlined: true, required: true}
+      subject_definitions: {range: OperationSubject, multivalued: true, inlined_as_list: true}
+      discovery_relation: {range: SemanticText}
+      context: {range: SemanticText, multivalued: true, required: true}
+      roles: {range: OperationRoleDeclaration, multivalued: true, inlined_as_list: true}
+      applicability: {range: OperationClaim, multivalued: true, inlined_as_list: true, required: true}
+      invariants: {range: OperationClaim, multivalued: true, inlined_as_list: true, required: true}
+      coverage: {range: OperationCoverage, inlined: true, required: true}
+      outcomes: {range: SemanticText, multivalued: true, required: true}
+      precision_description: {range: SemanticText}
+      numerical_policy: {range: OperationNumericalPolicy, inlined: true}
+      dependencies: {range: SemanticText, multivalued: true, required: true}
+      potential_dependencies: {range: SemanticText, multivalued: true}
+      state_dimensions: {range: OperationStateDimension, multivalued: true, inlined_as_list: true}
+      transitions: {range: OperationTransition, multivalued: true, inlined_as_list: true}
+      effects: {range: OperationEffect, multivalued: true, inlined_as_list: true}
+      capabilities: {range: OperationCapabilities, inlined: true, required: true}
+      behavior: {range: SemanticText, required: true}
+      parameters: {range: OperationAny}
+      assets: {range: OperationAsset, multivalued: true, inlined_as_list: true}
+      binding: {range: OperationBinding, inlined: true, required: true}
+      kinds: {range: OperationKind, multivalued: true, inlined_as_list: true}
+      entrypoints: {range: SemanticText, multivalued: true}
+      opaque: {range: OperationAsset, multivalued: true, inlined_as_list: true}
+      bound_inputs: {range: SemanticText, multivalued: true}
+      abstract: {range: boolean}
+      replicate_policy: {range: SemanticText}
+      support_policy: {range: SemanticText}
+      result_fields: {range: OperationAny}
+      consumer_selection: {range: SemanticText}
+      output_witnesses: {range: OperationOutputWitness, multivalued: true, inlined_as_list: true}
+      external: {range: OperationExternal, inlined: true}
+      validity_family: {range: ValidityFamily, multivalued: true}
+  OperationKind:
+    attributes:
+      id: {range: SemanticText, required: true}
+      name: {range: SemanticText}
+      python: {range: SemanticText}
+      primitive: {range: SemanticText}
+      scope: {range: OperationAny}
+      invariants: {range: OperationAny}
+      interpretation: {range: OperationAny}
+      references: {range: SemanticText, multivalued: true}
+      json_schema: {range: OperationAny}
+      nominal_namespace: {range: SemanticText}
+      universe: {range: KindUniverse}
+      projection_families: {range: ProjectionFamily, multivalued: true}
+  OperationSubject:
+    attributes:
+      id: {range: SemanticText, required: true}
+      identifier_kind: {range: SemanticText, required: true}
+      scope: {range: SemanticText, required: true}
+  OperationRoleDeclaration:
+    attributes:
+      name: {range: SemanticText, required: true}
+      kind: {range: SemanticText, required: true}
+      direction: {range: RoleDirection, required: true}
+      minimum: {range: integer, minimum_value: 0, required: true}
+      maximum: {range: integer, minimum_value: 0}
+      collection: {range: SemanticText, required: true}
+      presence: {range: SemanticText, required: true}
+      support: {range: OperationInputSupport, inlined: true}
+      parameter: {range: SemanticText}
+      alternatives: {range: SemanticText, multivalued: true}
+      selected: {range: SemanticText}
+      subject_field: {range: SemanticText}
+      subject_target: {range: SemanticText}
+  OperationInputSupport:
+    attributes:
+      provenance: {range: SemanticText, required: true}
+      source: {range: SemanticText, required: true}
+      coverage: {range: OperationInputCoverage, inlined: true, required: true}
+      authorization: {range: SemanticText, multivalued: true}
+      closure: {range: SemanticText, multivalued: true}
+      identity_requirements: {range: SemanticText, multivalued: true}
+      source_set: {range: SemanticText}
+      origins: {range: SemanticText, multivalued: true}
+  OperationInputCoverage:
+    attributes:
+      role: {range: SemanticText, required: true}
+      description: {range: SemanticText, required: true}
+  OperationCoverage:
+    attributes:
+      binding: {range: SemanticText, required: true}
+      result_owners: {range: OperationCoverageOwner, multivalued: true, inlined_as_list: true, required: true}
+      description: {range: SemanticText, required: true}
+  OperationCoverageOwner:
+    attributes:
+      kind: {range: SemanticText, required: true}
+      reference: {range: SemanticText, required: true}
+  OperationClaim:
+    attributes:
+      kind: {range: SemanticText, required: true}
+      text: {range: SemanticText}
+      reference: {range: SemanticText}
+      interpretation: {range: SemanticText}
+      parameters: {range: OperationAny}
+  OperationStateDimension:
+    attributes:
+      name: {range: SemanticText, required: true}
+      values: {range: SemanticText, multivalued: true, required: true}
+  OperationEffect:
+    attributes:
+      name: {range: SemanticText, required: true}
+      authorization: {range: SemanticText, multivalued: true, required: true}
+      idempotency: {range: SemanticText, required: true}
+      fulfillment: {range: SemanticText, required: true}
+  OperationTransition:
+    attributes:
+      dimension: {range: SemanticText, required: true}
+      before: {range: SemanticText, required: true}
+      after: {range: SemanticText, required: true}
+      outcome: {range: SemanticText, required: true}
+      effects: {range: SemanticText, multivalued: true}
+  OperationCapabilities:
+    attributes:
+      forms: {range: Form, multivalued: true, required: true}
+      preparation:
+        range: OperationAny
+        required: true
+        any_of: [{range: Preparation}, {range: SemanticText}]
+      cancellation: {range: SemanticText, required: true}
+      ownership:
+        range: OperationAny
+        required: true
+        any_of: [{range: Ownership}, {range: SemanticText}]
+      limits: {range: SemanticText, multivalued: true}
+      stream_settlement: {range: OperationStreamSettlement, inlined: true}
+      prepared_factory: {range: SemanticText}
+  OperationStreamSettlement:
+    attributes:
+      mode: {range: SemanticText, required: true}
+      output_role: {range: SemanticText, required: true}
+      terminal_outcome: {range: SemanticText, required: true}
+  OperationBinding:
+    attributes:
+      operator: {range: BindingOperator, required: true}
+      roles: {range: SemanticText, multivalued: true}
+      fields: {range: OperationBindingField, multivalued: true, inlined_as_list: true}
+      value: {range: OperationAny}
+      children: {range: OperationBinding, multivalued: true, inlined_as_list: true}
+      minimum: {range: integer, minimum_value: 0}
+      maximum: {range: integer, minimum_value: 0}
+      collection: {range: SemanticText}
+      selected: {range: SemanticText}
+      population: {range: SemanticText}
+      impact: {range: SemanticText}
+      operands: {range: OperationOperand, multivalued: true, inlined_as_list: true}
+      choice_parameter: {range: SemanticText}
+  OperationBindingField:
+    attributes:
+      role: {range: SemanticText, required: true}
+      projection: {range: SemanticText, required: true}
+      field: {range: SemanticText, required: true}
+  OperationOperand:
+    attributes:
+      kind: {range: SemanticText, required: true}
+      value_type: {range: SemanticText, required: true}
+      field: {range: OperationBindingField, inlined: true}
+      name: {range: SemanticText}
+      value: {range: OperationAny}
+      population_projection: {range: SemanticText}
+  OperationNumericalPolicy:
+    attributes:
+      asset: {range: SemanticText, required: true}
+      pointer: {range: SemanticText, required: true}
+      kind: {range: SemanticText, required: true}
+  OperationOutputWitness:
+    attributes:
+      output_role: {range: SemanticText, required: true}
+      records: {range: string, required: true}
+      input_role: {range: SemanticText, required: true}
+      comparisons: {range: OperationWitnessComparison, multivalued: true, inlined_as_list: true, required: true}
+  OperationWitnessComparison:
+    attributes:
+      output_field: {range: SemanticText, required: true}
+      input: {range: OperationBindingField, inlined: true, required: true}
+      encoding: {range: SemanticText, required: true}
+  OperationAsset:
+    attributes:
+      reference: {range: SemanticText, required: true}
+      contract: {range: SemanticText, required: true}
+      role: {range: SemanticText, required: true}
+      content_digest: {range: SemanticText}
+  OperationExternal:
+    attributes:
+      version: {range: SemanticText, required: true}
+      instructions: {range: SemanticText, required: true}
+      requested_actor: {range: SemanticText, required: true}
+      requested_model: {range: SemanticText}
+      reference_scope: {range: SemanticText, required: true}

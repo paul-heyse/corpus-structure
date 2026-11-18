@@ -19,13 +19,13 @@ ROLE = "native-original-document-custody"
 
 def source_call_bindings(*, target_metadata=None):
     """Derive fixed transport correspondences from their actual physical field owners."""
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .native_call_sources import resolve_call_bindings
 
-    metadata = metadata if target_metadata is None else target_metadata
+    selected = get_metadata() if target_metadata is None else target_metadata
 
     def field(name, relation, column=None, *, native=None):
-        target = metadata.tables[relation].c[column or name]
+        target = selected.tables[relation].c[column or name]
         return OperationFieldBinding(
             name,
             f"physical:{relation}.{target.name}",
@@ -93,17 +93,17 @@ def source_call_bindings(*, target_metadata=None):
     )
     return resolve_call_bindings(
         tuple((OPERATION, call) for call in calls),
-        logical_sources={"linkml:types": metadata.info["physical_linkml_types"]},
-        physical_sources=metadata.info["physical_sources"],
+        logical_sources={"linkml:types": selected.info["physical_linkml_types"]},
+        physical_sources=selected.info["physical_sources"],
         core_owners={(OPERATION, call.id): call.symbol for call in calls if call.backend == "core"},
     )
 
 
 def source_admission_asset(*, target_metadata=None) -> SourceArtifact:
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .original_document_native import ASSET_DIGEST_BASIS, source_original_programs
 
-    selected = metadata if target_metadata is None else target_metadata
+    selected = get_metadata() if target_metadata is None else target_metadata
 
     return SourceArtifact(
         ASSET,
@@ -135,10 +135,10 @@ def source_admission_asset(*, target_metadata=None) -> SourceArtifact:
 
 
 def source_admission_sources(*, target_metadata=None) -> tuple[SourceArtifact, ...]:
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .original_document_native import source_original_programs
 
-    selected = metadata if target_metadata is None else target_metadata
+    selected = get_metadata() if target_metadata is None else target_metadata
     asset = source_admission_asset(target_metadata=selected)
     return (
         asset,
@@ -225,10 +225,10 @@ def source_original_sql(sources=None) -> str:
 def generated_source_calls(*, target_metadata=None) -> str:
     from corpus_structure.schema.generate import _format
 
-    from .metadata import metadata
+    from .metadata import get_metadata
     from .native_call_generation import render_call_bindings
 
-    selected = metadata if target_metadata is None else target_metadata
+    selected = get_metadata() if target_metadata is None else target_metadata
     return _format(
         "semantic/_source_admission_calls.py",
         render_call_bindings(

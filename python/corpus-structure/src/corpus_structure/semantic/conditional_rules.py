@@ -18,6 +18,8 @@ from linkml_runtime.utils.schemaview import SchemaView
 from pydantic import ValidationInfo, model_validator
 from pydantic_core import PydanticCustomError
 
+from corpus_structure.model.compiled import private_schema_view
+
 from .types import Diagnostic, PreparationError
 
 # These are result-affecting settings, archived alongside the native fragments.
@@ -175,7 +177,7 @@ def compile_conditional_rules(view: SchemaView) -> dict[str, dict[str, Any]]:
         return {}
     schema = deepcopy(view.schema)
     assert schema is not None
-    normalized = SchemaView(schema)
+    normalized = private_schema_view(schema)
     # Each class's inherited rules must see its own effective slot aliases.
     for name in normalized.all_classes():
         slots = {str(slot.name): slot for slot in normalized.class_induced_slots(name)}
