@@ -365,11 +365,25 @@ effects through Alembic. No runtime vocabulary query or additional model is intr
 The first increment generates frozen PDF preparation from the exact call binding, reuses scratch
 specifications for runtime and authoring, compiles maintenance steps from typed programs, and
 generates shared reader and validity statements. S40 reads the predecessor's retained descriptor
-before producing typed migration statements. Search vector input and configuration are model
-references. The coordinator owns stage results and remaining work.
+before producing typed migration statements. Physical defaults and generated search, point-range
+and visual-region projections compile from LinkML declarations over induced slots. PostgreSQL
+type spelling is shared by declaration and grant identity. Alembic freezes DDL expressions with
+the PostgreSQL dialect before DBAPI parameter escaping.
 
-Continue by owner through the remaining DDO kernels, PDF adoption and publication, selected and
-public reads, scientific routines, and bootstrap and maintenance entry points. Remove their
-superseded SQL sources and fallback paths with their callers. Preserve frozen migrations,
-independent test controls and explicitly submitted read-only SQL. N3 native qualification,
-remaining owner conversion, and the final DDO-12 union are separate completion boundaries.
+The search generator owns population creation, replay, key selection and ranking over the
+captured PDF call and physical models. SourceValue codec generation consumes the induced variants
+and discriminator values from the captured observations model. Their former maintained SQL files
+are removed. Runtime principal queries, lease renewal, linguistic catalog observations, database
+description and export snapshot commands use structured statements. The database CLI and
+ownership helpers generate creation, status, catalog and ownership commands. The coordinator
+owns verification and stage results.
+
+Continue by owner through shared-stream mutation, reclaim and verification, remaining PDF
+adoption and publication, DDO kernels and SourceValue consumers, catalog admission and privileges,
+selected and public reads, scientific routines, and bootstrap and maintenance. Migrate the
+remaining free-form physical check and index expressions to their model owners. Native preview
+should render the matching Python call and column facades from the snapshot used for SQL and
+retain them as exact file effects. Remove each superseded SQL source and fallback with its callers.
+Preserve frozen migrations, independent
+test controls and explicitly submitted read-only SQL. N3 native qualification, remaining owner
+conversion, and the final DDO-12 union are separate completion boundaries.

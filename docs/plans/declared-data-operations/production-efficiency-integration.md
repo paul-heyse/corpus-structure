@@ -259,8 +259,8 @@ work starts. Frozen predecessors are never edited. The slices group into four su
 |---|---|---|---|
 | N1 | PE-S16–S21 | unchanged | Reads acquired before N1 refuse with "reacquire". Intents retained before N1 publish through the full completion battery; they are not regenerated |
 | N2 | PE-S26 (set operations, the read page's `inputs_watermark`, the `obligation_id` read filter), PE-S27 | changed: set operations, read request and page fields, envelope contract digest | `read_demand_result_request` is a closed schema, so any new field is a protocol change and belongs here. Native and application captures are reacquired. The effective model version is expected not to move (no bound-role or interpreter semantics change); the root confirms at authoring |
-| N3 | PE-S34, PE-S36, PE-S37 ordered observation read, PE-S41, and the encoder declared-form check of PE-S29 if PE-S28 has passed | PDF and serving functions; contextual producer check | The encoder check never holds N2 back; it takes its own successor if N3 is not ready |
-| N4 | PE-S40, the read-scoped closure of PE-S42 | storage | Last, because it is the largest storage change and has the weakest dependency |
+| N3 | PE-S34, PE-S36, PE-S37 ordered observation read, PE-S40, PE-S41, and the encoder declared-form check of PE-S29 if PE-S28 has passed | PDF and serving functions, shared byte storage, contextual producer check | The retained N3 request includes the typed S40 backfill and retirements. The encoder check can take its own successor once ready. |
+| N4 | Remaining read-scoped closure of PE-S42 and subsequent native conversions | read closure and remaining generators | Capture against the exact installed predecessor after the N3 transition. |
 
 Fewer successors are acceptable where slices are ready together. More are acceptable when a
 slice is blocked; a successor never waits for an unrelated slice.

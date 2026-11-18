@@ -1,32 +1,27 @@
 # Status
 
-_Updated 2026-11-17. Operator-requested closeout completed; the overall DDO plan remains incomplete._
+_Updated 2026-11-17. The owned stage is at model-built N4 with its matching application active. DDO and the PostgreSQL authoring conversion remain open._
 
-## Owner and integrated source
+## Current owners
 
-- [DDO current execution](docs/plans/declared-data-operations_2026-11-12.md#cross-cutting-implementation-in-progress--2026-11-17) owns findings, receipts and remaining obligations. [Efficiency mechanisms](docs/plans/declared-data-operations/production-efficiency-integration.md) own the target. Chandra excluded; no repeat formal review gate.
-- Main integrates N2 set/wire, S08 validation proofs, S29–32 batching, S34 COPY companions, S36 producer/oracle certification and explicit verification, S39 recovery, S40 shared storage/backfill, S41 search and S42 read consumers. Native/assembled qualification is incomplete.
-- S33 has one production prepared-parser candidate and an independent test-only regex oracle; actual-book-region equality/adoption remains open. docs/pins.md holds its Lark1.3.1 private contract.
-- ADR-0125–0130 own the accepted process/recognition/contributor/wire/encoder/certification decisions. All worker edits are integrated; no agents, operations or extra worktrees remain active.
-
-## Last verified · 2026-11-17
-
-- **passed:** `ci check --only types --json`,25bcfa43362a46e4ae89b32a32eb6a7b; `ci check --only lint --json`,506da15ed6514c36b0ace6de886fae17. Documentation1307pages/zero link errors passed f717b759610345d2a278f74bb194dd83; ADR lint42fec9f3… and `just turn-end` passed.
-- **passed:** targeted `ci test --workers 2 --json -- …`: PDF producer/streaming/retained-reader55/7ab80be65cac4126b062a378ff4b9e8f; grammar/DATA29/04799997d7434a449bdfbf0b27c60c6a; checker/target20/af94470512e44590aab35e81c4161b45; FK/DATA15/d26f30a9a5d1459d9d42fc3fb73d8121. Each retains its original source/context bounds.
-- **passed:** actual certified three-page Docling interrupted/recovered/complete-spool replay1/f29c707ae9d24f3ab6a82ad248ef0539 via `ci test --providers-only -- …test_actual_missing_page_resume_and_same_spool_rebuild`. No whole-book/native publication credit.
-- **passed:** selected-read exact retry4/c7ceb270…; shared source/schema controls2/cdbad1f9…. Earlier actual CUDA GLiNER eight-packbab2cbd… and CPU E5/Qwen two-panel5e47e51… retain their bounded original-source observations.
+- [DDO current execution](docs/plans/declared-data-operations_2026-11-12.md#model-owned-postgresql-execution--2026-11-17) owns stage results and remaining obligations. [PostgreSQL realization](docs/plans/declared-data-operations/postgresql-realization-and-retirement.md#model-owned-sql-authoring) owns the authoring contracts under [ADR-0131](docs/adr/0131-model-owned-postgresql-programs.md).
+- Main integrates typed PDF preparation, scratch, shared readers, validity, search, SourceValue codecs, physical defaults and generated projections, DATA effects, selected runtime queries and database administration. Native preview renders the original-document and typed-column facades alongside physical effects. N4 generates wire admission and removes the duplicate demand-read field guard.
+- Remaining owners include shared-stream writes and verification, PDF publication, DDO kernels, physical checks/index expressions, native admission and privileges, scientific routines and administration beyond the database CLI. Remaining generation work covers other Python facades, search configuration correspondence and DATA builders bound to proposed physical models.
 
 ## Native and data boundary
 
-- Stage corpus_structure_ddo_stage/OID130661481/system7701811359771751232 remains root+17/headsemantic_ddo_pe_n2,103relations. N2 preview53394199…/candidateea52a6c8…/register977b4b64…/deployb141a546… passed. Independent `ci db status --maintenance --json` reacquired this identity at closeout.
-- N3 source is not registered/deployed. Preview07b9534410324ca5ba9ff448abbcfca1 passed at d67e8162d; no candidate from it ran. Closeout commits supersede its HEAD binding: reacquire using the [retained request](docs/design_review/evidence/2026-11-16_ddo-current-native/production-efficiency-n3.yaml).
-- Failed candidatesc1e0e4ba…/eb728309…/542cb6e7… are held with established rollback cleanup. Fixes quote region fields, supply exact temporary checker layouts, type upload loops and preserve the oracle FK during nullable staging. Actual post-fix migration/backfill is not_run.
-- Three named DATA steps re-lower admitted facts, retire unqualified historical validation receipts without inventing evidence, and transfer verified shared bytes before old tables drop. They have not changed stage data. Historical48kernel/11intent/11validator identities remainNULL.
-- Stage app remains release2f794245…/runtimee2cfb482…, projectddo-current-pdf-bounded generation4; current-source recapture/activation is due. Development OID25921445 remains semantic_bep_located_v2, independently re-observed; no fencing, rename, import or adoption.
-- Original assets are preserved. Owned Nemotron is deliberately stopped; restart its normal launcher for recognition. Ten lost E5 receipts remain unavailable/no credit.
+- Owned stage `corpus_structure_ddo_stage`, OID130661481/system7701811359771751232, independently read at `semantic_ddo_pe_n4`. N4 preview `71e0ea10c2c44919ba18f631721f0132`, candidate `5652429e4dd040d3b77ba3395ad05297`, registration `84ce03a78771490aa5723fc38d147b70` and deployment `e3ff00b57edb40929abe52b5bf3a4893` passed.
+- N3 retained 15 products, retired seven unqualified historical validation receipts and replaced the two part tables with 361 verified shared streams over 376 parts. An independent N4 read observed the same product and shared-byte counts on 2026-11-17.
+- Matching `release:0f016a1cce193cefdc639e08e440a4cc5ee8784f80b447ffffce557103bd2495` is active for `ddo-current-pdf-bounded` at generation6. Deployment `5a335c6524a940b488d71f1c9f439b10`, explicit `ci db check --release …`, `ci release check --release …` and activation passed. Development OID25921445 remains at `semantic_bep_located_v2`.
+
+## Last verified · 2026-11-17
+
+- **passed:** `ci test --workers 2 --json -- …` fresh-root render/replay, wire and original-document18 in `983d99ea225a4591b0d9fc92b34b7a88`; native preview and generated-output custody3 in `78e30bf4fab443f5b847cd5d40c523ea`. The two PostgreSQL search cases passed via `ci test retry 33b37a199ad54e79ba5a644d8ba21512 --lane ordinary --json`, `53917fc838d146f8862e26e330a3ca51`.
+- Shared-stream reuse passed in retry `adb5228fe7fc4e07ab1d51416e1edf91`. Its two search failures and older failed receipts remain in the coordinator with their dispositions. Database CLI and ownership cases passed in the bounded original selection `5d696cb866624916902caeae4e5f0e63`. Earlier source-bounded provider evidence keeps its original context.
+- **passed:** `ci check --only types --json` `886edad9909d4fb293e093bb79932651`, `ci check --only lint --json` `9308fb254f6243a28f3b895dc46c799a`, `ci adr lint --json` `1526d872b3724c1688b0cbea205b49ff`, `ci docs check --json` `f6f0a33597b946a9915fe2e0e7575ca0`, and `just turn-end`.
 
 ## Next execution
 
-- Reacquire N3 preview, run/inspect the rollback-only candidate, register/deploy only its exact bound stage transition, then qualify native PDF/shared/source/proof/read journeys and a matching application.
-- Complete native scoring/provider/public/rich/graph/export/fault coverage, actual-book S33 gate, faithful29-original registration/adoption, same-demand518-page interruption/resume/repeat and final DDO-12 union. Broad final campaigns were not_run at this requested closeout.
-- Use UV_NO_SYNC=1/shared root environment. All task worktrees were removed after preserving actual LFS bytes; no push. Preserve unrelated concurrent files.
+- Convert remaining SQL owners and remove superseded code with their consumers. Move remaining controlled PDF fixtures through production certification before removing their legacy replay helper. Complete applicable native and application consumer qualification.
+- Complete actual-book S33 parser adoption, faithful29-original registration/adoption, native scoring/provider/public/rich/graph/export/fault coverage, and same-demand518-page interruption/resume/repeat before the DDO-12 union. Chandra OCR remains excluded. Restart the normal managed Nemotron launcher when recognition is due.
+- Task workers and worktrees are concluded. No push. Preserve the working development database until the coordinated adoption boundary.

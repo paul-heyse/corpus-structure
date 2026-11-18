@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17: operator closeout checkpoint; DDO-00–11 implementation remains incomplete. Current integrated effective interpretation is v9, with demand-intent-v2/CPU-input-basis-3 and unchanged compiler24/boundary13. The native-only target lifecycle and103-relation N2 deployment are integrated; the root and17successors are registered and installed on the owned stage. An earlier v9 application remains activated on the owned stage; matching current-source application recapture, consumer/provider qualification and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged. The production-efficiency integration is accepted (2026-11-17) and scheduled before DDO-12; implementation and targeted acceptance are in progress.**
+**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N4 with its matching application active at generation 6. Scoped native search and shared-stream checks passed. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -9,6 +9,104 @@ Consumes [the audited domain-model review](../plan_improvement_reviews/declared-
 at `4f32589d0`. All actionable I01–I09 scope is scheduled below, with explicit investigations and
 conditional choices retained. Existing F01–F14/C1–C7/CA identities and scoped closures survive.
 Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No broad audit is initiated.
+
+## Model-owned PostgreSQL execution · 2026-11-17
+
+[ADR-0131](../adr/0131-model-owned-postgresql-programs.md) governs the accepted I08 expansion.
+The [PostgreSQL companion](declared-data-operations/postgresql-realization-and-retirement.md#model-owned-sql-authoring)
+owns the typed authoring contracts. Main integrates typed DATA steps, scratch definitions, PDF
+preparation, shared readers, validity, search, SourceValue codecs and selected runtime queries.
+The physical model declares defaults, generated projections and distinct foreign keys for the
+two relations on the PDF validation build ID. The Alembic renderer uses PostgreSQL types and
+preserves literal patterns.
+
+The first model-built N3 uses the [retained request](../design_review/evidence/2026-11-16_ddo-current-native/production-efficiency-n3.yaml)
+against the installed N2. The three DATA steps re-lower admitted facts, retire unqualified
+validation receipts and transfer shared bytes before retiring old part tables. Registration and
+deployment require the exact rollback-only candidate. Earlier failures are held at
+`f5e6753c230a4c81ab9d38767b3f0923`, `b6d17a36c34d40fa821b056cbad01f78` and
+`df2a2054027b473aac27668fdc12a914` and `372fa3f9cf944bebb228d92a99edec78`. Repairs cover
+PostgreSQL DDL rendering, distinct foreign-key names, literal percent escaping, canonical function
+identity for writer grants and enforcement of the certification foreign key after receipt retirement.
+The integrated selection `16d2fd65a6784949afa0d226f96031b8` passed 99 and failed eight. Seven
+failures exercised N2 fixtures with the current model and need a matching registered revision.
+The fresh-root failure exposed an implicit Core `RETURNING` in a native insert. The retry
+`48986496318941f4aacd3defd8d63e50` passed all 28 selected cases, including actual fresh-root
+render, replay and catalog admission, with server-side inserts compiled inline. The DATA-step and
+native row-type selection `47cead03b42f4ba6bc0f345979fd49a4` passed all 20 cases after the final
+ordering change. Pyrefly `6f9d78ab41a64fa8b2c256eb764e7e11`, Ruff
+`12c68bc561ad45659ae505217ac4d9dc` and ADR lint `1526d872b3724c1688b0cbea205b49ff` passed
+on 2026-11-17.
+
+**N3 native deployment passed · 2026-11-17.** Managed preview `58bae8b944f845119d2fdee4e73523cd`,
+candidate `b917ab32b8e8427ca9e6af02fc641c78`, registration `dec9422454f24b70ad2c95d9d2741d6c`
+and deployment `e4e83f333dd140bbb1c653be18fb655f` used stage OID130661481 and system
+7701811359771751232. The replay covered 145 native transitions, nine privilege transitions and
+35 ordinary operations. Independent counts observed 15 products before and after, zero remaining
+unqualified build validations, 361 shared stream verification receipts over 376 parts, and both
+old part tables absent. The development OID25921445 remains on `semantic_bep_located_v2`.
+
+**N3 application admission passed · 2026-11-17.** On the same stage the application preview
+`b18a54a5affe4b1cb8a14090fe0a559e`, apply `16a31565eaae404b9af85589b9dd3c7b`, candidate
+`57ca3ea03aed4fdb9610010e57df57af` and deployment `e4f419c8e6d64e6cb711518e0f5f4404` admitted
+`release:e9e9651bcb950a1a6343c8632675ff148f055c95a9baa58ab0f6572066f25e30` with runtime
+`runtime:81300aa89793885e554e3db2ce3329165b394756fdee1d67d300a93e1d467428`. Explicit `ci db check
+--release … --json` and `ci release check --release … --json` passed against that release.
+The native correspondence check returned physical ID `physical:9544f9141b39c1dd8601bc650b97325d8fe56b9378b9781d59b12adc1a474a05`.
+`ci release activate … --project ddo-current-pdf-bounded --expected-generation 4 --json`
+passed and reached generation 5 on the owned stage.
+
+The first N3 consumer run `e4f6f335bf71425488ac9c499789b614` passed seven and failed thirteen
+at the original-document call correspondence guard. Regenerated the original-document call
+facade and typed-column projection from the current physical model. The native preview must
+regenerate these two Python surfaces from the same compiled target and retain their exact file
+effects. The remaining generators need the same treatment.
+
+The focused retry through shared bytes and search exposed a second independent defect. The
+protected demand read accepted `support_scope` and `recheck_bodies` in the generated JSON Schema,
+then the private implementation rejected the same fields through a maintained list. The read
+uses the generated public schema as its admission boundary. All public wire wrappers now compile
+their validation, private call and contract digest from typed expressions. The
+[N4 request](../design_review/evidence/2026-11-16_ddo-current-native/production-efficiency-n4.yaml)
+captures that successor as a program change with no DATA step.
+
+**N4 native deployment passed · 2026-11-17.** Preview `71e0ea10c2c44919ba18f631721f0132`,
+candidate `5652429e4dd040d3b77ba3395ad05297`, registration `84ce03a78771490aa5723fc38d147b70`
+and deployment `e3ff00b57edb40929abe52b5bf3a4893` advanced the same stage from N3 to N4.
+Rollback replay covered 45 native transitions and one ordinary effect. The final program's
+fresh-root replay, wire and original-document selection passed all 18 cases in
+`983d99ea225a4591b0d9fc92b34b7a88`.
+
+Native preview and generated-output custody checks passed all three selected cases in
+`78e30bf4fab443f5b847cd5d40c523ea`. The database CLI/ownership and generated original-document
+surfaces passed their 14 selected cases in `5d696cb866624916902caeae4e5f0e63`; the remaining three
+cases exposed stale fixture replay and principal paths. The shared-stream reuse case passed in
+`adb5228fe7fc4e07ab1d51416e1edf91` after moving the fixture to its actual writer principal. The
+two search cases proceeded through current certification and exposed the duplicate field list,
+then an unpinned second read (`33b37a199ad54e79ba5a644d8ba21512`). The caller now explicitly uses
+the acquired read ID for that second fetch. Both native search cases passed in
+`53917fc838d146f8862e26e330a3ca51` against N4.
+
+**N4 application admission passed · 2026-11-17.** Preview `144764e398db47a0943a8a979a76b98b`,
+apply `792a91153cd441dfa2728c3e240376ab`, candidate `3733e2c163924f31afb58c27b3f0d64f` and
+deployment `5a335c6524a940b488d71f1c9f439b10` admitted
+`release:0f016a1cce193cefdc639e08e440a4cc5ee8784f80b447ffffce557103bd2495` with runtime
+`runtime:9d638c46d231a3ea33fe37da25db03bd165c0f6709ea2e12970e3b601633fcf2`. Explicit `ci db check
+--release … --json` and `ci release check --release … --json` passed on this stage identity.
+`ci release activate … --project ddo-current-pdf-bounded --expected-generation 5 --json`
+passed. A separate database read observed that exact release at generation 6. Final Pyrefly
+`886edad9909d4fb293e093bb79932651` and Ruff `9308fb254f6243a28f3b895dc46c799a` passed.
+
+The remaining authoring conversion covers shared-stream writes and verification, PDF
+publication, DDO kernels, physical checks and indexes, native admission and privileges,
+scientific routines and administrative paths beyond the converted database CLI and ownership
+queries. Bind the search vector's configured language, native
+ranking, request schema and runtime population identity to one captured declaration. Bind DATA
+step generation to the preview's compiled target when a request changes the physical model.
+Native and application qualification must exercise each migrated consumer. Finish moving the
+remaining controlled PDF fixtures to the certified producer path before removing their legacy
+occurrence replay writer. Development adoption and DDO-12 qualification on the final source
+remain pending.
 
 ## Production-efficiency integration · 2026-11-17
 
