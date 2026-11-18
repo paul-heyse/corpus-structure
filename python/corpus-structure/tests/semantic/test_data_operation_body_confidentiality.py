@@ -191,16 +191,17 @@ def test_actual_member_body_closure_guards_native_reads_and_hydration(
 ):
     demand, _receipt = publish_mixed(ddo_kernel, protected=protected, nested=nested)
     reader = ddo_kernel.purpose("read")
-    with reader.begin() as connection:
+    evaluator = ddo_kernel.purpose("evaluate")
+    selected_reader = evaluator if protected else reader
+    with selected_reader.begin() as connection:
         frontier = DataOperationStorage(connection).read_demand_result(
             cast(
                 WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "view": "frontier"}
             )
         )
         assert all("body" not in product for use in frontier["uses"] for product in use["products"])
-    # Full product pages and support pages must refuse before returning any body,
-    # even when the support cursor skips the separately exported product rows.
-    for view in ("products", "support"):
+    # A demand read requires live authority for every universe in its captured closure.
+    for view in ("frontier", "products", "support"):
         request = {"demand_id": demand["demand_id"], "view": view, "limit": 1}
         if view == "support":
             request["support_after"] = "ops.data_completion_intent:"
@@ -215,35 +216,28 @@ def test_actual_member_body_closure_guards_native_reads_and_hydration(
                     cast(WireReadDemandResultRequest, request)
                 )
                 assert value["view"] == view
-    with reader.begin() as connection:
-        storage = DataOperationStorage(connection)
-        pins = storage.read_demand_result(
-            cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]})
-        )
-        args = dict(
-            d=demand["demand_id"],
-            o="urn:body-privacy:container-consumer",
-            t=json.dumps(pins["trust_snapshot"]),
-            r=pins["read_id"],
-            source=json.dumps("source:test"),
-            scope=json.dumps({"page": 1}),
-        )
-        statement = text(
-            "SELECT meaning_body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb),:r,"
-            "'subject:one',CAST(:source AS jsonb),CAST(:scope AS jsonb))"
-        )
-        if protected:
-            with pytest.raises(DBAPIError, match="evaluator"), connection.begin_nested():
-                connection.execute(statement, args).all()
-        else:
-            assert connection.execute(statement, args).all()
-        # An individually selected ordinary member remains readable even though
-        # its declared parent kind could contain evaluator members.
+    args = dict(
+        d=demand["demand_id"],
+        o="urn:body-privacy:container-consumer",
+        t=json.dumps(frontier["trust_snapshot"]),
+        r=frontier["read_id"],
+        source=json.dumps("source:test"),
+        scope=json.dumps({"page": 1}),
+    )
+    statement = text(
+        "SELECT meaning_body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb),:r,"
+        "'subject:one',CAST(:source AS jsonb),CAST(:scope AS jsonb))"
+    )
+    if protected:
+        with reader.begin() as connection, pytest.raises(DBAPIError, match="evaluator"):
+            connection.execute(statement, args).all()
+    with selected_reader.begin() as connection:
+        assert connection.execute(statement, args).all()
         args["o"] = "urn:body-privacy:ordinary-consumer"
         rows = connection.execute(statement, args).all()
         assert rows
         assert all("918273" not in json.dumps(row[0]) for row in rows)
-    with ddo_kernel.purpose("evaluate").begin() as connection:
+    with evaluator.begin() as connection:
         authorized = DataOperationStorage(connection).read_demand_result(
             cast(
                 WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "view": "products"}
