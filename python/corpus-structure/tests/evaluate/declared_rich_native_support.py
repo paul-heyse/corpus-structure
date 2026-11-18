@@ -109,7 +109,6 @@ def run_rich_admission(
     *,
     selected_source,
     inference,
-    policy_contracts=None,
 ):
     from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
@@ -132,9 +131,7 @@ def run_rich_admission(
     )
     assert len(raw) == len(resolved) == 1
     context = project_context(journey, "rich.consolidate")
-    policy = rich_policy_value(
-        journey.kernel.prepared, journey.kernel.model, allowed_domain_contracts=policy_contracts
-    )
+    policy = rich_policy_value(journey.kernel.prepared, journey.kernel.model)
     fact = authored(
         journey,
         inference + ":checked-rich-policy",

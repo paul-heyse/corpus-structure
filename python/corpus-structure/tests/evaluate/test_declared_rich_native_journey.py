@@ -11,11 +11,9 @@ import pytest
 from evaluate.declared_record_native_support import (
     PROJECT,
     complete_policy_fit,
-    retain_references,
-    run_grade,
 )
 from evaluate.declared_rich_native_journey_test_support import (
-    refuse_rich_completion_substitution as refuse_rich_completion_substitution,
+    verify_completion_refusals,
 )
 from evaluate.declared_rich_native_support import (
     current_rich_policy as current_rich_policy,
@@ -72,45 +70,46 @@ def test_actual_rich_admission_keeps_complete_reading_authority_separate_from_sc
     from corpus_structure.serve.rich_queries import RichQueryRequest, serve_rich_query
 
     journey = current_rich_policy
-    fitted = complete_policy_fit(journey)
-    from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
-    from corpus_structure.semantic.demand_results import read_demand_result
+    with verify_completion_refusals(journey, monkeypatch):
+        fitted = complete_policy_fit(journey)
+        from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
+        from corpus_structure.semantic.demand_results import read_demand_result
 
-    with journey.kernel.purpose("write").begin() as connection:
-        authorization_page = read_demand_result(
-            connection,
-            fitted.demand_id,
-            project_id=PROJECT,
-            scope={
-                "operation_id": "record_policy.authorize",
-                "product_ids": [fitted.authorization_product_id],
-            },
+        with journey.kernel.purpose("write").begin() as connection:
+            authorization_page = read_demand_result(
+                connection,
+                fitted.demand_id,
+                project_id=PROJECT,
+                scope={
+                    "operation_id": "record_policy.authorize",
+                    "product_ids": [fitted.authorization_product_id],
+                },
+            )
+        (authorization_header,) = authorization_page.members()
+        assert authorization_header["product_id"] == fitted.authorization_product_id
+        assert authorization_header["body"] == fitted.authorization
+        authorization_cut = authorization_page.cut
+        assert authorization_cut.record["scope"] == {
+            "operation_id": "record_policy.authorize",
+            "product_ids": [fitted.authorization_product_id],
+        }
+        assert authorization_cut.record["selection"]["version"] == "data-demand-public-selection-v1"
+        authorization = SelectedSourceSetEntry.from_selected_header(
+            authorization_header, authorization_cut
         )
-    (authorization_header,) = authorization_page.members()
-    assert authorization_header["product_id"] == fitted.authorization_product_id
-    assert authorization_header["body"] == fitted.authorization
-    authorization_cut = authorization_page.cut
-    assert authorization_cut.record["scope"] == {
-        "operation_id": "record_policy.authorize",
-        "product_ids": [fitted.authorization_product_id],
-    }
-    assert authorization_cut.record["selection"]["version"] == "data-demand-public-selection-v1"
-    authorization = SelectedSourceSetEntry.from_selected_header(
-        authorization_header, authorization_cut
-    )
-    assert authorization.read.cut_id == authorization_cut.identity
-    source = next(
-        source
-        for source in journey.sources
-        if source.pin == fitted.calibration.grade.frame.coverage[0].source
-    )
-    selected = run_rich_admission(
-        journey,
-        fitted.calibration_readings,
-        authorization,
-        selected_source=source,
-        inference="actual-complete-reading-rich-admission",
-    )
+        assert authorization.read.cut_id == authorization_cut.identity
+        source = next(
+            source
+            for source in journey.sources
+            if source.pin == fitted.calibration.grade.frame.coverage[0].source
+        )
+        selected = run_rich_admission(
+            journey,
+            fitted.calibration_readings,
+            authorization,
+            selected_source=source,
+            inference="actual-complete-reading-rich-admission",
+        )
     decisions = selected.admission.reading_decisions
     assert len(decisions) == 4
     accepted = tuple(value for value in decisions if value.outcome == "accepted")
@@ -199,11 +198,6 @@ def test_actual_rich_admission_keeps_complete_reading_authority_separate_from_sc
     assert len(fields) == 4 and all(field["state"] == "present" for field in fields)
     assert {row["scientific_truth"] for row in page["rows"]} == {"not-established"}
 
-    refuse_grade_label_substitution(fitted, monkeypatch)
-    for attack in ("decision", "missing-cpu"):
-        refuse_rich_completion_substitution(
-            fitted, authorization, source, monkeypatch, attack=attack
-        )
     refuse_resolution_score_substitution(fitted, authorization, monkeypatch)
 
     # Current transitive source trust remains required after native admission;
@@ -232,79 +226,6 @@ def test_actual_rich_admission_keeps_complete_reading_authority_separate_from_sc
             )
             is False
         )
-
-
-def refuse_grade_label_substitution(fitted, monkeypatch):
-    """Preserve a real CPU receipt while changing a self-consistent typed label."""
-    from corpus_structure.evaluate.declared_record_policy import DdoRecordGrade
-    from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
-    from corpus_structure.semantic.data_operation_identity import (
-        decode_semantic_value,
-        semantic_value,
-    )
-    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-    from corpus_structure.semantic.record_policy import RecordAlgorithm
-
-    journey = fitted.journey
-    sources = tuple(
-        source
-        for source in journey.sources
-        if source.pin in {row.source for row in fitted.feature.grade.frame.coverage}
-    )
-    populations, references = retain_references(journey, sources, partition="development")
-    specification = fitted.feature_readings.specification.model_copy(
-        update={"algorithm": RecordAlgorithm(inverse_regularization=2.0)}
-    )
-    actual_retain = DataOperationStorage.retain_data_completion_intent
-    refused = []
-
-    def substitute(storage, payload):
-        if (
-            payload["completion"]["outputs"]
-            and payload["completion"]["outputs"][0]["role"] == "grade"
-        ):
-            altered = deepcopy(payload)
-            original = payload["completion"]
-            grade = DdoRecordGrade.from_selected_body(
-                decode_semantic_value(original["outputs"][0]["product"]["body"])
-            )
-            assert grade.frame.events
-            first, *rest = grade.frame.events
-            frame = grade.frame.model_copy(
-                update={"events": (first.model_copy(update={"correct": not first.correct}), *rest)}
-            )
-            changed = DdoRecordGrade.from_frame(frame)
-            altered["completion"]["outputs"][0]["product"]["body"] = semantic_value(
-                changed.model_dump(mode="python")
-            )
-            assert altered["completion"]["execution_evidence"] == original["execution_evidence"]
-            assert (
-                len(original["execution_evidence"]["cpu_receipts"])
-                == len(original["execution_evidence"]["cpu_replies"])
-                == 1
-            )
-            try:
-                return actual_retain(storage, altered)
-            except DBAPIError as error:
-                refused.append(error)
-                raise
-        return actual_retain(storage, payload)
-
-    with monkeypatch.context() as patch:
-        patch.setattr(DataOperationStorage, "retain_data_completion_intent", substitute)
-        with pytest.raises(NativeDemandExecutionError):
-            run_grade(
-                journey,
-                sources,
-                populations,
-                references,
-                specification,
-                fitted.feature_readings.resolved,
-                inference="actual-grade-label-substitution-refusal",
-            )
-    assert len(refused) == 1
-    assert getattr(refused[0].orig, "sqlstate", None) == "23514"
-    assert "actual CPU result and reference basis" in str(refused[0].orig)
 
 
 def refuse_resolution_score_substitution(fitted, authorization, monkeypatch):

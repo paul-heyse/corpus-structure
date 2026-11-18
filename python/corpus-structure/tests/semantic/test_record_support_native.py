@@ -25,29 +25,32 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
     rich_publication, monkeypatch
 ):
     from evaluate.declared_record_native_support import complete_policy_fit
+    from evaluate.declared_rich_native_journey_test_support import verify_completion_refusals
 
     from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 
     journey = rich_publication
-    fitted = complete_policy_fit(journey)
-    _, products, *_ = journey.selected_products(
-        journey.kernel.purpose("read"),
-        fitted.demand_id,
-        kind="https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization",
-    )
-    ((authorization, _),) = products
-    source = next(
-        source
-        for source in journey.sources
-        if source.pin == fitted.calibration.grade.frame.coverage[0].source
-    )
-    selected = publish_readings(
-        journey,
-        fitted.calibration_readings,
-        source=source,
-        authorization=authorization,
-        inference="actual-record-support",
-    )
+
+    with verify_completion_refusals(journey, monkeypatch):
+        fitted = complete_policy_fit(journey)
+        _, products, *_ = journey.selected_products(
+            journey.kernel.purpose("read"),
+            fitted.demand_id,
+            kind="https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization",
+        )
+        ((authorization, _),) = products
+        source = next(
+            source
+            for source in journey.sources
+            if source.pin == fitted.calibration.grade.frame.coverage[0].source
+        )
+        selected = publish_readings(
+            journey,
+            fitted.calibration_readings,
+            source=source,
+            authorization=authorization,
+            inference="actual-record-support",
+        )
     assert len(selected.admission.selected_reading_ids) == 2
     assert selected.admission.selected_fact_ids == ()
     page = query_publication(selected, SourceReadingsQuery(name="source_readings"), limit=1)
@@ -60,14 +63,6 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
     assert {
         Decimal(decode_semantic_value(row["reading"])["value"]["value"]["lexical"]) for row in rows
     } == {Decimal(12)}
-    from evaluate.declared_rich_native_journey_test_support import (
-        refuse_rich_completion_substitution,
-    )
-
-    for attack in ("decision", "missing-cpu"):
-        refuse_rich_completion_substitution(
-            fitted, authorization, source, monkeypatch, attack=attack
-        )
     with journey.kernel.engine.begin() as connection:
         for row in rows:
             assertion = row["assertion"]
