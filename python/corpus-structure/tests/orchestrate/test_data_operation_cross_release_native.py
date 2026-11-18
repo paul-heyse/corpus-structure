@@ -145,6 +145,17 @@ def test_two_admitted_releases_coalesce_and_use_original_basis_after_creating_de
             dict(demand_id=original_demand, reason="creating demand retired")
         )
 
+    if retained:
+        resolve_basis = NativeDemandExecutor._basis_context
+
+        def current_only(executor, release_id, runtime_id):
+            assert release_id != original.prepared.release_id, (
+                "native reconciliation resolved the retired executable capture"
+            )
+            return resolve_basis(executor, release_id, runtime_id)
+
+        monkeypatch.setattr(NativeDemandExecutor, "_basis_context", current_only)
+
     result = execute_data_demand(
         ddo_kernel.engine, demand, source_root=original.directory, database_capacity=6
     )
