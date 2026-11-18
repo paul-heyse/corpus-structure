@@ -1108,6 +1108,7 @@ class FittedJourney:
     calibration: SelectedGrade
     fitted: dict[str, Any]
     authorization: dict[str, Any]
+    authorization_product_id: str
     demand_id: str
     feature_readings: ReadingPopulation
     calibration_readings: ReadingPopulation
@@ -1249,6 +1250,7 @@ def complete_policy_fit(journey):
         calibration,
         fitted[0][1],
         authorization[0][1],
+        authorization[0][0]["id"],
         retained["demand_id"],
         feature_readings,
         calibration_readings,
