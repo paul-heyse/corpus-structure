@@ -22,7 +22,7 @@ producing archive, then create a current inspection task with that immutable dep
 Check the protected link, original match and source run at admission. A different integrated
 product over identical bytes is a decisive refusal control. Qualify original-image retrieval
 across the same release boundary. [Native request](../../../python/corpus-structure/src/corpus_structure/semantic/native_requests.py) ·
-[Fenced publication](../../../python/corpus-structure/src/corpus_structure/semantic/sql/pdf_observation.sql)
+[Fenced publication](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_observation_native.py)
 
 <a id="F02"></a>
 ## F02 · Provider role and selector authority
@@ -45,7 +45,7 @@ interpretation. Distinguish cancellation, provider refusal, unspecified completi
 or capped structures, provider-asserted blank and independently confirmed source blank.
 A mapper change can replay raw bytes. A change in actual inference inputs needs a new
 identity. [Receipt reuse](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_recognition.py) ·
-[Observation guards](../../../python/corpus-structure/src/corpus_structure/semantic/sql/pdf_observation.sql)
+[Observation guards](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_observation_native.py)
 
 <a id="F04"></a>
 ## F04 · Shared GPU and effective frame

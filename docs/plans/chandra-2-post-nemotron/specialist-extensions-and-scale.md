@@ -74,7 +74,7 @@ the identity routine serially verifies byte streams, constructs canonical
 records and folds them in order. The observation establishes the execution
 boundary. It does not identify the most expensive nested statement.
 [Protected validation owner](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_publication_native.py) ·
-[Logical identity implementation](../../../python/corpus-structure/src/corpus_structure/semantic/sql/pdf_record_logical_identity.sql)
+[Logical identity implementation](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_identity_frames_native.py)
 
 **Proposed.** Separate the comparator's two consumers before changing the
 publication contract. A routing or discovery study can freeze the sealed

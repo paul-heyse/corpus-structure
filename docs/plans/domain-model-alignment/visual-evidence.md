@@ -97,7 +97,7 @@ prove the same original, project, page and region. Separate raw
 recognition, mapping and publication settlement. Failure or cancellation
 keeps completed effects and exact recovery points visible.
 [Visual recovery and settlement](../../../python/corpus-structure/src/corpus_structure/semantic/visual_requests.py) ·
-[Native observation custody](../../../python/corpus-structure/src/corpus_structure/semantic/sql/pdf_observation.sql)
+[Native observation custody](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_observation_native.py)
 
 **Closure.** Interrupt after inference and resume mapping with provider
 artifacts unavailable. Observe no render or checkpoint preparation.
