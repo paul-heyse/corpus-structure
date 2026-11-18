@@ -14,7 +14,10 @@ from corpus_structure.semantic.data_operation_demands import (
     freeze_demand,
 )
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_service import execute_data_demand
+from corpus_structure.semantic.data_operation_service import (
+    DemandOperationSelection,
+    execute_data_demand,
+)
 from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.original_documents import acquire_original_document_selection
@@ -116,8 +119,9 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
         ]
         assert len(inputs) == 8 and {role.collection for role in inputs} == {"set"}
         selections = _default_profile_selections(kernel.model, (target,), {})
-        selections[producer] = selections[producer].model_copy(
-            update={"parameters": {"sections": list(source.sections), "membership": "descendants"}}
+        selections[producer] = DemandOperationSelection(
+            operation=producer,
+            parameters={"sections": list(source.sections), "membership": "descendants"},
         )
         graph = kernel.model.projection_graph(
             "selected-dependencies",
