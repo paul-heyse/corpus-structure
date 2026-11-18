@@ -49,7 +49,7 @@ def compare_generated_default(
             and bound["generated"]
             and inspected.computed is not None
             and declared.computed is not None
-            and str(inspected.computed.sqltext).strip() == bound["default"]
+            and str(inspected.computed.sqltext).strip() == bound["default"].strip()
             and inspected.computed.persisted == declared.computed.persisted
         ):
             return PriorityDispatchResult.STOP

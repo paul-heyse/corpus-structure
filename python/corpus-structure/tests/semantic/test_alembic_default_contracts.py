@@ -6,7 +6,7 @@ import pytest
 from alembic.autogenerate import produce_migrations
 from alembic.migration import MigrationContext
 from alembic.operations.ops import AlterColumnOp, ModifyTableOps
-from sqlalchemy import Column, Computed, Integer, MetaData, Table, Text, cast, column, func
+from sqlalchemy import Column, Computed, Integer, MetaData, Table, Text, case, cast, column, func
 from sqlalchemy.schema import CreateSchema
 
 from corpus_structure.semantic.alembic_defaults import compare_default, plugin
@@ -14,13 +14,16 @@ from corpus_structure.semantic.native_authoring import _declared_physical_catalo
 from corpus_structure.semantic.native_products import relation_descriptor
 
 
-def declaration(*, increment=1):
+def declaration(*, increment=1, multiline=False):
+    expression = column("input") + increment
+    if multiline:
+        expression = case((column("input").is_not(None), expression), else_=None)
     return Table(
         "sample",
         MetaData(),
         Column("invocation_key", Text, server_default=cast(func.gen_random_uuid(), Text)),
         Column("input", Integer),
-        Column("computed", Integer, Computed(column("input") + increment, persisted=True)),
+        Column("computed", Integer, Computed(expression, persisted=True)),
         schema="default_control",
     )
 
@@ -56,10 +59,11 @@ def compare(connection, relation, monkeypatch):
     return produce_migrations(context, relation.metadata)
 
 
+@pytest.mark.parametrize("multiline", [False, True])
 def test_equivalent_volatile_and_computed_defaults_have_no_ddl_or_warning(
-    semantic_bare_engine, monkeypatch
+    semantic_bare_engine, monkeypatch, multiline
 ):
-    selected = declaration()
+    selected = declaration(multiline=multiline)
     with semantic_bare_engine.begin() as connection:
         connection.execute(CreateSchema("default_control"))
         selected.create(connection)
