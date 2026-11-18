@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
 import duckdb
+from duckdb import col, count_all, when
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
@@ -414,17 +415,15 @@ def _inventory_verified_export(manifest, files) -> dict:
                     "semantic_inventory": "unsupported_projection_or_profile",
                 }
                 continue
-            db.from_parquet(str(file)).create_view("family", replace=True)
+            family = db.from_parquet(str(file))
             group = {
                 "input": "input_role",
                 "relation": "relation_kind",
                 "coverage": "outcome",
                 "mapping_report": "outcome",
             }[name]
-            count = "count(DISTINCT relation_id)" if name == "relation" else "count(*)"
-            counts = db.sql(
-                f'SELECT "{group}", {count} FROM family GROUP BY "{group}" ORDER BY "{group}"'
-            ).fetchall()
+            count = col("relation_id").n_unique() if name == "relation" else count_all()
+            counts = family.aggregate([col(group), count]).sort(col(group)).fetchall()
             detail: dict[str, Any] = {
                 "rows": manifest.families[name].rows,
                 "distribution": counts,
@@ -432,7 +431,7 @@ def _inventory_verified_export(manifest, files) -> dict:
             inventory[name] = detail
             if name == "input":
                 detail["bindings"] = _inventory_groups(
-                    db,
+                    family,
                     (
                         "input_role",
                         "input_task_id",
@@ -440,16 +439,16 @@ def _inventory_verified_export(manifest, files) -> dict:
                         "input_content_digest",
                     ),
                 )
-                detail["occurrences"] = db.sql(
-                    "SELECT input_ordinal,input_role,input_task_id,input_product_key,"
-                    "input_content_digest FROM family ORDER BY input_ordinal"
-                ).fetchall()
+                detail["occurrences"] = family.select(
+                    *(col(column) for column in (
+                        "input_ordinal", "input_role", "input_task_id", "input_product_key",
+                        "input_content_digest",
+                    ))
+                ).sort(col("input_ordinal")).fetchall()
             elif name == "relation":
-                detail["relation_count"] = db.sql(
-                    "SELECT count(DISTINCT relation_id) FROM family"
-                ).fetchall()[0][0]
+                detail["relation_count"] = family.aggregate([col("relation_id").n_unique()]).fetchall()[0][0]
                 detail["endpoints"] = _inventory_groups(
-                    db,
+                    family,
                     (
                         "relation_kind",
                         "endpoint_role",
@@ -461,19 +460,18 @@ def _inventory_verified_export(manifest, files) -> dict:
                 )
                 # The export selects one whole product. This is product membership,
                 # not a claim about an endpoint's membership in any narrower section.
-                detail["target_scope"] = db.execute(
-                    "SELECT CASE WHEN target_task_id=? AND target_product_key=? "
-                    "AND target_content_digest=? THEN 'own_product' ELSE 'external_product' END "
-                    "AS scope,count(*) FROM family GROUP BY scope ORDER BY scope",
-                    [
-                        manifest.publication.task_id,
-                        manifest.publication.product_key,
-                        manifest.publication.logical_digest,
-                    ],
-                ).fetchall()
+                own_product = (
+                    (col("target_task_id") == manifest.publication.task_id)
+                    & (col("target_product_key") == manifest.publication.product_key)
+                    & (col("target_content_digest") == manifest.publication.logical_digest)
+                )
+                scope = when(own_product).then("own_product").otherwise("external_product")
+                detail["target_scope"] = family.select(scope.alias("scope")).aggregate(
+                    [col("scope"), count_all()]
+                ).sort(col("scope")).fetchall()
             elif name == "coverage":
                 detail["scoped_outcomes"] = _inventory_groups(
-                    db,
+                    family,
                     (
                         "scope",
                         "coverage_family",
@@ -483,7 +481,7 @@ def _inventory_verified_export(manifest, files) -> dict:
                 )
             else:
                 detail["scoped_outcomes"] = _inventory_groups(
-                    db,
+                    family,
                     (
                         "input_index",
                         "input_task_id",
@@ -505,14 +503,12 @@ def _inventory_verified_export(manifest, files) -> dict:
     }
 
 
-def _inventory_groups(db, columns: tuple[str, ...]) -> dict:
+def _inventory_groups(family, columns: tuple[str, ...]) -> dict:
     """Fixed model projection dimensions; every repeated use contributes to the count."""
-    selected = ",".join('"' + name + '"' for name in columns)
+    expressions = [col(name) for name in columns]
     return {
         "columns": (*columns, "count"),
-        "rows": db.sql(
-            f"SELECT {selected},count(*) FROM family GROUP BY {selected} ORDER BY {selected}"
-        ).fetchall(),
+        "rows": family.aggregate([*expressions, count_all()]).sort(*expressions).fetchall(),
     }
 
 
@@ -543,25 +539,21 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
             if "input" not in lf:
                 result.update(comparable=False, reason="source comparability requires input family")
                 return result
-            db.from_parquet(str(lf["input"])).create_view("left_input")
-            db.from_parquet(str(rf["input"])).create_view("right_input")
             source_columns = (
-                "input_ordinal,input_role,input_task_id,input_product_key,input_content_digest"
+                "input_ordinal", "input_role", "input_task_id", "input_product_key",
+                "input_content_digest",
             )
-            different = db.sql(
-                f"SELECT {source_columns} FROM left_input "
-                f"EXCEPT ALL SELECT {source_columns} FROM right_input"
-            ).fetchall()
-            reverse = db.sql(
-                f"SELECT {source_columns} FROM right_input "
-                f"EXCEPT ALL SELECT {source_columns} FROM left_input"
-            ).fetchall()
+            projection = [col(name) for name in source_columns]
+            left_input = db.from_parquet(str(lf["input"])).select(*projection)
+            right_input = db.from_parquet(str(rf["input"])).select(*projection)
+            different = left_input.except_(right_input).limit(1).fetchall()
+            reverse = right_input.except_(left_input).limit(1).fetchall()
             if different or reverse:
                 result.update(comparable=False, reason="source input bindings differ")
                 return result
         for name in lf:
-            db.from_parquet(str(lf[name])).create_view("left_family", replace=True)
-            db.from_parquet(str(rf[name])).create_view("right_family", replace=True)
+            left_family = db.from_parquet(str(lf[name]))
+            right_family = db.from_parquet(str(rf[name]))
             # Provenance differs by product; all projected value columns retain exact multiplicity.
             excluded = {
                 "project_id",
@@ -578,9 +570,13 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
                 "projection_id",
             }
             columns = [
-                x for x in db.sql("SELECT * FROM left_family LIMIT 0").columns if x not in excluded
+                x for x in left_family.columns if x not in excluded
             ]
-            selected = ",".join('"' + x.replace('"', '""') + '"' for x in columns)
+            projection = [col(name) for name in columns]
+            left_values = left_family.select(*projection)
+            right_values = right_family.select(*projection)
+            removed = left_values.except_(right_values) if lm.pin == rm.pin else left_values
+            added = right_values.except_(left_values) if lm.pin == rm.pin else right_values
             result["differences"][name] = {
                 "columns": columns,
                 "left_pin": lm.pin.model_dump(),
@@ -588,17 +584,7 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
                 "correspondence": "same_product" if lm.pin == rm.pin else "none",
                 # Local occurrence IDs/ordinals establish no cross-product match.
                 # Without a declared correspondence, every record keeps its side's pin.
-                "removed": db.sql(
-                    f"SELECT {selected} FROM left_family "
-                    + (
-                        f"EXCEPT ALL SELECT {selected} FROM right_family"
-                        if lm.pin == rm.pin
-                        else ""
-                    )
-                ).fetchall(),
-                "added": db.sql(
-                    f"SELECT {selected} FROM right_family "
-                    + (f"EXCEPT ALL SELECT {selected} FROM left_family" if lm.pin == rm.pin else "")
-                ).fetchall(),
+                "removed": removed.fetchall(),
+                "added": added.fetchall(),
             }
     return result

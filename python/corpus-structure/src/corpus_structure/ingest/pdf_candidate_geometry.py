@@ -8,6 +8,7 @@ from itertools import chain
 from typing import Any
 
 import duckdb
+from duckdb import col, coalesce, count_all, fn, lit, star, when
 import pyarrow as pa
 
 from .pdf_candidate_source import CandidatePageSource, candidate_from_payload
@@ -92,9 +93,7 @@ class CandidateGeometry:
             if first is None:
                 return
             self.reader = pa.RecordBatchReader.from_batches(first.schema, chain((first,), batches))
-            self.connection.register("candidate_pages", self.reader)
-            self.connection.register(
-                "page_heights",
+            heights = self.connection.from_arrow(
                 pa.table(
                     {
                         "page_no": pa.array(sorted(page_nos), type=pa.int64()),
@@ -103,44 +102,44 @@ class CandidateGeometry:
                             type=pa.float64(),
                         ),
                     }
+                )
+            ).set_alias("h")
+            # Assign ordinals before geometry predicates and consume the single-pass
+            # Arrow input once into a connection-owned relation shared by both readers.
+            flattened = self.connection.from_arrow(self.reader).select(
+                col("page_no"), fn("unnest", col("candidates")).alias("candidate"),
+                (fn("generate_subscripts", col("candidates"), lit(1)) - 1).alias("candidate_index"),
+            ).set_alias("f")
+            numeric_boxes = flattened.join(
+                heights, col("f", "page_no") == col("h", "page_no")
+            ).select(
+                col("f", "page_no"), col("candidate_index"), col("candidate"), col("height"),
+                *(
+                    coalesce(
+                        col("candidate")[edge]["integer"].cast("DOUBLE"),
+                        col("candidate")[edge]["binary64"],
+                    ).alias(name)
+                    for edge, name in (
+                        ("left", "x_left"), ("right", "x_right"),
+                        ("top", "source_top"), ("bottom", "source_bottom"),
+                    )
                 ),
             )
-            # Ordinality is assigned to the original nested list before any geometry
-            # predicate. Tagged numbers become doubles only in this analytical projection.
-            self.connection.execute(
-                """
-                CREATE TEMP TABLE candidate_geometry AS
-                WITH flattened AS (
-                    SELECT page_no, unnest(candidates) AS candidate,
-                           generate_subscripts(candidates, 1) - 1 AS candidate_index
-                    FROM candidate_pages
-                ), numeric_boxes AS (
-                    SELECT f.*,
-                           coalesce(candidate.left.integer::DOUBLE,
-                                    candidate.left.binary64) AS x_left,
-                           coalesce(candidate.right.integer::DOUBLE,
-                                    candidate.right.binary64) AS x_right,
-                           coalesce(candidate.top.integer::DOUBLE,
-                                    candidate.top.binary64) AS source_top,
-                           coalesce(candidate.bottom.integer::DOUBLE,
-                                    candidate.bottom.binary64) AS source_bottom,
-                           h.height
-                    FROM flattened f JOIN page_heights h USING (page_no)
-                ), normalized AS (
-                    SELECT page_no, candidate_index, candidate, x_left, x_right,
-                           CASE WHEN candidate.origin = 'BOTTOMLEFT'
-                                THEN height - source_top ELSE source_top END AS top,
-                           CASE WHEN candidate.origin = 'BOTTOMLEFT'
-                                THEN height - source_bottom ELSE source_bottom END AS bottom
-                    FROM numeric_boxes
-                )
-                SELECT *, (x_left + x_right) / 2 AS center_x,
-                          (top + bottom) / 2 AS center_y,
-                          least(top, bottom) AS min_y,
-                          greatest(top, bottom) AS max_y
-                FROM normalized
-                """
-            ).complete()
+            normalized = numeric_boxes.select(
+                col("page_no"), col("candidate_index"), col("candidate"),
+                col("x_left"), col("x_right"),
+                *(
+                    when(col("candidate")["origin"] == "BOTTOMLEFT")
+                    .then(col("height") - col(source)).otherwise(col(source)).alias(edge)
+                    for source, edge in (("source_top", "top"), ("source_bottom", "bottom"))
+                ),
+            )
+            normalized.select(
+                star(), ((col("x_left") + col("x_right")) / 2).alias("center_x"),
+                ((col("top") + col("bottom")) / 2).alias("center_y"),
+                fn("least", col("top"), col("bottom")).alias("min_y"),
+                fn("greatest", col("top"), col("bottom")).alias("max_y"),
+            ).create("candidate_geometry")
             self.available = True
         except BaseException:
             self.close()
@@ -191,29 +190,30 @@ class CandidateGeometry:
                 )
         if not rows:
             return
-        self.connection.register("prose_boxes", pa.Table.from_pylist(rows, schema=_BOX_SCHEMA))
-        result = self.connection.sql(
-            """
-            WITH matches AS (
-                SELECT c.page_no, c.candidate_index, p.item_ref,
-                       any_value(c.candidate) AS candidate,
-                       any_value(c.top) AS top, any_value(c.bottom) AS bottom,
-                       list(DISTINCT [p.span_start, p.span_end]) AS spans
-                FROM candidate_geometry c JOIN prose_boxes p
-                  ON c.page_no = p.page_no
-                 AND p.left <= c.center_x AND c.center_x <= p.right
-                 AND p.top <= c.center_y AND c.center_y <= p.bottom
-                GROUP BY c.page_no, c.candidate_index, p.item_ref
-            )
-            SELECT page_no, candidate_index, item_ref,
-                   CASE WHEN match_count = 1 THEN candidate ELSE NULL END AS candidate,
-                   top, bottom, spans, match_count
-            FROM (
-                SELECT *, count(*) OVER (PARTITION BY page_no, candidate_index) AS match_count
-                FROM matches
-            ) ORDER BY page_no, candidate_index, item_ref
-            """
-        ).to_arrow_reader(batch_size=1024)
+        prose = self.connection.from_arrow(pa.Table.from_pylist(rows, schema=_BOX_SCHEMA)).set_alias("p")
+        geometry = self.connection.table("candidate_geometry").set_alias("c")
+        matches = geometry.join(
+            prose,
+            (col("c", "page_no") == col("p", "page_no"))
+            & (col("p", "left") <= col("c", "center_x"))
+            & (col("c", "center_x") <= col("p", "right"))
+            & (col("p", "top") <= col("c", "center_y"))
+            & (col("c", "center_y") <= col("p", "bottom")),
+        ).aggregate([
+            col("c", "page_no"), col("c", "candidate_index"), col("p", "item_ref"),
+            fn("any_value", col("c", "candidate")).alias("candidate"),
+            fn("any_value", col("c", "top")).alias("top"),
+            fn("any_value", col("c", "bottom")).alias("bottom"),
+            fn("list_distinct", fn("list", fn("list_value", col("p", "span_start"), col("p", "span_end")))).alias("spans"),
+        ])
+        counted = matches.select(
+            star(), count_all().over(partition_by=[col("page_no"), col("candidate_index")]).alias("match_count")
+        )
+        result = counted.select(
+            col("page_no"), col("candidate_index"), col("item_ref"),
+            when(col("match_count") == 1).then(col("candidate")).otherwise(None).alias("candidate"),
+            col("top"), col("bottom"), col("spans"), col("match_count"),
+        ).sort(col("page_no"), col("candidate_index"), col("item_ref")).to_arrow_reader(batch_size=1024)
         try:
             for batch in result:
                 for row in batch.to_pylist():
@@ -246,16 +246,16 @@ class CandidateGeometry:
             )
             for candidate in candidates
         ]
-        self.connection.register("cell_boxes", pa.Table.from_pylist(rows, schema=_BOX_SCHEMA))
-        result = self.connection.sql(
-            """
-            SELECT DISTINCT b.page_no, b.item_ref, b.index
-            FROM cell_boxes b JOIN candidate_geometry c
-              ON b.page_no = c.page_no
-             AND b.left < c.x_right AND c.x_left < b.right
-             AND b.top < c.max_y AND c.min_y < b.bottom
-            """
-        ).to_arrow_table()
+        boxes = self.connection.from_arrow(pa.Table.from_pylist(rows, schema=_BOX_SCHEMA)).set_alias("b")
+        geometry = self.connection.table("candidate_geometry").set_alias("c")
+        result = boxes.join(
+            geometry,
+            (col("b", "page_no") == col("c", "page_no"))
+            & (col("b", "left") < col("c", "x_right"))
+            & (col("c", "x_left") < col("b", "right"))
+            & (col("b", "top") < col("c", "max_y"))
+            & (col("c", "min_y") < col("b", "bottom")),
+        ).select(col("b", "page_no"), col("b", "item_ref"), col("b", "index")).distinct().to_arrow_table()
         keys = {(row["page_no"], row["item_ref"], row["index"]) for row in result.to_pylist()}
         return {
             candidate

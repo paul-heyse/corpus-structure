@@ -137,3 +137,55 @@ def test_source_process_transfer_reprepares_exact_schema_without_validator_handl
     assert transferred.payload_family.schema_digest == source.payload_family.schema_digest
     assert list(transferred.iter_pages()) == list(source.iter_pages())
     assert transferred.encoded(7).content == source.encoded(7).content
+
+
+@pytest.mark.parametrize("origin", ("TOPLEFT", "BOTTOMLEFT"))
+def test_geometry_relations_keep_ordinals_ambiguity_and_reader_lifetime(origin):
+    from collections import namedtuple
+    from types import SimpleNamespace
+
+    from corpus_structure.ingest.pdf_candidate_geometry import CandidateGeometry
+
+    class Box:
+        def __init__(self, left, right):
+            self.l, self.r, self.t, self.b = left, right, 0, 4
+
+        def to_top_left_origin(self, height):
+            assert height == 100
+            return self
+
+    def prose(left, right):
+        provenance = SimpleNamespace(page_no=7, bbox=Box(left, right), charspan=(0, 1))
+        return SimpleNamespace(label="text", children=[], prov=[provenance, provenance])
+
+    document = SimpleNamespace(pages={7: SimpleNamespace(size=SimpleNamespace(height=100))})
+    nodes = {
+        "a": prose(1, 3),
+        "b": prose(1, 2),
+        "table": SimpleNamespace(
+            data=SimpleNamespace(
+                table_cells=[SimpleNamespace(bbox=Box(1, 2)), SimpleNamespace(bbox=Box(3, 4))]
+            )
+        ),
+    }
+    Cell = namedtuple("Cell", "page_no table_ref cell_index")
+    selected, boundary = Cell(7, "table", 0), Cell(7, "table", 1)
+    candidates = page(7)
+    if origin == "BOTTOMLEFT":
+        candidates = replace(candidates, candidates=tuple(
+            replace(candidate, top=96, bottom=100, origin=origin)
+            for candidate in candidates.candidates
+        ))
+    with CandidateGeometry(document, InMemoryCandidatePageSource((candidates,)), {7}) as geometry:
+        matches = list(geometry.inline_matches(nodes, frozenset({"a", "b"})))
+        assert [(match.candidate_index, match.item_ref, match.match_count) for match in matches] == [
+            (1, "a", 2), (1, "b", 2), (2, "a", 1),
+        ]
+        assert [match.candidate for match in matches[:2]] == [None, None]
+        assert matches[2].candidate.text == "Ω"
+        assert all(match.spans == {(0, 1)} for match in matches)
+        assert geometry.intersecting_cells(nodes, {selected, boundary}) == {selected}
+        reader = geometry.inline_matches(nodes, frozenset({"a"}))
+        assert next(reader).candidate_index == 1
+        reader.close()
+        assert geometry.intersecting_cells(nodes, {selected}) == {selected}
