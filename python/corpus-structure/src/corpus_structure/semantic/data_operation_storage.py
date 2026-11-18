@@ -344,7 +344,8 @@ def native_protocol_sources(
         ),
         *operation_event_native_sources(target_metadata=target_metadata),
         SourceArtifact(
-            "native/data-operation-record-policy.sql", record_policy_native_sql().encode()
+            "native/data-operation-record-policy.sql",
+            record_policy_native_sql(target_metadata=target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-structural-admission.sql",
