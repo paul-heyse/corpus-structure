@@ -9,8 +9,11 @@ Start from the selected library family and repository objective. Read the releva
 owner and representative local consumers. A concrete codebase opportunity ID is optional.
 Use the [discovery and evidence guide](../../../docs/library_leverage/references/discovery-and-evidence.md)
 to distinguish release capabilities, dependency selection, installation, source observations and
-runtime evidence. Use prepared tools and existing records. Representative reads suffice when
-generated or installed evidence is unavailable.
+runtime evidence. Gather the mechanical facts with `uv run tooling library` (`baseline`,
+`selection`, `metadata`, `inventory`, `census`, `compare`, `overview`; the guide gives the run
+and what each result does and does not establish), and use existing records. The commands
+locate and count; interpretation stays with you. Representative reads suffice when generated or
+installed evidence is unavailable or the family is one the tool serves poorly.
 
 Maintain discovery briefings in the family's [library account](../../../docs/library_leverage/libraries/README.md#library-led-briefings).
 Use `briefing.md` as the entry point. It may contain the complete discovery or summarize and

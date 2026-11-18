@@ -19,6 +19,11 @@ Neither is a comparative preference. Choosing between options belongs to
 
 ## Library-led briefings
 
+Mechanical facts in a briefing (selection, installation, offered surface, written use) come from
+`uv run tooling library`. Cite the command line, the result's baseline revision and its coverage
+limits; the [guide](../references/discovery-and-evidence.md#gather-the-mechanical-facts-with-tooling-library)
+says what each result does and does not establish.
+
 The [spaCy and Lark text-characterization discovery](text-characterization/briefing.md) (2026-11-10)
 repeats the inquiry for maximal formal primary characterization, including sentence
 interpretation and ambiguity. Seven integrated topic briefings give feature-level judgments,

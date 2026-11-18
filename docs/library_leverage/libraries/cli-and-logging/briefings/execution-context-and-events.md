@@ -5,7 +5,9 @@
 > through [Git history](../../../../README.md#historical-recovery); they are not current execution entrypoints.
 
 **Discovery, 2026-11-10; benefits Proposed.** [Baseline and authority](../briefing.md).
-structlog26.1 is a researched candidate, not installed or selected for adoption.
+When this briefing was written structlog 26.1 was a researched candidate, not installed. It has
+since been adopted: the [2026-11-17 refresh](../briefing.md#baseline-and-evidence) lists the
+mechanisms in use. The analysis below is the 2026-11-10 reading and was not redone.
 
 ## Current producers, identities and consumers
 

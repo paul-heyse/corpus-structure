@@ -22,100 +22,89 @@ Record a scoped no-hit separately from unavailable metadata, excluded paths, par
 truncated output and unresolved joins. A briefing can proceed with representative source reads and
 release-matched references alone. State which questions still need the missing evidence.
 
-### Inspect dependency selection and installation
+## Gather the mechanical facts with `tooling library`
 
-From the selected project root, substitute a distribution name for the illustrative name below.
-The tree uses the default groups and discovered interpreter platform unless flags select another
-context. Use `--no-dev` to inspect the tree without the development group or `--universal` to
-examine the lock across platforms. State the context with the result. uv's tree JSON is a preview
-format suitable for ad hoc inspection.
+The `tooling` command ([ADR-0132](../../adr/0132-tooling-package.md)) supplies the facts that do
+not need judgment. It reads; it never imports the inspected package, runs the target
+interpreter, or writes into the repository. Each command returns one result that carries its own
+baseline (revision, dirty paths, project, interpreter, platform, lock digest) and coverage.
+`--json` gives the complete typed result; without it the output is a table on a terminal and
+plain lines when piped, with long coverage lists summarized.
 
-```sh
-uv tree --locked --offline --no-python-downloads --invert --package example-dist
-```
-
-In a prepared uv environment, pass the distribution and its suspected top-level import name
-separately. The metadata query reads the installed records without importing the target.
+A run for a family, from the repository root:
 
 ```sh
-uv run --locked --offline --no-sync --no-python-downloads python -B - example-dist example_pkg <<'PY'
-import sys
-from importlib import metadata
-
-distribution, import_name = sys.argv[1:]
-try:
-    installed = metadata.distribution(distribution)
-except metadata.PackageNotFoundError:
-    print(f"{distribution}: no distribution metadata in this interpreter")
-else:
-    print(installed.name, installed.version)
-    print("advertised extras:", installed.metadata.get_all("Provides-Extra", []))
-    for entry in sorted(installed.entry_points, key=lambda entry: (entry.group, entry.name)):
-        print("entry point:", entry.group, entry.name, entry.value)
-providers = metadata.packages_distributions().get(import_name)
-print(f"{import_name}: candidate distributions", providers or "unknown")
-PY
+uv run tooling library baseline
+uv run tooling library selection typer rich
+uv run tooling library metadata typer rich
+uv run tooling library inventory typer
+uv run tooling library census typer --scope python/corpus-structure/src
+uv run tooling library compare typer --scope python/corpus-structure/src
+uv run tooling library overview docs/libraries/python_introspection/typer.md
 ```
 
-[uv tree](https://docs.astral.sh/uv/reference/cli/#uv-tree) ·
-[Python distribution metadata](https://docs.python.org/3.14/library/importlib.metadata.html) ·
-[Python extras metadata](https://packaging.python.org/en/latest/specifications/core-metadata/#provides-extra-multiple-use)
+`--project PATH` and `--python PATH`, given before the command name, select another uv project
+or environment, such as an independently locked provider project. `selection` and `metadata`
+take distribution names; `inventory`, `census` and `compare` take top-level import names.
+`census` and `compare` require `--scope`: there is no default scope.
 
-### Inspect written Python imports
+| Evidence class | Command | What it establishes | What it does not |
+| --- | --- | --- | --- |
+| Dependency selection | `selection` | Whether the project's lock selects a distribution, directly or transitively, with paths, extras, groups and platform markers, across every platform | That the lock is fresh: it is read as it stands and reported as not verified. Run `uv lock --check` yourself when that matters |
+| Installation | `metadata` | Installed version, advertised against selected extras, entry points, project URLs, typing files, import names, and installed companions | Companions that are not installed |
+| Offered surface | `inventory` | Public symbols with the path users write and the path that declares them, signatures, and markers for deprecated, extension-point, configuration and extra-gated symbols; `--view package` lists environment variables and entry-point groups the package reads | Compiled modules without stubs and surfaces built at import time, which are reported as skipped |
+| Written use | `census` | Imports, calls with keyword names, subclasses, decorators and references, attributed through import aliases, with path and line | Uses through instances, repository subclasses, assignment aliases, star imports, `getattr`, dynamic imports and strings, which are listed as unresolved rows |
+| Offered against used | `compare` | Each offered symbol and parameter as `referenced`, `unreferenced in scope` or `unresolved`; unselected extras; unpopulated entry-point groups; deprecated APIs in use; written paths not in the inventory | Whether an unreferenced symbol matters: that is the agent's judgment |
+| Overview structure | `overview` | Parts and sections with line ranges, malformed headings, and the overview's stated version beside the installed one | The disposition of each section |
 
-Use the repository's Python interpreter to parse explicitly selected files when a text search
-cannot distinguish written imports from strings and comments. The command reports one source
-statement per match, including nested and conditional imports. It preserves multiline text and
-separates skipped inputs on stderr. Exit status 1 indicates incomplete coverage.
+The required distinctions map onto the result's coverage block: `no_hit_scopes` for a scoped
+no-hit, `unavailable_metadata`, `excluded`, `skipped_inputs` for parse failures and anything the
+tool could not examine, `unresolved` for what it examined and could not attribute, and
+`truncated` for bounded lists. `--strict` exits 1 when an input was skipped.
 
-```sh
-uv run --locked --offline --no-sync --no-python-downloads python -B - path/to/selected.py <<'PY'
-import ast
-import sys
-import tokenize
+Read `compare` with these limits in mind:
 
-incomplete = False
-for path in sys.argv[1:]:
-    try:
-        with tokenize.open(path) as stream:
-            source = stream.read()
-        tree = ast.parse(source, filename=path)
-    except (OSError, SyntaxError, UnicodeError) as error:
-        print(f"{path}: skipped ({error})", file=sys.stderr)
-        incomplete = True
-        continue
-    imports = (node for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom)))
-    for node in sorted(imports, key=lambda node: (node.lineno, node.col_offset)):
-        print(f"{path}:{node.lineno}: {ast.get_source_segment(source, node)}")
-sys.exit(int(incomplete))
-PY
-```
+- `unreferenced in scope` is a statement about the stated scope and about direct, attributable
+  reference. It is a candidate for an unused lead, not a finding.
+- `unresolved` is the honest answer for members of any class the code uses, since a method
+  called on an instance cannot be attributed. A family used mainly through instances, string
+  names, registries or grammars yields mostly unresolved rows; read its uses in context.
+- Tests and experiments are outside a scope unless you name them.
 
-For a one-off structural query, use the installed ast-grep CLI on selected paths. This example
-finds `from` statements, including multiline imports. Record the command, scope and tool version
-when matches inform a claim. Read candidates in context.
+Release capability and documented intent still come from the overviews, Context7 and
+release-matched primary sources; `metadata` gives the project URLs for the installed version.
+What ran still comes from existing records. Source reads remain the way to establish what is
+wired, conditional or delegated: the tool locates use, it does not interpret it.
 
-```sh
-ast-grep run --lang python --kind import_from_statement --json=stream path/to/selected.py
-```
+### Interpretive states
 
-[Python AST](https://docs.python.org/3.14/library/ast.html) ·
-[ast-grep run](https://ast-grep.github.io/reference/cli/run.html)
+The tool emits only mechanical states. When an account classifies a capability, use one
+vocabulary:
 
-### When a richer tool would help
+| State | Meaning |
+| --- | --- |
+| Used | The repository relies on the capability; cite a call site |
+| Underuse candidate | The library is used for the responsibility, and a capability it offers could serve more of it |
+| Unused lead | The capability is not used and a repository responsibility might benefit |
+| Conditional | Useful only if a stated condition holds |
+| Unresolved | Evidence does not settle whether or how it is used |
 
-- Consider a small read-only metadata helper if multiple briefings repeat the same extraction.
-  Preserve uv as the dependency selection authority.
-- Consider [ast-grep-py](../../libraries/python_introspection/ast-grep-py.md) if several related
-  structural queries repeatedly traverse the same snapshot. One `SgRoot` can support multiple
-  `find_all` queries. Compare grammar coverage and match semantics with the CLI first.
-- Consider [LibCST](../../libraries/python_introspection/libcst.md) first if lexical attribution of
-  aliased or shadowed names becomes a recurring problem. Its scope and qualified-name metadata
-  yield possible bindings. Retain ambiguity and qualify the exact release against repository syntax.
-- Consider [Tree-sitter](../../libraries/python_introspection/tree-sitter.md) for error recovery,
-  incremental reparsing or grammar-field queries across languages. Preserve recovered syntax as
-  partial evidence. Qualify the exact binding and grammar before relying on cancellation, given
-  the [recorded callback failure](../../design_review/evidence/2026-11-07_cli-typer-028/README.md).
+Existing accounts adopt this vocabulary at their next refresh.
+
+### When a targeted read is still needed
+
+- **Structural questions the census does not ask.** For a one-off shape, use the installed
+  ast-grep CLI on selected paths and record the command, scope and tool version:
+  `ast-grep run --lang python --kind import_from_statement --json=stream path/to/selected.py`.
+  Read candidates in context. [ast-grep run](https://ast-grep.github.io/reference/cli/run.html)
+- **Unresolved rows that matter to a lead.** Read the sites the census lists.
+- **Other languages and error recovery.**
+  [Tree-sitter](../../libraries/python_introspection/tree-sitter.md) remains the route for
+  grammar-field queries across languages. Qualify the exact binding and grammar before relying
+  on cancellation, given the
+  [recorded callback failure](../../design_review/evidence/2026-11-07_cli-typer-028/README.md).
+- **Families the tool serves poorly.** Representative source reads and release-matched
+  references remain sufficient. State which questions still lack evidence.
 
 ## Write the briefings
 
@@ -129,6 +118,8 @@ priorities across topics and identifies useful compositions. Focused briefings c
 analysis and enough context for selective reading. Across the discovery account, include:
 
 1. **Scope and evidence.** Objective, inspected baseline and selection, evidence used, and limits.
+   When facts come from `tooling library`, cite the command line and copy the result's baseline
+   revision and coverage limits; do not restate a count without its scope.
 2. **Capabilities and current use.** A map of relevant capabilities and representative uses,
    with links to original docs, local call sites, configuration or existing evidence. Include
    useful territory outside the current integration.

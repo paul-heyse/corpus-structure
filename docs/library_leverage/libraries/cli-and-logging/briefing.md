@@ -1,7 +1,7 @@
 # Agent CLI and diagnostics: integrated library discovery
 
-**Discovery, 2026-11-10; benefits Proposed.** Typer, Rich integrated with Typer,
-and structlog. The operator selected combined discovery across the whole agent journey,
+**Discovery, 2026-11-10; mechanical facts refreshed 2026-11-17; benefits Proposed.** Typer, Rich
+integrated with Typer, and structlog. The operator selected combined discovery across the whole agent journey,
 ending before contextual applicability assessment, comparative selection or implementation.
 
 ## Objective and authority
@@ -22,28 +22,57 @@ changes; this account neither schedules nor qualifies them.
 
 ## Baseline and evidence
 
+The mechanical facts below were regenerated on 2026-11-17 with `uv run tooling library`
+([guide](../../references/discovery-and-evidence.md#gather-the-mechanical-facts-with-tooling-library)).
+The overview reading, the topic briefings' source analysis and the research priorities are the
+2026-11-10 discovery and keep that date, except where this section says a fact changed.
+
 | Item | Inspected scope |
 | --- | --- |
-| Source | `0a384a64ef022fb3ce874ac9180a1a89ebb82061`, main, 2026-11-10 |
-| Worktree | Concurrent DMC changes to CLI output/failures/operations/schema/registry, typed reports, settings, semantic operations and tests; new research/interpretation commands and diagnostic artifacts. Inspected as provisional source, preserved; no qualification of those edits |
-| Environment | Root uv workspace, default groups; Linux x86_64/glibc2.39, Python3.14.10 |
-| Selected/installed | Direct Typer0.28.0 and Rich15.0.0, confirmed by distribution metadata and locked inverted dependency tree; Rich advertises the jupyter extra, which alone establishes no selection/use |
-| Candidate | structlog26.1.0 is the reference release; no structlog distribution in the prepared interpreter and no imports/declaration found in the searched application/operator paths |
-| Coverage | All three supplied overviews including addenda read end to end during planning; [coverage and conditional territory](coverage.md) |
-| Follow-up | Representative consumers and tests, installed Typer/Rich implementation and release-matched primary structlog documentation. Topic briefings distinguish source observations from proposed broader use |
+| Source | `f699005497d2876804516bea9cb1a59e273fa2b4`, main, 2026-11-17 (`baseline`); the 2026-11-10 analysis read `0a384a64ef022fb3ce874ac9180a1a89ebb82061` |
+| Worktree | 13 dirty paths from concurrent work at the refresh, none under the scanned scope's library use; not qualified |
+| Environment | Root uv workspace, `.venv`, CPython 3.14.10, linux-x86_64 |
+| Selected | Typer 0.28.0, Rich 15.0.0 and structlog 26.1.0 are each selected directly by `corpus-structure` (`selection`: every platform, default groups, lock read as it stands and not verified). Typer and Rich are also reached transitively, through 132 and 149 paths (Docling, spaCy, fastmcp and others); structlog through one |
+| Installed | The same three versions, each shipping `py.typed` (`metadata`). Rich advertises the `jupyter` extra, which is not selected; structlog and Typer advertise no selected extras |
+| Offered and used | `compare typer rich structlog --scope python/corpus-structure/src`: 785 files scanned, none skipped, pyrefly checked exactly the scope's 730 Python files; 2,467 offered symbols, 39 referenced, 1,690 unreferenced in scope, 738 unresolved; no deprecated API in use |
+| Coverage | All three supplied overviews including addenda read end to end during the 2026-11-10 planning; [coverage and conditional territory](coverage.md) |
 
-Metadata was read with `uv run --locked --offline --no-sync --no-python-downloads python -B`
-using `importlib.metadata.distribution`; selection with
-`uv tree --locked --offline --no-python-downloads --invert --package typer --package rich`.
-Both completed successfully on 2026-11-10. No target-package imports or synchronization were needed
-for metadata. Typer also arrives through Docling, spaCy and other dependencies; the root
-override documents the Docling Slim constraint. Independent provider/evidence project source
-was sampled separately; their environments and full lock graphs were not qualified.
+What changed since 2026-11-10:
 
-Source search covered `python/corpus-structure/src`, representative tests, `scripts`, `tools/evidence`
-and `services`. A scoped no-hit is not a runtime absence guarantee. The overview's older Typer0.27.3
-observations are not automatically 0.28.0 contracts. Existing November7 journey evidence retains
-its original date and scope; no runtime journey, provider run, benchmark or new probe occurred here.
+- **structlog is adopted.** The earlier account recorded it as a candidate with no installed
+  distribution and no imports. It is now a direct pin, imported by five product modules
+  (`cli/observations.py`, `cli/observation_logging.py`, `cli/exception_observations.py`,
+  `semantic/m1_products.py`, `methods/characterization_resources.py`). The census attributes
+  calls to `structlog.stdlib.ProcessorFormatter` (with `foreign_pre_chain`, `processors`,
+  `keep_exc_info`, `keep_stack_info`), `structlog.stdlib.ExtraAdder`,
+  `structlog.processors.JSONRenderer`, `TimeStamper` and `ExceptionRenderer`,
+  `structlog.tracebacks.ExceptionDictTransformer`, `structlog.wrap_logger`, and the
+  `structlog.contextvars` bind, merge and reset functions. Those are the mechanisms
+  [CLI-07](briefings/execution-context-and-events.md#cli-07) and
+  [CLI-08](briefings/execution-context-and-events.md#cli-08) named as candidates. Those two leads
+  are therefore **Used** in part; their counterconditions and the judgment of whether the
+  adopted configuration serves the agent were not re-examined here.
+- **Rich use is unchanged in kind.** The census finds `rich.text.Text`, `rich.table.Table`
+  (including `Table.grid`), `rich.console.Group`, `rich.syntax.Syntax`, `rich.tree.Tree` and a
+  `rich.console.Console` subclass. Every symbol of `rich.progress`, `rich.live`, `rich.layout`,
+  `rich.logging` and `rich.traceback` is unreferenced in scope, which agrees with the earlier
+  observation that no Live or Progress integration exists
+  ([CLI-09](briefings/execution-context-and-events.md#cli-09) remains an **Unused lead**).
+- **Typer:** `typer.Option` and `typer.Argument` carry nearly all direct references. Members of
+  `Typer` and of the context classes are unresolved, as members reached through instances
+  always are; read them in context before drawing on them.
+
+Limits of these facts. `unreferenced in scope` describes direct, attributable reference under
+`python/corpus-structure/src` only; tests, `scripts`, `tools/evidence`, `tooling` and `services`
+were outside this scope, where the 2026-11-10 source search had covered representative parts of
+them. Fifteen census rows reach no offered symbol (fourteen dynamic imports with computed module
+names, one member of a call result). At the refresh the inventory still counted demonstration
+names bound under `if __name__ == "__main__":` blocks in Rich as offered symbols, so the
+unreferenced total is inflated; the per-module facts above do not depend on them. The overviews
+describe Typer 0.27.3 against the installed 0.28.0 (`overview` reports the mismatch), so older
+observations are not automatically 0.28.0 contracts. Independently locked provider projects were
+not inspected. Existing November 7 journey evidence retains its original date and scope; no
+runtime journey, provider run, benchmark or new probe occurred here.
 
 ## Research priorities
 
@@ -55,7 +84,7 @@ its original date and scope; no runtime journey, provider run, benchmark or new 
 | CLI-04 | Extend bounded semantic report projections with exact identifiers, source excerpts and useful hierarchy | [Reporting](briefings/reporting-and-diagnostics.md#cli-04) |
 | CLI-05 | Make optional presentation compose safely with machine streams and current delivery semantics | [Reporting](briefings/reporting-and-diagnostics.md#cli-05) |
 | CLI-06 | Preserve actionable exception structure with one presentation owner per destination | [Reporting](briefings/reporting-and-diagnostics.md#cli-06) |
-| CLI-07 | Investigate structured events plus third-party stdlib logging only for a concrete diagnostic consumer | [Events](briefings/execution-context-and-events.md#cli-07) |
+| CLI-07 | Investigate structured events plus third-party stdlib logging only for a concrete diagnostic consumer (structlog since adopted; see the baseline) | [Events](briefings/execution-context-and-events.md#cli-07) |
 | CLI-08 | Correlate actual operation boundaries using scoped context and explicit process transfers | [Events](briefings/execution-context-and-events.md#cli-08) |
 | CLI-09 | Project meaningful progress and summaries from existing authoritative observations | [Events](briefings/execution-context-and-events.md#cli-09) |
 | CLI-10 | Reuse native capture/testing facilities while qualifying final streams and configuration lifetimes separately | [Events](briefings/execution-context-and-events.md#cli-10) |
