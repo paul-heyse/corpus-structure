@@ -41,6 +41,7 @@ def test_native_binding_source_closure_and_helper_syntax():
         "native/binding_scalar_native.py",
         "native/binding_primitives.py",
         "native/binding_operand_native.py",
+        "native/data_operation_model.py",
     }
     prepared = prepare_sql(binding_native_sql(), source="binding-test")
     names = []
@@ -884,3 +885,18 @@ def test_native_primitive_parameters_preserve_exact_meaning_and_required_policy(
             binding_native_connection.execute(query, values)
         message = {"display": "display differs", "missing": "missing frozen demand parameter absent", "default": "missing frozen demand parameter absent", "sequence": "typed sequence", "tag": "tag differs"}[case]
         assert message in str(refusal.value)
+
+
+@pytest.mark.parametrize("operand,expected_state,message", [
+    ({"kind": "unknown", "value_type": "primitive:string"}, "23514", "unsupported native binding operand unknown"),
+    ({"value_type": "primitive:string"}, "23514", "unsupported native binding operand <NULL>"),
+    ({"kind": "literal", "value_type": "primitive:string"}, "P0001", "missing typed native literal"),
+    ({"kind": "field", "field": {"role": "missing", "projection": "urn:item", "field": "value"}}, "P0002", "query returned no rows"),
+    ({"kind": "field", "field": {"role": "items", "projection": "other", "field": "value"}}, "P0001", "projection differs"),
+])
+def test_native_operand_refusals_preserve_policy(binding_native_connection, operand, expected_state, message):
+    query = text("SELECT ops.ddo_binding_values(CAST(:operand AS jsonb),CAST(:facts AS jsonb))")
+    with pytest.raises(DBAPIError) as refusal, binding_native_connection.begin_nested():
+        binding_native_connection.execute(query, {"operand": json.dumps(operand), "facts": json.dumps(context(2))})
+    assert getattr(refusal.value.orig, "sqlstate", None) == expected_state
+    assert message in str(refusal.value)

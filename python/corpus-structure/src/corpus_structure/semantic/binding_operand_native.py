@@ -1,8 +1,11 @@
 """Compile model-bound binding operands and their declared parameter admission."""
 
+from dataclasses import fields
+
 from sqlalchemy import Boolean, Column, Text, cast, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, aggregate_order_by, array
 
+from .data_operation_model import SubjectContext
 from .native_program import (
     Assign,
     Block,
@@ -14,6 +17,7 @@ from .native_program import (
     Perform,
     Raise,
     Return,
+    SelectInto,
     column_type,
     core_variable,
     function,
@@ -102,3 +106,98 @@ def binding_parameter_native_sql():
         Local("value", pg_type("jsonb")), Local("item", pg_type("jsonb")), Local("kind", pg_type("text")),
     ))
     return ";\n".join((roles, validate)) + ";\n"
+
+
+def binding_values_native_sql():
+    """Evaluate frozen operands without reselecting products or physical aliases."""
+    operand = core_variable("operand", JSONB())
+    context = core_variable("context", JSONB())
+    source = core_variable("source", Text())
+    kind = core_variable("kind", Text())
+    item = core_variable("item", JSONB())
+    roledef = core_variable("roledef", JSONB())
+    field = core_variable("field", JSONB())
+    raw = core_variable("raw", JSONB())
+    property_ = core_variable("property", JSONB())
+    result = core_variable("result", JSONB())
+    population = core_variable("population", JSONB())
+    expected = core_variable("expected", Text())
+    empty = cast(literal("[]"), JSONB())
+    roledefs = _elements(context["roledefs"], "declared_role")
+    kinds = _elements(context["model"]["kinds"], "declared_kind")
+    members = _elements(func.coalesce(context["roles"][field["role"].astext], empty), "role_member")
+
+    def collect(query, expression):
+        return ForQuery(("item",), query, (Assign("result", result.concat(func.jsonb_build_array(expression))),))
+
+    def values(value, *, typed=True):
+        convert = func.ops.ddo_binding_typed if typed else func.ops.ddo_binding_scalar
+        entries = _elements(value[1] if typed else value, "operand_item")
+        is_sequence = value[0].astext == "sequence" if typed else func.jsonb_typeof(value) == "array"
+        return If(is_sequence, (collect(select(entries.c.value), convert(item, kind)),), (
+            Assign("result", func.jsonb_build_array(convert(value, kind))),
+        ))
+
+    context_record = func.jsonb_build_object(*(
+        part for descriptor in fields(SubjectContext) for part in (
+            descriptor.name,
+            context[descriptor.name].astext if descriptor.name == "project_id" else (
+                item[descriptor.name] if descriptor.name == "analyzed_scope" else item[descriptor.name].astext
+            ),
+        )
+    ))
+    routine = _routine("ddo_binding_values", (("operand", "jsonb"), ("context", "jsonb")), (
+        If(source == "field", (
+            Assign("field", operand["field"]),
+            SelectInto(select(roledefs.c.value).where(roledefs.c.value["name"].astext == field["role"].astext), ("roledef",), strict=True),
+            _check((field["projection"].astext != roledef["kind"].astext) & ~select(kinds.c.value).where((kinds.c.value["semantic_id"].astext == roledef["kind"].astext) & (kinds.c.value["name"].astext == field["projection"].astext)).exists(), "native binding projection differs from qualified role"),
+            If(field["field"].astext.in_(("@product", "@member")), (
+                Assign("kind", func.ops.ddo_binding_type(context, func.coalesce(operand["value_type"].astext, "primitive:string"))),
+                _check(kind != "string", "native header binding field requires string type"),
+                collect(select(members.c.value), func.ops.ddo_binding_scalar(item[func.substr(field["field"].astext, 2)], kind)),
+                Return(result),
+            )),
+            If(field["field"].astext == "@context", (
+                _check(or_(operand["value_type"].astext.is_distinct_from("subject-context"), func.nullif(context["project_id"].astext, "").is_(None)), "native qualified context lacks project/type"),
+                collect(select(members.c.value), func.jsonb_build_array("subject-context", context_record)),
+                Return(result),
+            )),
+            SelectInto(select(kinds.c.value).where(kinds.c.value["semantic_id"].astext == roledef["kind"].astext.concat("/property/").concat(field["field"].astext)), ("property",), strict=True),
+            Assign("expected", property_["facts"]["json"]["range"].astext),
+            Assign("kind", func.ops.ddo_binding_type(context, func.coalesce(operand["value_type"].astext, expected))),
+            _check(operand.has_key("value_type") & (func.ops.ddo_binding_type(context, expected) != kind), "native binding field type differs"),
+            ForQuery(("item",), select(members.c.value), (
+                Assign("raw", func.data.ddo_field(item["meaning_body"], field["field"].astext)),
+                Assign("result", result.concat(func.jsonb_build_array(func.ops.ddo_binding_typed(raw, kind)))),
+            )),
+            Return(result),
+        )),
+        Assign("kind", func.ops.ddo_binding_type(context, operand["value_type"].astext)),
+        If(source == "literal", (
+            Assign("raw", operand["value"]["json"]),
+            _check(raw.is_(None), "missing typed native literal"),
+            values(raw),
+        ), (If(source == "parameter", (
+            _check(~context["parameters"].has_key(operand["name"].astext), "missing frozen native binding parameter"),
+            Assign("raw", func.data.ddo_field(context["parameter_meaning"], operand["name"].astext)),
+            If(raw.is_not(None), (values(raw), Return(result))),
+            _check(kind.in_(("float", "double")), "float demand parameter requires frozen typed meaning"),
+            Assign("raw", context["parameters"][operand["name"].astext]),
+            values(raw, typed=False),
+        ), (If(source == "population", (
+            Assign("population", context["populations"][operand["name"].astext]),
+            _check(or_(population.is_(None), population["complete"].astext.is_distinct_from("true")), "binding membership population is not closed"),
+            _check(func.coalesce(operand["population_projection"].astext, "member").is_distinct_from(func.coalesce(population["projection"].astext, "member")), "native population projection differs from frozen operand"),
+            If(operand["population_projection"].astext == "qualified-context", (
+                _check(kind != "subject-context", "native context population type differs"),
+                collect(select(_elements(population["members"], "population_member").c.value), func.jsonb_build_array("subject-context", item)),
+            ), (collect(select(_elements(population["members"], "population_member").c.value), func.ops.ddo_binding_scalar(item, kind)),)),
+        ), (Raise(func.format("unsupported native binding operand %s", func.coalesce(source, "<NULL>")), "23514"),)),)),)),
+        Return(result),
+    ), locals_=(
+        Local("source", pg_type("text"), operand["kind"].astext),
+        *(Local(name, pg_type("text")) for name in ("kind", "expected")),
+        *(Local(name, pg_type("jsonb")) for name in ("item", "roledef", "field", "raw", "property", "population")),
+        Local("result", pg_type("jsonb"), empty),
+    ))
+    return routine + ";\n"
