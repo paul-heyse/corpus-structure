@@ -402,6 +402,7 @@ def sql_function(
     parameters: tuple[Parameter, ...],
     returns: ast.TypeName,
     body: Expression,
+    table_columns: tuple[tuple[str, ast.TypeName], ...] = (),
     security_definer: bool = False,
     search_path: tuple[str, ...] = (),
     volatility: Literal["stable", "immutable", "volatile"] | None = None,
@@ -415,6 +416,7 @@ def sql_function(
         returns,
         "sql",
         _statement(body),
+        table_columns=table_columns,
         security_definer=security_definer,
         search_path=search_path,
         volatility=volatility,
@@ -434,10 +436,11 @@ def _routine(
     search_path: tuple[str, ...],
     volatility: Literal["stable", "immutable", "volatile"] | None,
     strict: bool,
+    table_columns: tuple[tuple[str, ast.TypeName], ...] = (),
 ) -> str:
     if security_definer and not search_path:
         raise ValueError("security definer function requires its declared search path")
-    names = tuple(item.name for item in parameters)
+    names = (*tuple(item.name for item in parameters), *tuple(name for name, _ in table_columns))
     if len(set(names)) != len(names):
         raise ValueError("native function requires distinct parameters")
     if names:
@@ -465,14 +468,24 @@ def _routine(
         ast.CreateFunctionStmt(
             replace=True,
             funcname=_names(schema, name),
-            parameters=tuple(
-                ast.FunctionParameter(
-                    name=parameter.name,
-                    argType=parameter.type_,
-                    defexpr=parameter.default,
-                    mode=enums.FunctionParameterMode.FUNC_PARAM_DEFAULT,
-                )
-                for parameter in parameters
+            parameters=(
+                *(
+                    ast.FunctionParameter(
+                        name=parameter.name,
+                        argType=parameter.type_,
+                        defexpr=parameter.default,
+                        mode=enums.FunctionParameterMode.FUNC_PARAM_DEFAULT,
+                    )
+                    for parameter in parameters
+                ),
+                *(
+                    ast.FunctionParameter(
+                        name=name,
+                        argType=type_,
+                        mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE,
+                    )
+                    for name, type_ in table_columns
+                ),
             )
             or None,
             returnType=returns,
