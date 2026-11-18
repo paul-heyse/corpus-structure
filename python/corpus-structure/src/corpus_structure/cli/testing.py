@@ -96,6 +96,8 @@ class UnresolvedNode(BaseModel):
 
 
 class UnresolvedCoverage(CoverageSummary):
+    after: int = 0
+    next_after: int | None = None
     limit: int
     selected: int
     available: int
@@ -103,6 +105,39 @@ class UnresolvedCoverage(CoverageSummary):
     ordering: Literal["node_id"] = "node_id"
     sanitized_identities: int
     items: list[UnresolvedNode]
+
+
+class ReviewSource(BaseModel):
+    head: str | None = None
+    identity_sha256: str | None = None
+
+
+class ReviewLane(BaseModel):
+    status: str
+    selected_count: int | None = None
+    context_sha256: str | None = None
+    reporting_complete: bool = False
+    native_observation: str | None = None
+    failure_counts: dict[str, int] = Field(default_factory=dict)
+    source: ReviewSource = Field(default_factory=ReviewSource)
+    python: str | None = None
+    versions: dict[str, str | None] = Field(default_factory=dict)
+    evidence_selection: str | None = None
+    native_host: str | None = None
+
+
+class ReviewAttempt(BaseModel):
+    id: str
+    outcome: str
+    stage: str
+    custody: Literal["settled", "unsettled"]
+    cleanup: Literal["unknown", "unresolved", "established"]
+    lanes: dict[str, ReviewLane]
+    next_action: str | None = None
+
+
+class TestReview(UnresolvedCoverage):
+    attempts: list[ReviewAttempt]
 
 
 class NativePytestLocation(BaseModel):
@@ -1100,12 +1135,26 @@ def coverage(
     json: JsonOpt = False,
     view: Annotated[Literal["unresolved"] | None, typer.Option()] = None,
     limit: Annotated[int | None, typer.Option(min=1, max=100)] = None,
+    after: Annotated[int, typer.Option(min=0)] = 0,
 ) -> None:
     """Compare attempts against the first result's required selection."""
-    if limit is not None and view is None:
-        raise typer.BadParameter("--limit requires --view unresolved", param_hint="--limit")
-    full = json and view is None
-    with result_boundary(json), ExitStack() as leases:
+    if (limit is not None or after) and view is None:
+        raise typer.BadParameter("--limit and --after require --view unresolved")
+    with result_boundary(json):
+        report = _coverage_report(ctx, results, full=json and view is None, view=view, limit=limit, after=after)
+        emit(report, json=json, render=lambda _: _render_coverage(report) if isinstance(report, CoverageSummary) else Text())
+
+
+def _coverage_report(
+    ctx: typer.Context,
+    results: list[str],
+    *,
+    full: bool,
+    view: Literal["unresolved", "review"] | None,
+    limit: int | None,
+    after: int = 0,
+) -> Coverage | CoverageSummary:
+    with ExitStack() as leases:
         store = result_store(ctx)
         for result in dict.fromkeys(results):
             leases.enter_context(store.lease(result))
@@ -1151,6 +1200,8 @@ def coverage(
                     view or "coverage",
                     "--limit",
                     str(size),
+                    "--after",
+                    str(after),
                     *args,
                     *selectors,
                     opened=opened,
@@ -1217,19 +1268,57 @@ def coverage(
                 next_actions=actions,
                 native_observations=summary["native_observations"],
             )
-            if view == "unresolved":
+            if view in {"unresolved", "review"}:
                 items = [UnresolvedNode.model_validate(item) for item in summary.get("items", [])]
                 report = UnresolvedCoverage(
                     **report.model_dump(),
                     limit=size,
+                    after=after,
+                    next_after=after + len(items) if after + len(items) < counts.unresolved else None,
                     selected=len(items),
                     available=counts.unresolved,
                     omitted=counts.unresolved - len(items),
                     sanitized_identities=_sanitize_nodes(items),
                     items=items,
                 )
-            emit(report, json=json, render=lambda _: _render_coverage(report))
-            return
+            if view == "review":
+                attempts = []
+                for manifest, receipts in zip(manifests, scopes, strict=True):
+                    lanes = {}
+                    for name in sorted(_required_lanes(manifest) | receipts.keys()):
+                        if name in receipts:
+                            raw = summary["receipt_states"][str(receipts[name][0])]
+                            lane = ReviewLane.model_validate(raw)
+                            lane.source.head = (
+                                _display_text(lane.source.head) if lane.source.head is not None else None
+                            )
+                            lane.python = _display_text(lane.python) if lane.python is not None else None
+                            lane.versions = {
+                                name: _display_text(value) if value is not None else None
+                                for name, value in lane.versions.items()
+                            }
+                            lanes[name] = lane
+                        else:
+                            lanes[name] = ReviewLane(
+                                status="running" if manifest.settled is None and manifest.stage == name
+                                else manifest.details.get("lanes", {}).get(name, "unavailable")
+                            )
+                    custody_settled = manifest.custody_settled() and manifest.id not in unsettled
+                    cleanup = (
+                        manifest.operation_account.cleanup if manifest.operation_account is not None
+                        else "established" if custody_settled else "unknown"
+                    )
+                    if manifest.id in unsettled and cleanup == "established":
+                        cleanup = "unresolved"
+                    attempts.append(ReviewAttempt(
+                        id=manifest.id, outcome=manifest.outcome, stage=manifest.stage,
+                        custody="settled" if custody_settled else "unsettled",
+                        cleanup=cleanup, lanes=lanes, next_action=actions.get(manifest.id),
+                    ))
+                return TestReview(
+                    **report.model_dump(), attempts=attempts,
+                )
+            return report
         summary = (
             _supervisor(
                 "classify",
@@ -1252,8 +1341,7 @@ def coverage(
         node_coverage = summary["required_node_coverage"]
         if missing:
             node_coverage["status"] = "unresolved"
-        emit(
-            Coverage(
+        return Coverage(
                 results=results,
                 status="incomplete" if missing else summary["status"],
                 node_coverage=node_coverage,
@@ -1262,9 +1350,46 @@ def coverage(
                 lane_selections=summary["lane_selections"],
                 attempt_outcomes=outcomes,
                 contexts=summary["contexts"],
-            ),
-            json=json,
         )
+
+
+@app.command("review")
+def review(
+    ctx: typer.Context,
+    results: Annotated[list[str], typer.Argument(min=1, metavar="ORIGINAL [ATTEMPT...]")],
+    limit: ReportLimit = _DEFAULT_LIMIT,
+    after: Annotated[int, typer.Option(min=0)] = 0,
+    json: JsonOpt = False,
+) -> None:
+    """Review required selection, attempt context, unresolved identities and custody."""
+    with result_boundary(json):
+        report = _coverage_report(ctx, results, full=False, view="review", limit=limit, after=after)
+        assert isinstance(report, TestReview)
+        emit(report, json=json, render=lambda _: _render_review(report))
+
+
+def _render_review(report: TestReview) -> Group:
+    attempts = Table()
+    attempts.add_column("Attempt / lane", overflow="fold")
+    attempts.add_column("Outcome / context", overflow="fold")
+    for attempt in report.attempts:
+        attempts.add_row(Text(attempt.id), _literal(
+            f"{attempt.outcome}; custody {attempt.custody}; cleanup {attempt.cleanup}"
+        ))
+        for name, lane in attempt.lanes.items():
+            context = lane.source.head or "source unavailable"
+            attempts.add_row(Text(name), _literal(
+                f"{lane.status}; selected {lane.selected_count}; {context}; "
+                f"{lane.python or 'Python unavailable'}; failures {lane.failure_counts}; "
+                f"native {lane.native_observation or 'unavailable'} ({lane.native_host or 'host unavailable'})"
+            ))
+            attempts.add_row(Text("Context"), _literal(
+                f"{lane.context_sha256 or 'unavailable'}; versions {lane.versions}"
+            ))
+    continuation = Text(
+        f"Continue with --after {report.next_after}" if report.next_after is not None else ""
+    )
+    return Group(_render_coverage(report), attempts, continuation)
 
 
 @app.command("scheduling")

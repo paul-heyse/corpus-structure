@@ -965,3 +965,84 @@ def test_observation_journal_is_ancillary_to_test_receipts_coverage_and_retry(tm
     assert journal.standing == "sealed" and journal.authentication_bytes > 0
     assert {item.kind for item in journal.rows} == {"invocation", "settlement"}
     assert store.deliver(original.id, None, None) == lane
+
+
+def test_managed_review_composes_attempt_standing_and_unresolved_pages(tmp_path):
+    store = ResultStore(tmp_path)
+    nodes = [f"tests/test_sample.py::test_case_{index}" for index in range(4)]
+    with store.operation("test", scope={"lane": "ordinary"}) as original:
+        lane = original.directory / "ordinary"
+        _receipt(lane, nodes, fail=True)
+        original.publish("ordinary", lane)
+        original.settle("failed", lanes={"ordinary": "failed"})
+    with store.operation("test.retry", scope={"lane": "ordinary"}) as repaired:
+        lane = repaired.directory / "ordinary"
+        _receipt(lane, nodes[:1], fail=False)
+        repaired.publish("ordinary", lane)
+        repaired.settle("passed", lanes={"ordinary": "passed"})
+    before = {item.id: store.show(item.id).model_dump() for item in (original, repaired)}
+    command = ["review", original.id, repaired.id, "--limit", "2", "--json"]
+    execution = _run(store, *command)
+    assert execution.returncode == 0
+    review = json.loads(execution.stdout)
+    expected = json.loads(_run(store, "coverage", original.id, repaired.id, "--view", "unresolved", "--limit", "2", "--json").stdout)
+    assert review["node_coverage"] == expected["node_coverage"]
+    assert review["node_coverage"]["required"] == 4
+    assert review["node_coverage"]["covered"] == 1
+    assert [item["nodeid"] for item in review["items"]] == nodes[1:3]
+    assert review["next_after"] == 2
+    assert review["attempts"][0]["outcome"] == "failed"
+    assert review["attempts"][0]["custody"] == "settled"
+    assert review["attempts"][0]["cleanup"] == "established"
+    assert review["attempts"][0]["lanes"]["ordinary"]["failure_counts"] == {"call": 4}
+    assert review["attempts"][0]["lanes"]["ordinary"]["source"]["head"] == "failed"
+    assert review["attempts"][0]["lanes"]["ordinary"]["selected_count"] == 4
+    assert review["attempts"][0]["lanes"]["ordinary"]["python"] is None
+    assert review["attempts"][0]["lanes"]["ordinary"]["context_sha256"] != review["attempts"][1]["lanes"]["ordinary"]["context_sha256"]
+    assert review["sources_differ"] is True
+    assert review["next_actions"] == expected["next_actions"]
+    second = json.loads(_run(store, *command, "--after", "2").stdout)
+    assert [item["nodeid"] for item in second["items"]] == nodes[3:]
+    assert second["next_after"] is None
+    assert "fixture-secret" not in execution.stdout
+    assert "custody" in _run(store, "review", original.id, repaired.id).stdout
+    assert before == {item.id: store.show(item.id).model_dump() for item in (original, repaired)}
+
+
+def test_managed_review_active_and_interrupted_without_receipts(tmp_path):
+    store = ResultStore(tmp_path)
+    with store.operation("test", scope={"lane": "ordinary"}) as active:
+        active.stage("ordinary")
+        view = json.loads(_run(store, "review", active.id, "--json").stdout)
+        assert view["node_coverage"]["status"] == "unavailable"
+        assert view["attempts"][0]["custody"] == "unsettled"
+        assert view["attempts"][0]["lanes"]["ordinary"]["status"] == "running"
+        assert view["attempts"][0]["next_action"] == f"ci results watch {active.id}"
+        active.defer_settlement()
+        active.settle("interrupted")
+    view = json.loads(_run(store, "review", active.id, "--json").stdout)
+    assert view["attempts"][0]["outcome"] == "interrupted"
+    assert view["attempts"][0]["custody"] == "unsettled"
+    assert view["attempts"][0]["next_action"] == f"ci results recover {active.id}"
+    absent = _run(store, "review", "absent", "--json", check=False)
+    assert absent.returncode != 0
+    assert json.loads(absent.stdout)
+
+
+@pytest.mark.parametrize("invalid", ["collection", "substituted"])
+def test_managed_review_rejects_inapplicable_or_tampered_artifacts(tmp_path, invalid):
+    store = ResultStore(tmp_path)
+    with store.operation("test.collect" if invalid == "collection" else "test", scope={"lane": "ordinary"}) as original:
+        lane = original.directory / "ordinary"
+        _receipt(lane, ["tests/test_sample.py::test_case"], fail=False)
+        original.publish("ordinary", lane)
+        original.settle("passed")
+    if invalid == "substituted":
+        moved = lane.with_name("substituted")
+        lane.rename(moved)
+        lane.symlink_to(moved, target_is_directory=True)
+    response = _run(store, "review", original.id, "--json", check=False)
+    assert response.returncode != 0
+    assert json.loads(response.stdout)
+    if invalid == "collection":
+        assert "collection-only" in response.stdout

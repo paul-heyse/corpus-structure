@@ -1424,13 +1424,15 @@ def _coverage_context(contexts: list[dict[str, Any]]) -> tuple[list[str], list[s
     return differences, unknowns
 
 
-def _coverage_projection(result: dict[str, Any], limit: int | None) -> dict[str, Any]:
+def _coverage_projection(
+    result: dict[str, Any], limit: int | None, after: int = 0, *, review: bool = False
+) -> dict[str, Any]:
     coverage = result["required_node_coverage"]
     required, unresolved = len(coverage["required"]), coverage["unresolved"]
     unresolved_set = set(unresolved)
     unsettled = set(result["unsettled_receipts"])
     differences, unknowns = _coverage_context(result["contexts"])
-    report = {
+    report: dict[str, Any] = {
         "status": result["status"],
         "node_coverage": {
             "status": coverage["status"],
@@ -1465,8 +1467,41 @@ def _coverage_projection(result: dict[str, Any], limit: int | None) -> dict[str,
                 "nodeid": node,
                 "observations": sorted(set(result["coverage"][node])),
             }
-            for node in unresolved[:limit]
+            for node in unresolved[after : after + limit]
         ]
+    if review:
+        for receipt in result["receipts"]:
+            invocation = receipt["invocation"] or {}
+            source = invocation.get("source")
+            report["receipt_states"][receipt["directory"]].update(
+                {
+                    "status": receipt["status"],
+                    "selected_count": len(receipt["selected"]),
+                    "context_sha256": hashlib.sha256(json.dumps(
+                        {"invocation": invocation, "native_contexts": receipt["native_contexts"]},
+                        sort_keys=True,
+                    ).encode()).hexdigest(),
+                    "reporting_complete": receipt["reporting_complete"],
+                    "native_observation": receipt["native_provenance"]["status"],
+                    "failure_counts": dict(
+                        Counter(event["phase"] for event, _ in _failure_events(receipt))
+                    ),
+                    "source": {
+                        "head": str(source["head"])[:512] if source and source.get("head") else None,
+                        "identity_sha256": hashlib.sha256(
+                            json.dumps(source, sort_keys=True).encode()
+                        ).hexdigest() if source is not None else None,
+                    },
+                    "python": str(invocation["python"])[:512] if invocation.get("python") else None,
+                    "versions": {
+                        name: str(version)[:128] if version is not None else None
+                        for name in _INVOCATION_PACKAGES
+                        if (version := (invocation.get("versions") or {}).get(name)) is not None
+                    },
+                    "evidence_selection": receipt["evidence_selection"],
+                    "native_host": invocation.get("native_host", "shared"),
+                }
+            )
     return report
 
 
@@ -2334,7 +2369,7 @@ def main(argv: list[str] | None = None) -> int:
     projection.add_argument("--summary", action="store_true")
     inspect.add_argument("--settled-receipts", action="store_true")
     projection.add_argument(
-        "--projection", choices=("coverage", "unresolved", "failures", "scheduling")
+        "--projection", choices=("coverage", "unresolved", "review", "failures", "scheduling")
     )
     inspect.add_argument("--limit", type=int, choices=range(101), default=20, metavar="N")
     inspect.add_argument("--phase", choices=_FAILURE_PHASES)
@@ -2388,7 +2423,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("native traceback requires a failure projection")
         if args.phase is not None and args.projection != "failures":
             parser.error("phase requires a failure projection")
-        if args.after < 0 or (args.after and args.projection not in {"failures", "scheduling"}):
+        if args.after < 0 or (args.after and args.projection not in {"failures", "scheduling", "unresolved", "review"}):
             parser.error("after requires a paginated projection and a nonnegative offset")
         if args.native_after < 0 or (
             (args.native_after or args.native_limit is not None) and args.projection != "failures"
@@ -2584,7 +2619,10 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             report = _coverage_projection(
-                result, args.limit if args.projection == "unresolved" else None
+                result,
+                args.limit if args.projection in {"unresolved", "review"} else None,
+                args.after,
+                review=args.projection == "review",
             )
         print(json.dumps(report))
     elif args.action == "classify" and args.summary:
