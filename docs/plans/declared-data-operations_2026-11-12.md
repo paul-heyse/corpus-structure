@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N8 with its matching application active at generation 9. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N9 with its matching application active at generation 10. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -266,6 +266,34 @@ selection `620154b496144b378ec12417752b7a58`, including freeze through seal and 
 predecessor reuse. The remaining projection replay control passed in
 `1f2871a72dc649f8af1647f5bda85ac8` after routing replay and changed membership inputs through the
 generated call. The refusal assertions still exercise PostgreSQL.
+
+### Typed PDF validation and DDO read bounds · 2026-11-17
+
+N9 generates PDF domain-input and operation admission, companion shape and field reads, final
+validation and sealing. The validator uses the captured PDF schema and projection policy. The
+DDL installer and the scope reader consume the same generated record-shape and field definitions.
+DDO binding roles, declared parameters and operand evaluation use the generated tables and current
+subject context. The read-boundary routines retain their ordered epoch locks and the existing
+defaults, strictness and snapshot semantics.
+
+The first [N9 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n9.yaml)
+candidate `538f79df3d894fb1878ce9f41cc96b8b` exposed a stale shape import and rolled back. After
+migrating the installer and context fixture, preview `5d799c38bd344c1490b3bd4793c0d3c1`, apply
+`1a88cf53838a428b8d68b55154b1c55d`, candidate `cefe0b53dbb5496aaee5ab03c936f746`, registration
+`f4265c8c8da5473ea0aa0d38c5fd6493` and native deployment `88962959ffc64da98cd88e58e9c842d5`
+passed. The candidate covered 28 native transitions with no ordinary or privilege operations.
+The integrated native selection passed all 65 in `d66a898a8bb946e483c085e45a0a00eb`.
+
+Matching application preview `b02b5788bd4346d699f87722c07eaccf`, apply
+`180b3309826e4821884b708bb25d8b46`, candidate `b596e1f183834e55bdaed201f043750c` and deployment
+`3add92d7c5b642599c5c5467a7c05179` passed for
+`release:73cff998d48d56e462e5a545aff7388f2a313224bd77516b8a40652c5777d8d5` and
+`runtime:4c67d27b08db8253ed4003982aa46d9cc687b2477d441eee7420b242036dca34`.
+Separate `ci db check` and `ci release check` passed on the owned stage. Activation from
+generation 9 to 10 passed and a further read confirmed the exact release, 15 PDF products,
+361 verified streams and 376 parts. Six publication journeys, including validation through seal,
+predecessor reuse, missing-check refusal and projection membership, passed in
+`ced70c4b8fb94fedb8a0b36879e5e774`.
 
 ## Production-efficiency integration · 2026-11-17
 
