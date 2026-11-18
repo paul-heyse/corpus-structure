@@ -10,6 +10,7 @@ from corpus_structure.semantic.source_discovery import (
 
 class SelectedSourceViewsOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "source.selected_views/discovery",
         "profile": "discovery",
         "subject": "original-document",

@@ -5,6 +5,7 @@ from typing import ClassVar
 
 class StructuralAdmission:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "structure.admit",
         "profile": "command",
         "subject": "actual-focus-source",

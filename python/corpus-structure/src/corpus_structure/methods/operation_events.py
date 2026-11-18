@@ -5,6 +5,7 @@ from typing import ClassVar
 
 class OperationEventFrame:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["operation-event"],
         "id": "operation_event.frame",
         "profile": "derivation",
         "subject": "fitted-operation-event",
@@ -150,6 +151,7 @@ class OperationEventFrame:
 
 class OperationEventFit:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["operation-event"],
         "id": "operation_event.fit",
         "profile": "derivation",
         "subject": "fitted-operation-event",
@@ -271,6 +273,7 @@ class OperationEventFit:
 
 class OperationEventAuthorization:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["operation-event"],
         "id": "operation_event.authorize",
         "profile": "command",
         "subject": "fitted-operation-event",

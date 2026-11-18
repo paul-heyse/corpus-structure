@@ -2369,6 +2369,7 @@ definitions:
     type: object
     properties:
       release_id: {$ref: '#/definitions/identifier'}
+      validity_only: {type: boolean}
     required: [release_id]
     additionalProperties: false
   inspect_data_operation_release_result:
@@ -2377,7 +2378,10 @@ definitions:
       release_id: {$ref: '#/definitions/identifier'}
       model_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
       native_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
-    required: [release_id, model_digest, native_digest]
+      conservative_operations:
+        type: array
+        items: {$ref: '#/definitions/identifier'}
+    required: [release_id, model_digest, native_digest, conservative_operations]
     additionalProperties: false
   inspect_data_execution_request:
     type: object

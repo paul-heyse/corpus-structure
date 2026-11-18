@@ -7,6 +7,7 @@ from corpus_structure.semantic.visual_requests import map_chandra_observation
 
 class ChandraMappingFamily:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "abstract": True,
         "id": "source.visual/map",
         "profile": "derivation",

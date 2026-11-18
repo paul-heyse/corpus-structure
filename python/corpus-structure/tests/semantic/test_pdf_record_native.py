@@ -159,13 +159,13 @@ def test_current_publication_uses_record_products_without_legacy_bridges():
 def test_private_native_foundations_and_constraints(commit_db_engine):
     from hashlib import sha256
 
-    from corpus_structure.semantic.execution_admission import _verify_deployment_functions
+    from corpus_structure.semantic.execution_admission import verify_deployment_functions
     from corpus_structure.semantic.pdf_records import iter_native_records
 
     tables = record_tables()
     binding = header_binding(commit_db_engine)
     with commit_db_engine.begin() as conn:
-        _verify_deployment_functions(conn)
+        verify_deployment_functions(conn)
         assert (
             conn.execute(text("SELECT version_num FROM semantic_alembic_version")).scalar_one()
             == head_revision()

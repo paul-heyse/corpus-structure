@@ -211,6 +211,7 @@ class OperationEventScore:
     """Declared score owner with its original static native acquisition method."""
 
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["operation-event"],
         "id": "urn:corpus:operation:score-operation-event",
         "profile": "derivation",
         "subject": "fitted-operation-event",

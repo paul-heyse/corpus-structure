@@ -245,7 +245,7 @@ class CompiledModel:
 
     def physical(self, root: str = "physical.yaml", *, target: str = "semantic") -> MetaData:
         def build():
-            from corpus_structure.schema.model import ModelError
+            from corpus_structure.schema.declarations import ModelError
             from corpus_structure.schema.physical import (
                 physical_model_documents,
                 physical_source_closure,

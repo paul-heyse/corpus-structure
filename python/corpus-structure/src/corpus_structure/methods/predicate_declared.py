@@ -7,6 +7,7 @@ from corpus_structure.semantic.predicate_products import execute_predicate_profi
 
 class PredicateEvidenceOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "structure.predicate_evidence/declared",
         "profile": "derivation",
         "subject": "original-source-view",

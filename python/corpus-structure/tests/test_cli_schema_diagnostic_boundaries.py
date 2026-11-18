@@ -11,8 +11,7 @@ from corpus_structure.semantic.refusals import SemanticRefusal
 
 @pytest.fixture(scope="module")
 def toy_preparation():
-    from corpus_structure.schema.pack import DOMAINS
-    from corpus_structure.semantic.regeneration import acquire_packs, prepare_release
+    from corpus_structure.semantic.regeneration import DOMAINS, acquire_packs, prepare_release
 
     bundle, dependencies, profile = acquire_packs((DOMAINS / "toy",))
     return bundle, dependencies, profile, prepare_release(bundle, dependencies, profile)

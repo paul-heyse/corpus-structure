@@ -32,6 +32,7 @@ from semantic.data_operation_declaration_support import contract, declarations
 
 
 def operation(**changes):
+    changes = {"validity_family": ["none"], **changes}
     value = contract(**changes)
     value["capabilities"] = {
         **value["capabilities"],
@@ -121,6 +122,63 @@ def test_release_preparation_uses_the_captured_vocabulary():
     assert prepared.release_id != original.release_id
 
 
+def test_replacing_operation_inputs_preserves_exact_captured_grammar():
+    from corpus_structure.schema.operation_declarations import (
+        captured_declaration_model,
+        declaration_sources,
+    )
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+
+    changed = changed_model(
+        "operation-vocabularies.yaml",
+        lambda value: value["enums"]["Ownership"]["permissible_values"].update(captured={}),
+    )
+    original = data_operation_dependencies(
+        ResolvedDependencies(), declarations(operation()), declaration_model=changed
+    )
+    retained = ResolvedDependencies(
+        tuple(item for item in original.artifacts if not item.name.startswith("data-operations/"))
+    )
+    replacement = operation(parameters={"revision": "replacement"})
+    replacement["capabilities"]["ownership"] = "captured"
+    recomposed = data_operation_dependencies(retained, declarations(replacement))
+    assert (
+        tuple(item for item in recomposed.artifacts if item in retained.artifacts)
+        == retained.artifacts
+    )
+    assert retained.artifacts == declaration_sources(changed)
+    decoded = read_data_operation_inputs(recomposed)
+    assert decoded is not None
+    supplied, _ = decoded
+    model = compile_data_operations(
+        declarations=supplied,
+        declaration_model=captured_declaration_model(recomposed.artifacts),
+    )
+    assert model.diagnostics == ()
+    assert model.operations[0].parameters == b'{"revision":"replacement"}'
+    # Explicitly supplying the same grammar does not duplicate the capture.
+    assert (
+        data_operation_dependencies(
+            retained, declarations(replacement), declaration_model=changed
+        ).artifacts
+        == recomposed.artifacts
+    )
+    with pytest.raises(ValueError, match="conflicts with captured"):
+        data_operation_dependencies(
+            retained, declarations(replacement), declaration_model=running_model()
+        )
+
+
+@pytest.mark.parametrize("malformation", ["partial", "duplicate"])
+def test_recomposition_refuses_malformed_captured_grammar(malformation):
+    from corpus_structure.schema.operation_declarations import declaration_sources
+
+    sources = declaration_sources()
+    malformed = sources[:-1] if malformation == "partial" else (*sources, sources[0])
+    with pytest.raises(ValueError, match="exactly the operation declaration grammar"):
+        data_operation_dependencies(ResolvedDependencies(malformed), declarations(operation()))
+
+
 def test_recommended_validity_warning_has_one_nonrefusing_owner():
     changed = changed_model(
         "operation-declarations.yaml",
@@ -128,9 +186,9 @@ def test_recommended_validity_warning_has_one_nonrefusing_owner():
             "validity_family"
         ].update(recommended=True),
     )
-    missing = compile_data_operations(
-        declarations=declarations(operation()), declaration_model=changed
-    )
+    absent = operation()
+    absent.pop("validity_family")
+    missing = compile_data_operations(declarations=declarations(absent), declaration_model=changed)
     assert [(item.code, item.outcome) for item in missing.diagnostics] == [
         ("validity_undetermined", "advisory")
     ]
@@ -138,7 +196,6 @@ def test_recommended_validity_warning_has_one_nonrefusing_owner():
         declarations=declarations(operation(validity_family=["none"])), declaration_model=changed
     )
     assert explicit.diagnostics == ()
-    # The claim rollout remains UDM-05's: current existing declarations are not warned early.
     assert compile_data_operations(declarations=declarations(operation())).diagnostics == ()
 
 
@@ -323,3 +380,139 @@ def test_pdf_capture_and_native_contract_share_one_outcome_vocabulary():
         }
         for name, slot in slots:
             assert view.induced_slot(slot, name).range == "PdfObservationOutcome"
+
+
+def test_validity_claim_is_definition_meaning_and_excluded_from_recipe():
+    explicit = compile_data_operations(declarations=declarations(operation()))
+    claimed = compile_data_operations(
+        declarations=declarations(operation(validity_family=["definition", "contextual"]))
+    )
+    left, right = explicit.operations[0], claimed.operations[0]
+    assert right.validity.families == ("contextual", "definition")
+    assert right.validity.conservative is False
+    assert left.recipe == right.recipe
+    assert left.definition != right.definition
+    from corpus_structure.semantic.data_operation_model import read_effective_data_operations
+
+    assert read_effective_data_operations(claimed.content).operations[0].validity == right.validity
+
+
+@pytest.mark.parametrize(
+    "claim", [["none", "contextual"], ["undetermined", "contextual"], [], ["rich", "rich"]]
+)
+def test_validity_claim_rejects_inconsistent_sets(claim):
+    with pytest.raises(PreparationError, match="validity_family"):
+        compile_data_operations(declarations=declarations(operation(validity_family=claim)))
+
+
+def test_validity_claim_enforces_declared_requirements():
+    with pytest.raises(PreparationError, match="requires profile"):
+        compile_data_operations(
+            declarations=declarations(
+                operation(profile="discovery", validity_family=["definition"])
+            )
+        )
+
+
+def test_explicit_undetermined_and_provisional_have_one_advisory():
+    unknown = compile_data_operations(
+        declarations=declarations(operation(validity_family=["undetermined"]))
+    )
+    assert unknown.operations[0].validity.conservative
+    assert [item.code for item in unknown.diagnostics] == ["validity_undetermined"]
+    changed = changed_model(
+        "operation-vocabularies.yaml",
+        lambda value: value["enums"]["ValidityFamily"]["permissible_values"].update(
+            future={"status": "provisional"}
+        ),
+    )
+    pending = compile_data_operations(
+        declarations=declarations(operation(validity_family=["future", "definition"])),
+        declaration_model=changed,
+    )
+    assert pending.operations[0].validity.families == ("definition",)
+    assert pending.operations[0].validity.conservative
+    assert [item.code for item in pending.diagnostics] == ["validity_family_provisional"]
+
+
+def test_requested_operation_closure_preserves_dependencies_and_alternatives():
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    selected = (
+        operation(id="root", dependencies=["dependency"], potential_dependencies=["alternative"]),
+        operation(id="dependency"),
+        operation(id="alternative"),
+        operation(id="unrelated"),
+    )
+    model = compile_data_operations(
+        declarations=declarations(*selected),
+        captured_contracts=(SourceArtifact("operation-selection.json", canonical_bytes(["root"])),),
+    )
+    assert {item.semantic_id for item in model.operations} == {"root", "dependency", "alternative"}
+    with pytest.raises(PreparationError, match="outside captured"):
+        compile_data_operations(
+            declarations=declarations(*selected),
+            captured_contracts=(
+                SourceArtifact("operation-selection.json", canonical_bytes(["missing"])),
+            ),
+        )
+
+
+def test_existing_validity_declarations_match_the_reviewed_n29_memberships():
+    expected = {
+        "record-grade": {"record_policy.grade"},
+        "record-fit": {"record_policy.fit"},
+        "operation-event": {
+            "operation_event.frame",
+            "operation_event.fit",
+            "operation_event.authorize",
+            "urn:corpus:operation:score-operation-event",
+        },
+        "contextual": {
+            "retrieve.contextual_query/declared",
+            "retrieve.contextual_query/selected-context",
+            "retrieve.contextual_target_vector/declared",
+            "retrieve.contextual_vectors/selection",
+            "retrieve.contextual_targets/curated",
+            "retrieve.contextual_targets/components",
+            "retrieve.contextual_target/declared",
+            "retrieve.contextual_inventory/declared",
+            "retrieve.contextual_scores/declared",
+            "retrieve.contextual/declared",
+            "retrieve.contextual_witnesses/declared",
+            "retrieve.contextual/with-witnesses",
+        },
+        "definition": {
+            "structure.definition_applicability/declared",
+            "structure.definition_declaration_components/declared",
+            "structure.definition_components/declared",
+            "structure.definition_named_components/declared",
+        },
+        "artifact": {"structure.artifact_identity/declared"},
+        "rich": {
+            "rich.admit",
+            "rich.consolidate",
+            "prepare.external_extraction",
+            "locate.external_extraction",
+        },
+    }
+    actual = {family: set() for family in expected}
+    root = Path(__file__).parents[2] / "src" / "corpus_structure"
+    for path in root.rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.Dict):
+                continue
+            try:
+                record = ast.literal_eval(node)
+            except ValueError, TypeError:
+                continue
+            if (
+                not isinstance(record, dict)
+                or not {"id", "profile", "capabilities", "behavior"} <= record.keys()
+            ):
+                continue
+            claim = record["validity_family"]
+            if claim != ["none"]:
+                assert len(claim) == 1
+                actual[claim[0]].add(record["id"])
+    assert actual == expected

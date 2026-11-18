@@ -13,6 +13,7 @@ from corpus_structure.semantic.source_products import FrozenNativeSource
 
 class ComposeFullDocumentOperation(PreparedCompositionReceiver):
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.compose_view/full-native",
         "profile": "derivation",
         "subject": "original-document",

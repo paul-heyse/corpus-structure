@@ -15,7 +15,7 @@ from typing import Any, cast
 import pytest
 import yaml
 
-from corpus_structure.schema.generate import _format
+from corpus_structure.schema.code_generation import _format
 from corpus_structure.semantic import _data_operation_wire
 from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestsRequest
 from corpus_structure.semantic.data_operation_artifacts import compile_data_operation_artifacts

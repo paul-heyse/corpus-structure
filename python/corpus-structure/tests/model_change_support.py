@@ -1,29 +1,21 @@
 """One temporary canonical model checkout for controlled and native CLI consumers."""
 
 import subprocess
+from pathlib import Path
 
 import pytest
 
-from corpus_structure.schema import model, preparation
+from corpus_structure.schema import preparation
 
 
 @pytest.fixture
 def model_checkout(tmp_path):
     location = tmp_path / preparation.MODEL_PATH
     location.mkdir(parents=True)
-    for name in ("core.yaml", "system.yaml", "revisions.yaml"):
-        (location / name).write_bytes((model.MODEL_DIR / name).read_bytes())
     (location / "semantic").mkdir()
-    from corpus_structure.schema.physical import physical_source_closure
-
-    semantic = model.MODEL_DIR / "semantic"
-    physical_sources = physical_source_closure(
-        "physical.yaml", lambda name: (semantic / name).read_bytes()
-    )
-    from corpus_structure.semantic.data_operation_storage import native_logical_sources
-
-    for name, content in (physical_sources | native_logical_sources()).items():
-        (location / "semantic" / name).write_bytes(content)
+    semantic = Path(preparation.__file__).resolve().parents[1] / "model" / "semantic"
+    for source in semantic.glob("*.yaml"):
+        (location / "semantic" / source.name).write_bytes(source.read_bytes())
     from corpus_structure.semantic.migrations import ALEMBIC_DIR
 
     migrations = tmp_path / preparation.PACKAGE_PATH.parents[1] / ALEMBIC_DIR.name
@@ -55,14 +47,14 @@ def current_native_model_checkout(model_checkout):
     """Review the exact current owners in a private native model workspace."""
     import shutil
 
-    from corpus_structure.schema import generate
+    package = Path(preparation.__file__).resolve().parents[1]
 
     root, _ = model_checkout
     # Review exactly the production owners, without a second implementation or
     # historical migration checkout. The loaded code and captured files agree.
     for name in ("semantic", "schema", "model"):
         shutil.copytree(
-            generate.PACKAGE / name,
+            package / name,
             root / preparation.PACKAGE_PATH / name,
             dirs_exist_ok=True,
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),

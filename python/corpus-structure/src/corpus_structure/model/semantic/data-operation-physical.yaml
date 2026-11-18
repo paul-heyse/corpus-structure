@@ -3,7 +3,7 @@ name: data_operation_physical
 prefixes:
   linkml: https://w3id.org/linkml/
   ph: https://corpus-structure.org/physical/
-imports: [linkml:types]
+imports: [linkml:types, operation-vocabularies]
 default_range: string
 enums:
   DataOperationHistoricalFate:
@@ -85,7 +85,8 @@ classes:
       definition_identity: {range: string, required: true}
       eligibility_identity: {range: string, required: true}
       quantified: {range: boolean, required: true}
-      validity_family: {range: string, required: false}
+      validity_families: {range: ValidityFamily, multivalued: true, required: true}
+      validity_conservative: {range: boolean, required: true}
       command_class: {range: string, required: false}
       dependencies: {range: json_payload, required: true}
     unique_keys:
@@ -117,6 +118,7 @@ classes:
     annotations:
       ph:frontier_guard: exempt
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:indexes: {"tag":"ph:indexes","value":[{"columns":["project_id","scope"]}]}
       ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_trust_scope_physical_33d5efbd04","predicate":{"op":"ge","args":[{"field":"epoch"},{"value":0}]}}]}
   data_demand:
     in_subset: [ops]

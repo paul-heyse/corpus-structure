@@ -680,7 +680,7 @@ def native_candidate_(
 
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.output import state
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_change import NativeIntent, native_intent
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.prepared_sql import SQLSyntaxError

@@ -5,6 +5,7 @@ from typing import ClassVar
 
 class RichKnowledgeConsolidation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["rich"],
         "id": "rich.consolidate",
         "profile": "derivation",
         "subject": "knowledge-universe",
@@ -272,6 +273,7 @@ class RichKnowledgeConsolidation:
 
 class RichKnowledgeAdmission:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["rich"],
         "id": "rich.admit",
         "profile": "command",
         "subject": "knowledge-universe",

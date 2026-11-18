@@ -52,7 +52,8 @@ from .native_program import (
     pg_type,
     sql_function,
 )
-from .record_policy_authority import GRADE_FACTORY, GRADE_KIND, GRADE_OPERATION
+from .record_policy_authority import GRADE_KIND, GRADE_OPERATION
+from .validity_programs import selected_family
 
 _PROTECTED_GRADES = (GRADE_OPERATION, "record_policy.fit", "record_policy.authorize")
 _READING = "resolve.m1_readings/declared"
@@ -531,7 +532,10 @@ def _request_cut_programs(model):
     operation, project, binding = (
         _field("r", requests, field) for field in ("operation_id", "project_id", "binding")
     )
-    skip = If(operation.is_distinct_from(GRADE_OPERATION), (Return(),))
+    skip = If(
+        ~selected_family(model, _field("r", requests, "release_id"), operation, "record-grade"),
+        (Return(),),
+    )
     specification, references, selection, question = (
         core_variable(name, JSONB())
         for name in ("specification", "references_", "selection_", "question_")
@@ -699,7 +703,15 @@ def _request_cut_programs(model):
                 CatchDependencyInvalidity(
                     (
                         *acquired,
-                        If(operation.is_distinct_from(GRADE_OPERATION), (Return(literal(True)),)),
+                        If(
+                            ~selected_family(
+                                model,
+                                _field("r", requests, "release_id"),
+                                operation,
+                                "record-grade",
+                            ),
+                            (Return(literal(True)),),
+                        ),
                         SelectInto(
                             _rows(
                                 intents,
@@ -1442,7 +1454,10 @@ def _completion_programs(model):
     factory = declared_kind["capabilities"]["prepared_factory"]
     implementation = _field("definition", definitions, "implementation_revision")
     arguments = (("r", "ops.data_request"), ("completion", "jsonb"))
-    skip = If(operation.is_distinct_from(GRADE_OPERATION), (Return(),))
+    skip = If(
+        ~selected_family(model, _field("r", requests, "release_id"), operation, "record-grade"),
+        (Return(),),
+    )
     result_body = completion["outputs"][0]["product"]["body"]
     return (
         *_grade(
@@ -1464,7 +1479,7 @@ def _completion_programs(model):
                     or_(
                         _field("definition", definitions, "profile").is_distinct_from("derivation"),
                         declared_kind["effects"].is_distinct_from(_json("[]")),
-                        factory["entrypoint"].astext.is_distinct_from(GRADE_FACTORY),
+                        func.nullif(factory["entrypoint"].astext, "").is_(None),
                         factory["source_digest"].astext.bool_op("~")("^[0-9a-f]{64}$").is_not(True),
                         implementation.like("implementation-slice:%").is_not(True),
                         completion["implementation_revision"].astext.is_distinct_from(

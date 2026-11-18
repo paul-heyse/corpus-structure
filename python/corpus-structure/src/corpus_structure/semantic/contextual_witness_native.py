@@ -27,6 +27,7 @@ from .native_program import (
     column_type,
     core_relation_row,
 )
+from .validity_programs import operation_field
 
 
 def contextual_witness_native_sql(*, target_metadata=None) -> str:
@@ -128,12 +129,25 @@ def contextual_witness_native_sql(*, target_metadata=None) -> str:
         )
     )
 
-    def producer(target, selected, allowed, *, query_role=False):
+    def producer(target, selected, *, query_role=False):
         support = _items(_plain(_field(selected, "support")), "selected_support")
         conditions = [
             outputs.c.product_id == _text(selected, "product_id"),
             outputs.c.member_id.is_(None),
-            requests.c.operation_id.in_(allowed),
+            or_(
+                operation_field(
+                    p.model,
+                    p.row("r", "ops.data_request", "release_id"),
+                    p.row("r", "ops.data_request", "operation_id"),
+                    "dependencies",
+                )["required"].contains(func.jsonb_build_array(requests.c.operation_id)),
+                operation_field(
+                    p.model,
+                    p.row("r", "ops.data_request", "release_id"),
+                    p.row("r", "ops.data_request", "operation_id"),
+                    "dependencies",
+                )["potential"].contains(func.jsonb_build_array(requests.c.operation_id)),
+            ),
             select(1)
             .select_from(support)
             .where(
@@ -236,10 +250,6 @@ def contextual_witness_native_sql(*, target_metadata=None) -> str:
             producer(
                 "query_episode",
                 query,
-                (
-                    "retrieve.contextual_query/declared",
-                    "retrieve.contextual_query/selected-context",
-                ),
                 query_role=True,
             ),
             _reject(
@@ -248,7 +258,7 @@ def contextual_witness_native_sql(*, target_metadata=None) -> str:
                 ),
                 "contextual witness query lacks original native/CPU publication",
             ),
-            producer("inventory_episode", inventory, ("retrieve.contextual_inventory/declared",)),
+            producer("inventory_episode", inventory),
             _reject(
                 ~func.ops.ddo_contextual_dependencies_valid(
                     p.row("inventory_episode", "ops.data_derivation", "id")

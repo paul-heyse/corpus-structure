@@ -615,7 +615,7 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
         definition_scopes,
     )
     from corpus_structure.methods.predicate_frames import predicate_frames
-    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.regeneration import DOMAINS
     from corpus_structure.semantic.structural_products import StructuralPassage
 
     text = (
@@ -699,7 +699,7 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         definition_scopes,
     )
     from corpus_structure.methods.predicate_frames import predicate_frames
-    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.regeneration import DOMAINS
     from corpus_structure.semantic.structural_products import StructuralPassage
 
     text = "mean - the mean is the sum of the data points divided by the number of data points."

@@ -14,6 +14,7 @@ from corpus_structure.semantic.source_products import FrozenNativeSource
 
 class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "abstract": True,
         "id": "text.compose_view/captured-full-native",
         "profile": "derivation",

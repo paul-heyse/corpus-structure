@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from corpus_structure.schema.generate import _format
+from corpus_structure.schema.code_generation import _format
 
 from .metadata import get_metadata
 from .native_call_generation import render_call_bindings, render_call_identifiers

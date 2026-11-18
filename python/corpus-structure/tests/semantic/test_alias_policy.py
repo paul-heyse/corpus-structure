@@ -8,7 +8,6 @@ import yaml
 
 from corpus_structure.core.vocab import CaseRule
 from corpus_structure.evaluate.semantic_alignment import SemanticSide, align_semantic
-from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.alias_policy import (
     ARTIFACT,
     RULE_INPUT,
@@ -18,7 +17,12 @@ from corpus_structure.semantic.alias_policy import (
 )
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs, prepare_pack
+from corpus_structure.semantic.regeneration import (
+    DOMAINS,
+    acquire_pack,
+    compose_pack_inputs,
+    prepare_pack,
+)
 from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.types import (
     PreparedArtifact,
@@ -241,6 +245,7 @@ def test_rewrite_order_source_namespace_and_duplicate_full_iri_policy(statistics
 
 def test_profile_identity_and_synthetic_hydration_execution_boundary(statistics_alias_release):
     from corpus_structure.semantic.archive_reader import reconstruct_release
+    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.releases import _products
 
     bundle, deps, profile, prepared = statistics_alias_release
@@ -287,7 +292,8 @@ def test_profile_identity_and_synthetic_hydration_execution_boundary(statistics_
             PreparedArtifact(RULE_INPUT, old_content),
         ),
     )
-    archived = reconstruct_release(_products(old), old.manifest, bundle, profile, old.artifacts)
+    products = json.loads(canonical_bytes(_products(old)))
+    archived = reconstruct_release(products, old.manifest, bundle, profile, old.artifacts)
     assert archived.release_id == old.release_id
     with pytest.raises(ValueError, match="regeneration and admission"):
         released_label_policy(

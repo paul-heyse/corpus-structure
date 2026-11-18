@@ -23,6 +23,8 @@ from .types import (
     SourceBundle,
 )
 
+DOMAINS = Path(__file__).resolve().parents[5] / "domains"
+
 
 class PackInputError(SemanticRefusal):
     """Explicit local pack inputs cannot form a supported semantic preparation."""

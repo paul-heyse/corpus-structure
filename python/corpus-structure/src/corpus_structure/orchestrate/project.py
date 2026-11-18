@@ -146,12 +146,12 @@ def init_bound_project(
     """
     import yaml
 
-    from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.original_document_contracts import (
         require_source_operation_context,
     )
     from corpus_structure.semantic.original_documents import register_original_document
+    from corpus_structure.semantic.regeneration import DOMAINS
     from corpus_structure.semantic.releases import load_release
 
     if not domain or Path(domain).name != domain or domain in {".", ".."}:

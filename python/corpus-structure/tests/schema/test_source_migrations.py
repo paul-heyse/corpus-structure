@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from model_change_support import model_checkout as model_checkout
 
-from corpus_structure.schema import model
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.model_change import ChangeRequest, apply_preview, prepare_preview
 from corpus_structure.schema.source_migrations import (
     AuthoredSourceChange,
@@ -143,7 +143,7 @@ def test_added_caller_invalidates_complete_preview(model_checkout):
         root, ChangeRequest(data_operations="target.yaml", source_migrations=(migration(root),))
     )
     (root / "src/added.py").write_text("from api import old\n")
-    with pytest.raises(model.ModelError, match="membership"):
+    with pytest.raises(ModelError, match="membership"):
         apply_preview(root, preview)
     assert (root / "src/api.py").read_text().startswith("def old")
 
@@ -162,7 +162,7 @@ def test_dynamic_required_site_blocks_apply_but_remains_inspectable(model_checko
     assert not preview.source_migrations[0].ready
     assert preview.files
     assert any(item.state == "unresolved" for item in preview.source_migrations[0].outcomes)
-    with pytest.raises(model.ModelError, match="unresolved"):
+    with pytest.raises(ModelError, match="unresolved"):
         apply_preview(root, preview)
 
 
@@ -312,7 +312,7 @@ def test_symbol_move_cannot_silently_change_keyword_contract(model_checkout):
         .replace("'parameter': 'x'", "'parameter': 'y'")
     )
     request = request.model_copy(update={"sources": (owner.model_copy(update={"after": after}),)})
-    with pytest.raises(model.ModelError, match="cannot change the callable contract"):
+    with pytest.raises(ModelError, match="cannot change the callable contract"):
         prepare_preview(
             root, ChangeRequest(data_operations="target.yaml", source_migrations=(request,))
         )
@@ -331,7 +331,7 @@ def test_authored_source_outside_compiled_input_closure_refuses(model_checkout):
         after="def other(x: int) -> int:\n    return x\n",
     )
     request = request.model_copy(update={"kind": "annotations", "sources": (owner,)})
-    with pytest.raises(model.ModelError, match="outside the acquired operation source closure"):
+    with pytest.raises(ModelError, match="outside the acquired operation source closure"):
         prepare_preview(
             root, ChangeRequest(data_operations="target.yaml", source_migrations=(request,))
         )
@@ -426,7 +426,7 @@ def test_owned_call_context_preview_and_existing_apply(model_checkout):
 def test_call_context_correspondence_must_belong_to_effective_owner(model_checkout):
     root, _ = model_checkout
     request = context_migration(root).model_copy(update={"old_name": "api.unowned"})
-    with pytest.raises(model.ModelError, match="owned callable"):
+    with pytest.raises(ModelError, match="owned callable"):
         prepare_preview(
             root, ChangeRequest(data_operations="target.yaml", source_migrations=(request,))
         )
@@ -777,13 +777,13 @@ def test_declared_preview_uses_explicit_archived_source_comparison(model_checkou
     assert preview.source_migrations == ()
     assert preview.source_comparison == comparison
     assert preview.comparison == declared
-    with pytest.raises(model.ModelError, match="declared model comparison differs"):
+    with pytest.raises(ModelError, match="declared model comparison differs"):
         prepare_preview(
             root,
             ChangeRequest(data_operations="target.yaml"),
             comparison={**declared, "after_digest": "0" * 64},
         )
-    with pytest.raises(model.ModelError, match="different model pairs"):
+    with pytest.raises(ModelError, match="different model pairs"):
         prepare_preview(
             root,
             ChangeRequest(data_operations="target.yaml"),
@@ -791,7 +791,7 @@ def test_declared_preview_uses_explicit_archived_source_comparison(model_checkou
             comparison={**declared, "before_digest": "0" * 64},
         )
     assert "recipe" in {row.facet for row in comparison.changes}
-    with pytest.raises(model.ModelError, match="source comparison differs"):
+    with pytest.raises(ModelError, match="source comparison differs"):
         prepare_preview(
             root,
             ChangeRequest(data_operations="target.yaml"),

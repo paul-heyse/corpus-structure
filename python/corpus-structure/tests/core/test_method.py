@@ -25,6 +25,7 @@ from corpus_structure.core.method import (
     ObservationDraft,
     PackSection,
     Resources,
+    SourceCost,
     UnitRef,
     UnitResult,
     config_references,
@@ -35,8 +36,8 @@ from corpus_structure.core.vocab import (
     ConfidenceSource,
     ObservationKind,
     ObservationOutcome,
-    TaskUnitType,
 )
+from corpus_structure.semantic.task_types import TaskUnitType
 
 REPO = Path(__file__).resolve().parents[4]
 
@@ -268,3 +269,17 @@ def test_a_configs_references_are_found_by_introspection() -> None:
 
     with pytest.raises(TypeError, match="2 references"):
         config_references(Twice)
+
+
+def test_source_cost_keeps_only_reported_measures_and_rejects_negative_usage() -> None:
+    assert SourceCost(wall_ms=0).model_dump(mode="json") == {"wall_ms": 0}
+    measured = SourceCost(wall_ms=12, tokens_in=7, tokens_out=3, model="controlled")
+    assert measured.model_dump(mode="json") == {
+        "wall_ms": 12,
+        "tokens_in": 7,
+        "tokens_out": 3,
+        "model": "controlled",
+    }
+    for field in ("wall_ms", "gpu_ms", "tokens_in", "tokens_out"):
+        with pytest.raises(ValidationError):
+            SourceCost.model_validate({"wall_ms": 0, field: -1})

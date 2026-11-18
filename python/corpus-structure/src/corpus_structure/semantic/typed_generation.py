@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from corpus_structure.schema.generate import _format
+from corpus_structure.schema.code_generation import _format
 from corpus_structure.schema.relational import render_typed_columns
 
 from .metadata import get_metadata

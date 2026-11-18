@@ -58,9 +58,13 @@ def captured_declaration_model(sources: tuple[SourceArtifact, ...]) -> CompiledM
 
 
 def _annotations(value) -> dict[str, Any]:
+    from jsonasobj2 import as_dict
+
     raw = value.annotations or {}
     items = raw.items() if hasattr(raw, "items") else vars(raw).items()
-    return {str(key): getattr(annotation, "value", annotation) for key, annotation in items}
+    return {
+        str(key): as_dict(getattr(annotation, "value", annotation)) for key, annotation in items
+    }
 
 
 def _members(enum: EnumDefinition) -> dict[str, PermissibleValue]:
@@ -236,9 +240,9 @@ class OperationDeclarations:
                         Diagnostic(
                             "validity_undetermined",
                             owner,
-                            "validity family not declared; conservative validity applies; "
-                            "declare validity_family: [<family>…] or [none]",
+                            "validity family not declared; conservative validity applies",
                             "advisory",
+                            remedy="declare validity_family: [<family>…] or [none]",
                         )
                     )
         if target_class == "DataOperationDeclaration":

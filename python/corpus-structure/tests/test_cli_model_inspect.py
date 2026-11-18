@@ -326,9 +326,7 @@ def test_candidate_registration_requires_exact_installed_artifacts(
             port=5434,
             purpose="maintenance",
         ),
-        release="release",
-        release_manifest_sha256="1" * 64,
-        release_artifacts_sha256="2" * 64,
+        release=None,
         packs=(),
         files={},
         hashes={name: sha256(body).hexdigest() for name, body in products.items()},
@@ -430,7 +428,7 @@ def test_apply_records_stale_refusal_and_partial_effect_from_actual_files(
             "workspace": str(root),
             "head": head,
             "request": ChangeRequest(),
-            "compilers": model_change.model.compilers(),
+            "compilers": model_change.compilers(),
             "python": sys.version,
             "generator": model_change.generator_fingerprint(root),
             "files": (
@@ -1062,11 +1060,14 @@ def test_current_preview_retains_query_analysis_in_existing_model_view(
     from corpus_structure.semantic.projection_analysis_products import (
         compare_retained_projection_analysis,
     )
+    from corpus_structure.semantic.types import PreparationProfile
 
     bundle, before, dependencies, after = current_query_release_pair
     monkeypatch.setattr(recipes, "checkout", lambda ctx: Path(__file__).parents[3])
     monkeypatch.setattr(
-        model, "_prepare_release", lambda *args, **kwargs: (bundle, dependencies, None, after)
+        model,
+        "_prepare_release",
+        lambda *args, **kwargs: (bundle, dependencies, PreparationProfile(), after),
     )
     monkeypatch.setattr(
         runtime, "open_runtime_engine", lambda *args, **kwargs: nullcontext(object())
@@ -1099,11 +1100,18 @@ def test_current_preview_retains_query_analysis_in_existing_model_view(
         )
 
     monkeypatch.setattr(model_change, "prepare_preview", stage)
+    # This inspection control supplies captured releases directly; live source
+    # acquisition and stale-input fingerprints have separate preview controls.
+    monkeypatch.setattr(
+        model_change, "compilation_fingerprint", lambda *args, **kwargs: "controlled"
+    )
     output = CliRunner().invoke(
         app,
         ["model", "change", "preview", "-", "--json"],
         input=json.dumps({"data_operations": "current.yaml", "archive_release": before.release_id}),
     )
+    if output.exit_code and output.exception is not None:
+        raise output.exception
     assert output.exit_code == 0, output.output
     assert captured == [expected]
     preview_id = json.loads(output.stdout)["result_id"]

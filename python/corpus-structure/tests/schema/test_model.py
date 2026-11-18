@@ -15,7 +15,7 @@ import yaml
 from schema_lint_support import lint_errors
 
 from corpus_structure.core import schemas, vocab
-from corpus_structure.core._model import names, qualifiers, revision, sql, validators
+from corpus_structure.core._model import names, qualifiers, sql, validators
 from corpus_structure.schema import generate, model
 
 MODEL = model.MODEL_DIR
@@ -287,33 +287,6 @@ def test_an_enum_expansion_collision_is_refused(tmp_path: Path, old: str, new: s
 # --- The model revision ------------------------------------------------------------------------
 
 
-def test_the_revision_hashes_the_parsed_files_and_is_logged(
-    loaded: model.Model, tmp_path: Path
-) -> None:
-    current = model.revision(loaded)
-    assert (current.label, current.key_scheme) == ("0.6.7", 1)
-    assert model.check_log(current, model.read_log()) == []
-    reordered = seeded(tmp_path, edit_core=lambda d: d.update(dict(reversed(list(d.items())))))
-    assert model.content_hash(*reordered.paths) == current.content_hash  # parsed, not bytes
-    described = seeded(tmp_path, edit_core=lambda d: d.update({"description": "other"}))
-    assert model.content_hash(*described.paths) != current.content_hash
-    assert (current.content_hash, 1) == (revision.CONTENT_HASH, revision.KEY_SCHEME)
-
-
-def test_historical_compiler_provenance_is_preserved_when_current_generators_change(loaded):
-    from dataclasses import replace
-
-    current = model.revision(loaded)
-    log = model.read_log()
-    historical = dict(log[-1]["compilers"])
-    replacement = replace(current, compilers={"current-generator": "2"})
-    assert model.check_log(replacement, log) == []
-    assert log[-1]["compilers"] == historical
-    assert "current-generator" not in historical
-    assert model.check_log(replace(replacement, content_hash="0" * 64), log)
-    assert model.check_log(replace(replacement, key_scheme=999), log)
-
-
 def test_a_model_with_float_values_hashes_stably_and_by_content(tmp_path: Path) -> None:
     """Valid LinkML carries floats (`minimum_value: 0.5`); they hash as canonical decimals."""
 
@@ -333,19 +306,6 @@ def test_a_model_with_float_values_hashes_stably_and_by_content(tmp_path: Path) 
     assert digest == model.content_hash(*first.paths)
     assert model.content_hash(*seeded(tmp_path / "b", edit_core=bounded(0.5, True)).paths) == digest
     assert model.content_hash(*seeded(tmp_path / "c", edit_core=bounded(0.25)).paths) != digest
-
-
-def test_a_log_that_does_not_end_at_the_current_revision_is_refused(loaded: model.Model) -> None:
-    current = model.revision(loaded)
-    log = model.read_log()
-    stale = [{**log[0], "content_hash": "0" * 64}]
-    assert any("not its logged revision" in p for p in model.check_log(current, stale))
-    child = {**log[0], "parent": "1" * 64, "change_record": None}
-    assert any("names its parent" in p for p in model.check_log(current, [log[0], child]))
-    assert log[0]["parent"] is None and log[0]["change_record"] is None
-
-
-# --- Stage A's output --------------------------------------------------------------------------
 
 
 def test_regenerating_reproduces_every_committed_file(loaded: model.Model, tmp_path: Path) -> None:

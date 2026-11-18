@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import CreateIndex
 
 from corpus_structure.model.compiled import compiled_model, running_model
-from corpus_structure.schema.model import ModelError
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.relational import physical_expression_sql
 
 

@@ -13,7 +13,7 @@ from typing import Literal
 from lark import Token, Tree
 
 from corpus_structure.core.evidence import Segment
-from corpus_structure.core.keys import symbol_form
+from corpus_structure.core.tex import symbol_form
 from corpus_structure.core.values import Formula, SetValue, SymbolBinding
 from corpus_structure.core.vocab import BindKind, MathKind, SegmentKind
 from corpus_structure.methods.math import _tree

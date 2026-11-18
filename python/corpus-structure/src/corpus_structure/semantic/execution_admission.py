@@ -172,7 +172,7 @@ def _deployment_expectation(
     return candidates[0]
 
 
-def _verify_deployment_functions(
+def verify_deployment_functions(
     connection: Connection, *, revision: str | None = None, versions: Path | None = None
 ) -> str:
     """Authenticate the current descriptor and enforcing release guard."""
@@ -187,7 +187,7 @@ def require_native_execution(connection: Connection, prepared: PreparedRelease) 
 
     bound_data_operation_model(prepared)
 
-    physical_id = _verify_deployment_functions(connection)
+    physical_id = verify_deployment_functions(connection)
     try:
         connection.execute(
             text("SELECT data.require_execution_release(:release)"),

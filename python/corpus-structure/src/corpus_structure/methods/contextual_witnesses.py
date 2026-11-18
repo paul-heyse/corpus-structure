@@ -8,6 +8,7 @@ from corpus_structure.semantic.contextual_witnesses import execute_witness_profi
 
 class ContextualWitnessOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_witnesses/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -173,6 +174,7 @@ class ContextualWitnessOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
@@ -232,6 +234,7 @@ class ContextualWitnessOperation:
 
 class ContextualWitnessedRetrievalOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual/with-witnesses",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -398,6 +401,7 @@ class ContextualWitnessedRetrievalOperation:
         ],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",

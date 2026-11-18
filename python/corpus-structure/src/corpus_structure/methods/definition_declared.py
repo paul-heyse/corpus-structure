@@ -7,6 +7,7 @@ from corpus_structure.semantic.definition_products import execute_definition_dec
 
 class DefinitionDeclarationOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["definition"],
         "id": "structure.definition_declaration_components/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -107,6 +108,7 @@ class DefinitionDeclarationOperation:
         ],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",

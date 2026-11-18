@@ -12,6 +12,7 @@ class CanonicalSentenceProjection:
     """Cheap declared boundary stops native-label-only changes before HanLP input."""
 
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "segment.sentences/canonical-projection",
         "profile": "derivation",
         "subject": "original-source-view",

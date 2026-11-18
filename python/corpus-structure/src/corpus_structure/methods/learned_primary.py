@@ -14,6 +14,7 @@ from corpus_structure.semantic.source_products import FrozenNativeSource
 
 class MaverickPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.maverick/source-native",
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
@@ -553,6 +554,7 @@ class MaverickPrimaryOperation:
 
 class DipoPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.dipo/source-native",
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
@@ -1062,6 +1064,7 @@ class DipoPrimaryOperation:
 
 class D1SourcePrimaryOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.d1_source/source-native",
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
@@ -1571,6 +1574,7 @@ class D1SourcePrimaryOperation:
 
 class D1CandidatesPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.d1_candidates/source-native",
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
@@ -2164,6 +2168,7 @@ class D1CandidatesPrimaryOperation:
 
 class GlinerCuesPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.gliner_cues/source-native",
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
@@ -2673,6 +2678,7 @@ class GlinerCuesPrimaryOperation:
 
 class GlinerFunctionPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.gliner_function/source-native",
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
@@ -3182,6 +3188,7 @@ class GlinerFunctionPrimaryOperation:
 
 class ContextualNativePrimaryOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.contextual_native/source-native",
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
@@ -3403,6 +3410,7 @@ class ContextualNativePrimaryOperation:
 
 class GlinerDefinitionPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.gliner_definitions/source-native",
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",

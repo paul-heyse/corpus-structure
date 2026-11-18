@@ -1053,11 +1053,26 @@ def _structural_dossier_completion(model):
             ),
         )
     )
+    declared_output = _items(definitions.c.output_roles, "dossier_output")
+    is_dossier = (
+        select(1)
+        .select_from(
+            definitions.join(declared_output, literal(True)).join(
+                kinds, kinds.c.kind_contract == declared_output.c.value["kind_contract"].astext
+            )
+        )
+        .where(
+            definitions.c.release_id == r("release_id"),
+            definitions.c.operation_id == r("operation_id"),
+            kinds.c.kind == "urn:corpus:structural:DeclaredDossierReport",
+        )
+        .exists()
+    )
     return _completion_program(
         "ddo_require_structural_dossier_completion",
         requests,
         (
-            If(r("operation_id") != "structure.dossier/declared", (Return(),)),
+            If(~is_dossier, (Return(),)),
             _completion_lookup(
                 "definition",
                 definitions,
@@ -1068,9 +1083,7 @@ def _structural_dossier_completion(model):
                 or_(
                     d("profile").is_distinct_from("derivation"),
                     support_contract["effects"].is_distinct_from(_json("[]")),
-                    factory["entrypoint"].astext.is_distinct_from(
-                        "corpus_structure.methods.dossier_declared.DossierOperation.acquire_port"
-                    ),
+                    func.nullif(factory["entrypoint"].astext, "").is_(None),
                     factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$").is_not(True),
                     d("implementation_revision").like("implementation-slice:%").is_not(True),
                 ),

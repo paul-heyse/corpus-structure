@@ -12,7 +12,7 @@ A failed check exits with code 1, its reason and D3 §13's instruction on stderr
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import typer
 from pydantic import BaseModel
@@ -281,6 +281,7 @@ def check_contract(
     ctx: typer.Context,
     release: Annotated[str, typer.Option("--release")],
     target: DeploymentProfile = "development",
+    view: Literal["correspondence", "validity"] = "correspondence",
     json_: JsonOpt = False,
 ) -> None:
     """Read-only native correspondence check for one explicitly archived release."""
@@ -308,6 +309,7 @@ def check_contract(
         physical_id: str
         target: DeploymentProfile
         acquired: StorageTarget
+        conservative_operations: tuple[str, ...]
 
     with failure_boundary(json_, expected=(ExecutionAdmissionError, ReleaseConflict, ResultError)):
         selected, settings = select_target(ctx, target)
@@ -324,7 +326,9 @@ def check_contract(
                 if error.args != (release,):
                     raise
                 raise SemanticRefusal(f"unknown semantic release {release}") from error
-            physical_id, inspected = inspect_data_operation_release(conn, prepared)
+            physical_id, inspected = inspect_data_operation_release(
+                conn, prepared, validity_only=view == "validity"
+            )
         emit(
             ContractCheck(
                 release_id=prepared.release_id,
@@ -333,6 +337,7 @@ def check_contract(
                 physical_id=physical_id,
                 target=selected,
                 acquired=acquired,
+                conservative_operations=tuple(inspected["conservative_operations"]),
             ),
             json=json_,
         )

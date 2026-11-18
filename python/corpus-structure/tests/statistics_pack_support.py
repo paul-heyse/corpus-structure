@@ -2,8 +2,7 @@
 
 from functools import cache
 
-from corpus_structure.schema.pack import DOMAINS
-from corpus_structure.semantic.regeneration import acquire_pack, prepare_packs
+from corpus_structure.semantic.regeneration import DOMAINS, acquire_pack, prepare_packs
 from corpus_structure.semantic.rich_rules import RichRulePolicy
 from test_preparation import preparation_fixture
 

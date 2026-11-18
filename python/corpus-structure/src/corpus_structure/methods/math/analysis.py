@@ -7,6 +7,7 @@ from corpus_structure.semantic.declared_math_analysis import execute_math_analys
 
 class WeakMathAnalysis:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "analyze.math/lexical",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -340,6 +341,7 @@ class WeakMathAnalysis:
 
 class ContextualMathAnalysis:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "analyze.math/contextual",
         "profile": "derivation",
         "subject": "original-source-view",

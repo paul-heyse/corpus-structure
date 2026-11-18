@@ -42,7 +42,7 @@ def resolve_source_domain(
 
     import yaml
 
-    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.regeneration import DOMAINS
     from corpus_structure.semantic.releases import open_release
 
     try:
@@ -132,11 +132,11 @@ def prepare_source_demand(
     """
     import yaml
 
-    from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.original_documents import acquire_original_document_selection
     from corpus_structure.semantic.primary_operations import primary_operation_targets
+    from corpus_structure.semantic.regeneration import DOMAINS
     from corpus_structure.semantic.releases import load_release
 
     from .slices import records

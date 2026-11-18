@@ -13,18 +13,17 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal, NamedTuple, Protocol
+from typing import Annotated, Any, Literal, NamedTuple, Protocol
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import MISSING, BaseModel, ConfigDict, Field, JsonValue
 
 from corpus_structure.core.canonical import canonical_json, decimal_of_float
-from corpus_structure.core.payloads import Cost
 from corpus_structure.core.vocab import (
     MeasurementScope,
     ObservationKind,
     ObservationOutcome,
-    TaskUnitType,
 )
+from corpus_structure.semantic.task_types import TaskUnitType
 
 from .execution_policy import CharacterizationExecutionPolicy
 from .work import PreparedWork as PreparedWork
@@ -80,6 +79,22 @@ def payload_hash(payload: BaseModel | Mapping[str, Any]) -> str:
     anything else outside JSON (and NFC-normalizes every string)."""
     raw = payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
     return hashlib.sha256(canonical_json(_decimals(raw, "$"))).hexdigest()
+
+
+class SourceCost(BaseModel):
+    """Resource usage reported by a completed source computation.
+
+    Absent measures are omitted from the task's JSON object. Native task storage owns
+    custody of that object; the source-result boundary owns these input constraints.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    wall_ms: Annotated[int, Field(ge=0)]
+    gpu_ms: Annotated[int, Field(ge=0)] | MISSING = MISSING
+    tokens_in: Annotated[int, Field(ge=0)] | MISSING = MISSING
+    tokens_out: Annotated[int, Field(ge=0)] | MISSING = MISSING
+    model: str | MISSING = MISSING
 
 
 # --- Source unit references ----------------------------------------------------------------------------
@@ -348,7 +363,7 @@ class UnitResult:
     observations: tuple[ObservationDraft[Any], ...] = ()
     measurements: tuple[MeasurementDraft, ...] = ()
     error: str | None = None
-    cost: Cost | None = None
+    cost: SourceCost | None = None
     parse_detail: Mapping[str, JsonValue] | None = None
     coverage: tuple[CoverageDraft, ...] = ()
     source_views: tuple[SourceViewDraft, ...] = ()

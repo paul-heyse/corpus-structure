@@ -10,7 +10,7 @@ from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.schema.model import ModelError
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.physical import compile_physical, physical_source_closure
 from corpus_structure.schema.relational import compile_metadata
 from corpus_structure.semantic.metadata import (

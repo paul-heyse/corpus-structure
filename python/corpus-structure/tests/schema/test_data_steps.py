@@ -11,7 +11,8 @@ from model_change_support import model_checkout as model_checkout
 from pydantic import ValidationError
 from sqlalchemy import Column, ForeignKey, Text
 
-from corpus_structure.schema import data_steps, model
+from corpus_structure.schema import data_steps
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.model_change import ChangeRequest, check_preview, prepare_preview
 from corpus_structure.semantic.alembic_native import NativeTransitionOp
 from corpus_structure.semantic.alembic_privileges import OwnedOperationsOp
@@ -282,7 +283,7 @@ def test_preview_captures_builder_identity_and_rejects_dependency_drift(
     assert preview.data_steps == n1()
     check_preview(root, preview)
     edited = preview.model_copy(update={"data_steps": ()})
-    with pytest.raises(model.ModelError, match="data-step custody"):
+    with pytest.raises(ModelError, match="data-step custody"):
         check_preview(root, edited)
     current_version = data_steps.version
     monkeypatch.setattr(
@@ -290,7 +291,7 @@ def test_preview_captures_builder_identity_and_rejects_dependency_drift(
         "version",
         lambda name: "changed" if name == "sqlalchemy" else current_version(name),
     )
-    with pytest.raises(model.ModelError, match="data-step custody"):
+    with pytest.raises(ModelError, match="data-step custody"):
         check_preview(root, preview)
 
 

@@ -1,5 +1,6 @@
 # Explicit local acquisition package; profiles are metadata selections, not provider results.
 version: data-operation-inputs-v1
+workflow: phase0
 root: statistics_semantic
 schemas: &id001
 - name: statistics_semantic

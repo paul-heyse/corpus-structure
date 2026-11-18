@@ -7,6 +7,7 @@ from corpus_structure.semantic.record_policy_authority import execute_authorizat
 
 class RecordPolicyAuthorization:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "record_policy.authorize",
         "profile": "command",
         "subject": "knowledge-universe",

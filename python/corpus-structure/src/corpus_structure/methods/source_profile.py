@@ -7,6 +7,7 @@ from corpus_structure.semantic.source_profiles import source_profile_values
 
 class SourceProfileOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "profile.segments/source-native",
         "profile": "derivation",
         "subject": "original-source-view",

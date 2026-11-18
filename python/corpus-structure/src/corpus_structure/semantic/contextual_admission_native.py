@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from sqlalchemy import Text, and_, case, cast, column, func, literal, or_, select
+from sqlalchemy import Integer, Text, and_, case, cast, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array
 from sqlalchemy.types import NullType
 
@@ -33,6 +33,7 @@ from .native_program import (
     function,
     pg_type,
 )
+from .validity_programs import input_role, operation_field, selected_family
 
 
 def _json(value):
@@ -176,6 +177,8 @@ class _ContextualPrograms:
 
 def contextual_admission_native_sql(*, target_metadata=None) -> str:
     p = _ContextualPrograms(target_metadata)
+    from .contextual_encoder_batch import MEMBER_FAILURE_CODES, MEMBER_FAILURE_VERSION
+
     requests, episodes, intents, outputs, receipts, definitions = (
         p.table(name)
         for name in (
@@ -187,78 +190,61 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
             "sem.data_operation_definition",
         )
     )
-    factories = {
-        "retrieve.contextual_query/declared": "corpus_structure.methods.contextual_encoding.ContextualEncodingOperation.acquire_port",
-        "retrieve.contextual_query/selected-context": "corpus_structure.methods.contextual_encoding.SelectedContextEncodingOperation.acquire_port",
-        "retrieve.contextual_target_vector/declared": "corpus_structure.methods.contextual_encoding.ContextualTargetEncodingOperation.acquire_port",
-        "retrieve.contextual_vectors/selection": "corpus_structure.methods.contextual_targets.ContextualVectorSelectionOperation.acquire_port",
-        "retrieve.contextual_targets/curated": "corpus_structure.methods.contextual_targets.CuratedContextualTargetsOperation.acquire_port",
-        "retrieve.contextual_targets/components": "corpus_structure.methods.contextual_targets.SourceContextualTargetsOperation.acquire_port",
-        "retrieve.contextual_target/declared": "corpus_structure.methods.contextual_targets.ContextualTargetOperation.acquire_port",
-        "retrieve.contextual_inventory/declared": "corpus_structure.methods.contextual_declared.ContextualInventoryOperation.acquire_port",
-        "retrieve.contextual_scores/declared": "corpus_structure.methods.contextual_scoring.ContextualScoringOperation.acquire_port",
-        "retrieve.contextual/declared": "corpus_structure.methods.contextual_declared.ContextualRetrievalOperation.acquire_port",
-        "retrieve.contextual_witnesses/declared": "corpus_structure.methods.contextual_witnesses.ContextualWitnessOperation.acquire_port",
-        "retrieve.contextual/with-witnesses": "corpus_structure.methods.contextual_witnesses.ContextualWitnessedRetrievalOperation.acquire_port",
-    }
     op = p.row("r", "ops.data_request", "operation_id")
     request = p.row("r", "ops.data_request")
     completion = _value("completion")
     contract = p.row("operation", "sem.data_operation_definition", "support_contract")
-    batch = (
-        "retrieve.contextual_query/declared",
-        "retrieve.contextual_query/selected-context",
-        "retrieve.contextual_target_vector/declared",
-    )
+    release = p.row("r", "ops.data_request", "release_id")
+    lowered_contract = operation_field(p.model, release, op, "support_contract")
+    batch = lowered_contract["capabilities"]["forms"] == _json(["batch"])
+
+    def has_role(name):
+        return input_role(p.model, release, op, name)
+
+    score_operation = has_role("policy") & ~has_role("scores")
+    scoring_operation = has_role("policy") & has_role("vectors")
     p.add(
         "ddo_require_contextual_producer",
         (("r", "ops.data_request"), ("completion", "jsonb")),
         (
-            If(op.not_in(tuple(factories)), (Return(),)),
+            If(
+                ~selected_family(
+                    p.model, p.row("r", "ops.data_request", "release_id"), op, "contextual"
+                ),
+                (Return(),),
+            ),
             p.lookup(
                 "operation",
                 "sem.data_operation_definition",
                 definitions.c.release_id == p.row("r", "ops.data_request", "release_id"),
                 definitions.c.operation_id == op,
             ),
-            Assign("factory", case(factories, value=op)),
             _reject(
                 or_(
-                    contract["capabilities"]["prepared_factory"][
-                        "entrypoint"
-                    ].astext.is_distinct_from(_value("factory", Text())),
+                    func.nullif(
+                        contract["capabilities"]["prepared_factory"]["entrypoint"].astext, ""
+                    ).is_(None),
                     contract["capabilities"]["prepared_factory"]["source_digest"]
                     .astext.op("~")("^[0-9a-f]{64}$")
                     .is_not(True),
                     p.row("operation", "sem.data_operation_definition", "implementation_revision")
                     .like("implementation-slice:%")
                     .is_not(True),
-                    p.row("operation", "sem.data_operation_definition", "profile").is_distinct_from(
-                        case(
-                            (
-                                op.in_(
-                                    (
-                                        "retrieve.contextual_targets/curated",
-                                        "retrieve.contextual_targets/components",
-                                    )
-                                ),
-                                "discovery",
-                            ),
-                            else_="derivation",
-                        )
+                    p.row("operation", "sem.data_operation_definition", "profile").not_in(
+                        ("derivation", "discovery")
                     ),
                     p.row("operation", "sem.data_operation_definition", "recipe").is_distinct_from(
                         p.row("r", "ops.data_request", "recipe")
                     ),
-                    contract["capabilities"]["forms"].is_distinct_from(
-                        case((op.in_(batch), _json(["batch"])), else_=_json(["scalar"]))
-                    ),
+                    ~contract["capabilities"]["forms"].in_((_json(["batch"]), _json(["scalar"]))),
                     contract["capabilities"]["preparation"].astext.is_distinct_from("resource"),
                     contract["effects"].is_distinct_from(_json([])),
                     func.jsonb_array_length(
                         func.coalesce(completion["execution_evidence"]["cpu_receipts"], _json([]))
                     )
-                    != case((op == "retrieve.contextual_scores/declared", 0), else_=1),
+                    != func.coalesce(
+                        cast(contract["capabilities"]["cpu_receipts"].astext, Integer()), -1
+                    ),
                     completion["implementation_revision"].astext.is_distinct_from(
                         p.row(
                             "operation", "sem.data_operation_definition", "implementation_revision"
@@ -268,7 +254,7 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
                 "contextual completion lacks its actual admitted captured producer",
             ),
         ),
-        (p.local("operation", "sem.data_operation_definition"), p.local("factory", "text")),
+        (p.local("operation", "sem.data_operation_definition"),),
     )
     basis, item, result = (_value(name) for name in ("basis", "item", "result"))
     role = _value("role_name", Text())
@@ -291,25 +277,15 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
     )
     expected = case(
         (
-            op == "retrieve.contextual_scores/declared",
+            score_operation,
             array(["inventory", "policy", "query", "vectors"]),
         ),
         (
-            op == "retrieve.contextual/with-witnesses",
+            has_role("witnesses"),
             array(["inventory", "policy", "query", "scores", "vectors", "witnesses"]),
         ),
         else_=array(["inventory", "policy", "query", "scores", "vectors"]),
     )
-    role_operations = {
-        "query": (
-            "retrieve.contextual_query/declared",
-            "retrieve.contextual_query/selected-context",
-        ),
-        "inventory": ("retrieve.contextual_inventory/declared",),
-        "vectors": ("retrieve.contextual_vectors/selection",),
-        "scores": ("retrieve.contextual_scores/declared",),
-        "witnesses": ("retrieve.contextual_witnesses/declared",),
-    }
     p.add(
         "ddo_contextual_scoring_inputs",
         (("r", "ops.data_request"), ("completion", "jsonb")),
@@ -365,14 +341,21 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
                     ),
                     _reject(
                         or_(
-                            *(
-                                and_(
-                                    role == name,
-                                    p.row("producing", "ops.data_request", "operation_id").not_in(
-                                        allowed
-                                    ),
-                                )
-                                for name, allowed in role_operations.items()
+                            ~or_(
+                                operation_field(p.model, release, op, "dependencies")[
+                                    "required"
+                                ].contains(
+                                    func.jsonb_build_array(
+                                        p.row("producing", "ops.data_request", "operation_id")
+                                    )
+                                ),
+                                operation_field(p.model, release, op, "dependencies")[
+                                    "potential"
+                                ].contains(
+                                    func.jsonb_build_array(
+                                        p.row("producing", "ops.data_request", "operation_id")
+                                    )
+                                ),
                             ),
                             ~func.ops.ddo_contextual_dependencies_valid(
                                 p.row("episode", "ops.data_derivation", "id")
@@ -567,24 +550,23 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
         "ddo_require_contextual_completion",
         (("r", "ops.data_request"), ("completion", "jsonb")),
         (
-            If(op.not_in(tuple(factories)), (Return(),)),
+            If(
+                ~selected_family(
+                    p.model, p.row("r", "ops.data_request", "release_id"), op, "contextual"
+                ),
+                (Return(),),
+            ),
             Perform(func.ops.ddo_require_contextual_producer(request, completion)),
             If(
-                op.in_(
-                    (
-                        "retrieve.contextual_scores/declared",
-                        "retrieve.contextual/declared",
-                        "retrieve.contextual/with-witnesses",
-                    )
-                ),
+                scoring_operation,
                 (Assign("values_", func.ops.ddo_contextual_scoring_inputs(request, completion)),),
                 (
                     If(
-                        op == "retrieve.contextual_witnesses/declared",
+                        has_role("hypotheses") & has_role("cues"),
                         (Perform(func.ops.ddo_contextual_witness_inputs(request, completion)),),
                         (
                             If(
-                                op == "retrieve.contextual_targets/components",
+                                has_role("report"),
                                 (
                                     p.bind(),
                                     Assign(
@@ -606,7 +588,7 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
                 ),
             ),
             If(
-                op == "retrieve.contextual_scores/declared",
+                score_operation,
                 (
                     p.lookup(
                         "definition",
@@ -634,7 +616,7 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
                 (Assign("actual", func.ops.ddo_cpu_reply_output(request, completion)),),
             ),
             If(
-                op.in_(batch),
+                batch,
                 (
                     Assign("failure_", _field(actual, "encoder_member_failure")),
                     If(
@@ -649,16 +631,11 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
                                     failure[0].astext.is_distinct_from("mapping"),
                                     func.jsonb_array_length(failure[1]) != 3,
                                     _field(failure, "version").is_distinct_from(
-                                        _json(["string", "contextual-encoder-member-failure-1"])
+                                        _json(["string", MEMBER_FAILURE_VERSION])
                                     ),
                                     code[0].astext.is_distinct_from("string"),
                                     func.coalesce(code[1].astext, "").not_in(
-                                        (
-                                            "source-coordinate-mismatch",
-                                            "selected-context-unavailable",
-                                            "token-core-limit",
-                                            "invalid-vector",
-                                        )
+                                        sorted(MEMBER_FAILURE_CODES)
                                     ),
                                     detail[0].astext.is_distinct_from("string"),
                                     func.length(detail[1].astext) > 1024,
@@ -685,7 +662,11 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
                     Assign(
                         "expected",
                         case(
-                            (op.in_(batch[:2]), _field(actual, item["role"].astext)), else_=actual
+                            (
+                                lowered_contract["result_fields"] != _json({}),
+                                _field(actual, item["role"].astext),
+                            ),
+                            else_=actual,
                         ),
                     ),
                     _reject(
@@ -735,7 +716,12 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
                         "ops.data_request",
                         requests.c.id == p.row("episode", "ops.data_derivation", "request_id"),
                     ),
-                    If(op.not_in(tuple(factories)), (Return(literal(True)),)),
+                    If(
+                        ~selected_family(
+                            p.model, p.row("r", "ops.data_request", "release_id"), op, "contextual"
+                        ),
+                        (Return(literal(True)),),
+                    ),
                     If(
                         p.row("episode", "ops.data_derivation", "outcome") != "success",
                         (Return(literal(False)),),
@@ -758,7 +744,7 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
                     ),
                     If(
                         and_(
-                            op == "retrieve.contextual_scores/declared",
+                            score_operation,
                             ~select(1)
                             .select_from(evidence_outputs)
                             .where(

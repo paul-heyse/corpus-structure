@@ -11,6 +11,7 @@ from corpus_structure.semantic.source_products import FrozenNativeSource
 
 class HanlpEvidenceOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.hanlp_native/source-native",
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",

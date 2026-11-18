@@ -8,6 +8,7 @@ from corpus_structure.semantic.source_discovery import SourceViewPopulation
 
 class PdfSourceViewsFamily:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "abstract": True,
         "id": "source.pdf_views/discovery",
         "profile": "discovery",

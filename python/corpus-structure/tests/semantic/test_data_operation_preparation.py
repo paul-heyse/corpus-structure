@@ -533,3 +533,46 @@ def test_primary_selection_authenticates_current_asset_population(tmp_path, monk
             acquired["sentence_selection"].declaration()["asset_custody"][0][1]
             == sha256(asset.read_bytes()).hexdigest()
         )
+
+
+def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypatch):
+    from corpus_structure.ingest.pdf import PdfRecipe
+    from corpus_structure.semantic import pdf_capture
+    from corpus_structure.semantic.data_operation_preparation import (
+        PrimaryProfileInputs,
+        _acquire_primary_profile,
+    )
+
+    recipe = PdfRecipe("0" * 40, "1" * 40, recipe_id="docling-standard-pdf-stream-v1")
+    profile = PrimaryProfileInputs.model_validate(
+        {
+            "learned_selections": {"gliner": "unrelated-gliner-assets"},
+            "capture": {
+                "recipe": "pdf-recipe",
+                "assets_manifest": "pdf-assets",
+                "assets_root": str(tmp_path),
+                "directory": str(tmp_path / "capture"),
+            },
+        }
+    )
+    reads = []
+    files = {
+        "pdf-recipe": recipe.to_bytes(),
+        "pdf-assets": canonical_bytes(
+            {"recipe": "pdf-model-assets-v1", "repositories": [], "files": []}
+        ),
+    }
+
+    def read(name):
+        reads.append(name)
+        return files[name]
+
+    capture_sources = object()
+    monkeypatch.setattr(
+        pdf_capture, "pdf_capture_operation_sources", lambda *args, **kwargs: capture_sources
+    )
+    acquired = _acquire_primary_profile(profile, read, tmp_path, capture_only=True)
+    assert reads == ["pdf-recipe", "pdf-assets"]
+    assert acquired["capture_sources"] is capture_sources
+    assert acquired["sentence_configuration"] is None
+    assert acquired["hanlp_selection"] is None

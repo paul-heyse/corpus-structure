@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import delete, exists, func, or_, select, update
-from sqlalchemy.dialects.postgresql import dialect
+from sqlalchemy import Text, case, column, delete, exists, false, func, or_, select, update
+from sqlalchemy.dialects.postgresql import array, dialect
 
 from corpus_structure.schema.integrity import role_name
 
@@ -33,17 +33,22 @@ class N1Parameters(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+type DataStepName = Literal[
+    "ddo_n1_relower", "pdf_s36_retire_validation", "pdf_s40_shared_streams", "ddo_declared_validity"
+]
+
+
 class DataStepRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: Literal["ddo_n1_relower", "pdf_s36_retire_validation", "pdf_s40_shared_streams"]
+    name: DataStepName
     parameters: N1Parameters = Field(default_factory=N1Parameters)
 
 
 class FrozenDataStep(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: Literal["ddo_n1_relower", "pdf_s36_retire_validation", "pdf_s40_shared_streams"]
+    name: DataStepName
     owner: Literal["corpus_sem_publisher"] = "corpus_sem_publisher"
     implementation_sha256: str
     libraries: tuple[tuple[str, str], ...]
@@ -53,6 +58,7 @@ class FrozenDataStep(BaseModel):
     guarded_relations: tuple[str, ...]
     prerequisite_relations: tuple[str, ...]
     retired_relations: tuple[str, ...]
+    retired_columns: tuple[tuple[str, str], ...] = ()
 
 
 if get_args(FrozenDataStep.model_fields["owner"].annotation) != (role_name("publisher"),):
@@ -246,6 +252,45 @@ def _pdf_s40(target: MetaData, predecessor: str | None) -> FrozenDataStep:
     )
 
 
+def _declared_validity(target: MetaData, predecessor: str | None) -> FrozenDataStep:
+    if predecessor != "semantic_ddo_pe_n29":
+        raise ValueError("declared validity conversion requires its frozen N29 predecessor")
+    definitions = target.tables["sem.data_operation_definition"]
+    legacy = column("validity_family", Text())
+    families = definitions.c.validity_families
+    if not (members := families.info.get("enum")):
+        raise ValueError("declared validity requires captured ready families")
+    return FrozenDataStep(
+        name="ddo_declared_validity",
+        implementation_sha256=_implementation_id(),
+        libraries=_libraries(),
+        statements=(
+            _refuse_rows(
+                select(1).select_from(definitions).where(legacy.not_in(members)),
+                "N29 definition names an unknown validity family",
+            ),
+            _sql(
+                update(definitions).values(
+                    {
+                        families: case(
+                            (legacy.is_(None), array([], type_=Text())), else_=array([legacy])
+                        ),
+                        definitions.c.validity_conservative: false(),
+                    }
+                )
+            ),
+        ),
+        deferred_columns=(
+            (definitions.fullname, families.name),
+            (definitions.fullname, "validity_conservative"),
+        ),
+        guarded_relations=(definitions.fullname,),
+        prerequisite_relations=(definitions.fullname,),
+        retired_relations=(),
+        retired_columns=((definitions.fullname, "validity_family"),),
+    )
+
+
 def prepare_data_steps(
     requests: tuple[DataStepRequest, ...], *, target: MetaData, predecessor: str | None
 ) -> tuple[FrozenDataStep, ...]:
@@ -256,6 +301,7 @@ def prepare_data_steps(
         "ddo_n1_relower": _n1,
         "pdf_s36_retire_validation": _pdf_s36,
         "pdf_s40_shared_streams": _pdf_s40,
+        "ddo_declared_validity": _declared_validity,
     }
     return tuple(builders[request.name](target, predecessor) for request in requests)
 
@@ -286,8 +332,10 @@ def order_data_steps(
     deferred = {entry for step in steps for entry in step.deferred_columns}
     final: list[MigrateOperation] = []
     retired_relations = {relation for step in steps for relation in step.retired_relations}
+    retired_columns = {column for step in steps for column in step.retired_columns}
     final_drops: list[MigrateOperation] = []
     captured_retirements: set[str] = set()
+    captured_columns: set[tuple[str, str]] = set()
 
     def prepare(operation: MigrateOperation) -> MigrateOperation | None:
         if isinstance(operation, OwnedOperationsOp):
@@ -305,6 +353,14 @@ def order_data_steps(
             captured_retirements.add(relation)
             final_drops.append(OwnedOperationsOp(role_name("publisher"), [operation]))
             return None
+        if isinstance(operation, ops.DropColumnOp):
+            key = (f"{operation.schema}.{operation.table_name}", operation.column_name)
+            if key in retired_columns:
+                if key in captured_columns:
+                    raise NativeAuthoringError("revision data step repeats a retired column")
+                captured_columns.add(key)
+                final_drops.append(OwnedOperationsOp(role_name("publisher"), [operation]))
+                return None
         if isinstance(operation, ops.AddColumnOp):
             relation = f"{operation.schema}.{operation.table_name}"
             source = operation.column
@@ -376,6 +432,8 @@ def order_data_steps(
     ]
     if captured_retirements != retired_relations:
         raise NativeAuthoringError("revision data step lacks its declared physical retirement")
+    if captured_columns != retired_columns:
+        raise NativeAuthoringError("revision data step lacks its declared column retirement")
     upgrade_ops.ops.extend(NativeTransitionOp(guards[name], None) for name in sorted(guards))
     upgrade_ops.ops.extend(
         OwnedOperationsOp(

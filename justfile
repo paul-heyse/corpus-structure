@@ -159,8 +159,8 @@ types:
 py-test:
     uv run pytest
 
-# The model's Stage A files (core/vocab.py, core/_model/): `just model generate` rewrites them and
-# the root revision; `just model check` (the default) only checks declarations, log and drift
+# Current released-model projections: `just model generate` writes generated native Python.
+# `just model check` checks the exact outputs without writing.
 model action="check":
     uv run python -m corpus_structure.schema {{action}}
 

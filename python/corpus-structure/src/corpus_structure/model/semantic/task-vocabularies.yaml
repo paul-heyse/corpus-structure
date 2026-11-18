@@ -1,0 +1,21 @@
+id: https://corpus-structure.dev/semantic/task-vocabularies
+name: task_vocabularies
+prefixes:
+  cs: https://corpus-structure.dev/semantic/
+enums:
+  TaskUnitType:
+    description: Current native task unit kinds.
+    annotations: {cs:openness: closed}
+    permissible_values:
+      document: {}
+      rendition: {}
+      segment: {}
+      span: {}
+      observation: {}
+      entity: {}
+      claim: {}
+      alternative_group: {}
+      identity_group: {}
+      run: {}
+      golden_unit: {}
+      source_view: {}

@@ -269,23 +269,9 @@ def _direct_program(model, parameters, kind, node_id):
         "context_key",
         "created_at",
     )
-    families = (
-        ("record-grade", "record_grade"),
-        ("record-fit", "record_fit"),
-        ("operation-event", "operation_event"),
-        ("contextual", "contextual"),
-        ("definition", "definition"),
-        ("artifact", "artifact"),
-        ("rich", "rich_admission"),
-    )
-    validity = case(
-        {
-            family: getattr(func.ops, f"ddo_{owner}_dependencies_valid")(node_id)
-            for family, owner in families
-        },
-        value=definitions.c.validity_family,
-        else_=True,
-    )
+    from .validity_programs import family_validity
+
+    validity = family_validity(definitions, node_id)
     producing = episodes.join(requests, requests.c.id == episodes.c.request_id)
     admitted_producer = _exists(
         producing.join(

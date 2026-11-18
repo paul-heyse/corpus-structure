@@ -22,6 +22,7 @@ class PreparedCompositionReceiver:
 
 class ComposeEnrichedDocumentOperation(PreparedCompositionReceiver):
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.compose_view/source-native",
         "profile": "derivation",
         "subject": "original-document",

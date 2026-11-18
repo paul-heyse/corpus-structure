@@ -286,10 +286,22 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         tmp_path,
     )
     frozen = load_native_state(ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n29_native.json")
-    assert {
+    current_acl = {
         item.identity: (item.catalog["owner"], item.catalog.get("acl"))
         for item in authoring.desired
-    } == {item.identity: (item.catalog["owner"], item.catalog.get("acl")) for item in frozen}
+    }
+    previous_acl = {
+        item.identity: (item.catalog["owner"], item.catalog.get("acl")) for item in frozen
+    }
+    assert {item.name for item in previous_acl.keys() - current_acl.keys()} == {
+        "ddo_classify_validity",
+    }
+    assert {item.name for item in current_acl.keys() - previous_acl.keys()} == {
+        "ddo_conservative_dependencies_valid",
+    }
+    assert all(
+        current_acl[item] == previous_acl[item] for item in current_acl.keys() & previous_acl.keys()
+    )
     # Resolve this genuinely registered immutable root. A reader must not need
     # access to the maintenance-only Alembic table to authenticate its contract.
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)

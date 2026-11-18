@@ -11,7 +11,7 @@ from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
 
 from corpus_structure.cli import model as commands
 from corpus_structure.cli.managed import ResultStore
-from corpus_structure.schema.model import ModelError
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.model_change import ChangeRequest, RuntimeCustody, prepare_preview
 from corpus_structure.schema.model_deployment import Candidate
 from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime

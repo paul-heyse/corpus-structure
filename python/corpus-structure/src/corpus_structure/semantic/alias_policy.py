@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from corpus_structure.core.keys import LabelRules, normalize_label
 from corpus_structure.core.vocab import CaseRule
 
 from .identity import canonical_bytes
+from .label_normalization import LabelRules, normalize_label
 
 if TYPE_CHECKING:
     from .types import ClassDefinition, PreparedRelease, SourceBundle

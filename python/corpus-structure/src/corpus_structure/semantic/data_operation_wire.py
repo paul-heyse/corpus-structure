@@ -1040,7 +1040,7 @@ def generated_wire_source(sources=None):
 
 
 if __name__ == "__main__":
-    from corpus_structure.schema.generate import _format
+    from corpus_structure.schema.code_generation import _format
 
     Path(__file__).with_name("_data_operation_wire.py").write_text(
         _format("semantic/_data_operation_wire.py", generated_wire_source())

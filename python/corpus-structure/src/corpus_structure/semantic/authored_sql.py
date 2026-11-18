@@ -435,7 +435,7 @@ def analyze_release_sql(
 
 def analyze_archived_sql(conn: Connection, release_id: str) -> dict[str, AuthoredSQL]:
     """Bind archive inputs and catalog analysis in a single restricted snapshot."""
-    from .execution_admission import _verify_deployment_functions
+    from .execution_admission import verify_deployment_functions
 
     with _analysis_snapshot(conn):
         inputs = _prepare_sql_inputs(
@@ -443,7 +443,7 @@ def analyze_archived_sql(conn: Connection, release_id: str) -> dict[str, Authore
         )
         if inputs is None:
             return {}
-        return _analyze_inputs(conn, inputs, physical_id=_verify_deployment_functions(conn))
+        return _analyze_inputs(conn, inputs, physical_id=verify_deployment_functions(conn))
 
 
 def admit_archived_sql(
@@ -456,7 +456,7 @@ def admit_archived_sql(
     physical_id: str | None = None,
 ) -> tuple[AuthoredSQL, ...]:
     """Record an exact archive-input analysis on the caller's admission transaction."""
-    from .execution_admission import _verify_deployment_functions
+    from .execution_admission import verify_deployment_functions
     from .metadata import table
 
     rows = _archive_inputs(conn, release_id, include_physical=False)
@@ -464,7 +464,7 @@ def admit_archived_sql(
         raise SQLAdmissionError("analyzed SQL input set differs")
     if not rows:
         return ()
-    physical_id = _verify_deployment_functions(conn) if physical_id is None else physical_id
+    physical_id = verify_deployment_functions(conn) if physical_id is None else physical_id
     if analyzed is None:
         if reader_conn is None:
             raise SQLAdmissionError(
@@ -479,7 +479,7 @@ def admit_archived_sql(
         with _analysis_snapshot(reader_conn):
             if verify_reader is not None:
                 verify_reader(reader_conn)
-            reached = _verify_deployment_functions(reader_conn)
+            reached = verify_deployment_functions(reader_conn)
             if reached != physical_id:
                 raise SQLAdmissionError("authored SQL reader and admission target differ")
             analyzed = _analyze_inputs(reader_conn, inputs, physical_id=reached)

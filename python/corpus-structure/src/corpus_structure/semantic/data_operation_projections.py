@@ -1198,7 +1198,6 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
                     "definition_identity",
                     "eligibility_identity",
                     "quantified",
-                    "validity_family",
                     "command_class",
                     "dependencies",
                 }

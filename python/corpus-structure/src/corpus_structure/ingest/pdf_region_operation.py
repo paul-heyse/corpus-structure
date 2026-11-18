@@ -7,6 +7,7 @@ from corpus_structure.semantic.native_requests import execute_pdf_region
 
 class PdfRegionFamily:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "abstract": True,
         "id": "source.pdf_region/render",
         "profile": "derivation",

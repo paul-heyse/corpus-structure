@@ -41,6 +41,7 @@ from .native_program import (
     pg_type,
     sql_function,
 )
+from .validity_programs import FAMILY_PROGRAMS, input_role, selected_family
 
 # The captured program participates in the kernel digest. Its self-reference is
 # bound by the existing captured-kernel realization after the source is frozen.
@@ -545,19 +546,13 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
         core_variable(name, BigInteger()) for name in ("producer_task", "producer_attempt")
     )
     producer_holder = core_variable("producer_holder", Text())
+    family_guards = {guard: entry.family for entry in FAMILY_PROGRAMS for guard in entry.guards}
     guards = (
         "ddo_require_external_completion",
-        "ddo_require_record_grade_completion",
-        "ddo_require_record_fit_completion",
-        "ddo_require_operation_event_completion",
+        *family_guards,
         "ddo_require_policy_authorization_completion",
         "ddo_require_structural_admission_completion",
         "ddo_require_structural_dossier_completion",
-        "ddo_require_definition_completion",
-        "ddo_require_artifact_completion",
-        "ddo_require_contextual_completion",
-        "ddo_require_rich_preparation_completion",
-        "ddo_require_rich_admission_completion",
         "ddo_require_product_validations",
         "ddo_assert_output_witnesses",
     )
@@ -573,29 +568,36 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
             )
         )
     ]
+    authorized_effects = (
+        select(definition.c.operation_id)
+        .where(
+            definition.c.release_id == rf("release_id"),
+            definition.c.operation_id == rf("operation_id"),
+            func.jsonb_path_exists(
+                definition.c.support_contract["effects"],
+                '$[*].authorization[*] ? (@ == "native-purpose:evaluate")',
+            ),
+        )
+        .exists()
+    )
+    checks.append(If(authorized_effects, (Perform(func.ops.ddo_authorize("evaluator")),)))
     for name in guards:
-        if name == "ddo_require_operation_event_completion":
+        invocation = Perform(
+            getattr(func.ops, name)(completion, r, producer_task, producer_attempt, producer_holder)
+            if name == "ddo_require_external_completion"
+            else getattr(func.ops, name)(r, completion)
+        )
+        if name in family_guards:
             checks.append(
                 If(
-                    rf("operation_id").in_(
-                        (
-                            "operation_event.frame",
-                            "operation_event.fit",
-                            "operation_event.authorize",
-                        )
+                    selected_family(
+                        model, rf("release_id"), rf("operation_id"), family_guards[name]
                     ),
-                    (Perform(func.ops.ddo_authorize("evaluator")),),
+                    (invocation,),
                 )
             )
-        checks.append(
-            Perform(
-                getattr(func.ops, name)(
-                    completion, r, producer_task, producer_attempt, producer_holder
-                )
-                if name == "ddo_require_external_completion"
-                else getattr(func.ops, name)(r, completion)
-            )
-        )
+        else:
+            checks.append(invocation)
     routine(
         "ops",
         "ddo_require_completion_correspondence",
@@ -742,7 +744,7 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                 ),
             ),
             If(
-                rf("operation_id") == "record_policy.grade",
+                selected_family(model, rf("release_id"), rf("operation_id"), "record-grade"),
                 (
                     ForQuery(
                         ("captured",),
@@ -760,7 +762,7 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                 ),
                 (
                     If(
-                        rf("operation_id") == "record_policy.fit",
+                        selected_family(model, rf("release_id"), rf("operation_id"), "record-fit"),
                         (
                             ForQuery(
                                 ("selected",),
@@ -779,7 +781,10 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                         ),
                         (
                             If(
-                                rf("operation_id") == "operation_event.frame",
+                                input_role(model, rf("release_id"), rf("operation_id"), "question")
+                                & selected_family(
+                                    model, rf("release_id"), rf("operation_id"), "operation-event"
+                                ),
                                 (
                                     ForQuery(
                                         ("cut",),
@@ -800,7 +805,18 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                                 ),
                                 (
                                     If(
-                                        rf("operation_id") == "operation_event.fit",
+                                        input_role(
+                                            model,
+                                            rf("release_id"),
+                                            rf("operation_id"),
+                                            "specification",
+                                        )
+                                        & selected_family(
+                                            model,
+                                            rf("release_id"),
+                                            rf("operation_id"),
+                                            "operation-event",
+                                        ),
                                         (
                                             Assign(
                                                 "cut",
@@ -828,8 +844,24 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                                         (
                                             If(
                                                 and_(
-                                                    rf("operation_id")
-                                                    == "retrieve.contextual_scores/declared",
+                                                    selected_family(
+                                                        model,
+                                                        rf("release_id"),
+                                                        rf("operation_id"),
+                                                        "contextual",
+                                                    )
+                                                    & input_role(
+                                                        model,
+                                                        rf("release_id"),
+                                                        rf("operation_id"),
+                                                        "policy",
+                                                    )
+                                                    & ~input_role(
+                                                        model,
+                                                        rf("release_id"),
+                                                        rf("operation_id"),
+                                                        "scores",
+                                                    ),
                                                     completion["outcome"].astext == "success",
                                                 ),
                                                 (

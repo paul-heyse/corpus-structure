@@ -4,14 +4,10 @@ Foundations §3.3.
 
 These are the in-memory shapes ingest (I1a) produces and the locator function (I0) reads:
 
-- `SegmentKind` (generated in `vocab.py` from the model, with its member properties), the D1
-  §3.2 kinds (email kinds included); M2 builds the CHECK on `kb.segment.kind` from the model;
-- `Segment`, a range `[start, end)` of the canonical text with its kind, parse status and reason,
-  author-markup `attrs` and children. Its cross-field invariants are the model's `KbSegment`
-  declarations, applied by the generated validator (`_model/validators.py`; F01), so the segment
-  and the stored row (M2's CHECK) accept the same values. Text is not stored on the node; it is
-  the canonical text's substring. Children are sorted on validation (start, then the longer
-  first, then kind), because siblings may overlap and the digest needs one order;
+- `SegmentKind` and `DelimitingStatus` describe retained source structure;
+- `Segment` is a range `[start, end)` with parse status and author markup. Its
+  typed shape owns range ordering and the parse-reason invariant. Children are
+  sorted on validation by start, longer range first, then kind;
 - `MacroDef`, one entry of a rendition's macro table (D4 M01);
 - `RenditionContent`, the canonical text, the document root and the macro table, which is exactly
   what the content digest covers (D1 §3.2). Segments carry no diagnostics, so the digest needs no
@@ -25,11 +21,11 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Iterator, Mapping
-from typing import Any, NamedTuple, Self
+from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
-from corpus_structure.core._model import validators
+from corpus_structure.core import invariants
 from corpus_structure.core.canonical import CanonicalJsonError, canonical_json, digest, make_key
 from corpus_structure.core.vocab import DelimitingStatus, SegmentKind
 
@@ -48,16 +44,6 @@ class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
 
-class _StoredSegment(NamedTuple):
-    """A segment's fields under the names of its `kb.segment` row, which the model's `KbSegment`
-    invariants are declared on."""
-
-    start_offset: int
-    end_offset: int
-    parse_status: DelimitingStatus
-    parse_reason: str | None
-
-
 def _child_order(segment: Segment) -> tuple[int, int, str]:
     return (segment.start, -segment.end, segment.kind.value)
 
@@ -67,7 +53,7 @@ class Segment(_Frozen):
     start: int = Field(ge=0, strict=True)
     end: int = Field(ge=0, strict=True)
     parse_status: DelimitingStatus = DelimitingStatus.OK
-    parse_reason: str | None = None
+    parse_reason: str | None = Field(default=None, pattern=r"\S")
     attrs: dict[str, JsonValue] = Field(default_factory=dict)
     children: tuple[Segment, ...] = ()
 
@@ -78,8 +64,8 @@ class Segment(_Frozen):
 
     @model_validator(mode="after")
     def _well_formed(self) -> Self:
-        stored = _StoredSegment(self.start, self.end, self.parse_status, self.parse_reason)
-        validators.kb_segment(stored)  # ordered_eq(start, end); parse_reason absent iff ok
+        invariants.iff_absent(self, "parse_reason", "parse_status", ("ok",))
+        invariants.ordered_eq(self, "start", "end")
         try:  # author markup is content: refuse what the digest would refuse, here
             canonical_json(self.attrs)
         except CanonicalJsonError as error:

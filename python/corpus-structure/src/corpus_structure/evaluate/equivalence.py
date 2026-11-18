@@ -2,7 +2,7 @@
 
 Each comparison records the tier that decided it:
 
-1. **canonical**: F2b's canonical forms (`core/keys.py` `canonical_value`): formulas and sets by
+1. **canonical**: the evaluator's canonical value forms: formulas and sets by
    the token form, numbers as canonical decimals with units as written, text NFC and casefolded,
    dates verbatim, intervals by endpoints and inclusivity, references by entity alignment, phrases
    by span overlap (by text when a side has no span);
@@ -39,8 +39,8 @@ from scipy.optimize import linear_sum_assignment
 from corpus_structure.core import values as V
 from corpus_structure.core.canonical import canonical_json
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.core.keys import Uniform, canonical_condition, canonical_value
 from corpus_structure.core.vocab import Relation
+from corpus_structure.evaluate.normalization import canonical_condition, canonical_value
 from corpus_structure.methods.math import grammar
 from corpus_structure.semantic.scientific_evidence import MathReading as _Reading
 from corpus_structure.semantic.scientific_evidence import _bounds as _bounds
@@ -51,7 +51,10 @@ from corpus_structure.semantic.scientific_evidence import _seed as _seed
 from corpus_structure.semantic.scientific_evidence import grammar_name as grammar_name
 from corpus_structure.semantic.scientific_evidence import sample_points as sample_points
 
-_IDENTITY = Uniform(lambda ref: ref)
+
+def _identity(ref: str) -> str:
+    return ref
+
 
 type RefEq = Callable[[str, str], bool]
 
@@ -79,7 +82,7 @@ def _json(value: Any) -> str:
 
 
 def _form(value: Any, macros: Mapping[str, MacroDef]) -> str:
-    return _json(canonical_value(value, macros, _IDENTITY))
+    return _json(canonical_value(value, macros, _identity))
 
 
 class ValueComparator:
@@ -131,7 +134,7 @@ class ValueComparator:
         conds = list(conditions)
         names = sorted(grammar_name(k) for v in (a, b) for k in (getattr(v, "symbols", None) or {}))
         variables = tuple(dict.fromkeys(names))
-        cform = _json(sorted(_json(canonical_condition(c, self.macros, _IDENTITY)) for c in conds))
+        cform = _json(sorted(_json(canonical_condition(c, self.macros, _identity)) for c in conds))
         left_form, right_form = sorted((fa, fb))
         key = (left_form, right_form, cform, variables)
         hit = self._cache.get(key)

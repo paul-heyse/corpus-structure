@@ -56,7 +56,8 @@ classes:
       consumer_selection: {range: SemanticText}
       output_witnesses: {range: OperationOutputWitness, multivalued: true, inlined_as_list: true}
       external: {range: OperationExternal, inlined: true}
-      validity_family: {range: ValidityFamily, multivalued: true}
+      validity_family: {range: ValidityFamily, multivalued: true, recommended: true}
+      acquired_by: {range: SemanticText}
   OperationKind:
     attributes:
       id: {range: SemanticText, required: true}
@@ -153,6 +154,7 @@ classes:
       limits: {range: SemanticText, multivalued: true}
       stream_settlement: {range: OperationStreamSettlement, inlined: true}
       prepared_factory: {range: SemanticText}
+      cpu_receipts: {range: integer, minimum_value: 0}
   OperationStreamSettlement:
     attributes:
       mode: {range: SemanticText, required: true}

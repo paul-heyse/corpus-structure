@@ -132,22 +132,33 @@ def admit_data_operation_release(connection: Connection, prepared: PreparedRelea
 
 
 def inspect_data_operation_release(
-    connection: Connection, prepared: PreparedRelease
+    connection: Connection, prepared: PreparedRelease, *, validity_only: bool = False
 ) -> tuple[str, WireInspectDataOperationReleaseResult]:
     """Read exact deployed correspondence without admitting definitions or widening grants."""
     from sqlalchemy.exc import DBAPIError
 
     from .data_operation_storage import DataOperationStorage
-    from .execution_admission import ExecutionAdmissionError, require_native_execution
+    from .execution_admission import (
+        ExecutionAdmissionError,
+        require_native_execution,
+        verify_deployment_functions,
+    )
     from .native_definition_projection import read_native_definition_projection
     from .refusals import located_failure_context
 
     with located_failure_context(prepared, "data.inspect_data_operation_release"):
-        projection = read_native_definition_projection(prepared)
-        physical_id = require_native_execution(connection, prepared)
+        if validity_only:
+            physical_id = verify_deployment_functions(connection)
+            model_digest = json.loads(prepared.manifest)["data_operation_model"]
+            native_digest = prepared.native_kernel_digest
+        else:
+            projection = read_native_definition_projection(prepared)
+            physical_id = require_native_execution(connection, prepared)
+            model_digest = projection["model_digest"]
+            native_digest = projection["native_digest"]
         try:
             inspected = DataOperationStorage(connection).inspect_data_operation_release(
-                {"release_id": prepared.release_id}
+                {"release_id": prepared.release_id, "validity_only": validity_only}
             )
         except DBAPIError as error:
             if getattr(error.orig, "sqlstate", None) != "23514":
@@ -156,11 +167,11 @@ def inspect_data_operation_release(
                 "native operation release correspondence differs: "
                 + str(error.orig).splitlines()[0]
             ) from error
-        if inspected != {
-            "release_id": prepared.release_id,
-            "model_digest": projection["model_digest"],
-            "native_digest": projection["native_digest"],
-        }:
+        if (inspected["release_id"], inspected["model_digest"], inspected["native_digest"]) != (
+            prepared.release_id,
+            model_digest,
+            native_digest,
+        ):
             raise ExecutionAdmissionError(
                 "native operation inspection attests another release or contract"
             )

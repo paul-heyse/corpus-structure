@@ -7,6 +7,7 @@ from corpus_structure.semantic.dossier_products import execute_dossier
 
 class DossierOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "structure.dossier/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",

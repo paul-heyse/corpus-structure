@@ -17,7 +17,7 @@ from sqlalchemy import (
     select,
     true,
 )
-from sqlalchemy.dialects.postgresql import JSON, JSONB, array
+from sqlalchemy.dialects.postgresql import JSON, JSONB, aggregate_order_by, array
 
 from .data_operation_compiler_native import LOWERING_DIGEST
 from .data_operation_projections import binding_branches, binding_columns
@@ -154,7 +154,6 @@ def _inspection_programs(model):
                         "definition_identity",
                         "eligibility_identity",
                         "quantified",
-                        "validity_family",
                         "command_class",
                         "dependencies",
                     ],
@@ -173,16 +172,59 @@ def _inspection_programs(model):
             expected.c.body.is_distinct_from(actual.c.body),
         )
 
+    conservative = (
+        select(
+            func.coalesce(
+                func.jsonb_agg(
+                    aggregate_order_by(
+                        definitions.c.operation_id,
+                        definitions.c.operation_id,
+                    )
+                ),
+                cast(literal("[]"), JSONB()),
+            )
+        )
+        .where(
+            definitions.c.release_id == p["release_id"].astext, definitions.c.validity_conservative
+        )
+        .scalar_subquery()
+    )
+    operation_id = projected_operations.c.value["operation_id"].astext
+    expected_conservative = (
+        select(
+            func.coalesce(
+                func.jsonb_agg(aggregate_order_by(operation_id, operation_id)),
+                cast(literal("[]"), JSONB()),
+            )
+        )
+        .where(
+            projected_operations.c.value["validity_conservative"] == cast(literal("true"), JSONB())
+        )
+        .scalar_subquery()
+    )
+    validity_only = func.coalesce(cast(p["validity_only"].astext, Boolean()), False)
     release_inspection = _program(
         "inspect_data_operation_release",
         (Parameter("p_payload", pg_type("jsonb")),),
         (
-            Perform(func.ops.ddo_fields(p, array(["release_id"], type_=Text()))),
-            Perform(func.data.require_execution_release(p["release_id"].astext)),
+            Perform(
+                func.ops.ddo_fields(
+                    p, array(["release_id"], type_=Text()), array(["validity_only"], type_=Text())
+                )
+            ),
+            If(
+                not_(validity_only),
+                (Perform(func.data.require_execution_release(p["release_id"].astext)),),
+            ),
             SelectInto(
                 select(_decode(artifacts.c.content)).where(
                     artifacts.c.release_id == p["release_id"].astext,
                     artifacts.c.artifact_name == "data_operation_native_definitions.json",
+                    _exists(
+                        releases,
+                        releases.c.release_id == artifacts.c.release_id,
+                        releases.c.native_definitions_digest == _hash(artifacts.c.content),
+                    ),
                 ),
                 ("projection",),
             ),
@@ -204,7 +246,7 @@ def _inspection_programs(model):
                     _exists(
                         releases,
                         releases.c.release_id == p["release_id"].astext,
-                        releases.c.lowering_digest == LOWERING_DIGEST,
+                        or_(validity_only, releases.c.lowering_digest == LOWERING_DIGEST),
                         releases.c.native_kernel_digest == projection["native_digest"].astext,
                         releases.c.model_digest == projection["model_digest"].astext,
                     )
@@ -213,13 +255,18 @@ def _inspection_programs(model):
                 "23514",
             ),
             _refuse(
-                difference(expected_kinds, actual_kinds),
+                and_(not_(validity_only), difference(expected_kinds, actual_kinds)),
                 "read-only inspection admitted kind rowset differs from archived contracts",
                 "23514",
             ),
             _refuse(
-                difference(expected_operations, actual_operations),
+                and_(not_(validity_only), difference(expected_operations, actual_operations)),
                 "read-only inspection admitted operation rowset differs from archived contracts",
+                "23514",
+            ),
+            _refuse(
+                conservative.is_distinct_from(expected_conservative),
+                "read-only inspection admitted validity differs from archived contracts",
                 "23514",
             ),
             Return(
@@ -232,6 +279,8 @@ def _inspection_programs(model):
                         projection["model_digest"].astext,
                         "native_digest",
                         projection["native_digest"].astext,
+                        "conservative_operations",
+                        conservative,
                     ),
                 )
             ),

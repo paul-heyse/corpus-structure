@@ -7,6 +7,7 @@ from corpus_structure.semantic.definition_component_products import execute_defi
 
 class DefinitionComponentsOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["definition"],
         "id": "structure.definition_components/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -100,6 +101,7 @@ class DefinitionComponentsOperation:
         "dependencies": ["text.gliner_definitions/source-native"],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",

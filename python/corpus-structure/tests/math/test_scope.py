@@ -9,7 +9,7 @@ from math_support import primary_scope_fixture, read_spans, segment_block
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import RenditionContent, Segment
-from corpus_structure.core.keys import symbol_form
+from corpus_structure.core.tex import symbol_form
 from corpus_structure.core.vocab import MathKind, ScopeExtent, SegmentKind
 from corpus_structure.ingest.sentences import SentenceConfig, split
 from corpus_structure.methods.math.scope import resolve_scopes

@@ -7,6 +7,7 @@ from corpus_structure.semantic.finite_interpretation_products import execute_fin
 
 class FiniteInterpretationOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "interpret.finite_candidates",
         "profile": "derivation",
         "subject": "original-source-view",

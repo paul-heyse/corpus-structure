@@ -36,7 +36,7 @@ RICH_QUERY_SOURCES = (
     "semantic/reference_positions.py",
     "semantic/statement_types.py",
     "semantic/alias_policy.py",
-    "core/keys.py",
+    "semantic/label_normalization.py",
     "core/tex.py",
     "core/vocab.py",
     "semantic/data_operation_identity.py",

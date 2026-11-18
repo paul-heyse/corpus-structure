@@ -87,7 +87,7 @@ def _source_view(logical_sources: Mapping[str, bytes], physical_sources: Mapping
 
 
 def _kind(view, name, trail=()):
-    from corpus_structure.schema.model import ci_annotations
+    from corpus_structure.schema.declarations import ci_annotations
 
     enum = view.get_enum(name)
     if enum is not None:
@@ -133,7 +133,7 @@ def source_bindings(
     physical_sources: Mapping[str, bytes],
 ):
     """Compile qualified fixed variants from explicit field references and closed sources."""
-    from corpus_structure.schema.model import ci_annotations
+    from corpus_structure.schema.declarations import ci_annotations
 
     from .native_call_contracts import OperationFieldBinding, OperationFieldType
 
@@ -338,7 +338,7 @@ def resolve_call_bindings(
     core_owners: Mapping[tuple[str, str], str] | None = None,
 ) -> tuple[tuple[str, OperationCallBinding], ...]:
     """Compile qualified fixed variants from explicit field references and closed sources."""
-    from corpus_structure.schema.model import ci_annotations
+    from corpus_structure.schema.declarations import ci_annotations
 
     from .native_call_contracts import OperationRecordBinding
 

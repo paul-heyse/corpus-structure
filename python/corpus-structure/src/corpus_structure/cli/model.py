@@ -41,6 +41,7 @@ from corpus_structure.cli.target import (
     current_selection,
     selection_summary,
 )
+from corpus_structure.schema.compiled_changes import CompiledModelComparison
 from corpus_structure.schema.model_change import RuntimeCustody
 from corpus_structure.schema.source_migrations import ConsumerOutcome
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
@@ -171,6 +172,8 @@ class PreviewSourcesReport(BaseModel):
 class PreviewModelComparisonReport(BaseModel):
     preview_id: str
     comparison: DeclaredModelComparison | None
+    model_comparison: CompiledModelComparison | None = None
+    total_model_changes: int = 0
     query_analysis: ProjectionAnalysisComparison | None = None
     total_query_changes: int = 0
     total_query_unknowns: int = 0
@@ -282,7 +285,7 @@ def _read_runtime(
     prepared: PreparedRelease | None,
 ) -> RuntimeBinding | None:
     from corpus_structure.cli.managed import ResultError
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 
     manifest = store.show(result_id)
@@ -562,7 +565,7 @@ def _preview_guidance(
     ctx: typer.Context, staged: ChangePreview, preview_id: str, dependency_available: bool
 ) -> EffectGuidance:
     from corpus_structure.cli.recipes import RecipeError, checkout
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_change import check_preview
 
     if not dependency_available:
@@ -768,7 +771,7 @@ def inspect_preview(
 ) -> None:
     """Inspect a settled preview by ID without applying it."""
     from corpus_structure.cli.managed import ResultError, result_store
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_change import ChangePreview
 
     if stdout and (view != "patch" or json_ or limit is not None or after_hunk):
@@ -851,8 +854,14 @@ def inspect_preview(
             query = staged.query_analysis
             total_query_changes = len(query.changes) if query else 0
             total_query_unknowns = len(query.unknowns) if query else 0
+            compiled = staged.model_comparison
+            total_model_changes = len(compiled.changes) if compiled else 0
             population = max(
-                total_changes, total_unknowns, total_query_changes, total_query_unknowns
+                total_model_changes,
+                total_changes,
+                total_unknowns,
+                total_query_changes,
+                total_query_unknowns,
             )
             if after > population:
                 raise ValueError("model comparison continuation is outside its population")
@@ -867,6 +876,12 @@ def inspect_preview(
                     )
                     if comparison
                     else None,
+                    model_comparison=compiled.model_copy(
+                        update={"changes": compiled.changes[after:end]}
+                    )
+                    if compiled
+                    else None,
+                    total_model_changes=total_model_changes,
                     query_analysis=query.model_copy(
                         update={
                             "changes": query.changes[after:end],
@@ -1139,7 +1154,7 @@ def inspect_candidate(
     """Inspect a settled candidate and its registration in the bound checkout."""
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import RecipeError, checkout
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_deployment import (
         Candidate,
         MigrationNotRegistered,
@@ -1386,7 +1401,7 @@ def _prepare_release(
     data_operations: str | None = None,
     source_migrations=(),
 ):
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_change import physical_release_sources
     from corpus_structure.semantic.regeneration import prepare_packs
 
@@ -1434,7 +1449,7 @@ def preview(
 
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_change import (
         ChangePreview,
         ChangeRequest,
@@ -1730,7 +1745,7 @@ def apply(
     """Apply exactly the reviewed change; repeat with the same ID to resume."""
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_change import ChangePreview, apply_preview
     from corpus_structure.schema.model_deployment import predecessor_fence
 
@@ -1831,7 +1846,7 @@ def candidate(
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
     from corpus_structure.cli.schema import author_native_candidate, publish_native_candidate
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_change import (
         ChangePreview,
         approved_physical_metadata,
@@ -2074,7 +2089,7 @@ def register_native(
     """Register the candidate's frozen Alembic revision in the selected checkout."""
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_deployment import (
         Candidate,
         migration_wrapper,
@@ -2133,7 +2148,7 @@ def deploy(
     """Deploy a registered native candidate on its exact configured target."""
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_deployment import Candidate, deploy_candidate
     from corpus_structure.schema.preparation import writer_lock
     from corpus_structure.semantic.authored_sql import SQLAdmissionError

@@ -7,6 +7,7 @@ from corpus_structure.semantic.definition_location_products import execute_defin
 
 class DefinitionLocationOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "locate.definition_terms/declared",
         "profile": "derivation",
         "subject": "original-source-view",

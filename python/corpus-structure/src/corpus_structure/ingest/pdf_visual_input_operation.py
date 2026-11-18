@@ -7,6 +7,7 @@ from corpus_structure.semantic.native_requests import execute_pdf_visual_input
 
 class PdfVisualInputFamily:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "abstract": True,
         "id": "source.visual_input/render",
         "profile": "derivation",

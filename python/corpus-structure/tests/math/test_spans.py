@@ -14,7 +14,7 @@ from math_support import math_spans, read_spans
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
-from corpus_structure.core.keys import symbol_form
+from corpus_structure.core.tex import symbol_form
 from corpus_structure.core.values import Formula, SetValue
 from corpus_structure.core.vocab import BindKind, MathKind, ParseOutcome, SegmentKind
 from corpus_structure.methods.math.spans import (

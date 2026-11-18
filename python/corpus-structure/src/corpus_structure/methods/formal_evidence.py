@@ -15,6 +15,7 @@ class FormalEvidenceOperation:
     """Original source-native entrypoint; the prepared capability supplies resources."""
 
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.formal_evidence/source-native",
         "profile": "derivation",
         "subject": "original-source-view",

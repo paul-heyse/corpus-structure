@@ -7,6 +7,7 @@ from corpus_structure.semantic.artifact_products import execute_artifact_identit
 
 class ArtifactIdentityOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["artifact"],
         "id": "structure.artifact_identity/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",

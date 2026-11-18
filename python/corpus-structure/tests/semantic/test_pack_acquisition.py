@@ -1,9 +1,13 @@
 """Acquisition and normalized composition do not prepare component packs."""
 
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
-from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic import regeneration
+from corpus_structure.semantic.regeneration import DOMAINS
 
 
 def test_acquire_and_compose_never_invoke_compiler(monkeypatch):
@@ -61,3 +65,47 @@ def test_current_pack_acquisition_has_real_source_contracts_without_old_catalog(
     assert not {"source_view_id", "native_product_task_id"} & pin_fields
     assert not any(artifact.name.startswith("execution/") for artifact in dependencies.artifacts)
     assert profile.version == "semantic-2"
+
+
+REPO = DOMAINS.parent
+STATISTICS = DOMAINS / "statistics"
+
+HASHES = (
+    "import sys; from pathlib import Path\n"
+    "from corpus_structure.semantic.regeneration import prepare_packs\n"
+    "c = prepare_packs((Path(sys.argv[1]),))[3]\n"
+    "print(c.release_id, *(a.digest for a in c.artifacts))"
+)
+
+
+def test_hashes_are_equal_across_processes_hash_seeds_and_load_paths(tmp_path: Path) -> None:
+    def run(path: str, cwd: Path, seed: str) -> str:
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        out = subprocess.run(
+            [sys.executable, "-c", HASHES, path],
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return out.stdout
+
+    absolute = run(str(STATISTICS), tmp_path, "1")
+    relative = run("domains/statistics", REPO, "2")
+    assert absolute == relative and absolute.split()[0].startswith("release:")
+
+
+def test_ci_schema_compile_prints_the_artifacts(cli, tmp_path: Path) -> None:
+    result = cli(
+        "schema", "compile", "--domains", str(REPO / "domains"), "--json", "--out", str(tmp_path)
+    )
+    assert result.exit_code == 0, result.output
+    out = json.loads(result.stdout)
+    assert out["packs"] == ["statistics"] and out["release_id"].startswith("release:")
+    assert out["operation_model_id"] is not None and out["artifacts"]
+    assert (tmp_path / "manifest.json").exists()
+    assert (tmp_path / "sources").is_dir()
+    assert len(list(tmp_path.glob("*.artifact"))) == len(out["artifacts"])
+    refused = cli("schema", "compile", "--domains", str(tmp_path), "--domain", "nothere")
+    assert refused.exit_code == 1 and "semantic.yaml" in refused.stderr

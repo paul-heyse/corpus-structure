@@ -40,8 +40,14 @@ def data_operation_dependencies(
         )
     if any(item.name.startswith(_DATA_PREFIX) for item in dependencies.artifacts):
         raise ValueError("data-operation inputs are already supplied or use a reserved name")
-    if captured_declaration_model(dependencies.artifacts) is not None:
-        raise ValueError("operation declaration sources are already supplied")
+    captured_model = captured_declaration_model(dependencies.artifacts)
+    if (
+        captured_model is not None
+        and declaration_model is not None
+        and declaration_sources(captured_model) != declaration_sources(declaration_model)
+    ):
+        raise ValueError("operation declaration model conflicts with captured sources")
+    grammar_sources = () if captured_model is not None else declaration_sources(declaration_model)
     names = [source.name for source in declarations]
     if len(names) != len(set(names)):
         raise ValueError("duplicate data-operation declaration source")
@@ -86,7 +92,7 @@ def data_operation_dependencies(
         SourceArtifact(_DATA_PREFIX + "contracts/" + s.name, s.content) for s in contracts
     ]
     return ResolvedDependencies(
-        (*dependencies.artifacts, *artifacts, *declaration_sources(declaration_model)),
+        (*dependencies.artifacts, *artifacts, *grammar_sources),
         dependencies.vocabularies,
         dependencies.ontology_sources,
     )

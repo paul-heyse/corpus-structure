@@ -13,6 +13,7 @@ from corpus_structure.semantic.source_products import FrozenNativeSource
 
 class ConstructionOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.constructions/source-native",
         "profile": "derivation",
         "subject": "original-source-view",

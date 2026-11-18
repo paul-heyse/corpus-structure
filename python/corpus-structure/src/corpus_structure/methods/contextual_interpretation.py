@@ -16,6 +16,7 @@ from corpus_structure.semantic.source_products import FrozenNativeSource
 
 class ContextualEvaluationOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.contextual_evaluation/source-native",
         "profile": "derivation",
         "subject": "original-source-view",

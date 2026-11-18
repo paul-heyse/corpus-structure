@@ -11,7 +11,7 @@ import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from sqlalchemy import MetaData
 
-from .model import ModelError
+from .declarations import ModelError
 
 PHYSICAL_ROOT = "physical.yaml"
 _LINKML_TYPES = "linkml:types"

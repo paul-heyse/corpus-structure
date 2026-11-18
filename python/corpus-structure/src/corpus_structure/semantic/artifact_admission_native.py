@@ -24,6 +24,7 @@ from .native_program import (
     function,
     pg_type,
 )
+from .validity_programs import selected_family
 
 
 def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) -> str:
@@ -109,10 +110,8 @@ def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) ->
             definition_lookup,
             reject(
                 or_(
-                    r("operation_id").is_distinct_from("structure.artifact_identity/declared"),
-                    factory["entrypoint"].astext.is_distinct_from(
-                        "corpus_structure.methods.artifact_identity_declared.ArtifactIdentityOperation.acquire_port"
-                    ),
+                    ~selected_family(model, r("release_id"), r("operation_id"), "artifact"),
+                    func.nullif(factory["entrypoint"].astext, "").is_(None),
                     factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$").is_not(True),
                     d("implementation_revision").like("implementation-slice:%").is_not(True),
                     d("profile").is_distinct_from("derivation"),
@@ -144,7 +143,7 @@ def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) ->
         request_parameters,
         (
             If(
-                r("operation_id").is_distinct_from("structure.artifact_identity/declared"),
+                ~selected_family(model, r("release_id"), r("operation_id"), "artifact"),
                 (Return(),),
             ),
             Perform(func.ops.ddo_require_artifact_producer(r(), completion)),
@@ -214,7 +213,7 @@ def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) ->
                     lookup("episode", episode, episode.c.id == episode_id),
                     lookup("r", request, request.c.id == e("request_id")),
                     If(
-                        r("operation_id").is_distinct_from("structure.artifact_identity/declared"),
+                        ~selected_family(model, r("release_id"), r("operation_id"), "artifact"),
                         (Return(literal(True)),),
                     ),
                     If(e("outcome") != "success", (Return(literal(False)),)),

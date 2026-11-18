@@ -57,10 +57,9 @@ from .native_program import (
     pg_type,
 )
 from .record_policy_authority import DdoRecordPolicyAuthorization
+from .validity_programs import selected_family
 
 _POLICY = "https://corpus-structure.dev/semantic/data-operation-record-policy/"
-_FIT_FACTORY = "corpus_structure.methods.declared_record_policy.RecordPolicyFit.acquire_port"
-_GRADE_FACTORY = "corpus_structure.methods.declared_record_policy.RecordPolicyGrade.acquire_port"
 
 
 def _json(value):
@@ -552,10 +551,15 @@ def _authorization_completion(p):
             ),
             _reject(
                 or_(
-                    fit_definition("operation_id").is_distinct_from("record_policy.fit"),
+                    ~selected_family(
+                        p.model,
+                        fit_definition("release_id"),
+                        fit_definition("operation_id"),
+                        "record-fit",
+                    ),
                     fit_definition("profile").is_distinct_from("derivation"),
                     fit_contract["effects"].is_distinct_from(_json([])),
-                    _text(fit_capabilities, "entrypoint").is_distinct_from(_FIT_FACTORY),
+                    func.nullif(_text(fit_capabilities, "entrypoint"), "").is_(None),
                     _text(fit_capabilities, "source_digest")
                     .bool_op("~")("^[0-9a-f]{64}$")
                     .is_not(True),
@@ -1139,7 +1143,10 @@ def _fit_scopes(p):
         "ddo_record_fit_completion_scopes",
         (("r", "ops.data_request"),),
         (
-            If(r("operation_id").is_distinct_from("record_policy.fit"), (Return(),)),
+            If(
+                ~selected_family(p.model, r("release_id"), r("operation_id"), "record-fit"),
+                (Return(),),
+            ),
             ForQuery(
                 ("selected",),
                 select(rows.c.selection).distinct(),
@@ -1169,7 +1176,10 @@ def _fit_scopes(p):
         (
             p.lookup("producing", "ops.data_derivation", producers.c.id == episode),
             p.lookup("r", "ops.data_request", requests.c.id == producer("request_id")),
-            If(r("operation_id").is_distinct_from("record_policy.fit"), (Return(),)),
+            If(
+                ~selected_family(p.model, r("release_id"), r("operation_id"), "record-fit"),
+                (Return(),),
+            ),
             p.lookup(
                 "intent",
                 "ops.data_completion_intent",
@@ -1364,15 +1374,23 @@ def _fit_selected_grade(p):
             ),
             _reject(
                 or_(
-                    definition("operation_id").is_distinct_from("record_policy.grade"),
+                    ~selected_family(
+                        p.model,
+                        definition("release_id"),
+                        definition("operation_id"),
+                        "record-grade",
+                    ),
                     definition("profile").is_distinct_from("derivation"),
                     definition("support_contract")["effects"].is_distinct_from(_json([])),
-                    _text(
-                        definition("support_contract"),
-                        "capabilities",
-                        "prepared_factory",
-                        "entrypoint",
-                    ).is_distinct_from(_GRADE_FACTORY),
+                    func.nullif(
+                        _text(
+                            definition("support_contract"),
+                            "capabilities",
+                            "prepared_factory",
+                            "entrypoint",
+                        ),
+                        "",
+                    ).is_(None),
                     _text(payload, "implementation_revision").is_distinct_from(
                         definition("implementation_revision")
                     ),
@@ -1470,7 +1488,7 @@ def _fit_completion(p):
         )
         .exists()
     )
-    not_fit = r("operation_id").is_distinct_from("record_policy.fit")
+    not_fit = ~selected_family(p.model, r("release_id"), r("operation_id"), "record-fit")
     p.add(
         "ddo_record_fit_require_producer",
         (("r", "ops.data_request"), ("completion", "jsonb")),
@@ -1486,7 +1504,7 @@ def _fit_completion(p):
                 or_(
                     definition("profile").is_distinct_from("derivation"),
                     definition("support_contract")["effects"].is_distinct_from(_json([])),
-                    _text(capability, "entrypoint").is_distinct_from(_FIT_FACTORY),
+                    func.nullif(_text(capability, "entrypoint"), "").is_(None),
                     _text(capability, "source_digest").bool_op("~")("^[0-9a-f]{64}$").is_not(True),
                     definition("implementation_revision")
                     .like("implementation-slice:%")

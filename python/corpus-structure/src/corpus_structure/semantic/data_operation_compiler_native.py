@@ -466,66 +466,6 @@ def _kind_contracts_program():
 
 
 def _classify_programs(model):
-    operation = core_variable("operation", Text())
-    families = (
-        ("record-grade", ("record_policy.grade",)),
-        ("record-fit", ("record_policy.fit",)),
-        (
-            "operation-event",
-            (
-                "operation_event.frame",
-                "operation_event.fit",
-                "operation_event.authorize",
-                "urn:corpus:operation:score-operation-event",
-            ),
-        ),
-        (
-            "contextual",
-            (
-                "retrieve.contextual_query/declared",
-                "retrieve.contextual_query/selected-context",
-                "retrieve.contextual_target_vector/declared",
-                "retrieve.contextual_vectors/selection",
-                "retrieve.contextual_targets/curated",
-                "retrieve.contextual_targets/components",
-                "retrieve.contextual_target/declared",
-                "retrieve.contextual_inventory/declared",
-                "retrieve.contextual_scores/declared",
-                "retrieve.contextual/declared",
-                "retrieve.contextual_witnesses/declared",
-                "retrieve.contextual/with-witnesses",
-            ),
-        ),
-        (
-            "definition",
-            (
-                "structure.definition_applicability/declared",
-                "structure.definition_declaration_components/declared",
-                "structure.definition_components/declared",
-                "structure.definition_named_components/declared",
-            ),
-        ),
-        ("artifact", ("structure.artifact_identity/declared",)),
-        (
-            "rich",
-            (
-                "rich.admit",
-                "rich.consolidate",
-                "prepare.external_extraction",
-                "locate.external_extraction",
-            ),
-        ),
-    )
-    validity = sql_function(
-        "ops",
-        "ddo_classify_validity",
-        parameters=(Parameter("operation", pg_type("text")),),
-        returns=pg_type("text"),
-        body=select(case(*((operation.in_(names), family) for family, names in families))),
-        volatility="immutable",
-        strict=True,
-        search_path=("pg_catalog", "pg_temp"),
-    )
     definition = core_variable("definition", JSONB())
     command = _program(
         "ops",
@@ -549,10 +489,13 @@ def _classify_programs(model):
         security=False,
         strict=True,
     )
-    return validity, command
+    return (command,)
 
 
 def _lowering_program(model, subject_scopes):
+    from .validity_programs import FAMILY_PROGRAMS
+
+    ready_families = tuple(entry.family for entry in FAMILY_PROGRAMS)
     artifacts, kinds, kind_releases, definitions, releases, scopes = (
         model.tables[name]
         for name in (
@@ -672,7 +615,8 @@ def _lowering_program(model, subject_scopes):
         "definition_identity",
         "eligibility_identity",
         "quantified",
-        "validity_family",
+        "validity_families",
+        "validity_conservative",
         "command_class",
         "dependencies",
     )
@@ -850,11 +794,22 @@ def _lowering_program(model, subject_scopes):
             ),
         ),
         _refuse(
+            select(1)
+            .select_from(_rows(operation["validity"]["families"], "claimed_family"))
+            .where(
+                column("value", JSONB()).op("#>>")(array([], type_=Text())).not_in(ready_families)
+            )
+            .exists(),
+            "operation claims a family without an installed ready validator",
+        ),
+        _refuse(
             or_(
                 o["input_roles"].is_distinct_from(expected_inputs),
                 o["output_roles"].is_distinct_from(expected_outputs),
                 o["subject_definition"].astext.is_distinct_from(operation["subject"].astext),
                 o["support_contract"].is_distinct_from(expected_support),
+                o["validity_families"].is_distinct_from(operation["validity"]["families"]),
+                o["validity_conservative"].is_distinct_from(operation["validity"]["conservative"]),
                 o["profile"].is_distinct_from(operation["profile"]),
                 o["binding"].is_distinct_from(binding_query),
                 o["definition"].astext.is_distinct_from(
@@ -920,8 +875,10 @@ def _lowering_program(model, subject_scopes):
                 _object(
                     "quantified",
                     quantified,
-                    "validity_family",
-                    func.ops.ddo_classify_validity(lowered["operation_id"]),
+                    "validity_families",
+                    operation["validity"]["families"],
+                    "validity_conservative",
+                    operation["validity"]["conservative"],
                 ),
             ),
         ),

@@ -31,6 +31,8 @@ class NativeOperationProjection(TypedDict):
     subject_definition: str
     recipe: str
     profile: str
+    validity_families: list[str]
+    validity_conservative: bool
     binding: dict[str, Any]
     definition: str
     eligibility: str
@@ -87,6 +89,16 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
     actual_subjects = {
         row["operation_id"]: row["subject_definition"] for row in projection["operations"]
     }
+    expected_validity = {
+        operation.semantic_id: (list(operation.validity.families), operation.validity.conservative)
+        for operation in model.operations
+    }
+    actual_validity = {
+        row["operation_id"]: (row["validity_families"], row["validity_conservative"])
+        for row in projection["operations"]
+    }
+    if actual_validity != expected_validity:
+        raise ValueError("native operation validity differs from the checked effective model")
     if actual_subjects != expected_subjects:
         raise ValueError("native operation subjects differ from the checked effective model")
     identities = {(item.owner, item.domain): item.key for item in model.identities}

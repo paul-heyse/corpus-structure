@@ -12,6 +12,7 @@ from corpus_structure.semantic.declared_structural_calls import (
 
 class DeclaredStructuralComparison:
     __data_operation__: ClassVar[dict[str, Any]] = {
+        "validity_family": ["none"],
         "id": "structure.compare/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",
@@ -617,6 +618,7 @@ class DeclaredStructuralComparison:
 
 class DeclaredConditionQualification:
     __data_operation__: ClassVar[dict[str, Any]] = {
+        "validity_family": ["none"],
         "id": "structure.condition_qualification/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",

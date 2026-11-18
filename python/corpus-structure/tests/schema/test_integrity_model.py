@@ -5,8 +5,8 @@ import yaml
 from linkml_runtime.linkml_model import PermissibleValue
 
 from corpus_structure.model.compiled import compiled_model, running_model
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.integrity import integrity_from_view
-from corpus_structure.schema.model import ModelError
 
 
 def test_integrity_principal_projection_has_exact_roles_and_purposes():

@@ -5,6 +5,7 @@ from typing import ClassVar
 
 class SelectedReferenceSnapshotOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "reference.snapshot/declared",
         "profile": "derivation",
         "subject": "independent-reference",

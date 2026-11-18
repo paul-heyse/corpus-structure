@@ -15,7 +15,7 @@ from typer.testing import CliRunner
 from corpus_structure.cli.app import build_full_app
 from corpus_structure.cli.managed import Invocation, ResultStore
 from corpus_structure.cli.output import CliState
-from corpus_structure.schema.model import ModelError
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.model_deployment import Candidate, deploy_candidate
 from corpus_structure.semantic import migrations
 from corpus_structure.semantic.metadata import table

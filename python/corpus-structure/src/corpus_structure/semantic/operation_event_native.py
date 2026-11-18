@@ -51,14 +51,7 @@ from .native_program import (
     sql_function,
 )
 from .types import SourceArtifact
-
-_OPERATIONS = (
-    "operation_event.frame",
-    "operation_event.fit",
-    "operation_event.authorize",
-    "urn:corpus:operation:score-operation-event",
-)
-_SCORE = _OPERATIONS[-1]
+from .validity_programs import input_role, selected_family
 
 
 def _json(value):
@@ -292,7 +285,7 @@ def _scopes(p):
         (("r", "ops.data_request"),),
         (
             If(
-                r("operation_id") == "operation_event.frame",
+                input_role(p.model, r("release_id"), r("operation_id"), "question"),
                 (
                     Assign(
                         "question",
@@ -312,7 +305,7 @@ def _scopes(p):
                 ),
                 (
                     If(
-                        r("operation_id") == "operation_event.fit",
+                        input_role(p.model, r("release_id"), r("operation_id"), "specification"),
                         (
                             Assign(
                                 "specification",
@@ -347,7 +340,10 @@ def _scopes(p):
         (
             producer.lookup(producer.table.c.id == episode),
             r.lookup(r.table.c.id == producer("request_id")),
-            If(r("operation_id").not_in(_OPERATIONS), (Return(),)),
+            If(
+                ~selected_family(p.model, r("release_id"), r("operation_id"), "operation-event"),
+                (Return(),),
+            ),
             intent.lookup(
                 intent.table.c.id == producer("intent_id"),
                 intent.table.c.request_id == producer("request_id"),
@@ -881,7 +877,9 @@ def _require_fit(p):
                     _text(
                         func.data.ddo_json(actual("canonical_body"), type_=JSONB()), "frame_digest"
                     ).is_distinct_from(_text(selected, "frame_digest")),
-                    definition("operation_id").is_distinct_from("operation_event.frame"),
+                    ~input_role(
+                        p.model, definition("release_id"), definition("operation_id"), "question"
+                    ),
                     ~current_receipt,
                 ),
                 "event fit lacks actual selected current frame CPU/common receipt",
@@ -1091,8 +1089,8 @@ def _completion(p):
         core_variable(name, JSONB())
         for name in ("completion", "output", "body", "selected", "expected")
     )
-    expected_factory, output_role, output_kind = (
-        core_variable(name, Text()) for name in ("expected_factory", "output_role", "output_kind")
+    output_role, output_kind = (
+        core_variable(name, Text()) for name in ("output_role", "output_kind")
     )
     kinds, products, producers, outputs, receipts = (
         p.model.tables[name]
@@ -1169,7 +1167,12 @@ def _completion(p):
         fit_request.lookup(
             fit_request.table.c.id == producing("request_id"),
             fit_request.table.c.project_id == r("project_id"),
-            fit_request.table.c.operation_id == "operation_event.fit",
+            input_role(
+                p.model,
+                fit_request.table.c.release_id,
+                fit_request.table.c.operation_id,
+                "specification",
+            ),
         ),
         fit_intent.lookup(
             fit_intent.table.c.id == producing("intent_id"),
@@ -1202,10 +1205,9 @@ def _completion(p):
             "event issuer may disclose only exact fitted strict parameters",
         ),
     )
-    is_frame, is_fit, is_score = (
-        r("operation_id") == name
-        for name in ("operation_event.frame", "operation_event.fit", _SCORE)
-    )
+    is_frame = input_role(p.model, r("release_id"), r("operation_id"), "question")
+    is_fit = input_role(p.model, r("release_id"), r("operation_id"), "specification")
+    is_score = ~is_frame & ~is_fit
     contract = definition("support_contract")
     derivation = (
         Assign("output_role", case((is_frame, "frame"), (is_fit, "fit"), else_="probability")),
@@ -1214,25 +1216,13 @@ def _completion(p):
             literal(NAMESPACE)
             + case((is_frame, "DdoOperationEventFrame"), else_="DdoOperationEventFit"),
         ),
-        Assign(
-            "expected_factory",
-            case(
-                (
-                    is_score,
-                    "corpus_structure.semantic.operation_policy.OperationEventScore.acquire_port",
-                ),
-                else_=literal("corpus_structure.methods.operation_events.")
-                + case((is_frame, "OperationEventFrame"), else_="OperationEventFit")
-                + literal(".acquire_port"),
-            ),
-        ),
         _reject(
             or_(
                 definition("profile").is_distinct_from("derivation"),
                 contract["effects"].is_distinct_from(_json([])),
-                _text(contract, "capabilities", "prepared_factory", "entrypoint").is_distinct_from(
-                    expected_factory
-                ),
+                func.nullif(
+                    _text(contract, "capabilities", "prepared_factory", "entrypoint"), ""
+                ).is_(None),
                 _text(contract, "capabilities", "prepared_factory", "source_digest")
                 .bool_op("~")("^[0-9a-f]{64}$")
                 .is_not(True),
@@ -1272,11 +1262,7 @@ def _completion(p):
                 ),
                 else_=kinds.c.kind == output_kind,
             ),
-            kinds.c.universe
-            == case(
-                (r("operation_id").in_(("operation_event.authorize", _SCORE)), "ordinary"),
-                else_="evaluator",
-            ),
+            kinds.c.kind_contract == definition("output_roles")[0]["kind_contract"].astext,
         )
         .exists()
     )
@@ -1284,7 +1270,10 @@ def _completion(p):
         "ddo_require_operation_event_completion",
         (("r", "ops.data_request"), ("completion", "jsonb")),
         (
-            If(r("operation_id").not_in(_OPERATIONS), (Return(),)),
+            If(
+                ~selected_family(p.model, r("release_id"), r("operation_id"), "operation-event"),
+                (Return(),),
+            ),
             definition.lookup(
                 definition.table.c.release_id == r("release_id"),
                 definition.table.c.operation_id == r("operation_id"),
@@ -1322,10 +1311,7 @@ def _completion(p):
             definition.local(),
             Local("output", pg_type("jsonb")),
             Local("body", pg_type("jsonb")),
-            *(
-                Local(name, pg_type("text"))
-                for name in ("expected_factory", "output_role", "output_kind")
-            ),
+            *(Local(name, pg_type("text")) for name in ("output_role", "output_kind")),
             basis.local(),
             producing.local(),
             fit_request.local(),
@@ -1356,7 +1342,12 @@ def _dependencies(p):
                 (
                     producer.lookup(producer.table.c.id == episode),
                     r.lookup(r.table.c.id == producer("request_id")),
-                    If(r("operation_id").not_in(_OPERATIONS), (Return(literal(True)),)),
+                    If(
+                        ~selected_family(
+                            p.model, r("release_id"), r("operation_id"), "operation-event"
+                        ),
+                        (Return(literal(True)),),
+                    ),
                     If(producer("outcome").is_distinct_from("success"), (Return(literal(False)),)),
                     intent.lookup(
                         intent.table.c.id == producer("intent_id"),
@@ -1365,7 +1356,7 @@ def _dependencies(p):
                     ),
                     Assign("r", func.ops.ddo_require_episode_correspondence(producer(), intent())),
                     If(
-                        r("operation_id") == "operation_event.frame",
+                        input_role(p.model, r("release_id"), r("operation_id"), "question"),
                         (
                             ForQuery(
                                 ("selected",),
@@ -1383,7 +1374,9 @@ def _dependencies(p):
                         ),
                         (
                             If(
-                                r("operation_id") == "operation_event.fit",
+                                input_role(
+                                    p.model, r("release_id"), r("operation_id"), "specification"
+                                ),
                                 (
                                     Assign(
                                         "selected",

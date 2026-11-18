@@ -11,6 +11,7 @@ from sqlalchemy import (
     case,
     cast,
     column,
+    false,
     func,
     literal,
     null,
@@ -68,10 +69,11 @@ def _routine(
 
 
 def support_trust_native_sql(model):
-    """Generate seven guards over captured physical and closed domain declarations."""
+    """Generate support locks and trust checks from the captured physical model."""
     trust = model.tables["ops.data_trust_scope"]
     requests = model.tables["ops.data_request"]
     reads = model.tables["ops.data_demand_read"]
+    definitions = model.tables["sem.data_operation_definition"]
     universe, project, source, scope_key = (
         _value(name) for name in ("universe", "project", "source", "scope_key")
     )
@@ -221,8 +223,21 @@ def support_trust_native_sql(model):
             ("ddo_operation_event_completion_scopes", "event_completion"),
         )
     )
+    conservative_claim = (
+        select(1)
+        .where(
+            definitions.c.release_id
+            == core_variable("r", requests.c.release_id.type, "release_id"),
+            definitions.c.operation_id
+            == core_variable("r", requests.c.operation_id.type, "operation_id"),
+            definitions.c.validity_conservative,
+        )
+        .exists()
+    )
     completion_scopes = union(
-        select(ordinary.c.scope), *(select(extra.c.scope) for extra in extras)
+        select(ordinary.c.scope),
+        *(select(extra.c.scope) for extra in extras),
+        select(trust.c.scope).where(trust.c.project_id == project, conservative_claim),
     ).order_by("scope")
     completion = _routine(
         "ddo_lock_completion_support",
@@ -310,7 +325,54 @@ def support_trust_native_sql(model):
         )
         + ";\n"
     )
-    return "\n".join((authorize, scope, meaning, locked, completion, freeze, matches))
+    return "\n".join(
+        (
+            authorize,
+            scope,
+            meaning,
+            locked,
+            completion,
+            freeze,
+            matches,
+            _conservative_validity(model),
+        )
+    )
+
+
+def _conservative_validity(model: MetaData) -> str:
+    receipts = model.tables["ops.data_publication_receipt"]
+    derivations = model.tables["ops.data_derivation"]
+    requests = model.tables["ops.data_request"]
+    trust = model.tables["ops.data_trust_scope"]
+    epoch_map = (
+        select(func.coalesce(func.jsonb_object_agg(trust.c.scope, trust.c.epoch), _json("{}")))
+        .where(trust.c.project_id == requests.c.project_id, trust.c.epoch != 0)
+        .correlate(requests)
+        .scalar_subquery()
+    )
+    installed = func.sem.data_operation_native_descriptor(type_=JSONB())["source_digest"].astext
+    checked = (
+        select(
+            and_(
+                receipts.c.validating_kernel_digest == installed,
+                func.ops.ddo_trust_snapshot_meaning(receipts.c.trust_snapshot) == epoch_map,
+            )
+        )
+        .select_from(
+            receipts.join(derivations, receipts.c.derivation_id == derivations.c.id).join(
+                requests, derivations.c.request_id == requests.c.id
+            )
+        )
+        .where(derivations.c.id == _value("episode"))
+        .scalar_subquery()
+    )
+    return _routine(
+        "ddo_conservative_dependencies_valid",
+        (Parameter("episode", pg_type("text")),),
+        (Return(func.coalesce(checked, false())),),
+        returns="bool",
+        volatility="stable",
+    )
 
 
 def support_scope_sql(model: MetaData) -> str:

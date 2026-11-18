@@ -56,6 +56,7 @@ from .data_operation_model import (
     StreamSettlement,
     SubjectDefinition,
     SubjectScope,
+    ValidityClaim,
     compiled_graph_projections,
     operation_role_record,
     validate_replicate_selection,
@@ -748,6 +749,57 @@ def _validate_literal(
         _fail(owner, "typed binding literal violates its effective field contract: " + str(exc))
 
 
+def _validity_claim(raw, grammar, owner, diagnostics):
+    values = raw.get("validity_family")
+    if values is None:
+        return ValidityClaim()
+    if not values or len(values) != len(set(values)):
+        _fail(owner, "validity_family requires a nonempty set of distinct claims")
+    sentinels = {"none", "undetermined"} & set(values)
+    if sentinels and len(values) != 1:
+        _fail(owner, "validity_family cannot mix none or undetermined with other claims")
+    if values == ["none"]:
+        return ValidityClaim((), False)
+    if values == ["undetermined"]:
+        diagnostics.append(
+            Diagnostic(
+                "validity_undetermined",
+                owner,
+                "validity family not declared; conservative validity applies",
+                "advisory",
+                remedy="declare validity_family: [<family>…] or [none]",
+            )
+        )
+        return ValidityClaim()
+    vocabulary = grammar.vocabularies["ValidityFamily"]
+    statuses = dict(vocabulary.statuses)
+    provisional = sorted(value for value in values if statuses.get(value) == "provisional")
+    if provisional:
+        diagnostics.append(
+            Diagnostic(
+                "validity_family_provisional",
+                owner,
+                "conservative validity applies to provisional families: " + ", ".join(provisional),
+                "advisory",
+            )
+        )
+    for value in values:
+        if value in provisional:
+            continue
+        requirements = vocabulary.annotations[value].get("cs:requirements", {})
+        for field, allowed in requirements.items():
+            actual = raw.get(field)
+            if field in {"forms", "preparation"}:
+                actual = raw["capabilities"].get(field)
+            if field == "effects_empty":
+                actual = not raw.get("effects", [])
+            if isinstance(actual, list):
+                actual = tuple(actual)
+            if actual not in allowed:
+                _fail(owner, f"validity family {value} requires {field} within {allowed!r}")
+    return ValidityClaim(tuple(sorted(set(values) - set(provisional))), bool(provisional))
+
+
 def compile_data_operations(
     schema: SourceBundle | None = None,
     declarations: tuple[SourceArtifact, ...] = (),
@@ -788,7 +840,7 @@ def compile_data_operations(
     authored: list[tuple[dict[str, Any], tuple, tuple[FactOrigin, ...], str | None]] = []
     slices = []
     seen_sources: set[str] = set()
-    kind_documents = []
+    kind_documents: list[tuple[dict[str, Any], tuple, tuple[FactOrigin, ...], None]] = []
     for source in declarations:
         if source.name in seen_sources:
             _fail(source.name, "duplicate operation declaration input")
@@ -829,6 +881,48 @@ def compile_data_operations(
                     facts.implementation.root,
                 )
             )
+    selections = [item for item in captured_contracts if item.name == "operation-selection.json"]
+    if len(selections) > 1:
+        _fail("operation-selection", "duplicate requested-operation selection")
+    if selections:
+        requested = json.loads(selections[0].content)
+        if (
+            not isinstance(requested, list)
+            or not requested
+            or any(not isinstance(i, str) for i in requested)
+        ):
+            _fail("operation-selection", "requested operations require a nonempty identifier list")
+        by_id = {}
+        for value in authored:
+            identifier = value[0].get("id")
+            if identifier in by_id:
+                _fail(str(identifier), "duplicate operation semantic identity")
+            by_id[identifier] = value
+        selected = set()
+        pending = list(requested)
+        while pending:
+            identifier = pending.pop()
+            if identifier in selected:
+                continue
+            if identifier not in by_id:
+                _fail(identifier, "requested operation closure is outside captured sources")
+            selected.add(identifier)
+            operation = by_id[identifier][0]
+            pending.extend(
+                (*operation.get("dependencies", ()), *operation.get("potential_dependencies", ()))
+            )
+        # Protocol infrastructure remains available through its fixed native projection.
+        selected.update(
+            identifier
+            for identifier, value in by_id.items()
+            if str(value[0].get("behavior", "")).startswith("ddo-native-v1:")
+        )
+        for value in authored:
+            if value[0].get("id") not in selected and value[0].get("kinds"):
+                kind_documents.append(({"kinds": value[0]["kinds"]}, (), value[2], None))
+        authored = [value for value in authored if value[0].get("id") in selected]
+        roots = {value[3] for value in authored if value[3] is not None}
+        slices = [part for part in slices if part.root in roots]
     # Validate shape once before any semantic pass consumes nested records.
     for raw, _, _, _ in authored:
         diagnostics.extend(declaration_grammar.validate(raw, str(raw.get("id", "operation"))))
@@ -1466,6 +1560,7 @@ def compile_data_operations(
             _strings(capabilities.get("limits", []), semantic_id),
             settlement,
             factory,
+            capabilities.get("cpu_receipts"),
         )
         binding_id = semantic_id + "/binding"
         binding = RelationalBinding(
@@ -1681,8 +1776,26 @@ def compile_data_operations(
             external,
             discovery_relation=discovery_relation,
             numerical_policy=numerical_policy,
+            validity=_validity_claim(raw, declaration_grammar, semantic_id, diagnostics),
         )
         operations.append(operation)
+        if raw.get("validity_family") == ["none"]:
+            inputs = {role.kind for role in operation.roles if role.direction == "input"}
+            family_vocabulary = declaration_grammar.vocabularies["ValidityFamily"]
+            statuses = dict(family_vocabulary.statuses)
+            for family, annotations in family_vocabulary.annotations.items():
+                if statuses.get(family) == "provisional":
+                    continue
+                exposed = inputs & set(annotations.get("cs:protected_inputs", ()))
+                if exposed:
+                    diagnostics.append(
+                        Diagnostic(
+                            "validity_claim_unprotected",
+                            semantic_id,
+                            f"none claim consumes inputs protected by {family}: {', '.join(sorted(exposed))}",
+                            "advisory",
+                        )
+                    )
         nodes[semantic_id] = SemanticNode(semantic_id, "operation", operation.definition)
 
         # Binding bytes retain the complete closed vocabulary

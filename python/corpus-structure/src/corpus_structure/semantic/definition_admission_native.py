@@ -5,7 +5,18 @@ it does not depend on contextual numerical/source factory acquisition.
 """
 
 from pglast.stream import RawStream
-from sqlalchemy import MetaData, Text, case, cast, column, exists, func, literal, or_, select
+from sqlalchemy import (
+    Integer,
+    MetaData,
+    Text,
+    cast,
+    column,
+    exists,
+    func,
+    literal,
+    or_,
+    select,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .metadata import get_metadata
@@ -29,19 +40,7 @@ from .native_program import (
     pg_type,
     sql_function,
 )
-
-_OPERATIONS = (
-    "structure.definition_applicability/declared",
-    "structure.definition_declaration_components/declared",
-    "structure.definition_components/declared",
-    "structure.definition_named_components/declared",
-)
-_FACTORIES = (
-    "corpus_structure.methods.definition_applicability_declared.DefinitionApplicabilityOperation.acquire_port",
-    "corpus_structure.methods.definition_declared.DefinitionDeclarationOperation.acquire_port",
-    "corpus_structure.methods.definition_components_declared.DefinitionComponentsOperation.acquire_port",
-    "corpus_structure.methods.definition_named_declared.NamedDefinitionComponentsOperation.acquire_port",
-)
+from .validity_programs import input_role, selected_family
 
 
 def definition_admission_native_sql(*, target_metadata: MetaData | None = None) -> str:
@@ -341,13 +340,6 @@ def definition_admission_native_sql(*, target_metadata: MetaData | None = None) 
         returns="jsonb",
     )
 
-    entrypoint = case(
-        *(
-            (r("operation_id") == operation, entrypoint)
-            for operation, entrypoint in zip(_OPERATIONS[:-1], _FACTORIES[:-1], strict=True)
-        ),
-        else_=_FACTORIES[-1],
-    )
     add(
         "ddo_require_definition_producer",
         request_parameters,
@@ -355,8 +347,8 @@ def definition_admission_native_sql(*, target_metadata: MetaData | None = None) 
             definition_lookup,
             reject(
                 or_(
-                    r("operation_id").not_in(_OPERATIONS),
-                    factory["entrypoint"].astext.is_distinct_from(entrypoint),
+                    ~selected_family(model, r("release_id"), r("operation_id"), "definition"),
+                    func.nullif(factory["entrypoint"].astext, "").is_(None),
                     factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$").is_not(True),
                     d("implementation_revision").like("implementation-slice:%").is_not(True),
                     d("profile").is_distinct_from("derivation"),
@@ -367,7 +359,9 @@ def definition_admission_native_sql(*, target_metadata: MetaData | None = None) 
                     func.jsonb_array_length(
                         func.coalesce(completion["execution_evidence"]["cpu_receipts"], json("[]"))
                     )
-                    != 1,
+                    != func.coalesce(
+                        cast(support["capabilities"]["cpu_receipts"].astext, Integer()), -1
+                    ),
                     completion["implementation_revision"].astext.is_distinct_from(
                         d("implementation_revision")
                     ),
@@ -383,7 +377,10 @@ def definition_admission_native_sql(*, target_metadata: MetaData | None = None) 
         "ddo_require_definition_completion",
         request_parameters,
         (
-            If(r("operation_id").not_in(_OPERATIONS), (Return(),)),
+            If(
+                ~selected_family(model, r("release_id"), r("operation_id"), "definition"),
+                (Return(),),
+            ),
             Perform(func.ops.ddo_require_definition_producer(r(), completion)),
             Assign("actual", func.ops.ddo_cpu_reply_output(r(), completion, type_=JSONB())),
             ForQuery(
@@ -399,7 +396,7 @@ def definition_admission_native_sql(*, target_metadata: MetaData | None = None) 
                 ),
             ),
             If(
-                r("operation_id") == _OPERATIONS[0],
+                input_role(model, r("release_id"), r("operation_id"), "query"),
                 (Perform(func.ops.ddo_require_contextual_definition_lineage(r(), completion)),),
             ),
         ),
@@ -415,7 +412,10 @@ def definition_admission_native_sql(*, target_metadata: MetaData | None = None) 
                 (
                     lookup("episode", episode, episode.c.id == episode_id),
                     lookup("r", request, request.c.id == e("request_id")),
-                    If(r("operation_id").not_in(_OPERATIONS), (Return(literal(True)),)),
+                    If(
+                        ~selected_family(model, r("release_id"), r("operation_id"), "definition"),
+                        (Return(literal(True)),),
+                    ),
                     If(e("outcome") != "success", (Return(literal(False)),)),
                     lookup(
                         "intent",

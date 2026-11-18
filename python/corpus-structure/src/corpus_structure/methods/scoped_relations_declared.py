@@ -7,6 +7,7 @@ from corpus_structure.semantic.scoped_products import execute_scoped_relations
 
 class ScopedRelationsOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "structure.scoped_relations/declared",
         "profile": "derivation",
         "subject": "original-source-view",

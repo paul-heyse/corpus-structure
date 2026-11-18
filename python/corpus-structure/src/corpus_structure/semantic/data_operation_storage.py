@@ -520,6 +520,18 @@ def native_protocol_sources(
         ),
         SourceArtifact("native/data-operation-storage.py", Path(__file__).read_bytes()),
         SourceArtifact(
+            "native/validity-programs.py",
+            Path(__file__).with_name("validity_programs.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/encoder-member-policy.py",
+            Path(__file__).with_name("contextual_encoder_batch.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/validity-vocabulary.yaml",
+            _ROOT.joinpath("operation-vocabularies.yaml").read_bytes(),
+        ),
+        SourceArtifact(
             "native/model-compiler.py",
             Path(__file__).resolve().parents[1].joinpath("model/compiled.py").read_bytes(),
         ),
@@ -917,6 +929,7 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
         operations.append(
             {
                 "id": "data." + name,
+                "validity_family": ["none"],
                 "profile": item["profile"],
                 "subject": "authenticated-native-invocation",
                 "subject_definition": {
@@ -1512,6 +1525,8 @@ def data_operation_definition_projection(
         operations.append(
             {
                 "operation_id": operation.semantic_id,
+                "validity_families": list(operation.validity.families),
+                "validity_conservative": operation.validity.conservative,
                 "subject_definition": operation.subject,
                 "recipe": recipe,
                 "profile": operation.profile,
@@ -1915,6 +1930,9 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
         )
     sql = native_sql(captured)
     prepared = prepare_sql(sql, source="data-operations:forward")
+    from .validity_programs import validate_family_programs
+
+    validate_family_programs(prepared.statements)
     public = {item["name"]: item for item in _protocol(captured)}
     definitions = []
     for index, raw in enumerate(prepared.statements):

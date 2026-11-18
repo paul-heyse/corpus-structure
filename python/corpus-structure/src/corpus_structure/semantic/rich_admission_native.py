@@ -33,6 +33,7 @@ from .native_program import (
     pg_type,
     sql_function,
 )
+from .validity_programs import input_role, operation_field, selected_family
 
 
 def _json(value):
@@ -395,6 +396,12 @@ def _rich_input_programs(p):
             ),
             _reject(
                 or_(
+                    ~selected_family(
+                        p.model,
+                        p.row("definition", "sem.data_operation_definition", "release_id"),
+                        p.row("definition", "sem.data_operation_definition", "operation_id"),
+                        "rich",
+                    ),
                     and_(
                         _value("operation_name", Text()).is_not(None),
                         p.row(
@@ -605,36 +612,6 @@ def _rich_producer_programs(p):
     operation = p.row("r", "ops.data_request", "operation_id")
     completion, output = _value("completion"), _value("output")
     binding = p.row("r", "ops.data_request", "binding")
-    preparations = {
-        "prepare.external_extraction": (
-            "corpus_structure.methods.external_extraction.RichExtractionInputOperation.acquire_port",
-            "result",
-            "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoExternalExtractionPacket",
-        ),
-        "locate.external_extraction": (
-            "corpus_structure.methods.external_extraction.RichExtractionPlacementOperation.acquire_port",
-            "result",
-            "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoLocatedExternalExtraction",
-        ),
-        "rich.consolidate": (
-            "corpus_structure.methods.rich_knowledge.RichKnowledgeConsolidation.acquire_port",
-            "consolidated",
-            "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation",
-        ),
-    }
-    producer_selection = (Raise("rich preparation requires its actual operation owner", "23514"),)
-    for name, (factory, role, kind) in reversed(tuple(preparations.items())):
-        producer_selection = (
-            If(
-                operation == name,
-                (
-                    Assign("factory", literal(factory)),
-                    Assign("output_role", literal(role)),
-                    Assign("output_kind", literal(kind)),
-                ),
-                producer_selection,
-            ),
-        )
     output_shape = or_(
         output["member_id"].astext.is_not(None),
         cast(output["position"].astext, Integer()).is_distinct_from(0),
@@ -644,7 +621,6 @@ def _rich_producer_programs(p):
         "ddo_rich_require_preparation_producer",
         (("r", "ops.data_request"), ("completion", "jsonb")),
         (
-            *producer_selection,
             p.lookup(
                 "definition",
                 "sem.data_operation_definition",
@@ -657,9 +633,9 @@ def _rich_producer_programs(p):
                         "definition", "sem.data_operation_definition", "profile"
                     ).is_distinct_from("derivation"),
                     contract["effects"].is_distinct_from(_json([])),
-                    contract["capabilities"]["prepared_factory"][
-                        "entrypoint"
-                    ].astext.is_distinct_from(_value("factory", Text())),
+                    func.nullif(
+                        contract["capabilities"]["prepared_factory"]["entrypoint"].astext, ""
+                    ).is_(None),
                     contract["capabilities"]["prepared_factory"]["source_digest"]
                     .astext.op("~")("^[0-9a-f]{64}$")
                     .is_not(True),
@@ -675,7 +651,12 @@ def _rich_producer_programs(p):
                         p.row("definition", "sem.data_operation_definition", "recipe")
                     ),
                     and_(
-                        operation == "rich.consolidate",
+                        input_role(
+                            p.model,
+                            p.row("r", "ops.data_request", "release_id"),
+                            operation,
+                            "proposals",
+                        ),
                         p.row("r", "ops.data_request", "original_source").is_not(None),
                     ),
                     completion["inputs"].is_distinct_from(binding["inputs"]),
@@ -697,13 +678,20 @@ def _rich_producer_programs(p):
             Assign("output", completion["outputs"][0]),
             _reject(
                 or_(
-                    output["role"].astext.is_distinct_from(_value("output_role", Text())),
+                    output["role"].astext.is_distinct_from(
+                        p.row("definition", "sem.data_operation_definition", "output_roles")[0][
+                            "name"
+                        ].astext
+                    ),
                     output_shape,
                     ~select(1)
                     .select_from(kinds)
                     .where(
                         kinds.c.kind_contract == output["product"]["kind_contract"].astext,
-                        kinds.c.kind == _value("output_kind", Text()),
+                        kinds.c.kind_contract
+                        == p.row("definition", "sem.data_operation_definition", "output_roles")[0][
+                            "kind_contract"
+                        ].astext,
                         kinds.c.universe == "ordinary",
                     )
                     .exists(),
@@ -714,7 +702,6 @@ def _rich_producer_programs(p):
         (
             p.local("definition", "sem.data_operation_definition"),
             p.local("output"),
-            *(p.local(name, "text") for name in ("factory", "output_role", "output_kind")),
         ),
     )
     inputs = _items(binding["inputs"], "input")
@@ -815,13 +802,8 @@ def _rich_producer_programs(p):
                         strict=True,
                     ),
                     If(
-                        operation.not_in(
-                            (
-                                "rich.admit",
-                                "rich.consolidate",
-                                "prepare.external_extraction",
-                                "locate.external_extraction",
-                            )
+                        ~selected_family(
+                            p.model, p.row("r", "ops.data_request", "release_id"), operation, "rich"
                         ),
                         (Return(literal(True)),),
                     ),
@@ -902,13 +884,10 @@ def _rich_preparation_programs(p):
         (("r", "ops.data_request"), ("completion", "jsonb")),
         (
             If(
-                operation.not_in(
-                    (
-                        "prepare.external_extraction",
-                        "locate.external_extraction",
-                        "rich.consolidate",
-                    )
-                ),
+                operation_field(
+                    p.model, p.row("r", "ops.data_request", "release_id"), operation, "profile"
+                )
+                != "derivation",
                 (Return(),),
             ),
             Perform(func.ops.ddo_rich_require_preparation_producer(request, completion)),
@@ -919,7 +898,9 @@ def _rich_preparation_programs(p):
                 "rich preparation differs from actual original CPU reply and input basis",
             ),
             If(
-                operation == "rich.consolidate",
+                input_role(
+                    p.model, p.row("r", "ops.data_request", "release_id"), operation, "proposals"
+                ),
                 (
                     Perform(
                         func.ops.ddo_rich_require_proposal_inputs(
@@ -939,19 +920,15 @@ def _rich_preparation_programs(p):
         .render_derived(name="header")
     )
     loops = []
-    for role, request_name, operation_name, factory, message in (
+    for role, request_name, message in (
         (
             "proposals",
             "located_request",
-            "locate.external_extraction",
-            "corpus_structure.methods.external_extraction.RichExtractionPlacementOperation.acquire_port",
             "rich proposal differs from actual located CPU output",
         ),
         (
             "proposal_contexts",
             "packet_request",
-            "prepare.external_extraction",
-            "corpus_structure.methods.external_extraction.RichExtractionInputOperation.acquire_port",
             "rich proposal context differs from actual prepared CPU packet",
         ),
     ):
@@ -959,9 +936,7 @@ def _rich_preparation_programs(p):
             Assign("reference", _selected_reference(selected)),
             Assign(
                 request_name,
-                func.ops.ddo_rich_producing_request(
-                    project, reference, operation_name, factory, "result", True
-                ),
+                func.ops.ddo_rich_producing_request(project, reference, None, None, "result", True),
             ),
             _retained_completion(p, request_name, reference),
             Perform(
@@ -1218,8 +1193,8 @@ def _rich_admission_program(p):
                 func.ops.ddo_rich_producing_request(
                     project,
                     admission["consolidation"],
-                    "rich.consolidate",
-                    "corpus_structure.methods.rich_knowledge.RichKnowledgeConsolidation.acquire_port",
+                    None,
+                    None,
                     "consolidated",
                     True,
                 ),

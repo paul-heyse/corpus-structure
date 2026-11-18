@@ -54,6 +54,7 @@ def visual_external_declaration():
     operation = {
         "id": VISUAL_RECOGNIZE,
         "profile": "command",
+        "validity_family": ["none"],
         "subject": "original-document",
         "subject_definition": {
             "id": "original-document",

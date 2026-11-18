@@ -5,17 +5,19 @@ import subprocess
 from contextlib import nullcontext
 from dataclasses import replace
 from hashlib import sha256
+from pathlib import Path
 
 import pytest
 import yaml
 from model_change_support import model_checkout as model_checkout
 from typer.testing import CliRunner
 
-from corpus_structure.schema import generate, model, preparation
-from corpus_structure.schema.change import ChangeRecord, ElementChange
+from corpus_structure.schema import preparation
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.model_change import (
     ChangePreview,
     ChangeRequest,
+    LogicalSourceEdit,
     apply_preview,
     prepare_preview,
 )
@@ -28,27 +30,33 @@ from corpus_structure.schema.model_discovery import locate_consumers
 from corpus_structure.settings import Settings
 
 
-def test_invalid_revision_refuses_before_render_or_write(model_checkout, monkeypatch):
+def test_unknown_legacy_change_fields_refuse(model_checkout):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="Extra inputs"):
+        ChangeRequest.model_validate({"core": "legacy"})
+
+
+def test_logical_model_change_compares_captures_without_revision(model_checkout):
     root, location = model_checkout
-    before = {path: path.read_bytes() for path in location.rglob("*") if path.is_file()}
-    current = model.revision(model.load())
-    newer = str(int(current.label.split(".")[-1]) + 1)
-    new_version = current.label.rsplit(".", 1)[0] + "." + newer
-    declarations = {
-        name: (location / f"{name}.yaml")
-        .read_text()
-        .replace(f"version: {current.label}", f"version: {new_version}", 1)
-        for name in ("core", "system")
-    }
-
-    def unexpected(_loaded):
-        raise AssertionError("an invalid revision reached generation")
-
-    monkeypatch.setattr(generate, "render", unexpected)
-    with pytest.raises(model.ModelError, match="explicit change record"):
-        prepare_preview(root, ChangeRequest(**declarations))
-    assert {path: path.read_bytes() for path in location.rglob("*") if path.is_file()} == before
-    assert subprocess.check_output(["git", "-C", str(root), "status", "--porcelain"]) == b""
+    path = location / "semantic" / "core.yaml"
+    original = yaml.safe_load(path.read_bytes())
+    original["enums"]["StatementKind"]["permissible_values"]["new_statement"] = {}
+    relative = path.relative_to(root).as_posix()
+    preview = prepare_preview(
+        root,
+        ChangeRequest(
+            logical_sources=(
+                LogicalSourceEdit(path=relative, content=yaml.safe_dump(original, sort_keys=False)),
+            )
+        ),
+    )
+    assert preview.effects.native is False
+    assert preview.model_comparison is not None
+    assert [
+        (item.source, item.element, item.kind) for item in preview.model_comparison.changes
+    ] == [("core.yaml", "enums/StatementKind/permissible_values/new_statement", "added")]
+    assert all("revisions.yaml" not in item for item in preview.inputs)
 
 
 def test_release_candidate_must_match_the_reviewed_release(model_checkout):
@@ -68,9 +76,9 @@ def test_release_candidate_must_match_the_reviewed_release(model_checkout):
         release_manifest_sha256=sha256(prepared.manifest).hexdigest(),
         release_artifacts_sha256=prepared.artifacts_sha256,
     )
-    with pytest.raises(model.ModelError, match="differs from the reviewed preview"):
+    with pytest.raises(ModelError, match="differs from the reviewed preview"):
         Candidate.from_preview(preview, None, replace(prepared, release_id="different"), {})
-    with pytest.raises(model.ModelError, match="artifacts differ from the reviewed preview"):
+    with pytest.raises(ModelError, match="artifacts differ from the reviewed preview"):
         Candidate.from_preview(
             preview,
             None,
@@ -85,7 +93,7 @@ def test_release_candidate_must_match_the_reviewed_release(model_checkout):
     from corpus_structure.schema.model_change import compilation_fingerprint
     from corpus_structure.schema.model_deployment import check_candidate_files
 
-    with pytest.raises(model.ModelError, match="lacks complete preparation custody"):
+    with pytest.raises(ModelError, match="lacks complete preparation custody"):
         check_candidate_files(root, accepted)
     request = ChangeRequest()
     reusable = accepted.model_copy(
@@ -99,12 +107,12 @@ def test_release_candidate_must_match_the_reviewed_release(model_checkout):
     helper = root / preparation.PACKAGE_PATH / "semantic/changed_preparation.py"
     helper.parent.mkdir(parents=True, exist_ok=True)
     helper.write_text("CHANGED = True\n")
-    with pytest.raises(model.ModelError, match="compilation inputs changed"):
+    with pytest.raises(ModelError, match="compilation inputs changed"):
         check_candidate_files(root, reusable)
     older = ChangePreview.model_validate_json(
         preview.model_dump_json(exclude={"release_artifacts_sha256"})
     )
-    with pytest.raises(model.ModelError, match="lacks exact release product digests"):
+    with pytest.raises(ModelError, match="lacks exact release product digests"):
         Candidate.from_preview(older, None, prepared, {})
 
 
@@ -175,7 +183,9 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     from corpus_structure.semantic.storage_target import StorageTarget
 
     root, location = model_checkout
-    (root / "domains").symlink_to(generate.REPOSITORY / "domains", target_is_directory=True)
+    (root / "domains").symlink_to(
+        Path(preparation.__file__).resolve().parents[5] / "domains", target_is_directory=True
+    )
     migrations_dir = root / preparation.PACKAGE_PATH.parents[1] / migrations.ALEMBIC_DIR.name
     versions = migrations_dir / "versions"
     versions.mkdir(parents=True, exist_ok=True)
@@ -204,7 +214,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     assert profile == "deployment"
     assert deployment_settings(settings, "development") == ("development", settings)
     assert deployment_settings(Settings(deployment=None))[0] == "development"
-    with pytest.raises(model.ModelError, match="profile is not configured"):
+    with pytest.raises(ModelError, match="profile is not configured"):
         deployment_settings(Settings(deployment=None), "deployment")
 
     monkeypatch.setenv("CORPUS_CI_RESULTS", str(root / "results"))
@@ -435,7 +445,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     assert binding.target == destination_id
     assert binding.authoring_target == development
     assert binding.target_identity == destination_identity
-    with pytest.raises(model.ModelError, match="deployment target differs"):
+    with pytest.raises(ModelError, match="deployment target differs"):
         deploy_candidate(root, changed_destination, binding, (), report=lambda _: None)
     registered = run(["register", authored_id], settings)
     assert registered.exit_code == 0, registered.output
@@ -449,7 +459,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     extra.write_text(
         f'revision = "after"\nfrom pathlib import Path\nPath({str(marker)!r}).touch()\n'
     )
-    with pytest.raises(model.ModelError, match="different migration wrapper"):
+    with pytest.raises(ModelError, match="different migration wrapper"):
         model_deployment._verify_installed_revision(root, binding)
     assert not marker.exists()
     extra.unlink()
@@ -492,61 +502,35 @@ def test_non_native_apply_does_not_acquire_a_target(model_checkout, monkeypatch,
     assert report["target_profile"] is report["acquired_target"] is report["selection"] is None
 
 
-def test_exact_patch_resumes_and_refuses_changed_file(model_checkout, monkeypatch):
+def test_exact_patch_resumes_and_refuses_changed_file(model_checkout):
     root, location = model_checkout
-    current = model.revision(model.load())
-    new_version = current.label.rsplit(".", 1)[0] + ".999"
-    names = ("core", "system")
-    declarations = {
-        name: (location / f"{name}.yaml")
-        .read_text()
-        .replace(f"version: {current.label}", f"version: {new_version}", 1)
-        for name in names
-    }
-    proposed = root / "proposal"
-    proposed.mkdir()
-    for name, content in declarations.items():
-        (proposed / f"{name}.yaml").write_text(content)
-    revision = model.content_hash(*(proposed / f"{name}.yaml" for name in names))
-    record = ChangeRecord(
-        from_revision=current.content_hash,
-        to_revision=revision,
-        changes=(
-            ElementChange(
-                element="core",
-                aspect="version",
-                change="changed",
-                compatibility_class="descriptive",
-                reason="version only",
-                authorized_by="test",
-            ),
-        ),
+    paths = tuple(
+        location / "semantic" / name for name in ("core.yaml", "operation-vocabularies.yaml")
     )
-    monkeypatch.setattr(generate, "render", lambda _: {"core/_model/revision.py": "approved\n"})
-    preview = prepare_preview(root, ChangeRequest(**declarations, change=record))
-    assert str(preparation.MODEL_PATH / "core.yaml") in preview.patch
-    assert "--- /dev/null" in preview.patch
-    assert len(preview.files) == 4
-    assert f"version: {current.label}" in (location / "core.yaml").read_text()
+    declarations = tuple(
+        LogicalSourceEdit(
+            path=path.relative_to(root).as_posix(),
+            content=path.read_text() + "\n# reviewed source change\n",
+        )
+        for path in paths
+    )
+    preview = prepare_preview(root, ChangeRequest(logical_sources=declarations))
+    assert len(preview.files) == 2
 
     def interrupt(_: str) -> None:
         raise KeyboardInterrupt
 
     with pytest.raises(KeyboardInterrupt):
         apply_preview(root, preview, report=interrupt)
-    assert (location / "core.yaml").read_text() == declarations["core"]
-    assert (location / "system.yaml").read_text() != declarations["system"]
-    (location / "system.yaml").write_text("concurrent edit\n")
-    with pytest.raises(model.ModelError, match="stale model input"):
+    assert paths[0].read_text() == declarations[0].content
+    assert paths[1].read_text() != declarations[1].content
+    paths[1].write_text("concurrent edit\n")
+    with pytest.raises(ModelError, match="stale model input"):
         apply_preview(root, preview)
-    assert (location / "system.yaml").read_text() == "concurrent edit\n"
-    subprocess.run(
-        ["git", "-C", str(root), "restore", "--", str(preparation.MODEL_PATH / "system.yaml")],
-        check=True,
-    )
-    assert len(apply_preview(root, preview)) == 4
-    assert (location / "system.yaml").read_text() == declarations["system"]
-    assert model.read_log(location / "revisions.yaml")[-1]["content_hash"] == revision
+    assert paths[1].read_text() == "concurrent edit\n"
+    subprocess.run(["git", "-C", str(root), "restore", "--", declarations[1].path], check=True)
+    assert len(apply_preview(root, preview)) == 2
+    assert paths[1].read_text() == declarations[1].content
 
 
 def test_compilation_fingerprint_tracks_implementation_membership_and_owned_outputs(model_checkout):
@@ -566,7 +550,7 @@ def test_compilation_fingerprint_tracks_implementation_membership_and_owned_outp
     # This exact output belongs to the canonical generator. Its authored model
     # remains in the fingerprint, while apply's generated bytes are checked by
     # the preview/candidate file effects.
-    output = package / "core" / "vocab.py"
+    output = package / "semantic" / "_typed_columns.py"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("generated = 'first'\n")
     assert compilation_fingerprint(root, request) == baseline

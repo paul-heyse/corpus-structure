@@ -13,6 +13,7 @@ from .contextual_admission_native import (
     _value,
 )
 from .native_program import Assign, Perform, Return, SelectInto, core_relation_row
+from .validity_programs import input_role, selected_family
 
 
 def contextual_definition_native_sql(*, target_metadata=None) -> str:
@@ -32,7 +33,13 @@ def contextual_definition_native_sql(*, target_metadata=None) -> str:
     original = (
         episodes.join(
             requests,
-            and_(requests.c.id == episodes.c.request_id, requests.c.operation_id == operation),
+            and_(
+                requests.c.id == episodes.c.request_id,
+                selected_family(
+                    p.model, requests.c.release_id, requests.c.operation_id, "contextual"
+                ),
+                input_role(p.model, requests.c.release_id, requests.c.operation_id, operation),
+            ),
         )
         .join(
             receipts,
@@ -47,18 +54,6 @@ def contextual_definition_native_sql(*, target_metadata=None) -> str:
         "ddo_contextual_origin_basis",
         (("selected_input", "jsonb"), ("operation_name", "text")),
         (
-            _reject(
-                operation.not_in(
-                    (
-                        "retrieve.contextual/with-witnesses",
-                        "retrieve.contextual_vectors/selection",
-                        "retrieve.contextual_target_vector/declared",
-                        "retrieve.contextual_target/declared",
-                        "retrieve.contextual_targets/components",
-                    )
-                ),
-                "contextual definition lineage requires its finite declared producers",
-            ),
             SelectInto(
                 select(core_relation_row(episodes))
                 .select_from(original)
@@ -136,14 +131,12 @@ def contextual_definition_native_sql(*, target_metadata=None) -> str:
             Perform(func.ops.ddo_definition_component_basis(component)),
             Assign(
                 "producer_basis",
-                func.ops.ddo_contextual_origin_basis(
-                    relationship, "retrieve.contextual/with-witnesses"
-                ),
+                func.ops.ddo_contextual_origin_basis(relationship, "vectors"),
             ),
             p.role(producer_basis, "vectors", "selected_row"),
             Assign(
                 "producer_basis",
-                func.ops.ddo_contextual_origin_basis(row, "retrieve.contextual_vectors/selection"),
+                func.ops.ddo_contextual_origin_basis(row, "targets"),
             ),
             SelectInto(
                 select(values.c.value).where(
@@ -155,19 +148,17 @@ def contextual_definition_native_sql(*, target_metadata=None) -> str:
             ),
             Assign(
                 "producer_basis",
-                func.ops.ddo_contextual_origin_basis(
-                    row, "retrieve.contextual_target_vector/declared"
-                ),
+                func.ops.ddo_contextual_origin_basis(row, "target"),
             ),
             p.role(producer_basis, "target", "selected_row"),
             Assign(
                 "producer_basis",
-                func.ops.ddo_contextual_origin_basis(row, "retrieve.contextual_target/declared"),
+                func.ops.ddo_contextual_origin_basis(row, "target"),
             ),
             p.role(producer_basis, "target", "selected_row"),
             Assign(
                 "producer_basis",
-                func.ops.ddo_contextual_origin_basis(row, "retrieve.contextual_targets/components"),
+                func.ops.ddo_contextual_origin_basis(row, "report"),
             ),
             _reject(
                 func.ops.ddo_rich_role_population(producer_basis, "report").is_distinct_from(

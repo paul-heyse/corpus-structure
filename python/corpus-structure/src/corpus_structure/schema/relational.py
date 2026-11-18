@@ -51,22 +51,23 @@ from sqlalchemy.dialects.postgresql import (
     REGCONFIG,
     TIMESTAMP,
     TSVECTOR,
+    array,
 )
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.sqltypes import ARRAY as BaseARRAY
 from sqlalchemy.types import TypeEngine
 
+from corpus_structure.schema.declarations import (
+    ModelError,
+    View,
+    ci_annotations,
+    expand_enum,
+)
 from corpus_structure.schema.integrity import (
     annotation_values,
     integrity_from_view,
     relation_annotations,
     validate_relation_profile,
-)
-from corpus_structure.schema.model import (
-    ModelError,
-    View,
-    ci_annotations,
-    expand_enum,
 )
 
 MAX_NAME = 63  # PostgreSQL's identifier length
@@ -104,6 +105,19 @@ def quote(value: str) -> str:
 def in_check(column: str, members: Iterable[str]) -> str:
     """A closed set's CHECK: `col IN ('a', 'b')`, members sorted (the order carries no meaning)."""
     return f"{column} IN ({', '.join(quote(m) for m in sorted(members))})"
+
+
+def _stored_enum_members(view: View, name: str) -> tuple[str, ...]:
+    enum = view.get_enum(name)
+    if enum is None:
+        return ()
+    excluded = {
+        str(value.text)
+        for value in enum.permissible_values.values()
+        if value.status == "provisional"
+        or annotation_values(value).get("ph:omit_from_storage") is True
+    }
+    return tuple(member.text for member in expand_enum(view, name) if member.text not in excluded)
 
 
 def check_name(table: str, what: str, sql: str) -> str:
@@ -514,9 +528,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                         "pattern": slot.pattern,
                         "enum": (str(slot.equals_string),)
                         if slot.equals_string is not None
-                        else tuple(m.text for m in expand_enum(view, rng))
-                        if view.get_enum(rng) is not None
-                        else (),
+                        else _stored_enum_members(view, rng),
                     },
                 )
             )
@@ -554,9 +566,17 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                     CheckConstraint(expression, name=check_name(table.name, str(slot.name), sql))
                 )
             if view.get_enum(str(slot.range)) is not None:
-                members = tuple(m.text for m in expand_enum(view, str(slot.range)))
-                expression = table.c[str(slot.name)].in_(sorted(members))
-                sql = in_check(str(slot.name), members)
+                members = _stored_enum_members(view, str(slot.range))
+                field = table.c[str(slot.name)]
+                if slot.multivalued:
+                    expression = and_(
+                        field.contained_by(array(sorted(members), type_=Text())),
+                        func.array_position(field, None).is_(None),
+                    )
+                    sql = str(expression.compile(compile_kwargs={"literal_binds": True}))
+                else:
+                    expression = field.in_(sorted(members))
+                    sql = in_check(str(slot.name), members)
                 table.append_constraint(
                     CheckConstraint(expression, name=check_name(table.name, str(slot.name), sql))
                 )

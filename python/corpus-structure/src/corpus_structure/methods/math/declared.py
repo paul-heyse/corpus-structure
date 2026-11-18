@@ -208,6 +208,7 @@ def declared_normalization_readings(
 
 class DeclaredMathOccurrences:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "extract.math/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -646,6 +647,7 @@ class DeclaredMathOccurrences:
 
 class DeclaredMathNormalization:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "normalize.formula/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -933,6 +935,7 @@ class DeclaredMathNormalization:
 
 class DeclaredMathScope:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "resolve.symbol_scope/declared",
         "profile": "derivation",
         "subject": "original-source-view",

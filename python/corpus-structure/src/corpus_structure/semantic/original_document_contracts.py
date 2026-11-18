@@ -223,7 +223,7 @@ def source_original_sql(sources=None) -> str:
 
 
 def generated_source_calls(*, target_metadata=None) -> str:
-    from corpus_structure.schema.generate import _format
+    from corpus_structure.schema.code_generation import _format
 
     from .metadata import get_metadata
     from .native_call_generation import render_call_bindings

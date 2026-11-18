@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.semantic.task_types import TaskUnitType
 
 PROPOSAL_PROTOCOL = "semantic-claims"
 SUPPORTED_PRODUCERS = frozenset({"agent.opus", "agent.general"})

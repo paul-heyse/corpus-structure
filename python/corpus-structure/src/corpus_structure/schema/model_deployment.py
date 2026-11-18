@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from corpus_structure.schema.model import ModelError
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.model_change import (
     ChangePreview,
     ChangeRequest,

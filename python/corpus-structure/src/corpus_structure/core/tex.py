@@ -609,3 +609,11 @@ def normalize(latex: str, table: Mapping[str, MacroDef]) -> TokenForm:
 def token_form(latex: str, table: Mapping[str, MacroDef]) -> str:
     """The key form of a formula (D1 §6.2): total, and independent of whether it parses."""
     return normalize(latex, table).form
+
+
+def symbol_form(symbol: str, macros: Mapping[str, MacroDef]) -> str:
+    """A symbol as keys and symbol maps write it: token form, a lone control word unescaped."""
+    form = token_form(symbol, macros)
+    if regex.fullmatch(r"\\[A-Za-z]+", form):
+        return form[1:]
+    return form

@@ -22,7 +22,6 @@ from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
 from corpus_structure.ingest.pdf_recognition import NemotronRecipe, RecognitionPage
 from corpus_structure.orchestrate.source_operation import run_source_operation
 from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
-from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import read_data_demand
 from corpus_structure.semantic.pdf_capture import pdf_capture_inputs
@@ -36,7 +35,7 @@ from corpus_structure.semantic.pdf_transforms import (
 from corpus_structure.semantic.pdf_views import pdf_views_operation_sources
 from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.regeneration import acquire_pack
+from corpus_structure.semantic.regeneration import DOMAINS, acquire_pack
 from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.source_discovery import source_discovery_inputs
 from semantic.current_pdf_source_support import compose_current_pdf_recipe

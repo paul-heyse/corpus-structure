@@ -9,6 +9,7 @@ from corpus_structure.semantic.definition_component_products import (
 
 class NamedDefinitionComponentsOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["definition"],
         "id": "structure.definition_named_components/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -101,6 +102,7 @@ class NamedDefinitionComponentsOperation:
         "dependencies": ["segment.sentences/source-native", "text.constructions/source-native"],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",

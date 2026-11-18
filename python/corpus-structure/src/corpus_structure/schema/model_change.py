@@ -13,18 +13,23 @@ from dataclasses import asdict
 from difflib import unified_diff
 from hashlib import sha256
 from pathlib import Path
-from tempfile import NamedTemporaryFile, TemporaryDirectory
+from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from corpus_structure.schema import change, model, preparation
-from corpus_structure.schema.change import ChangeRecord
+from corpus_structure.schema import preparation
+from corpus_structure.schema.code_generation import compilers
+from corpus_structure.schema.compiled_changes import (
+    CompiledModelComparison,
+    compare_compiled_models,
+)
 from corpus_structure.schema.data_steps import (
     DataStepRequest,
     FrozenDataStep,
     prepare_data_steps,
 )
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.physical import (
     PHYSICAL_ROOT,
     compile_physical,
@@ -50,15 +55,6 @@ if TYPE_CHECKING:
 
 _PHYSICAL_DIR = preparation.MODEL_PATH / "semantic"
 _PHYSICAL = (_PHYSICAL_DIR / PHYSICAL_ROOT).as_posix()
-_NATIVE_OUTPUTS = (
-    "semantic/_source_admission_calls.py",
-    "semantic/_typed_columns.py",
-    "semantic/identifiers.py",
-    "semantic/_data_operation_fates.py",
-    "semantic/_pdf_native_calls.py",
-    "semantic/_pdf_native_ids.py",
-    "semantic/_data_operation_wire.py",
-)
 
 
 class NativeEffect(BaseModel):
@@ -76,9 +72,9 @@ class NativeEffect(BaseModel):
         if (self.kind == "trigger") != bool(self.relation) or (
             self.kind != "function" and self.arguments
         ):
-            raise model.ModelError(["native effect has inconsistent arguments or trigger relation"])
+            raise ModelError(["native effect has inconsistent arguments or trigger relation"])
         if not self.schema_name or not self.name:
-            raise model.ModelError(["native effect requires a schema and name"])
+            raise ModelError(["native effect requires a schema and name"])
         return NativeIdentity.from_payload(self.model_dump(by_alias=True))
 
 
@@ -120,21 +116,26 @@ class RuntimeCustody(BaseModel):
             or sha256(binding.manifest).hexdigest() != self.manifest_sha256
             or sha256(binding.archive).hexdigest() != self.archive_sha256
         ):
-            raise model.ModelError(["runtime differs from exact reviewed custody"])
+            raise ModelError(["runtime differs from exact reviewed custody"])
         try:
             validate_data_operation_runtime(binding, prepared)
         except RuntimeBindingError as error:
-            raise model.ModelError(["reviewed runtime is invalid: " + str(error)]) from error
+            raise ModelError(["reviewed runtime is invalid: " + str(error)]) from error
         if json.loads(binding.manifest)["execution_profile"] != self.execution_profile:
-            raise model.ModelError(["runtime execution profile differs from reviewed selection"])
+            raise ModelError(["runtime execution profile differs from reviewed selection"])
+
+
+class LogicalSourceEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: str
+    content: str
 
 
 class ChangeRequest(NativeIntent):
     baseline: str = "HEAD"
-    core: str | None = None
-    system: str | None = None
+    logical_sources: tuple[LogicalSourceEdit, ...] = ()
     physical: str | None = None
-    change: ChangeRecord | None = None
     archive_release: str | None = None
     packs: tuple[str, ...] = ()
     data_operations: str | None = None
@@ -161,7 +162,7 @@ class ChangeRequest(NativeIntent):
 
     @property
     def declared_native_revision(self) -> str | None:
-        return self.native_revision or (self.change.alembic_revision if self.change else None)
+        return self.native_revision
 
     @property
     def native_requested(self) -> bool:
@@ -215,6 +216,7 @@ class ChangePreview(BaseModel):
     deployment_base: NativeMigrationBase | None = None
     effects: ChangeEffects
     comparison: dict | None = None
+    model_comparison: CompiledModelComparison | None = None
     local_release: str | None = None
     release_manifest_sha256: str | None = None
     release_artifacts_sha256: str | None = None
@@ -240,10 +242,10 @@ class ChangePreview(BaseModel):
     def verify_runtime(self, binding: RuntimeBinding | None, prepared: PreparedRelease) -> None:
         if self.request.data_operations and self.effects.admission:
             if self.runtime is None or binding is None:
-                raise model.ModelError(["application preview lacks exact reviewed runtime custody"])
+                raise ModelError(["application preview lacks exact reviewed runtime custody"])
             self.runtime.verify(binding, prepared)
         elif self.runtime is not None or binding is not None:
-            raise model.ModelError(["preview has no DDO runtime admission intent"])
+            raise ModelError(["preview has no DDO runtime admission intent"])
 
     @model_validator(mode="after")
     def query_analysis_matches_release_pair(self):
@@ -276,13 +278,13 @@ def verify_release_products(
     binding: str,
 ) -> None:
     if not artifacts_sha256 or not manifest_sha256:
-        raise model.ModelError(
+        raise ModelError(
             [f"{binding} lacks exact release product digests; prepare a fresh preview"]
         )
     if prepared.release_id != release or sha256(prepared.manifest).hexdigest() != manifest_sha256:
-        raise model.ModelError([f"prepared release identity differs from {binding}"])
+        raise ModelError([f"prepared release identity differs from {binding}"])
     if prepared.artifacts_sha256 != artifacts_sha256:
-        raise model.ModelError([f"prepared release artifacts differ from {binding}"])
+        raise ModelError([f"prepared release artifacts differ from {binding}"])
 
 
 def _git(root: Path, *args: str) -> str:
@@ -290,7 +292,7 @@ def _git(root: Path, *args: str) -> str:
         ("git", "-C", str(root), *args), capture_output=True, timeout=30, check=False
     )
     if done.returncode:
-        raise model.ModelError([f"git {' '.join(args[:1])} could not resolve the model input"])
+        raise ModelError([f"git {' '.join(args[:1])} could not resolve the model input"])
     return done.stdout.decode()
 
 
@@ -301,7 +303,7 @@ def _ref(root: Path, name: str) -> str:
 def checked_path(root: Path, relative: str) -> Path:
     path = root / relative
     if not path.is_relative_to(root) or path.resolve() != path:
-        raise model.ModelError([f"unsafe model path {relative}"])
+        raise ModelError([f"unsafe model path {relative}"])
     return path
 
 
@@ -333,7 +335,7 @@ def compilation_fingerprint(
     Generator-owned output paths are excluded from implementation hashing: their
     authored inputs and exact reviewed output bytes have separate owners.
     """
-    from corpus_structure.schema.generate import generated_output_paths
+    from corpus_structure.schema.code_generation import CURRENT_OUTPUTS
     from corpus_structure.semantic.determinants import (
         ANALYSIS_LIBRARIES,
         BYTE_LIBRARIES,
@@ -353,7 +355,7 @@ def compilation_fingerprint(
         try:
             inputs = acquire_data_operation_inputs(root, request.data_operations, proposed=proposed)
         except ValueError as error:
-            raise model.ModelError(
+            raise ModelError(
                 [f"compilation inputs changed; prepare a fresh preview: {error}"]
             ) from error
         acquired = (inputs.bundle, inputs.dependencies, inputs.profile)
@@ -366,7 +368,7 @@ def compilation_fingerprint(
         if any(
             not name or name in {".", ".."} or Path(name).name != name for name in request.packs
         ):
-            raise model.ModelError(["select declared domain pack names"])
+            raise ModelError(["select declared domain pack names"])
         acquired = acquire_packs(
             tuple(root / "domains" / name for name in request.packs), physical_sources=physical
         )
@@ -381,7 +383,7 @@ def compilation_fingerprint(
             "ontology_sources": list(dependencies.ontology_sources),
             "profile": asdict(profile),
         }
-    generated = generated_output_paths() | set(_NATIVE_OUTPUTS)
+    generated = frozenset(CURRENT_OUTPUTS)
     implementation = []
     selected_package = root / preparation.PACKAGE_PATH
     running_package = Path(__file__).resolve().parents[1]
@@ -432,11 +434,9 @@ def compilation_fingerprint(
         "deployment_base": deployment_base.model_dump(mode="json")
         if deployment_base is not None
         else None,
-        "canonical": {
-            name: value
-            if value is not None
-            else _read(root, (preparation.MODEL_PATH / (name + ".yaml")).as_posix())
-            for name, value in (("core", request.core), ("system", request.system))
+        "model_sources": {
+            path.relative_to(root).as_posix(): sha256(path.read_bytes()).hexdigest()
+            for path in sorted((root / _PHYSICAL_DIR).glob("*.yaml"))
         },
         "inputs": input_facts,
         "acquired_files": acquired_files,
@@ -445,7 +445,7 @@ def compilation_fingerprint(
         ),
         "implementation": implementation,
         "python": sys.version,
-        "compilers": model.compilers(),
+        "compilers": compilers(),
         "libraries": {name: determinant_version(name) for name in sorted(libraries)},
     }
     return sha256(canonical_bytes(facts)).hexdigest()
@@ -471,7 +471,7 @@ def native_intent(retire: tuple[NativeEffect, ...], recreate: tuple[NativeEffect
     removed = frozenset(item.identity() for item in retire)
     replaced = frozenset(item.identity() for item in recreate)
     if len(removed) != len(retire) or len(replaced) != len(recreate) or removed & replaced:
-        raise model.ModelError(["native retirement and recreation must be unique and disjoint"])
+        raise ModelError(["native retirement and recreation must be unique and disjoint"])
     return removed, replaced
 
 
@@ -498,10 +498,10 @@ def physical_release_sources(root: Path, proposed: str | None = None) -> dict[st
 def approved_physical_metadata(root: Path, preview: ChangePreview):
     source = _read(root, _PHYSICAL)
     if source is None or preview.effects.physical is None:
-        raise model.ModelError(["native candidate lacks the approved physical declaration"])
+        raise ModelError(["native candidate lacks the approved physical declaration"])
     sources = _physical_closure(root, source)
     if physical_sources_id(sources) != preview.effects.physical[1]:
-        raise model.ModelError(["applied physical inputs differ from the approved preview"])
+        raise ModelError(["applied physical inputs differ from the approved preview"])
     return compile_physical(sources)
 
 
@@ -513,17 +513,22 @@ def native_model_inputs(root: Path, *, preview: ChangePreview | None = None) -> 
         path = (_PHYSICAL_DIR / name).as_posix()
         content = _read(root, path)
         if content is None:
-            raise model.ModelError(["native preview requires its logical source: " + path])
-        if preview is not None and preview.inputs.get(path) != _digest(content):
-            raise model.ModelError(
-                ["native logical inputs differ from the approved preview: " + path]
+            raise ModelError(["native preview requires its logical source: " + path])
+        if preview is not None:
+            expected = next(
+                (effect.after for effect in preview.files if effect.path == path),
+                preview.inputs.get(path),
             )
+            if expected != _digest(content):
+                raise ModelError(
+                    ["native logical inputs differ from the approved preview: " + path]
+                )
         sources[name] = content.encode()
     return sources
 
 
 def _native_facades(target, logical: dict[str, bytes]) -> dict[str, str]:
-    from corpus_structure.schema.generate import _format
+    from corpus_structure.schema.code_generation import CURRENT_OUTPUTS, _format
     from corpus_structure.semantic import pdf_call_generation, typed_generation
     from corpus_structure.semantic.data_operation_wire import generated_wire_source
     from corpus_structure.semantic.original_document_contracts import generated_source_calls
@@ -548,7 +553,7 @@ def _native_facades(target, logical: dict[str, bytes]) -> dict[str, str]:
     )
     return {
         (preparation.PACKAGE_PATH / path).as_posix(): content
-        for path, content in zip(_NATIVE_OUTPUTS, values, strict=True)
+        for path, content in zip(CURRENT_OUTPUTS, values, strict=True)
     }
 
 
@@ -574,28 +579,40 @@ def prepare_preview(
 ) -> ChangePreview:
     root = root.resolve()
     if request.source_migrations and not request.data_operations:
-        raise model.ModelError(["source migrations require explicit data-operation inputs"])
+        raise ModelError(["source migrations require explicit data-operation inputs"])
     comparison_model = None
     migrations = tuple(prepare_source_migration(root, item) for item in request.source_migrations)
     proposed: dict[str, str] = {}
     for migration in migrations:
         for path, content in migration.after.items():
             if path in proposed and proposed[path] != content:
-                raise model.ModelError([f"competing source migrations for {path}"])
+                raise ModelError([f"competing source migrations for {path}"])
             proposed[path] = content
     baseline = _ref(root, request.baseline)
     head = _ref(root, "HEAD")
-    core, system, log = (
-        (preparation.MODEL_PATH / name).as_posix()
-        for name in ("core.yaml", "system.yaml", "revisions.yaml")
+    model_paths = {
+        path
+        for path in _git(root, "ls-files", "-z", "--", str(_PHYSICAL_DIR)).split("\0")
+        if path.endswith(".yaml")
+    }
+    model_paths.update(
+        path.relative_to(root).as_posix() for path in (root / _PHYSICAL_DIR).glob("*.yaml")
     )
-    original = {path: _git(root, "show", f"{baseline}:{path}") for path in (core, system, log)}
-    current = {path: _read(root, path) for path in original}
+    original = {}
+    for path in model_paths:
+        recorded = subprocess.run(
+            ["git", "-C", str(root), "show", f"{baseline}:{path}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        original[path] = recorded.stdout if recorded.returncode == 0 else None
+    current = {path: _read(root, path) for path in model_paths}
     acquired = None
     captured_paths: set[str] = set()
     if request.data_operations is not None:
         if request.packs:
-            raise model.ModelError(["target inputs and legacy domain packs are exclusive"])
+            raise ModelError(["target inputs and legacy domain packs are exclusive"])
         from corpus_structure.semantic.data_operation_preparation import (
             acquire_data_operation_inputs,
         )
@@ -607,92 +624,95 @@ def prepare_preview(
             for intent in request.source_migrations
             for change in intent.sources
         ):
-            raise model.ModelError(
+            raise ModelError(
                 ["authored source migration input is outside the acquired operation source closure"]
             )
         current.update({path: content.decode() for path, content in acquired.files})
-    if current[log] != original[log]:
-        raise model.ModelError(["worktree revision log differs from the requested baseline"])
     source = {
-        core: request.core if request.core is not None else current[core],
-        system: request.system if request.system is not None else current[system],
+        path: content
+        for path, content in current.items()
+        if path in model_paths and content is not None
     }
-    if any(value is None for value in source.values()):
-        raise model.ModelError(["both canonical declarations are required"])
-    with TemporaryDirectory(prefix="cs-model-preview-") as directory:
-        before, after = Path(directory) / "before", Path(directory) / "after"
-        before.mkdir()
-        after.mkdir()
-        for path in (core, system):
-            name = Path(path).name
-            (before / name).write_text(original[path], encoding="utf-8")
-            content = source[path]
-            assert content is not None
-            (after / name).write_text(content, encoding="utf-8")
-        (before / "revisions.yaml").write_text(original[log], encoding="utf-8")
-        old = model.load(before / "core.yaml", before / "system.yaml")
-        new = model.load(after / "core.yaml", after / "system.yaml")
-        revision = model.revision(new)
-        changed = change.diff(old, new)
-        native = request.native_requested
-        if request.physical is not None or request.retire or request.recreate:
-            if not native:
-                raise model.ModelError(
-                    ["physical and native object effects require a native revision request"]
-                )
-            native_intent(request.retire, request.recreate)
-        if (native or request.deployment) != bool(target):
-            raise model.ModelError(["a deployment preview requires a configured target binding"])
-        if request.deployment_profile and (
-            not target or request.deployment_profile != target_profile
-        ):
-            raise model.ModelError(["deployment profile differs from the requested target"])
-        if native != bool(authoring_target):
-            raise model.ModelError(["a native preview requires its development authoring target"])
-        migration = request.change.alembic_revision if request.change else None
-        if request.native_revision and migration and migration != request.native_revision:
-            raise model.ModelError(["native revision conflicts with the declared model change"])
-        if native != bool(migration or request.native_revision):
-            raise model.ModelError(
-                [
-                    "a native change requires an Alembic revision; None predecessor explicitly requests an empty root"
-                ]
+    if len({item.path for item in request.logical_sources}) != len(request.logical_sources):
+        raise ModelError(["logical source edits require unique paths"])
+    for item in request.logical_sources:
+        checked_path(root, item.path)
+        if item.path not in model_paths:
+            raise ModelError(
+                ["logical source edit is outside the selected model capture: " + item.path]
             )
-        if model.revision(old).content_hash == revision.content_hash and request.change is None:
-            problems = model.check(new) + model.check_log(
-                revision, model.read_log(before / "revisions.yaml")
-            )
-            if problems:
-                raise model.ModelError(problems)
-            generated: dict[str, str] = {}
-        else:
-            generated = preparation.prepare(
-                new, model.read_log(before / "revisions.yaml"), before=old, record=request.change
-            )
-        compatibility: dict[str, list[str]] = {}
-        for (element, _, _), classification in change.derived(
-            old, new, request.change.name_map if request.change else {}
-        ).items():
-            compatibility.setdefault(classification, []).append(element)
+        if item.path == _PHYSICAL and request.physical is not None:
+            raise ModelError(["physical source has competing logical and physical edits"])
+        source[item.path] = item.content
+    if request.physical is not None:
+        source[_PHYSICAL] = request.physical
+    from corpus_structure.model.compiled import compiled_model
+    from corpus_structure.schema.physical import linkml_types_source
+
+    def capture(values):
+        supplied = {
+            Path(path).name: content.encode()
+            for path, content in values.items()
+            if path in model_paths and content is not None
+        }
+        if not supplied:
+            raise ModelError(["preview requires released model sources"])
+        return compiled_model({**supplied, "linkml:types": linkml_types_source()})
+
+    old, new = capture(original), capture(source)
+    model_comparison = compare_compiled_models(old, new)
+    changed = model_comparison.changes
+    # Force both physical projections when the capture owns that contract. This
+    # resolves imported ranges, structured constraints and vocabulary membership.
+    if PHYSICAL_ROOT in new.sources:
+        new.physical()
+    for item in request.logical_sources:
+        new.view(Path(item.path).name)
+    native = request.native_requested
+    physical_edits = (
+        any(
+            item.source in physical_source_closure(PHYSICAL_ROOT, new.sources.get)
+            for item in changed
+        )
+        if PHYSICAL_ROOT in new.sources
+        else False
+    )
+    if (physical_edits or request.retire or request.recreate) and not native:
+        raise ModelError(["physical and native object effects require a native revision request"])
+    native_intent(request.retire, request.recreate)
+    if (native or request.deployment) != bool(target):
+        raise ModelError(["a deployment preview requires a configured target binding"])
+    if request.deployment_profile and (not target or request.deployment_profile != target_profile):
+        raise ModelError(["deployment profile differs from the requested target"])
+    if native != bool(authoring_target):
+        raise ModelError(["a native preview requires its development authoring target"])
+    if native != bool(request.native_revision):
+        raise ModelError(
+            [
+                "a native change requires an Alembic revision; None predecessor explicitly requests an empty root"
+            ]
+        )
+    generated: dict[str, str] = {}
+    compatibility = {}
+    for item in changed:
+        compatibility.setdefault(item.kind, []).append(item.source + "/" + item.element)
     physical = None
     data_steps = ()
     if native:
         physical_input = _read(root, _PHYSICAL)
         if physical_input is None:
-            raise model.ModelError(["native preview requires the trusted physical declaration"])
+            raise ModelError(["native preview requires the trusted physical declaration"])
         original_physical = _physical_closure(
             root, _git(root, "show", f"{baseline}:{_PHYSICAL}"), baseline=baseline
         )
-        requested_physical = _physical_closure(
-            root, physical_input if request.physical is None else request.physical
-        )
+        requested_physical = physical_source_closure(PHYSICAL_ROOT, new.sources.get)
         target_metadata = compile_physical(requested_physical)
         data_steps = prepare_data_steps(
             request.data_steps, target=target_metadata, predecessor=request.native_predecessor
         )
         physical = (physical_sources_id(original_physical), physical_sources_id(requested_physical))
         if expected_physical is not None and expected_physical != physical[1]:
-            raise model.ModelError(["physical release inputs changed during preview"])
+            raise ModelError(["physical release inputs changed during preview"])
         original_files = _physical_worktree_files(original_physical)
         requested_files = _physical_worktree_files(requested_physical)
         original.update(original_files)
@@ -700,8 +720,9 @@ def prepare_preview(
             {path: _read(root, path) for path in original_files.keys() | requested_files.keys()}
         )
         source.update(requested_files)
-        logical = native_model_inputs(root)
-        current.update(_physical_worktree_files(logical))
+        current_logical = native_model_inputs(root)
+        current.update(_physical_worktree_files(current_logical))
+        logical = {name: new.sources[name] for name in current_logical}
         generated.update(_native_facades(target_metadata, logical))
         for path in _git(
             root, "ls-files", "-z", "--", str(preparation.PACKAGE_PATH / "semantic")
@@ -715,14 +736,14 @@ def prepare_preview(
             path = (migration_directory / name).as_posix()
             current[path] = _read(root, path)
             if current[path] is None:
-                raise model.ModelError(
+                raise ModelError(
                     ["native preview requires its current migration environment: " + path]
                 )
     for migration in migrations:
         for path, digest in migration.inputs.items():
             content = _read(root, path)
             if _digest(content) != digest:
-                raise model.ModelError([f"source changed during preview: {path}"])
+                raise ModelError([f"source changed during preview: {path}"])
             current[path] = content
     previous = None
     if migrations and request.data_operations:
@@ -739,16 +760,14 @@ def prepare_preview(
                 proposed={path: value.encode() for path, value in proposed.items()},
             )
         if local_release is not None and prepared_source.release_id != local_release:
-            raise model.ModelError(["proposed-source release differs from reviewed release"])
+            raise ModelError(["proposed-source release differs from reviewed release"])
         from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 
         effective = bound_data_operation_model(prepared_source)
         comparison_model = effective
         owners = {operation.semantic_id for operation in effective.operations}
         if any((item.new_owner or item.owner) not in owners for item in request.source_migrations):
-            raise model.ModelError(
-                ["source migration owner is absent from the proposed effective model"]
-            )
+            raise ModelError(["source migration owner is absent from the proposed effective model"])
         from corpus_structure.semantic.prepare import prepare_release
 
         previous = bound_data_operation_model(
@@ -758,7 +777,7 @@ def prepare_preview(
 
         for intent, migration in zip(request.source_migrations, migrations, strict=True):
             if intent.owner not in {op.semantic_id for op in previous.operations}:
-                raise model.ModelError(
+                raise ModelError(
                     ["source migration owner is absent from the acquired effective model"]
                 )
             if intent.kind in {"symbol_move", "call_context"}:
@@ -810,7 +829,7 @@ def prepare_preview(
                     if class_contract(before_operation, intent.old_name) != class_contract(
                         after_operation, intent.new_name
                     ):
-                        raise model.ModelError(
+                        raise ModelError(
                             [
                                 "symbol_move cannot change the callable contract of its operation class"
                             ]
@@ -829,11 +848,11 @@ def prepare_preview(
                 if intent.old_name not in before_names and not (
                     intent.kind == "call_context" and proof is not None
                 ):
-                    raise model.ModelError(
+                    raise ModelError(
                         ["source migration correspondence differs from its owned callable"]
                     )
                 if intent.new_name not in after_names:
-                    raise model.ModelError(
+                    raise ModelError(
                         ["source migration correspondence differs from its owned callable"]
                     )
                 if intent.kind == "call_context":
@@ -855,7 +874,7 @@ def prepare_preview(
                     before_surface.returns,
                     before_surface.overloads,
                 ) != (after_surface.parameters, after_surface.returns, after_surface.overloads):
-                    raise model.ModelError(
+                    raise ModelError(
                         [
                             "symbol_move cannot change the callable contract; use a separately supported interface migration"
                         ]
@@ -873,7 +892,7 @@ def prepare_preview(
                 if surfaces(previous.operation(intent.owner)) != surfaces(
                     effective.operation(intent.owner)
                 ):
-                    raise model.ModelError(
+                    raise ModelError(
                         [
                             "authored_update preserves callable contracts; use an explicit caller migration for interface changes"
                         ]
@@ -890,7 +909,7 @@ def prepare_preview(
         if source_comparison is None:
             source_comparison = compare_data_operation_models(previous, effective)
         elif source_comparison.after_digest != sha256(effective.content).hexdigest():
-            raise model.ModelError(["source comparison differs from the proposed effective model"])
+            raise ModelError(["source comparison differs from the proposed effective model"])
 
         local_release = prepared_source.release_id
         release_manifest_sha256 = sha256(prepared_source.manifest).hexdigest()
@@ -912,36 +931,34 @@ def prepare_preview(
             source_comparison is not None
             and source_comparison.after_digest != sha256(compiled.content).hexdigest()
         ):
-            raise model.ModelError(["source comparison differs from the proposed effective model"])
+            raise ModelError(["source comparison differs from the proposed effective model"])
     if comparison is not None and request.data_operations:
         from corpus_structure.semantic.model_comparison import DeclaredModelComparison
 
         checked_comparison = DeclaredModelComparison.model_validate(comparison)
         assert comparison_model is not None
         if checked_comparison.after_digest != sha256(comparison_model.content).hexdigest():
-            raise model.ModelError(
+            raise ModelError(
                 ["declared model comparison differs from the proposed effective model"]
             )
         if source_comparison is not None and (
             checked_comparison.before_digest != source_comparison.before_digest
             or checked_comparison.after_digest != source_comparison.after_digest
         ):
-            raise model.ModelError(
-                ["declared and source comparisons refer to different model pairs"]
-            )
+            raise ModelError(["declared and source comparisons refer to different model pairs"])
         comparison = checked_comparison.model_dump(mode="json")
     staged = {path: content for path, content in source.items() if content is not None} | generated
     if proposed.keys() & staged.keys():
-        raise model.ModelError(["source migration overlaps a generated or canonical effect"])
+        raise ModelError(["source migration overlaps a generated or canonical effect"])
     staged.update(proposed)
     prior = {path: _read(root, path) for path in staged}
     files = tuple(
         FileEffect(path=path, before=_digest(prior[path]), after=content)
-        for path, content in staged.items()
+        for path, content in sorted(staged.items())
         if prior[path] != content
     )
     if any(_read(root, path) != content for path, content in current.items()):
-        raise model.ModelError(["canonical inputs changed during preview"])
+        raise ModelError(["canonical inputs changed during preview"])
     from corpus_structure.schema.model_discovery import locate_consumers
 
     identifiers = {
@@ -969,7 +986,7 @@ def prepare_preview(
         for path in sorted({path for migration in migrations for path in migration.membership}):
             content = current[path]
             if content is None:
-                raise model.ModelError([f"acquired source is unavailable: {path}"])
+                raise ModelError([f"acquired source is unavailable: {path}"])
             discovery_sources[path] = proposed.get(path, content).encode()
     release_effect = (
         ("unchanged" if request.archive_release == local_release else "changed")
@@ -982,7 +999,6 @@ def prepare_preview(
     native_basis = tuple(
         reason
         for applies, reason in (
-            (bool(compatibility.get("relational-additive")), "canonical_relational_change"),
             (physical is not None and physical[0] != physical[1], "trusted_physical_change"),
             (bool(request.retire), "explicit_native_retirement"),
             (bool(request.recreate), "explicit_native_recreation"),
@@ -992,7 +1008,7 @@ def prepare_preview(
     )
     if native and not native_basis:
         native_basis = ("explicit_native_authoring",)
-    checks = ["canonical_validation", "revision_log", "exact_file_bytes"]
+    checks = ["compiled_model_comparison", "exact_file_bytes"]
     if native:
         checks.extend(("physical_compilation", "acquired_predecessor", "native_admission"))
     if admission:
@@ -1008,8 +1024,8 @@ def prepare_preview(
         workspace=str(root),
         head=head,
         baseline=baseline,
-        revision=revision.content_hash,
-        compilers=dict(revision.compilers),
+        revision=new.identity,
+        compilers=compilers(),
         python=sys.version,
         generator=generator_fingerprint(root),
         inputs={path: _digest(content) for path, content in current.items()},
@@ -1017,7 +1033,7 @@ def prepare_preview(
         patch="".join(_diff(file.path, prior[file.path], file.after) for file in files),
         source_diff="".join(
             _diff(path, original.get(path), content)
-            for path, content in source.items()
+            for path, content in sorted(source.items())
             if content is not None and content != original.get(path)
         ),
         request=request,
@@ -1032,7 +1048,7 @@ def prepare_preview(
             compatibility={
                 kind: tuple(sorted(set(elements))) for kind, elements in compatibility.items()
             },
-            routes={kind: change.route(kind) for kind in compatibility},
+            routes={kind: "review_model_facts" for kind in compatibility},
             generated=tuple(file.path for file in files if file.path in generated),
             physical=physical,
             native=native,
@@ -1043,6 +1059,7 @@ def prepare_preview(
             checks=tuple(checks),
         ),
         comparison=comparison,
+        model_comparison=model_comparison,
         local_release=local_release,
         release_manifest_sha256=release_manifest_sha256,
         release_artifacts_sha256=release_artifacts_sha256,
@@ -1066,28 +1083,28 @@ def prepare_preview(
 def check_preview(root: Path, preview: ChangePreview, *, applied: bool = False) -> None:
     """Check every affected file before writes, accepting only exact prior/settled bytes."""
     if str(root) != preview.workspace:
-        raise model.ModelError(["preview belongs to another workspace"])
+        raise ModelError(["preview belongs to another workspace"])
     if not applied and _ref(root, "HEAD") != preview.head:
-        raise model.ModelError(["worktree HEAD changed after preview"])
+        raise ModelError(["worktree HEAD changed after preview"])
     if (
-        model.compilers() != preview.compilers
+        compilers() != preview.compilers
         or sys.version != preview.python
         or generator_fingerprint(root) != preview.generator
     ):
-        raise model.ModelError(["model toolchain changed after preview"])
+        raise ModelError(["model toolchain changed after preview"])
     for migration in preview.source_migrations:
         try:
             check_source_migration(root, migration)
         except ValueError as error:
-            raise model.ModelError([str(error)]) from error
+            raise ModelError([str(error)]) from error
     effects = {file.path: file for file in preview.files}
     for path, before in preview.inputs.items():
         if path not in effects and _digest(_read(root, path)) != before:
-            raise model.ModelError([f"stale model input {path}"])
+            raise ModelError([f"stale model input {path}"])
     if preview.request.data_steps or preview.data_steps:
         source = effects[_PHYSICAL].after if _PHYSICAL in effects else _read(root, _PHYSICAL)
         if source is None or preview.effects.physical is None:
-            raise model.ModelError(["revision data steps require an approved physical target"])
+            raise ModelError(["revision data steps require an approved physical target"])
         closure = _physical_closure(root, source)
         if physical_sources_id(closure) != preview.effects.physical[
             1
@@ -1096,11 +1113,11 @@ def check_preview(root: Path, preview: ChangePreview, *, applied: bool = False) 
             target=compile_physical(closure),
             predecessor=preview.request.native_predecessor,
         ):
-            raise model.ModelError(["revision data-step custody changed after preview"])
+            raise ModelError(["revision data-step custody changed after preview"])
     for effect in preview.files:
         actual = _digest(_read(root, effect.path))
         if actual != _digest(effect.after) and (applied or actual != effect.before):
-            raise model.ModelError([f"stale model input {effect.path}"])
+            raise ModelError([f"stale model input {effect.path}"])
 
 
 def apply_preview(
@@ -1116,13 +1133,13 @@ def apply_preview(
     with preparation.writer_lock(root):
         check_preview(root, preview)
         if preview.request.native_requested and native_fence is None:
-            raise model.ModelError(["native predecessor has not been checked"])
+            raise ModelError(["native predecessor has not been checked"])
         with native_fence or nullcontext():
             for effect in preview.files:
                 actual = _digest(_read(root, effect.path))
                 if actual != _digest(effect.after):
                     if actual != effect.before:
-                        raise model.ModelError([f"concurrent edit to {effect.path}"])
+                        raise ModelError([f"concurrent edit to {effect.path}"])
                     path = checked_path(root, effect.path)
                     path.parent.mkdir(parents=True, exist_ok=True)
                     mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o644
@@ -1133,7 +1150,7 @@ def apply_preview(
                             temporary.flush()
                             os.fchmod(temporary.fileno(), mode)
                             if _digest(_read(root, effect.path)) != effect.before:
-                                raise model.ModelError([f"concurrent edit to {effect.path}"])
+                                raise ModelError([f"concurrent edit to {effect.path}"])
                             os.replace(staged, path)
                         finally:
                             staged.unlink(missing_ok=True)

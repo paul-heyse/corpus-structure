@@ -10,6 +10,7 @@ from corpus_structure.evaluate.declared_record_policy import (
 
 class RecordPolicyFit:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["record-fit"],
         "id": "record_policy.fit",
         "profile": "derivation",
         "subject": "knowledge-universe",
@@ -168,6 +169,7 @@ class RecordPolicyFit:
 
 class RecordPolicyGrade:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["record-grade"],
         "id": "record_policy.grade",
         "profile": "derivation",
         "subject": "knowledge-universe",

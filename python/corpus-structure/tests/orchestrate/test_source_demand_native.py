@@ -21,12 +21,11 @@ from sqlalchemy import text
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import execute_data_demand, read_data_demand
 from corpus_structure.semantic.hanlp_products import prepare_hanlp_selection
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
-from corpus_structure.semantic.regeneration import acquire_pack
+from corpus_structure.semantic.regeneration import DOMAINS, acquire_pack
 
 ROOT = Path(__file__).resolve().parents[4]
 PASSAGES = (

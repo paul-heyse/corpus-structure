@@ -15,8 +15,8 @@ from corpus_structure.methods.definition_applicability import (
     components_from_named_matches,
     definition_scopes,
 )
-from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.constructions.retained_rules import recognize_frame_result
+from corpus_structure.semantic.regeneration import DOMAINS
 from corpus_structure.semantic.structural_products import StructuralPassage
 
 

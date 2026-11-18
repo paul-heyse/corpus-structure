@@ -27,7 +27,7 @@ def test_standalone_construction_closure_uses_only_explicit_sentence_selection(
         NativeProfile(
             "spacy",
             {"controlled": "preparation"},
-            {},
+            {"files": {}},
             configuration.model_dump(mode="json"),
             "float32",
             "cupy",
@@ -68,7 +68,7 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
             NativeProfile(
                 "spacy",
                 {"controlled": "runtime"},
-                {},
+                {"files": {}},
                 config.model_dump(mode="json"),
                 "float32",
                 "cupy",
@@ -112,7 +112,7 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
         configuration.model_dump(mode="json")
     )
     assert json.loads(custody["hanlp/execution-custody"].content)["selection"] == (
-        selected.declaration()
+        {**selected.declaration(), "asset_custody": []}
     )
     assert model.operation("profile.segments/source-native").capabilities.prepared_factory is None
 
@@ -198,7 +198,7 @@ def test_captured_primary_profile_declares_capture_views_and_authentic_full_fani
             NativeProfile(
                 "spacy",
                 {"controlled": "runtime"},
-                {},
+                {"files": {}},
                 config.model_dump(mode="json"),
                 "float32",
                 "cupy",

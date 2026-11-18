@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-from .model import ModelError
+from .declarations import ModelError
 
 
 def annotation_values(element: Any) -> dict[str, Any]:

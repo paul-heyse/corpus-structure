@@ -36,8 +36,6 @@ from corpus_structure.core.evidence import (
     rendition_key,
 )
 from corpus_structure.core.locators import LocatorIndex
-from corpus_structure.schema.lookup import name_map
-from corpus_structure.schema.pack import load_pack
 
 REPO = Path(__file__).resolve().parents[4]
 VENDORED = REPO / "fixtures/trace/corpus"
@@ -139,11 +137,9 @@ class Env:
     view_of: Callable[[str, bytes], ArchivedPage]
     raw: Callable[[str], bytes]
     frame: Callable[[ArchivedPage, dict[str, list[int]]], CitationFrame]
-    names: dict[str, str]
     fixtures: Path
 
 
 @pytest.fixture(scope="session")
 def env() -> Env:
-    names = dict(name_map([load_pack(REPO / "domains/statistics")]).to_prefixed)
-    return Env(data, page_view, view_of, raw_page, frame_of, names, REPO / "fixtures/s0")
+    return Env(data, page_view, view_of, raw_page, frame_of, REPO / "fixtures/s0")

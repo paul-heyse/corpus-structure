@@ -104,7 +104,7 @@ def render_call_bindings(
         "bindparam, column, func, null, select)",
         "from sqlalchemy.sql import ColumnElement",
         "from sqlalchemy.dialects.postgresql import BYTEA, JSONB, TIMESTAMP",
-        "from corpus_structure.core.vocab import TaskUnitType",
+        "from .task_types import TaskUnitType",
         "from .types import PreparedRelease",
         "from .metadata import table as _core_table",
         "from .operation_value_types import (HeldProgress, NativeResultViolation, "

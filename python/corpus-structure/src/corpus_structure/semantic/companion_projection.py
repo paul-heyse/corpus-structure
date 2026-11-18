@@ -31,7 +31,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
-from corpus_structure.schema.model import ci_annotations
+from corpus_structure.schema.declarations import ci_annotations
 from corpus_structure.schema.relational import render_typed_column_class
 
 from ._data_operation_wire import WireReadSelectedPdfSourceRequest

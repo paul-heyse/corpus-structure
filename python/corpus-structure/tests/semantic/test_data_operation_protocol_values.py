@@ -8,7 +8,7 @@ from linkml_runtime.utils.schemaview import SchemaView
 from sqlalchemy import ARRAY, Column
 from sqlalchemy.sql.type_api import TypeEngine
 
-from corpus_structure.schema.model import ModelError
+from corpus_structure.schema.declarations import ModelError
 from corpus_structure.schema.physical import (
     compile_physical,
     physical_source_closure,

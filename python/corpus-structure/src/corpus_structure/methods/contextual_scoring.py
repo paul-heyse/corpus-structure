@@ -7,6 +7,7 @@ from corpus_structure.semantic.contextual_scores import execute_scoring_profile
 
 class ContextualScoringOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_scores/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -130,6 +131,7 @@ class ContextualScoringOperation:
         "dependencies": ["retrieve.contextual_vectors/selection"],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 0,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",

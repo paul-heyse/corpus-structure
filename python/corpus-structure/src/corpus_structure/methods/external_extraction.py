@@ -7,6 +7,7 @@ from corpus_structure.semantic.external_extraction import execute_rich_profile
 
 class RichExtractionInputOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["rich"],
         "id": "prepare.external_extraction",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -364,6 +365,7 @@ class RichExtractionInputOperation:
 
 class RichExtractionPlacementOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["rich"],
         "id": "locate.external_extraction",
         "profile": "derivation",
         "subject": "original-source-view",

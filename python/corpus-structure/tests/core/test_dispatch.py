@@ -14,43 +14,15 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from corpus_structure.core import keys as keys_module
-from corpus_structure.core._model.qualifiers import MISSING, QualifierSpec
 from corpus_structure.core.batch import (
     AuthoredItem,
     StoredItem,
     cited_sentences,
     rewrite_citations,
 )
-from corpus_structure.core.candidates import KeyedCandidateSet
 from corpus_structure.core.evidence import (
     MacroDef,
-    RenditionContent,
-    Segment,
-    SegmentKind,
-    content_digest,
-    document_key,
-    rendition_key,
-    segment_key,
 )
-from corpus_structure.core.keys import (
-    Drop,
-    KeyContext,
-    KeySchema,
-    LabelRules,
-    Member,
-    Rewrite,
-    Uniform,
-    ValueSpec,
-    canonical_condition,
-    canonical_qualifier,
-    canonical_value,
-    claim_refs,
-    condition_nodes,
-    expressions,
-    key_claims,
-)
-from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.values import (
     CONDITION_ADAPTERS,
     VALUE_ADAPTERS,
@@ -61,12 +33,14 @@ from corpus_structure.core.values import (
     StoredValue,
 )
 from corpus_structure.core.vocab import (
-    CONSOLIDATION_DROP,
     CanonicalForm,
-    CaseRule,
-    DropReason,
-    KeyRole,
-    QualifierStore,
+)
+from corpus_structure.evaluate.normalization import (
+    canonical_condition,
+    canonical_value,
+    claim_refs,
+    condition_nodes,
+    expressions,
 )
 
 # the canonical form each value tag's range takes (TM §8), written out
@@ -77,19 +51,11 @@ BY_TAG = {"text": CanonicalForm.TEXT_FORM, "number": CanonicalForm.NUMBER,
           "phrase": CanonicalForm.TEXT_FORM}  # fmt: skip
 
 
-def pack_spec(name: str, canonical: CanonicalForm, range_: str = "string",
-              role: KeyRole = KeyRole.IDENTITY) -> QualifierSpec:  # fmt: skip
-    """A test pack's qualifier specification, as S1 compiles one."""
-    return QualifierSpec(
-        name=name, local_name=name.split(":")[1], range=range_, default=MISSING, key_role=role,
-        key_role_when=None, canonical=canonical, case=CaseRule.FOLD, store=QualifierStore.JSON,
-    )  # fmt: skip
-
-
 MACROS = {"\\R": MacroDef(body="\\mathbb{R}")}
 
 
-resolve = Uniform(lambda ref: f"key:{ref}")  # every reference alike, whatever its kind
+def resolve(ref: str) -> str:
+    return f"key:{ref}"  # every reference alike, whatever its kind
 
 
 def members(alias: Any) -> set[type]:
@@ -204,9 +170,6 @@ def test_every_value_member_through_every_value_dispatch(form: str) -> None:
         else:
             assert canonical_value(value, MACROS, resolve) == canonical, raw
         assert len(list(expressions(value))) == count, raw
-        if form == "stored":
-            spec = ValueSpec(type(value).__name__, BY_TAG[raw["t"]])
-            assert canonical_qualifier(value, spec, KeySchema(), MACROS, resolve, "q") == canonical
     ref = EntityRef(ref="X")
     assert canonical_value(ref, MACROS, resolve) == {"key": "key:X"}
     assert list(expressions(ref)) == []
@@ -222,9 +185,6 @@ def test_every_condition_member_through_every_condition_dispatch(form: str) -> N
         assert visited[-1] is node  # children before their parent
         assert claim_refs(node) == refs, raw
         assert len(list(expressions(node))) == count, raw
-        if form == "stored":
-            spec = ValueSpec("Condition", CanonicalForm.CONDITION)
-            assert canonical_qualifier(node, spec, KeySchema(), MACROS, resolve, "q") == canonical
 
 
 def test_assert_never_is_reached_only_by_an_unrepresentable_member() -> None:
@@ -234,7 +194,6 @@ def test_assert_never_is_reached_only_by_an_unrepresentable_member() -> None:
         lambda: canonical_condition(stray, MACROS, resolve),
         lambda: list(condition_nodes(stray)),
         lambda: list(expressions(stray)),
-        lambda: canonical_qualifier(stray, ValueSpec("x", stray), KeySchema(), MACROS, resolve, ""),
     ):
         with pytest.raises(AssertionError):
             dispatch()
@@ -247,11 +206,6 @@ def test_a_seeded_unknown_operator_or_value_kind_is_refused_at_validation(form: 
         CONDITION_ADAPTERS[form].validate_python({"op": "and", "args": [xor]})
     with pytest.raises(ValidationError):
         VALUE_ADAPTERS[form].validate_python({"t": "quantity", "v": "1"})
-    with pytest.raises(ValidationError):  # nor can a stored claim carry one into keying
-        KeyedCandidateSet.model_validate({"renditions": ["ren:" + "0" * 32], "claims": [{
-            "id": "c1", "predicate": "stat:p", "subject": "X", "object": {"ref": "Y"},
-            "qualifiers": {"core:conditions": xor},
-        }]})  # fmt: skip
 
 
 # --- Items and citations -----------------------------------------------------------------------
@@ -315,217 +269,3 @@ def test_cited_sentences_reads_the_typed_items() -> None:
         "unsupported": [AUTHORED_ITEMS[5][0]],
     })  # fmt: skip
     assert cited_sentences(batch) == ["s1", "s2", "s7", "s4", "s5", "s6", "s3", "c1"]
-
-
-# --- Keying outcomes ---------------------------------------------------------------------------
-
-PAGE = "special/Test.html"
-DOC = document_key("statistics", PAGE, "0" * 64)
-SENTENCES = ["Suppose that X is normal.", "Then Y is normal.", "Recall the gamma function."]
-
-
-def content() -> RenditionContent:
-    """Three units of one paragraph and one sentence each."""
-    text, units = "", []
-    for i, sentence in enumerate(SENTENCES):
-        if text:
-            text += "\n\n"
-        start = len(text)
-        text += sentence
-        s = Segment(kind=SegmentKind.SENTENCE, start=start, end=len(text))
-        p = Segment(kind=SegmentKind.PARAGRAPH, start=start, end=len(text), children=(s,))
-        units.append(Segment(kind=SegmentKind.UNIT, start=start, end=len(text),
-                             attrs={"id": f"u{i + 1}"}, children=(p,)))  # fmt: skip
-    root = Segment(kind=SegmentKind.DOCUMENT, start=0, end=len(text), children=units)
-    return RenditionContent(canonical_text=text, document=root)
-
-
-def context() -> KeyContext:
-    return KeyContext(DOC, content(), PAGE, MACROS)
-
-
-def seg(ctx: KeyContext, kind: SegmentKind, n: int = 0) -> str:
-    segment = [s for s in ctx.content.document.walk() if s.kind is kind][n]
-    ren = rendition_key(DOC, content_digest(ctx.content))
-    return segment_key(ren, segment.kind, segment.start, segment.end)
-
-
-VALUES_MAP = {"stat:Values": ValueSpec("Formula", CanonicalForm.TOKEN_FORM)}
-SCHEMA = KeySchema(
-    predicates=frozenset({"stat:p"}),
-    qualifiers={"stat:p": (pack_spec("stat:sentence", CanonicalForm.IDENTIFIER),
-                           pack_spec("stat:values", CanonicalForm.MAP, "stat:Values"))},
-    map_values=VALUES_MAP,
-)  # fmt: skip
-RULES = LabelRules()
-
-
-def key(ctx: KeyContext, entities: list[dict], statements: list[dict], claims: list[dict],
-        members: dict[str, Member] | None = None):  # fmt: skip
-    base = {"predicate": "stat:p", "subject": "N", "object": {"ref": "N"},
-            "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
-    cands = KeyedCandidateSet.model_validate({
-        "renditions": [ctx.rendition_key],
-        "entities": [{"id": "N", "type": "stat:T", "label": "normal", "scope": "global"},
-                     *entities],
-        "statements": statements,
-        "claims": [{**base, **c} for c in claims],
-    })  # fmt: skip
-    return key_claims(cands, ctx, SCHEMA, RULES, members=members)
-
-
-def test_every_drop_reason_has_a_case_producing_it() -> None:
-    ctx = context()
-    sentence = seg(ctx, SegmentKind.SENTENCE)
-    entities = [
-        {"id": "a", "type": "stat:P", "label": "a", "scope": "global",
-         "identity": {"stat:of": "b"}},
-        {"id": "b", "type": "stat:P", "label": "b", "scope": "global",
-         "identity": {"stat:of": "a"}},
-        {"id": "z", "type": "stat:P", "label": "z", "scope": "global",
-         "identity": {"stat:of": "nowhere"}},
-        # a local entity whose extent resolved to no segment: kept, but it has no scope to key by
-        {"id": "w", "type": "stat:P", "label": "w", "scope": "local", "extent": "section"},
-    ]  # fmt: skip
-    statements = [
-        {"id": "st", "kind": "theorem", "anchor": [sentence]},
-        {"id": "gone", "kind": "theorem", "anchor": ["seg:" + "0" * 32]},
-    ]
-    third = ctx.content.text(
-        next(
-            s
-            for s in ctx.content.document.walk()
-            if s.kind is SegmentKind.SENTENCE and s.start > 30
-        )
-    )
-    start = ctx.content.canonical_text.index(third)
-    references = [  # one cited inside `st`'s sentence; one in a sentence no statement anchors
-        {"id": "xr", "descriptor": {"start": 8, "end": 9}},
-        {"id": "xr_far", "descriptor": {"start": start, "end": start + 6}},
-    ]
-    claims = [
-        {"id": "c_predicate", "predicate": "stat:q"},
-        {"id": "c_kind", "qualifiers": {"core:conditions": {"op": "claim", "ref": "st"}}},
-        {"id": "c_cited", "statement": "st", "object": {"ref": "xr"}},
-        {"id": "c_unknown", "subject": "nobody"},
-        {"id": "c_dropped", "statement": "gone"},
-        {"id": "c_claim_ref", "qualifiers": {"core:conditions": {"op": "claim", "ref": "c9"}}},
-        {"id": "c_cycle", "qualifiers": {"core:conditions": {"op": "claim", "ref": "c_cycle"}}},
-        {"id": "c_float", "qualifiers": {"stat:values": {"mean": 1.5}}},
-        {"id": "c_value", "qualifiers": {"stat:values": {"mean": {"t": "quantity", "v": "1"}}}},
-        {"id": "c_ok", "statement": "st", "qualifiers": {"stat:values": {"mean": FORMULA}}},
-        {"id": "c_surrogate", "object": {"t": "text", "v": "lone \ud800"}},
-    ]
-    identity = KeySchema(
-        identity_keys={"stat:P": ("stat:of",)},
-        entity_identity={"stat:P": ("stat:of",)},
-        predicates=frozenset({"stat:p"}),
-        qualifiers={"stat:p": (pack_spec("stat:values", CanonicalForm.MAP, "stat:Values"),)},
-        map_values=VALUES_MAP,
-    )
-    base = {"predicate": "stat:p", "subject": "N", "object": {"ref": "N"},
-            "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
-    cands = KeyedCandidateSet.model_validate({
-        "renditions": [ctx.rendition_key],
-        "entities": [{"id": "N", "type": "stat:T", "label": "normal", "scope": "global"},
-                     *entities],
-        "statements": statements,
-        "references": references,
-        "claims": [{**base, **c} for c in claims],
-    })  # fmt: skip
-    out = key_claims(cands, ctx, identity, RULES)
-    assert out.dropped == {
-        "a": Drop(DropReason.IDENTITY_CYCLE, "a"),
-        "b": Drop(DropReason.IDENTITY_CYCLE, "b"),
-        "z": Drop(DropReason.UNKNOWN_IDENTITY_ENTITY, "nowhere"),
-        "w": Drop(DropReason.UNRESOLVED_EXTENT, "w"),
-        "gone": Drop(DropReason.SEGMENT_NOT_ON_RENDITION, "seg:" + "0" * 32),
-        "c_predicate": Drop(DropReason.UNKNOWN_PREDICATE, "stat:q"),
-        "c_kind": Drop(DropReason.WRONG_KIND_REFERENCE, "st", ("claim", "a statement")),
-        "xr_far": Drop(DropReason.UNCITED_REFERENCE, "xr_far"),
-        "c_unknown": Drop(DropReason.UNKNOWN_REFERENCE, "nobody"),
-        "c_dropped": Drop(DropReason.DROPPED_DEPENDENCY, "gone"),
-        "c_claim_ref": Drop(DropReason.UNKNOWN_CLAIM_REF, "c9"),
-        "c_cycle": Drop(DropReason.CONDITION_CYCLE, "c_cycle", ("c_cycle", "c_cycle")),
-        "c_float": Drop(DropReason.MALFORMED_QUALIFIER, "stat:values", ("mean",)),
-        "c_value": Drop(DropReason.MALFORMED_QUALIFIER, "stat:values", ("mean",)),
-        "c_surrogate": Drop(DropReason.MALFORMED_VALUE, "c_surrogate", ("$.object.value.v",)),
-    }
-    assert set(out.claims) == {"c_ok", "c_cited"}  # an unresolved reference is no drop
-    assert set(out.references) == {"xr"}
-    # every code keying can drop with; parse's (A0) `unlocated_quote` is produced by
-    # `tests/llm/test_parse.py`, consolidation's (the model's `consolidation_drop` members) by
-    # `tests/consolidate/test_assemble.py`
-    parse_codes = {DropReason.UNLOCATED_QUOTE}
-    assert {d.code for d in out.dropped.values()} == set(DropReason) - parse_codes - (
-        CONSOLIDATION_DROP
-    )
-    for code in parse_codes | CONSOLIDATION_DROP:  # their messages project the code too
-        assert "p.q" in Drop(code, "p.q").message
-    for drop in out.dropped.values():  # every code projects to a message naming its subject
-        assert drop.ref in drop.message or drop.code is DropReason.CONDITION_CYCLE
-
-
-def test_a_pack_qualifier_named_sentence_keys_as_written() -> None:
-    """`stat:sentence` is a schema qualifier like any other: keyed by its text form, never read
-    as a citation (R03, DA-004)."""
-    ctx = context()
-
-    def keys_of(value: Any) -> tuple[str, str]:
-        out = key(ctx, [], [], [{"id": "c1", "qualifiers": {"stat:sentence": value}}],
-                  members={"c1": Member(qualifiers=("stat:sentence",), bindings=True)})  # fmt: skip
-        assert out.dropped == {} and out.dropped_members == {}
-        return out.claims["c1"], out.members["c1"]
-
-    assert keys_of("s3") == keys_of(" S3 ")  # the text form of a literal
-    assert keys_of("s3") != keys_of("s4")
-    out = key(ctx, [], [], [{"id": "c1", "qualifiers": {"stat:sentence": {"sentence": "s3"}}}])
-    # by its declared (string) range, never by its shape: an object there is no identifier
-    assert out.dropped == {"c1": Drop(DropReason.MALFORMED_QUALIFIER, "stat:sentence")}
-
-
-def test_preparation_happens_once_per_context(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = {"annotation_units": 0, "content_digest": 0, "claim_parts": 0}
-
-    def counted(name: str, function: Any) -> Any:
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            calls[name] += 1
-            return function(*args, **kwargs)
-
-        return wrapper
-
-    monkeypatch.setattr(LocatorIndex, "annotation_units",
-                        counted("annotation_units", LocatorIndex.annotation_units))  # fmt: skip
-    monkeypatch.setattr(keys_module, "content_digest",
-                        counted("content_digest", keys_module.content_digest))  # fmt: skip
-    monkeypatch.setattr(keys_module, "claim_parts",
-                        counted("claim_parts", keys_module.claim_parts))  # fmt: skip
-    ctx = context()
-    sentences = [s for s in ctx.content.document.walk() if s.kind is SegmentKind.SENTENCE]
-    # Paragraph-level statements outside any `unit`/`details`: each needs the annotation units.
-    no_units = RenditionContent(
-        canonical_text=ctx.content.canonical_text,
-        document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=len(ctx.content.canonical_text),
-                         children=[u.children[0] for u in ctx.content.document.children]),
-    )  # fmt: skip
-    flat = KeyContext(DOC, no_units, PAGE, MACROS)
-    ren = rendition_key(DOC, content_digest(no_units))
-    calls["content_digest"] = 0  # the test's own digest above is not the context's
-    statements = [{"id": f"st{i}", "kind": "theorem",
-                   "anchor": [segment_key(ren, s.kind, s.start, s.end)]}
-                  for i, s in enumerate(sentences)]  # fmt: skip
-    claims = [{"id": f"c{i}", "statement": f"st{i}"} for i in range(len(sentences))]
-    out = key(flat, [], statements, claims,
-              members={c["id"]: Member(bindings=True) for c in claims})  # fmt: skip
-    assert len(out.statements) == 3 and len(out.members) == 3 and out.dropped == {}
-    assert calls == {"annotation_units": 1, "content_digest": 1, "claim_parts": 3}
-
-
-def test_malformed_pack_and_schema_inputs_are_refused_at_construction() -> None:
-    """Construction errors stay `ValueError`s: they are input errors, not keying outcomes."""
-    with pytest.raises(ValidationError, match="does not compile"):
-        LabelRules(rewrites=(Rewrite(match="(unclosed", replace=""),))
-    with pytest.raises(ValidationError, match="is core; its role is fixed"):
-        KeySchema(predicates=frozenset({"stat:p"}),
-                  qualifiers={"stat:p": (
-                      pack_spec("core:hedge", CanonicalForm.TEXT_FORM),)})  # fmt: skip

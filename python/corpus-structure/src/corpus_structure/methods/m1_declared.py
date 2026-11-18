@@ -9,6 +9,7 @@ from corpus_structure.semantic.m1_products import execute_declared_m1
 
 class M1SourceCandidatesOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "extract.m1_candidates",
         "profile": "derivation",
         "subject": "original-source-view",

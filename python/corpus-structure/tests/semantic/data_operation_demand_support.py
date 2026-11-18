@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 from typing import TypedDict
 from typing import cast as typing_cast
 
@@ -159,7 +160,7 @@ def claim(kernel, attached, holder="producer", seconds=30):
     }
 
 
-def retain(kernel, fence, *, outputs=(1,), outcome="success", mutate=None):
+def retain(kernel, fence, *, outputs=(1,), outcome="success", mutate=None, connection=None):
     completion = {
         "outcome": outcome,
         "inputs": [],
@@ -181,8 +182,9 @@ def retain(kernel, fence, *, outputs=(1,), outcome="success", mutate=None):
     }
     if mutate:
         mutate(completion)
-    with kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).retain_data_completion_intent(
+    transaction = kernel["engine"].begin() if connection is None else nullcontext(connection)
+    with transaction as active:
+        intent = DataOperationStorage(active).retain_data_completion_intent(
             typing_cast(
                 WireRetainDataCompletionIntentRequest,
                 {

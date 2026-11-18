@@ -38,6 +38,7 @@ def claim_source_item(index: int) -> str:
 # This actual source-address operation supplies a closed implementation-owned
 # profile without importing its module during contract preparation.
 claim_source_item__data_operation__ = {
+    "validity_family": ["none"],
     "id": "urn:corpus:operation:claim-source-item",
     "profile": "derivation",
     "subject": "source-proposal-list",

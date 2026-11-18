@@ -7,6 +7,7 @@ from corpus_structure.semantic.reading_resolution_products import execute_readin
 
 class ReadingResolutionOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "resolve.m1_readings/declared",
         "profile": "derivation",
         "subject": "original-source-view",

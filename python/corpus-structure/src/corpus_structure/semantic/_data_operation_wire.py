@@ -1124,9 +1124,11 @@ class WireInspectDataExecutionResult(TypedDict):
 
 class WireInspectDataOperationReleaseRequest(TypedDict):
     release_id: Required[WireIdentifier]
+    validity_only: NotRequired[bool]
 
 
 class WireInspectDataOperationReleaseResult(TypedDict):
+    conservative_operations: Required[list[WireIdentifier]]
     model_digest: Required[str]
     native_digest: Required[str]
     release_id: Required[WireIdentifier]

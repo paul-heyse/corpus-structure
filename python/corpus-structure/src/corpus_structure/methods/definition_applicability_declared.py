@@ -9,6 +9,7 @@ from corpus_structure.semantic.definition_applicability_products import (
 
 class DefinitionApplicabilityOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["definition"],
         "id": "structure.definition_applicability/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -112,6 +113,7 @@ class DefinitionApplicabilityOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",

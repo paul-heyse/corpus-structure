@@ -112,7 +112,7 @@ def test_parse_status_is_derived_and_not_in_the_digest() -> None:
 @pytest.mark.parametrize(
     ("build", "message"),
     [
-        (lambda: seg("paragraph", 5, 4), "start_offset 5 > end_offset 4"),
+        (lambda: seg("paragraph", 5, 4), "start 5 > end 4"),
         (lambda: seg("paragraph", 0, 4, seg("sentence", 2, 6)), "outside its parent"),
         (lambda: seg("paragraph", 0, 4, parse_reason="x"), "parse_reason is absent exactly when"),
         (lambda: seg("paragraph", 0, 4, parse_status="partial"), "parse_reason is absent exactly"),
@@ -147,7 +147,8 @@ def test_a_segment_accepts_what_the_model_declares(status, reason, accepted: boo
         assert build().parse_reason == reason
     else:
         with pytest.raises(
-            ValidationError, match=r"parse_reason is absent exactly when|does not match '\\\\S'"
+            ValidationError,
+            match=r"parse_reason is absent exactly when|String should match pattern",
         ):
             build()
     assert seg("math_inline", 4, 4).start == 4  # ordered_eq: an empty range is a segment

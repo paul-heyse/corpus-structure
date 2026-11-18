@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any
 
 from corpus_structure.schema import stage_b
+from corpus_structure.schema.code_generation import _format
 from corpus_structure.schema.model import (
     GENERATOR,
     Member,
@@ -491,8 +492,7 @@ def _revision(current: Revision) -> str:
     out = [
         _header(
             "The model revision the generated files were generated from (TM §2; model and\n"
-            "projections §3.1). `model/revisions.yaml` is the authority; S1b's `ensure` writes\n"
-            "it to `meta.model_revision`, and runs record it."
+            "projections §3.1). Retained legacy typed record consumers use this content identity."
         ),
         "",
         "from __future__ import annotations",
@@ -521,19 +521,6 @@ def _model_init() -> str:
         )
         + "\n"
     )
-
-
-def _format(path: str, text: str) -> str:
-    """The text as the repository's ruff leaves it (`just turn-end` runs the same two steps)."""
-    for args in (["check", "--fix", "--quiet", "--exit-zero"], ["format"]):
-        done = subprocess.run(
-            [sys.executable, "-m", "ruff", *args, "--stdin-filename", path, "-"],
-            input=text, capture_output=True, text=True, cwd=REPOSITORY, check=False,
-        )  # fmt: skip
-        if done.returncode != 0:
-            raise RuntimeError(f"ruff {args[0]} failed on {path}: {done.stderr}")
-        text = done.stdout
-    return text
 
 
 def generated_python_paths() -> frozenset[str]:

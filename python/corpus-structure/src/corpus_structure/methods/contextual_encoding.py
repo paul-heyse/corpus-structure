@@ -10,6 +10,7 @@ from corpus_structure.semantic.contextual_encoder import (
 
 class ContextualEncodingOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_query/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -110,6 +111,7 @@ class ContextualEncodingOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["batch"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
@@ -280,6 +282,7 @@ class SelectedContextEncodingOperation:
     """The three explicit located primary recipes; no lexical fallback or provider inference."""
 
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_query/selected-context",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -405,6 +408,7 @@ class SelectedContextEncodingOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["batch"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
@@ -569,6 +573,7 @@ class SelectedContextEncodingOperation:
 
 class ContextualTargetEncodingOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_target_vector/declared",
         "profile": "derivation",
         "subject": "contextual-target",
@@ -624,6 +629,7 @@ class ContextualTargetEncodingOperation:
         "dependencies": ["retrieve.contextual_target/declared"],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["batch"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",

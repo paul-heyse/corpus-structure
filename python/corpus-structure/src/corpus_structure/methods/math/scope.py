@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from corpus_structure.core.evidence import MacroDef, Segment
-from corpus_structure.core.keys import symbol_form
+from corpus_structure.core.tex import symbol_form
 from corpus_structure.core.vocab import (
     ANNOTATION_UNIT,
     SECTION_LIKE,

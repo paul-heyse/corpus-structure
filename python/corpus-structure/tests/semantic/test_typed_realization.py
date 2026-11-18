@@ -151,7 +151,7 @@ def _correspondence_bindings(sources):
     ],
 )
 def test_anchored_correspondence_is_validated_during_compilation(target, message):
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.physical import compile_physical
 
     def mutate(model):
@@ -227,7 +227,7 @@ def test_companion_generator_cannot_bypass_invalid_anchored_correspondence():
 
     import yaml
 
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.semantic.companion_projection import render_static_columns
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.pdf_domain import PREFIX, PdfDomainContract, pdf_domain_sources
@@ -280,7 +280,7 @@ def test_correspondence_preserves_value_projection_lineage_and_rejects_collectio
 
 @pytest.mark.parametrize("declaration", ["slot", "inherited_slot"])
 def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.physical import compile_physical
 
     def mutate(model):
@@ -316,7 +316,7 @@ def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
 def test_physical_nominal_correspondences_are_checked_without_execution_catalog(target, message):
     import yaml
 
-    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.physical import compile_physical
 
     sources = dict(get_metadata().info["physical_sources"])

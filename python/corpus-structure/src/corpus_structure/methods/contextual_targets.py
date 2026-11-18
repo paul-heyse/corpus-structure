@@ -10,6 +10,7 @@ from corpus_structure.semantic.contextual_target_products import (
 
 class CuratedContextualTargetsOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_targets/curated",
         "profile": "discovery",
         "subject": "contextual-registry",
@@ -66,6 +67,7 @@ class CuratedContextualTargetsOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
@@ -117,6 +119,7 @@ class CuratedContextualTargetsOperation:
 
 class SourceContextualTargetsOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_targets/components",
         "profile": "discovery",
         "subject": "original-source-view",
@@ -175,6 +178,7 @@ class SourceContextualTargetsOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
@@ -226,6 +230,7 @@ class SourceContextualTargetsOperation:
 
 class ContextualTargetOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_target/declared",
         "profile": "derivation",
         "subject": "contextual-target",
@@ -282,6 +287,7 @@ class ContextualTargetOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
@@ -330,6 +336,7 @@ class ContextualTargetOperation:
 
 class ContextualVectorSelectionOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_vectors/selection",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -423,6 +430,7 @@ class ContextualVectorSelectionOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",

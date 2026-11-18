@@ -703,11 +703,11 @@ def test_archived_model_is_read_without_reopening_source_or_current_defaults():
 
 
 def test_current_statistics_kind_closure_uses_supplied_terminology_bytes():
-    from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.prepare import (
         _view_and_vocabularies,
         effective_class_definitions,
     )
+    from corpus_structure.semantic.regeneration import DOMAINS
     from corpus_structure.semantic.terminology import acquire_terminology
     from corpus_structure.semantic.types import PreparationProfile
 

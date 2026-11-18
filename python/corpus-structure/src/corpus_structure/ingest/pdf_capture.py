@@ -7,6 +7,7 @@ from corpus_structure.semantic.pdf_capture import PdfCaptureProduct, execute_pdf
 
 class PdfCaptureOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "source.pdf/capture",
         "profile": "command",
         "subject": "original-document",

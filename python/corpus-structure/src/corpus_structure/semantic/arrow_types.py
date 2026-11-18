@@ -7,7 +7,7 @@ from sqlalchemy import BigInteger, Boolean, Double, Integer, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, REAL, REGCONFIG, TIMESTAMP
 from sqlalchemy.types import TypeEngine
 
-from corpus_structure.schema.model import ModelError
+from corpus_structure.schema.declarations import ModelError
 
 
 def sql_arrow_type(typ: TypeEngine) -> pa.DataType:

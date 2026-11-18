@@ -8,6 +8,7 @@ from corpus_structure.semantic.pdf_transforms import execute_pdf_organization
 
 class PdfOrganizationOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "source.pdf_sections/organize",
         "profile": "command",
         "subject": "original-document",

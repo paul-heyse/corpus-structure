@@ -8,6 +8,7 @@ from corpus_structure.semantic.pdf_transforms import execute_pdf_enrichment
 
 class PdfEnrichmentOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "abstract": True,
         "id": "source.pdf_math/enrich",
         "profile": "command",

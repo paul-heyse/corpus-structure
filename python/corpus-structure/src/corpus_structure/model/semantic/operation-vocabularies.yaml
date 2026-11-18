@@ -3,6 +3,7 @@ name: operation_vocabularies
 prefixes:
   cs: https://corpus-structure.dev/semantic/
   linkml: https://w3id.org/linkml/
+  ph: https://corpus-structure.dev/physical/
 imports: [linkml:types, operation-integrity-vocabularies]
 default_prefix: cs
 default_range: string
@@ -44,15 +45,33 @@ enums:
   ValidityFamily:
     annotations: {cs:openness: closed}
     permissible_values:
-      none: {}
+      none:
+        annotations: {ph:omit_from_storage: true}
       undetermined: {status: provisional}
-      record-grade: {}
-      record-fit: {}
-      operation-event: {}
-      contextual: {}
-      definition: {}
-      artifact: {}
-      rich: {}
+      record-grade:
+        annotations:
+          cs:protected_inputs: {tag: "cs:protected_inputs", value: ["https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordGradeSpecification", "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordReferencePopulationA", "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordReferencePopulationB", "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordReferencePopulationC"]}
+          cs:requirements: {tag: "cs:requirements", value: {"profile": ["derivation"], "forms": [["scalar"]], "preparation": ["resource"], "effects_empty": [true]}}
+      record-fit:
+        annotations:
+          cs:protected_inputs: {tag: "cs:protected_inputs", value: ["https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordFitSpecification", "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordGrade"]}
+          cs:requirements: {tag: "cs:requirements", value: {"profile": ["derivation"], "forms": [["scalar"]], "preparation": ["resource"], "effects_empty": [true]}}
+      operation-event:
+        annotations:
+          cs:protected_inputs: {tag: "cs:protected_inputs", value: ["https://corpus-structure.dev/semantic/operation-events/protected/DdoOperationEventFit", "https://corpus-structure.dev/semantic/operation-events/protected/DdoOperationEventFitSpecification", "https://corpus-structure.dev/semantic/operation-events/protected/DdoOperationEventFrame", "https://corpus-structure.dev/semantic/operation-events/protected/DdoOperationEventQuestion"]}
+          cs:requirements: {tag: "cs:requirements", value: {"profile": ["derivation", "command"], "forms": [["scalar"]], "preparation": ["resource", "native-publication"]}}
+      contextual:
+        annotations:
+          cs:requirements: {tag: "cs:requirements", value: {"profile": ["derivation", "discovery"], "forms": [["scalar"], ["batch"]], "preparation": ["resource"], "effects_empty": [true]}}
+      definition:
+        annotations:
+          cs:requirements: {tag: "cs:requirements", value: {"profile": ["derivation"], "forms": [["scalar"]], "preparation": ["resource"], "effects_empty": [true]}}
+      artifact:
+        annotations:
+          cs:requirements: {tag: "cs:requirements", value: {"profile": ["derivation"], "forms": [["scalar"]], "preparation": ["resource"], "effects_empty": [true]}}
+      rich:
+        annotations:
+          cs:requirements: {tag: "cs:requirements", value: {"profile": ["derivation", "command"], "forms": [["scalar"]], "preparation": ["resource", "native-publication"]}}
   SupportEdgeKind:
     annotations: {cs:openness: closed}
     permissible_values:

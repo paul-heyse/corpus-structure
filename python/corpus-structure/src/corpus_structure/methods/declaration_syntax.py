@@ -7,6 +7,7 @@ from corpus_structure.semantic.declaration_products import execute_declaration_p
 
 class DeclarationSyntaxOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "text.declaration_syntax/source-native",
         "profile": "derivation",
         "subject": "original-source-view",

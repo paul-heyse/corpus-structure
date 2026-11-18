@@ -295,6 +295,7 @@ class ImplementationCapabilities:
     limits: tuple[str, ...] = ()
     stream_settlement: StreamSettlement | None = None
     prepared_factory: ConsumerSelectionCapability | None = None
+    cpu_receipts: int | None = None
 
 
 @dataclass(frozen=True)
@@ -493,6 +494,12 @@ class CoverageContract:
 
 
 @dataclass(frozen=True)
+class ValidityClaim:
+    families: tuple[str, ...] = ()
+    conservative: bool = True
+
+
+@dataclass(frozen=True)
 class EffectiveOperation:
     semantic_id: str
     profile: Literal["derivation", "discovery", "selection", "command", "read"]
@@ -525,6 +532,7 @@ class EffectiveOperation:
     external: ExternalExecutorContract | None = None
     discovery_relation: Literal["role-associated", "subject-population"] = field(kw_only=True)
     numerical_policy: NumericalPolicyReference | None = field(default=None, kw_only=True)
+    validity: ValidityClaim = field(default_factory=ValidityClaim, kw_only=True)
 
     @property
     def recipe(self) -> bytes:
@@ -596,6 +604,7 @@ class EffectiveOperation:
         return canonical_bytes(
             {
                 **json.loads(self.recipe),
+                "validity": asdict(self.validity),
                 "roles": [operation_role_record(role) for role in self.roles],
                 "coverage": self.coverage.record(definition_only=True),
                 "invariants": enforced_claims(self.invariants, definition_only=True),

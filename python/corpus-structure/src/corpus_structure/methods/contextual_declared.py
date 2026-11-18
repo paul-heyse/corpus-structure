@@ -10,6 +10,7 @@ from corpus_structure.semantic.contextual_operations import (
 
 class ContextualRetrievalOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -153,6 +154,7 @@ class ContextualRetrievalOperation:
         "dependencies": ["retrieve.contextual_scores/declared"],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
@@ -323,6 +325,7 @@ class ContextualRetrievalOperation:
 
 class ContextualInventoryOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["contextual"],
         "id": "retrieve.contextual_inventory/declared",
         "profile": "derivation",
         "subject": "original-source-view",
@@ -378,6 +381,7 @@ class ContextualInventoryOperation:
         "dependencies": [],
         "effects": [],
         "capabilities": {
+            "cpu_receipts": 1,
             "forms": ["scalar"],
             "preparation": "resource",
             "prepared_factory": "acquire_port",
@@ -426,6 +430,7 @@ class ContextualInventoryOperation:
 
 class ContextualNeighborhoodOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "retrieve.contextual_neighborhood/declared",
         "profile": "derivation",
         "subject": "original-source-view",

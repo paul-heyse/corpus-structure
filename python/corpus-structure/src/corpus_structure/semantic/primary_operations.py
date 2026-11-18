@@ -80,6 +80,8 @@ def primary_operation_inputs(
     contextual_retrieval_options=None,
     extra_sources: PythonSourceCollection | None = None,
     declarations: tuple[SourceArtifact, ...] = (),
+    requested_operations: tuple[str, ...] = (),
+    capture_only: bool = False,
 ) -> PrimaryOperationInputs:
     """Acquire the selected full primary profile without starting a provider.
 
@@ -93,6 +95,18 @@ def primary_operation_inputs(
         raise ValueError("visual preparation requires its actual captured PDF dependency")
     if dependencies is None:
         dependencies = ResolvedDependencies()
+    if capture_only:
+        return _capture_primary_inputs(
+            bundle,
+            dependencies,
+            capture_sources,
+            pdf_organization_sources,
+            pdf_enrichment_sources,
+            pdf_integration_sources,
+            extra_sources,
+            declarations,
+            requested_operations,
+        )
     if downstream or learned_selections is not None:
         from corpus_structure.methods.model_observation import DECLARED_MODEL_OBSERVATION_INPUT
 
@@ -399,7 +413,19 @@ def primary_operation_inputs(
         )
     if extra_sources is not None:
         collections = (*collections, extra_sources)
+    if requested_operations:
+        collections = _selected_collections(collections, requested_operations, declarations)
     combined = combine_primary_sources(*collections)
+    if requested_operations:
+        from .identity import canonical_bytes
+
+        dependencies = replace(
+            dependencies,
+            artifacts=(
+                *dependencies.artifacts,
+                SourceArtifact("operation-selection.json", canonical_bytes(requested_operations)),
+            ),
+        )
     native = native_protocol_sources()
     generator = capture_port_generator_sources()
     return PrimaryOperationInputs(
@@ -416,6 +442,119 @@ def primary_operation_inputs(
         PreparationProfile(version="semantic-2"),
         combined,
     )
+
+
+def _capture_primary_inputs(
+    bundle,
+    dependencies,
+    capture,
+    organized,
+    enriched,
+    integrated,
+    extra,
+    declarations,
+    requested_operations,
+):
+    """Acquire the PDF capture workflow without unrelated NLP/provider profiles."""
+    from .data_operation_artifacts import capture_port_generator_sources
+    from .data_operation_storage import native_operation_declarations, native_protocol_sources
+    from .identity import canonical_bytes
+    from .native_requests import pdf_region_inputs
+    from .pdf_capture import pdf_capture_inputs
+    from .pdf_domain import pdf_domain_dependencies
+    from .pdf_views import pdf_views_operation_sources
+
+    if capture is None or not requested_operations:
+        raise ValueError("capture workflow requires its PDF acquisition and requested roots")
+    bundle = pdf_region_inputs(pdf_capture_inputs(bundle))
+    dependencies = pdf_domain_dependencies(dependencies)
+    collections = [pdf_views_operation_sources(capture)]
+    for mode, sources in (
+        ("organized", organized),
+        ("enriched", enriched),
+        ("integrated", integrated),
+    ):
+        if sources is not None:
+            collections.append(
+                pdf_views_operation_sources(capture, mode=mode, transformation_sources=sources)
+            )
+    if extra is not None:
+        collections.append(extra)
+    selected = _selected_collections(collections, requested_operations, declarations)
+    combined = combine_primary_sources(*selected)
+    native = native_protocol_sources()
+    dependencies = data_operation_dependencies(
+        ResolvedDependencies(
+            (
+                *dependencies.artifacts,
+                *native,
+                *capture_port_generator_sources(),
+                SourceArtifact("operation-selection.json", canonical_bytes(requested_operations)),
+            ),
+            dependencies.vocabularies,
+            dependencies.ontology_sources,
+        ),
+        (native_operation_declarations(native), *declarations),
+        combined,
+    )
+    return PrimaryOperationInputs(
+        bundle, dependencies, PreparationProfile(version="semantic-2"), combined
+    )
+
+
+def _selected_collections(collections, requested_operations, declarations):
+    """Project a declared operation closure onto the captured collections owning it."""
+    import json
+
+    from .python_operation_sources import ClosedPythonSources
+
+    combined = combine_primary_sources(*collections)
+    frontend = ClosedPythonSources(combined)
+    facts = frontend.operations()
+    operations = {}
+    module_owners = {}
+    for fact in facts:
+        record = json.loads(fact.metadata)
+        identifier = record["id"]
+        if identifier in operations:
+            raise ValueError("duplicate captured operation owner: " + identifier)
+        operations[identifier] = record
+        exposed = fact.implementation.root.removeprefix("python:")
+        candidates = [
+            source.module for source in combined.sources if exposed.startswith(source.module + ".")
+        ]
+        if not candidates:
+            raise ValueError("operation has no captured source collection: " + identifier)
+        acquired_by = record.get("acquired_by", max(candidates, key=len))
+        if acquired_by not in {source.module for source in combined.sources}:
+            raise ValueError("acquired_by names no captured source collection: " + identifier)
+        module_owners[identifier] = acquired_by
+    for source in declarations:
+        import yaml
+
+        document = yaml.safe_load(source.content)
+        for record in document.get("operations", ()):
+            if record["id"] in operations:
+                raise ValueError("duplicate captured operation owner: " + record["id"])
+            operations[record["id"]] = record
+    selected = set()
+    pending = list(requested_operations)
+    while pending:
+        identifier = pending.pop()
+        if identifier in selected:
+            continue
+        if identifier not in operations:
+            raise ValueError("requested operation has no acquired owner: " + identifier)
+        selected.add(identifier)
+        record = operations[identifier]
+        pending.extend((*record.get("dependencies", ()), *record.get("potential_dependencies", ())))
+    modules = {module_owners[identifier] for identifier in selected if identifier in module_owners}
+    selected_collections = tuple(
+        collection
+        for collection in collections
+        if any(source.module in modules for source in collection.sources)
+    )
+    return selected_collections or (replace(combined, sources=()),)
 
 
 def combine_primary_sources(*collections: PythonSourceCollection) -> PythonSourceCollection:

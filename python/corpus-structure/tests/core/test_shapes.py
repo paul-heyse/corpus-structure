@@ -3,8 +3,8 @@
 Every dumped instance must satisfy the committed schema file, which Pydantic generated and
 jsonschema validates by its own implementation. That is derivation conformance, not an
 independent oracle: both come from one model, so a shared mistake passes both (F02). The
-independent controls are elsewhere: hand-written expectations (here, `test_keys.py`,
-`test_dispatch.py`), the relational key oracles of `test_keys.py`, the external S0 batches
+independent controls are elsewhere: hand-written expectations (here,
+`evaluate/test_normalization.py`, `test_dispatch.py`), the external S0 batches
 (`fixtures/s0`) and tex parity (`test_tex.py`).
 """
 
@@ -595,45 +595,6 @@ def test_schema_files_are_current_and_valid(tmp_path: Path) -> None:
         Draft202012Validator.check_schema(document)
         assert document["$schema"] == schemas.DRAFT
         assert '"title"' not in path.read_text(encoding="utf-8")
-
-
-def test_the_keyed_candidate_set() -> None:
-    from corpus_structure.core.candidates import UNKEYED, KeyedCandidateSet
-
-    raw = {
-        "renditions": ["ren:" + "1" * 32],
-        "entities": [
-            {"id": "X", "type": "stat:RandomVariable", "label": "X", "scope": "local",
-             "scope_segment": "seg:1", "symbol": "X"},
-            {"id": "N", "key": "ent:" + "a" * 32, "type": "stat:DistributionFamily",
-             "label": "normal", "scope": "global"},
-        ],
-        "statements": [{"id": "st1", "kind": "theorem", "anchor": ["seg:2"]}],
-        "claims": [{"id": "c1", "predicate": "stat:has_distribution", "subject": "X",
-                    "object": {"ref": "N"}, "qualifiers": {"core:modality": "supposed"},
-                    "statement": "st1", "statement_role": "premise",
-                    "evidence": [{"start": 0, "end": 4, "role": "primary"}]}],
-    }  # fmt: skip
-    cands = KeyedCandidateSet.model_validate(raw)
-    assert KeyedCandidateSet.model_validate_json(cands.model_dump_json()) == cands
-    assert cands.claims[0].establishment == "stated" and cands.entities[0].key is UNKEYED
-    twice = {**raw, "statements": [{"id": "X", "kind": "theorem", "anchor": ["seg:2"]}]}
-    with pytest.raises(ValidationError, match="used twice"):
-        KeyedCandidateSet.model_validate(twice)
-    no_segment = {**raw, "entities": [{k: v for k, v in raw["entities"][0].items()
-                                       if k != "scope_segment"}]}  # fmt: skip
-    assert KeyedCandidateSet.model_validate(no_segment).entities[0].scope_segment is MISSING
-    global_segment = {**raw, "entities": [raw["entities"][1] | {"scope_segment": "seg:1"}]}
-    with pytest.raises(ValidationError, match="scope_segment is given only when scope is local"):
-        KeyedCandidateSet.model_validate(global_segment)
-    for bad in ({"key": None}, {"key": "ent:abc"}, {"key": "stm:" + "a" * 32}, {"symbol": None}):
-        with pytest.raises(ValidationError):  # typed states and keys of the kind, never null
-            KeyedCandidateSet.model_validate({**raw, "entities": [raw["entities"][1] | bad]})
-    with pytest.raises(ValidationError, match="renditions"):
-        KeyedCandidateSet.model_validate({k: v for k, v in raw.items() if k != "renditions"})
-    for bad in ([], ["ren:" + "2" * 32, "ren:" + "1" * 32], ["ren:" + "1" * 32] * 2):
-        with pytest.raises(ValidationError):  # at least one, sorted, no duplicates
-            KeyedCandidateSet.model_validate({**raw, "renditions": bad})
 
 
 def test_a_statement_outside_the_unit() -> None:

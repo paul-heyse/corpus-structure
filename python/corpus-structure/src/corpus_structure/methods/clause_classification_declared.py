@@ -7,6 +7,7 @@ from corpus_structure.semantic.clause_products import execute_clause_classificat
 
 class ClauseClassificationOperation:
     __data_operation__: ClassVar[dict] = {
+        "validity_family": ["none"],
         "id": "structure.clause_classification/declared",
         "profile": "derivation",
         "subject": "original-source-view",
