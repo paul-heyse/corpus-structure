@@ -12,7 +12,7 @@ from corpus_structure.semantic.published_document import (
 )
 
 
-def test_body_direct_page_includes_unsectioned_body_and_preserves_section_boundaries(semantic_bare_engine):
+def test_body_direct_page_includes_unsectioned_body_and_preserves_section_boundaries(infrastructure_rollback):
     selected = MetaData()
     for name in ("kb.pdf_record_access", "kb.pdf_record_region", "kb.pdf_record_companion"):
         source = metadata.tables[name]
@@ -27,7 +27,8 @@ def test_body_direct_page_includes_unsectioned_body_and_preserves_section_bounda
         ("#/texts/3", "#/body", None, "text", "body"),
     ]
     statement = published_read_statements(target_metadata=selected)["item_page"]
-    with semantic_bare_engine.begin() as connection:
+    with infrastructure_rollback.begin_nested():
+        connection = infrastructure_rollback
         connection.execute(CreateSchema("kb"))
         access.create(connection)
         connection.execute(CreateSchema("ops"))
