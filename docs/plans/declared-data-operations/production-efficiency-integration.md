@@ -265,9 +265,10 @@ work starts. Frozen predecessors are never edited. The slices group into four su
 Fewer successors are acceptable where slices are ready together. More are acceptable when a
 slice is blocked; a successor never waits for an unrelated slice.
 
-**Shared editing surfaces.** `sql/data_operations.sql`, `data_operation_projections.py`,
-`data_operation_storage.py`, `orchestrate/data_operations.py` and the physical model are touched
-by PE-S16–S27. One contributor at a time owns each file within a wave; the root integrates.
+**Shared editing surfaces.** The generated DDO acquisition, read and settlement modules,
+`data_operation_projections.py`, `data_operation_storage.py`, `orchestrate/data_operations.py`
+and the physical model own PE-S16–S27. One contributor at a time owns each file within a wave;
+the root integrates.
 
 ### PE-S00 — bounded reading
 

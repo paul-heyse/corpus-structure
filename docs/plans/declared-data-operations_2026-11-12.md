@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-18. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N12 with its matching application active at generation 13. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-18. The owned stage and canonical development database run model-built N13. The handwritten DDO operation bundle is retired. The stage has an N13 application active at generation 14. Development admitted the application capture and registered 29 originals across nine projects. Remaining consumers, residual SQL authoring, whole-book execution and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -395,6 +395,60 @@ deployment `156dff9e2222484fb155e6698fd894a7` passed for
 Separate `ci db check --release` and `ci release check --project ddo-current-pdf-bounded --release`
 passed. Compare-and-swap activation and independent reads confirmed generation 13, the same
 stage database OID, 15 PDF products, 361 verified streams and 376 parts.
+
+### Generated DDO acquisition, settlement and inspection · 2026-11-18
+
+N13 generates release lowering and provider admission, canonical values and trust, set-validity
+closure, demand registration and result reads, request attachment, protected source selection,
+retained derivation settlement, external packet custody, grading, policy fitting and event
+completion. The generators use captured LinkML physical and call declarations, SQLAlchemy Core
+relations and pglast PostgreSQL framing. Protected binding and inspection now populate composite
+locals using server row order. Removed the handwritten `sql/data_operations.sql` bundle and its
+fragment substitution path. The typed replacements retain the native entry points and grants.
+
+The [N13 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n13.yaml)
+passed preview `6623ea2e8a724af4b6b45068f5c88685`, apply `f73acc0402674ff1923c8538a3a6f`, rollback candidate
+`0860958e54dd4bab9ad30c9aff0783f1`, registration `d3cf3403a5434ebf9d28c2d988f45dbd` and
+deployment `e9e7e3fde9394def9bbbc2c430899fd0` on stage OID 130661481. Replay applied 300 native
+transitions with zero ordinary or privilege transitions. Earlier rollback receipts
+`64294f2642b346039cdd2e9ce3313109`, `7944d63699d14a50bf5061d09b9125f1`,
+`de787f18b2ff4e879321954b3e451a75` and `04448eb8f69a41ef8607925f5f34b18a` retain the
+quoted-identifier literal, dependency-order and empty-array signature failures corrected before
+registration. The stage application deployment `6e0fe993f7e74aa5b4e6783e4163bb79` passed
+`ci db check` and `ci release check`. Activation advanced `ddo-current-pdf-bounded` from
+generation 13 to 14. The stage application capture precedes the contextual encoder and predicate
+context fixes, which have their own development application capture.
+
+The assembled native control run `be66da57a0a44cf3b6aa420cb7e77c37` reported 135 passes and
+13 failures. Subsequent scoped repairs covered external packet routing, current nominal read
+and attachment fixtures, protected-universe authorizations and exact source-proof transactions.
+Failed and partial results remain retained. Actual E5 retry `f83422cd23ad44b2a73cce02c831f18d`
+passed the earlier typed CPU setup boundary and then exposed a fixture asking for a scoped cut
+under an unscoped read ID. The corrected fixture requests the exact product cut. The NCE native
+list-host run `5e0bf12d76b145ae90cc937b5fcab3ed` passed computation after the native interval
+budget correction and exposed a test comparing clipped contribution IDs to a whole-frame map.
+The updated fixture resolves hosts in the current view. Remaining verification belongs to the
+scoped tests and final DDO-12 union.
+The second binding retry `5008e8bb6809433ab620a80dea585857` passed the authored positive and
+out-of-range paths. Two negative controls reached native admission and still expect older
+SQLSTATEs for cardinality and population witness refusals. Compare the complete exact refusal
+matrix against the predecessor contract before changing those expectations.
+
+The development predecessor OID 25921445 is retained with connections disabled at
+`corpus_structure_dev_inert_20261118_oid25921445`. It had zero running tasks, attached backends or
+prepared transactions before the switch. Normal `ci db init` created canonical OID 131763263 on
+the same system and replayed through `semantic_ddo_pe_n13`; `ci db status --maintenance` confirmed
+the head and OID. Its own application preview `03174df621604ff1bc5252ef9088d684`, apply
+`842e698f46ac4e85a304bc8c6ed4a2cc`, candidate `f24fd8692f8647e69679d8222326b1a6` and
+deployment `d6ea36869d794732811b89ee8d405eed` passed with
+`release:c77256bf4f408525a0ba0c84e9dd8adb62d43509a59708695fa0eab375073909` and
+`runtime:7608cab2140959530fe21911b5328ed427f25686aef2099996734271456a95a4`.
+`ci project init --original-descriptors` registered the complete 29-descriptor inventory across
+nine projects. An independent normal reader compared all descriptor fields and all 29 retained
+byte sequences to the inventory and the local originals. `ci release activate` advanced
+`nce-grinstead-snell-full-book` from generation 0 to 1. The [adoption companion](declared-data-operations/preservation-adoption-and-qualification.md#actual-preservation-basis)
+owns the regeneration boundary. The book demand, its interruption and resume, and actual-book
+PE-S33 remain open. Chandra OCR stays outside scope.
 
 ## Production-efficiency integration · 2026-11-17
 

@@ -385,13 +385,23 @@ facades from the snapshot used for SQL and retains them as exact file effects. T
 producer receipt and source proofs derive their columns from the compiled physical model.
 Whole-record reads use PostgreSQL's catalog row order when populating native composite values.
 
-Continue by owner through protected companion adoption, the live observation publisher and
-remaining PDF record proof/read routines, DDO acquisition and completion kernels and event paths,
-and remaining catalog, scientific, public-read and maintenance routines. The exact float decoder
-remains until its native replacement preserves adjacent and subnormal values in exact comparisons.
-Remove each superseded SQL source and fallback with its callers. Preserve frozen migrations,
-independent test controls and explicitly submitted read-only SQL. Qualification covers each deployed
-native/application pair. The final DDO-12 union has its own assembled acceptance boundary.
+N12 generates protected companion adoption, live observation publication, the shared keyset
+reader, export events, proof, identity and access correspondence from captured models. The same
+Core relations supply native and companion event ordering. PostgreSQL parses generated
+declarations and checks the procedural and scratch contexts. The retired SQL files and Python
+clause-extraction paths were deleted with their consumers.
+
+N13 extends typed authoring through the DDO declaration compiler, binding and source acquisition,
+demand registration, read and revocation, trust and validity, protected inspection, settlement,
+external packet custody, grading and operation-event completion. The maintained handwritten DDO
+operation bundle and the serialized projection fragment intermediary were removed. The frozen
+artifacts retain the generated programs and captured inputs. Direct row-type loads use server
+composite order across schema histories.
+
+Remaining catalog, scientific, public-read and maintenance routines follow their owning
+boundaries. Preserve frozen migrations, independent test controls and explicitly submitted
+read-only SQL. Qualification covers each deployed native/application pair. The final DDO-12
+union has its own assembled acceptance boundary. [Deployment and verification](../declared-data-operations_2026-11-12.md#generated-ddo-acquisition-settlement-and-inspection--2026-11-18)
 
 ### Broader conversion mechanisms · 2026-11-17
 

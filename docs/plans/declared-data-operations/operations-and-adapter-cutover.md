@@ -482,6 +482,13 @@ matcher installed once is feasible but relies on undocumented internals and need
 forest equality over the book's construction regions. Otherwise PE-S15 is the whole correction.
 The same step answers PE-D02.
 
+**Bounded verification · 2026-11-18.** The test-only comparator consumes acquired construction
+ports, hydrated role values and exact binding results from the native selected read. It observes
+the production region selector and compares ordered forest sharing, folds and inventories with
+the independent per-region parser. The 17 grammar custody controls passed. Acceptance over the
+actual book remains open until its current source, formal and sentence prerequisites are retained.
+See the [comparator](../../../python/corpus-structure/tests/semantic/prose_book_comparator.py).
+
 ### PE-S34 — set-wise companion adoption (PE-F12)
 
 Companion rows, field descriptors and parts are copied into protected scratch (the

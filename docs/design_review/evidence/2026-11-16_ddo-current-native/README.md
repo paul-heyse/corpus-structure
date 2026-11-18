@@ -823,6 +823,23 @@ policy; the current canonical `body` contains a `json` object but native admissi
 to a top-level policy reader. The coordinator owns the normal-successor/current-application repair
 and all3 actual recipe obligations. This failed cohort does not qualify final numerical scoring.
 
+## N13 development adoption · 2026-11-18
+
+`ci db init` replayed the registered chain on PostgreSQL 18.7, system 7701811359771751232,
+port 5434. `ci db status --maintenance` confirmed the canonical database OID 131763263 and
+`semantic_ddo_pe_n13`. The original OID 25921445 remains at
+`corpus_structure_dev_inert_20261118_oid25921445` with connections disabled. The fence observed
+zero backends, running tasks and prepared transactions. The application was prepared and
+deployed specifically against the new OID. [Deployment receipts](../../../plans/declared-data-operations_2026-11-12.md#generated-ddo-acquisition-settlement-and-inspection--2026-11-18)
+
+`ci project init --original-descriptors` registered 29 originals in nine projects using
+[the exact inventory](original-descriptors.json), SHA256
+`ad051b0da3fef4b143eb4c04a9aba7869746cf1746c4921d4f5f931b249f2e27`. A separate application
+reader compared all project/document identities, paths, source URIs, MIME types, titles and
+metadata, then read and byte-compared all 29 retained originals through the normal API. The
+whole-book project activation reached generation 1 and its release check passed. This evidence
+covers original custody. Generated products, judgments and whole-book execution remain open.
+
 ## Records
 
 <!-- evidence-index:start -->

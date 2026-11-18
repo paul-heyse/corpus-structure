@@ -77,7 +77,7 @@ it, application startup checks it, and fixtures verify it before native work.
 
 | Component | Expected version | Current responsibility and source |
 |---|---|---|
-| `pg_jsonschema` | 0.3.4 | Active native JSON Schema enforcement through `public.json_matches_schema`, for example [data_operations.sql](../../../python/corpus-structure/src/corpus_structure/semantic/sql/data_operations.sql) and [record_policy_native.py](../../../python/corpus-structure/src/corpus_structure/semantic/record_policy_native.py). This differs from client-side Python `jsonschema`. |
+| `pg_jsonschema` | 0.3.4 | Native JSON Schema enforcement through `public.json_matches_schema` in the [DDO wire wrapper builder](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_storage.py) and [record policy compiler](../../../python/corpus-structure/src/corpus_structure/semantic/record_policy_native.py). |
 | `vector` / pgvector | 0.8.7 | Active vector storage and distance operations, including [contextual_neighborhood.sql](../../../python/corpus-structure/src/corpus_structure/semantic/sql/contextual_neighborhood.sql), [contextual_retrieval.py](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_retrieval.py) and the relational type adapter. |
 | `pg_textsearch` | 1.5.1 | Provisioned, preloaded and checked as part of the deployment contract; D3 retains BM25 capability/evidence. Current serving/contextual lexical code also uses **built-in** PostgreSQL full-text search, so do not describe every lexical query as a pg_textsearch call. |
 | `pg_stat_statements` | 1.12 | Provisioned/preloaded statement-statistics support. Current application startup verifies its version; this inventory found no application query of its statistics view. |

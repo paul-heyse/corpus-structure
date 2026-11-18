@@ -25,10 +25,17 @@ new policy. Original source and protected answer bodies were not read for that c
 
 **Read-only adoption inventory,2026-11-16.** The [current native evidence owner](../../design_review/evidence/2026-11-16_ddo-current-native/README.md#original-source-adoption-inventory--2026-11-16)
 records29 original document registrations at28 existing local paths; every file matches its recorded
-SHA256. This establishes a concrete normal original-registration/regeneration basis without old
-application readers. It does not establish correspondence for generated interpretations, protected
-judgments, completed demand receipts or accepted standing. The old database remains unchanged;
-writer fencing, faithful current registration, regeneration and development adoption remain open.
+SHA256. This establishes the original-registration and regeneration basis. Generated
+interpretations, protected judgments, completed demand receipts and accepted standing have
+separate correspondence requirements.
+
+**Development cutover · 2026-11-18.** The canonical development database was initialized
+through N13 at OID 131763263. The predecessor OID 25921445 remains inert with connections
+disabled. The dev-bound application passed admission and `ci db check`. Native registration
+committed all 29 originals across nine projects. A separate read-principal connection compared
+every descriptor field and verified every retained byte sequence against its file and content
+identity. The book project activated the development capture at generation 1. Regeneration
+and reassessment of derived data are open. [Cutover receipts](../declared-data-operations_2026-11-12.md#generated-ddo-acquisition-settlement-and-inspection--2026-11-18)
 
 The operator now requires complete freedom from legacy code and prefers faithful target-native data
 migration where practical. Preserve useful data through import when actual evidence suffices;
@@ -73,9 +80,9 @@ Accepted ADR bodies remain immutable. The following work is scheduled, not perfo
    Remove one-time converter tooling after its selected use. Retain useful scientific kernels,
    physical custody, independent expectations and supported new-basis release/product histories.
 
-No data migration, reset, activation or provider run is authorized by this documentation work.
-No preserved-file rule requires runnable legacy architecture. Plans/evidence and failed receipts
-remain retained under repository policy; historical implementation claims keep their original bounds.
+The coordinator records execution authorization and the scope of each completed transition.
+Plans, evidence and failed receipts remain retained under repository policy. Historical
+implementation claims keep their original bounds.
 
 ## Source migration boundary
 
