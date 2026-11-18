@@ -1,0 +1,4 @@
+# Advance unfinished equivalent work to the active release while preserving retained authority.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n27
+native_revision: semantic_ddo_pe_n28
