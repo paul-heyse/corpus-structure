@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N4 with its matching application active at generation 6. Scoped native search and shared-stream checks passed. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N6 with its matching application active at generation 7. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -107,6 +107,92 @@ Native and application qualification must exercise each migrated consumer. Finis
 remaining controlled PDF fixtures to the certified producer path before removing their legacy
 occurrence replay writer. Development adoption and DDO-12 qualification on the final source
 remain pending.
+
+### Broader model-owned conversion and N5 · 2026-11-17
+
+**Implemented and deployed on the owned stage.** Native preview now produces the PDF and DDO
+call facades, nominal identifiers, fate projections and typed columns from the target capture.
+DATA builders use the proposed metadata and authenticate the N2 part shape when S40 is selected.
+The PDF search vector, population check, native ranks, wire schema and runtime population identity
+read one text-search configuration. Explicit physical predicates compile to Core from modeled slots.
+PostgreSQL catalog comparison detects same-name CHECK and index changes, preserving unchanged
+catalog names. N5 also includes typed shared-stream writes, reclaim, verification and mutation
+guards, archive and runtime-binding guards, selected-source membership traversal, the recognition
+meaning/policy/request wrappers, native privilege effects and catalog observations. The host
+scripts render typed role, extension and peer configuration through their existing entrypoints.
+
+The [N5 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n5.yaml)
+was previewed as `97092cd297544eda8519325914b459a4`, applied as
+`3aa07b4cc95045aba25150f496c7d589`, replayed as `0074b912b07d4c3fa07f1fcc65e0804f`,
+registered as `fe419204dfb342d491218e71e7a483d5` and deployed as
+`895a0e42ca6744e987f4ff2e61c136c7`. Rollback replay covered 33 native transitions and two ordinary
+effects. On the same stage OID130661481/system7701811359771751232, an independent read observed
+`semantic_ddo_pe_n5`, 15 PDF products, 361 verified streams and 376 parts. Candidate
+`5a51b706e1874f2ea27967e86caa6a8d` refused changed prerequisite administration text. Pglast
+established equivalent owner and privilege nodes, so successor preparation now compares those
+nodes while retaining exact frozen body custody.
+
+**Implemented and tested in focused scopes.** DuckDB 2.0 relation/expression APIs now own
+rich set/views, companion export analysis, recognition replay sorting and selected-page geometry.
+The kernel and consumer selections passed four and 33 cases in
+`dd4a50a538524aa6b3734c098784d662` and `a658c5f76f7b428cbaf0dbfcb2f9de46`.
+PostgreSQL focused selections passed 15 physical model cases
+(`216244bfe26b4f279b9686232cf47c67`), 33 privilege/checker cases
+(`a6b3580ee5084336a6d3929d4c4517d0`), 15 observation cases
+(`5c3139ceb8474362bcb1dd845b03ec9b`) and eight host cases
+(`738bc79899b347acbf4c6d5985d114c4`) on their slice sources. Integrated native and application
+evidence is tracked at the corresponding stage boundary.
+
+### Native follow-through and N6 · 2026-11-17
+
+N6 generates PDF build lifecycle, scratch admission, producer certification and oracle routines.
+It also generates request renewal and loss outcomes, selected containment and metadata reads,
+archive mutation and finalization guards, admission receipts, activation CAS and normalized
+function contract checks. Generated default comparison uses PostgreSQL-bound declarations and
+does not evaluate the volatile UUID default. The unchanged-successor native regression now passes.
+Equivalent installed computed expressions for two visual locator fields still produce Alembic
+warnings. The native catalog verification bound the expected fields and N6 emitted no ordinary DDL.
+
+The first broader N5 consumer selection `7cdc07f6066a4564978dd2f9e519fc5d` passed 20 cases and
+failed 17 in runtime-registration setup. The N5 application deploy `8248474aca6f458e9da115b138af54c3`
+archived its release before the database constraint failure. Independent reads found the matching
+runtime absent and the active generation still 6. Tables in the installed predecessor place
+`archive_bytes` before `execution_profile`, while the new Core metadata lists them in the reverse
+order. Runtime replay now selects the two byte fields by name. The actual PostgreSQL predecessor
+order regression passed in `2b5df2c3144b4bb5ba2cdfa999f74361`. A separate rollback-only replay
+returned the retained runtime on the owned stage.
+
+The [N6 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n6.yaml)
+preview `1cf9d1a7e468444db4867f92015cbd70`, apply `300768d5d00b4044a3bb4abece571f3e`,
+candidate `22adafec7c8b4b539d23ee376438d6db`, registration `f94f3cf84ad94229810ba742db1831e5`
+and native deployment `69c66b4b96b4447db7bf081fc0ba0e9c` passed. Rollback replay covered 38
+native transitions. The same stage independently retained 15 PDF products, 361 verified streams
+and 376 parts. Integrated native, physical and runtime checks passed all 30 cases in
+`4b427f1f5ebd43ffae381316591200a3`. The final-source DATA counterfactual and derived analytical
+selection passed 28 cases in `a6b3a7f3961441908180abcb1fcd59fe` before the N6 deployment.
+Native producer certification controls passed nine cases in `d69ea938f2da4ea3bc36cd24b3c0ca2a`.
+Pyrefly `16c5f2f2394e4ef99879f46f860d30da` and Ruff `37d48033a5bf47a6969c854d195f5de3` passed
+on the N6 source.
+
+The matching N6 application preview `5f265d06924a459c91581dde9a605c76`, apply
+`a47d5659d1454c92ab79a8da6a37fd16`, candidate `fbcb1f03144848eaa574330b191df379` and
+deployment `f118665177e5402b8ae89ea564227896` passed. Explicit `ci db check` and
+`ci release check` passed for
+`release:b0d270dd6924af205eaffbd6b6a7f00322173981bf76cf8fb7df44b5b7bc6709` and its
+`runtime:333242e4aa63b62bfd386e73e47ab60eb50e046365518c317f083d41415e92ad`.
+`ci release activate --project ddo-current-pdf-bounded --expected-generation 6` passed.
+A separate stage read confirmed generation 7 and that exact release.
+
+The N6 consumer retry `bfb529b695144625abbe360d07b0f2d0` passed 12 of the 17 N5 failures.
+Three remaining shared-stream controls expired leases through an unauthorized fixture principal.
+Their publisher-authority correction passed all three in `211019e6c51c4ff69d92d7d24b006f99`.
+Two search hits still opened empty bodies and are tracked under the selected public read owner.
+
+The authoring conversion remains open. The outstanding owners include the remaining PDF publication
+and record reader programs, DDO binding/acquisition/claim/completion and selected event kernels,
+general native admission, scientific scoring and native fixture provisioning. The live observation publisher still needs conversion. Controlled fixtures still need certified
+production entrypoints before their occurrence replay path can be retired. Development database adoption and assembled DDO-12 qualification
+retain their separate obligations.
 
 ## Production-efficiency integration · 2026-11-17
 

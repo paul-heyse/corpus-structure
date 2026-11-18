@@ -387,3 +387,21 @@ retain them as exact file effects. Remove each superseded SQL source and fallbac
 Preserve frozen migrations, independent
 test controls and explicitly submitted read-only SQL. N3 native qualification, remaining owner
 conversion, and the final DDO-12 union are separate completion boundaries.
+
+### Broader conversion mechanisms · 2026-11-17
+
+The native change preview renders the generated interfaces from the proposed physical model and
+captured declarations. The PDF search configuration belongs to its generated vector slot. The
+population CHECK, SQL/JSON wire admission and native ranking consume that value. The closed DATA
+builders resolve current columns from the target metadata and the historical S40 inputs from the
+authenticated predecessor artifact. PostgreSQL catalog comparison binds typed checks and indexes
+before Alembic freezes effects. Current host scripts use typed role and peer configuration
+rendering while the shell owns service operations and file installation.
+
+The applied analytical boundary uses DuckDB 2.0 expressions and relations over typed Arrow and
+Parquet inputs. Rich set and view kernels retain null and multiplicity semantics. Companion
+comparison uses `EXCEPT ALL`; PDF geometry assigns ordinals before filtering and consumes its
+Arrow source once. PostgreSQL retains native publication and snapshot authority. The
+[DuckDB 2.0 guide](../../libraries/analytical_infrastructure/duckdb_2.md) describes the selected
+APIs. The [coordinator](../declared-data-operations_2026-11-12.md#broader-model-owned-conversion-and-n5--2026-11-17)
+owns actual rollout and verification.
