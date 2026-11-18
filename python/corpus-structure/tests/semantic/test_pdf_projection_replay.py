@@ -65,6 +65,7 @@ def test_native_projection_replays_exact_keys_and_refuses_changed_membership(
         ("#/texts/0", 0, 1, 10, 20, "top_left"),
         ("#/texts/0", 1, 2, 10, 20, "top_left"),
     ]
+
     def write(connection, family, row):
         calls.stage_pdf_access_batch(
             connection,

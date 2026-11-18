@@ -89,8 +89,7 @@ def pdf_completion_native_sql(model: MetaData) -> str:
     )
     completion = core_variable("p_completion", JSONB())
     task, attempt = (
-        core_variable(name, model.tables["ops.task"].c.id.type)
-        for name in ("p_task", "p_attempt")
+        core_variable(name, model.tables["ops.task"].c.id.type) for name in ("p_task", "p_attempt")
     )
     holder, release, operation = (
         core_variable(name, Text()) for name in ("p_holder", "p_release", "p_operation")
@@ -170,7 +169,11 @@ def pdf_completion_native_sql(model: MetaData) -> str:
                     ).in_(("failed", "empty")),
                     (
                         reject(
-                            or_(receipts != empty, observations != empty, completion["outputs"] != empty),
+                            or_(
+                                receipts != empty,
+                                observations != empty,
+                                completion["outputs"] != empty,
+                            ),
                             "non-success PDF completion cannot publish receipts or outputs",
                         ),
                         Return(),
@@ -180,7 +183,10 @@ def pdf_completion_native_sql(model: MetaData) -> str:
                     recognition,
                     (
                         reject(
-                            or_(receipts != empty, func.jsonb_array_length(observations).is_distinct_from(1)),
+                            or_(
+                                receipts != empty,
+                                func.jsonb_array_length(observations).is_distinct_from(1),
+                            ),
                             "recognition completion requires only its actual observation-set receipt",
                         ),
                         reject(
@@ -192,7 +198,10 @@ def pdf_completion_native_sql(model: MetaData) -> str:
                     ),
                     (
                         reject(
-                            or_(observations != empty, func.jsonb_array_length(receipts).is_distinct_from(1)),
+                            or_(
+                                observations != empty,
+                                func.jsonb_array_length(receipts).is_distinct_from(1),
+                            ),
                             "sealed PDF completion requires only its actual publication receipt",
                         ),
                     ),
@@ -216,9 +225,13 @@ def pdf_completion_native_sql(model: MetaData) -> str:
                     case(
                         (
                             recognition,
-                            func.ops.pdf_observation_projection(observations[0], task, attempt, holder),
+                            func.ops.pdf_observation_projection(
+                                observations[0], task, attempt, holder
+                            ),
                         ),
-                        else_=func.ops.pdf_publication_projection(receipts[0], task, attempt, holder),
+                        else_=func.ops.pdf_publication_projection(
+                            receipts[0], task, attempt, holder
+                        ),
                     ),
                 ),
                 reject(
@@ -231,22 +244,47 @@ def pdf_completion_native_sql(model: MetaData) -> str:
                 Local("context", pg_type("record")),
                 Local("output", pg_type("jsonb")),
                 Local("expected", pg_type("jsonb")),
-                Local("receipts", pg_type("jsonb"), func.coalesce(completion["execution_evidence"]["pdf_receipts"], empty)),
-                Local("observations", pg_type("jsonb"), func.coalesce(completion["execution_evidence"]["pdf_observation_receipts"], empty)),
+                Local(
+                    "receipts",
+                    pg_type("jsonb"),
+                    func.coalesce(completion["execution_evidence"]["pdf_receipts"], empty),
+                ),
+                Local(
+                    "observations",
+                    pg_type("jsonb"),
+                    func.coalesce(
+                        completion["execution_evidence"]["pdf_observation_receipts"], empty
+                    ),
+                ),
             ),
         ),
     )
-    return native_sql_script(
-        (
-            eligible,
-            native_privilege_sql(
-                NativeIdentity("function", "ops", "ddo_pdf_command_eligible", ("sem.data_operation_definition",)),
-                "PUBLIC", grant=False,
-            ),
-            require,
-            native_privilege_sql(
-                NativeIdentity("function", "ops", "ddo_require_pdf_completion", ("jsonb", "bigint", "bigint", "text", "text", "text")),
-                "PUBLIC", grant=False,
-            ),
+    return (
+        native_sql_script(
+            (
+                eligible,
+                native_privilege_sql(
+                    NativeIdentity(
+                        "function",
+                        "ops",
+                        "ddo_pdf_command_eligible",
+                        ("sem.data_operation_definition",),
+                    ),
+                    "PUBLIC",
+                    grant=False,
+                ),
+                require,
+                native_privilege_sql(
+                    NativeIdentity(
+                        "function",
+                        "ops",
+                        "ddo_require_pdf_completion",
+                        ("jsonb", "bigint", "bigint", "text", "text", "text"),
+                    ),
+                    "PUBLIC",
+                    grant=False,
+                ),
+            )
         )
-    ) + "\n"
+        + "\n"
+    )

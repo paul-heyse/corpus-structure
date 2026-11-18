@@ -312,9 +312,7 @@ def pdf_access_correspondence_sql(model: MetaData) -> str:
     return native_sql_script(output) + "\n"
 
 
-def _cycle_predicate(
-    query: Select, cycles: Mapping[str, tuple[str, str, str]]
-) -> ast.SubLink:
+def _cycle_predicate(query: Select, cycles: Mapping[str, tuple[str, str, str]]) -> ast.SubLink:
     """Attach PostgreSQL CYCLE to Core's declared recursive relations."""
     statement = parse_sql(_render(query))[0].stmt
 
@@ -627,7 +625,10 @@ def _access_checker_sql(model: MetaData) -> str:
         "native access section owner differs from native ancestry",
     )
 
-    root_native, target = model.tables["kb.pdf_record_native"].alias("root"), model.tables["kb.pdf_record_native"].alias("target")
+    root_native, target = (
+        model.tables["kb.pdf_record_native"].alias("root"),
+        model.tables["kb.pdf_record_native"].alias("target"),
+    )
     f = json_items(root_native.c.structure_json["fields"], "root_field")
     roots = (
         select(
