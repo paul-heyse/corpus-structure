@@ -13,6 +13,7 @@ from sqlalchemy import (
     literal,
     or_,
     select,
+    tuple_,
     union_all,
 )
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, distinct_on
@@ -30,6 +31,7 @@ from .native_program import (
     Return,
     SelectInto,
     Statement,
+    column_type,
     core_relation_row,
     core_variable,
     function,
@@ -872,6 +874,22 @@ def _structural_command_helpers(model):
                         )
                     ),
                 ),
+                *(
+                    native_privilege_sql(
+                        NativeIdentity(
+                            "function",
+                            "ops",
+                            name,
+                            (RawStream()(pg_type(str(table.schema), table.name)),),
+                        ),
+                        "PUBLIC",
+                        grant=False,
+                    )
+                    for name, table in (
+                        ("ddo_structural_command_eligible", definitions),
+                        ("ddo_structural_product_reference", products),
+                    )
+                ),
             )
         )
         + "\n"
@@ -1140,14 +1158,524 @@ def _structural_dossier_completion(model):
     )
 
 
-def structural_admission_native_sql(model):
+def _structural_issuance_completion(model):
     from .declared_structural_admission import (
         ADMISSION_KIND,
         ADMISSION_OPERATION,
         REFERENCE_KIND,
         STRUCTURAL_REPORT_PRODUCERS,
-        DdoStructuralAdmission,
     )
+
+    definitions, requests, products, kinds, admissions, episodes, outputs, receipts, intents = (
+        model.tables[name]
+        for name in (
+            "sem.data_operation_definition",
+            "ops.data_request",
+            "kb.data_product",
+            "sem.data_kind_contract",
+            "ops.original_source_admission",
+            "ops.data_derivation",
+            "ops.data_derivation_output",
+            "ops.data_publication_receipt",
+            "ops.data_completion_intent",
+        )
+    )
+
+    def r(field=None):
+        return _completion_row("r", requests, field)
+
+    def definition(field):
+        return _completion_row("definition", definitions, field)
+
+    def report_product(field=None):
+        return _completion_row("report_product", products, field)
+
+    def pass_product(field=None):
+        return _completion_row("pass_product", products, field)
+
+    def pass_kind(field):
+        return _completion_row("pass_kind", kinds, field)
+
+    def admitted(field):
+        return _completion_row("admitted", admissions, field)
+
+    completion = core_variable("completion", JSONB())
+    selected = core_variable("selected", JSONB())
+    output = core_variable("output", JSONB())
+    pass_body = core_variable("pass_body", JSONB())
+    frame = core_variable("frame", JSONB())
+    passes = core_variable("passes", JSONB())
+    actors = core_variable("actors", JSONB())
+    parents = core_variable("parent_values", JSONB())
+    c = core_variable("c", JSONB())
+    report = core_variable("report", JSONB())
+    statement = core_variable("statement", JSONB())
+    expected = core_variable("expected", JSONB())
+    selected_case = core_variable("selected_case", JSONB())
+    report_reference = core_variable("report_reference", JSONB())
+    producer_count = core_variable("producer_count", BigInteger())
+    report_kind = core_variable("report_kind", kinds.c.kind.type)
+    variant = core_variable("variant", Text())
+    report_role = core_variable("report_role", Text())
+    policy_id = core_variable("policy_id", Text())
+    selected_component = core_variable("selected_component", Text())
+    inputs = _items(completion["inputs"], "inputs_")
+    effects = _items(definition("support_contract")["effects"], "effects_")
+    supports = (
+        func.ops.ddo_input_support_refs(r("binding"), selected)
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="supports_")
+    )
+    owner = definitions.alias("owner")
+    producer_join = (
+        episodes.join(outputs, outputs.c.derivation_id == episodes.c.id)
+        .join(
+            receipts,
+            (receipts.c.derivation_id == episodes.c.id)
+            & (receipts.c.intent_id == episodes.c.intent_id),
+        )
+        .join(requests, requests.c.id == episodes.c.request_id)
+        .join(
+            owner,
+            (owner.c.release_id == episodes.c.release_id)
+            & (owner.c.operation_id == requests.c.operation_id),
+        )
+        .join(intents, intents.c.id == episodes.c.intent_id)
+    )
+    producers = tuple(
+        (variant, operation, factory)
+        for variant, entries in STRUCTURAL_REPORT_PRODUCERS.items()
+        for operation, factory in entries
+    )
+    producer_factory = owner.c.support_contract["capabilities"]["prepared_factory"]
+    producer_query = (
+        select(func.count())
+        .select_from(producer_join)
+        .where(
+            outputs.c.product_id == report_product("id"),
+            outputs.c.member_id.is_(None),
+            outputs.c.role == "result",
+            outputs.c.position == 0,
+            outputs.c.multiplicity == 1,
+            episodes.c.outcome == "success",
+            owner.c.profile == "derivation",
+            owner.c.support_contract["effects"] == _json("[]"),
+            tuple_(variant, owner.c.operation_id, producer_factory["entrypoint"].astext).in_(
+                producers
+            ),
+            producer_factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$"),
+            owner.c.implementation_revision.like("implementation-slice:%"),
+            owner.c.recipe == episodes.c.recipe,
+            intents.c.payload["implementation_revision"].astext == owner.c.implementation_revision,
+            func.jsonb_array_length(
+                func.coalesce(intents.c.payload["execution_evidence"]["cpu_receipts"], _json("[]"))
+            )
+            == 1,
+            exists(
+                select(1)
+                .select_from(supports)
+                .where(
+                    supports.c.value["kind"].astext == "computation",
+                    supports.c.value["derivation_id"].astext == episodes.c.id,
+                )
+            ),
+        )
+    )
+    exposed = _items(frame["exposed_outputs"], "exposed_")
+    cases = _items(c["cases"], "cases_")
+    source_passages = _items(report["inputs"]["passages"], "source_passages_")
+    pass_names = (
+        func.jsonb_object_keys(passes)
+        .table_valued(column("name", Text()))
+        .render_derived(name="pass_names_")
+    )
+    pass_steps = (
+        _completion_refusal(
+            or_(
+                selected["member_id"].astext.is_not(None),
+                cast(selected["multiplicity"].astext, Integer()).is_distinct_from(1),
+            ),
+            "structural passes require distinct whole original authored products",
+        ),
+        _completion_lookup(
+            "pass_product",
+            products,
+            products.c.id == selected["product_id"].astext,
+            products.c.project_id == r("project_id"),
+        ),
+        _completion_lookup(
+            "pass_kind", kinds, kinds.c.kind_contract == pass_product("kind_contract")
+        ),
+        _completion_refusal(
+            or_(
+                pass_kind("kind").is_distinct_from(REFERENCE_KIND),
+                pass_kind("universe").is_distinct_from("evaluator"),
+            ),
+            "structural pass differs from its protected nominal kind",
+        ),
+        _completion_lookup(
+            "admitted",
+            admissions,
+            admissions.c.product_id == pass_product("id"),
+            admissions.c.project_id == r("project_id"),
+            admissions.c.reference["kind"].astext == "authored-fact",
+            func.ops.ddo_original_admission_valid(core_relation_row(admissions)),
+            relation=admissions.join(
+                supports,
+                (supports.c.value["kind"].astext == "authored")
+                & (supports.c.value["admission_id"].astext == admissions.c.id)
+                & (supports.c.value["source_reference"].astext == admissions.c.source_reference),
+            ),
+        ),
+        Assign("pass_body", func.data.ddo_json(pass_product("canonical_body"), type_=JSONB())),
+        _completion_refusal(
+            or_(
+                admitted("evidence")["standing"].astext.is_distinct_from("authored"),
+                func.nullif(admitted("evidence")["submitted_by"].astext, "").is_(None),
+                admitted("reference")["author"].astext.is_distinct_from(
+                    pass_body["author_assertion"].astext
+                ),
+                admitted("evidence")["author_assertion"].astext.is_distinct_from(
+                    pass_body["author_assertion"].astext
+                ),
+                pass_body["actor"]["principal"].astext.is_distinct_from(
+                    pass_body["author_assertion"].astext
+                ),
+                pass_body["actor"]["basis"].astext.is_distinct_from("authored_attribution"),
+                pass_body["version"].astext.is_distinct_from("structural-reference-pass-1"),
+                pass_body["pass_kind"].astext.not_in(("A", "B", "C")),
+                passes.has_key(pass_body["pass_kind"].astext),
+            ),
+            "structural pass lacks its exact original submitted author attribution",
+        ),
+        If(frame.is_(None), (Assign("frame", pass_body["frame"]),)),
+        _completion_refusal(
+            or_(
+                frame.is_distinct_from(pass_body["frame"]),
+                func.jsonb_strip_nulls(frame["report"]).is_distinct_from(
+                    func.jsonb_strip_nulls(report_reference)
+                ),
+                func.jsonb_strip_nulls(frame["inputs"]).is_distinct_from(
+                    func.jsonb_strip_nulls(report["inputs"])
+                ),
+                frame["question"].astext.is_distinct_from(report["inputs"]["question"].astext),
+                func.jsonb_array_length(pass_body["cases"]) != 1,
+                pass_body["cases"][0]["case_id"].astext.is_distinct_from(frame["case_id"].astext),
+                frame["operation"].astext.is_distinct_from(variant),
+                frame["rubric_version"].astext.is_distinct_from(policy_id),
+                ~frame.has_key("component_id"),
+                frame["component_id"]
+                .astext.is_not(None)
+                .is_distinct_from(variant == "definition_components"),
+                frame["direction"].astext.not_in(("source_first", "output_first")),
+                (frame["direction"].astext == "source_first")
+                & (frame["exposed_outputs"] != _json("[]")),
+                (frame["direction"].astext == "output_first")
+                & ~exists(
+                    select(1)
+                    .select_from(exposed)
+                    .where(
+                        func.jsonb_strip_nulls(exposed.c.value)
+                        == func.jsonb_strip_nulls(report_reference)
+                    )
+                ),
+            ),
+            "structural passes differ from exact report/source/question/rubric/exposure frame",
+        ),
+        _completion_refusal(
+            actors.contains(func.jsonb_build_array(pass_body["actor"])),
+            "structural passes repeat an attributed actor identity",
+        ),
+        Assign("actors", actors.op("||")(func.jsonb_build_array(pass_body["actor"]))),
+        If(
+            pass_body["pass_kind"].astext.in_(("A", "B")),
+            (
+                _completion_refusal(
+                    pass_body["parents"] != _json("[]"), "A/B cannot adjudicate another pass"
+                ),
+                Assign(
+                    "parent_values",
+                    parents.op("||")(
+                        func.jsonb_build_array(
+                            func.jsonb_build_object(
+                                "reference",
+                                _structural("product_reference", pass_product()),
+                                "body_digest",
+                                pass_product("body_digest"),
+                                type_=JSONB(),
+                            )
+                        )
+                    ),
+                ),
+            ),
+        ),
+        Assign(
+            "passes",
+            passes.op("||")(
+                func.jsonb_build_object(pass_body["pass_kind"].astext, pass_body, type_=JSONB())
+            ),
+        ),
+    )
+    variants = (
+        (
+            "urn:corpus:structural:DeclaredComparisonReport",
+            "qualified_comparison",
+            "comparison",
+            "independent-structural-comparison-1",
+        ),
+        (
+            "urn:corpus:structural:DeclaredConditionReport",
+            "condition_qualification",
+            "condition",
+            "independent-condition-qualification-1",
+        ),
+        (
+            "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+            "definition_components",
+            "definition",
+            "independent-definition-component-1",
+        ),
+    )
+    select_variant: tuple[Statement, ...] = (
+        Raise("structural admission requires its actual released report kind", "23514"),
+    )
+    for kind, tag, role, policy in reversed(variants):
+        select_variant = (
+            If(
+                report_kind == kind,
+                (
+                    Assign("variant", literal(tag)),
+                    Assign("report_role", literal(role)),
+                    Assign("policy_id", literal(policy)),
+                ),
+                select_variant,
+            ),
+        )
+    expected_fields = (
+        ("version", "structural-admission-1"),
+        ("report", report_reference),
+        ("component_id", selected_component),
+        ("policy_id", policy_id),
+        ("policy_version", "1"),
+        ("statement_encoding", "ddo-semantic-value-v1"),
+        ("statement_meaning_json", func.data.canonical_json(statement)),
+        ("standing", "admitted_structural_statement"),
+        ("assessment_basis", "independently_attributed_authored_judgments"),
+        ("scientific_truth", "not_established"),
+        ("member_truth", "not_established_by_assembly_admission"),
+    )
+    return _completion_program(
+        "ddo_require_structural_admission_completion",
+        requests,
+        (
+            _completion_lookup(
+                "definition",
+                definitions,
+                definitions.c.release_id == r("release_id"),
+                definitions.c.operation_id == r("operation_id"),
+            ),
+            If(
+                ~func.coalesce(definition("command_class") == "structural", literal(False)),
+                (
+                    _completion_refusal(
+                        or_(
+                            definition("operation_id") == ADMISSION_OPERATION,
+                            exists(
+                                select(1)
+                                .select_from(effects)
+                                .where(
+                                    effects.c.value["name"].astext
+                                    == "native-evaluator-structural-admission"
+                                )
+                            ),
+                        ),
+                        "structural admission requires its exact command/effect/factory",
+                    ),
+                    Return(),
+                ),
+            ),
+            _completion_refusal(
+                ~func.pg_has_role(
+                    func.coalesce(
+                        func.nullif(func.current_setting("role"), "none"), func.session_user()
+                    ),
+                    "corpus_sem_evaluator",
+                    "MEMBER",
+                    type_=Boolean(),
+                ),
+                "structural admission requires native evaluator purpose",
+                "42501",
+            ),
+            _completion_refusal(
+                or_(
+                    completion["outcome"].astext.is_distinct_from("success"),
+                    func.jsonb_array_length(completion["inputs"]) != 4,
+                    func.jsonb_array_length(completion["outputs"]) != 1,
+                ),
+                "structural admission requires one report, three exact passes and one conclusion",
+            ),
+            SelectInto(
+                select(inputs.c.value).where(
+                    inputs.c.value["role"].astext.in_(("comparison", "condition", "definition"))
+                ),
+                ("selected",),
+                strict=True,
+            ),
+            _completion_refusal(
+                or_(
+                    selected["member_id"].astext.is_not(None),
+                    cast(selected["position"].astext, Integer()).is_distinct_from(0),
+                    cast(selected["multiplicity"].astext, Integer()).is_distinct_from(1),
+                ),
+                "structural report must be its exact whole scalar input",
+            ),
+            _completion_lookup(
+                "report_product",
+                products,
+                products.c.id == selected["product_id"].astext,
+                products.c.project_id == r("project_id"),
+            ),
+            SelectInto(
+                select(kinds.c.kind).where(
+                    kinds.c.kind_contract == report_product("kind_contract"),
+                    kinds.c.universe == "ordinary",
+                ),
+                ("report_kind",),
+                strict=True,
+            ),
+            *select_variant,
+            Assign("report", func.data.ddo_json(report_product("canonical_body"), type_=JSONB())),
+            _completion_refusal(
+                or_(
+                    report["kind"].astext.is_distinct_from(variant),
+                    selected["role"].astext.is_distinct_from(report_role),
+                ),
+                "structural report differs from its exact choice-bound nominal variant",
+            ),
+            SelectInto(producer_query, ("producer_count",)),
+            _completion_refusal(
+                producer_count != 1,
+                "structural report lacks its one actual captured producer for the selected variant",
+            ),
+            Assign("report_reference", _structural("product_reference", report_product())),
+            ForQuery(
+                ("selected",),
+                select(inputs.c.value).where(inputs.c.value["role"].astext == "passes"),
+                pass_steps,
+            ),
+            _completion_refusal(
+                or_(
+                    select(func.count()).select_from(pass_names).scalar_subquery() != 3,
+                    ~passes.has_all(array(("A", "B", "C"), type_=Text())),
+                ),
+                "structural admission requires the exact A/B/C population",
+            ),
+            Assign("c", passes["C"]),
+            _completion_refusal(
+                or_(
+                    func.jsonb_array_length(c["parents"]) != 2,
+                    func.jsonb_strip_nulls(c["parents"], type_=JSONB())
+                    .contains(func.jsonb_strip_nulls(parents))
+                    .is_not(True),
+                    func.jsonb_strip_nulls(parents, type_=JSONB())
+                    .contains(func.jsonb_strip_nulls(c["parents"]))
+                    .is_not(True),
+                ),
+                "C does not adjudicate exact original A/B product/body identities",
+            ),
+            Assign("selected_component", frame["component_id"].astext),
+            Assign(
+                "statement",
+                _structural("statement", report_product("canonical_body"), selected_component),
+            ),
+            SelectInto(
+                select(cases.c.value).where(
+                    cases.c.value["facet"].astext == "public_statement",
+                    cases.c.value["path"] == _json('["public_statement"]'),
+                    cases.c.value["judgment"].astext == "supported",
+                    cases.c.value["expected_meaning_json"].astext
+                    == func.data.canonical_json(statement),
+                ),
+                ("selected_case",),
+                strict=True,
+            ),
+            _completion_refusal(
+                ~selected_case["source_passages"].contains(
+                    func.coalesce(
+                        select(
+                            func.jsonb_agg(source_passages.c.value["passage_id"].astext)
+                        ).scalar_subquery(),
+                        _json("[]"),
+                    )
+                ),
+                "structural supported statement omits selected source passages",
+            ),
+            Assign(
+                "expected",
+                func.jsonb_build_object(
+                    *(part for pair in expected_fields for part in pair), type_=JSONB()
+                ),
+            ),
+            Assign("output", completion["outputs"][0]),
+            _completion_refusal(
+                or_(
+                    output["role"].astext.is_distinct_from("admission"),
+                    output["member_id"].astext.is_not(None),
+                    cast(output["position"].astext, Integer()).is_distinct_from(0),
+                    cast(output["multiplicity"].astext, Integer()).is_distinct_from(1),
+                    output["product"]["members"].is_distinct_from(_json("[]")),
+                    ~exists(
+                        select(1)
+                        .select_from(kinds)
+                        .where(
+                            kinds.c.kind_contract == output["product"]["kind_contract"].astext,
+                            kinds.c.kind == ADMISSION_KIND,
+                            kinds.c.universe == "ordinary",
+                        )
+                    ),
+                    func.data.ddo_normalize(output["product"]["body"]).is_distinct_from(
+                        func.data.ddo_normalize(func.data.ddo_json_meaning(expected))
+                    ),
+                ),
+                "structural ordinary conclusion differs from exact independently adjudicated statement",
+            ),
+        ),
+        (
+            Local("definition", definitions),
+            Local("selected", pg_type("jsonb")),
+            Local("output", pg_type("jsonb")),
+            Local("report_product", products),
+            Local("pass_product", products),
+            Local("pass_kind", kinds),
+            Local("admitted", admissions),
+            Local("pass_body", pg_type("jsonb")),
+            Local("frame", pg_type("jsonb")),
+            Local("passes", pg_type("jsonb"), _json("{}")),
+            Local("actors", pg_type("jsonb"), _json("[]")),
+            Local("parent_values", pg_type("jsonb"), _json("[]")),
+            *(
+                Local(name, pg_type("jsonb"))
+                for name in (
+                    "c",
+                    "report",
+                    "statement",
+                    "expected",
+                    "selected_case",
+                    "report_reference",
+                )
+            ),
+            Local("producer_count", pg_type("int8")),
+            Local("report_kind", column_type(kinds.c.kind)),
+            *(
+                Local(name, pg_type("text"))
+                for name in ("variant", "report_role", "policy_id", "selected_component")
+            ),
+        ),
+    )
+
+
+def structural_admission_native_sql(model):
+    from .declared_structural_admission import DdoStructuralAdmission
 
     fields = {
         "version",
@@ -1164,153 +1692,6 @@ def structural_admission_native_sql(model):
     }
     if fields != DdoStructuralAdmission.model_fields.keys():
         raise ValueError("native structural disclosure must cover its exact public contract")
-    sql = r"""
-CREATE OR REPLACE FUNCTION ops.ddo_require_structural_admission_completion(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $structural$
-DECLARE definition sem.data_operation_definition; selected jsonb; output jsonb; report_product kb.data_product;
- pass_product kb.data_product; pass_kind sem.data_kind_contract; admitted ops.original_source_admission;
- pass_body jsonb; frame jsonb; passes jsonb:='{}'; actors jsonb:='[]'; parent_values jsonb:='[]'; c jsonb;
- report jsonb; statement jsonb; expected jsonb; selected_case jsonb; report_reference jsonb; producer_count bigint;
- report_kind text; variant text; report_role text; policy_id text; selected_component text;
-BEGIN
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF NOT coalesce((definition.command_class='structural'),false) THEN
- IF definition.operation_id='__OPERATION__' OR EXISTS(SELECT FROM jsonb_array_elements(definition.support_contract->'effects') effect
- WHERE effect->>'name'='native-evaluator-structural-admission') THEN
- RAISE EXCEPTION 'structural admission requires its exact command/effect/factory' USING ERRCODE='23514'; END IF;
- RETURN; END IF;
- IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_evaluator','MEMBER') THEN
- RAISE EXCEPTION 'structural admission requires native evaluator purpose' USING ERRCODE='42501'; END IF;
- IF completion->>'outcome' IS DISTINCT FROM 'success' OR jsonb_array_length(completion->'inputs')<>4
- OR jsonb_array_length(completion->'outputs')<>1 THEN
- RAISE EXCEPTION 'structural admission requires one report, three exact passes and one conclusion' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT selected FROM jsonb_array_elements(completion->'inputs') WHERE value->>'role' IN ('comparison','condition','definition');
- IF selected->>'member_id' IS NOT NULL OR (selected->>'position')::integer IS DISTINCT FROM 0
- OR (selected->>'multiplicity')::integer IS DISTINCT FROM 1 THEN
- RAISE EXCEPTION 'structural report must be its exact whole scalar input' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT report_product FROM kb.data_product WHERE id=selected->>'product_id' AND project_id=r.project_id;
- SELECT kind.kind INTO STRICT report_kind FROM sem.data_kind_contract kind WHERE kind.kind_contract=report_product.kind_contract AND kind.universe='ordinary';
- CASE report_kind
- WHEN 'urn:corpus:structural:DeclaredComparisonReport' THEN variant:='qualified_comparison'; report_role:='comparison'; policy_id:='independent-structural-comparison-1';
- WHEN 'urn:corpus:structural:DeclaredConditionReport' THEN variant:='condition_qualification'; report_role:='condition'; policy_id:='independent-condition-qualification-1';
- WHEN 'urn:corpus:structural:DeclaredDefinitionComponentsReport' THEN variant:='definition_components'; report_role:='definition'; policy_id:='independent-definition-component-1';
- ELSE RAISE EXCEPTION 'structural admission requires its actual released report kind' USING ERRCODE='23514'; END CASE;
- report:=data.ddo_json(report_product.canonical_body);
- IF report->>'kind' IS DISTINCT FROM variant OR selected->>'role' IS DISTINCT FROM report_role THEN
- RAISE EXCEPTION 'structural report differs from its exact choice-bound nominal variant' USING ERRCODE='23514'; END IF;
- SELECT count(*) INTO producer_count FROM ops.data_derivation episode
- JOIN ops.data_derivation_output produced ON produced.derivation_id=episode.id
- JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
- JOIN ops.data_request request ON request.id=episode.request_id
- JOIN sem.data_operation_definition owner ON owner.release_id=episode.release_id AND owner.operation_id=request.operation_id
- JOIN ops.data_completion_intent intent ON intent.id=episode.intent_id
- WHERE produced.product_id=report_product.id AND produced.member_id IS NULL AND produced.role='result'
- AND produced.position=0 AND produced.multiplicity=1 AND episode.outcome='success'
- AND owner.profile='derivation'
- AND owner.support_contract->'effects'='[]'::jsonb
- AND (variant,owner.operation_id,owner.support_contract->'capabilities'->'prepared_factory'->>'entrypoint') IN (
- __REPORT_PRODUCERS__)
- AND owner.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$'
- AND owner.implementation_revision LIKE 'implementation-slice:%' AND owner.recipe=episode.recipe
- AND intent.payload->>'implementation_revision'=owner.implementation_revision
- AND jsonb_array_length(coalesce(intent.payload->'execution_evidence'->'cpu_receipts','[]'))=1
- AND EXISTS(SELECT FROM ops.ddo_input_support_refs(r.binding,selected) support
- WHERE support->>'kind'='computation' AND support->>'derivation_id'=episode.id);
- IF producer_count<>1 THEN RAISE EXCEPTION 'structural report lacks its one actual captured producer for the selected variant' USING ERRCODE='23514'; END IF;
- report_reference:=ops.ddo_structural_product_reference(report_product);
- FOR selected IN SELECT value FROM jsonb_array_elements(completion->'inputs') WHERE value->>'role'='passes' LOOP
- IF selected->>'member_id' IS NOT NULL OR (selected->>'multiplicity')::integer IS DISTINCT FROM 1 THEN
- RAISE EXCEPTION 'structural passes require distinct whole original authored products' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT pass_product FROM kb.data_product WHERE id=selected->>'product_id' AND project_id=r.project_id;
- SELECT * INTO STRICT pass_kind FROM sem.data_kind_contract WHERE kind_contract=pass_product.kind_contract;
- IF pass_kind.kind IS DISTINCT FROM '__REFERENCE_KIND__' OR pass_kind.universe IS DISTINCT FROM 'evaluator' THEN
- RAISE EXCEPTION 'structural pass differs from its protected nominal kind' USING ERRCODE='23514'; END IF;
- SELECT admission.* INTO STRICT admitted FROM ops.original_source_admission admission
- JOIN ops.ddo_input_support_refs(r.binding,selected) support
- ON support->>'kind'='authored' AND support->>'admission_id'=admission.id AND support->>'source_reference'=admission.source_reference
- WHERE admission.product_id=pass_product.id AND admission.project_id=r.project_id
- AND admission.reference->>'kind'='authored-fact' AND ops.ddo_original_admission_valid(admission);
- pass_body:=data.ddo_json(pass_product.canonical_body);
- IF admitted.evidence->>'standing' IS DISTINCT FROM 'authored' OR nullif(admitted.evidence->>'submitted_by','') IS NULL
- OR admitted.reference->>'author' IS DISTINCT FROM pass_body->>'author_assertion'
- OR admitted.evidence->>'author_assertion' IS DISTINCT FROM pass_body->>'author_assertion'
- OR pass_body->'actor'->>'principal' IS DISTINCT FROM pass_body->>'author_assertion'
- OR pass_body->'actor'->>'basis' IS DISTINCT FROM 'authored_attribution'
- OR pass_body->>'version' IS DISTINCT FROM 'structural-reference-pass-1' OR pass_body->>'pass_kind' NOT IN ('A','B','C')
- OR passes ? (pass_body->>'pass_kind') THEN
- RAISE EXCEPTION 'structural pass lacks its exact original submitted author attribution' USING ERRCODE='23514'; END IF;
- IF frame IS NULL THEN frame:=pass_body->'frame'; END IF;
- IF frame IS DISTINCT FROM pass_body->'frame' OR jsonb_strip_nulls(frame->'report') IS DISTINCT FROM jsonb_strip_nulls(report_reference)
- OR jsonb_strip_nulls(frame->'inputs') IS DISTINCT FROM jsonb_strip_nulls(report->'inputs')
- OR frame->>'question' IS DISTINCT FROM report->'inputs'->>'question'
- OR jsonb_array_length(pass_body->'cases')<>1 OR pass_body->'cases'->0->>'case_id' IS DISTINCT FROM frame->>'case_id'
- OR frame->>'operation' IS DISTINCT FROM variant OR frame->>'rubric_version' IS DISTINCT FROM policy_id
- OR NOT frame ? 'component_id' OR ((frame->>'component_id' IS NOT NULL) IS DISTINCT FROM (variant='definition_components'))
- OR frame->>'direction' NOT IN ('source_first','output_first')
- OR (frame->>'direction'='source_first' AND frame->'exposed_outputs'<>'[]'::jsonb)
- OR (frame->>'direction'='output_first' AND NOT EXISTS(SELECT FROM jsonb_array_elements(frame->'exposed_outputs') exposed
- WHERE jsonb_strip_nulls(exposed)=jsonb_strip_nulls(report_reference))) THEN
- RAISE EXCEPTION 'structural passes differ from exact report/source/question/rubric/exposure frame' USING ERRCODE='23514'; END IF;
- IF actors @> jsonb_build_array(pass_body->'actor') THEN
- RAISE EXCEPTION 'structural passes repeat an attributed actor identity' USING ERRCODE='23514'; END IF;
- actors:=actors||jsonb_build_array(pass_body->'actor');
- IF pass_body->>'pass_kind' IN ('A','B') THEN
- IF pass_body->'parents'<>'[]'::jsonb THEN RAISE EXCEPTION 'A/B cannot adjudicate another pass' USING ERRCODE='23514'; END IF;
- parent_values:=parent_values||jsonb_build_array(jsonb_build_object('reference',ops.ddo_structural_product_reference(pass_product),'body_digest',pass_product.body_digest)); END IF;
- passes:=passes||jsonb_build_object(pass_body->>'pass_kind',pass_body);
- END LOOP;
- IF (SELECT count(*) FROM jsonb_object_keys(passes))<>3 OR NOT passes ?& ARRAY['A','B','C'] THEN
- RAISE EXCEPTION 'structural admission requires the exact A/B/C population' USING ERRCODE='23514'; END IF;
- c:=passes->'C';
- IF jsonb_array_length(c->'parents')<>2 OR jsonb_strip_nulls(c->'parents') @> jsonb_strip_nulls(parent_values) IS NOT TRUE
- OR jsonb_strip_nulls(parent_values) @> jsonb_strip_nulls(c->'parents') IS NOT TRUE THEN
- RAISE EXCEPTION 'C does not adjudicate exact original A/B product/body identities' USING ERRCODE='23514'; END IF;
- selected_component:=frame->>'component_id';
- statement:=ops.ddo_structural_statement(report_product.canonical_body,selected_component);
- SELECT value INTO STRICT selected_case FROM jsonb_array_elements(c->'cases')
- WHERE value->>'facet'='public_statement' AND value->'path'='["public_statement"]'::jsonb
- AND value->>'judgment'='supported' AND value->>'expected_meaning_json'=data.canonical_json(statement);
- IF NOT (selected_case->'source_passages' @> coalesce((SELECT jsonb_agg(value->>'passage_id') FROM jsonb_array_elements(report->'inputs'->'passages')),'[]')) THEN
- RAISE EXCEPTION 'structural supported statement omits selected source passages' USING ERRCODE='23514'; END IF;
- expected:=jsonb_build_object('version','structural-admission-1','report',report_reference,'component_id',selected_component,
- 'policy_id',policy_id,'policy_version','1','statement_encoding','ddo-semantic-value-v1',
- 'statement_meaning_json',data.canonical_json(statement),'standing','admitted_structural_statement',
- 'assessment_basis','independently_attributed_authored_judgments','scientific_truth','not_established',
- 'member_truth','not_established_by_assembly_admission');
- output:=completion->'outputs'->0;
- IF output->>'role' IS DISTINCT FROM 'admission' OR output->>'member_id' IS NOT NULL
- OR (output->>'position')::integer IS DISTINCT FROM 0 OR (output->>'multiplicity')::integer IS DISTINCT FROM 1
- OR output->'product'->'members' IS DISTINCT FROM '[]'::jsonb
- OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
- AND kind.kind='__KIND__' AND kind.universe='ordinary')
- OR data.ddo_normalize(output->'product'->'body') IS DISTINCT FROM data.ddo_normalize(data.ddo_json_meaning(expected)) THEN
- RAISE EXCEPTION 'structural ordinary conclusion differs from exact independently adjudicated statement' USING ERRCODE='23514'; END IF;
-EXCEPTION WHEN no_data_found OR too_many_rows THEN
- RAISE EXCEPTION 'structural admission cannot resolve exact original custody' USING ERRCODE='23514';
-END $structural$;
-
-REVOKE ALL ON FUNCTION ops.ddo_structural_command_eligible(sem.data_operation_definition),
-ops.ddo_structural_product_reference(kb.data_product),ops.ddo_require_structural_admission_completion(ops.data_request,jsonb) FROM PUBLIC;
-
-
-
-
-"""
-    sql = (
-        sql.replace("__OPERATION__", ADMISSION_OPERATION)
-        .replace("__KIND__", ADMISSION_KIND)
-        .replace("__REFERENCE_KIND__", REFERENCE_KIND)
-        .replace(
-            "__REPORT_PRODUCERS__",
-            ",".join(
-                "(" + ",".join("'" + item + "'" for item in (variant, operation, factory)) + ")"
-                for variant, producers in STRUCTURAL_REPORT_PRODUCERS.items()
-                for operation, factory in producers
-            ),
-        )
-    )
-    from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
-
     report_identity = NativeIdentity(
         "function",
         "ops",
@@ -1320,7 +1701,7 @@ ops.ddo_structural_product_reference(kb.data_product),ops.ddo_require_structural
     return (
         structural_statement_native_sql()
         + _structural_command_helpers(model)
-        + sql
+        + _structural_issuance_completion(model)
         + _structural_dossier_completion(model)
         + native_sql_script(
             (
