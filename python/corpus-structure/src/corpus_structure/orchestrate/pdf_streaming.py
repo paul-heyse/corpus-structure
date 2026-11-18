@@ -17,6 +17,7 @@ import pyarrow as pa
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.ingest.pdf_stream_types import PdfStreamRequest
 from corpus_structure.semantic.claim_lifetime import OwnedClaim
 
 if TYPE_CHECKING:
@@ -419,17 +420,21 @@ def run_private_native_pdf_build(
                             )
                     native_lifetime.enter_context(closing(worker))
                     reply = worker.stream(
-                        owner.reference,
-                        spool_root=replay_root / "pages",
-                        record_root=replay_root / "records",
-                        build_id=build.build_id,
-                        release_id=build.release_id,
-                        payload_schema=payload_schema,
-                        validation_contract=validation_contract,
-                        lowering_identity=lowering_identity,
+                        PdfStreamRequest(
+                            owner.reference,
+                            spool_root=replay_root / "pages",
+                            record_root=replay_root / "records",
+                            build_id=build.build_id,
+                            release_id=build.release_id,
+                            payload_schema=payload_schema,
+                            validation_contract=validation_contract,
+                            lowering_identity=lowering_identity,
+                            recovery_pages=tuple(
+                                sorted(recovery_pages, key=lambda page: page.page_no)
+                            ),
+                        ),
                         on_replay=retain_replay,
                         check_active=check_active,
-                        recovery_pages=tuple(sorted(recovery_pages, key=lambda page: page.page_no)),
                     )
             if reply.conversion_status != "success":
                 raise RuntimeError(

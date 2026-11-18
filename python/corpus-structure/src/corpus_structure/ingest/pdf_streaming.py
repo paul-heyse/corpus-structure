@@ -11,9 +11,9 @@ import os
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from functools import lru_cache
-from hashlib import file_digest, sha256
+from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from .pdf_stream_types import (
     PdfPageRecovery,
@@ -25,9 +25,7 @@ from .pdf_stream_types import (
 
 
 def _ref(path: Path, family: str, rows: int = 0) -> PdfReplayRef:
-    with path.open("rb") as source:
-        digest = file_digest(source, "sha256").hexdigest()
-    return PdfReplayRef(path, digest, path.stat().st_size, family, rows)
+    return PdfReplayRef.from_path(path, family, rows)
 
 
 def _atomic_bytes(path: Path, value: bytes, family: str) -> PdfReplayRef:
@@ -375,6 +373,19 @@ def _json_view(value: Any, computed: bool = False) -> Any:
     return value
 
 
+@dataclass(frozen=True)
+class PreparedPdfCertificationInput:
+    """Exact converted values and the preparation acknowledged by the stream owner."""
+
+    document: Any
+    spool: PdfStreamSpool
+    conversion_status: str
+    errors: tuple[str, ...]
+    recipe: bytes
+    formula_outcomes: tuple[Any, ...]
+    effective_options: bytes
+
+
 @dataclass
 class StreamingPdfResult:
     document: Any
@@ -383,7 +394,6 @@ class StreamingPdfResult:
     errors: tuple[str, ...]
     recipe: bytes
     formula_outcomes: tuple[Any, ...]
-    effective_options: bytes = b"{}"
 
     def iter_records(
         self,
@@ -416,6 +426,7 @@ class StreamingPdfResult:
         release_id: str,
         source_digest: str,
         on_batch: Callable[[PdfReplayRef], None] | None = None,
+        preparation_report: bytes = b"{}",
     ) -> tuple[PdfReplayRef, ...]:
         """Own IPC replay, emit bounded batches synchronously, retain files for retries."""
         import pyarrow as pa
@@ -555,7 +566,7 @@ class StreamingPdfResult:
         scalar(
             "native/prepared-runtime",
             artifact_profile("native_recipe"),
-            iter((self.effective_options,)),
+            iter((preparation_report,)),
         )
 
         for row in self.iter_records(
@@ -575,6 +586,7 @@ class StreamingPdfResult:
         request: PdfStreamRequest,
         *,
         on_replay: Callable[[PdfReplayRef], None],
+        preparation_report: bytes,
     ) -> PdfStreamReply:
         """Emit the exact certified record and access artifacts for native adoption."""
         from corpus_structure.semantic.pdf_certification import certify_native_stream
@@ -585,10 +597,20 @@ class StreamingPdfResult:
             release_id=request.release_id,
             source_digest=request.source.digest,
             on_batch=on_replay,
+            preparation_report=preparation_report,
         )
         on_replay(_ref(request.record_root / "completion.jsonl", "native_completion"))
+        prepared = PreparedPdfCertificationInput(
+            self.document,
+            self.spool,
+            self.conversion_status,
+            self.errors,
+            self.recipe,
+            self.formula_outcomes,
+            preparation_report,
+        )
         companions, certification, access = certify_native_stream(
-            self, request, records, on_replay=on_replay
+            prepared, request, records, on_replay=on_replay
         )
         return PdfStreamReply(
             self.conversion_status,
@@ -596,11 +618,51 @@ class StreamingPdfResult:
             self.recipe,
             tuple(self.spool.pages[number] for number in sorted(self.spool.pages)),
             records,
-            self.effective_options,
+            preparation_report,
             companions,
             certification,
             access,
         )
+
+
+class PdfStreamProducer(Protocol):
+    def prepare(self, source: PdfSourceRef, spool: PdfStreamSpool) -> bytes: ...
+
+    def convert(
+        self, source: PdfSourceRef, spool: PdfStreamSpool, *, page_range: tuple[int, int] | None
+    ) -> StreamingPdfResult: ...
+
+
+def run_pdf_stream(
+    request: PdfStreamRequest,
+    producer: PdfStreamProducer,
+    *,
+    on_replay: Callable[[PdfReplayRef], None],
+    check_active: Callable[[], None] | None = None,
+) -> PdfStreamReply:
+    """Own native preparation, acknowledgement, conversion and certified emission."""
+    from corpus_structure.semantic.pdf_payloads import prepare_payload_schema, schema_load
+
+    from .pdf_build_spool import native_preparation_identity
+
+    request.source.verify()
+    spool = PdfStreamSpool(
+        request.spool_root,
+        on_page=on_replay,
+        payload_family=prepare_payload_schema(schema_load(request.payload_schema)),
+        recovery_pages=request.recovery_pages,
+        check_active=check_active,
+    )
+    spool.active()
+    report = producer.prepare(request.source, spool)
+    identity = native_preparation_identity(report)
+    prepared = _atomic_bytes(spool.root / "native-preparation.json", report, "native_preparation")
+    if spool.preparation_identities and spool.preparation_identities != {identity}:
+        raise ValueError("resumed PDF native preparation differs from its verified page spool")
+    on_replay(prepared)
+    spool.active()
+    result = producer.convert(request.source, spool, page_range=request.page_range)
+    return result.certified_reply(request, on_replay=on_replay, preparation_report=report)
 
 
 class StreamingPdfProducer:
@@ -608,33 +670,26 @@ class StreamingPdfProducer:
         if recipe.recipe_id != "docling-standard-pdf-stream-v1":
             raise ValueError("streaming requires the explicit native-raster streaming recipe")
         self.recipe, self.assets = recipe, assets
+        self.converter = None
 
-    def run(
+    def prepare(self, source: PdfSourceRef, spool: PdfStreamSpool) -> bytes:
+        from .pdf import PdfConverter
+
+        converter = PdfConverter(self.recipe, assets=self.assets, stream_spool=spool)
+        converter._prepare()
+        self.converter = converter
+        return converter.prepared_options_report
+
+    def convert(
         self,
         source: PdfSourceRef,
         spool: PdfStreamSpool,
         *,
         page_range: tuple[int, int] | None = None,
     ) -> StreamingPdfResult:
-        from .pdf import PdfConverter
-
-        source.verify()
-        converter = PdfConverter(self.recipe, assets=self.assets, stream_spool=spool)
-        converter._prepare()
-        from .pdf_build_spool import native_preparation_identity
-
-        prepared = _atomic_bytes(
-            spool.root / "native-preparation.json",
-            converter.prepared_options_report,
-            "native_preparation",
-        )
-        identity = native_preparation_identity(converter.prepared_options_report)
-        if spool.preparation_identities and spool.preparation_identities != {identity}:
-            # Retain the actual observation for diagnosis, but never acknowledge
-            # it into contributor custody or consume pages on a changed basis.
-            raise ValueError("resumed PDF native preparation differs from its verified page spool")
-        if spool.on_page is not None:
-            spool.on_page(prepared)
+        converter = self.converter
+        if converter is None:
+            raise ValueError("native PDF conversion requires prepared options")
         options = {} if page_range is None else {"page_range": page_range}
         result = None
         try:
@@ -651,7 +706,6 @@ class StreamingPdfProducer:
                 tuple(str(error) for error in result.errors),
                 self.recipe.to_bytes(),
                 tuple(converter._formula.outcomes),
-                converter.prepared_options_report,
             )
         finally:
             if result is not None:

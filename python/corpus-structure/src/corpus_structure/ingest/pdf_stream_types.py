@@ -99,6 +99,12 @@ class PdfReplayRef:
     logical_digest: str | None = None
     page_no: int | None = None
 
+    @classmethod
+    def from_path(cls, path: Path, family: str, rows: int = 0) -> PdfReplayRef:
+        with path.open("rb") as source:
+            digest = file_digest(source, "sha256").hexdigest()
+        return cls(path, digest, path.stat().st_size, family, rows)
+
     def verify(self) -> None:
         if self.path.stat().st_size != self.byte_length:
             raise ValueError("PDF replay size changed")

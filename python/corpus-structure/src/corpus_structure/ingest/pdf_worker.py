@@ -9,7 +9,6 @@ from contextlib import suppress
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
-from pathlib import Path
 from threading import Lock
 
 from corpus_structure.core.work import PhysicalRetirementUncertain
@@ -20,10 +19,8 @@ from .pdf_build_spool import PdfSpoolWriterLease
 from .pdf_enrichment import PdfEnrichmentRequest, PdfEnrichmentResult, compute_enrichment
 from .pdf_health import error_summary
 from .pdf_stream_types import (
-    PdfPageRecovery,
     PdfReplayReady,
     PdfReplayRef,
-    PdfSourceRef,
     PdfStreamReply,
     PdfStreamRequest,
 )
@@ -80,30 +77,16 @@ def _native_child(
                         request.original, name=request.name, page_range=request.page_range
                     )
                 elif isinstance(request, PdfStreamRequest):
-                    from corpus_structure.semantic.pdf_payloads import (
-                        prepare_payload_schema,
-                        schema_load,
-                    )
-
-                    from .pdf_streaming import PdfStreamSpool, StreamingPdfProducer
+                    from .pdf_streaming import StreamingPdfProducer, run_pdf_stream
 
                     def acknowledged(replay: PdfReplayRef) -> None:
                         connection.send(PdfReplayReady(replay))
                         if connection.recv() is not True:
                             raise PdfWorkerError("PDF replay custody was not acknowledged")
 
-                    payload_family = prepare_payload_schema(schema_load(request.payload_schema))
-                    spool = PdfStreamSpool(
-                        request.spool_root,
-                        on_page=acknowledged,
-                        payload_family=payload_family,
-                        recovery_pages=request.recovery_pages,
+                    result = run_pdf_stream(
+                        request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged
                     )
-                    streamed = StreamingPdfProducer(recipe, assets=assets).run(
-                        request.source, spool, page_range=request.page_range
-                    )
-                    result = streamed.certified_reply(request, on_replay=acknowledged)
-                    del streamed
                 elif isinstance(request, PdfEnrichmentRequest):
                     result = compute_enrichment(request, converter)
                 else:
@@ -252,36 +235,12 @@ class PdfWorker:
 
     def stream(
         self,
-        source: PdfSourceRef,
+        request: PdfStreamRequest,
         *,
-        spool_root: Path,
-        record_root: Path,
-        build_id: str,
-        release_id: str,
         on_replay: Callable[[PdfReplayRef], None],
-        page_range: tuple[int, int] | None = None,
         check_active: Callable[[], None] | None = None,
-        payload_schema: bytes,
-        recovery_pages: tuple[PdfPageRecovery, ...] = (),
-        validation_contract: bytes,
-        lowering_identity: str,
     ) -> PdfStreamReply:
-        value = self._exchange(
-            PdfStreamRequest(
-                source=source,
-                spool_root=spool_root,
-                record_root=record_root,
-                build_id=build_id,
-                release_id=release_id,
-                page_range=page_range,
-                payload_schema=payload_schema,
-                recovery_pages=recovery_pages,
-                validation_contract=validation_contract,
-                lowering_identity=lowering_identity,
-            ),
-            check_active,
-            on_replay,
-        )
+        value = self._exchange(request, check_active, on_replay)
         if not isinstance(value, PdfStreamReply):
             self.close()
             raise PdfWorkerError("native child returned a non-streaming result")
