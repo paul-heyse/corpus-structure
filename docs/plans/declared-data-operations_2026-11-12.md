@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-18. Canonical development runs model-built N13 and holds 29 registered originals across nine projects. The owned stage runs model-built N16. Its last application activation was N13 at generation 14. Matching application adoption, remaining consumers, residual SQL authoring, whole-book execution and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-18. Canonical development runs model-built N13 and holds 29 registered originals across nine projects. The owned stage runs model-built N16 with its application active at generation 15. Development adoption, remaining consumers, residual SQL authoring, whole-book execution and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -567,8 +567,43 @@ and execution-leaf controls passed (`56761a60bdb6476d83ac2ebff8323b2e`).
 candidate `d284fe223b534dcca94fae316efefcca`, registration `d7915f985f1542b7a789b97b8b90a44d`
 and deployment `f4fd194928d74160a1624babc3186e45` bound the same stage OID 130661481.
 Rollback replay applied eight native transitions. The native consumer cohort
-`598dda98ef574fa7898ffc87c1bd232d`, real E5 cohort `63a74abd48db43a9a501a3d28ed14285`,
-and matching stage application acquisition are in progress.
+`598dda98ef574fa7898ffc87c1bd232d` reached selected composition, dossier, and event acquisition.
+
+The matching application at `release:a72e2fbc88f9b182f257ffcb864b21c4f0a1f8eb10d7fe47edf4527812578e78`
+passed preview `96c39c6fcb2b4ac2b68a1ab02ce5e448`, apply `e9e404e32999441981b407fea0158d61`,
+candidate `00a3bffb62654cfc8ff7a9fbce15fda2`, deployment `9922d8926b174bc588b98bb4dd1e50e3`,
+and independent `ci db check` and `ci release check`. Compare-and-set activation for
+`ddo-current-pdf-bounded` moved generation 14 to 15 on OID 130661481. The previous preview
+`f1169369022a4a409203cd386dabf8c7` was reacquired after a documentation commit changed HEAD
+and the exact apply `31d66200758944c58cb5d601c2180d8a` refused.
+
+The real E5 selection `63a74abd48db43a9a501a3d28ed14285` reached query and target product
+publication, selected batch evidence, and the three-stage retrieval execution in all three
+cases. The fixture used the invocation's total receipts when judging each operation. Its
+replacement counts each receipt against the selected producing episode and retains all numeric
+and semantic checks. The corrected real-provider rerun passed all three cases in
+`618981d23eba4b4588d79257c8597065`. The rebuilt native target fixture passed all three controls in
+`355f995104ad4e4ba4e62d582e5ea101`, including closed empty population and stable target identity
+when the authentic producer support changes.
+
+**N17 source integration · 2026-11-18.** The [N17 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n17.yaml)
+captures the catalog and companion authoring conversions and the protected-fit currentness repair.
+Physical CHECK, view, trigger and index admission checks use typed catalog queries. Protected
+companion pin and projection functions generate signatures and return columns from the captured
+PDF domain. The private input-row function keeps its bound SQL body and restricted privilege
+inventory. Remaining function, table and principal catalog checks still use retained handwritten
+SQL. See the PostgreSQL companion for the boundary.
+
+Selected composition binds analytical manifests as sets and requires their full dependency
+closure. Dossier source frames retain exact native member addresses and unit multiplicity, while
+report roles keep whole inventories. The book comparator pairs source products with their exact
+members. Its 17 bounded controls passed (`96c44478a3a24064a4705463fec2fbc2`).
+
+Public event and policy readers can authenticate retained evaluator-fit currentness through scoped
+epoch proof. Direct reads and completion continue to require the authorized principal. The rich
+fixture acquires a precise authorization product. The broader operation-only cut also included
+the jointly authored protected fit specification in the same subject context. N16's original
+mixed failure remains held. Exact successor journeys and native rollout remain open.
 
 ## Production-efficiency integration · 2026-11-17
 

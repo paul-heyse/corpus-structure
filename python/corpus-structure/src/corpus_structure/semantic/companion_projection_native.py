@@ -80,31 +80,81 @@ def pin_guard_sql(*, target_metadata=None, domain=None) -> str:
     publication = receipt["publication"]
     boundary = core_variable("boundary", NullType())
     return function(
-        "ops", "require_published_companion_pin",
-        parameters=_parameters(selected), returns=pg_type(str(revisions.schema), revisions.name),
-        volatility="volatile", security_definer=True, search_path=("pg_catalog", "pg_temp"),
-        body=Block((
-            Perform(func.data.require_runtime_principal("read")),
-            If(~select(1).select_from(demand).where(
-                demand.c.id == arguments["demand_id"], demand.c.project_id == arguments["project_id"],
-            ).exists(), (Raise("published source demand/project differs", "22023"),)),
-            Perform(func.ops.ddo_require_selected_output(*(
-                arguments[name] for name in ("demand_id", "read_id", "use_id", "product_id", "derivation_id")
-            ))),
-            SelectInto(select(core_relation_row(reads)).select_from(reads).where(
-                reads.c.id == arguments["read_id"], reads.c.demand_id == arguments["demand_id"],
-            ), ("boundary",), strict=True),
-            Assign("receipt", func.ops.ddo_pdf_derivation_receipt(
-                arguments["project_id"], arguments["product_id"], arguments["derivation_id"], null().cast(Text()), boundary,
-            )),
-            SelectInto(select(core_relation_row(revisions)).select_from(revisions).where(
-                revisions.c.build_id == publication["build_id"].astext,
-                revisions.c.task_id == cast(publication["task_id"].astext, revisions.c.task_id.type),
-                revisions.c.product_key == publication["product_key"].astext,
-                revisions.c.logical_digest == publication["logical_digest"].astext,
-            ), ("published",), strict=True),
-            Return(core_variable("published", NullType())),
-        ), (Local("published", revisions), Local("boundary", reads), Local("receipt", pg_type("jsonb")))),
+        "ops",
+        "require_published_companion_pin",
+        parameters=_parameters(selected),
+        returns=pg_type(str(revisions.schema), revisions.name),
+        volatility="volatile",
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                Perform(func.data.require_runtime_principal("read")),
+                If(
+                    ~select(1)
+                    .select_from(demand)
+                    .where(
+                        demand.c.id == arguments["demand_id"],
+                        demand.c.project_id == arguments["project_id"],
+                    )
+                    .exists(),
+                    (Raise("published source demand/project differs", "22023"),),
+                ),
+                Perform(
+                    func.ops.ddo_require_selected_output(
+                        *(
+                            arguments[name]
+                            for name in (
+                                "demand_id",
+                                "read_id",
+                                "use_id",
+                                "product_id",
+                                "derivation_id",
+                            )
+                        )
+                    )
+                ),
+                SelectInto(
+                    select(core_relation_row(reads))
+                    .select_from(reads)
+                    .where(
+                        reads.c.id == arguments["read_id"],
+                        reads.c.demand_id == arguments["demand_id"],
+                    ),
+                    ("boundary",),
+                    strict=True,
+                ),
+                Assign(
+                    "receipt",
+                    func.ops.ddo_pdf_derivation_receipt(
+                        arguments["project_id"],
+                        arguments["product_id"],
+                        arguments["derivation_id"],
+                        null().cast(Text()),
+                        boundary,
+                    ),
+                ),
+                SelectInto(
+                    select(core_relation_row(revisions))
+                    .select_from(revisions)
+                    .where(
+                        revisions.c.build_id == publication["build_id"].astext,
+                        revisions.c.task_id
+                        == cast(publication["task_id"].astext, revisions.c.task_id.type),
+                        revisions.c.product_key == publication["product_key"].astext,
+                        revisions.c.logical_digest == publication["logical_digest"].astext,
+                    ),
+                    ("published",),
+                    strict=True,
+                ),
+                Return(core_variable("published", NullType())),
+            ),
+            (
+                Local("published", revisions),
+                Local("boundary", reads),
+                Local("receipt", pg_type("jsonb")),
+            ),
+        ),
     )
 
 
@@ -124,22 +174,42 @@ def family_sql(family: str, *, target_metadata=None, domain=None) -> str:
             else core_variable("published", field.type, field.name)
             for _, field, internal in _internal_parameters(selected)
         )
-        rows = helper(*arguments).table_valued(*(column(item.name, item.type) for item in selected.columns))
+        rows = helper(*arguments).table_valued(
+            *(column(item.name, item.type) for item in selected.columns)
+        )
         body = select(*rows.c)
     else:
         body = native_statement(selected.body_statement, selected.recipe)
     schema, name = selected.function_name.split(".")
     return function(
-        schema, name, parameters=_parameters(selected), returns=_table_return_type(),
+        schema,
+        name,
+        parameters=_parameters(selected),
+        returns=_table_return_type(),
         table_columns=tuple((item.name, column_type(item)) for item in selected.columns),
-        volatility="volatile", security_definer=True, search_path=("pg_catalog", "pg_temp"),
-        body=Block((
-            Assign("published", func.ops.require_published_companion_pin(*(
-                variables[item.name] for item in selected.recipe.parameters
-            ))),
-            SelectInto(select(demand.c.release_id).where(demand.c.id == variables["demand_id"]), ("selected_release",), strict=True),
-            ReturnQuery(body),
-        ), (Local("published", published), Local("selected_release", column_type(demand.c.release_id)))),
+        volatility="volatile",
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                Assign(
+                    "published",
+                    func.ops.require_published_companion_pin(
+                        *(variables[item.name] for item in selected.recipe.parameters)
+                    ),
+                ),
+                SelectInto(
+                    select(demand.c.release_id).where(demand.c.id == variables["demand_id"]),
+                    ("selected_release",),
+                    strict=True,
+                ),
+                ReturnQuery(body),
+            ),
+            (
+                Local("published", published),
+                Local("selected_release", column_type(demand.c.release_id)),
+            ),
+        ),
     )
 
 
@@ -148,19 +218,31 @@ def input_body_definition(connection, *, target_metadata=None, domain=None):
     selected = _selected("input", target_metadata, domain)
     internal = _internal_parameters(selected)
     statement = native_statement(
-        selected.body_statement, selected.recipe,
+        selected.body_statement,
+        selected.recipe,
         internal_bindings={binding: name for name, _, binding in internal},
     )
     schema, name = selected.function_name.split(".")
     source = sql_function(
-        schema, name + "_rows",
-        parameters=(*_parameters(selected), *(Parameter(name, column_type(field)) for name, field, _ in internal)),
+        schema,
+        name + "_rows",
+        parameters=(
+            *_parameters(selected),
+            *(Parameter(name, column_type(field)) for name, field, _ in internal),
+        ),
         returns=_table_return_type(),
         table_columns=tuple((item.name, column_type(item)) for item in selected.columns),
-        body=statement, volatility="volatile", security_definer=False, search_path=("pg_catalog", "pg_temp"),
+        body=statement,
+        volatility="volatile",
+        security_definer=False,
+        search_path=("pg_catalog", "pg_temp"),
     )
     definition = definition_from_sql(
-        connection, source, source="companion-input:private-body", owner="corpus_sem_publisher", grants=(),
+        connection,
+        source,
+        source="companion-input:private-body",
+        owner="corpus_sem_publisher",
+        grants=(),
     )
     return sql_standard_definition(definition, statement)
 
@@ -169,17 +251,28 @@ def companion_projection_definitions(connection, *, target_metadata=None, domain
     """Complete definitions with public guarded projections and one private rows helper."""
     sources = (
         ("pin", pin_guard_sql(target_metadata=target_metadata, domain=domain)),
-        *((family, family_sql(family, target_metadata=target_metadata, domain=domain)) for family in FAMILIES),
+        *(
+            (family, family_sql(family, target_metadata=target_metadata, domain=domain))
+            for family in FAMILIES
+        ),
     )
     definitions = tuple(
         definition_from_sql(
-            connection, sql, source="companion-projections:" + name, owner="corpus_sem_publisher",
-            grants=() if name == "pin" else tuple(
-                (role, "EXECUTE", False) for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+            connection,
+            sql,
+            source="companion-projections:" + name,
+            owner="corpus_sem_publisher",
+            grants=()
+            if name == "pin"
+            else tuple(
+                (role, "EXECUTE", False)
+                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
             ),
         )
         for name, sql in sources
     )
     return (
-        definitions[0], input_body_definition(connection, target_metadata=target_metadata, domain=domain), *definitions[1:],
+        definitions[0],
+        input_body_definition(connection, target_metadata=target_metadata, domain=domain),
+        *definitions[1:],
     )

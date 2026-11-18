@@ -593,9 +593,12 @@ def _captured_projection_inputs(domain: PdfDomainContract, target_metadata=None)
         if (
             target_metadata.info.get("physical_sources") != physical
             or target_metadata.info.get("physical_linkml_types") != logical["linkml:types"]
-            or target_metadata.info.get("physical_model_id") != compiled_physical.info["physical_model_id"]
+            or target_metadata.info.get("physical_model_id")
+            != compiled_physical.info["physical_model_id"]
         ):
-            raise ValueError("companion projection physical target differs from its captured domain")
+            raise ValueError(
+                "companion projection physical target differs from its captured domain"
+            )
         compiled_physical = target_metadata
     from corpus_structure.schema.physical import physical_source_closure, physical_sources_id
 
@@ -603,13 +606,21 @@ def _captured_projection_inputs(domain: PdfDomainContract, target_metadata=None)
         logical_name = name.removesuffix(".yaml").replace("-", "_")
         return logical[logical_name] if logical_name in logical else physical[name]
 
-    model_id = physical_sources_id(physical_source_closure("companion-projections.yaml", captured_model))
-    projection_id = RECIPE_VERSION + ":" + sha256((model_id + compiled_physical.info["physical_model_id"]).encode()).hexdigest()
+    model_id = physical_sources_id(
+        physical_source_closure("companion-projections.yaml", captured_model)
+    )
+    projection_id = (
+        RECIPE_VERSION
+        + ":"
+        + sha256((model_id + compiled_physical.info["physical_model_id"]).encode()).hexdigest()
+    )
     return view, compiled_physical, projection_id, model_field, resolve
 
 
 @lru_cache(maxsize=8)
-def captured_projection(family: str, domain: PdfDomainContract, *, target_metadata=None) -> CompanionProjection:
+def captured_projection(
+    family: str, domain: PdfDomainContract, *, target_metadata=None
+) -> CompanionProjection:
     """Resolve native authoring against its authenticated PDF-domain source cohort."""
     view, physical, projection_id, _, _ = _captured_projection_inputs(domain, target_metadata)
     return prepare_projection(view, family, projection_id=projection_id, physical=physical)
@@ -624,7 +635,9 @@ def render_static_columns(domain: PdfDomainContract | None = None) -> str:
     if domain is None:
         contract, *captured = pdf_domain_sources()
         domain = PdfDomainContract(contract.content, tuple(captured))
-    view, compiled_physical, projection_id, model_field, resolve = _captured_projection_inputs(domain)
+    view, compiled_physical, projection_id, model_field, resolve = _captured_projection_inputs(
+        domain
+    )
     declarations, imports = [], set()
     for family in FAMILIES:
         selected = prepare_projection(

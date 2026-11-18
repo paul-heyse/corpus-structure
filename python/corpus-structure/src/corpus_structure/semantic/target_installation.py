@@ -218,9 +218,8 @@ def target_native_definitions(connection, installation: TargetInstallation):
     )
     from .native_objects import definition_from_sql
     from .native_sql_body import published_revision_definition, published_validation_definition
-    from .published_document import published_reader_definitions
-
     from .pdf_domain import CONTRACT, PdfDomainContract
+    from .published_document import published_reader_definitions
 
     selected = installation.metadata
     domain = PdfDomainContract(

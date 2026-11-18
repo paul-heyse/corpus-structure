@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-18. Model-built N16 runs on the owned stage and N13 runs on canonical development. Matching application adoption, whole-book execution and DDO-12 qualification remain open._
+_Updated 2026-11-18. Model-built N16 and its matching application are active on the owned stage. Canonical development runs N13. Development adoption, whole-book execution and DDO-12 qualification remain open._
 
 ## Current owners
 
@@ -15,7 +15,7 @@ _Updated 2026-11-18. Model-built N16 runs on the owned stage and N13 runs on can
 
 ## Last verified · 2026-11-18
 
-- **Passed:** `ci model change candidate`, `register` and `deploy` for N16 on stage OID 130661481 (`d284fe223b534dcca94fae316efefcca`, `d7915f985f1542b7a789b97b8b90a44d`, `f4fd194928d74160a1624babc3186e45`). Rollback replay covered eight native transitions. The N15 application passed deployment and independent correspondence. Stage application activation remains at N13, generation 14.
+- **Passed:** `ci model change candidate`, `register` and `deploy` for N16 on stage OID 130661481 (`d284fe223b534dcca94fae316efefcca`, `d7915f985f1542b7a789b97b8b90a44d`, `f4fd194928d74160a1624babc3186e45`). Eight native transitions replayed. Application deployment `9922d8926b174bc588b98bb4dd1e50e3`, `ci db check`, and `ci release check` passed. `ci release activate` moved the bounded stage project to generation 15.
 - **Passed:** `ci db init` and `ci db status --maintenance` confirmed canonical development OID 131763263 and N13. Dev application deployment `d6ea36869d794732811b89ee8d405eed`, `ci db check`, `ci project init --original-descriptors`, and the book project activation and release check passed. Independent reader readback verified every descriptor field and retained byte across 29 originals and nine projects. The old database remains fenced at its original OID 25921445.
 - **Scoped:** 73 PDF controls passed at N12 (`f6544d5c3bee4cb5af0360c23596e8b8`). N13's integrated attempt `be66da57a0a44cf3b6aa420cb7e77c37` reported 135 passes and 13 failures. Its retained retries establish specific fixes and leave two binding refusal controls open. The E5 and NCE attempts reached later boundaries after production fixes, then exposed fixture acquisition and scope issues. The corrected fixtures await verification.
 - **Passed:** 17 construction grammar controls, including the bounded production-region comparator. Its actual-book inputs and full comparison remain open.
@@ -28,5 +28,5 @@ _Updated 2026-11-18. Model-built N16 runs on the owned stage and N13 runs on can
 ## Next execution
 
 - Resolve the native consumer prerequisites recorded by TDM, then reconcile the qualification union with `ci test review`. See the [TDM closeout](docs/plans/test-domain-model-and-execution_2026-11-17.md#tdm-18).
-- Settle the N16 discovery, scoped authority and actual E5 reruns. Verify the matching stage application and adopt the corrected head on canonical development.
+- Settle the real E5 rerun and integrate the source-member, composition and protected-currentness repairs. Verify the next native successor before canonical development adoption.
 - Run the full 518-page book demand through committed progress, interruption, same-demand resume and repeat. Use its current source, formal and sentence products for PE-S33. Complete the required native, provider, public, fault and repository-check union for DDO-12. Chandra OCR remains excluded.

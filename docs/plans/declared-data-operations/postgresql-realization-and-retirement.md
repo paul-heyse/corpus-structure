@@ -403,14 +403,20 @@ registration, selected-source and visual readers, PDF descriptor and recognition
 contextual neighborhood. The CHECK-bound descriptor has an explicit recreation effect. The
 candidate acquires the owning table locks, recreates the routine and reinstalls the same
 captured CHECK predicates to validate retained rows before commit. The release admission
-generator now owns the semantic checks. Physical catalog and principal checks still use the
-maintained `admission.sql` and its catalog/body/ACL composition. Other maintained inline
-native programs remain with their existing component owners.
+generator now owns the semantic checks.
+
+N17 source uses shared typed PostgreSQL catalog observations for physical CHECK, native CHECK,
+view, index and trigger admission. The companion authoring entry point derives its signatures,
+pin guard, returned column declarations and private SQL-standard input-body function from the
+captured PDF domain. It authenticates the same demand, selected support and producing receipt
+before returning records. The maintained `admission.sql` still contains function, table,
+reader and principal checks. Other maintained inline native programs remain with their existing
+component owners. The coordinator owns N17 native qualification.
 
 Remaining catalog, scientific, public-read and maintenance routines follow their owning
 boundaries. Preserve frozen migrations, independent test controls and explicitly submitted
 read-only SQL. Qualification covers each deployed native/application pair. The final DDO-12
-union has its own assembled acceptance boundary. [Deployment and verification](../declared-data-operations_2026-11-12.md#generated-ddo-acquisition-settlement-and-inspection--2026-11-18)
+union has its own assembled acceptance boundary. [Deployment and verification](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
 ### Broader conversion mechanisms · 2026-11-17
 

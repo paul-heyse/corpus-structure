@@ -1,0 +1,4 @@
+# Generate physical catalog and companion guards, and authenticate protected fit currentness.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n16
+native_revision: semantic_ddo_pe_n17
