@@ -35,7 +35,7 @@ LOWERING_FILES = (
     "semantic/pdf_certification.py",
     "semantic/pdf_shared_streams.py",
     "semantic/pdf_shared_stream_queries.py",
-    "semantic/sql/pdf_shared_streams.sql",
+    "semantic/pdf_shared_stream_writes.py",
     "semantic/_pdf_native_calls.py",
     "semantic/_pdf_native_ids.py",
     "semantic/operation_value_types.py",

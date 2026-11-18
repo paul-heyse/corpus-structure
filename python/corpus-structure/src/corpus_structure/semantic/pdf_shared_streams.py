@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pglast import ast, enums
@@ -180,11 +179,12 @@ def pdf_scratch_prepare(spec: PdfScratchSpec) -> tuple[Statement, ...]:
 
 def shared_streams_sql(metadata) -> str:
     from .pdf_shared_stream_queries import shared_stream_queries_sql
+    from .pdf_shared_stream_writes import shared_stream_writes_sql
 
     return (
         shared_stream_queries_sql(metadata)
         + "\n"
-        + Path(__file__).with_name("sql").joinpath("pdf_shared_streams.sql").read_text()
+        + shared_stream_writes_sql(metadata)
     )
 
 

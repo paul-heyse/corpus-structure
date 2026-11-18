@@ -184,6 +184,17 @@ class ForQuery:
 
 
 @dataclass(frozen=True)
+class ForRelation:
+    """Scan a checked regclass with model-owned named columns and ordering."""
+
+    targets: tuple[str, ...]
+    columns: tuple[str, ...]
+    relation: ast.Node
+    order_by: tuple[Expression, ...]
+    body: tuple[Statement, ...]
+
+
+@dataclass(frozen=True)
 class ReturnQuery:
     query: Expression
 
@@ -194,7 +205,7 @@ class Return:
 
 
 type Statement = (
-    Sql | Assign | Perform | SelectInto | Raise | If | While | ForQuery | ReturnQuery | Return
+    Sql | Assign | Perform | SelectInto | Raise | If | While | ForQuery | ForRelation | ReturnQuery | Return
 )
 
 
@@ -250,6 +261,16 @@ def _step(statement: Statement, nested: str) -> str:
         case ForQuery(targets, query, body):
             return (
                 f"FOR {_targets(targets)} IN {_statement(query)} LOOP\n"
+                f"{_statements(body, nested)}\n{nested[:-1]}END LOOP"
+            )
+        case ForRelation(targets, columns, relation, order_by, body):
+            if not columns or not order_by:
+                raise ValueError("dynamic relation scan requires its columns and ordering")
+            query = "SELECT " + ", ".join(_identifier(name).replace("%", "%%") for name in columns) + " FROM %s ORDER BY "
+            query += ", ".join(_render(value).replace("%", "%%") for value in order_by)
+            dynamic = call("pg_catalog", "format", literal(query), relation)
+            return (
+                f"FOR {_targets(targets)} IN EXECUTE {_render(dynamic)} LOOP\n"
                 f"{_statements(body, nested)}\n{nested[:-1]}END LOOP"
             )
         case ReturnQuery(query):
