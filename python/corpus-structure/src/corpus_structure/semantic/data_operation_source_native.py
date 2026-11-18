@@ -6,12 +6,11 @@ from pathlib import Path
 
 from pglast import ast
 
-from .native_objects import NativeDefinition, definition_from_sql
+from .native_objects import NativeDefinition, definition_from_sql, native_sql_script
 from .prepared_sql import prepare_sql
+from .source_admission_native import source_admission_native_sql
 from .source_capture_native import source_capture_native_sql
 from .types import SourceArtifact
-
-_SQL = Path(__file__).with_name("sql") / "data_operation_source_admission.sql"
 
 
 def source_native_sources(
@@ -40,7 +39,14 @@ def source_native_sources(
         ),
         *source_admission_sources(target_metadata=target_metadata),
         *visual_read_sources(target_metadata=target_metadata),
-        SourceArtifact("native/data-operation-source-admission.sql", _SQL.read_bytes()),
+        SourceArtifact(
+            "native/data-operation-source-admission.sql",
+            source_admission_native_sql(target_metadata).encode(),
+        ),
+        SourceArtifact(
+            "native/source-admission-native.py",
+            Path(__file__).with_name("source_admission_native.py").read_bytes(),
+        ),
         SourceArtifact("native/data-operation-source-native.py", Path(__file__).read_bytes()),
     )
 
@@ -52,24 +58,25 @@ def source_native_sql(sources=None) -> str:
     from .original_document_contracts import source_original_sql
 
     selected = None if sources is None else {source.name: source.content for source in sources}
-    sql = (
-        (
-            _SQL.read_text()
-            if selected is None
-            else selected["native/data-operation-source-admission.sql"].decode()
-        )
-        + "\n"
-        + source_original_sql(sources)
-        + "\n"
-        + visual_read_sql(sources)
-    )
     if selected is None:
         from .metadata import metadata
 
+        admission_sql = source_admission_native_sql(metadata)
         capture_sql = source_capture_native_sql(metadata)
     else:
+        admission_sql = selected["native/data-operation-source-admission.sql"].decode()
         capture_sql = selected["native/data-operation-source-capture.sql"].decode()
-    sql = sql.replace("__DDO_SOURCE_CAPTURE_PROGRAMS__", capture_sql)
+    prepared = prepare_sql(admission_sql, source="generated source admission")
+    programs = []
+    for index, raw in enumerate(prepared.statements):
+        declaration = raw.stmt
+        if isinstance(declaration, ast.CreateFunctionStmt) and tuple(
+            part.sval for part in declaration.funcname or ()
+        ) == ("ops", "read_selected_pdf_source"):
+            programs.append(capture_sql)
+        programs.append(prepared.excerpt(index))
+    sql = native_sql_script((*programs, source_original_sql(sources), visual_read_sql(sources)))
+
     return _rename_native_entrypoints(sql, {item["name"] for item in wire_operations(sources)})
 
 

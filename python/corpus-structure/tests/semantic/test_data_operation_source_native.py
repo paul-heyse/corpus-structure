@@ -92,6 +92,7 @@ def test_native_source_helper_capture_and_compilation():
     assert {
         "native/data-operation-source-admission.sql",
         "native/data-operation-source-native.py",
+        "native/source-admission-native.py",
         "native/data-operation-visual-read.schema.json",
         "native/data-operation-visual-read.sql",
         "native/visual-evidence.py",
@@ -114,6 +115,40 @@ def test_native_source_helper_capture_and_compilation():
     assert {"ddo_visual_candidate_rows", "ddo_impl_read_selected_visual_evidence"} <= set(names)
     assert "read_selected_pdf_source" not in names
     assert "read_selected_visual_evidence" not in names
+
+
+def test_source_admission_compiler_keeps_producer_and_recursive_lineage_contracts():
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.source_admission_native import source_admission_native_sql
+
+    source = source_admission_native_sql(metadata)
+    parsed = prepare_sql(source, source="generated source admission")
+    declarations = [raw.stmt for raw in parsed.statements]
+    assert all(isinstance(declaration, ast.CreateFunctionStmt) for declaration in declarations)
+    assert [
+        declaration.funcname[-1].sval
+        for declaration in declarations
+        if isinstance(declaration, ast.CreateFunctionStmt) and declaration.funcname
+    ] == [
+        "ddo_native_source_body",
+        "ddo_pdf_producing_request",
+        "read_selected_pdf_observations",
+        "read_selected_pdf_source",
+        "ddo_pdf_observation_derivation_receipt",
+        "ddo_pdf_observation_source",
+    ]
+    lineage = parsed.excerpt(5)
+    assert "WITH RECURSIVE lineage" in lineage
+    assert "UNION SELECT ops.data_derivation_support.support_derivation_id" in lineage
+    assert "UNION ALL SELECT ops.data_derivation_support.support_derivation_id" not in lineage
+    assert "candidate.kind_contract = raw_product.kind_contract" in lineage
+    assert "candidate.original_source = consumer.original_source" in lineage
+    producing = parsed.excerpt(1)
+    assert "selected.selection['inputs'] IS NOT DISTINCT FROM intent.payload['inputs']" in producing
+    assert (
+        "selected.selection['support'] IS NOT DISTINCT FROM intent.payload['support']" in producing
+    )
+    assert "PDF original producer binding is ambiguous in immutable admitted uses" in producing
 
 
 def test_native_source_builder_matches_source_owner_without_legacy_diagnostic_salts(
