@@ -580,7 +580,11 @@ def _physical_check_contract(connection, target_metadata, authoring):
             for item in relation.columns
         ]
         columns.extend(
-            "CONSTRAINT " + preparer.format_constraint(item) + " CHECK (" + physical_expression_sql(item.sqltext) + ")"
+            "CONSTRAINT "
+            + preparer.format_constraint(item)
+            + " CHECK ("
+            + physical_expression_sql(item.sqltext)
+            + ")"
             for item in constraints
         )
         connection.exec_driver_sql(

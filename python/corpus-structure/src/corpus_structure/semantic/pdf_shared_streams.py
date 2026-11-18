@@ -181,11 +181,7 @@ def shared_streams_sql(metadata) -> str:
     from .pdf_shared_stream_queries import shared_stream_queries_sql
     from .pdf_shared_stream_writes import shared_stream_writes_sql
 
-    return (
-        shared_stream_queries_sql(metadata)
-        + "\n"
-        + shared_stream_writes_sql(metadata)
-    )
+    return shared_stream_queries_sql(metadata) + "\n" + shared_stream_writes_sql(metadata)
 
 
 def part_upload_contract_table(model: MetaData | None = None) -> Table:
@@ -198,20 +194,25 @@ def part_upload_contract_table(model: MetaData | None = None) -> Table:
         prefixes=["TEMPORARY"],
         postgresql_on_commit="DROP",
     )
+
     def replace_column(element: Any, **_kw: Any) -> Column[Any] | None:
-        return contract.c[element.name] if isinstance(element, Column) and element.table is upload else None
+        return (
+            contract.c[element.name]
+            if isinstance(element, Column) and element.table is upload
+            else None
+        )
 
     for check in sorted(
         (check for check in upload.constraints if isinstance(check, CheckConstraint)),
         key=lambda check: str(check.name or ""),
     ):
         expression = visitors.replacement_traverse(
-            check.sqltext, {},
+            check.sqltext,
+            {},
             replace_column,
         )
         contract.append_constraint(CheckConstraint(expression, name=check.name))
     return contract
-
 
 
 def part_wire_contract_sql(metadata) -> str:

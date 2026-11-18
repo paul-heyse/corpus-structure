@@ -172,14 +172,21 @@ def test_geometry_relations_keep_ordinals_ambiguity_and_reader_lifetime(origin):
     selected, boundary = Cell(7, "table", 0), Cell(7, "table", 1)
     candidates = page(7)
     if origin == "BOTTOMLEFT":
-        candidates = replace(candidates, candidates=tuple(
-            replace(candidate, top=96, bottom=100, origin=origin)
-            for candidate in candidates.candidates
-        ))
+        candidates = replace(
+            candidates,
+            candidates=tuple(
+                replace(candidate, top=96, bottom=100, origin=origin)
+                for candidate in candidates.candidates
+            ),
+        )
     with CandidateGeometry(document, InMemoryCandidatePageSource((candidates,)), {7}) as geometry:
         matches = list(geometry.inline_matches(nodes, frozenset({"a", "b"})))
-        assert [(match.candidate_index, match.item_ref, match.match_count) for match in matches] == [
-            (1, "a", 2), (1, "b", 2), (2, "a", 1),
+        assert [
+            (match.candidate_index, match.item_ref, match.match_count) for match in matches
+        ] == [
+            (1, "a", 2),
+            (1, "b", 2),
+            (2, "a", 1),
         ]
         assert [match.candidate for match in matches[:2]] == [None, None]
         assert matches[2].candidate is not None

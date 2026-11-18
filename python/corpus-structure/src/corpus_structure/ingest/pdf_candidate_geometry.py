@@ -106,36 +106,54 @@ class CandidateGeometry:
             ).set_alias("h")
             # Assign ordinals before geometry predicates and consume the single-pass
             # Arrow input once into a connection-owned relation shared by both readers.
-            flattened = self.connection.from_arrow(self.reader).select(
-                col("page_no"), fn("unnest", col("candidates")).alias("candidate"),
-                (fn("generate_subscripts", col("candidates"), lit(1)) - 1).alias("candidate_index"),
-            ).set_alias("f")
+            flattened = (
+                self.connection.from_arrow(self.reader)
+                .select(
+                    col("page_no"),
+                    fn("unnest", col("candidates")).alias("candidate"),
+                    (fn("generate_subscripts", col("candidates"), lit(1)) - 1).alias(
+                        "candidate_index"
+                    ),
+                )
+                .set_alias("f")
+            )
             numeric_boxes = flattened.join(
                 heights, col("f", "page_no") == col("h", "page_no")
             ).select(
-                col("f", "page_no"), col("candidate_index"), col("candidate"), col("height"),
+                col("f", "page_no"),
+                col("candidate_index"),
+                col("candidate"),
+                col("height"),
                 *(
                     coalesce(
                         col("candidate")[edge]["integer"].cast("DOUBLE"),
                         col("candidate")[edge]["binary64"],
                     ).alias(name)
                     for edge, name in (
-                        ("left", "x_left"), ("right", "x_right"),
-                        ("top", "source_top"), ("bottom", "source_bottom"),
+                        ("left", "x_left"),
+                        ("right", "x_right"),
+                        ("top", "source_top"),
+                        ("bottom", "source_bottom"),
                     )
                 ),
             )
             normalized = numeric_boxes.select(
-                col("page_no"), col("candidate_index"), col("candidate"),
-                col("x_left"), col("x_right"),
+                col("page_no"),
+                col("candidate_index"),
+                col("candidate"),
+                col("x_left"),
+                col("x_right"),
                 *(
                     when(col("candidate")["origin"] == "BOTTOMLEFT")
-                    .then(col("height") - col(source)).otherwise(col(source)).alias(edge)
+                    .then(col("height") - col(source))
+                    .otherwise(col(source))
+                    .alias(edge)
                     for source, edge in (("source_top", "top"), ("source_bottom", "bottom"))
                 ),
             )
             normalized.select(
-                star(), ((col("x_left") + col("x_right")) / 2).alias("center_x"),
+                star(),
+                ((col("x_left") + col("x_right")) / 2).alias("center_x"),
                 ((col("top") + col("bottom")) / 2).alias("center_y"),
                 fn("least", col("top"), col("bottom")).alias("min_y"),
                 fn("greatest", col("top"), col("bottom")).alias("max_y"),
@@ -190,7 +208,9 @@ class CandidateGeometry:
                 )
         if not rows:
             return
-        prose = self.connection.from_arrow(pa.Table.from_pylist(rows, schema=_BOX_SCHEMA)).set_alias("p")
+        prose = self.connection.from_arrow(
+            pa.Table.from_pylist(rows, schema=_BOX_SCHEMA)
+        ).set_alias("p")
         geometry = self.connection.table("candidate_geometry").set_alias("c")
         matches = geometry.join(
             prose,
@@ -199,21 +219,43 @@ class CandidateGeometry:
             & (col("c", "center_x") <= col("p", "right"))
             & (col("p", "top") <= col("c", "center_y"))
             & (col("c", "center_y") <= col("p", "bottom")),
-        ).aggregate([
-            col("c", "page_no"), col("c", "candidate_index"), col("p", "item_ref"),
-            fn("any_value", col("c", "candidate")).alias("candidate"),
-            fn("any_value", col("c", "top")).alias("top"),
-            fn("any_value", col("c", "bottom")).alias("bottom"),
-            fn("list_distinct", fn("list", fn("list_value", col("p", "span_start"), col("p", "span_end")))).alias("spans"),
-        ])
-        counted = matches.select(
-            star(), count_all().over(partition_by=[col("page_no"), col("candidate_index")]).alias("match_count")
+        ).aggregate(
+            [
+                col("c", "page_no"),
+                col("c", "candidate_index"),
+                col("p", "item_ref"),
+                fn("any_value", col("c", "candidate")).alias("candidate"),
+                fn("any_value", col("c", "top")).alias("top"),
+                fn("any_value", col("c", "bottom")).alias("bottom"),
+                fn(
+                    "list_distinct",
+                    fn("list", fn("list_value", col("p", "span_start"), col("p", "span_end"))),
+                ).alias("spans"),
+            ]
         )
-        result = counted.select(
-            col("page_no"), col("candidate_index"), col("item_ref"),
-            when(col("match_count") == 1).then(col("candidate")).otherwise(None).alias("candidate"),
-            col("top"), col("bottom"), col("spans"), col("match_count"),
-        ).sort(col("page_no"), col("candidate_index"), col("item_ref")).to_arrow_reader(batch_size=1024)
+        counted = matches.select(
+            star(),
+            count_all()
+            .over(partition_by=[col("page_no"), col("candidate_index")])
+            .alias("match_count"),
+        )
+        result = (
+            counted.select(
+                col("page_no"),
+                col("candidate_index"),
+                col("item_ref"),
+                when(col("match_count") == 1)
+                .then(col("candidate"))
+                .otherwise(None)
+                .alias("candidate"),
+                col("top"),
+                col("bottom"),
+                col("spans"),
+                col("match_count"),
+            )
+            .sort(col("page_no"), col("candidate_index"), col("item_ref"))
+            .to_arrow_reader(batch_size=1024)
+        )
         try:
             for batch in result:
                 for row in batch.to_pylist():
@@ -246,16 +288,23 @@ class CandidateGeometry:
             )
             for candidate in candidates
         ]
-        boxes = self.connection.from_arrow(pa.Table.from_pylist(rows, schema=_BOX_SCHEMA)).set_alias("b")
+        boxes = self.connection.from_arrow(
+            pa.Table.from_pylist(rows, schema=_BOX_SCHEMA)
+        ).set_alias("b")
         geometry = self.connection.table("candidate_geometry").set_alias("c")
-        result = boxes.join(
-            geometry,
-            (col("b", "page_no") == col("c", "page_no"))
-            & (col("b", "left") < col("c", "x_right"))
-            & (col("c", "x_left") < col("b", "right"))
-            & (col("b", "top") < col("c", "max_y"))
-            & (col("c", "min_y") < col("b", "bottom")),
-        ).select(col("b", "page_no"), col("b", "item_ref"), col("b", "index")).distinct().to_arrow_table()
+        result = (
+            boxes.join(
+                geometry,
+                (col("b", "page_no") == col("c", "page_no"))
+                & (col("b", "left") < col("c", "x_right"))
+                & (col("c", "x_left") < col("b", "right"))
+                & (col("b", "top") < col("c", "max_y"))
+                & (col("c", "min_y") < col("b", "bottom")),
+            )
+            .select(col("b", "page_no"), col("b", "item_ref"), col("b", "index"))
+            .distinct()
+            .to_arrow_table()
+        )
         keys = {(row["page_no"], row["item_ref"], row["index"]) for row in result.to_pylist()}
         return {
             candidate

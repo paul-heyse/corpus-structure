@@ -122,14 +122,18 @@ def _compare_declared_index_definitions(context, operations, inspected, declared
         if observed_index is None or impl.compare_indexes(index, observed_index).is_different:
             # Ordinary Alembic already owns a rebuild for differences it detects.
             continue
-        current = context.connection.scalar(select(func.pg_catalog.pg_get_indexdef(
-            func.pg_catalog.to_regclass(declaration["index"])
-        )))
+        current = context.connection.scalar(
+            select(
+                func.pg_catalog.pg_get_indexdef(func.pg_catalog.to_regclass(declaration["index"]))
+            )
+        )
         if current is None:
             raise RuntimeError(f"reflected index disappeared: {declaration['index']}")
         if _index_shape(current) == _index_shape(declaration["definition"]):
             continue
-        if context.run_name_filters(name, "index", {"table_name": declared.name, "schema_name": declared.schema}) and context.run_object_filters(index, name, "index", False, observed_index):
+        if context.run_name_filters(
+            name, "index", {"table_name": declared.name, "schema_name": declared.schema}
+        ) and context.run_object_filters(index, name, "index", False, observed_index):
             operations.ops.append(ops.DropIndexOp.from_index(observed_index))
             operations.ops.append(ops.CreateIndexOp.from_index(index))
 

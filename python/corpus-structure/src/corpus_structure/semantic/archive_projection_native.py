@@ -41,12 +41,7 @@ def _elements(value, name, *, text=False):
         func.pg_catalog.jsonb_array_elements_text if text else func.pg_catalog.jsonb_array_elements
     )
     field = column("value", Text()) if text else column("value", JSONB())
-    return (
-        unpack(value)
-        .table_valued(field)
-        .render_derived(name=name)
-        .lateral()
-    )
+    return unpack(value).table_valued(field).render_derived(name=name).lateral()
 
 
 def _array(value, *order):

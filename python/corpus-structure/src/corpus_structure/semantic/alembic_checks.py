@@ -21,22 +21,40 @@ from corpus_structure.schema.relational import physical_expression_sql
 
 def _bound_checks(connection, relation):
     catalog = sql_table(
-        "pg_constraint", column("conname"), column("conbin"), column("conrelid"),
-        column("contype"), schema="pg_catalog",
+        "pg_constraint",
+        column("conname"),
+        column("conbin"),
+        column("conrelid"),
+        column("contype"),
+        schema="pg_catalog",
     )
-    return dict(connection.execute(select(
-        catalog.c.conname, func.pg_catalog.pg_get_expr(catalog.c.conbin, catalog.c.conrelid)
-    ).where(catalog.c.conrelid == func.pg_catalog.to_regclass(relation),
-            catalog.c.contype == "c")).all())
+    return dict(
+        connection.execute(
+            select(
+                catalog.c.conname, func.pg_catalog.pg_get_expr(catalog.c.conbin, catalog.c.conrelid)
+            ).where(
+                catalog.c.conrelid == func.pg_catalog.to_regclass(relation),
+                catalog.c.contype == "c",
+            )
+        ).all()
+    )
 
 
 def compare_existing_checks(
-    context: Any, operations: Any, schema: Any, name: Any, inspected: Any, declared: Any,
+    context: Any,
+    operations: Any,
+    schema: Any,
+    name: Any,
+    inspected: Any,
+    declared: Any,
 ) -> PriorityDispatchResult:
     if inspected is None or declared is None:
         return PriorityDispatchResult.CONTINUE
-    constraints = {str(item.name): item for item in declared.constraints
-                   if isinstance(item, CheckConstraint) and item.name is not None}
+    constraints = {
+        str(item.name): item
+        for item in declared.constraints
+        if isinstance(item, CheckConstraint) and item.name is not None
+    }
     if not constraints:
         return PriorityDispatchResult.CONTINUE
     quote = context.connection.dialect.identifier_preparer
@@ -45,11 +63,15 @@ def compare_existing_checks(
     if not common:
         return PriorityDispatchResult.CONTINUE
     scratch = Table(
-        "semantic_candidate_predicates", MetaData(),
+        "semantic_candidate_predicates",
+        MetaData(),
         *(Column(item.name, item.type) for item in declared.columns),
-        *(CheckConstraint(physical_expression_sql(constraints[key].sqltext), name=key)
-          for key in sorted(common)),
-        prefixes=["TEMPORARY"], postgresql_on_commit="DROP",
+        *(
+            CheckConstraint(physical_expression_sql(constraints[key].sqltext), name=key)
+            for key in sorted(common)
+        ),
+        prefixes=["TEMPORARY"],
+        postgresql_on_commit="DROP",
     )
     context.connection.execute(CreateTable(scratch))
     try:
@@ -61,7 +83,11 @@ def compare_existing_checks(
             continue
         constraint = constraints[key]
         previous = CheckConstraint(existing[key], name=key, table=inspected)
-        if context.run_name_filters(key, "check_constraint", {"table_name": name, "schema_name": schema}) and context.run_object_filters(constraint, constraint.name, "check_constraint", False, previous):
+        if context.run_name_filters(
+            key, "check_constraint", {"table_name": name, "schema_name": schema}
+        ) and context.run_object_filters(
+            constraint, constraint.name, "check_constraint", False, previous
+        ):
             operations.ops.append(ops.DropConstraintOp.from_constraint(previous))
             operations.ops.append(ops.CreateCheckConstraintOp.from_constraint(constraint))
     return PriorityDispatchResult.CONTINUE
@@ -69,6 +95,9 @@ def compare_existing_checks(
 
 plugin = Plugin("corpus.semantic.check_expressions")
 plugin.add_autogenerate_comparator(
-    compare_existing_checks, "table", "checkconstraints", qualifier="postgresql",
+    compare_existing_checks,
+    "table",
+    "checkconstraints",
+    qualifier="postgresql",
     priority=DispatchPriority.FIRST,
 )

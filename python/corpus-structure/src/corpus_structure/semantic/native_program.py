@@ -205,7 +205,17 @@ class Return:
 
 
 type Statement = (
-    Sql | Assign | Perform | SelectInto | Raise | If | While | ForQuery | ForRelation | ReturnQuery | Return
+    Sql
+    | Assign
+    | Perform
+    | SelectInto
+    | Raise
+    | If
+    | While
+    | ForQuery
+    | ForRelation
+    | ReturnQuery
+    | Return
 )
 
 
@@ -266,7 +276,11 @@ def _step(statement: Statement, nested: str) -> str:
         case ForRelation(targets, columns, relation, order_by, body):
             if not columns or not order_by:
                 raise ValueError("dynamic relation scan requires its columns and ordering")
-            query = "SELECT " + ", ".join(_identifier(name).replace("%", "%%") for name in columns) + " FROM %s ORDER BY "
+            query = (
+                "SELECT "
+                + ", ".join(_identifier(name).replace("%", "%%") for name in columns)
+                + " FROM %s ORDER BY "
+            )
             query += ", ".join(_render(value).replace("%", "%%") for value in order_by)
             dynamic = call("pg_catalog", "format", literal(query), relation)
             return (

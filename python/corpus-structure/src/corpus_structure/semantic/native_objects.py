@@ -45,21 +45,31 @@ def native_sql_script(statements: Iterable[str]) -> str:
 
 
 def native_role_sql(role: str) -> str:
-    return RawStream()(ast.VariableSetStmt(
-        kind=enums.VariableSetKind.VAR_SET_VALUE, name="role", is_local=True,
-        args=(ast.A_Const(val=ast.String(sval=role)),),
-    ))
+    return RawStream()(
+        ast.VariableSetStmt(
+            kind=enums.VariableSetKind.VAR_SET_VALUE,
+            name="role",
+            is_local=True,
+            args=(ast.A_Const(val=ast.String(sval=role)),),
+        )
+    )
 
 
 def _native_target(identity: NativeIdentity):
     if identity.kind == "function":
         types = []
         for argument in identity.arguments:
-            parsed = prepare_sql("SELECT NULL::" + argument, source="native argument type").statements
+            parsed = prepare_sql(
+                "SELECT NULL::" + argument, source="native argument type"
+            ).statements
             if len(parsed) != 1 or not isinstance(parsed[0].stmt, ast.SelectStmt):
                 raise NativeAuthoringError("invalid native argument type")
             projection = parsed[0].stmt
-            if not projection.targetList or len(projection.targetList) != 1 or projection.fromClause:
+            if (
+                not projection.targetList
+                or len(projection.targetList) != 1
+                or projection.fromClause
+            ):
                 raise NativeAuthoringError("invalid native argument type")
             value = projection.targetList[0].val
             if not isinstance(value, ast.TypeCast):
@@ -67,7 +77,8 @@ def _native_target(identity: NativeIdentity):
             types.append(value.typeName)
         return ast.ObjectWithArgs(
             objname=(ast.String(sval=identity.schema), ast.String(sval=identity.name)),
-            objargs=tuple(types), args_unspecified=False,
+            objargs=tuple(types),
+            args_unspecified=False,
         )
     if identity.kind == "schema":
         return ast.String(sval=identity.name)
@@ -75,36 +86,63 @@ def _native_target(identity: NativeIdentity):
 
 
 def native_privilege_sql(
-    identity: NativeIdentity, grantee: str, privilege: str | None = None, *,
-    grant: bool = True, grant_option: bool = False, column: str | None = None,
+    identity: NativeIdentity,
+    grantee: str,
+    privilege: str | None = None,
+    *,
+    grant: bool = True,
+    grant_option: bool = False,
+    column: str | None = None,
 ) -> str:
-    kinds = {"function": enums.ObjectType.OBJECT_FUNCTION, "schema": enums.ObjectType.OBJECT_SCHEMA,
-             "table": enums.ObjectType.OBJECT_TABLE, "view": enums.ObjectType.OBJECT_TABLE}
+    kinds = {
+        "function": enums.ObjectType.OBJECT_FUNCTION,
+        "schema": enums.ObjectType.OBJECT_SCHEMA,
+        "table": enums.ObjectType.OBJECT_TABLE,
+        "view": enums.ObjectType.OBJECT_TABLE,
+    }
     if identity.kind not in kinds:
         raise NativeAuthoringError("unsupported privilege object")
     role = ast.RoleSpec(
-        roletype=enums.RoleSpecType.ROLESPEC_PUBLIC if grantee == "PUBLIC" else enums.RoleSpecType.ROLESPEC_CSTRING,
+        roletype=enums.RoleSpecType.ROLESPEC_PUBLIC
+        if grantee == "PUBLIC"
+        else enums.RoleSpecType.ROLESPEC_CSTRING,
         rolename=None if grantee == "PUBLIC" else grantee,
     )
-    return RawStream()(ast.GrantStmt(
-        is_grant=grant, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=kinds[identity.kind], objects=(_native_target(identity),),
-        privileges=None if privilege is None else (ast.AccessPriv(
-            priv_name=privilege.lower(), cols=None if column is None else (ast.String(sval=column),),
-        ),),
-        grantees=(role,), grant_option=grant_option, behavior=enums.DropBehavior.DROP_RESTRICT,
-    ))
+    return RawStream()(
+        ast.GrantStmt(
+            is_grant=grant,
+            targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+            objtype=kinds[identity.kind],
+            objects=(_native_target(identity),),
+            privileges=None
+            if privilege is None
+            else (
+                ast.AccessPriv(
+                    priv_name=privilege.lower(),
+                    cols=None if column is None else (ast.String(sval=column),),
+                ),
+            ),
+            grantees=(role,),
+            grant_option=grant_option,
+            behavior=enums.DropBehavior.DROP_RESTRICT,
+        )
+    )
 
 
 def native_owner_sql(identity: NativeIdentity, owner: str) -> str:
     role = ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=owner)
     if identity.kind == "function":
         statement = ast.AlterOwnerStmt(
-            objectType=enums.ObjectType.OBJECT_FUNCTION, object=_native_target(identity), newowner=role,
+            objectType=enums.ObjectType.OBJECT_FUNCTION,
+            object=_native_target(identity),
+            newowner=role,
         )
     elif identity.kind in {"table", "view"}:
         statement = ast.AlterTableStmt(
-            relation=ast.RangeVar(schemaname=identity.schema, relname=identity.name, inh=True), objtype=enums.ObjectType.OBJECT_VIEW if identity.kind == "view" else enums.ObjectType.OBJECT_TABLE,
+            relation=ast.RangeVar(schemaname=identity.schema, relname=identity.name, inh=True),
+            objtype=enums.ObjectType.OBJECT_VIEW
+            if identity.kind == "view"
+            else enums.ObjectType.OBJECT_TABLE,
             cmds=(ast.AlterTableCmd(subtype=enums.AlterTableType.AT_ChangeOwner, newowner=role),),
         )
     else:
@@ -161,9 +199,7 @@ def execute_native_trigger(connection: Connection, sql: str) -> None:
         return
     function = connection.execute(catalog_queries.function_observation(signature)).mappings().one()
     with native_owner(connection, function["owner"]):
-        execute_native_sql(
-            connection, native_privilege_sql(identity, principal, "EXECUTE")
-        )
+        execute_native_sql(connection, native_privilege_sql(identity, principal, "EXECUTE"))
     try:
         execute_native_sql(connection, sql)
     except DBAPIError:
@@ -191,19 +227,32 @@ class NativeIdentity:
 
     @property
     def drop_sql(self) -> str:
-        kinds = {"function": enums.ObjectType.OBJECT_FUNCTION, "view": enums.ObjectType.OBJECT_VIEW,
-                 "trigger": enums.ObjectType.OBJECT_TRIGGER}
+        kinds = {
+            "function": enums.ObjectType.OBJECT_FUNCTION,
+            "view": enums.ObjectType.OBJECT_VIEW,
+            "trigger": enums.ObjectType.OBJECT_TRIGGER,
+        }
         if self.kind not in kinds:
             raise NativeAuthoringError(f"unsupported native object {self.kind}")
-        target = _native_target(self) if self.kind == "function" else tuple(
-            ast.String(sval=value) for value in (
-                (self.schema, self.relation or "", self.name) if self.kind == "trigger"
-                else (self.schema, self.name)
+        target = (
+            _native_target(self)
+            if self.kind == "function"
+            else tuple(
+                ast.String(sval=value)
+                for value in (
+                    (self.schema, self.relation or "", self.name)
+                    if self.kind == "trigger"
+                    else (self.schema, self.name)
+                )
             )
         )
-        return RawStream()(ast.DropStmt(
-            objects=(target,), removeType=kinds[self.kind], behavior=enums.DropBehavior.DROP_RESTRICT,
-        ))
+        return RawStream()(
+            ast.DropStmt(
+                objects=(target,),
+                removeType=kinds[self.kind],
+                behavior=enums.DropBehavior.DROP_RESTRICT,
+            )
+        )
 
     def payload(self) -> dict:
         return asdict(self)
@@ -300,13 +349,25 @@ class NativeDefinition:
     def install_sql(self) -> tuple[str, ...]:
         result = [self.sql]
         if self.identity.kind == "trigger":
-            action = {"O": enums.AlterTableType.AT_EnableTrig, "D": enums.AlterTableType.AT_DisableTrig,
-                      "R": enums.AlterTableType.AT_EnableReplicaTrig, "A": enums.AlterTableType.AT_EnableAlwaysTrig}[self.enabled]
-            result.append(RawStream()(ast.AlterTableStmt(
-                relation=ast.RangeVar(schemaname=self.identity.schema, relname=self.identity.relation, inh=True),
-                objtype=enums.ObjectType.OBJECT_TABLE,
-                cmds=(ast.AlterTableCmd(subtype=action, name=self.identity.name),),
-            )))
+            action = {
+                "O": enums.AlterTableType.AT_EnableTrig,
+                "D": enums.AlterTableType.AT_DisableTrig,
+                "R": enums.AlterTableType.AT_EnableReplicaTrig,
+                "A": enums.AlterTableType.AT_EnableAlwaysTrig,
+            }[self.enabled]
+            result.append(
+                RawStream()(
+                    ast.AlterTableStmt(
+                        relation=ast.RangeVar(
+                            schemaname=self.identity.schema,
+                            relname=self.identity.relation,
+                            inh=True,
+                        ),
+                        objtype=enums.ObjectType.OBJECT_TABLE,
+                        cmds=(ast.AlterTableCmd(subtype=action, name=self.identity.name),),
+                    )
+                )
+            )
         else:
             result.append(native_owner_sql(self.identity, self.owner or ""))
             result.append(native_privilege_sql(self.identity, "PUBLIC", grant=False))
@@ -479,7 +540,9 @@ def set_native_acl(
     for grantee in sorted({grant[0] for grant in installed["acl"]}):
         execute_native_sql(connection, native_privilege_sql(identity, grantee, grant=False))
     for grantee, privilege, option in grants:
-        execute_native_sql(connection, native_privilege_sql(identity, grantee, privilege, grant_option=option))
+        execute_native_sql(
+            connection, native_privilege_sql(identity, grantee, privilege, grant_option=option)
+        )
 
 
 def _declared_acl(connection: Connection, definition: NativeDefinition):
@@ -814,13 +877,7 @@ def _check_plpgsql_authoring(
         selected.append((item, None))
     if not selected:
         return
-    extension = (
-        connection.execute(
-            catalog_queries.checker_extension()
-        )
-        .mappings()
-        .one_or_none()
-    )
+    extension = connection.execute(catalog_queries.checker_extension()).mappings().one_or_none()
     if extension is None:
         available = connection.scalar(catalog_queries.checker_available())
         if not available:
@@ -828,12 +885,16 @@ def _check_plpgsql_authoring(
                 "PL/pgSQL authoring requires available plpgsql_check extension version 2.10"
             )
         execute_native_sql(
-            connection, RawStream()(ast.CreateExtensionStmt(
-                extname="plpgsql_check", options=(
-                    ast.DefElem(defname="schema", arg=ast.String(sval="public")),
-                    ast.DefElem(defname="new_version", arg=ast.String(sval="2.10")),
-                ),
-            ))
+            connection,
+            RawStream()(
+                ast.CreateExtensionStmt(
+                    extname="plpgsql_check",
+                    options=(
+                        ast.DefElem(defname="schema", arg=ast.String(sval="public")),
+                        ast.DefElem(defname="new_version", arg=ast.String(sval="2.10")),
+                    ),
+                )
+            ),
         )
         schema = "public"
     else:

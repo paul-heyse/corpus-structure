@@ -27,15 +27,30 @@ def compile_checks(checks, indexes=()):
             }
         },
     }
-    return compile_metadata(SchemaView(json.dumps(declaration)), target="semantic").tables["data.span"]
+    return compile_metadata(SchemaView(json.dumps(declaration)), target="semantic").tables[
+        "data.span"
+    ]
 
 
 def test_cross_field_check_and_partial_index_bind_real_columns():
     relation = compile_checks(
-        [{"name": "ordered_span", "predicate": {"op": "ge", "args": [{"field": "end"}, {"field": "start"}]}}],
-        [{"name": "ix_start", "columns": ["start"], "where": {"op": "is_not_null", "args": [{"field": "start"}]}}],
+        [
+            {
+                "name": "ordered_span",
+                "predicate": {"op": "ge", "args": [{"field": "end"}, {"field": "start"}]},
+            }
+        ],
+        [
+            {
+                "name": "ix_start",
+                "columns": ["start"],
+                "where": {"op": "is_not_null", "args": [{"field": "start"}]},
+            }
+        ],
     )
-    (check,) = [constraint for constraint in relation.constraints if isinstance(constraint, CheckConstraint)]
+    (check,) = [
+        constraint for constraint in relation.constraints if isinstance(constraint, CheckConstraint)
+    ]
     assert check.name == "ordered_span"
     assert set(check.columns) == {relation.c.start, relation.c.end}
     assert physical_expression_sql(check.sqltext) == '"end" >= start'
@@ -45,7 +60,9 @@ def test_cross_field_check_and_partial_index_bind_real_columns():
     )
 
 
-@pytest.mark.parametrize("predicate", ["end >= start", {"field": "missing"}, {"op": "ge", "args": [{"field": "end"}]}])
+@pytest.mark.parametrize(
+    "predicate", ["end >= start", {"field": "missing"}, {"op": "ge", "args": [{"field": "end"}]}]
+)
 def test_unbound_or_unstructured_predicates_refuse_at_compile(predicate):
     with pytest.raises(ModelError):
         compile_checks([{"name": "invalid", "predicate": predicate}])
@@ -72,8 +89,11 @@ def test_search_configuration_changes_both_generated_vector_and_population_check
     assert vector.computed is not None
     assert "'simple'" in physical_expression_sql(vector.computed.sqltext)
     population = selected.tables["ops.pdf_source_search_population"]
-    predicates = [physical_expression_sql(item.sqltext) for item in population.constraints
-                  if isinstance(item, CheckConstraint)]
+    predicates = [
+        physical_expression_sql(item.sqltext)
+        for item in population.constraints
+        if isinstance(item, CheckConstraint)
+    ]
     assert "configuration = 'simple'" in predicates
     assert "configuration = 'english'" not in predicates
 
@@ -83,7 +103,12 @@ def test_postgresql_enforces_generated_cross_field_constraint(semantic_bare_engi
     from sqlalchemy.schema import CreateSchema
 
     relation = compile_checks(
-        [{"name": "ordered_span", "predicate": {"op": "ge", "args": [{"field": "end"}, {"field": "start"}]}}]
+        [
+            {
+                "name": "ordered_span",
+                "predicate": {"op": "ge", "args": [{"field": "end"}, {"field": "start"}]},
+            }
+        ]
     )
     with semantic_bare_engine.begin() as connection:
         connection.execute(CreateSchema("data"))
@@ -103,29 +128,53 @@ def test_postgresql_same_name_check_change_has_ordered_drop_and_create(semantic_
     from corpus_structure.semantic.alembic_checks import plugin
 
     original = compile_checks(
-        [{"name": "ordered_span", "predicate": {"op": "ge", "args": [{"field": "end"}, {"field": "start"}]}}]
+        [
+            {
+                "name": "ordered_span",
+                "predicate": {"op": "ge", "args": [{"field": "end"}, {"field": "start"}]},
+            }
+        ]
     )
     proposed = compile_checks(
-        [{"name": "ordered_span", "predicate": {"op": "gt", "args": [{"field": "end"}, {"field": "start"}]}}]
+        [
+            {
+                "name": "ordered_span",
+                "predicate": {"op": "gt", "args": [{"field": "end"}, {"field": "start"}]},
+            }
+        ]
     )
     with semantic_bare_engine.begin() as connection:
         connection.execute(CreateSchema("data"))
         original.create(connection)
-        context = MigrationContext.configure(connection, opts={
-            "include_schemas": True,
-            "include_name": lambda name, kind, parents: name == "data" if kind == "schema" else True,
-            "autogenerate_plugins": ["alembic.autogenerate.*", "alembic.ext.checkconstraint_byname", plugin.name],
-        })
+        context = MigrationContext.configure(
+            connection,
+            opts={
+                "include_schemas": True,
+                "include_name": lambda name, kind, parents: (
+                    name == "data" if kind == "schema" else True
+                ),
+                "autogenerate_plugins": [
+                    "alembic.autogenerate.*",
+                    "alembic.ext.checkconstraint_byname",
+                    plugin.name,
+                ],
+            },
+        )
         unchanged = produce_migrations(context, original.metadata)
         assert unchanged.upgrade_ops is not None and unchanged.upgrade_ops.is_empty()
         changed = produce_migrations(context, proposed.metadata)
         assert changed.upgrade_ops is not None
         (table_changes,) = changed.upgrade_ops.ops
         assert isinstance(table_changes, ModifyTableOps)
-        assert [type(operation) for operation in table_changes.ops] == [DropConstraintOp, CreateCheckConstraintOp]
+        assert [type(operation) for operation in table_changes.ops] == [
+            DropConstraintOp,
+            CreateCheckConstraintOp,
+        ]
         first, second = table_changes.ops
         assert isinstance(first, DropConstraintOp) and first.constraint_name == "ordered_span"
-        assert isinstance(second, CreateCheckConstraintOp) and second.constraint_name == "ordered_span"
+        assert (
+            isinstance(second, CreateCheckConstraintOp) and second.constraint_name == "ordered_span"
+        )
 
 
 @pytest.mark.parametrize("changed_option", ["predicate", "include", "method", "expression"])
@@ -138,9 +187,21 @@ def test_postgresql_index_changes_use_declared_bound_catalog(semantic_bare_engin
     from corpus_structure.semantic.alembic_indexes import plugin
     from corpus_structure.semantic.native_authoring import _declared_physical_catalog
 
-    original = compile_checks([], [{"name": "ix_span", "columns": ["start"], "where": {"op": "ge", "args": [{"field": "start"}, {"value": 0}]}}])
+    original = compile_checks(
+        [],
+        [
+            {
+                "name": "ix_span",
+                "columns": ["start"],
+                "where": {"op": "ge", "args": [{"field": "start"}, {"value": 0}]},
+            }
+        ],
+    )
     change = {
-        "predicate": {"columns": ["start"], "where": {"op": "gt", "args": [{"field": "start"}, {"value": 0}]}},
+        "predicate": {
+            "columns": ["start"],
+            "where": {"op": "gt", "args": [{"field": "start"}, {"value": 0}]},
+        },
         "include": {"columns": ["start"], "include": ["end"]},
         "method": {"columns": ["start"], "using": "hash"},
         "expression": {"expression": {"op": "gt", "args": [{"field": "start"}, {"value": 0}]}},
@@ -149,15 +210,22 @@ def test_postgresql_index_changes_use_declared_bound_catalog(semantic_bare_engin
     with semantic_bare_engine.begin() as connection:
         connection.execute(CreateSchema("data"))
         original.create(connection)
+
         def compare(relation):
             indexes = _declared_physical_catalog(connection, relation.metadata).indexes
-            context = MigrationContext.configure(connection, opts={
-                "include_schemas": True,
-                "include_name": lambda name, kind, parents: name == "data" if kind == "schema" else True,
-                "autogenerate_plugins": ["alembic.autogenerate.*", plugin.name],
-                "declared_physical_indexes": indexes,
-            })
+            context = MigrationContext.configure(
+                connection,
+                opts={
+                    "include_schemas": True,
+                    "include_name": lambda name, kind, parents: (
+                        name == "data" if kind == "schema" else True
+                    ),
+                    "autogenerate_plugins": ["alembic.autogenerate.*", plugin.name],
+                    "declared_physical_indexes": indexes,
+                },
+            )
             return produce_migrations(context, relation.metadata)
+
         unchanged = compare(original)
         assert unchanged.upgrade_ops is not None and unchanged.upgrade_ops.is_empty()
         changed = compare(proposed)

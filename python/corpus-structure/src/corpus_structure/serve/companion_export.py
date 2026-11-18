@@ -10,10 +10,10 @@ from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
 import duckdb
-from duckdb import col, count_all, when
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
+from duckdb import col, count_all, when
 from pglast import ast, enums
 from pglast.stream import RawStream
 from pydantic import BaseModel, Field, model_validator
@@ -439,14 +439,26 @@ def _inventory_verified_export(manifest, files) -> dict:
                         "input_content_digest",
                     ),
                 )
-                detail["occurrences"] = family.select(
-                    *(col(column) for column in (
-                        "input_ordinal", "input_role", "input_task_id", "input_product_key",
-                        "input_content_digest",
-                    ))
-                ).sort(col("input_ordinal")).fetchall()
+                detail["occurrences"] = (
+                    family.select(
+                        *(
+                            col(column)
+                            for column in (
+                                "input_ordinal",
+                                "input_role",
+                                "input_task_id",
+                                "input_product_key",
+                                "input_content_digest",
+                            )
+                        )
+                    )
+                    .sort(col("input_ordinal"))
+                    .fetchall()
+                )
             elif name == "relation":
-                detail["relation_count"] = family.aggregate([col("relation_id").n_unique()]).fetchall()[0][0]
+                detail["relation_count"] = family.aggregate(
+                    [col("relation_id").n_unique()]
+                ).fetchall()[0][0]
                 detail["endpoints"] = _inventory_groups(
                     family,
                     (
@@ -466,9 +478,12 @@ def _inventory_verified_export(manifest, files) -> dict:
                     & (col("target_content_digest") == manifest.publication.logical_digest)
                 )
                 scope = when(own_product).then("own_product").otherwise("external_product")
-                detail["target_scope"] = family.select(scope.alias("scope")).aggregate(
-                    [col("scope"), count_all()]
-                ).sort(col("scope")).fetchall()
+                detail["target_scope"] = (
+                    family.select(scope.alias("scope"))
+                    .aggregate([col("scope"), count_all()])
+                    .sort(col("scope"))
+                    .fetchall()
+                )
             elif name == "coverage":
                 detail["scoped_outcomes"] = _inventory_groups(
                     family,
@@ -540,7 +555,10 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
                 result.update(comparable=False, reason="source comparability requires input family")
                 return result
             source_columns = (
-                "input_ordinal", "input_role", "input_task_id", "input_product_key",
+                "input_ordinal",
+                "input_role",
+                "input_task_id",
+                "input_product_key",
                 "input_content_digest",
             )
             projection = [col(name) for name in source_columns]
@@ -569,9 +587,7 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
                 "content_digest",
                 "projection_id",
             }
-            columns = [
-                x for x in left_family.columns if x not in excluded
-            ]
+            columns = [x for x in left_family.columns if x not in excluded]
             projection = [col(name) for name in columns]
             left_values = left_family.select(*projection)
             right_values = right_family.select(*projection)

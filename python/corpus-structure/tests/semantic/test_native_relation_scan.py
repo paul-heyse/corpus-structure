@@ -48,10 +48,15 @@ def test_model_owned_dynamic_scan_quotes_percent_and_relation_names(semantic_bar
     )
     with semantic_bare_engine.begin() as connection:
         connection.exec_driver_sql("CREATE SCHEMA checker_test")
-        execute_native_sql(connection, 'CREATE TEMP TABLE "incoming % uploads" ("number%quoted" bigint)')
+        execute_native_sql(
+            connection, 'CREATE TEMP TABLE "incoming % uploads" ("number%quoted" bigint)'
+        )
         execute_native_sql(connection, 'INSERT INTO "incoming % uploads" VALUES (9),(2),(4)')
         execute_native_sql(connection, sql)
-        assert connection.scalar(
-            text("SELECT checker_test.sum_uploaded(CAST(:relation AS regclass))"),
-            {"relation": 'pg_temp."incoming % uploads"'},
-        ) == 15
+        assert (
+            connection.scalar(
+                text("SELECT checker_test.sum_uploaded(CAST(:relation AS regclass))"),
+                {"relation": 'pg_temp."incoming % uploads"'},
+            )
+            == 15
+        )

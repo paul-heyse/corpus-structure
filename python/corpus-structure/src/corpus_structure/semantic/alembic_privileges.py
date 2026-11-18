@@ -108,19 +108,34 @@ def desired_policies(metadata, native) -> tuple[PrivilegePolicy, ...]:
 
 def observe_policy(connection, policy) -> PrivilegePolicy | None:
     schema = policy["kind"] == "schema"
-    relation = connection.execute(catalog_queries.privilege_object(policy["kind"], policy["name"])).mappings().one_or_none()
+    relation = (
+        connection.execute(catalog_queries.privilege_object(policy["kind"], policy["name"]))
+        .mappings()
+        .one_or_none()
+    )
     if relation is None:
         return None
     acl = [
         (row.grantee, row.privilege, bool(row.grantable))
         for row in connection.execute(catalog_queries.privilege_acl(policy["kind"], policy["name"]))
     ]
-    columns = [] if schema else [
-        (row.column, row.grantee, row.privilege, bool(row.grantable))
-        for row in connection.execute(catalog_queries.privilege_acl("table", policy["name"], columns=True))
-    ]
-    return {"kind": policy["kind"], "name": policy["name"],
-            "owner": None if schema else relation["owner"], "acl": sorted(acl), "columns": sorted(columns)}
+    columns = (
+        []
+        if schema
+        else [
+            (row.column, row.grantee, row.privilege, bool(row.grantable))
+            for row in connection.execute(
+                catalog_queries.privilege_acl("table", policy["name"], columns=True)
+            )
+        ]
+    )
+    return {
+        "kind": policy["kind"],
+        "name": policy["name"],
+        "owner": None if schema else relation["owner"],
+        "acl": sorted(acl),
+        "columns": sorted(columns),
+    }
 
 
 def _expected(connection, policy):
@@ -149,39 +164,79 @@ def _revoke_acl_edges(connection, policy, failure_context):
     identity = _policy_identity(policy)
     if policy["kind"] == "table":
         # Owner column ACL rows are explicit even though ownership already supplies rights.
-        owner_columns = connection.execute(catalog_queries.privilege_acl(
-            "table", policy["name"], columns=True, owner_columns=True,
-        )).all()
+        owner_columns = connection.execute(
+            catalog_queries.privilege_acl(
+                "table",
+                policy["name"],
+                columns=True,
+                owner_columns=True,
+            )
+        ).all()
         for edge in owner_columns:
             failure_context["dependency_objects"] = [
-                {"grantor": edge.grantor, "grantee": edge.grantee, "privilege": edge.privilege, "column": edge.column}
+                {
+                    "grantor": edge.grantor,
+                    "grantee": edge.grantee,
+                    "privilege": edge.privilege,
+                    "column": edge.column,
+                }
             ]
             with native_owner(connection, edge.grantor):
-                execute_native_sql(connection, native_privilege_sql(
-                    identity, edge.grantee, edge.privilege, grant=False, column=edge.column,
-                ))
+                execute_native_sql(
+                    connection,
+                    native_privilege_sql(
+                        identity,
+                        edge.grantee,
+                        edge.privilege,
+                        grant=False,
+                        column=edge.column,
+                    ),
+                )
     edges = list(connection.execute(catalog_queries.privilege_acl(policy["kind"], policy["name"])))
     if policy["kind"] == "table":
-        edges.extend(connection.execute(catalog_queries.privilege_acl(
-            "table", policy["name"], columns=True, owner_columns=False,
-        )))
+        edges.extend(
+            connection.execute(
+                catalog_queries.privilege_acl(
+                    "table",
+                    policy["name"],
+                    columns=True,
+                    owner_columns=False,
+                )
+            )
+        )
     graph = nx.DiGraph(backend="networkx")
     graph.add_edges_from((edge.grantor, edge.grantee) for edge in edges)
     try:
-        leaves = list(reversed(list(nx.lexicographical_topological_sort(graph, backend="networkx"))))
+        leaves = list(
+            reversed(list(nx.lexicographical_topological_sort(graph, backend="networkx")))
+        )
     except nx.NetworkXUnfeasible as error:
-        raise NativeAuthoringError("cyclic privilege delegation requires explicit authoring intent") from error
+        raise NativeAuthoringError(
+            "cyclic privilege delegation requires explicit authoring intent"
+        ) from error
     for recipient in leaves:
         for edge in edges:
             if edge.grantee != recipient:
                 continue
             failure_context["dependency_objects"] = [
-                {"grantor": edge.grantor, "grantee": edge.grantee, "privilege": edge.privilege, "column": edge.column}
+                {
+                    "grantor": edge.grantor,
+                    "grantee": edge.grantee,
+                    "privilege": edge.privilege,
+                    "column": edge.column,
+                }
             ]
             with native_owner(connection, edge.grantor):
-                execute_native_sql(connection, native_privilege_sql(
-                    identity, edge.grantee, edge.privilege, grant=False, column=edge.column,
-                ))
+                execute_native_sql(
+                    connection,
+                    native_privilege_sql(
+                        identity,
+                        edge.grantee,
+                        edge.privilege,
+                        grant=False,
+                        column=edge.column,
+                    ),
+                )
 
 
 @Operations.register_operation("privilege_transition")
@@ -272,15 +327,35 @@ def _execute_privileges(operations, operation, failure_context):
                 raise NativeAuthoringError("stale recorded table owner")
             for role in sorted(set(DEFAULT_READ_ROLES) | set(before["read_roles"])):
                 allowed = connection.scalar(
-                    select(catalog_queries.pg.has_table_privilege(role, catalog_queries.pg.to_regclass(policy["name"]), "SELECT")),
+                    select(
+                        catalog_queries.pg.has_table_privilege(
+                            role, catalog_queries.pg.to_regclass(policy["name"]), "SELECT"
+                        )
+                    ),
                 )
                 column_allowed = connection.scalar(
-                    select(catalog_queries.pg.has_any_column_privilege(role, catalog_queries.pg.to_regclass(policy["name"]), "SELECT")),
+                    select(
+                        catalog_queries.pg.has_any_column_privilege(
+                            role, catalog_queries.pg.to_regclass(policy["name"]), "SELECT"
+                        )
+                    ),
                 )
-                mutation = connection.scalar(select(or_(
-                    catalog_queries.pg.has_table_privilege(role, catalog_queries.pg.to_regclass(policy["name"]), "INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER"),
-                    catalog_queries.pg.has_any_column_privilege(role, catalog_queries.pg.to_regclass(policy["name"]), "INSERT,UPDATE,REFERENCES"),
-                )))
+                mutation = connection.scalar(
+                    select(
+                        or_(
+                            catalog_queries.pg.has_table_privilege(
+                                role,
+                                catalog_queries.pg.to_regclass(policy["name"]),
+                                "INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER",
+                            ),
+                            catalog_queries.pg.has_any_column_privilege(
+                                role,
+                                catalog_queries.pg.to_regclass(policy["name"]),
+                                "INSERT,UPDATE,REFERENCES",
+                            ),
+                        )
+                    )
+                )
                 if (
                     allowed != (role in before["read_roles"])
                     or column_allowed != allowed
@@ -313,7 +388,10 @@ def _execute_privileges(operations, operation, failure_context):
             raise NativeAuthoringError("missing declared privilege object")
         _revoke_acl_edges(connection, policy, failure_context)
         for grantee, privilege, grantable in _expected(connection, policy)["acl"]:
-            execute_native_sql(connection, native_privilege_sql(identity, grantee, privilege, grant_option=grantable))
+            execute_native_sql(
+                connection,
+                native_privilege_sql(identity, grantee, privilege, grant_option=grantable),
+            )
         if kind == "SCHEMA":
             _deny_purpose_create(connection, policy["name"])
         actual = observe_policy(connection, policy)
@@ -381,16 +459,30 @@ def execute_owned_sql(operations, operation):
     connection = operations.get_bind()
     introduced = []
     for relation, column, owner in operation.references:
-        if not connection.scalar(select(catalog_queries.pg.has_column_privilege(operation.owner, relation, column, "REFERENCES"))):
+        if not connection.scalar(
+            select(
+                catalog_queries.pg.has_column_privilege(
+                    operation.owner, relation, column, "REFERENCES"
+                )
+            )
+        ):
             identity = _policy_identity({"kind": "table", "name": relation})
             with native_owner(connection, owner):
-                execute_native_sql(connection, native_privilege_sql(identity, operation.owner, "REFERENCES", column=column))
+                execute_native_sql(
+                    connection,
+                    native_privilege_sql(identity, operation.owner, "REFERENCES", column=column),
+                )
             introduced.append((identity, column, owner))
     with native_owner(connection, operation.owner):
         execute_native_sql(connection, operation.statement)
     for identity, column, owner in introduced:
         with native_owner(connection, owner):
-            execute_native_sql(connection, native_privilege_sql(identity, operation.owner, "REFERENCES", grant=False, column=column))
+            execute_native_sql(
+                connection,
+                native_privilege_sql(
+                    identity, operation.owner, "REFERENCES", grant=False, column=column
+                ),
+            )
 
 
 @renderers.dispatch_for(OwnedSQLOp)

@@ -306,9 +306,17 @@ def iter_recognition_replay(
             }
         )
         try:
-            result = connection.from_arrow(reader).select(
-                *(duckdb.col(name) for name in ("input_key", "pin_json", "observation_json", "raw"))
-            ).sort(duckdb.col("input_key")).to_arrow_reader(batch_size=1024)
+            result = (
+                connection.from_arrow(reader)
+                .select(
+                    *(
+                        duckdb.col(name)
+                        for name in ("input_key", "pin_json", "observation_json", "raw")
+                    )
+                )
+                .sort(duckdb.col("input_key"))
+                .to_arrow_reader(batch_size=1024)
+            )
             previous: str | None = None
             try:
                 for batch in result:

@@ -78,18 +78,33 @@ def test_administration_nodes_preserve_quoted_identity_types_and_column_acl():
     )
 
     function = NativeIdentity("function", "odd S", "f :%", ("integer", "text[]"))
-    grant = parse_sql(native_privilege_sql(function, "reader X", "EXECUTE", grant_option=True))[0].stmt
+    grant = parse_sql(native_privilege_sql(function, "reader X", "EXECUTE", grant_option=True))[
+        0
+    ].stmt
     assert isinstance(grant, ast.GrantStmt)
+    assert grant.grantees and grant.objects
     assert grant.grant_option and grant.grantees[0].rolename == "reader X"
-    assert [part.sval for part in grant.objects[0].objname] == ["odd S", "f :%"]
-    assert grant.objects[0].objargs[1].arrayBounds
+    target = grant.objects[0]
+    assert isinstance(target, ast.ObjectWithArgs) and target.objname and target.objargs
+    assert [part.sval for part in target.objname] == ["odd S", "f :%"]
+    assert target.objargs[1].arrayBounds
     owner = parse_sql(native_owner_sql(function, "owner X"))[0].stmt
+    assert isinstance(owner, ast.AlterOwnerStmt) and owner.newowner is not None
     assert owner.newowner.rolename == "owner X"
-    assert parse_sql(function.drop_sql)[0].stmt.removeType == enums.ObjectType.OBJECT_FUNCTION
+    drop = parse_sql(function.drop_sql)[0].stmt
+    assert isinstance(drop, ast.DropStmt) and drop.removeType == enums.ObjectType.OBJECT_FUNCTION
     table = NativeIdentity("table", "odd S", "t :%")
-    revoke = parse_sql(native_privilege_sql(table, "PUBLIC", "REFERENCES", grant=False, column="x :%"))[0].stmt
+    revoke = parse_sql(
+        native_privilege_sql(table, "PUBLIC", "REFERENCES", grant=False, column="x :%")
+    )[0].stmt
+    assert isinstance(revoke, ast.GrantStmt) and revoke.grantees and revoke.privileges
     assert not revoke.is_grant and revoke.behavior == enums.DropBehavior.DROP_RESTRICT
     assert revoke.grantees[0].roletype == enums.RoleSpecType.ROLESPEC_PUBLIC
-    assert revoke.privileges[0].cols[0].sval == "x :%"
+    privilege = revoke.privileges[0]
+    assert isinstance(privilege, ast.AccessPriv) and privilege.cols
+    assert privilege.cols[0].sval == "x :%"
     role = parse_sql(native_role_sql("role's X"))[0].stmt
-    assert role.is_local and role.args[0].val.sval == "role's X"
+    assert isinstance(role, ast.VariableSetStmt) and role.is_local and role.args
+    value = role.args[0]
+    assert isinstance(value, ast.A_Const) and isinstance(value.val, ast.String)
+    assert value.val.sval == "role's X"

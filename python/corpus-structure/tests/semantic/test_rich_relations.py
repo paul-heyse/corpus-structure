@@ -188,13 +188,14 @@ def test_empty_inputs_and_empty_supports_keep_typed_results():
                 [{"fact_id": "f", "occurrence_id": None, "evidence": []}],
                 schema=RICH_FUSION_INPUT,
             )
-        ).to_pylist() == [
-            {"fact_id": "f", "supports": [], "candidates": 1, "evidence": []}
-        ]
-        assert scope.views(
-            claims=pa.Table.from_pylist([], schema=VIEW_CLAIMS),
-            entities=pa.Table.from_pylist([], schema=VIEW_ENTITIES),
-            identity=pa.Table.from_pylist([], schema=VIEW_IDENTITY),
-            alternatives=pa.Table.from_pylist([], schema=VIEW_ALTERNATIVES),
-            specs=(),
-        ).to_pylist() == []
+        ).to_pylist() == [{"fact_id": "f", "supports": [], "candidates": 1, "evidence": []}]
+        assert (
+            scope.views(
+                claims=pa.Table.from_pylist([], schema=VIEW_CLAIMS),
+                entities=pa.Table.from_pylist([], schema=VIEW_ENTITIES),
+                identity=pa.Table.from_pylist([], schema=VIEW_IDENTITY),
+                alternatives=pa.Table.from_pylist([], schema=VIEW_ALTERNATIVES),
+                specs=(),
+            ).to_pylist()
+            == []
+        )

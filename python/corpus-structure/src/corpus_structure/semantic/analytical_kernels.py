@@ -149,12 +149,17 @@ def operation_view_tables(
 
 def disagreements(meanings: DuckDBPyRelation) -> DuckDBPyRelation:
     distinct = meanings.distinct()
-    conflicting = distinct.aggregate([col("key"), fn("count", lit(1)).alias("n")]).filter(
-        col("n") > 1
-    ).select(col("key").alias("conflicting_key")).set_alias("conflicting")
-    return distinct.join(conflicting, col("key") == col("conflicting_key")).select(
-        col("key"), col("meaning")
-    ).sort(col("key"), col("meaning").asc().nulls_first())
+    conflicting = (
+        distinct.aggregate([col("key"), fn("count", lit(1)).alias("n")])
+        .filter(col("n") > 1)
+        .select(col("key").alias("conflicting_key"))
+        .set_alias("conflicting")
+    )
+    return (
+        distinct.join(conflicting, col("key") == col("conflicting_key"))
+        .select(col("key"), col("meaning"))
+        .sort(col("key"), col("meaning").asc().nulls_first())
+    )
 
 
 def _facts(value):
@@ -163,22 +168,37 @@ def _facts(value):
 
 
 def fuse(candidates: DuckDBPyRelation) -> DuckDBPyRelation:
-    evidence = candidates.select(
-        col("fact_id").alias("evidence_fact"), fn("unnest", col("evidence")).alias("item")
-    ).aggregate([col("evidence_fact"), _facts(col("item")).alias("evidence")]).set_alias("evidence_sets")
-    supports = candidates.aggregate([
-        col("fact_id"), _facts(col("occurrence_id")).alias("supports"),
-        fn("count", lit(1)).alias("candidates"),
-    ])
+    evidence = (
+        candidates.select(
+            col("fact_id").alias("evidence_fact"), fn("unnest", col("evidence")).alias("item")
+        )
+        .aggregate([col("evidence_fact"), _facts(col("item")).alias("evidence")])
+        .set_alias("evidence_sets")
+    )
+    supports = candidates.aggregate(
+        [
+            col("fact_id"),
+            _facts(col("occurrence_id")).alias("supports"),
+            fn("count", lit(1)).alias("candidates"),
+        ]
+    )
     empty = lit([]).cast(list_type(sqltype("VARCHAR")))
-    return supports.join(evidence, col("fact_id") == col("evidence_fact"), how="left").select(
-        col("fact_id"), col("supports"), col("candidates"),
-        coalesce(col("evidence"), empty).alias("evidence"),
-    ).sort(col("fact_id"))
+    return (
+        supports.join(evidence, col("fact_id") == col("evidence_fact"), how="left")
+        .select(
+            col("fact_id"),
+            col("supports"),
+            col("candidates"),
+            coalesce(col("evidence"), empty).alias("evidence"),
+        )
+        .sort(col("fact_id"))
+    )
 
 
 def _prefixed(relation: DuckDBPyRelation, prefix: str) -> DuckDBPyRelation:
-    return relation.select(*(col(name).alias(prefix + name) for name in relation.columns)).set_alias(prefix)
+    return relation.select(
+        *(col(name).alias(prefix + name) for name in relation.columns)
+    ).set_alias(prefix)
 
 
 def operation_views(
@@ -193,51 +213,97 @@ def operation_views(
     a, b = _prefixed(alternatives, "a_"), _prefixed(alternatives, "b_")
     s, e, i = _prefixed(specs, "s_"), _prefixed(entities, "e_"), _prefixed(identity, "i_")
     declared_applies = _prefixed(applies, "a_")
-    null_statements = (col("c_statement").is_null() & col("d_statement").is_null())
-    same_slot = c.join(d, (
-        (col("c_predicate") == col("d_predicate"))
-        & (col("c_subject") == col("d_subject"))
-        & ((col("c_statement") == col("d_statement")) | null_statements)
-        & (col("c_claim") != col("d_claim"))
-    ), how="left").aggregate([
-        col("c_claim").alias("claim"), _facts(col("d_claim")).alias("facts"),
-    ]).select(col("claim"), lit(SAME_SLOT).alias("view"), col("facts"))
-    pairs = a.join(b, (col("a_group") == col("b_group")) & (
-        col("a_claim") != col("b_claim")
-    )).join(d, col("b_claim") == col("d_claim"), how="semi").select(
-        col("a_claim").alias("pair_claim"), col("b_claim").alias("other")
-    ).distinct()
-    alternative_view = c.join(pairs, col("c_claim") == col("pair_claim"), how="left").aggregate([
-        col("c_claim").alias("claim"), _facts(col("other")).alias("facts"),
-    ]).select(col("claim"), lit(ALTERNATIVE_OF).alias("view"), col("facts"))
-    target = s.join(declared_applies, col("s_view") == col("a_view")).join(
-        c, col("c_predicate") == col("a_predicate")
-    ).select(
-        col("s_view").alias("target_view"), col("c_claim").alias("claim"),
-        when(col("s_match_claim") == "subject").then(col("c_subject")).otherwise(
-            col("c_object")
-        ).alias("target_match"),
-    ).distinct()
-    projected = s.join(d, col("d_predicate") == col("s_source")).join(
-        e, col("e_entity") == when(col("s_head") == "subject").then(
-            col("d_subject")
-        ).otherwise(col("d_object"))
-    ).join(i, (col("s_attr") == "identity") & (col("i_entity") == col("e_entity")) & (
-        col("i_slot") == col("s_slot")
-    ), how="left")
+    null_statements = col("c_statement").is_null() & col("d_statement").is_null()
+    same_slot = (
+        c.join(
+            d,
+            (
+                (col("c_predicate") == col("d_predicate"))
+                & (col("c_subject") == col("d_subject"))
+                & ((col("c_statement") == col("d_statement")) | null_statements)
+                & (col("c_claim") != col("d_claim"))
+            ),
+            how="left",
+        )
+        .aggregate(
+            [
+                col("c_claim").alias("claim"),
+                _facts(col("d_claim")).alias("facts"),
+            ]
+        )
+        .select(col("claim"), lit(SAME_SLOT).alias("view"), col("facts"))
+    )
+    pairs = (
+        a.join(b, (col("a_group") == col("b_group")) & (col("a_claim") != col("b_claim")))
+        .join(d, col("b_claim") == col("d_claim"), how="semi")
+        .select(col("a_claim").alias("pair_claim"), col("b_claim").alias("other"))
+        .distinct()
+    )
+    alternative_view = (
+        c.join(pairs, col("c_claim") == col("pair_claim"), how="left")
+        .aggregate(
+            [
+                col("c_claim").alias("claim"),
+                _facts(col("other")).alias("facts"),
+            ]
+        )
+        .select(col("claim"), lit(ALTERNATIVE_OF).alias("view"), col("facts"))
+    )
+    target = (
+        s.join(declared_applies, col("s_view") == col("a_view"))
+        .join(c, col("c_predicate") == col("a_predicate"))
+        .select(
+            col("s_view").alias("target_view"),
+            col("c_claim").alias("claim"),
+            when(col("s_match_claim") == "subject")
+            .then(col("c_subject"))
+            .otherwise(col("c_object"))
+            .alias("target_match"),
+        )
+        .distinct()
+    )
+    projected = (
+        s.join(d, col("d_predicate") == col("s_source"))
+        .join(
+            e,
+            col("e_entity")
+            == when(col("s_head") == "subject").then(col("d_subject")).otherwise(col("d_object")),
+        )
+        .join(
+            i,
+            (col("s_attr") == "identity")
+            & (col("i_entity") == col("e_entity"))
+            & (col("i_slot") == col("s_slot")),
+            how="left",
+        )
+    )
     value = when(col("s_attr") == "id").then(col("e_entity"))
-    for attr, field in (("key", "key"), ("types", "class_id"), ("label", "label"), ("symbol", "symbol")):
+    for attr, field in (
+        ("key", "key"),
+        ("types", "class_id"),
+        ("label", "label"),
+        ("symbol", "symbol"),
+    ):
         value = value.when(col("s_attr") == attr).then(col("e_" + field))
     value = value.when(col("s_attr") == "identity").then(col("i_value")).otherwise(lit(None))
     projected = projected.select(
         col("s_view").alias("projected_view"),
-        when(col("s_match_source") == "subject").then(col("d_subject")).otherwise(
-            col("d_object")
-        ).alias("projected_match"), value.alias("value"),
+        when(col("s_match_source") == "subject")
+        .then(col("d_subject"))
+        .otherwise(col("d_object"))
+        .alias("projected_match"),
+        value.alias("value"),
     )
-    declared = target.join(projected, (col("target_view") == col("projected_view")) & (
-        col("target_match") == col("projected_match")
-    ), how="left").aggregate([
-        col("claim"), col("target_view").alias("view"), _facts(col("value")).alias("facts"),
-    ])
+    declared = target.join(
+        projected,
+        (col("target_view") == col("projected_view"))
+        & (col("target_match") == col("projected_match")),
+        how="left",
+    ).aggregate(
+        [
+            col("claim"),
+            col("target_view").alias("view"),
+            _facts(col("value")).alias("facts"),
+        ]
+    )
     return same_slot.union(alternative_view).union(declared).sort(col("claim"), col("view"))
