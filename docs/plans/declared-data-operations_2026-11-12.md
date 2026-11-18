@@ -2,6 +2,8 @@
 
 **Status · 2026-11-18. Execution stopped at the operator’s request. Stage runs N29 at generation 26. Canonical N29 native and application deployment verified. The book project still selects N23 at generation 4. Its 16 GiB run retained the 518-page capture and 3,411 sentence occurrences across 20 of 29 regions. Whole-view composition and DDO-12 qualification remain open.**
 
+**Handover · 2026-11-19.** By operator direction, all remaining validation of this plan, including the DDO-12 qualification union and the whole-book run, is taken over by the [unified domain model and execution series](unified-domain-model-and-execution_2026-11-19.md), which also supersedes the design items it lists under [what it takes over and supersedes](unified-domain-model-and-execution_2026-11-19.md#takeover). Nothing else in this plan is changed by that series.
+
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
 retain exact receipts and their source/context limits, not competing current-state declarations.
