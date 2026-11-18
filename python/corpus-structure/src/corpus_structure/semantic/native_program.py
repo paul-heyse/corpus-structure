@@ -125,6 +125,7 @@ def _statement(expression: Expression) -> str:
 class Parameter:
     name: str
     type_: ast.TypeName
+    default: ast.Node | None = None
 
 
 @dataclass(frozen=True)
@@ -462,6 +463,7 @@ def _routine(
                 ast.FunctionParameter(
                     name=parameter.name,
                     argType=parameter.type_,
+                    defexpr=parameter.default,
                     mode=enums.FunctionParameterMode.FUNC_PARAM_DEFAULT,
                 )
                 for parameter in parameters
