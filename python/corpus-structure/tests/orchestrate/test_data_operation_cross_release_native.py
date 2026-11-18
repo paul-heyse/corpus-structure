@@ -322,3 +322,27 @@ def test_active_release_admits_fresh_unleased_capture_and_preserves_existing_aut
                     )
                     == original.prepared.release_id
                 )
+    if state in {"active", "retained", "published"}:
+        with ddo_kernel.engine.connect() as connection:
+            capture = connection.execute(
+                text(
+                    "SELECT release_id,runtime_id,generation,live_task_id "
+                    "FROM ops.data_request WHERE id=:request"
+                ),
+                {"request": old["request_id"]},
+            ).one()
+            assert tuple(capture) == (
+                original.prepared.release_id,
+                original.runtime.runtime_id,
+                old["generation"],
+                old["task_id"],
+            )
+            assert (
+                connection.scalar(
+                    text(
+                        "SELECT count(*) FROM ops.data_request_generation WHERE request_id=:request"
+                    ),
+                    {"request": old["request_id"]},
+                )
+                == 1
+            )
