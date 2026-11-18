@@ -64,6 +64,7 @@ LOWERING_FILES = (
     "schema/physical.py",
     "schema/relational.py",
     "semantic/native_shapes.py",
+    "semantic/pdf_companion_adoption_native.py",
     "semantic/pdf_staging_native.py",
     "semantic/prepared_sql.py",
     "semantic/pdf_payloads.py",

@@ -1,178 +1,216 @@
-"""Native JSON shape guards from the existing effective semantic definitions."""
+"""Native JSON shape guards from the effective semantic definitions."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from itertools import count
+from typing import Any
 
+from pglast import ast
+from pglast.stream import RawStream
+from sqlalchemy import (
+    Numeric,
+    Text,
+    and_,
+    any_,
+    cast,
+    column,
+    false,
+    func,
+    literal_column,
+    not_,
+    or_,
+    select,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, array, dialect
+
+from .native_program import Block, If, Raise, _body
+from .prepared_sql import prepare_sql
 from .types import PreparedRelease
 
 
-def _record_shape_guards(
+def record_shape_expression(
     prepared: PreparedRelease,
     class_name: str,
-    expression: str,
+    expression,
     *,
-    fields: Mapping[str, tuple[str, str]] | None = None,
-    field_names: str | None = None,
-    deferred_arrays: frozenset[str] = frozenset(),
-    predicate_only: bool = False,
-) -> str:
+    fields=None,
+    field_names=None,
+    deferred_arrays=frozenset(),
+):
+    """Compile the exact invalid-record predicate over typed JSON expressions."""
     definitions = {definition.name: definition for definition in prepared.definitions}
     vocabularies = {
         v.enum: tuple(member.value for member in v.members) for v in prepared.vocabularies
     }
+    names = count()
+    strings = {"ParsingString", "PdfString", "PdfDigest", "PdfPointer", "string"}
 
-    def quoted(value: str) -> str:
-        return "'" + value.replace("'", "''") + "'"
-
-    def present(expression: str, key: str, storage: str) -> str:
+    def rows(name, value, datatype):
         return (
-            f"{expression} ? {key}" if storage == "jsonb" else f"({expression}->{key}) IS NOT NULL"
+            getattr(func, name)(value)
+            .table_valued(column("value", datatype))
+            .render_derived()
+            .alias("shape_" + str(next(names)))
         )
 
-    def invalid_record(class_name: str, expression: str, *, root=False, storage="jsonb") -> str:
-        definition = definitions[class_name]
+    def invalid_record(name, value, *, root=False):
+        definition = definitions[name]
         if definition.abstract:
             members = [
-                d.name for d in definitions.values() if class_name in d.ancestors and not d.abstract
+                d.name for d in definitions.values() if name in d.ancestors and not d.abstract
             ]
             if not members:
-                raise ValueError(
-                    f"abstract parsing boundary has no concrete variants: {class_name}"
-                )
-            return (
-                "("
-                + " AND ".join(
-                    "(" + invalid_record(name, expression, storage=storage) + ")"
-                    for name in members
-                )
-                + ")"
-            )
-        allowed_fields = ",".join(quoted(prop.name) for prop in definition.properties)
-        invalid = [
-            (
-                f"EXISTS(SELECT FROM unnest({field_names}) key "
-                if root and field_names
-                else f"EXISTS(SELECT FROM {storage}_object_keys({expression}) key "
-            )
-            + f"WHERE key<>ALL(ARRAY[{allowed_fields}]))"
+                raise ValueError(f"abstract parsing boundary has no concrete variants: {name}")
+            return and_(*(invalid_record(member, value) for member in members))
+        storage = (
+            "json"
+            if isinstance(value.type, JSON) and not isinstance(value.type, JSONB)
+            else "jsonb"
+        )
+        keys = (
+            rows("unnest", field_names, Text())
+            if root and field_names is not None
+            else rows(storage + "_object_keys", value, Text())
+        )
+        allowed = array([prop.name for prop in definition.properties], type_=Text())
+        invalid: list[Any] = [
+            select(keys.c.value).where(not_(keys.c.value == any_(allowed))).exists()
         ]
         for prop in definition.properties:
-            key = quoted(prop.name)
-            value, value_storage = (
-                fields[prop.name]
-                if root and fields and prop.name in fields
-                else (f"{expression}->{key}", storage)
+            field = (
+                fields[prop.name] if root and fields and prop.name in fields else value[prop.name]
             )
-            has_field = (
-                f"{key}=ANY({field_names})"
-                if root and field_names
-                else present(expression, key, storage)
+            field_storage = (
+                "json"
+                if isinstance(field.type, JSON) and not isinstance(field.type, JSONB)
+                else "jsonb"
             )
-            scalar = (
-                f"({value})#>>'{{}}'"
-                if root and fields and prop.name in fields
-                else f"{expression}->>{key}"
+            field_kind = getattr(func, field_storage + "_typeof")
+            present: Any = (
+                prop.name == any_(field_names)
+                if root and field_names is not None
+                else value.bool_op("?")(prop.name)
+                if storage == "jsonb"
+                else value[prop.name].is_not(None)
             )
+            scalar = field.op("#>>", return_type=Text())(array([], type_=Text()))
             if prop.required:
-                invalid.append(f"NOT ({has_field})")
+                invalid.append(not_(present))
             if prop.multivalued:
-                predicate = f"{value_storage}_typeof({value}) IS DISTINCT FROM 'array'"
-                if (
-                    prop.range
-                    in {"ParsingString", "PdfString", "PdfDigest", "PdfPointer", "string"}
-                    or prop.range in vocabularies
-                ):
-                    predicate += (
-                        f" OR EXISTS(SELECT FROM {value_storage}_array_elements({value}) element "
-                        f"WHERE {value_storage}_typeof(element) IS DISTINCT FROM 'string')"
+                predicates = [field_kind(field).is_distinct_from("array")]
+                if prop.range in strings or prop.range in vocabularies:
+                    elements = rows(field_storage + "_array_elements", field, field.type)
+                    predicates.append(
+                        select(elements.c.value)
+                        .where(field_kind(elements.c.value).is_distinct_from("string"))
+                        .exists()
                     )
                 if prop.range in definitions and not (root and prop.name in deferred_arrays):
-                    predicate += (
-                        f" OR EXISTS(SELECT FROM {value_storage}_array_elements({value}) "
-                        "nested_record "
-                        f"WHERE {value_storage}_typeof(nested_record) "
-                        "IS DISTINCT FROM 'object' OR ("
-                        + invalid_record(prop.range, "nested_record", storage=value_storage)
-                        + "))"
+                    elements = rows(field_storage + "_array_elements", field, field.type)
+                    predicates.append(
+                        select(elements.c.value)
+                        .where(
+                            or_(
+                                field_kind(elements.c.value).is_distinct_from("object"),
+                                invalid_record(prop.range, elements.c.value),
+                            )
+                        )
+                        .exists()
                     )
+                length = getattr(func, field_storage + "_array_length")(field)
                 if prop.minimum_cardinality is not None and prop.minimum_cardinality > 0:
-                    predicate += (
-                        f" OR {value_storage}_array_length({value}) < {prop.minimum_cardinality}"
-                    )
+                    predicates.append(length < prop.minimum_cardinality)
                 if prop.maximum_cardinality is not None:
-                    predicate += (
-                        f" OR {value_storage}_array_length({value}) > {prop.maximum_cardinality}"
-                    )
-
+                    predicates.append(length > prop.maximum_cardinality)
+                predicate = or_(*predicates)
             elif prop.range in {"ParsingBoolean", "PdfBoolean", "boolean"}:
-                predicate = f"{value_storage}_typeof({value}) IS DISTINCT FROM 'boolean'"
+                predicate = field_kind(field).is_distinct_from("boolean")
             elif prop.range in {"ParsingInteger", "PdfInteger", "integer"}:
-                predicate = (
-                    f"{value_storage}_typeof({value}) IS DISTINCT FROM 'number' "
-                    f"OR {scalar} !~ '^[0-9]+$'"
+                predicate = or_(
+                    field_kind(field).is_distinct_from("number"), scalar.bool_op("!~")("^[0-9]+$")
                 )
             elif prop.range in {"PdfNumber", "float", "double", "decimal"}:
-                predicate = f"{value_storage}_typeof({value}) IS DISTINCT FROM 'number'"
-            elif (
-                prop.range in {"ParsingString", "PdfString", "PdfDigest", "PdfPointer", "string"}
-                or prop.range in vocabularies
-            ):
-                predicate = f"{value_storage}_typeof({value}) IS DISTINCT FROM 'string'"
+                predicate = field_kind(field).is_distinct_from("number")
+            elif prop.range in strings or prop.range in vocabularies:
+                predicate = field_kind(field).is_distinct_from("string")
                 if prop.range in vocabularies:
-                    choices = ",".join(quoted(member) for member in vocabularies[prop.range])
-                    predicate += f" OR {scalar} NOT IN ({choices})"
+                    predicate = or_(predicate, scalar.not_in(vocabularies[prop.range]))
             elif prop.range in definitions:
-                predicate = (
-                    f"{value_storage}_typeof({value}) IS DISTINCT FROM 'object' OR ("
-                    + invalid_record(prop.range, value, storage=value_storage)
-                    + ")"
+                predicate = or_(
+                    field_kind(field).is_distinct_from("object"), invalid_record(prop.range, field)
                 )
             else:
-                raise ValueError(
-                    f"unsupported required parsing native shape: {class_name}/{prop.name}"
-                )
-            invalid.append(f"({has_field} AND ({predicate}))")
+                raise ValueError(f"unsupported required parsing native shape: {name}/{prop.name}")
+            invalid.append(and_(present, predicate))
             if prop.equals_string is not None:
-                invalid.append(f"{scalar} IS DISTINCT FROM {quoted(prop.equals_string)}")
+                invalid.append(scalar.is_distinct_from(prop.equals_string))
             for pattern in prop.patterns or ((prop.pattern,) if prop.pattern else ()):
                 if prop.multivalued:
+                    elements = rows(field_storage + "_array_elements_text", field, Text())
                     invalid.append(
-                        f"({has_field} AND EXISTS(SELECT FROM "
-                        f"{value_storage}_array_elements_text({value}) element "
-                        f"WHERE element !~ {quoted(pattern)}))"
+                        and_(
+                            present,
+                            select(elements.c.value)
+                            .where(elements.c.value.bool_op("!~")(pattern))
+                            .exists(),
+                        )
                     )
                 else:
-                    invalid.append(f"({has_field} AND {scalar} !~ {quoted(pattern)})")
+                    invalid.append(and_(present, scalar.bool_op("!~")(pattern)))
             if prop.minimum is not None:
-                invalid.append(f"({has_field} AND ({scalar})::numeric < {prop.minimum})")
+                invalid.append(and_(present, cast(scalar, Numeric()) < prop.minimum))
             if prop.maximum is not None:
-                invalid.append(f"({has_field} AND ({scalar})::numeric > {prop.maximum})")
-        return " OR ".join(invalid)
+                invalid.append(and_(present, cast(scalar, Numeric()) > prop.maximum))
+        return or_(*invalid, false())
 
-    def guards(class_name: str, expression: str) -> str:
-        return (
-            f"IF jsonb_typeof({expression}) IS DISTINCT FROM 'object' THEN "
-            f"RAISE EXCEPTION 'parsing record must be an object: {class_name}' "
-            "USING ERRCODE='23514'; END IF;\n"
-            f"IF {invalid_record(class_name, expression, root=True)} THEN "
-            f"RAISE EXCEPTION 'parsing record shape differs: {class_name}' "
-            "USING ERRCODE='23514'; END IF;\n"
-        )
+    return invalid_record(class_name, expression, root=True)
 
-    if predicate_only:
-        return invalid_record(class_name, expression, root=True)
-    return guards(class_name, expression)
+
+def record_shape_steps(prepared, class_name, expression, **options):
+    """Two procedural refusals over the shared structured predicate."""
+    return (
+        If(
+            func.jsonb_typeof(expression).is_distinct_from("object"),
+            (Raise("parsing record must be an object: " + class_name, "23514"),),
+        ),
+        If(
+            record_shape_expression(prepared, class_name, expression, **options),
+            (Raise("parsing record shape differs: " + class_name, "23514"),),
+        ),
+    )
+
+
+def _expression(source, datatype):
+    """Bridge existing trusted declaration expressions to the typed compiler."""
+    statement = prepare_sql("SELECT " + source, source="native shape expression").statements[0].stmt
+    if (
+        not isinstance(statement, ast.SelectStmt)
+        or len(statement.targetList or ()) != 1
+        or statement.fromClause
+        or not statement.targetList
+    ):
+        raise ValueError("native shape requires one lexical expression")
+    return literal_column(RawStream()(statement.targetList[0].val), type_=datatype)
 
 
 def record_shape_predicate(prepared: PreparedRelease, class_name: str, expression: str) -> str:
-    """The same exact typed invalid-record predicate for native set guards."""
-    return _record_shape_guards(prepared, class_name, expression, predicate_only=True)
+    return str(
+        record_shape_expression(prepared, class_name, _expression(expression, JSONB())).compile(
+            dialect=dialect(paramstyle="named"),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
 
 
 def record_shape_guards(prepared: PreparedRelease, class_name: str, expression: str) -> str:
-    return _record_shape_guards(prepared, class_name, expression)
+    return _guard_body(record_shape_steps(prepared, class_name, _expression(expression, JSONB())))
+
+
+def _guard_body(steps):
+    body = _body(Block(steps))
+    return body.removeprefix("BEGIN\n").removesuffix("\nEND") + "\n"
 
 
 @dataclass(frozen=True)
@@ -190,17 +228,11 @@ def decomposed_record_guards(
     collections: Mapping[str, tuple[str, str]],
     records: Mapping[str, str],
 ) -> DecomposedRecordGuards:
-    """One model supplies closed envelope/cardinalities AND each normalized row guard.
-
-    Collection values are cached JSON text; the owning SQL loops cast one record
-    at a time. Returning all row guards together prevents a transport-only shape
-    check from being mistaken for complete protected publication validation.
-    """
     definition = next(d for d in prepared.definitions if d.name == class_name)
     properties = {p.name: p for p in definition.properties}
     classes = {d.name for d in prepared.definitions}
-    fields = {name: (array, "json") for name, (array, _) in collections.items()}
-    fields.update({name: (value, "jsonb") for name, value in records.items()})
+    fields = {name: _expression(value, JSON()) for name, (value, _) in collections.items()}
+    fields.update({name: _expression(value, JSONB()) for name, value in records.items()})
     rows = {}
     for name, (_, record) in collections.items():
         prop = properties[name]
@@ -213,13 +245,15 @@ def decomposed_record_guards(
     ):
         raise ValueError("every top-level record collection needs a complete row guard binding")
     return DecomposedRecordGuards(
-        _record_shape_guards(
-            prepared,
-            class_name,
-            expression,
-            fields=fields,
-            field_names=field_names,
-            deferred_arrays=frozenset(collections),
+        _guard_body(
+            record_shape_steps(
+                prepared,
+                class_name,
+                _expression(expression, JSONB()),
+                fields=fields,
+                field_names=_expression(field_names, ARRAY(Text())),
+                deferred_arrays=frozenset(collections),
+            )
         ),
         rows,
     )
