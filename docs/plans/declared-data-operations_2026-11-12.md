@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N6 with its matching application active at generation 7. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N7 with its matching application active at generation 8. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -193,6 +193,43 @@ and record reader programs, DDO binding/acquisition/claim/completion and selecte
 general native admission, scientific scoring and native fixture provisioning. The live observation publisher still needs conversion. Controlled fixtures still need certified
 production entrypoints before their occurrence replay path can be retired. Development database adoption and assembled DDO-12 qualification
 retain their separate obligations.
+
+### Staging, request lifecycle and N7 · 2026-11-17
+
+Main generates PDF task context, owner checks and locks, build admission, batch adoption and
+payload extents through the existing staging owner. The bounded dynamic relation scan and COPY
+contracts retain the declared scratch shapes. Native claim, batch claim and attempt release compile
+from the physical tables and captured wire and D1 evidence bounds, including per-item subtransactions.
+Contextual scoring composes the existing ranking query as Core and generates vector decoding,
+row matching, score transport and canonical meaning. Nine unreachable maintained SQL assets were
+removed after checking current consumers and frozen replay references.
+
+The published item reader now shares direct residual-body membership for `#/body` with the
+projection used by search. The N6 failure occurred after successful hit and projection validation.
+Unsectioned body rows have no organizational section pointer. The generated PostgreSQL reader
+regression passed `d7b0ba4905eb4b81ac962913cce88c8b`, covering direct body, ordinary sections,
+furniture exclusion, cursor and pointer scope. The two exact consumer journeys retain their
+original assertions.
+
+The [N7 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n7.yaml)
+preview `1fea5847326744a886003ba54bda3cfb`, apply `db7f6ba9d63f4d7a9662d6febf9bd809`,
+candidate `b5d204f197f543b18a5605dbb3d0e329`, registration `ed76e277b310434ea385b3088c579f83`
+and native deployment `2505f822f86c49cda439333ed695c030` passed. Replay covered 29 native
+transitions and emitted no ordinary DDL. Integrated claim, release, staging, scoring and published
+page checks passed all 17 in `67082fbd60194f009ecd652aca646320`. Both exact search-hit journeys
+passed with N7 in `a556e7fbb6314933b01a7d8c2226b2b4`. The positive claim, renewal and retired
+attempt selection passed all four in `f063b540786b45818d61dcd98a0d78e2`. N7 source Pyrefly
+`4ad8c5fc909e45ea8395c075d060faaa`, Ruff `ecd3c02dc6b4495a8c4ef33c144bd05e` and documentation
+`ccb40a01281b485abaf9f1ad333314a7` passed.
+
+Matching N7 application preview `ab109f3285fb4e58aeb90a81dced8acb`, apply
+`e426c4de257c4d8a8fd5fada2797080b`, candidate `843f5665f0bd46729e925a2cd00e4d07`
+and deployment `4322ccef591046ee940efb4dd45640ec` passed for
+`release:e9898a7362e50114989d2fe4bf351343dad6f9d185aa49b82b4f46aad845ba96` and
+`runtime:8584b9f1d55ac9d6ffa87a1db570e8f766b08722f7d1c6646c5ffd9bf8ecd89d`.
+Explicit `ci db check` and `ci release check` passed. Activation from generation 7 to 8 passed
+on the owned project. A separate read confirmed the exact release, 15 PDF products, 361 verified
+streams and 376 parts.
 
 ## Production-efficiency integration · 2026-11-17
 
