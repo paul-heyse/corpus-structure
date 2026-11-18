@@ -199,7 +199,7 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
         with kernel.purpose("write").begin() as connection:
             tuple(
                 DemandPlanner(kernel.model, DataOperationStorage(connection)).bound_requests(
-                    snapshot, authorization=b"{}", retained=True
+                    snapshot, authorization=b"{}"
                 )
             )
         with kernel.purpose("write").begin() as connection:
@@ -210,6 +210,6 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             for use in current["uses"]
             if obligations[use["obligation_id"]]["operation_id"] == target
         ]
-        assert composition["fate"] == "awaiting-inputs"
+        assert composition["fate"] == "not-applicable"
         reasons = cast(WireReasonSelection, composition["selection"]).get("reasons")
         assert reasons and {row["code"] for row in reasons} == {"binding-covers"}
