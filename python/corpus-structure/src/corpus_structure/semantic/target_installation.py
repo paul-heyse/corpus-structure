@@ -50,6 +50,7 @@ class TargetInstallation:
 def capture_target_installation(
     selected: MetaData, *, logical_sources: dict[str, bytes] | None = None
 ) -> TargetInstallation:
+    from .closure_native import closure_native_sql
     from .data_operation_storage import native_logical_sources
     from .native_products import capture_native_authoring_inputs
     from .pdf_domain import PREFIX, pdf_domain_sources
@@ -66,6 +67,8 @@ def capture_target_installation(
         logical_sources=logical,
         extra_sources=(
             SourceArtifact("authoring/target_installation.py", Path(__file__).read_bytes()),
+            SourceArtifact("authoring/closure-native.sql", closure_native_sql(selected).encode()),
+            SourceArtifact("authoring/closure-native.py", Path(__file__).with_name("closure_native.py").read_bytes()),
             SourceArtifact(
                 "authoring/pdf-descriptor.sql",
                 Path(__file__).with_name("sql").joinpath("pdf_descriptor.sql").read_bytes(),
@@ -190,11 +193,11 @@ def target_native_definitions(connection, installation: TargetInstallation):
         ("identity.sql", "data", "decimal_canonical", ()),
         ("closure.sql", "data", "require_float_lexical", ()),
         ("closure.sql", "sem", "require_admission_caller", ()),
-        ("closure.sql", "sem", "refuse_immutable_mutation", ()),
-        ("closure.sql", "sem", "guard_finalized_insert", ()),
-        ("closure.sql", "sem", "record_deployment_admission", ("corpus_sem_admitter",)),
-        ("closure.sql", "sem", "record_sql_admission", ("corpus_sem_admitter",)),
-        ("closure.sql", "sem", "activate_release", ("corpus_sem_admitter",)),
+        ("closure-native.sql", "sem", "refuse_immutable_mutation", ()),
+        ("closure-native.sql", "sem", "guard_finalized_insert", ()),
+        ("closure-native.sql", "sem", "record_deployment_admission", ("corpus_sem_admitter",)),
+        ("closure-native.sql", "sem", "record_sql_admission", ("corpus_sem_admitter",)),
+        ("closure-native.sql", "sem", "activate_release", ("corpus_sem_admitter",)),
         (
             "closure.sql",
             "data",
@@ -213,6 +216,8 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 connection,
                 captured["authoring/scientific-layout.sql"].decode()
                 if filename == "scientific_layout.sql"
+                else captured["authoring/closure-native.sql"].decode()
+                if filename == "closure-native.sql"
                 else sql.joinpath(filename).read_text(),
                 name=name,
                 schema=schema,
