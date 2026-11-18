@@ -87,7 +87,7 @@ def _public_authority_leaf(identity):
     return and_(_public_read(), func.ops.ddo_policy_authority_leaf(identity))
 
 
-def _disclosed_kind_access(metadata, kind):
+def _kind_disclosed(metadata, kind):
     kinds = metadata.tables["sem.data_kind_contract"]
     disclosed = exists(
         select(1)
@@ -97,7 +97,24 @@ def _disclosed_kind_access(metadata, kind):
             kinds.c.universe.in_(("ordinary", "source")),
         )
     )
-    return and_(func.ops.ddo_kind_access(kind), or_(~_public_read(), disclosed))
+    return or_(~_public_read(), disclosed)
+
+
+def _disclosed_kind_access(metadata, kind):
+    # Authorization refuses with an exception. SQL AND order cannot protect it
+    # from unrelated hidden rows, so establish immutable disclosure eligibility
+    # before invoking the native capability check.
+    return case(
+        (_kind_disclosed(metadata, kind), func.ops.ddo_kind_access(kind)),
+        else_=literal(False),
+    )
+
+
+def _disclosed_body_access(metadata, kind, body):
+    return case(
+        (_kind_disclosed(metadata, kind), func.ops.ddo_body_access(kind, body)),
+        else_=literal(False),
+    )
 
 
 def _visible(table):
@@ -1665,20 +1682,17 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
         )
         .cte("selected_output_seed")
     )
-    nodes = _support_walk(metadata, seed)
+    nodes = _support_walk(metadata, seed, public=purpose == "read")
     outputs = metadata.tables["ops.data_derivation_output"]
     episodes = metadata.tables["ops.data_derivation"]
     products = metadata.tables["kb.data_product"]
     if purpose == "read":
-        access = (
-            _disclosed_kind_access(metadata, products.c.kind_contract),
-            func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
+        access = _disclosed_body_access(
+            metadata, products.c.kind_contract, products.c.canonical_body
         )
     elif purpose == "feature-fit":
-        access = (
-            func.ops.ddo_feature_fit_body_access(
-                products.c.kind_contract, products.c.canonical_body
-            ),
+        access = func.ops.ddo_feature_fit_body_access(
+            products.c.kind_contract, products.c.canonical_body
         )
     else:
         raise ValueError("unknown selected output purpose")
@@ -1686,7 +1700,7 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
         select(1)
         .select_from(nodes)
         .where(
-            nodes.c.kind == "episode",
+            nodes.c.kind.in_(("episode", "authority")),
             nodes.c.id == episodes.c.id,
         )
     )
@@ -1721,12 +1735,19 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
         select(*fields)
         .select_from(relation)
         .where(
-            reached,
-            producing_reached,
-            literal(True) if member_aware else outputs.c.member_id.is_(None),
-            products.c.project_id == _var("d.project_id", Text),
-            _set_valid(selected_validity, "episode", episodes.c.id),
-            *access,
+            case(
+                (
+                    and_(
+                        reached,
+                        producing_reached,
+                        literal(True) if member_aware else outputs.c.member_id.is_(None),
+                        products.c.project_id == _var("d.project_id", Text),
+                        _set_valid(selected_validity, "episode", episodes.c.id),
+                    ),
+                    access,
+                ),
+                else_=literal(False),
+            )
         )
         .distinct()
     )
@@ -2016,11 +2037,20 @@ def _unconstrained_watermark_uses(metadata, bounded):
                         projected.c.analyzed_scope,
                         bounded,
                     ),
-                    and_(
-                        func.ops.ddo_kind_access(products.c.kind_contract),
-                        func.ops.ddo_body_access(
-                            projected.c.kind_contract, projected.c.meaning_body
+                    case(
+                        (
+                            and_(
+                                _kind_disclosed(metadata, products.c.kind_contract),
+                                _kind_disclosed(metadata, projected.c.kind_contract),
+                            ),
+                            and_(
+                                func.ops.ddo_kind_access(products.c.kind_contract),
+                                func.ops.ddo_body_access(
+                                    projected.c.kind_contract, projected.c.meaning_body
+                                ),
+                            ),
                         ),
+                        else_=literal(False),
                     ),
                 ),
                 else_=literal(False),

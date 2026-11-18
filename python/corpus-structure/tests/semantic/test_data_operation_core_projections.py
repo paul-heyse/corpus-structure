@@ -71,7 +71,9 @@ def test_dependency_free_waiting_watermark_filters_local_publications_by_actual_
     assert isinstance(authorization, ast.CaseExpr)
     assert authorization.args
     assert isinstance(authorization.args[0].expr, ast.CaseExpr)
-    assert isinstance(authorization.args[0].result, ast.BoolExpr)
+    disclosure = authorization.args[0].result
+    assert isinstance(disclosure, ast.CaseExpr) and disclosure.args
+    assert isinstance(disclosure.args[0].result, ast.BoolExpr)
     calls = set()
 
     class Calls(Visitor):
