@@ -50,8 +50,15 @@ if TYPE_CHECKING:
 
 _PHYSICAL_DIR = preparation.MODEL_PATH / "semantic"
 _PHYSICAL = (_PHYSICAL_DIR / PHYSICAL_ROOT).as_posix()
-_SOURCE_CALLS_OUTPUT = "semantic/_source_admission_calls.py"
-_TYPED_COLUMNS_OUTPUT = "semantic/_typed_columns.py"
+_NATIVE_OUTPUTS = (
+    "semantic/_source_admission_calls.py",
+    "semantic/_typed_columns.py",
+    "semantic/identifiers.py",
+    "semantic/_data_operation_fates.py",
+    "semantic/_pdf_native_calls.py",
+    "semantic/_pdf_native_ids.py",
+    "semantic/_data_operation_wire.py",
+)
 
 
 class NativeEffect(BaseModel):
@@ -374,7 +381,7 @@ def compilation_fingerprint(
             "ontology_sources": list(dependencies.ontology_sources),
             "profile": asdict(profile),
         }
-    generated = generated_output_paths() | {_SOURCE_CALLS_OUTPUT, _TYPED_COLUMNS_OUTPUT}
+    generated = generated_output_paths() | set(_NATIVE_OUTPUTS)
     implementation = []
     selected_package = root / preparation.PACKAGE_PATH
     running_package = Path(__file__).resolve().parents[1]
@@ -496,6 +503,53 @@ def approved_physical_metadata(root: Path, preview: ChangePreview):
     if physical_sources_id(sources) != preview.effects.physical[1]:
         raise model.ModelError(["applied physical inputs differ from the approved preview"])
     return compile_physical(sources)
+
+
+def native_model_inputs(root: Path, *, preview: ChangePreview | None = None) -> dict[str, bytes]:
+    from corpus_structure.semantic.data_operation_storage import NATIVE_LOGICAL_FILES
+
+    sources = {}
+    for name in NATIVE_LOGICAL_FILES:
+        path = (_PHYSICAL_DIR / name).as_posix()
+        content = _read(root, path)
+        if content is None:
+            raise model.ModelError(["native preview requires its logical source: " + path])
+        if preview is not None and preview.inputs.get(path) != _digest(content):
+            raise model.ModelError(
+                ["native logical inputs differ from the approved preview: " + path]
+            )
+        sources[name] = content.encode()
+    return sources
+
+
+def _native_facades(target, logical: dict[str, bytes]) -> dict[str, str]:
+    from corpus_structure.schema.generate import _format
+    from corpus_structure.semantic import pdf_call_generation, typed_generation
+    from corpus_structure.semantic.data_operation_wire import generated_wire_source
+    from corpus_structure.semantic.original_document_contracts import generated_source_calls
+    from corpus_structure.semantic.pdf_domain import PdfDomainContract
+    from corpus_structure.semantic.target_installation import capture_target_installation
+
+    captured = capture_target_installation(target, logical_sources=logical)
+    pdf, *sources = captured.pdf_sources
+    domain = PdfDomainContract(pdf.content, tuple(sources))
+    physical = target.info["physical_sources"]
+    values = (
+        generated_source_calls(target_metadata=target),
+        typed_generation.generated_source(target),
+        typed_generation.generated_identifiers(target),
+        typed_generation.generated_fates(physical["data-operation-native.yaml"]),
+        pdf_call_generation.generated_source(target_metadata=target, domain=domain),
+        pdf_call_generation.generated_enums(domain=domain),
+        _format(
+            "semantic/_data_operation_wire.py",
+            generated_wire_source(captured.authoring_inputs.native_sources),
+        ),
+    )
+    return {
+        (preparation.PACKAGE_PATH / path).as_posix(): content
+        for path, content in zip(_NATIVE_OUTPUTS, values, strict=True)
+    }
 
 
 def prepare_preview(
@@ -621,6 +675,7 @@ def prepare_preview(
         ).items():
             compatibility.setdefault(classification, []).append(element)
     physical = None
+    data_steps = ()
     if native:
         physical_input = _read(root, _PHYSICAL)
         if physical_input is None:
@@ -632,6 +687,9 @@ def prepare_preview(
             root, physical_input if request.physical is None else request.physical
         )
         target_metadata = compile_physical(requested_physical)
+        data_steps = prepare_data_steps(
+            request.data_steps, target=target_metadata, predecessor=request.native_predecessor
+        )
         physical = (physical_sources_id(original_physical), physical_sources_id(requested_physical))
         if expected_physical is not None and expected_physical != physical[1]:
             raise model.ModelError(["physical release inputs changed during preview"])
@@ -642,19 +700,9 @@ def prepare_preview(
             {path: _read(root, path) for path in original_files.keys() | requested_files.keys()}
         )
         source.update(requested_files)
-        from corpus_structure.semantic.original_document_contracts import generated_source_calls
-        from corpus_structure.semantic.typed_generation import generated_source
-
-        generated.update(
-            {
-                (
-                    preparation.PACKAGE_PATH / _SOURCE_CALLS_OUTPUT
-                ).as_posix(): generated_source_calls(target_metadata=target_metadata),
-                (preparation.PACKAGE_PATH / _TYPED_COLUMNS_OUTPUT).as_posix(): generated_source(
-                    target_metadata
-                ),
-            }
-        )
+        logical = native_model_inputs(root)
+        current.update(_physical_worktree_files(logical))
+        generated.update(_native_facades(target_metadata, logical))
         for path in _git(
             root, "ls-files", "-z", "--", str(preparation.PACKAGE_PATH / "semantic")
         ).split("\0"):
@@ -999,7 +1047,7 @@ def prepare_preview(
         release_manifest_sha256=release_manifest_sha256,
         release_artifacts_sha256=release_artifacts_sha256,
         source_migrations=migrations,
-        data_steps=prepare_data_steps(request.data_steps),
+        data_steps=data_steps,
         source_comparison=source_comparison,
         query_analysis=query_analysis,
         discovery=locate_consumers(
@@ -1027,8 +1075,6 @@ def check_preview(root: Path, preview: ChangePreview, *, applied: bool = False) 
         or generator_fingerprint(root) != preview.generator
     ):
         raise model.ModelError(["model toolchain changed after preview"])
-    if preview.data_steps != prepare_data_steps(preview.request.data_steps):
-        raise model.ModelError(["revision data-step custody changed after preview"])
     for migration in preview.source_migrations:
         try:
             check_source_migration(root, migration)
@@ -1038,6 +1084,19 @@ def check_preview(root: Path, preview: ChangePreview, *, applied: bool = False) 
     for path, before in preview.inputs.items():
         if path not in effects and _digest(_read(root, path)) != before:
             raise model.ModelError([f"stale model input {path}"])
+    if preview.request.data_steps or preview.data_steps:
+        source = effects[_PHYSICAL].after if _PHYSICAL in effects else _read(root, _PHYSICAL)
+        if source is None or preview.effects.physical is None:
+            raise model.ModelError(["revision data steps require an approved physical target"])
+        closure = _physical_closure(root, source)
+        if physical_sources_id(closure) != preview.effects.physical[
+            1
+        ] or preview.data_steps != prepare_data_steps(
+            preview.request.data_steps,
+            target=compile_physical(closure),
+            predecessor=preview.request.native_predecessor,
+        ):
+            raise model.ModelError(["revision data-step custody changed after preview"])
     for effect in preview.files:
         actual = _digest(_read(root, effect.path))
         if actual != _digest(effect.after) and (applied or actual != effect.before):

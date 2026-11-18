@@ -146,7 +146,7 @@ def _declaration(name, body, *, table_result=None):
     return RawStream()(statement) + ";\n"
 
 
-def _ensure(model, readers, max_fill_bytes):
+def _ensure(model, readers, max_fill_bytes, configuration):
     publications = model.tables["ops.pdf_published_revision"]
     populations = model.tables["ops.pdf_source_search_population"]
     sections = model.tables["ops.pdf_source_search_section"]
@@ -285,7 +285,7 @@ def _ensure(model, readers, max_fill_bytes):
                     ),
                 ),
                 If(
-                    p["configuration"].astext.is_distinct_from("english"),
+                    p["configuration"].astext.is_distinct_from(configuration),
                     (Raise("unsupported search text configuration", "23514"),),
                 ),
                 lookup_population,
@@ -538,7 +538,7 @@ def _ensure(model, readers, max_fill_bytes):
                             "product_key": pub("product_key"),
                             "logical_digest": pub("logical_digest"),
                             "recipe_digest": pin["recipe_digest"].astext,
-                            "configuration": "english",
+                            "configuration": configuration,
                             "set_digest": digest,
                             "row_count": func.jsonb_array_length(rows),
                             "byte_count": byte_count,
@@ -745,7 +745,7 @@ def _keys(model):
     )
 
 
-def _rank(model):
+def _rank(model, configuration):
     sections = model.tables["ops.pdf_source_search_section"]
     p = core_variable("p_payload", JSONB())
     keys = core_variable("keys", JSONB())
@@ -835,7 +835,7 @@ def _rank(model):
         key=returned.c.key,
         score=returned.c.score,
         excerpt=func.ts_headline(
-            cast(literal("english"), REGCONFIG()),
+            cast(literal(configuration), REGCONFIG()),
             returned.c.text,
             query,
             literal("MaxWords=45,MinWords=15"),
@@ -886,7 +886,7 @@ def _rank(model):
                 Assign(
                     "query",
                     func.websearch_to_tsquery(
-                        cast(literal("english"), REGCONFIG()), p["binding"]["text"].astext
+                        cast(literal(configuration), REGCONFIG()), p["binding"]["text"].astext
                     ),
                 ),
                 SelectInto(
@@ -909,6 +909,10 @@ def _rank(model):
     )
 
 
-def search_program_sql(model, bindings, *, max_fill_bytes: int) -> str:
+def search_program_sql(model, bindings, *, max_fill_bytes: int, configuration: str) -> str:
     readers = {binding.id: binding for _owner, binding in bindings}
-    return _ensure(model, readers, max_fill_bytes) + _keys(model) + _rank(model)
+    return (
+        _ensure(model, readers, max_fill_bytes, configuration)
+        + _keys(model)
+        + _rank(model, configuration)
+    )

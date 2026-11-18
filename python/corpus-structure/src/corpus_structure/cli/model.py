@@ -1837,6 +1837,7 @@ def candidate(
         approved_physical_metadata,
         check_preview,
         native_intent,
+        native_model_inputs,
     )
     from corpus_structure.schema.model_deployment import (
         Candidate,
@@ -1980,6 +1981,7 @@ def candidate(
                                 else {}
                             ),
                             target_metadata=target_metadata,
+                            logical_sources=native_model_inputs(root, preview=staged),
                             retire=retired,
                             recreate=recreated,
                             data_steps=staged.data_steps,

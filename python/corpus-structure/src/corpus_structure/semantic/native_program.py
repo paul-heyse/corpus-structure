@@ -159,7 +159,7 @@ class SelectInto:
 
 @dataclass(frozen=True)
 class Raise:
-    message: str
+    message: str | Expression
     sqlstate: str
 
 
@@ -238,9 +238,8 @@ def _step(statement: Statement, nested: str) -> str:
                 or state != state.upper()
             ):
                 raise ValueError("procedural refusal requires an explicit SQLSTATE")
-            return (
-                f"RAISE EXCEPTION USING MESSAGE = {_render(literal(message))}, ERRCODE = '{state}'"
-            )
+            expression = literal(message) if isinstance(message, str) else message
+            return f"RAISE EXCEPTION USING MESSAGE = {_render(expression)}, ERRCODE = '{state}'"
         case If(condition, then, otherwise):
             body = _statements(then, nested)
             if otherwise:

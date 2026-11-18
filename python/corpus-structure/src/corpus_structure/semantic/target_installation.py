@@ -47,23 +47,25 @@ class TargetInstallation:
     authoring_inputs: NativeAuthoringInputs
 
 
-def capture_target_installation(selected: MetaData) -> TargetInstallation:
+def capture_target_installation(
+    selected: MetaData, *, logical_sources: dict[str, bytes] | None = None
+) -> TargetInstallation:
+    from .data_operation_storage import native_logical_sources
     from .native_products import capture_native_authoring_inputs
-    from .pdf_domain import pdf_domain_sources
+    from .pdf_domain import PREFIX, pdf_domain_sources
 
+    logical = native_logical_sources() if logical_sources is None else logical_sources
     pdf_sources = pdf_domain_sources(
         physical_sources=selected.info["physical_sources"],
         linkml_types=selected.info["physical_linkml_types"],
+        actions_source=SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"]),
     )
     inputs = capture_native_authoring_inputs(
         target_metadata=selected,
         pdf_sources=pdf_sources,
+        logical_sources=logical,
         extra_sources=(
             SourceArtifact("authoring/target_installation.py", Path(__file__).read_bytes()),
-            SourceArtifact(
-                "authoring/scientific-layout.sql",
-                Path(__file__).with_name("sql").joinpath("scientific_layout.sql").read_bytes(),
-            ),
             SourceArtifact(
                 "authoring/pdf-descriptor.sql",
                 Path(__file__).with_name("sql").joinpath("pdf_descriptor.sql").read_bytes(),
@@ -175,7 +177,6 @@ def target_native_definitions(connection, installation: TargetInstallation):
         _task_call_definition,
     )
     from .native_objects import definition_from_sql
-    from .native_products import execution_projection_check_sql
     from .native_sql_body import published_revision_definition, published_validation_definition
     from .pdf_publication_native import _native_shape_guard
     from .published_document import published_reader_definitions
@@ -183,6 +184,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
     selected = installation.metadata
     sql = Path(__file__).with_name("sql")
     definitions = []
+    captured = {item.name: item.content for item in installation.authoring_inputs.sources}
     for filename, schema, name, roles in (
         ("identity.sql", "data", "canonical_json", ()),
         ("identity.sql", "data", "decimal_canonical", ()),
@@ -209,11 +211,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
         definitions.append(
             _task_call_definition(
                 connection,
-                next(
-                    item.content.decode()
-                    for item in installation.authoring_inputs.sources
-                    if item.name == "authoring/scientific-layout.sql"
-                )
+                captured["authoring/scientific-layout.sql"].decode()
                 if filename == "scientific_layout.sql"
                 else sql.joinpath(filename).read_text(),
                 name=name,
@@ -233,7 +231,9 @@ def target_native_definitions(connection, installation: TargetInstallation):
     definitions.extend(
         _release_guard_definitions(
             connection,
-            sql.joinpath("closure.sql").read_text() + "\n" + execution_projection_check_sql(),
+            sql.joinpath("closure.sql").read_text()
+            + "\n"
+            + captured["authoring/execution-projection-check.sql"].decode(),
             source="target-current:release archive guards",
         )
     )
@@ -661,6 +661,7 @@ def prepare_target_successor(
     recreate=frozenset(),
     owned_authoring=False,
     data_steps=(),
+    predecessor_revision=None,
 ):
     """Prepare a current successor from one exact registered target state.
 
@@ -707,6 +708,7 @@ def prepare_target_successor(
         old_descriptor=descriptor,
         physical_contract=physical_contract,
         data_steps=data_steps,
+        predecessor_revision=predecessor_revision,
     )
 
 

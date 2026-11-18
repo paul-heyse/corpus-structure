@@ -182,6 +182,7 @@ def test_geometry_relations_keep_ordinals_ambiguity_and_reader_lifetime(origin):
             (1, "a", 2), (1, "b", 2), (2, "a", 1),
         ]
         assert [match.candidate for match in matches[:2]] == [None, None]
+        assert matches[2].candidate is not None
         assert matches[2].candidate.text == "Ω"
         assert all(match.spans == {(0, 1)} for match in matches)
         assert geometry.intersecting_cells(nodes, {selected, boundary}) == {selected}

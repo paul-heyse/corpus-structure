@@ -103,3 +103,22 @@ def test_generated_search_tracks_quoted_physical_fields_and_result_types():
     assert length.val.ival == 80
     assert '"publication ""digest"""' in generated
     assert '"section ""text"""' in generated
+
+
+def test_search_configuration_changes_the_vector_program_and_wire_together():
+    from corpus_structure.schema.physical import compile_physical
+    from corpus_structure.semantic.data_operation_wire import wire_contracts
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_products import capture_native_authoring_inputs
+
+    physical = dict(metadata.info["physical_sources"])
+    physical["physical.yaml"] = physical["physical.yaml"].replace(
+        b"ph:search_configuration: english", b"ph:search_configuration: simple"
+    )
+    target = compile_physical(physical, linkml_types=metadata.info["physical_linkml_types"])
+    captured = capture_native_authoring_inputs(target_metadata=target)
+    wire = wire_contracts(captured.native_sources)["ensure_pdf_search_projection"]["input"]
+    assert wire["properties"]["configuration"] == {"const": "simple"}
+    statement = search_projection_sql(captured.native_sources)
+    assert "websearch_to_tsquery(CAST('simple' AS REGCONFIG)" in statement
+    assert "configuration') IS DISTINCT FROM 'simple'" in statement

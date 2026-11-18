@@ -442,6 +442,7 @@ def author_native_candidate(
     native_base: NativeMigrationBase | None = None,
     expected_target: StorageTarget | None = None,
     target_metadata: MetaData | None = None,
+    logical_sources: dict[str, bytes] | None = None,
     retire: frozenset[NativeIdentity] = frozenset(),
     recreate: frozenset[NativeIdentity] = frozenset(),
     data_steps: tuple[FrozenDataStep, ...] = (),
@@ -503,7 +504,7 @@ def author_native_candidate(
     if assert_explicit_route(selected)["dbname"] != authoring_database:
         raise SemanticRefusal("configured authoring database conflicts with its libpq route")
     target_metadata = metadata if target_metadata is None else target_metadata
-    installation = capture_target_installation(target_metadata)
+    installation = capture_target_installation(target_metadata, logical_sources=logical_sources)
     with (
         open_runtime_engine(selected, "ci-native-candidate", purpose="maintenance") as engine,
         engine.connect() as conn,
@@ -560,6 +561,7 @@ def author_native_candidate(
                     recreate=recreate,
                     owned_authoring=True,
                     data_steps=data_steps,
+                    predecessor_revision=predecessor,
                 )
             upgrade_ops = script.upgrade_ops
             if upgrade_ops is None:

@@ -37,6 +37,15 @@ _RENDERER_FILES = (
 )
 
 
+def search_configuration(model) -> str:
+    configuration = model.tables["ops.pdf_source_search_section"].c.search_vector.info.get(
+        "search_configuration"
+    )
+    if not isinstance(configuration, str) or not configuration:
+        raise ValueError("PDF search vector has no declared configuration")
+    return configuration
+
+
 def search_projection_sources(
     *, target_metadata=None, pdf_domain=None
 ) -> tuple[SourceArtifact, ...]:
@@ -62,6 +71,7 @@ def search_projection_sources(
         from .metadata import metadata
 
         target_metadata = metadata
+    configuration = search_configuration(target_metadata)
     if pdf_domain is None and target_metadata.info.get("physical_sources"):
         pdf_sources = pdf_domain_sources(
             physical_sources=target_metadata.info["physical_sources"],
@@ -80,6 +90,7 @@ def search_projection_sources(
                 {
                     "version": "pdf-source-search-v1",
                     "renderer": renderer_digest,
+                    "configuration": configuration,
                     "default_policy_digest": policy_digest,
                     "max_fill_bytes": PUBLICATION_FILL_BYTES,
                 }
@@ -90,6 +101,7 @@ def search_projection_sources(
             _search_pin_sql(
                 target_metadata,
                 renderer=renderer_digest,
+                configuration=configuration,
                 default_policy_digest=policy_digest,
             ).encode(),
         ),
@@ -99,6 +111,7 @@ def search_projection_sources(
                 target_metadata,
                 pdf_call_bindings(pdf_domain),
                 max_fill_bytes=PUBLICATION_FILL_BYTES,
+                configuration=configuration,
             ).encode(),
         ),
         SourceArtifact(
@@ -108,7 +121,9 @@ def search_projection_sources(
     )
 
 
-def _search_pin_sql(metadata, *, renderer: str, default_policy_digest: str) -> str:
+def _search_pin_sql(
+    metadata, *, renderer: str, default_policy_digest: str, configuration: str
+) -> str:
     """Authenticate one selected publication against its captured rendering recipe."""
     from sqlalchemy import Text, func, literal, select
     from sqlalchemy.dialects.postgresql import JSONB
@@ -261,7 +276,7 @@ def _search_pin_sql(metadata, *, renderer: str, default_policy_digest: str) -> s
                                 field("product_key"),
                                 field("logical_digest"),
                                 recipe_digest,
-                                "english",
+                                configuration,
                             ),
                             type_=Text(),
                         ),
@@ -329,7 +344,7 @@ def population_identity(source: SelectedPdfSource, recipe: dict) -> str:
                     publication.product_key,
                     publication.logical_digest,
                     sha256(canonical_bytes(recipe)).hexdigest(),
-                    "english",
+                    _running_contract()["configuration"],
                 ]
             )
         ).hexdigest()
@@ -383,7 +398,7 @@ def ensure_search_projection(
     payload = {
         "source": source.reference.model_dump(),
         "recipe": recipe,
-        "configuration": "english",
+        "configuration": _running_contract()["configuration"],
         "fill_max_bytes": fill_max_bytes,
     }
     result = storage.ensure_pdf_search_projection(

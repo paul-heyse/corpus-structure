@@ -58,6 +58,24 @@ def _inputs(inputs: tuple[SourceArtifact, ...]) -> tuple[SourceArtifact, ...]:
 
 
 VERSION = "data-operation-runtime-binding-v2"
+ARCHIVE_VERSION = "runtime-source-archive-1"
+MANIFEST_FIELDS = (
+    "version",
+    "release_id",
+    "model_digest",
+    "python_version",
+    "semantic_inputs",
+    "implementation_inputs",
+    "runtime_artifact",
+    "runtime_meaning",
+    "attestation",
+    "attestation_meaning",
+    "execution_profile",
+    "observed",
+    "provider_profiles",
+)
+ARCHIVE_FIELDS = ("version", "inputs")
+INPUT_FIELDS = ("name", "sha256", "content_hex")
 
 
 def _required_inputs(prepared: PreparedRelease) -> list[dict[str, str]]:
@@ -110,7 +128,7 @@ def prepare_data_operation_runtime(
     )
     archive = canonical_bytes(
         {
-            "version": "runtime-source-archive-1",
+            "version": ARCHIVE_VERSION,
             "inputs": [
                 {"name": source.name, "sha256": source.digest, "content_hex": source.content.hex()}
                 for source in sources
@@ -136,26 +154,12 @@ def validate_data_operation_runtime(binding: RuntimeBinding, prepared: PreparedR
         raise RuntimeBindingError("unsupported target runtime version")
     manifest = _document(
         binding.manifest,
-        {
-            "version",
-            "provider_profiles",
-            "release_id",
-            "model_digest",
-            "python_version",
-            "semantic_inputs",
-            "implementation_inputs",
-            "runtime_artifact",
-            "runtime_meaning",
-            "attestation",
-            "attestation_meaning",
-            "execution_profile",
-            "observed",
-        },
+        set(MANIFEST_FIELDS),
     )
-    archive = _document(binding.archive, {"version", "inputs"})
+    archive = _document(binding.archive, set(ARCHIVE_FIELDS))
     if (
         manifest["version"] != VERSION
-        or archive["version"] != "runtime-source-archive-1"
+        or archive["version"] != ARCHIVE_VERSION
         or manifest["release_id"] != prepared.release_id
         or binding.release_id != prepared.release_id
         or manifest["model_digest"] != sha256(model.content).hexdigest()
@@ -169,7 +173,7 @@ def validate_data_operation_runtime(binding: RuntimeBinding, prepared: PreparedR
             raise ValueError("target runtime execution profile is missing")
         sources = []
         for item in archive["inputs"]:
-            if set(item) != {"name", "sha256", "content_hex"} or not item["name"]:
+            if set(item) != set(INPUT_FIELDS) or not item["name"]:
                 raise ValueError("target runtime input shape differs")
             source = SourceArtifact(item["name"], bytes.fromhex(item["content_hex"]))
             if source.digest != item["sha256"] or source.content.hex() != item["content_hex"]:

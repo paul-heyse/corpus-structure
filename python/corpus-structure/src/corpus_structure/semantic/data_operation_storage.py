@@ -39,8 +39,20 @@ _ROOT = Path(__file__).resolve().parents[1] / "model" / "semantic"
 _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 
 
+NATIVE_LOGICAL_FILES = ("observations.yaml", "pdf-actions.yaml", "data-operation-wire-types.yaml")
+
+
+def native_logical_sources() -> dict[str, bytes]:
+    return {name: (_ROOT / name).read_bytes() for name in NATIVE_LOGICAL_FILES}
+
+
 def native_protocol_sources(
-    *, physical_sources=None, linkml_types=None, target_metadata=None, pdf_domain=None
+    *,
+    physical_sources=None,
+    linkml_types=None,
+    target_metadata=None,
+    pdf_domain=None,
+    logical_sources=None,
 ) -> tuple[SourceArtifact, ...]:
     from importlib.metadata import version
 
@@ -107,6 +119,7 @@ def native_protocol_sources(
         target_metadata = compile_physical(physical_sources, linkml_types=linkml_types)
     from .data_operation_projections import capture_projection_sources
 
+    logical = native_logical_sources() if logical_sources is None else logical_sources
     return (
         *capture_projection_sources(
             physical_sources=physical_sources,
@@ -225,7 +238,7 @@ def native_protocol_sources(
             "native/data-operation-contextual-witness.py",
             Path(__file__).with_name("contextual_witness_native.py").read_bytes(),
         ),
-        *source_value_native_sources(),
+        *source_value_native_sources(logical["observations.yaml"]),
         SourceArtifact(
             "native/data-operation-execution-evidence-leaf.sql",
             execution_evidence_leaf_native_sql().encode(),
@@ -386,7 +399,7 @@ def native_protocol_sources(
             physical,
         ),
         *binding_native_sources(),
-        *wire_native_sources(),
+        *wire_native_sources(logical["data-operation-wire-types.yaml"]),
         *search_projection_sources(target_metadata=target_metadata, pdf_domain=pdf_domain),
         *source_native_sources(physical_sources=physical_sources, linkml_types=linkml_types),
     )

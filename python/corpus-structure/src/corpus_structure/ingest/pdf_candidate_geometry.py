@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection, Iterator
+from collections.abc import Collection, Generator
 from dataclasses import dataclass
 from itertools import chain
 from typing import Any
 
 import duckdb
-from duckdb import col, coalesce, count_all, fn, lit, star, when
 import pyarrow as pa
+from duckdb import coalesce, col, count_all, fn, lit, star, when
 
 from .pdf_candidate_source import CandidatePageSource, candidate_from_payload
 from .pdf_candidates import InlineCandidate
@@ -169,7 +169,7 @@ class CandidateGeometry:
 
     def inline_matches(
         self, nodes: dict[str, Any], selected: frozenset[str]
-    ) -> Iterator[InlineGeometryMatch]:
+    ) -> Generator[InlineGeometryMatch]:
         if not self.available:
             return
         rows = []

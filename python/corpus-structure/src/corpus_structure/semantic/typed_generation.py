@@ -97,13 +97,17 @@ def generated_source(model=metadata) -> str:
     )
 
 
-def generated_fates() -> str:
+def generated_fates(protocol: bytes | None = None) -> str:
     from .data_operation_protocol import generated_fate_source
     from .metadata import PHYSICAL_MODEL
 
     return _format(
         "semantic/_data_operation_fates.py",
-        generated_fate_source(PHYSICAL_MODEL.with_name("data-operation-native.yaml").read_bytes()),
+        generated_fate_source(
+            PHYSICAL_MODEL.with_name("data-operation-native.yaml").read_bytes()
+            if protocol is None
+            else protocol
+        ),
     )
 
 

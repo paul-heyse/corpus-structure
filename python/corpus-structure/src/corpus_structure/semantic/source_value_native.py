@@ -43,7 +43,6 @@ from .native_program import (
 )
 from .types import SourceArtifact
 
-_SCHEMA = Path(__file__).parents[1] / "model" / "semantic" / "observations.yaml"
 _INTEGER = r"^-?(0|[1-9][0-9]*)$"
 
 
@@ -68,8 +67,7 @@ def _layout(source: bytes) -> dict[str, SourceVariant]:
     return variants
 
 
-def source_value_native_sources() -> tuple[SourceArtifact, ...]:
-    source = _SCHEMA.read_bytes()
+def source_value_native_sources(source: bytes) -> tuple[SourceArtifact, ...]:
     return (
         SourceArtifact(
             "native/data-operation-source-values.sql", source_value_native_sql(source).encode()
@@ -142,8 +140,8 @@ def _revoke(name: str, parameters: tuple[Parameter, ...]) -> str:
     )
 
 
-def source_value_native_sql(source: bytes | None = None) -> str:
-    layout = _layout(_SCHEMA.read_bytes() if source is None else source)
+def source_value_native_sql(source: bytes) -> str:
+    layout = _layout(source)
     p = core_variable("p", JSONB())
     kind = core_variable("kind", Text())
     result = core_variable("result", JSONB())

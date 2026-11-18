@@ -33,7 +33,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert
 
-from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.native_admission import _admission_descriptor
 from corpus_structure.semantic.native_program import (
     Assign,
@@ -62,12 +61,14 @@ S40_RELATIONS = (
 _PREDECESSOR = "semantic_ddo_pe_n2"
 
 
-def predecessor_parts() -> tuple[dict[str, Table], bytes]:
+def predecessor_parts(predecessor: str | None) -> tuple[dict[str, Table], bytes]:
     """Authenticate and project the fixed predecessor's captured physical facts.
 
     This maintenance owner is deliberately N2-specific: it neither reflects live
     tables nor guesses a predecessor shape from the current upload contract.
     """
+    if predecessor != _PREDECESSOR:
+        raise ValueError("S40 requires the fixed N2 predecessor witness")
     versions = Path(__file__).resolve().parents[3] / "target_alembic" / "versions"
     revision = versions / f"{_PREDECESSOR}.py"
     fields = {}
@@ -144,8 +145,9 @@ def _content_trigger(relation: Table, *, enabled: bool) -> Sql:
     )
 
 
-def shared_stream_program(parts: dict[str, Table]) -> str:
+def shared_stream_program(parts: dict[str, Table], target: MetaData) -> str:
     """Preserve actual sealed bytes, refusing inconsistent historical inventory."""
+    table = target.tables.__getitem__
     build = table("ops.pdf_stage_build")
     streams = table("ops.pdf_shared_stream")
     stored = table("ops.pdf_shared_stream_part")

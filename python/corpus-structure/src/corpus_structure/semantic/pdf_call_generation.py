@@ -9,12 +9,12 @@ from .native_call_generation import render_call_bindings, render_call_identifier
 from .pdf_domain import pdf_call_bindings
 
 
-def generated_source() -> str:
+def generated_source(*, target_metadata=metadata, domain=None) -> str:
     return _format(
         "semantic/_pdf_native_calls.py",
         render_call_bindings(
-            pdf_call_bindings(),
-            metadata,
+            pdf_call_bindings(domain),
+            target_metadata,
             canonical_identifiers=True,
             identifiers_module="._pdf_native_ids",
             context_validator=(".pdf_domain", "require_pdf_call_context"),
@@ -22,10 +22,10 @@ def generated_source() -> str:
     )
 
 
-def generated_enums() -> str:
+def generated_enums(*, domain=None) -> str:
     return _format(
         "semantic/_pdf_native_ids.py",
-        render_call_identifiers(pdf_call_bindings(), canonical_identifiers=True),
+        render_call_identifiers(pdf_call_bindings(domain), canonical_identifiers=True),
     )
 
 

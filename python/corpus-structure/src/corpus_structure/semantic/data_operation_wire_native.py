@@ -7,7 +7,7 @@ from pathlib import Path
 from .types import SourceArtifact
 
 
-def wire_native_sources() -> tuple[SourceArtifact, ...]:
+def wire_native_sources(nominal_types: bytes) -> tuple[SourceArtifact, ...]:
     return (
         SourceArtifact(
             "native/data-operation-wire-types.py",
@@ -15,11 +15,7 @@ def wire_native_sources() -> tuple[SourceArtifact, ...]:
         ),
         SourceArtifact(
             "native/data-operation-wire-types.yaml",
-            Path(__file__)
-            .resolve()
-            .parents[1]
-            .joinpath("model/semantic/data-operation-wire-types.yaml")
-            .read_bytes(),
+            nominal_types,
         ),
         SourceArtifact("native/data-operation-wire-native.py", Path(__file__).read_bytes()),
         SourceArtifact(

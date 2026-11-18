@@ -1,6 +1,7 @@
 """Closed DATA authoring and its frozen upgrade boundary."""
 
 from contextlib import nullcontext
+from functools import partial
 from io import StringIO
 
 import pytest
@@ -14,6 +15,7 @@ from corpus_structure.schema import data_steps, model
 from corpus_structure.schema.model_change import ChangeRequest, check_preview, prepare_preview
 from corpus_structure.semantic.alembic_native import NativeTransitionOp
 from corpus_structure.semantic.alembic_privileges import OwnedOperationsOp
+from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.native_objects import (
     NativeAuthoring,
     NativeAuthoringError,
@@ -21,9 +23,15 @@ from corpus_structure.semantic.native_objects import (
     NativeObject,
 )
 
+PREDECESSOR = None
+prepare_data_steps = partial(
+    data_steps.prepare_data_steps, target=metadata, predecessor=PREDECESSOR
+)
+order_data_steps = partial(data_steps.order_data_steps, target=metadata, predecessor=PREDECESSOR)
+
 
 def n1():
-    return data_steps.prepare_data_steps((data_steps.DataStepRequest(name="ddo_n1_relower"),))
+    return prepare_data_steps((data_steps.DataStepRequest(name="ddo_n1_relower"),))
 
 
 def guarded_authoring(step):
@@ -63,7 +71,7 @@ def test_data_steps_require_native_custody_and_are_not_repeatable():
     with pytest.raises(ValidationError, match="duplicate revision data step"):
         ChangeRequest(native_revision="n1", data_steps=(request, request))
     with pytest.raises(ValueError, match="duplicate revision data step"):
-        data_steps.prepare_data_steps((request, request))
+        prepare_data_steps((request, request))
 
 
 def test_n1_rederives_admitted_facts_without_manufacturing_old_evidence():
@@ -98,7 +106,7 @@ def test_nullable_ddl_precedes_native_data_and_final_guards():
             helper,
         ]
     )
-    data_steps.order_data_steps(upgrade, (step,), authoring)
+    order_data_steps(upgrade, (step,), authoring)
     first = upgrade.ops[0]
     assert isinstance(first, OwnedOperationsOp)
     staged = first.ops[0]
@@ -135,9 +143,7 @@ def test_nullable_ddl_precedes_native_data_and_final_guards():
 
 
 def test_receipt_oracle_foreign_key_survives_nullable_staging_without_reparenting():
-    (step,) = data_steps.prepare_data_steps(
-        (data_steps.DataStepRequest(name="pdf_s36_retire_validation"),)
-    )
+    (step,) = prepare_data_steps((data_steps.DataStepRequest(name="pdf_s36_retire_validation"),))
     source = Column(
         "oracle_receipt_id",
         Text,
@@ -153,7 +159,7 @@ def test_receipt_oracle_foreign_key_survives_nullable_staging_without_reparentin
             )
         ]
     )
-    data_steps.order_data_steps(upgrade, (step,), guarded_authoring(step))
+    order_data_steps(upgrade, (step,), guarded_authoring(step))
     first = upgrade.ops[0]
     assert isinstance(first, OwnedOperationsOp)
     staged = first.ops[0]
@@ -195,7 +201,7 @@ def test_only_not_null_is_deferred_when_a_column_also_changes_type():
         modify_nullable=False,
     )
     upgrade = ops.UpgradeOps([OwnedOperationsOp("corpus_sem_publisher", [change])])
-    data_steps.order_data_steps(upgrade, (step,), guarded_authoring(step))
+    order_data_steps(upgrade, (step,), guarded_authoring(step))
     first = upgrade.ops[0]
     assert isinstance(first, OwnedOperationsOp)
     staged = first.ops[0]
@@ -216,17 +222,17 @@ def test_only_not_null_is_deferred_when_a_column_also_changes_type():
 def test_unrelated_successor_has_no_table_specific_data_work():
     operation = ops.ExecuteSQLOp("SELECT 1")
     upgrade = ops.UpgradeOps([operation])
-    data_steps.order_data_steps(upgrade, (), NativeAuthoring(()))
+    order_data_steps(upgrade, (), NativeAuthoring(()))
     assert upgrade.ops == [operation]
 
 
 def test_data_authoring_refuses_absent_guards_and_edited_frozen_sql():
     (step,) = n1()
     with pytest.raises(NativeAuthoringError, match="exact intrinsic guard"):
-        data_steps.order_data_steps(ops.UpgradeOps([]), (step,), NativeAuthoring(()))
+        order_data_steps(ops.UpgradeOps([]), (step,), NativeAuthoring(()))
     edited = step.model_copy(update={"statements": ("DELETE FROM sem.release",)})
     with pytest.raises(NativeAuthoringError, match="closed builder custody"):
-        data_steps.order_data_steps(ops.UpgradeOps([]), (edited,), guarded_authoring(step))
+        order_data_steps(ops.UpgradeOps([]), (edited,), guarded_authoring(step))
 
 
 def test_frozen_upgrade_executes_sql_without_resolving_current_builders(monkeypatch):
@@ -237,7 +243,7 @@ def test_frozen_upgrade_executes_sql_without_resolving_current_builders(monkeypa
 
     (step,) = n1()
     upgrade = ops.UpgradeOps([])
-    data_steps.order_data_steps(upgrade, (step,), guarded_authoring(step))
+    order_data_steps(upgrade, (step,), guarded_authoring(step))
     source = _native_candidate_python(upgrade)
     assert "schema.data_steps" not in source
     namespace = {}

@@ -2706,7 +2706,7 @@ definitions:
     properties:
       source: {$ref: '#/definitions/read_selected_pdf_source_request'}
       recipe: {$ref: '#/definitions/pdf_search_recipe'}
-      configuration: {const: english}
+      configuration: {x-corpus-source: pdf-search-configuration}
       fill_max_bytes: {type: integer, minimum: 1, maximum: 134217728}
       rows: {type: array, items: {$ref: '#/definitions/pdf_search_projection_row'}}
     required: [source, recipe, configuration, fill_max_bytes]

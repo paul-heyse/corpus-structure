@@ -19,6 +19,7 @@ from sqlalchemy.dialects.postgresql import dialect
 
 if TYPE_CHECKING:
     from alembic.operations.ops import MigrateOperation, UpgradeOps
+    from sqlalchemy import MetaData
     from sqlalchemy.sql import ClauseElement, Select
 
     from corpus_structure.semantic.native_objects import NativeAuthoring
@@ -100,8 +101,8 @@ def _libraries() -> tuple[tuple[str, str], ...]:
     return tuple((name, version(name)) for name in ("sqlalchemy", "alembic", "pglast"))
 
 
-def _n1() -> FrozenDataStep:
-    from corpus_structure.semantic.metadata import table
+def _n1(target: MetaData, predecessor: str | None) -> FrozenDataStep:
+    table = target.tables.__getitem__
 
     definitions = table("sem.data_operation_definition")
     finalized = table("sem.release_finalization")
@@ -194,15 +195,13 @@ _S36_COLUMNS = tuple(
 )
 
 
-def _pdf_s36() -> FrozenDataStep:
+def _pdf_s36(target: MetaData, predecessor: str | None) -> FrozenDataStep:
     """Retire unqualified receipts, never invent historical producer attestations.
 
     Products and their original/record bytes remain retained. A historical product
     without current certification is inert and must be regenerated for current use.
     """
-    from corpus_structure.semantic.metadata import table
-
-    validation = table("ops.pdf_build_validation")
+    validation = target.tables["ops.pdf_build_validation"]
     unqualified = or_(*(validation.c[name].is_(None) for _, name in _S36_COLUMNS))
     return FrozenDataStep(
         name="pdf_s36_retire_validation",
@@ -223,17 +222,17 @@ def _pdf_s36() -> FrozenDataStep:
     )
 
 
-def _pdf_s40() -> FrozenDataStep:
+def _pdf_s40(target: MetaData, predecessor: str | None) -> FrozenDataStep:
     from . import data_step_programs
 
-    parts, predecessor = data_step_programs.predecessor_parts()
+    parts, witness = data_step_programs.predecessor_parts(predecessor)
     return FrozenDataStep(
         name="pdf_s40_shared_streams",
         implementation_sha256=_implementation_id(
-            Path(data_step_programs.__file__).read_bytes(), predecessor
+            Path(data_step_programs.__file__).read_bytes(), witness
         ),
         libraries=_libraries(),
-        statements=(data_step_programs.shared_stream_program(parts),),
+        statements=(data_step_programs.shared_stream_program(parts, target),),
         deferred_columns=(),
         guarded_relations=(),
         prerequisite_relations=tuple(sorted((*data_step_programs.S40_RELATIONS, *parts))),
@@ -241,7 +240,9 @@ def _pdf_s40() -> FrozenDataStep:
     )
 
 
-def prepare_data_steps(requests: tuple[DataStepRequest, ...]) -> tuple[FrozenDataStep, ...]:
+def prepare_data_steps(
+    requests: tuple[DataStepRequest, ...], *, target: MetaData, predecessor: str | None
+) -> tuple[FrozenDataStep, ...]:
     if len({request.name for request in requests}) != len(requests):
         raise ValueError("duplicate revision data step")
     # The closed DTO and this finite map are the only builder selection surface.
@@ -250,11 +251,16 @@ def prepare_data_steps(requests: tuple[DataStepRequest, ...]) -> tuple[FrozenDat
         "pdf_s36_retire_validation": _pdf_s36,
         "pdf_s40_shared_streams": _pdf_s40,
     }
-    return tuple(builders[request.name]() for request in requests)
+    return tuple(builders[request.name](target, predecessor) for request in requests)
 
 
 def order_data_steps(
-    upgrade_ops: UpgradeOps, steps: tuple[FrozenDataStep, ...], authoring: NativeAuthoring
+    upgrade_ops: UpgradeOps,
+    steps: tuple[FrozenDataStep, ...],
+    authoring: NativeAuthoring,
+    *,
+    target: MetaData,
+    predecessor: str | None,
 ) -> None:
     """Stage nullable DDL, native helpers, authenticated data, then final constraints."""
     from alembic.operations import ops
@@ -265,7 +271,11 @@ def order_data_steps(
 
     if not steps:
         return
-    if steps != prepare_data_steps(tuple(DataStepRequest(name=step.name) for step in steps)):
+    if steps != prepare_data_steps(
+        tuple(DataStepRequest(name=step.name) for step in steps),
+        target=target,
+        predecessor=predecessor,
+    ):
         raise NativeAuthoringError("revision data steps differ from current closed builder custody")
     deferred = {entry for step in steps for entry in step.deferred_columns}
     final: list[MigrateOperation] = []

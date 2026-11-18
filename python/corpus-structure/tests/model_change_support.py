@@ -20,7 +20,9 @@ def model_checkout(tmp_path):
     physical_sources = physical_source_closure(
         "physical.yaml", lambda name: (semantic / name).read_bytes()
     )
-    for name, content in physical_sources.items():
+    from corpus_structure.semantic.data_operation_storage import native_logical_sources
+
+    for name, content in (physical_sources | native_logical_sources()).items():
         (location / "semantic" / name).write_bytes(content)
     from corpus_structure.semantic.migrations import ALEMBIC_DIR
 

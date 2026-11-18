@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic.data_operation_storage import native_logical_sources
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.source_value_native import source_value_native_sql
@@ -13,7 +14,7 @@ from corpus_structure.semantic.source_value_native import source_value_native_sq
 
 @pytest.fixture
 def metadata_codec(semantic_bare_engine):
-    sql = source_value_native_sql()
+    sql = source_value_native_sql(native_logical_sources()["observations.yaml"])
     parsed = prepare_sql(sql, source="source-metadata-codec")
     with semantic_bare_engine.connect() as connection, connection.begin():
         connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS data")

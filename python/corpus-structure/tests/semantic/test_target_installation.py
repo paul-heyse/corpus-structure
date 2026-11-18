@@ -246,10 +246,10 @@ def test_target_observation_projection_uses_acquired_spec_after_ambient_source_r
 def test_current_descriptor_and_projection_guard_do_not_inherit_obsolete_storage():
     from pglast import parse_sql
 
+    from corpus_structure.semantic.archive_projection_native import execution_projection_check_sql
     from corpus_structure.semantic.native_admission import native_admission_sql
     from corpus_structure.semantic.native_products import (
         admission_kernel,
-        execution_projection_check_sql,
         literal_json_descriptor,
     )
     from corpus_structure.semantic.target_installation import (
@@ -271,11 +271,10 @@ def test_current_descriptor_and_projection_guard_do_not_inherit_obsolete_storage
     assert {table["relation"] for table in descriptor["tables"]} == set(capture.metadata.tables)
     assert descriptor["views"] == []
     assert not any(reader["relation"].startswith("eval.") for reader in descriptor["readers"])
-    guard = execution_projection_check_sql()
+    guard = execution_projection_check_sql(capture.metadata)
     assert "FROM sem.execution_operation" not in guard
-    assert "kind='execution_model'" in guard
+    assert "kind = 'execution_model'" in guard
     assert "requires current declared data operations" in guard
-    assert "FROM sem.execution_operation" not in execution_projection_check_sql()
     assert parse_sql(guard)
 
 

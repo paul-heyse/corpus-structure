@@ -50,7 +50,12 @@ class NativeAuthoringInputs:
 
 
 def capture_native_authoring_inputs(
-    *, target_metadata: MetaData | None = None, pdf_actions=None, pdf_sources=None, extra_sources=()
+    *,
+    target_metadata: MetaData | None = None,
+    pdf_actions=None,
+    pdf_sources=None,
+    extra_sources=(),
+    logical_sources=None,
 ) -> NativeAuthoringInputs:
     """Acquire the native protocol, exact physical closure and real helper assets once.
 
@@ -60,6 +65,7 @@ def capture_native_authoring_inputs(
     from dataclasses import asdict
     from pathlib import Path
 
+    from .archive_projection_native import execution_projection_check_sql, scientific_layout_sql
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_compilation import compile_data_operations
     from .data_operation_storage import (
@@ -98,6 +104,7 @@ def capture_native_authoring_inputs(
         linkml_types=types,
         target_metadata=selected,
         pdf_domain=domain,
+        logical_sources=logical_sources,
     )
     declarations = native_operation_declarations(native)
     calls = native_operation_calls(sources=native)
@@ -119,6 +126,7 @@ def capture_native_authoring_inputs(
             SourceArtifact("authoring/" + name, Path(__file__).with_name(name).read_bytes())
             for name in (
                 "native_products.py",
+                "archive_projection_native.py",
                 "native_admission.py",
                 "native_authoring.py",
                 "native_objects.py",
@@ -153,8 +161,9 @@ def capture_native_authoring_inputs(
         ),
         SourceArtifact(
             "authoring/execution-projection-check.sql",
-            execution_projection_check_sql().encode(),
+            execution_projection_check_sql(selected).encode(),
         ),
+        SourceArtifact("authoring/scientific-layout.sql", scientific_layout_sql(selected).encode()),
         SourceArtifact(
             "authoring/admission.sql",
             Path(__file__).with_name("sql").joinpath("admission.sql").read_bytes(),
@@ -182,13 +191,6 @@ def current_authoring_provenance(
         sha256(captured.model.content).hexdigest(),
         tuple((item.name, item.digest) for item in captured.sources),
     )
-
-
-def execution_projection_check_sql() -> str:
-    """The one current archive projection guard; no historical storage branch."""
-    from pathlib import Path
-
-    return Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_text()
 
 
 def relation_descriptor(relation) -> dict:

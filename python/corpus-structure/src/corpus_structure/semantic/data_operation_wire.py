@@ -63,6 +63,27 @@ def _prepare_protocol_content(sources: tuple[SourceArtifact, ...] | None) -> byt
     # Captured interpretation must consume its captured schema, never ambient code.
     document = yaml.safe_load(content)
     declared = document.get("definitions") if isinstance(document, dict) else None
+    search = (
+        declared.get("ensure_pdf_search_projection_request") if isinstance(declared, dict) else None
+    )
+    if isinstance(search, dict) and search.get("properties", {}).get("configuration") == {
+        "x-corpus-source": "pdf-search-configuration"
+    }:
+        from .pdf_source_search import CONTRACT, search_configuration
+
+        if sources is None:
+            from .metadata import metadata
+
+            configuration = search_configuration(metadata)
+        else:
+            captured_configuration = [s.content for s in sources if s.name == CONTRACT]
+            if len(captured_configuration) != 1:
+                raise ValueError("wire PDF search requires its captured configuration")
+            configuration = json.loads(captured_configuration[0]).get("configuration")
+            if not isinstance(configuration, str) or not configuration:
+                raise ValueError("wire PDF search configuration is invalid")
+        search["properties"]["configuration"] = {"const": configuration}
+        content = canonical_bytes(document)
     completion = declared.get("completion") if isinstance(declared, dict) else None
     properties = completion.get("properties") if isinstance(completion, dict) else None
     if isinstance(properties, dict) and "execution_evidence" in properties:

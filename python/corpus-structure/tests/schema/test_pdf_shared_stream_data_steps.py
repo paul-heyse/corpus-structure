@@ -1,14 +1,24 @@
 """Explicit closed S40 maintenance composes with N1 and precedes retired stores."""
 
+from functools import partial
+
 import pytest
 from alembic.operations import ops
 from pydantic import ValidationError
 from sqlalchemy import BigInteger, Column, LargeBinary, Text
 
+from corpus_structure.schema import data_steps
 from corpus_structure.schema.data_step_programs import RETIRED_PARTS, predecessor_parts
-from corpus_structure.schema.data_steps import DataStepRequest, order_data_steps, prepare_data_steps
+from corpus_structure.schema.data_steps import DataStepRequest
 from corpus_structure.semantic.alembic_privileges import OwnedOperationsOp
+from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.native_objects import NativeAuthoring, NativeAuthoringError
+
+PREDECESSOR = "semantic_ddo_pe_n2"
+prepare_data_steps = partial(
+    data_steps.prepare_data_steps, target=metadata, predecessor=PREDECESSOR
+)
+order_data_steps = partial(data_steps.order_data_steps, target=metadata, predecessor=PREDECESSOR)
 
 
 def flatten(operations):
@@ -83,7 +93,7 @@ def test_retired_table_names_never_auto_select_maintenance_and_changed_sql_refus
 
 
 def test_retired_shapes_come_from_the_fixed_predecessor_inventory():
-    relations, captured = predecessor_parts()
+    relations, captured = predecessor_parts(PREDECESSOR)
     assert b'"physical_id"' in captured
     assert tuple(relations) == RETIRED_PARTS
     for relation in relations.values():
