@@ -87,6 +87,9 @@ class OfferedSymbol(Item):
     """Public by Griffe's rules: `__all__`, convention, or a redundant-alias re-export."""
     assigned_from: str | None = None
     """For an assignment alias (`X = other.Y`): the right-hand side's path."""
+    inherited_from: str | None = None
+    """For a member inherited from a base class no public path reaches: that base. The row's
+    `path` is then also an exposed path, since it is the only public way to the member."""
     markers: list[Marker]
     marker_reasons: dict[str, str]
     summary: str = ""

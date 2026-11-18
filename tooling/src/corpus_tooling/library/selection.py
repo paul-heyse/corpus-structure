@@ -14,12 +14,15 @@ A **member-owned** node is a workspace member's package node or one of its extra
 Selection is direct when a member-owned node has an edge to the distribution (or to one of its
 extra nodes); paths are walks up the graph from the distribution to the first member-owned node.
 
-Scope: without `--universal` uv filters the graph to the current platform (the markers of the
-interpreter uv selects for the project); without a group option it covers the default groups.
-`--locked` is always passed unless `--frozen` is: a lock that no longer matches the working
-tree's `pyproject.toml` files means selection is not established, whether or not those files are
-committed, so a stale lock is exit 3. `--frozen` reads the lock as it stands and every result
-then says the lock was not verified.
+Scope: uv is always run with `--frozen --universal`, the only form that does not execute an
+interpreter (strace on a cold uv cache, uv 0.13.7: `--locked`, `uv lock --check` and a
+current-platform `--frozen` each run the project environment's `python`, whose `site` would
+execute `.pth` lines; D2 forbids running the target). So the graph covers every platform, edges
+keep their markers (a conditional edge is shown as `>[marker]`, never filtered to this
+machine), and the lock is read as it stands, not verified against the `pyproject.toml` files;
+every result says both. Without a group option the default groups are covered. `UV_PYTHON` and
+the variables that would change the lock handling or the groups are removed from uv's
+environment.
 """
 
 from __future__ import annotations
@@ -64,6 +67,9 @@ _UV_OVERRIDES = (
     "UV_NO_DEV",
     "UV_NO_GROUP",
     "UV_NO_DEFAULT_GROUPS",
+    "UV_PYTHON",
+    "UV_SYSTEM_PYTHON",
+    "UV_PROJECT_ENVIRONMENT",
 )
 _PATH_SEARCH_LIMIT = 50_000
 """Partial paths examined per distribution before path enumeration stops."""
@@ -74,18 +80,15 @@ _PATH_SEARCH_LIMIT = 50_000
 
 @dataclass(frozen=True)
 class SelectionOptions:
-    """The scope a selection is read for: platform mode, groups and lock verification."""
+    """The dependency groups a selection is read for. Platform and lock handling are fixed:
+    every platform, lock read as it stands (see the module docstring)."""
 
-    universal: bool = False
     all_groups: bool = False
     groups: tuple[str, ...] = ()
     no_dev: bool = False
-    frozen: bool = False
 
     def uv_arguments(self) -> list[str]:
-        arguments = ["--frozen" if self.frozen else "--locked"]
-        if self.universal:
-            arguments.append("--universal")
+        arguments = ["--frozen", "--universal"]
         if self.all_groups:
             arguments.append("--all-groups")
         for group in self.groups:
@@ -95,10 +98,6 @@ class SelectionOptions:
         return arguments
 
     @property
-    def platform_mode(self) -> str:
-        return "universal" if self.universal else "current"
-
-    @property
     def group_selection(self) -> str:
         if self.all_groups:
             return "all"
@@ -106,25 +105,17 @@ class SelectionOptions:
         return selection + ("-dev" if self.no_dev else "")
 
     def describe(self) -> str:
-        lock = "unverified" if self.frozen else "verified"
-        return f"platform={self.platform_mode} groups={self.group_selection} lock={lock}"
+        return f"platform=universal groups={self.group_selection} lock=unverified"
 
     def notes(self) -> list[str]:
-        notes = [
-            f"selection scope: {self.describe()}"
-            + (
-                ""
-                if self.universal
-                else " (current platform: markers of the interpreter uv selects for the "
-                "project; pass --universal for every platform)"
-            )
+        return [
+            f"selection scope: {self.describe()} (every platform: edges keep their markers and "
+            "are not filtered to this machine)",
+            "uv.lock was read as it stands (`uv tree --frozen`) and not verified against the "
+            "pyproject.toml files: uv verifies a lock only by running the project environment's "
+            "interpreter, which this tool never does (D2); run `uv lock --check` yourself to "
+            "verify it",
         ]
-        if self.frozen:
-            notes.append(
-                "--frozen: uv.lock was read as it stands and not verified against the "
-                "pyproject.toml files; selection may not match the declared dependencies"
-            )
-        return notes
 
 
 # --- the graph -------------------------------------------------------------------------------
@@ -452,8 +443,7 @@ def uv_tree_command(uv: str, project: Project, options: SelectionOptions) -> lis
 
 def run_uv_tree(project: Project, options: SelectionOptions) -> tuple[Any, str]:
     """Run `uv tree --format json` for the project; the parsed document and uv's version.
-
-    A stale lock under `--locked` and any other uv failure are `ToolFailure`s."""
+    A uv failure is a `ToolFailure`."""
     uv = _uv()
     version = uv_version(uv)
     completed = subprocess.run(
@@ -469,14 +459,6 @@ def run_uv_tree(project: Project, options: SelectionOptions) -> tuple[Any, str]:
         if line.strip().startswith(("error", "hint", "Caused by", "warning"))
     )
     if completed.returncode != 0:
-        if not options.frozen and "needs to be updated" in completed.stderr:
-            raise ToolFailure(
-                "stale_lock",
-                f"uv.lock in {project.root.as_posix()} does not match its pyproject.toml files "
-                f"(uv {version}: {message}); selection is not established",
-                "Run `uv lock` in the project if the declared change is intended, or pass "
-                "--frozen to read the lock as it stands (unverified).",
-            )
         raise ToolFailure(
             "uv_failed",
             f"`uv tree` failed in {project.root.as_posix()} (uv {version}, exit "
@@ -659,9 +641,6 @@ DistributionsArg = Annotated[
 def selection(
     ctx: typer.Context,
     distributions: DistributionsArg,
-    universal: Annotated[
-        bool, typer.Option("--universal", help="Read the resolution for every platform.")
-    ] = False,
     all_groups: Annotated[
         bool, typer.Option("--all-groups", help="Include every dependency group.")
     ] = False,
@@ -672,12 +651,6 @@ def selection(
     no_dev: Annotated[
         bool, typer.Option("--no-dev", help="Exclude the development dependency group.")
     ] = False,
-    frozen: Annotated[
-        bool,
-        typer.Option(
-            "--frozen", help="Read uv.lock as it stands, without verifying it (stated in notes)."
-        ),
-    ] = False,
     paths: Annotated[
         int,
         typer.Option("--paths", min=0, max=1000, help="Shortest paths shown per distribution."),
@@ -687,16 +660,11 @@ def selection(
     offset: OffsetOpt = 0,
     strict: StrictOpt = False,
 ) -> None:
-    """Direct or transitive selection, dependency paths, extras and groups, from uv."""
+    """Direct or transitive selection, dependency paths, extras and groups, from uv: every
+    platform (edges keep their markers), uv.lock read as it stands and not verified."""
     state = library_state(ctx)
     project = state.target.require_project()
-    options = SelectionOptions(
-        universal=universal,
-        all_groups=all_groups,
-        groups=tuple(group or ()),
-        no_dev=no_dev,
-        frozen=frozen,
-    )
+    options = SelectionOptions(all_groups=all_groups, groups=tuple(group or ()), no_dev=no_dev)
     tree = load_selection(project, options)
     items = selection_items(tree.graph, distributions, options, paths)
     emit(

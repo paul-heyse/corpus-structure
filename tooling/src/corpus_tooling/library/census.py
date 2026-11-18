@@ -37,8 +37,12 @@ from corpus_tooling.output import (
 )
 
 
-def check_roots(roots: Sequence[str]) -> None:
-    """Refuse a ROOT that is not a dotted import name: a usage error (exit 2)."""
+def check_roots(roots: Sequence[str], target: Target | None = None) -> None:
+    """Refuse a ROOT that is not a dotted import name, or that is a submodule of a regular
+    package in the target environment (`pydantic.main`): uses written through the parent
+    (`from pydantic import BaseModel`) would not count, so the result would read as no use.
+    A portion of a namespace package (`google.protobuf`) is a root of its own. Usage errors
+    (exit 2)."""
     invalid = [root for root in roots if not all(part.isidentifier() for part in root.split("."))]
     if invalid:
         raise typer.BadParameter(
@@ -46,6 +50,21 @@ def check_roots(roots: Sequence[str]) -> None:
             "`pydantic`, not distribution names",
             param_hint="'ROOTS...'",
         )
+    environment = target.environment if target is not None else None
+    if environment is None:
+        return
+    for root in roots:
+        top = root.split(".", 1)[0]
+        if root != top and any(
+            (site / top / name).is_file()
+            for site in environment.site_packages
+            for name in ("__init__.py", "__init__.pyi")
+        ):
+            raise typer.BadParameter(
+                f"{root} is a submodule of the regular package {top}: uses written through "
+                f"{top} would not count; pass {top} (and narrow the result with --match)",
+                param_hint="'ROOTS...'",
+            )
 
 
 def check_scopes(target: Target, scopes: Sequence[Path]) -> None:
@@ -97,7 +116,7 @@ def census(
     instantiations, decorators, references and mentions, with what could not be attributed."""
     state = library_state(ctx)
     target = state.target
-    check_roots(roots)
+    check_roots(roots, target)
     check_scopes(target, scope)
     installation = state.installation if target.environment is not None else None
     result = run_census(target, roots, scope, installation=installation, excludes=exclude or ())

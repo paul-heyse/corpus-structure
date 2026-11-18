@@ -1,0 +1,4 @@
+"""Names bound by a star import of a root."""
+from alpha import *  # @star-import
+
+made = make()  # @star-use

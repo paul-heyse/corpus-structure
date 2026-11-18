@@ -28,7 +28,9 @@ import tokenize
 import tomllib
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field, replace
+from multiprocessing.context import BaseContext
 from pathlib import Path, PurePosixPath
 from typing import Literal, cast
 
@@ -283,6 +285,61 @@ class _Parsed:
     imports: list[_ImportName] = field(default_factory=list)
     literals: list[_Literal] = field(default_factory=list)
     dynamic: list[_DynamicImport] = field(default_factory=list)
+    aliases: list[_ModuleAlias] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _ModuleAlias:
+    """`name = a.b.c` at module level, `name` bound nowhere else at module level."""
+
+    name: str
+    dotted: str
+    line: int
+    column: int
+
+
+def _dotted(node: ast.expr) -> str | None:
+    parts: list[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if not isinstance(node, ast.Name):
+        return None
+    return ".".join([node.id, *reversed(parts)])
+
+
+def _module_aliases(tree: ast.Module) -> list[_ModuleAlias]:
+    """Module-level assignment aliases of a dotted name, bound exactly once at module level."""
+    bound: dict[str, int] = {}
+    candidates: list[_ModuleAlias] = []
+    for statement in tree.body:
+        targets: list[ast.expr] = []
+        value: ast.expr | None = None
+        if isinstance(statement, ast.Assign):
+            targets, value = statement.targets, statement.value
+        elif isinstance(statement, ast.AnnAssign):
+            targets, value = list[ast.expr]([statement.target]), statement.value
+        elif isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            bound[statement.name] = bound.get(statement.name, 0) + 1
+        elif isinstance(statement, ast.Import | ast.ImportFrom):
+            for alias in statement.names:
+                name = alias.asname or alias.name.split(".", 1)[0]
+                bound[name] = bound.get(name, 0) + 1
+        else:  # a binding under if/try/for/with is conditional: it disqualifies the name
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                    bound[node.id] = 2
+        for target in targets:
+            for node in ast.walk(target):
+                if isinstance(node, ast.Name):
+                    bound[node.id] = bound.get(node.id, 0) + 1
+        if len(targets) == 1 and isinstance(targets[0], ast.Name) and value is not None:
+            dotted = _dotted(value)
+            if dotted is not None:
+                candidates.append(
+                    _ModuleAlias(targets[0].id, dotted, statement.lineno, statement.col_offset)
+                )
+    return [alias for alias in candidates if bound.get(alias.name) == 1]
 
 
 def _read_source(path: Path) -> str:
@@ -416,7 +473,7 @@ def _parse(file: ScopeFile, feature_version: tuple[int, int] | None) -> _Parsed 
     except (SyntaxError, ValueError) as error:
         return SkippedInput(input=file.display, reason="parse_error", detail=_error_text(error))
     module, is_package = module_name(file.path)
-    parsed = _Parsed(file, module, is_package, source)
+    parsed = _Parsed(file, module, is_package, source, aliases=_module_aliases(tree))
     _ExactVisitor(parsed, tree).walk(tree, frozenset(), False)
     return parsed
 
@@ -437,6 +494,8 @@ class _Resolver:
         self.roots = frozenset(roots)
         self.table: dict[str, ReExport] = {}
         self.modules: set[str] = set()
+        self.aliases: dict[tuple[str, int], str] = {}
+        """(file, line) of a module-level assignment alias -> the absolute path it binds."""
 
     def context(self, parsed: _Parsed) -> FileContext:
         return FileContext(
@@ -460,12 +519,20 @@ class _Resolver:
             if parsed.module is None:
                 continue
             context = self.context(parsed)
+            imported: dict[str, str] = {}
             for entry in parsed.imports:
                 if not entry.module_level or entry.bound is None:
                     continue
                 absolute = context.absolute(entry.target)
                 if absolute is not None:
                     bindings.append((parsed.module, entry.bound, absolute))
+                    imported[entry.bound] = absolute
+            for alias in parsed.aliases:
+                head, _, tail = alias.dotted.partition(".")
+                if head in imported:
+                    target = ".".join(part for part in (imported[head], tail) if part)
+                    bindings.append((parsed.module, alias.name, target))
+                    self.aliases[(parsed.file.display, alias.line)] = target
         for module, bound, absolute in bindings:
             if self.is_root(absolute):
                 self.table[f"{module}.{bound}"] = ReExport(absolute, 1, module)
@@ -536,6 +603,17 @@ def _exact_rows(
                 )
                 continue
             written, via = found.path, found.via
+        if star:
+            unresolved.append(
+                CensusUnresolved(
+                    kind="star_import",
+                    subject=f"from {entry.qualified.removesuffix('.*')} import *",
+                    location=location(file.display, entry.line, entry.column),
+                    detail="names a star import binds are not attributed",
+                    project=file.project,
+                    written_paths=(written,),
+                )
+            )
         sites.append(
             CensusSite(
                 use="import",
@@ -550,6 +628,28 @@ def _exact_rows(
                 level=entry.level,
                 alias=entry.alias,
                 context=entry.context,
+            )
+        )
+    for alias in parsed.aliases:
+        target = resolver.aliases.get((file.display, alias.line))
+        if target is None:
+            continue
+        family = target if resolver.is_root(target) else None
+        if family is None:
+            found = resolver.lookup(target)
+            family = found.path if found is not None else None
+        if family is None:
+            continue
+        unresolved.append(
+            CensusUnresolved(
+                kind="assignment_alias",
+                subject=f"{alias.name} = {alias.dotted}",
+                location=location(file.display, alias.line, alias.column),
+                detail="module-level alias: other modules importing it are attributed through "
+                "it one hop; uses passing it on as a value are not",
+                project=file.project,
+                written_paths=(family,),
+                owner=alias.name,
             )
         )
     for dynamic in parsed.dynamic:
@@ -710,15 +810,51 @@ def _pooled_job(job: tuple[str, FileContext]) -> Attribution | SkippedInput:
 
 
 def _attribute_all(
-    jobs: list[tuple[str, FileContext]], table: Mapping[str, ReExport], workers: int | None
+    jobs: list[tuple[str, FileContext]],
+    table: Mapping[str, ReExport],
+    workers: int | None,
+    *,
+    job: Callable[[tuple[str, FileContext]], Attribution | SkippedInput] = _pooled_job,
+    context: BaseContext | None = None,
 ) -> list[Attribution | SkippedInput]:
+    """The attributed pass over the hit files, in worker processes when there are enough.
+
+    A worker that dies (a crash in the parser, an out-of-memory kill) breaks its pool. The
+    files left unfinished are then retried in order in a single-worker pool: the file running
+    when that worker dies is the one that killed it and becomes an `attribution_crashed`
+    skipped input; the rest go back to the full pool."""
     if len(jobs) < _POOL_THRESHOLD or workers == 1:
-        return [_attribute_job(job) for job in jobs]
-    light = [(source, replace(context, reexports={})) for source, context in jobs]
-    with ProcessPoolExecutor(
-        max_workers=workers, initializer=_initialize_worker, initargs=(dict(table),)
-    ) as pool:
-        return list(pool.map(_pooled_job, light, chunksize=4))
+        return [_attribute_job(item) for item in jobs]
+    light = [(source, replace(item, reexports={})) for source, item in jobs]
+    results: dict[int, Attribution | SkippedInput] = {}
+    pending = list(range(len(light)))
+    size = workers
+    while pending:
+        broken: list[int] = []
+        with ProcessPoolExecutor(
+            max_workers=size,
+            mp_context=context,
+            initializer=_initialize_worker,
+            initargs=(dict(table),),
+        ) as pool:
+            futures = {index: pool.submit(job, light[index]) for index in pending}
+            for index in pending:
+                try:
+                    results[index] = futures[index].result()
+                except BrokenProcessPool:
+                    broken.append(index)
+        if broken and size == 1:
+            culprit, broken = broken[0], broken[1:]
+            results[culprit] = SkippedInput(
+                input=jobs[culprit][1].path,
+                reason="attribution_crashed",
+                detail="the worker process attributing this file died",
+            )
+            size = workers
+        else:
+            size = 1
+        pending = broken
+    return [results[index] for index in range(len(light))]
 
 
 # --- the census --------------------------------------------------------------------------

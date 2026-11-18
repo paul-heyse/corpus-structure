@@ -41,7 +41,16 @@ from typing import TYPE_CHECKING
 
 from typing_extensions import deprecated
 
-from fixlib._core import Engine, Report, configure, make_engine
+from fixlib._core import (
+    Engine,
+    Gauge,
+    Inspector,
+    Report,
+    Widget,
+    acquire,
+    configure,
+    make_engine,
+)
 from fixlib.plugins import Hook, PluginBase, load_plugins, register, register_hook
 from fixlib.settings import Options
 
@@ -52,12 +61,16 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Engine",
+    "Gauge",
     "Hook",
+    "Inspector",
     "Options",
     "PluginBase",
     "Report",
     "Stamp",
     "Twin",
+    "Widget",
+    "acquire",
     "configure",
     "legacy",
     "load_plugins",
@@ -123,6 +136,40 @@ def make_engine(workers: int = 1, retries: int = 0, *, label: str = "") -> Engin
 
 def configure(path: str, strict: bool = False, **options: object) -> None:
     """Configure from a file."""
+
+
+class _Base:
+    """A private base no public path reaches."""
+
+    def describe(self) -> str:
+        """Inherited by Widget, and listed under it."""
+        return ""
+
+
+class Widget(_Base):
+    """Exposed publicly; its base is not."""
+
+
+class Inspector:
+    """Named by the repository only in an annotation."""
+
+    def inspect(self) -> None:
+        """Called on an annotated parameter."""
+
+
+class Gauge:
+    """Never named by the repository: obtained from an unannotated factory."""
+
+    def calibrate(self) -> None:
+        """Called on the factory's result."""
+
+
+def acquire():
+    return Gauge()
+
+
+def _helper() -> None:
+    """Private: no public path reaches it."""
 '''
 
 PLUGINS = '''\
@@ -271,10 +318,36 @@ def go(opts: dict[str, object]) -> Options:
     return fixlib.Options(verbose=True)
 '''
 
+MORE = '''\
+"""A class named only in an annotation, an unattributable owner, a private path."""
+
+import fixlib
+from fixlib._core import _helper
+
+
+def check(inspector: fixlib.Inspector) -> None:
+    inspector.inspect()
+
+
+def measure() -> None:
+    gauge = fixlib.acquire()
+    gauge.calibrate()
+    widget = fixlib.Widget()
+    widget.describe()
+    _helper()
+'''
+
+# A module-level alias of a family callable, used from another module.
+ALIASES = "import fixlib\n\nhook = fixlib.register_hook\n"
+HOOKS = 'from app.aliases import hook\n\nhook("b")\n'
+
+# The second project star-imports `fixlib.plugins`.
 OTHER_APP = """\
 import fixlib
+from fixlib.plugins import *
 
 fixlib.unused_helper()
+register_hook("x")
 """
 
 PYPROJECT = '[project]\nname = "consumer"\nrequires-python = ">=3.12"\n'
@@ -329,7 +402,16 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(selection, "run_uv_tree", lambda project, options: (UV_DOCUMENT, "0.13.7"))
     root = tmp_path / "project"
     _project(root)
-    _write(root, {"src/app/__init__.py": "", "src/app/engines.py": ENGINES})
+    _write(
+        root,
+        {
+            "src/app/__init__.py": "",
+            "src/app/engines.py": ENGINES,
+            "src/app/more.py": MORE,
+            "src/app/aliases.py": ALIASES,
+            "src/app/hooks.py": HOOKS,
+        },
+    )
     _project(root / "nested" / "other")
     _write(root / "nested" / "other", {"src/other_app/__init__.py": OTHER_APP})
     return root
@@ -417,6 +499,16 @@ def test_symbol_states_equal_the_hand_written_expectation(cli, repo) -> None:
         # `fixlib.Twin` could be either; not joined, so neither is called unreferenced.
         "fixlib.twins_a.Twin": (unresolved, "fixlib.twins_a.Twin"),
         "fixlib.twins_b.Twin": (unresolved, "fixlib.twins_b.Twin"),
+        # Named only in an annotation: its members are unresolved, not unreferenced.
+        "fixlib.Inspector": (referenced, "fixlib._core.Inspector"),
+        "fixlib.Inspector.inspect": (unresolved, "fixlib._core.Inspector.inspect"),
+        # Inherited from a private base, listed under the public class.
+        "fixlib.Widget": (referenced, "fixlib._core.Widget"),
+        "fixlib.Widget.describe": (unresolved, "fixlib._core._Base.describe"),
+        # Never named; `gauge.calibrate()` on a factory result makes every `calibrate` unresolved.
+        "fixlib.acquire": (referenced, "fixlib._core.acquire"),
+        "fixlib.Gauge": (unreferenced, "fixlib._core.Gauge"),
+        "fixlib.Gauge.calibrate": (unresolved, "fixlib._core.Gauge.calibrate"),
     }
     assert rows == expected
     items = _symbols(envelope)
@@ -432,6 +524,14 @@ def test_symbol_states_equal_the_hand_written_expectation(cli, repo) -> None:
         "may be the lazily exported `fixlib.Twin`, which the join could not resolve"
     )
     assert items["fixlib.Options.verbose"]["uses"] == {"keyword": 1}
+    assert items["fixlib.make_engine"]["exposed_paths"] == ["fixlib.make_engine"]
+    assert items["fixlib.Hook"]["exposed_paths"] == ["fixlib.Hook", "fixlib.plugins.Hook"]
+    assert items["fixlib.Inspector.inspect"]["detail"].startswith(
+        "member of fixlib._core.Inspector, which is used in scope (reference)"
+    )
+    assert items["fixlib.Gauge.calibrate"]["detail"].startswith(
+        "a member named `calibrate` is reached through gauge (src/app/more.py:"
+    )
     assert items["fixlib.Report.summary"]["detail"].startswith(
         "member of fixlib._core.Report, which is in the annotation of fixlib._core.Engine.report"
     )
@@ -440,6 +540,7 @@ def test_symbol_states_equal_the_hand_written_expectation(cli, repo) -> None:
 def test_states_filter_and_summary(cli, repo) -> None:
     unreferenced = _view(cli, repo, "symbols", "--no-deprecated", "--state", "unreferenced")
     assert sorted(_symbols(unreferenced)) == [
+        "fixlib.Gauge",
         "fixlib.Hook",
         "fixlib.Hook.__call__",
         "fixlib.Report",
@@ -449,22 +550,24 @@ def test_states_filter_and_summary(cli, repo) -> None:
     summary = _view(cli, repo, "summary", "--no-deprecated")
     assert summary["view"] == "compare_module"
     (top,) = [m for m in summary["items"] if m["project"] == "." and m["module"] == "fixlib"]
-    # Engine (+ __init__, report, run, start, stop, workers), Hook (+ __call__), Options
-    # (+ color, verbose), PluginBase (+ setup), Report (+ summary), configure, legacy,
-    # load_plugins, make_engine, register, register_hook, unused_helper: 23 under `fixlib`.
+    # Engine (+ __init__, report, run, start, stop, workers), Gauge (+ calibrate), Hook
+    # (+ __call__), Inspector (+ inspect), Options (+ color, verbose), PluginBase (+ setup),
+    # Report (+ summary), Widget (+ describe), acquire, configure, legacy, load_plugins,
+    # make_engine, register, register_hook, unused_helper: 30 under `fixlib`.
     assert (top["symbols"], top["referenced"], top["unreferenced"], top["unresolved"]) == (
-        23,
-        9,
-        5,
-        9,
+        30,
+        12,
+        6,
+        12,
     )
-    assert top["not_in_inventory"] == 2  # fixlib.missing_thing, fixlib.Twin
+    # fixlib.missing_thing, fixlib.Twin, fixlib._core._helper (private)
+    assert top["not_in_inventory"] == 3
     assert top["unreferenced_examples"] == [  # shallowest first, at most five
+        "fixlib.Gauge",
         "fixlib.Hook",
         "fixlib.Report",
         "fixlib.load_plugins",
         "fixlib.unused_helper",
-        "fixlib.Hook.__call__",
     ]
 
 
@@ -478,7 +581,11 @@ def test_not_in_inventory(cli, repo) -> None:
     assert rows == {
         "fixlib.missing_thing": ("unmatched_tail", "fixlib", "missing_thing"),
         "fixlib.Twin": ("unmatched_tail", "fixlib", "Twin"),
+        # Resolves, but to a declaration no public path reaches: reported, never dropped.
+        "fixlib._core._helper": ("private_declaration", "fixlib._core._helper", ""),
     }
+    (helper,) = [i for i in envelope["items"] if i["written_path"] == "fixlib._core._helper"]
+    assert (helper["count"], helper["uses"]) == (2, ["call", "import"])
     (twin,) = [i for i in envelope["items"] if i["written_path"] == "fixlib.Twin"]
     line = _line(ENGINES, "fixlib.Twin()")
     assert twin["first_location"] == f"src/app/engines.py:{line}:4"
@@ -506,7 +613,9 @@ def test_parameters_equal_the_hand_written_expectation(cli, repo) -> None:
         ("fixlib.configure", "path"): (parameter, "passed"),
         ("fixlib.configure", "strict"): (parameter, "unresolved"),
         ("fixlib.register_hook", "name"): (parameter, "passed"),
-        ("fixlib.register_hook", "priority"): (parameter, "never passed"),
+        # Never passed by the two attributed calls, but `hook = fixlib.register_hook` is a
+        # module-level alias other uses may go through: unresolved.
+        ("fixlib.register_hook", "priority"): (parameter, "unresolved"),
         ("fixlib.register", "name"): (parameter, "passed"),
         ("fixlib.legacy", "workers"): (parameter, "never passed"),
         # Subclassed, never called directly: its constructor's parameters are unresolved.
@@ -539,7 +648,8 @@ def test_extension_points(cli, repo) -> None:
         ("fixlib.load_plugins", 0, 0, "unreferenced in scope"),
         ("fixlib.PluginBase", 1, 0, "referenced"),
         ("fixlib.register", 0, 1, "referenced"),
-        ("fixlib.register_hook", 0, 1, "referenced"),
+        # One call in engines.py, one through the module-level alias in hooks.py.
+        ("fixlib.register_hook", 0, 2, "referenced"),
     ]
 
 
@@ -553,6 +663,9 @@ def test_extras_and_entry_point_groups(cli, repo) -> None:
         (".", "fixlib-dist", "fast", True),
     ]
     assert extras["tool"]["authorities"]["uv"] == "0.13.7"
+    assert {item["selection_scope"] for item in extras["items"]} == {
+        "platform=universal groups=default lock=unverified"
+    }
     groups = _view(cli, repo, "entry-points", "--no-deprecated")
     assert [
         (item["group"], item["populated_by"], item["read_by"])
@@ -591,6 +704,12 @@ def test_a_scope_spanning_two_projects_is_compared_per_project_in_one_envelope(c
     assert main["fixlib.unused_helper"]["state"] == "unreferenced in scope"
     assert other["fixlib.unused_helper"]["state"] == "referenced"
     assert other["fixlib.make_engine"]["state"] == "unreferenced in scope"
+    # `from fixlib.plugins import *`: whatever that module exposes may be used unattributed.
+    assert other["fixlib.Hook"]["state"] == "unresolved"
+    assert other["fixlib.Hook"]["detail"].startswith(
+        "exposed by fixlib.plugins, which is reached by a census `star_import` row"
+    )
+    assert main["fixlib.Hook"]["state"] == "unreferenced in scope"
     assert any(
         note.startswith("project nested/other: environment nested/other/.venv")
         for note in envelope["notes"]
@@ -716,7 +835,7 @@ def test_deprecated_use_is_reported_and_joined_to_the_inventory(cli, repo) -> No
     assert envelope["items"][1]["message"] == "Use start instead."
     assert envelope["tool"]["authorities"]["pyrefly"]
     assert any(
-        "deprecated use from pyrefly over exactly the scope's 2 Python files" in note
+        "deprecated use from pyrefly over exactly the scope's 5 Python files" in note
         for note in envelope["notes"]
     )
     symbols = _symbols(_view(cli, repo, "symbols"))
@@ -851,3 +970,92 @@ def test_pyrefly_contract_on_the_real_environment(tmp_path) -> None:
         (source, 9, 1, "pydantic.deprecated.tools.parse_obj_as"),
     ]
     assert "model_dump" in run.records[1].message
+
+
+def test_a_submodule_of_a_regular_package_is_refused_as_a_root(cli, repo) -> None:
+    runner = CliRunner(env={"COLUMNS": "400"})
+    project = ["library", "--project", str(repo)]
+    result = runner.invoke(cli, [*project, "compare", "fixlib.plugins", "--scope", "src"])
+    assert (result.exit_code, result.stdout) == (2, "")
+    assert "fixlib.plugins is a submodule of the regular package fixlib" in result.stderr
+    census_cli = typer.Typer()
+
+    @census_cli.callback()
+    def _root() -> None: ...
+
+    census_cli.add_typer(make_library_app(REGISTRATIONS), name="library")
+    census = runner.invoke(census_cli, [*project, "census", "fixlib.plugins", "--scope", "src"])
+    assert census.exit_code == 2
+    # A portion of a namespace package (no `nsfix/__init__.py`) is a root of its own.
+    _write(repo / ".venv" / SITE, {"nsfix/part/__init__.py": "def helper() -> None: ...\n"})
+    portion = _run(cli, repo, "nsfix.part", "--scope", "src", "--no-deprecated", "--json")
+    assert portion.exit_code == 0, portion.output
+
+
+def test_a_file_the_attributed_pass_failed_on_leaves_its_imports_unresolved(
+    cli, repo, monkeypatch
+) -> None:
+    from corpus_tooling.library import census_scan
+
+    _write(repo, {"src/app/failing.py": "import fixlib\n\nfixlib.unused_helper()\n"})
+    original = census_scan.attribute
+
+    def failing(source, context):
+        if context.path.endswith("failing.py"):
+            raise RuntimeError("engine failure")
+        return original(source, context)
+
+    monkeypatch.setattr(census_scan, "attribute", failing)
+    envelope = _view(cli, repo, "symbols", "--no-deprecated")
+    # Without the failure this is a referenced call; with it, nothing in the file is
+    # attributed, and the module it imports may be used there in any way.
+    helper = _symbols(envelope)["fixlib.unused_helper"]
+    assert helper["state"] == "unresolved"
+    assert helper["detail"] == (
+        "exposed by fixlib, which is imported by src/app/failing.py, whose attributed pass "
+        "failed (no use in it is attributed)"
+    )
+    assert ("src/app/failing.py", "attribution_failed") in {
+        (row["input"], row["reason"]) for row in envelope["coverage"]["skipped_inputs"]
+    }
+    assert any(
+        note.startswith("project .: 1 files using the roots were not attributed")
+        and "src/app/failing.py" in note
+        for note in envelope["notes"]
+    )
+
+
+def test_inventory_lists_members_inherited_from_a_private_base(cli, repo) -> None:
+    result = CliRunner().invoke(
+        cli,
+        [
+            "library",
+            "--project",
+            str(repo),
+            "inventory",
+            "fixlib",
+            "--match",
+            "fixlib.Widget*",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    rows = {
+        item["path"]: (item["declared_path"], item["inherited_from"], item["exposed_paths"])
+        for item in json.loads(result.stdout)["items"]
+    }
+    assert rows == {
+        "fixlib.Widget": ("fixlib._core.Widget", None, ["fixlib.Widget"]),
+        "fixlib.Widget.describe": (
+            "fixlib._core._Base.describe",
+            "fixlib._core._Base",
+            ["fixlib.Widget.describe"],
+        ),
+    }
+    # A member of a base with a public path stays under that base: Turbo-like subclasses of
+    # `fixlib.Engine` do not repeat `start`.
+    engine = CliRunner().invoke(
+        cli,
+        ["library", "--project", str(repo), "inventory", "fixlib", "--match", "*.start", "--json"],
+    )
+    assert [item["path"] for item in json.loads(engine.stdout)["items"]] == ["fixlib.Engine.start"]

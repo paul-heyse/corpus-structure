@@ -282,6 +282,10 @@ class _Row:
     member: Member
     depth: int
     public: bool
+    inherited_base: griffe.Class | None = None
+    """For a member inherited from a base no public path reaches: that base."""
+    inherited_by: griffe.Class | None = None
+    """The class the member is listed under, when inherited."""
 
 
 class _Rows:
@@ -318,7 +322,13 @@ class _Rows:
                 and self.exposures(target)[:1] == (row.path,)
             ):
                 self._visit(target, row.path, row.depth, True, private, rows)
-        return rows
+        # An inherited member is listed under its subclass only when no public path reaches
+        # its base (checked now: exposures need every alias resolved).
+        return [
+            row
+            for row in rows
+            if row.inherited_base is None or not self.exposures(row.inherited_base)
+        ]
 
     def _visit(
         self,
@@ -338,6 +348,56 @@ class _Rows:
             rows.append(row)
             if isinstance(member, griffe.Module | griffe.Class):
                 self._visit(member, row.path, row.depth, member_public, private, rows)
+        if isinstance(obj, griffe.Class):
+            self._visit_inherited(obj, path, depth, public, private, rows)
+
+    def _visit_inherited(
+        self,
+        cls: griffe.Class,
+        path: str,
+        depth: int,
+        public: bool,
+        private: bool,
+        rows: list[_Row],
+    ) -> None:
+        """Members a class inherits from a base no public path reaches (`typer.Context` from
+        `typer._click.core.Context`): listed under the class, labelled with that base. Members
+        of a base with a public path are listed under the base."""
+        try:
+            inherited = cls.inherited_members
+        except ValueError, griffe.AliasResolutionError, griffe.CyclicAliasError:
+            return
+        for name in sorted(inherited):
+            if name in cls.members:
+                continue
+            member = inherited[name]
+            target = final_target(member)
+            base = target.parent if target is not None else None
+            if not isinstance(base, griffe.Class) or is_path_public(base):
+                continue
+            member_public = public and not (name.startswith("_") and not name.endswith("__"))
+            if not member_public and not private:
+                continue
+            rows.append(
+                _Row(
+                    f"{path}.{name}",
+                    member,
+                    depth + 1,
+                    member_public,
+                    inherited_base=base,
+                    inherited_by=cls,
+                )
+            )
+
+    def _row_exposures(self, row: _Row, declared: griffe.Object) -> set[str]:
+        """A declaration's exposures; for an inherited member also the member under each
+        exposure of the class that inherits it (and the row's own path)."""
+        paths = set(self.exposures(declared))
+        if row.inherited_by is not None:
+            name = row.path.rsplit(".", 1)[-1]
+            paths |= {f"{exposure}.{name}" for exposure in self.exposures(row.inherited_by)}
+            paths.add(row.path)
+        return paths
 
     def exposures(self, declared: griffe.Object) -> tuple[str, ...]:
         """Public paths reaching a declaration: its own path, its public aliases, and for a class
@@ -423,7 +483,8 @@ class _Rows:
             path=row.path,
             symbol_kind=_symbol_kind(declared),
             declared_path=declared.path,
-            exposed_paths=sorted(self.exposures(declared)),
+            exposed_paths=sorted(self._row_exposures(row, declared)),
+            inherited_from=row.inherited_base.path if row.inherited_base else None,
             import_root=self.root.path,
             distribution=owner.normalized_name if owner else None,
             distribution_version=owner.version if owner else None,

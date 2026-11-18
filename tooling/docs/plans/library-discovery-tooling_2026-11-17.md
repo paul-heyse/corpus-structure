@@ -85,7 +85,7 @@ dependency judgment and do not wait on approval; the operator can redirect any o
 | D1 | Three official Griffe extensions as exact pins: `griffe-public-redundant-aliases==0.3.2`, `griffe-warnings-deprecated==1.1.2`, `griffe-typingdoc==0.3.2` | *Observed* with them loaded: typer's public top-level names go from 13 to 40, including `Typer` and `Option`; pydantic gains `deprecated` on 35 objects; `typer.Option` parameters gain their `Doc` text | An extension stops tracking Griffe, or mis-marks the LDT-03 fixture |
 | D2 | The tool never imports the package it inspects; no inspection flag is built | The review allowed an opt-in flag. Importing a target has side effects and would have to run in the target interpreter. Compiled modules without stubs are reported as skipped inputs instead. | A family whose offered surface is mostly compiled without stubs |
 | D3 | pyrefly, not ty, is the authority for deprecated use | Both report it; only pyrefly's message names the declaring path (*observed*), which is the join key | pyrefly's message format changes, or it misses a case ty reports |
-| D4 | Selection is read from `uv tree --format json` | The installed uv emits the graph with extras, groups and markers as nodes (*observed*); parsing the text tree would re-derive it | The preview schema changes incompatibly |
+| D4 | Selection is read from `uv tree --frozen --universal --format json`, with the lock reported as not verified | The installed uv emits the graph with extras, groups and markers as nodes (*observed*); parsing the text tree would re-derive it. `--locked` and platform-filtered reads execute the project's interpreter, which D2 forbids (*observed* during execution) | The preview schema changes incompatibly, or uv gains a lock check that runs no interpreter |
 | D5 | Overview headings are read with markdown-it-py | It is already locked as a Rich dependency and its heading tokens carry line maps, so no code is copied from `scripts/` | — |
 
 ## Current baseline and foundations
@@ -242,7 +242,8 @@ assigning module, and the result notes that the real definition is elsewhere.
 class has any use in scope (imported, named in an annotation or an `isinstance` check,
 subclassed, instantiated or passed as a value) and the member is not referenced directly:
 `MyModel.model_validate(x)`, `m.model_dump()` and a method called on an annotated parameter are
-uses the attribution engine cannot assign to the library's member. Execution widened this rule
+uses the attribution engine cannot assign to the library's member. A member reached through a
+value whose class cannot be traced makes every offered member of that name `unresolved`. Execution widened this rule
 from "subclassed or instantiated" after review found real false `unreferenced` rows
 (2026-11-17). The same holds for every name a star import could bind. The interpretive vocabulary (RC5) belongs to the agent and
 the account.
@@ -322,7 +323,7 @@ LDT-05, LDT-07, LDT-08.
 | Is the summary snapshot acceptable? | Review open question 5 | Operator: yes, single overwritten file |
 | How are editable workspace packages mapped to import names? | Review O02 | LDT-01 |
 | Does the preview JSON of `uv tree` hold the fields used? | Preparation | LDT-02, as a contract test |
-| How does a stale lock behave under `--locked`? | Preparation | LDT-02 |
+| How does a stale lock behave under `--locked`? | Preparation | LDT-02: not used. Checking the lock runs the project interpreter, so the lock is read as it stands and reported as not verified |
 | Do lazy `__getattr__` packages without `TYPE_CHECKING` imports appear? | Review O03 | LDT-03, reported as a coverage limit if not |
 | Is pyrefly's deprecated message reliable enough to join on? | Preparation | Opening step of LDT-05 |
 

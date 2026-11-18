@@ -46,6 +46,7 @@ UnresolvedKind = Literal[
     "string_reference",
     "reexport_chain",
     "mixed_binding",
+    "star_import",
 ]
 """Examined and not attributable by the census's method:
 
@@ -61,7 +62,10 @@ UnresolvedKind = Literal[
 - `string_reference`: a string literal that is a dotted family path (`"pkg.mod:attr"`);
 - `reexport_chain`: a name reached through more than one repository re-export;
 - `mixed_binding`: a name that may be bound to a family symbol or to something else at the site
-  (a later local assignment, a fallback in an `except` branch).
+  (a later local assignment, a fallback in an `except` branch, a `match` capture);
+- `star_import`: `from <root module> import *`; the names it binds are not attributed. An
+  `assignment_alias` row is also written where a module-level alias of a family path is
+  defined, since other modules may use it.
 """
 
 

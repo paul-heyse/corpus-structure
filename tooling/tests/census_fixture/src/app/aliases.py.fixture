@@ -1,0 +1,4 @@
+"""A module-level assignment alias that another module imports."""
+import alpha  # @aliases-import
+
+Opt = alpha.Option  # @module-alias

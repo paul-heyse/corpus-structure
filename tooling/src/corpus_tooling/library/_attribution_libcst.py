@@ -6,6 +6,15 @@ computed from: an access sees only the bindings of its own scope that precede it
 binding of an enclosing scope), comprehensions and class bodies are scopes of their own, and
 string annotations are parsed. The referents also give the binding node, which the alias,
 instance and subclass rows need and qualified names alone do not carry.
+
+Two bindings `ScopeProvider` does not order the way Python does are added here, so a site that
+may not refer to the import becomes `mixed_binding` instead of a silent wrong attribution:
+
+- a `match` capture (`case Field:`, `case [*rest]`, `case {**rest}`, `case ... as name`) binds
+  the name in its scope, which `ScopeProvider` does not record;
+- in a function, a name bound anywhere in the body is local for the whole body (an earlier use
+  raises `UnboundLocalError`), whereas `ScopeProvider` resolves a use before the binding to the
+  enclosing scope's binding.
 """
 
 from __future__ import annotations
@@ -20,6 +29,7 @@ from libcst.metadata import (
     CodeRange,
     ExpressionContext,
     ExpressionContextProvider,
+    FunctionScope,
     ImportAssignment,
     MetadataWrapper,
     ParentNodeProvider,
@@ -98,6 +108,18 @@ class _Collector(cst.CSTVisitor):
         self.consumed: set[int] = set()
         self.annotations = 0
         self.active: set[int] = set()
+        self.captures: set[tuple[int, str]] = set()
+        """(id of a scope, name) for every `match` capture."""
+        self.capture_names: set[int] = set()
+
+    def visit_Module(self, node: cst.Module) -> None:
+        finder = _Captures()
+        node.visit(finder)
+        for name in finder.names:
+            scope = self.get_metadata(ScopeProvider, name, None)
+            if scope is not None:
+                self.captures.add((id(scope), name.value))
+            self.capture_names.add(id(name))
 
     # --- sites --------------------------------------------------------------------------
 
@@ -147,7 +169,7 @@ class _Collector(cst.CSTVisitor):
             self._string_annotation(node)
 
     def _reference(self, node: cst.Name | cst.Attribute) -> None:
-        if id(node) in self.consumed:
+        if id(node) in self.consumed or id(node) in self.capture_names:
             return
         parent = self.get_metadata(ParentNodeProvider, node, None)
         if isinstance(parent, cst.Attribute) and (parent.value is node or parent.attr is node):
@@ -273,11 +295,15 @@ class _Collector(cst.CSTVisitor):
             return [OTHER]
         if isinstance(base, cst.Name):
             parts = [base.value, *attributes]
-            return [
+            referents = self._referents(base, parts)
+            candidates = [
                 candidate
-                for referent, length in self._referents(base, parts)
+                for referent, length in referents
                 for candidate in self._from_referent(referent, parts, length, depth)
             ]
+            if candidates and self._rebound(base, referents):
+                candidates.append(OTHER)
+            return candidates
         if isinstance(base, cst.Call):
             callee, tail = _chain(base.func)
             candidates = self._candidates(callee, tail, depth + 1)
@@ -287,6 +313,26 @@ class _Collector(cst.CSTVisitor):
                 value_candidate(decision, candidates, call=True, member=bool(tail), owner=owner)
             ]
         return []
+
+    def _rebound(self, base: cst.Name, referents: Sequence[tuple[BaseAssignment, int]]) -> bool:
+        """Whether the name at `base` may be bound by something its referents leave out: a
+        `match` capture in its scope or an enclosing one, or a binding of a function's own
+        scope that the use precedes."""
+        scope: Scope | None = self.get_metadata(ScopeProvider, base, None)
+        name = base.value
+        if scope is None:
+            return False
+        if isinstance(scope, FunctionScope):
+            seen = {id(referent) for referent, _ in referents}
+            if any(id(binding) not in seen for binding in scope.assignments[name]):
+                return True
+        current: Scope | None = scope
+        while current is not None:
+            if (id(current), name) in self.captures:
+                return True
+            parent = current.parent
+            current = None if parent is current else parent
+        return False
 
     def _from_referent(
         self, referent: BaseAssignment, parts: Sequence[str], length: int, depth: int
@@ -354,3 +400,23 @@ class _Collector(cst.CSTVisitor):
             if isinstance(item, cst.WithItem) and isinstance(item.item, cst.Call):
                 return item.item
         return None
+
+
+class _Captures(cst.CSTVisitor):
+    """The names `match` patterns capture."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.names: list[cst.Name] = []
+
+    def visit_MatchAs(self, node: cst.MatchAs) -> None:
+        if node.name is not None:
+            self.names.append(node.name)
+
+    def visit_MatchStar(self, node: cst.MatchStar) -> None:
+        if node.name is not None:
+            self.names.append(node.name)
+
+    def visit_MatchMapping(self, node: cst.MatchMapping) -> None:
+        if node.rest is not None:
+            self.names.append(node.rest)

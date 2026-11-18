@@ -127,6 +127,18 @@ SITES: dict[str, list[tuple[str, tuple[str, ...]]]] = {
     # another uv project
     "other-import": [("import", (F,))],
     "other-call": [("call", (F,))],
+    # match captures and a later local binding (`ScopeProvider` orders neither as Python does)
+    "match-capture": [],
+    "match-capture-use": [],  # mixed_binding below
+    "later-local-use": [],  # mixed_binding below
+    # aliases.py, alias_user.py: a module-level alias followed one hop into another module
+    "aliases-import": [("import", ("alpha",))],
+    "module-alias": [("reference", ("alpha.Option",))],
+    "alias-user-import": [("import", ("alpha.Option",))],
+    "alias-user-call": [("call", ("alpha.Option",))],
+    # starred.py: names bound by `from alpha import *` are not attributed
+    "star-import": [("import", ("alpha.*",))],
+    "star-use": [],
     # mentions
     "yaml-plugin": [("mention", ("alpha",))],
     "yaml-backend": [("mention", ("alpha",))],
@@ -146,6 +158,12 @@ UNRESOLVED: dict[str, list[tuple[str, tuple[str, ...], str | None]]] = {
     "after-rebind": [("mixed_binding", ("alpha.Schema",), None)],
     "subclass-member": [("subclass_member", ("alpha.Model",), "Account")],
     "instance-member": [("instance_member", ("alpha.Model",), "account")],
+    "alias-assign": [("assignment_alias", ("alpha.DEFAULT",), "DEFAULT")],
+    "alias-assign-2": [("assignment_alias", ("alpha.Option",), "opt")],
+    "module-alias": [("assignment_alias", ("alpha.Option",), "Opt")],
+    "match-capture-use": [("mixed_binding", (F,), None)],
+    "later-local-use": [("mixed_binding", (F,), None)],
+    "star-import": [("star_import", ("alpha",), None)],
 }
 
 SCOPES = ("src", "nested/other", "nohit", "empty")
@@ -294,6 +312,10 @@ def test_site_details(cli, repo) -> None:
     )
     for tag in ("reexport-import", "reexport-call", "reexport-module-call", "relay-import"):
         assert [row["via"] for row in by_tag[tag]] == ["app.models"]
+    for tag in ("alias-user-import", "alias-user-call"):
+        assert [row["via"] for row in by_tag[tag]] == ["app.aliases"]
+    (aliased_call,) = by_tag["alias-user-call"]
+    assert (aliased_call["positional"], aliased_call["keywords"]) == (1, ["hidden"])
     (relative,) = by_tag["reexport-import"]
     assert (relative["level"], relative["module"]) == (1, "models")
     assert by_tag["other-call"][0]["project"] == "nested/other"
@@ -312,9 +334,9 @@ def test_coverage_skipped_inputs_scopes_and_notes(cli, repo) -> None:
     }
     # broken.py fails everywhere; newer.py is valid 3.14 but the target environment is 3.12.
     assert python_skipped == {"src/app/broken.py": "parse_error", "src/app/newer.py": "parse_error"}
-    # 11 Python files and settings.yaml under src, the other project's two files, the plain
+    # 14 Python files and settings.yaml under src, the other project's two files, the plain
     # file under nohit, and the root pyproject.toml found as the manifest above src.
-    assert coverage["scanned"] == 16
+    assert coverage["scanned"] == 19
     assert any("feature_version=(3, 12)" in note for note in envelope["notes"])
     assert envelope["tool"]["authorities"]["libcst"]
 
@@ -475,3 +497,42 @@ def test_relative_names_resolve_against_the_package() -> None:
     assert package.absolute(".models") == "a.b.models"
     assert module.absolute("...x") is None  # beyond the top-level package `a`
     assert package.absolute("..x") == "a.x"
+
+
+def crash_on_marker(job):
+    """A worker job that kills its process for a file holding `CRASH_THIS_WORKER`."""
+    import os
+
+    if "CRASH_THIS_WORKER" in job[0]:
+        os._exit(1)
+    return census_scan._pooled_job(job)
+
+
+def test_a_crashed_worker_skips_only_its_file(repo, monkeypatch) -> None:
+    import multiprocessing
+
+    target = resolve_target(cwd=repo, project=repo, python=None)
+    (repo / "src" / "app" / "crasher.py").write_text(
+        "import alpha\n\nCRASH_THIS_WORKER = alpha.Field()\n", encoding="utf-8"
+    )
+    inline = run_census(target, ["alpha"], [Path("src")], workers=1)
+    monkeypatch.setattr(census_scan, "_POOL_THRESHOLD", 0)
+    original = census_scan._attribute_all
+
+    def forked(jobs, table, workers):
+        # fork, so the worker finds this test module's job function already imported
+        context = multiprocessing.get_context("fork")
+        return original(jobs, table, workers, job=crash_on_marker, context=context)
+
+    monkeypatch.setattr(census_scan, "_attribute_all", forked)
+    pooled = run_census(target, ["alpha"], [Path("src")], workers=2)
+    crashed = [row for row in pooled.skipped_inputs if row.reason == "attribution_crashed"]
+    assert [row.input for row in crashed] == ["src/app/crasher.py"]
+    key = CensusSite.sort_key
+    # The crashed file keeps its import row (exact pass) and loses its attributed rows.
+    expected = [
+        site
+        for site in inline.sites
+        if not (site.path == "src/app/crasher.py" and site.use != "import")
+    ]
+    assert sorted(pooled.sites, key=key) == sorted(expected, key=key)

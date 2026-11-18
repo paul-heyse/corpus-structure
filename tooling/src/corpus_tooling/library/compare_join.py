@@ -37,6 +37,7 @@ Nothing here imports or executes the inspected package or the scanned code.
 from __future__ import annotations
 
 import ast
+import re
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -95,6 +96,10 @@ class Offered:
     markers: set[Marker]
     marker_reasons: dict[str, str]
     obj: griffe.Object | None
+    exposures: set[str] = field(default_factory=set)
+    """Every public path reaching it (all inventory rows' exposed paths and paths)."""
+    modules: set[str] = field(default_factory=set)
+    """The module of each exposure: every module that exposes it."""
 
     @property
     def name(self) -> str:
@@ -117,22 +122,26 @@ def offered_declarations(
     for row in rows:
         if row.symbol_kind is SymbolKind.module:
             continue
+        paths = {*row.exposed_paths, row.path} if row.public else set(row.exposed_paths)
         known = offered.get(row.declared_path)
-        if known is not None:
-            known.markers |= set(row.markers)
-            known.marker_reasons.update(row.marker_reasons)
-            continue
-        path = min(row.exposed_paths or [row.path], key=lambda p: (p.count("."), p))
-        offered[row.declared_path] = Offered(
-            declared_path=row.declared_path,
-            path=path,
-            module=_module_of(path, modules, row.import_root),
-            symbol_kind=row.symbol_kind,
-            import_root=row.import_root,
-            markers=set(row.markers),
-            marker_reasons=dict(row.marker_reasons),
-            obj=_object(surface, row.declared_path),
-        )
+        if known is None:
+            known = offered[row.declared_path] = Offered(
+                declared_path=row.declared_path,
+                path=row.path,
+                module=row.import_root,
+                symbol_kind=row.symbol_kind,
+                import_root=row.import_root,
+                markers=set(),
+                marker_reasons={},
+                obj=_object(surface, row.declared_path),
+            )
+        known.markers |= set(row.markers)
+        known.marker_reasons.update(row.marker_reasons)
+        known.exposures |= paths or {row.path}
+    for known in offered.values():
+        known.path = min(known.exposures, key=lambda p: (p.count("."), p))
+        known.module = _module_of(known.path, modules, known.import_root)
+        known.modules = {_module_of(p, modules, known.import_root) for p in known.exposures}
     return offered, modules
 
 
@@ -418,9 +427,13 @@ class _Comparison:
         self.member_reasons: dict[str, str] = {}
         """Class declared path -> why its members may be reached unattributed."""
         self.touched: dict[str, str] = {}
-        """Declared path -> the unresolved census kind reaching it."""
+        """Declared path -> why something the census could not attribute may reach it."""
         self.touched_modules: dict[str, str] = {}
+        """Module -> why every symbol it exposes may be reached unattributed."""
         self.lazy: dict[tuple[str, str], str] = {}
+        self.member_names: dict[str, str] = {}
+        """Member name -> why: reached through an owner whose class the census cannot
+        attribute, so any offered member of that name may be the one used."""
         self.misses: dict[str, tuple[Miss, list[CensusSite]]] = {}
         self.routes: dict[str, str] = {}
         self.unattributed: Counter[str] = Counter()
@@ -450,8 +463,11 @@ class _Comparison:
             if declared is None:
                 self._miss(joined, site)
                 continue
+            kind = self._kind(declared)
+            if declared not in self.offered and kind is not griffe.Kind.MODULE:
+                self._private(joined, declared, site)
             use = site.use
-            is_class = self._kind(declared) is griffe.Kind.CLASS
+            is_class = kind is griffe.Kind.CLASS
             if use == "call" and is_class:
                 use = "instantiation"
             self.tally.add(declared, use, site.path)
@@ -483,6 +499,18 @@ class _Comparison:
             target = _final(member) if member is not None else None
             if target is not None:
                 self.tally.add(target.path, "keyword", site.path)
+
+    def _private(self, joined: Join, declared: str, site: CensusSite) -> None:
+        """A written path that resolves to a declaration no public path reaches: reported, never
+        dropped."""
+        miss = Miss(
+            written_path=joined.written_path,
+            reason="private_declaration",
+            resolved_prefix=joined.resolution.resolved_prefix,
+            unmatched_tail="",
+            detail=f"resolves to {declared}, which no public path of the roots reaches",
+        )
+        self.misses.setdefault(joined.written_path, (miss, []))[1].append(site)
 
     def _miss(self, joined: Join, site: CensusSite) -> None:
         resolution = joined.resolution
@@ -517,6 +545,7 @@ class _Comparison:
         roots = {_root_of(path, self.roots) for path in row.written_paths} - {None}
         for root in roots or self.roots:
             self.unresolved_sites[str(root)] += 1
+        why = f"reached by a census `{row.kind}` row ({row.location})"
         reached = False
         for written in row.written_paths:
             joined = self.joiner.join(written)
@@ -525,7 +554,7 @@ class _Comparison:
                 prefix = joined.resolution.resolved_prefix
                 module = joined.resolution.declared_path if prefix else None
                 if module is not None and self._kind(module) is griffe.Kind.MODULE:
-                    self.touched_modules.setdefault(module, row.kind)
+                    self.touched_modules.setdefault(module, why)
                     reached = True
                 continue
             kind = self._kind(target)
@@ -536,12 +565,38 @@ class _Comparison:
                     reached = True
                 continue
             if kind is griffe.Kind.MODULE:
-                self.touched_modules.setdefault(target, row.kind)
+                self.touched_modules.setdefault(target, why)
             else:
-                self.touched.setdefault(target, row.kind)
+                self.touched.setdefault(target, why)
             reached = True
+        if not reached and row.kind in _MEMBER_KINDS:
+            name = _member_name(row)
+            if name is not None:
+                self.member_names.setdefault(
+                    name,
+                    f"a member named `{name}` is reached through {row.owner} "
+                    f"({row.location}), whose class the census cannot attribute",
+                )
+                reached = True
         if not reached:
             self.unattributed[row.kind] += 1
+
+    def add_failed_file(self, sites: Iterable[CensusSite], path: str) -> None:
+        """A hit file whose attributed pass failed: whatever its import rows name may be used
+        there unattributed."""
+        why = f"imported by {path}, whose attributed pass failed (no use in it is attributed)"
+        for site in sites:
+            for written in site.written_paths:
+                joined = self.joiner.join(written)
+                target = joined.declared_path
+                if target is None:
+                    continue
+                if self._kind(target) is griffe.Kind.MODULE:
+                    self.touched_modules.setdefault(target, why)
+                else:
+                    self.touched.setdefault(target, why)
+                    if self._kind(target) is griffe.Kind.CLASS:
+                        self.member_reasons.setdefault(target, f"imported by {path}")
 
     # --- deprecated use --------------------------------------------------------------------
 
@@ -607,6 +662,9 @@ class _Comparison:
         - classes named in the return annotation (or attribute annotation) of a symbol already
           used or reached (`BaseModel.model_fields -> dict[str, FieldInfo]`), to a fixpoint."""
         reasons = dict(self.member_reasons)
+        for declared, uses in self.tally.uses.items():
+            if declared not in reasons and self._kind(declared) is griffe.Kind.CLASS:
+                reasons[declared] = "used in scope (" + ", ".join(sorted(uses)) + ")"
         reached: dict[str, str] = {}
         expanded: set[str] = set()
         examined: set[str] = set()
@@ -659,15 +717,20 @@ class _Comparison:
         return found
 
     def _unresolved_reason(self, offered: Offered) -> str | None:
-        kind = self.touched.get(offered.declared_path)
-        if kind is not None:
-            return f"reached by a census `{kind}` row"
-        kind = self.touched_modules.get(offered.module)
-        if kind is not None:
-            return f"its module {offered.module} is reached by a census `{kind}` row"
+        reason = self.touched.get(offered.declared_path)
+        if reason is not None:
+            return reason
+        for module in sorted(offered.modules):
+            reason = self.touched_modules.get(module)
+            if reason is not None:
+                return f"exposed by {module}, which is {reason}"
         member = self._members_reached.get(offered.declared_path)
         if member is not None:
             return member
+        if isinstance(offered.obj, griffe.Object) and isinstance(offered.obj.parent, griffe.Class):
+            reason = self.member_names.get(offered.name)
+            if reason is not None:
+                return reason
         for (module, name), written in self.lazy.items():
             if offered.name == name and (
                 offered.path.startswith(f"{module}.") or offered.module == module
@@ -727,9 +790,9 @@ class _Comparison:
         reasons = []
         if any(call.star_args or call.star_kwargs for call in calls):
             reasons.append("a call passes *args or **kwargs")
-        kind = self.touched.get(offered.declared_path)
-        if kind is not None:
-            reasons.append(f"also reached by a census `{kind}` row")
+        touched = self.touched.get(offered.declared_path)
+        if touched is not None:
+            reasons.append(f"also {touched}")
         if offered.declared_path in self.subclassed:
             reasons.append(
                 "subclassed in scope: calls through repository subclasses are not attributed"
@@ -766,6 +829,19 @@ class _Comparison:
             )
             for index, key in enumerate(keys)
         ]
+
+
+_IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
+
+
+def _member_name(row: CensusUnresolved) -> str | None:
+    """The member a member row reaches: the name right after its owner (`app.command` ->
+    `command`, `alpha.make().run` -> `run`)."""
+    owner = row.owner
+    if not owner or not row.subject.startswith(f"{owner}."):
+        return None
+    match = _IDENTIFIER.match(row.subject[len(owner) + 1 :])
+    return match[0] if match else None
 
 
 def _final(member: Member) -> griffe.Object | None:
@@ -843,6 +919,7 @@ def compare_project(
     sites: Iterable[CensusSite],
     unresolved: Iterable[CensusUnresolved],
     deprecated: Iterable[tuple[DeprecatedRecord, str]] = (),
+    failed_files: Iterable[str] = (),
 ) -> ProjectComparison:
     """Join one project's census rows (and pyrefly records, each with its file as displayed)
     to the offered symbols of `roots` loaded in `surface`."""
@@ -853,6 +930,11 @@ def compare_project(
         comparison.add_site(site)
     for row in unresolved:
         comparison.add_unresolved(row)
+    failed = set(failed_files)
+    for path in sorted(failed):
+        comparison.add_failed_file(
+            (site for site in site_list if site.use == "import" and site.path == path), path
+        )
     import_sites: dict[tuple[str, int], list[CensusSite]] = defaultdict(list)
     for site in site_list:
         if site.use == "import":

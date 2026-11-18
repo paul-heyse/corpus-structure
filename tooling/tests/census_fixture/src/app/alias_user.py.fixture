@@ -1,0 +1,4 @@
+"""Uses an alias defined in another module."""
+from .aliases import Opt  # @alias-user-import
+
+flag = Opt("--x", hidden=True)  # @alias-user-call

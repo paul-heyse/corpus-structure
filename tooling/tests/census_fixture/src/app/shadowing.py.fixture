@@ -58,3 +58,15 @@ def outer():
         return loader.load()  # @nonlocal-use
 
     return inner
+
+
+def capture(value):
+    match value:
+        case Field:  # @match-capture
+            return Field()  # @match-capture-use
+
+
+def later_local():
+    made = Field()  # @later-local-use
+    Field = str
+    return made

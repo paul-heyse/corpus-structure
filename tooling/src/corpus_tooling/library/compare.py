@@ -116,7 +116,7 @@ _STATE_ORDER = {
 SymbolStateValue = Literal["referenced", "unreferenced in scope", "unresolved"]
 ParameterStateValue = Literal["passed", "never passed", "unresolved"]
 ParameterKindValue = Literal["parameter", "configuration_key"]
-MissReason = Literal["no_match", "unmatched_tail", "unresolved_alias"]
+MissReason = Literal["no_match", "unmatched_tail", "unresolved_alias", "private_declaration"]
 DeprecatedProblemKind = Literal["deprecated_unparsed", "deprecated_unjoined"]
 
 
@@ -165,6 +165,10 @@ class CompareSymbol(Item):
     module: str
     path: str = Field(description="The shortest public path reaching the declaration.")
     declared_path: str
+    exposed_paths: list[str] = Field(
+        default_factory=list,
+        description="Every public path reaching it (several classes may inherit one member).",
+    )
     symbol_kind: str
     state: SymbolStateValue
     uses: dict[str, int] = Field(
@@ -265,6 +269,10 @@ class CompareExtra(Item):
     version: str
     extra: str
     selected: bool | None = Field(description="Null when selection is unavailable.")
+    selection_scope: str | None = Field(
+        description="The scope uv's selection was read for (`selection` command's `scope`); "
+        "null when selection is unavailable."
+    )
 
     columns: ClassVar = (
         Column("project"),
@@ -272,6 +280,7 @@ class CompareExtra(Item):
         Column("version"),
         Column("extra"),
         Column("selected"),
+        Column("selection_scope", "selection scope"),
     )
     sort_fields: ClassVar = ("project", "distribution", "extra")
 
@@ -419,6 +428,8 @@ class _ProjectInput:
     sites: list[CensusSite]
     unresolved: list[CensusUnresolved]
     files: list[Path]
+    failed_files: list[str] = field(default_factory=list)
+    """Hit files whose attributed pass failed or crashed (skipped inputs), as displayed."""
 
 
 def _project_target(target: Target, key: str | None) -> Target:
@@ -446,6 +457,7 @@ def _symbol_items(project: str | None, comparison: ProjectComparison) -> list[Co
                 module=offered.module,
                 path=offered.path,
                 declared_path=offered.declared_path,
+                exposed_paths=sorted(offered.exposures),
                 symbol_kind=str(offered.symbol_kind),
                 state=state.state,
                 uses=dict(sorted(state.uses.items())),
@@ -599,7 +611,15 @@ def _compare_one(
         sites=item.sites,
         unresolved=item.unresolved,
         deprecated=records,
+        failed_files=item.failed_files,
     )
+    if item.failed_files:
+        outcome.notes.append(
+            f"project {label}: {len(item.failed_files)} files using the roots were not "
+            "attributed (attributed pass failed or crashed; see skipped inputs): "
+            + ", ".join(item.failed_files[:10])
+            + "; what they import is unresolved, not unreferenced"
+        )
     outcome.symbols = _symbol_items(project, comparison)
     by_declared = {s.declared_path: s for s in outcome.symbols}
 
@@ -758,6 +778,7 @@ def _compare_one(
                     version=dist.version,
                     extra=extra,
                     selected=(extra in selected) if selected is not None else None,
+                    selection_scope=view.scope,
                 )
             )
     for fact in entry_point_reads(facts):
@@ -952,6 +973,7 @@ def compare(
     state_obj = library_state(ctx)
     target = state_obj.target
     target.require_environment()
+    check_roots(roots, target)
     if scope:
         check_scopes(target, scope)
     census, files, census_notes = _census_input(
@@ -1043,7 +1065,7 @@ def compare(
                 (
                     s
                     for s in outcome.symbols
-                    if keep(s.path, s.module, s.declared_path, row_state=s.state)
+                    if keep(s.path, s.module, s.declared_path, *s.exposed_paths, row_state=s.state)
                 ),
             )
         case View.parameters:
@@ -1100,6 +1122,11 @@ def _project_inputs(
     owner = project_of(target.display)
     for file in files:
         by_file[owner(file.parent)].append(file)
+    project_by_path = {site.path: site.project for site in census.sites}
+    failed: dict[str | None, list[str]] = defaultdict(list)
+    for skipped in census.skipped_inputs:
+        if skipped.reason in _UNATTRIBUTED:
+            failed[project_by_path.get(skipped.input, own)].append(skipped.input)
     keys = set(sites) | set(unresolved) | set(by_file) or {own}
     inputs: list[_ProjectInput] = []
     failures: list[str] = []
@@ -1122,9 +1149,13 @@ def _project_inputs(
                 sites=sites.get(key, []),
                 unresolved=unresolved.get(key, []),
                 files=by_file.get(key, []),
+                failed_files=sorted(failed.get(key, [])),
             )
         )
     return inputs, failures
+
+
+_UNATTRIBUTED = ("attribution_failed", "attribution_crashed")
 
 
 def register(group: typer.Typer) -> None:

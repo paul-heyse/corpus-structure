@@ -1,7 +1,9 @@
 """`tooling library selection`: the graph reading against hand-written uv documents, the command
-through a stubbed uv run, and uv itself (contract and stale-lock tests, skipped without uv)."""
+through a stubbed uv run, and uv itself (contract, stale-lock and no-interpreter tests, skipped
+without uv)."""
 
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -20,7 +22,6 @@ from corpus_tooling.library.selection import (
     selection_items,
 )
 from corpus_tooling.library.target import Project
-from corpus_tooling.output import ToolFailure
 
 REGISTRY = {"registry": {"url": "https://pypi.org/simple"}}
 
@@ -112,7 +113,7 @@ def test_transitive_distribution_reports_every_path_shortest_first() -> None:
     assert gamma.markers == []
     assert gamma.unconditional is True
     assert gamma.source == "registry"
-    assert gamma.scope == "platform=current groups=default lock=verified"
+    assert gamma.scope == "platform=universal groups=default lock=unverified"
 
 
 def test_direct_selection_through_an_extra_node_reports_the_extra() -> None:
@@ -193,10 +194,14 @@ def test_a_missing_field_is_reported_as_a_schema_change() -> None:
 
 
 def test_options_map_to_uv_flags_and_a_stated_scope() -> None:
-    options = SelectionOptions(universal=True, groups=("lint",), no_dev=True, frozen=True)
+    options = SelectionOptions(groups=("lint",), no_dev=True)
     assert options.uv_arguments() == ["--frozen", "--universal", "--group", "lint", "--no-dev"]
     assert options.describe() == "platform=universal groups=default+lint-dev lock=unverified"
-    assert SelectionOptions(all_groups=True).uv_arguments() == ["--locked", "--all-groups"]
+    assert SelectionOptions(all_groups=True).uv_arguments() == [
+        "--frozen",
+        "--universal",
+        "--all-groups",
+    ]
     command = selection.uv_tree_command(
         "uv", Project(Path("/w"), Path("/w/uv.lock"), None), OPTIONS
     )
@@ -205,7 +210,8 @@ def test_options_map_to_uv_flags_and_a_stated_scope() -> None:
         "tree",
         "--project",
         "/w",
-        "--locked",
+        "--frozen",
+        "--universal",
         "--offline",
         "--no-python-downloads",
         "--color",
@@ -253,7 +259,6 @@ def test_command_delivers_items_scope_and_uv_version(cli, trees, uv_runs) -> Non
             "selection",
             "gamma",
             "zeta",
-            "--universal",
             "--group",
             "lint",
             "--paths",
@@ -265,7 +270,7 @@ def test_command_delivers_items_scope_and_uv_version(cli, trees, uv_runs) -> Non
     envelope = json.loads(result.stdout)
     assert envelope["view"] == "selection"
     assert envelope["tool"]["authorities"]["uv"] == "0.13.7"
-    assert uv_runs == [SelectionOptions(universal=True, groups=("lint",))]
+    assert uv_runs == [SelectionOptions(groups=("lint",))]
     assert [(item["distribution"], item["selected"]) for item in envelope["items"]] == [
         ("gamma", True),
         ("zeta", False),
@@ -273,19 +278,25 @@ def test_command_delivers_items_scope_and_uv_version(cli, trees, uv_runs) -> Non
     assert envelope["items"][0]["paths"] == ["app > alpha > gamma"]
     assert envelope["coverage"]["scanned"] == 10  # every node but the workspace container
     notes = envelope["notes"]
-    assert "selection scope: platform=universal groups=default+lint lock=verified" in notes
+    assert (
+        "selection scope: platform=universal groups=default+lint lock=unverified (every "
+        "platform: edges keep their markers and are not filtered to this machine)"
+    ) in notes
     assert any(note.startswith("zeta: not in the resolution") for note in notes)
     assert any("at most 1 shortest paths" in note for note in notes)
 
 
-def test_frozen_is_stated_in_the_notes(cli, trees, uv_runs) -> None:
+def test_the_unverified_lock_is_always_stated(cli, trees, uv_runs) -> None:
     result = CliRunner().invoke(
-        cli,
-        ["library", "--project", str(trees.project), "selection", "gamma", "--frozen", "--json"],
+        cli, ["library", "--project", str(trees.project), "selection", "gamma", "--json"]
     )
     assert result.exit_code == 0, result.output
     notes = json.loads(result.stdout)["notes"]
-    assert any(note.startswith("--frozen: uv.lock was read as it stands") for note in notes)
+    assert any(note.startswith("uv.lock was read as it stands") for note in notes)
+    removed = CliRunner().invoke(
+        cli, ["library", "--project", str(trees.project), "selection", "gamma", "--frozen"]
+    )
+    assert removed.exit_code == 2  # --frozen and --universal are no longer options
 
 
 def test_an_environment_without_a_project_is_refused(cli, trees, uv_runs) -> None:
@@ -338,14 +349,30 @@ def test_uv_reads_a_current_lock(tmp_path) -> None:
 
 
 @needs_uv
-def test_a_stale_lock_fails_under_locked_and_reads_under_frozen(tmp_path) -> None:
+def test_a_stale_lock_is_read_as_it_stands(tmp_path) -> None:
     project = _small_project(tmp_path / "small", "0.2.0")  # the lock still says 0.1.0
-    with pytest.raises(ToolFailure) as failure:
-        load_selection(project)
-    assert failure.value.error.kind == "stale_lock"
-    assert "--frozen" in failure.value.error.remedy
-    tree = load_selection(project, SelectionOptions(frozen=True))
+    tree = load_selection(project)
     assert [node.version for node in tree.graph.packages("small")] == ["0.1.0"]
+
+
+@needs_uv
+def test_uv_never_runs_the_project_environments_interpreter(tmp_path, monkeypatch) -> None:
+    """D2: with a cold uv cache, `uv tree --locked` (or a current-platform `--frozen`) queries
+    the project's `.venv/bin/python`. The command must never run it: the fake interpreter here
+    would leave a marker file."""
+    project = _small_project(tmp_path / "small", "0.1.0")
+    marker = tmp_path / "interpreter-ran"
+    python = project.root / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text(f"#!/bin/sh\ntouch {marker}\nexit 1\n")
+    python.chmod(0o755)
+    (project.root / ".venv" / "pyvenv.cfg").write_text("home = /usr/bin\nversion_info = 3.12.7\n")
+    monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / "cold-cache"))
+    monkeypatch.setenv("UV_PYTHON", str(python))  # stripped before uv runs
+    tree = load_selection(project, SelectionOptions(all_groups=True))
+    assert tree.graph.is_selected("small")
+    assert not marker.exists()
+    assert os.environ["UV_PYTHON"] == str(python)
 
 
 @needs_uv
@@ -354,7 +381,7 @@ def test_contract_uv_tree_json_holds_the_fields_this_reader_uses() -> None:
     a uv upgrade that renames or drops one fails here."""
     root = Path(__file__).resolve().parents[2]
     project = Project(root=root, lock=root / "uv.lock", pyproject=root / "pyproject.toml")
-    document, _ = run_uv_tree(project, SelectionOptions(frozen=True))
+    document, _ = run_uv_tree(project, SelectionOptions())
     assert document["schema"] == {"version": "preview"}
     assert document["inverted"] is False
     assert all({"name", "id"} <= set(member) for member in document["members"])

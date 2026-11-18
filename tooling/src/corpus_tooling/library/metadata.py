@@ -213,6 +213,8 @@ class SelectionView:
     graph: selection_module.SelectionGraph | None
     uv_version: str | None
     note: str
+    scope: str | None = None
+    """The selection scope (`SelectionOptions.describe()`), when selection was read."""
 
 
 def read_selection(target: Target) -> SelectionView:
@@ -232,7 +234,9 @@ def read_selection(target: Target) -> SelectionView:
         tree.graph,
         tree.uv_version,
         f"selected and selected_extras come from uv for project "
-        f"{target.display(project.root)}, {tree.options.describe()}",
+        f"{target.display(project.root)}, {tree.options.describe()}: every platform, "
+        "uv.lock read as it stands and not verified",
+        tree.options.describe(),
     )
 
 

@@ -24,32 +24,38 @@ For each distribution: whether the project selects it, directly or transitively;
 paths from workspace members; the extras and dependency groups through which it is selected; and
 platform markers on those edges.
 
-**Mechanism.** uv is the authority. The command runs
+**Mechanism.** uv is the authority. The command runs, once per invocation,
 
 ```
-uv tree --project P --locked --offline --no-python-downloads \
-        --format json --preview-features json-output --invert --package X
+uv tree --project P --frozen --universal --offline --no-python-downloads \
+        --format json --preview-features json-output
 ```
 
 and reads the graph. In uv 0.13.7 the output has `members[]` and a `resolution` map of nodes,
 each with `name`, `version`, `source`, `kind` and `dependencies[]` carrying an optional `marker`.
 A selected extra is its own node (`pydantic[email]`) with an edge to the base package; a group is
 a node of the member (`corpus-structure-dev:dev`). Direct selection is an edge from a member node
-or from one of its extra or group nodes; paths are walks up the inverted graph (*observed*;
-[uv tree reference](https://docs.astral.sh/uv/reference/cli/#uv-tree)).
+or from one of its extra or group nodes; paths are found by walking the graph upward in the tool,
+so one subprocess serves every requested name and a name absent from the graph is simply not
+selected (*observed*; [uv tree reference](https://docs.astral.sh/uv/reference/cli/#uv-tree)).
 
 Conditions and limits:
 
-- The JSON schema is marked preview and may change. The package pins the fields it reads with a
-  contract test against the root project and records the uv version in `tool`.
-- Without `--universal` the tree is filtered to the current platform, and without a group option
-  it covers the default groups only. The command reports the platform mode and the group
-  selection it used and passes `--universal`, `--all-groups`, `--group` and `--no-dev` through.
-- uv is a host binary with no pinned version here; the result records the uv version it ran.
-- `--locked` fails on a stale lock, which is the right default: a stale lock means selection is
-  not established. The failure is exit 3 with that explanation. `--frozen` reads the lock as it
-  stands; if offered, the result must say the lock was not verified. Which of the two a dirty
-  `pyproject.toml` should lead to is settled in this package.
+- **The lock is read as it stands and reported as not verified.** Execution found (2026-11-17,
+  `strace` with a cold uv cache) that `uv tree --locked`, `uv lock --check` and `uv tree --frozen`
+  without `--universal` each execute the project environment's interpreter, which D2 forbids;
+  `uv tree --frozen --universal` executes only uv. Every result therefore states
+  `lock=unverified` and suggests running `uv lock --check` by hand. A test with a fake
+  interpreter that leaves a marker file guards this.
+- **The graph is universal.** It covers every platform; edges keep their markers and paths show
+  them, so the reader sees which selections are conditional. Group options (`--all-groups`,
+  `--group`, `--no-dev`) pass through and the group selection used is reported.
+- Path lists are bounded (`--paths`, shortest first) with the total count reported, because a
+  widely shared distribution has more than a thousand paths.
+- The JSON schema is marked preview and may change. A contract test pins the fields read, and
+  the result records the uv version. uv is a host binary with no pinned version here.
+- `UV_*` variables that would silently change the project, interpreter, lock mode or groups are
+  removed from the subprocess environment.
 - uv documents `uv.lock` as internal to uv. The tool does not parse it; it only hashes it for the
   baseline.
 
