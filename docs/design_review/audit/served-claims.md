@@ -1,66 +1,66 @@
 # Served claims
 
-**Interface-checked by source inspection.** The page was read as a whole on 2026-11-17 at
-source `fbd3f2a98` ([baseline and limits](README.md#baseline)). DA-076 and DA-077 were re-read
-on 2026-11-18 at source `d78c98765` ([refresh](README.md#refresh-2026-11-18)); the
-earlier-identity table keeps its 2026-11-17 date. Source paths omit
-`python/corpus-structure/src/corpus_structure/`.
+**Interface-checked by source inspection, 2026-11-18**, source `5139eaba3`
+([update](README.md#update-2026-11-18-5139eaba3); [baseline and limits](README.md#baseline)).
+DA-076, DA-077 and the earlier identities on this page were re-read at that source. Source
+paths omit `python/corpus-structure/src/corpus_structure/`.
+
+A related integrity question has its home on another page: the source-demand path reads the
+working tree's `slices.yaml` while the release archives its own copy
+([DA-028](semantic-model-and-authority.md#da-028)).
 
 <a id="da-076"></a>
 
 ## DA-076 — The implementation identity of a served read is a hand-kept file list that leaves out modules that shape the answer
 
-**Refresh, 2026-11-18, source `d78c98765`.** Stands unchanged. No commit in
-`1afa63f88..d78c98765` touched `_query_custody.py` or `serve/rich_queries.py`. Current sites:
-the hand lists at `_query_custody.py:17–127` (docstring `:1–5`), the second list at
-`semantic/demand_queries.py:117–124`, and the statistics query names written again at
-`serve/rich_queries.py:39–66`. The identity is the listed file digests, nine library versions
-and the request JSON schema (`serve/rich_queries.py:71–105`); it does not include the native
-kernel. `semantic/releases.py`, `semantic/archive_reader.py`,
-`semantic/data_operation_admission.py` and the generated wire module remain unlisted. The
-conversion strengthened the contrary evidence for native SQL, as recorded below.
+**Update, 2026-11-18, source `5139eaba3`.** Stands unchanged. No commit in
+`d78c98765..5139eaba3` touched `_query_custody.py`, `serve/rich_queries.py` or
+`semantic/demand_queries.py`. The ordinary-edit case that the consequence describes occurred
+in the range: the unlisted answer-path modules `semantic/archive_reader.py` (`3ba5daa84`),
+`semantic/releases.py` and `semantic/data_operation_protocol.py` changed without moving the
+identity. A further overlap appeared: the listed `semantic/native_source_view.py`
+(`semantic/demand_queries.py:117–124`) is also an input of the native kernel digest through
+the PDF search renderer list, so the edit that restamped the kernel digest at native revision
+N29 ([DA-068](execution-fit.md#da-068)) invalidated served cursors and the kernel together.
 
 **FP-04; DP-02, DP-04; CI-10, CI-13.**
 
 Every served read carries an `implementation` digest. It appears in cursors, in
 `resource_handle` replays and in the selected-query cache keys, and it is what lets a resumed
-page claim it comes from the same code. The digest covers only the files named in
-`_query_custody.py:17–127`, whose docstring says it "neither discovers dependencies" (`:1–5`);
-`semantic/demand_queries.py:117–124` keeps a second, separate list.
+page claim it comes from the same code. The digest covers only the files named in the hand
+lists of `_query_custody.py:17–135`, whose docstring says it "neither discovers dependencies"
+(`:1–5`); `semantic/demand_queries.py:117–124` keeps a second, separate list. The identity is
+the listed file digests, nine library versions and the request JSON schema
+(`serve/rich_queries.py:71–105`); it does not include the native kernel.
 
 Modules on the rich answer path that are not listed include `semantic/releases.py` and
 `semantic/archive_reader.py` (which reconstruct the prepared release used for graph
 validation), `semantic/data_operation_admission.py` (the bound model),
 `semantic/record_contracts.py` and the generated wire module. A static import closure of
-`serve/rich_queries.py` reaches about 380 first-party modules against 36 listed; many of those
-are on other paths, so the closure is an upper bound, not the size of the gap. The native SQL
-kernel is not part of the identity.
+`serve/rich_queries.py` reached about 380 first-party modules against 36 listed (2026-11-17);
+many of those are on other paths, so the closure is an upper bound, not the size of the gap.
 
-The six rich statistics query names are also written twice, once for dispatch
-(`semantic/rich_queries.py:460–470`, as read on 2026-11-17) and once to choose which sources
-enter the identity (`serve/rich_queries.py:39–66`). A query added to the first and not the second would omit the
-module that computes it.
+The six rich statistics query names are also written twice, once for dispatch and once to
+choose which sources enter the identity (`serve/rich_queries.py:39–66`). A query added to the
+first and not the second would omit the module that computes it.
 
 **Consequence.** Inside one MCP process this is harmless: custody refuses any reload
-(`_query_custody.py:136–200`). Across processes it is not. A CLI cursor, a `resource_handle` or
+(`_query_custody.py:136–260`). Across processes it is not. A CLI cursor, a `resource_handle` or
 an explicit pin survives an edit to an unlisted module, and the resumed request replays
-ordinals over a population derived by different code (`serve/rich_queries.py:170–187`;
-`semantic/selected_query_cache.py:163–165`). A continued page can then skip or duplicate rows
-with no refusal. Code is edited constantly in this project's working loop, so the case is
-ordinary. The reverse also holds: a comment edit in any listed file invalidates every cursor.
+ordinals over a population derived by different code. A continued page can then skip or
+duplicate rows with no refusal. Code is edited constantly in this project's working loop, so
+the case is ordinary. The reverse also holds: a comment edit in any listed file invalidates
+every cursor.
 
 **Contrary evidence.** ADR-0124 deliberately defines the identity as naming the running code,
 with stat-based drift detection, and that mechanism is implemented and sound. The gap is what
 the list covers. Whether the identity is meant to cover the answer's whole code closure or only
-code likely to change answers is not stated in the ADR.
-
-The conversion narrowed the gap on the native side (2026-11-18). Answer-shaping native SQL now
-comes from generators that are not on the list (`semantic/demand_result_native.py`,
-`semantic/data_operation_read_native.py`, `semantic/data_operation_projections.py`), but their
-effect reaches an answer only after a kernel deployment, and a read acquired under another
-kernel is treated as not present (`semantic/data_read_boundary_native.py:84–92`). Pinned cuts
-also carry the release id, which covers the native capture. The residual gap is Python-side
-answer code, as before.
+code likely to change answers is not stated in the ADR. On the native side the gap is narrow:
+answer-shaping native SQL comes from generators that are not on the list, but their effect
+reaches an answer only after a kernel deployment, and a read acquired under another kernel is
+treated as not present (`semantic/data_read_boundary_native.py:98, 126`). Pinned cuts also
+carry the release id, which covers the native capture. The residual gap is Python-side answer
+code.
 
 **Footprint.** Established for the omission and the duplicated list; the paging consequence is
 likely.
@@ -69,11 +69,9 @@ likely.
 
 ## DA-077 — The archived scientific policy is a description of the comparison kernel, not derived from it
 
-**Refresh, 2026-11-18, source `d78c98765`.** Stands unchanged; the DuckDB rewrite did not
-touch it. Current sites: the recipe at `semantic/scientific_evidence.py:192–243`, the
-comparison at `:246–255`, and the kernel literal at `:1301`. A third comparison site was
-found, which also rebuilds the recipe on each call: `semantic/rich_policy_binding.py:22–30`
-(the artifact is written at `semantic/rich_knowledge_sources.py:81–82`).
+**Update, 2026-11-18, source `5139eaba3`.** Stands unchanged. Neither
+`semantic/scientific_evidence.py` nor `semantic/rich_policy_binding.py` has a commit in
+`d78c98765..5139eaba3`, so the cited lines hold.
 
 **FP-04; DP-02, DP-04; CI-13; H19.**
 
@@ -91,10 +89,9 @@ hand-written description of the kernel, for example `"bounds": [0.25, 3]` and th
 
 The recipe is also rebuilt on each call, including several schema generations, for each rule
 evaluation, each scientific evaluation, each new comparator per distinct macro set and each
-reference comparison scope (`semantic/rich_scientific.py:182, 260–264`;
-`scientific_evidence.py:940–943, 1129–1133`, as read on 2026-11-17) and each rich context
-binding (`semantic/rich_policy_binding.py:22–30`), although both the archived artifact and the
-process code are fixed.
+reference comparison scope (as read on 2026-11-17), and for each rich context binding
+(`semantic/rich_policy_binding.py:22–30`), although both the archived artifact and the process
+code are fixed.
 
 **Contrary evidence.** Archiving the policy and refusing on mismatch is the right shape, and
 the DA-034 correction (one shared owner, separate policies) still holds.
@@ -115,17 +112,18 @@ comparators per document is not known.
 <a id="da-064"></a>
 <a id="da-066"></a>
 
-Earlier text is in Git at `fbd3f2a98`.
+Statuses were established on 2026-11-18 at `5139eaba3` by reading the code that replaced each
+cited subject. Earlier text is in Git at `fbd3f2a98` and before.
 
-| ID | Status at `fbd3f2a98` | Note |
+| ID | Status at `5139eaba3` | Note |
 |---|---|---|
-| DA-035 | No longer applicable | `serve/journey.py` is gone; paging is `serve/demand_journey.py` and `semantic/demand_queries.py` |
-| DA-036 | No longer applicable | Standing is carried in native frontier and use rows |
-| DA-037 | No longer applicable | Caller gone; `evaluate/split_decisions.py` now has no production importer ([DA-080](boundaries-and-composition.md#da-080)) |
-| DA-038 | No longer applicable | Cited read modules are gone |
-| DA-039 | No longer applicable | Explanation is `semantic/operation_reporting.py:150–212`; rich relation depth is bounded in the request |
-| DA-050 | No longer applicable | Pinned continuation uses `resource_handle` and the read pins |
-| DA-051 | Changed footprint | Recognition identity assurance stands (`ingest/pdf_recognition.py:71, 149–171`); external packets carry actor and model assertions. Not traced end to end |
-| DA-061 | Changed footprint | The formula Reader now resolves the recipe from the retained release (`ingest/pdf_hierarchy.py:353–380`). The single-witness representation was not examined |
-| DA-064 | Corrected | The only route builds unassessed page signals; the skip-without-trigger branch is unreachable, and a skip requires a verified blank body (`semantic/visual_routing.py:587, 623–630, 744–761`) |
-| DA-066 | Likely corrected | Selection and continuation are pushed into the native read (`serve/pdf_visual_evidence.py:34–74, 399–423`); the native scan was not examined |
+| DA-035 | No longer applicable | `serve/journey.py` was removed (`bcff594c2`). The successor was checked only lightly: whether coverage absence can now be stated was not traced |
+| DA-036 | No longer applicable | `semantic/query.py` was removed (`957ff2231`). Served rows carry a per-population standing label, a constant such as `native-selected-operation` (`serve/contribution_facets.py:79, 296`; `serve/source_decision_journey.py:298`); whether successor reads give a per-fact selection status that distinguishes rejected, ambiguous or deselected facts was not examined |
+| DA-037 | No longer applicable | `evaluate/semantic.py` was removed (`7fc25ca02`). The status is firm for the removed subject only: whether the replacement evaluation separates not-matched from not-comparable was not examined (`evaluate/operation_fitting.py:103` does name an incomparable reason). `evaluate/split_decisions.py` has no importer ([DA-080](boundaries-and-composition.md#da-080)) |
+| DA-038 | No longer applicable | `serve/read.py` and `serve/queries.py` were removed (`bcff594c2`). A low-weight residue: nine serving modules import the private `_cursor` and `_decode` from `semantic/demand_queries.py:43–54`, and `serve/demand_journey.py:3–10` re-exports them. That is a shared primitive that is private only in name, not the original duplicated route |
+| DA-039 | No longer applicable | `serve/explain.py` and the statistics `queries.py` were removed (`5aae3c780`, `bcff594c2`). Successor reads are bounded: rich reads have `limit` and `max_bytes` (`serve/rich_queries.py:130, 144`), and operation explanation is one operation with one bounded observation page (`semantic/operation_reporting.py:150–212`) |
+| DA-050 | No longer applicable | `cli/explain.py` (`bcdc8d214`) and `serve/journey.py` are gone. Reads bind an exact demand (`cli/selected_results.py:23`) and continue through a pinned `resource_handle` (`serve/demand_context.py:140`; `semantic/demand_queries.py:296`). Not every follow-up surface was surveyed |
+| DA-051 | Corrected, holds | Recognition declares its identity assurance and admits a managed generation only when the artifact digests match (`ingest/pdf_recognition.py:65–73, 152–171`). External results record actor and model assertions, labelled as assertions, and check them natively (`semantic/external_receipts.py:24–25`; `semantic/external_execution_native.py:266–267`). Not traced end to end |
+| DA-061 | Corrected, holds | `8dc0bac00` corrected both parts: the recipe holds a list of witnesses keyed by original digest and pointer (`model/semantic/section-text-recipe.json`, two entries), and the Reader resolves the recipe from the retained release (`ingest/pdf_hierarchy.py:354–380, 382–427`). The production path still refuses when the installed bytes differ (`:346–351`), which is a refusal, not suppression |
+| DA-064 | Corrected, holds | A skip requires every cue to be negative, otherwise the result is `unassessed` (`semantic/visual_routing.py:235–239`); a blank page requires verified original bytes (`:228–232, 744–761`) |
+| DA-066 | Corrected, holds | Selection by occurrence and cell, with `after` and `limit`, is pushed into the native read (`semantic/visual_read_native.py:75–170`), and the Reader charges only the returned rows (`serve/pdf_visual_evidence.py:5–45`). The cost of the native scan was not examined |

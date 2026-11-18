@@ -1,19 +1,20 @@
 # Current domain model map
 
-**Interface-checked by source inspection, 2026-11-18**, source `d78c98765`
-([refresh](README.md#refresh-2026-11-18); [baseline and limits](README.md#baseline)). This is a
-diagnostic map of the model found in source; the architectural owners keep authority. It
-replaces the map of 2026-11-17 at `fbd3f2a98`, which was written before most of the
-model-owned SQL conversion ([ADR-0131](../../adr/0131-model-owned-postgresql-programs.md))
-landed and cited the since-deleted `semantic/sql/data_operations.sql` as the realization of
-most facts. That conversion is still open: the ADR and the DDO plan record residual SQL
-authoring as remaining work ([DA-084](boundaries-and-composition.md#da-084)). Two
-sections, marked below, carry forward 2026-11-17 observations that were not re-read.
+**Interface-checked by source inspection, 2026-11-18**, source `5139eaba3`
+([update](README.md#update-2026-11-18-5139eaba3); [baseline and limits](README.md#baseline)).
+This is a diagnostic map of the model found in source; the architectural owners keep
+authority. The fact-ownership and library-role tables were rebuilt at `5139eaba3` and mark
+each row as new, changed or unchanged since the previous map at `d78c98765`. The sections on
+declaration owners, LinkML features and composition were written at `d78c98765`; the model
+files they describe changed in two places only in `d78c98765..5139eaba3` (a `public_disclosure`
+flag on the read boundary and three protocol definitions), and their figures were not
+recounted. Some strengths, marked below, carry forward 2026-11-17 observations that were not
+re-read.
 
 Paths omit `python/corpus-structure/src/corpus_structure/`; `model/` is under that package;
-`domains/` is at the repository root (read with `git show d78c98765:domains/…`, because the
-frozen snapshot omits it). Counts marked "search" are counts of a key or pattern over the
-model directory on 2026-11-18. Nothing was run.
+`domains/` is at the repository root (read with `git show <commit>:domains/…`, because the
+frozen snapshot omits it). Counts marked "search" are counts of a key or pattern. Nothing was
+run.
 
 Terms used on this page. *LinkML* is the schema language the model is mostly written in. A
 *`SchemaView`* is LinkML's in-memory view of a schema and its imports. The *physical model* is
@@ -53,7 +54,7 @@ trees with hashed names), `ph:indexes` 32, `ph:archive_role` 15, `ph:sql_type` 1
 
 | File | Formalism | What it declares | What derives from it |
 |---|---|---|---|
-| `data-operation-native.yaml` (3,007 lines, the largest model file) | JSON Schema draft-7 with `x-ddo-lifecycle` extensions and an `operations:` block from `:2783` | The protocol: wire definitions, state lifecycles and transitions, the public native operations and the `purposes` of each | Wire types, fates, physical value sets, protocol function grants |
+| `data-operation-native.yaml` (3,033 lines, the largest model file) | JSON Schema draft-7 with `x-ddo-lifecycle` extensions and an `operations:` block from `:2809` | The protocol: wire definitions, state lifecycles and transitions, the public native operations and the `purposes` of each | Wire types, fates, physical value sets, protocol function grants, the task guard |
 | `data-operation-wire-types.yaml` | Map from JSON pointer to nominal type | Nominal wire types | Generated wire module |
 | `pdf-actions.yaml` (1,987 lines) | Custom catalog | PDF actions and calls | PDF call bindings |
 | `analysis-policy.yaml`, `metrics.yaml`, `scientific-policies.yaml`, `characterization-questions.yaml` | Custom YAML | Policy decision table, metrics, questions | Policy and evaluation code |
@@ -150,13 +151,25 @@ Value-set populations are resolved for physical enums from the protocol (`ph:val
 | Semantic release | LinkML pack and semantic schemas, to a merged `SchemaView`, to `PreparedRelease` | `semantic/prepare.py:350–373` |
 | Operations | Python literals, LinkML kinds and the protocol, to `EffectiveDataOperationModel` (frozen dataclasses), archived as JSON and decoded with cattrs | `semantic/data_operation_compilation.py:806–1864`; `semantic/data_operation_model.py:878, 1225–1264` |
 | Protocol | Draft-7 YAML, to a `Draft7Validator`, a `TypedDict` facade and fates | `semantic/data_operation_wire.py:1–22`; `semantic/typed_generation.py:100–105` |
-| Native programs | Compiled tables and call bindings, to SQLAlchemy Core statements and parsed PostgreSQL nodes framed by the program compiler, to SQL text, to server-normalized catalog objects frozen in a migration revision | `semantic/native_program.py`; `semantic/data_operation_storage.py:48–567, 753–862`; `semantic/native_objects.py:381–440, 950–1121`; `semantic/target_installation.py:189–405, 767–855` (the last two as read by the generator lane) |
+| Native programs | Captured `MetaData` and call bindings, to SQLAlchemy Core statements and parsed PostgreSQL nodes framed by the program compiler, to SQL text, to server-normalized catalog objects frozen in a migration revision | `semantic/native_program.py`; `semantic/data_operation_storage.py:48–575, 761–822`; `semantic/native_objects.py`; `semantic/target_installation.py` |
 | Earlier | `core.yaml` and `system.yaml`, to `Model`, to vocabulary, `_model`, stage-B pydantic shapes and JSON Schemas | `schema/generate.py:560–578` |
 
-The native program path is the conversion's addition. Its finite forms, and the rule that Core
-and parsed nodes own statements while the compiler owns only procedural framing, are stated in
-`semantic/native_program.py:1–5, 176–320`. What happens after rendering is part of
+The native program path is the addition of the model-owned SQL conversion
+([ADR-0131](../../adr/0131-model-owned-postgresql-programs.md)). Its finite forms, and the rule
+that Core and parsed nodes own statements while the compiler owns only procedural framing, are
+stated in `semantic/native_program.py`. What happens after rendering is part of
 [DA-081](semantic-model-and-authority.md#da-081).
+
+**What the generators receive.** Every admission generator regenerated in
+`d78c98765..5139eaba3` takes the captured `MetaData` as its only model input and resolves
+relation and column names against it, so a missing name fails at generation (signatures and
+the search are listed on the
+[model-authority page](semantic-model-and-authority.md)). None receives the effective
+operation model or the protocol. Relations and columns are therefore model-owned in generated
+SQL, while everything that identifies an operation (family, producer, entry point, profile,
+role, universe) is a string in the generator. Eight generators inside the native capture now
+take the captured physical metadata instead of metadata compiled at import
+(`semantic/data_operation_storage.py:251–356`).
 
 <a id="generated"></a>
 
@@ -168,68 +181,88 @@ and parsed nodes own statements while the compiler owns only procedural framing,
 | Protocol | `_data_operation_wire.py`, `_data_operation_fates.py`, physical enum checks, function grants by purpose, the task guard's states |
 | Effective operation model | Lowered definitions (at release admission, in PL/pgSQL), identities, graph projections, the source-interface export |
 | Seven generated Python facades, rendered together at preview | `_source_admission_calls.py`, `_typed_columns.py`, `identifiers.py`, `_data_operation_fates.py`, `_pdf_native_calls.py`, `_pdf_native_ids.py`, `_data_operation_wire.py` (`schema/model_change.py:53–61, 525–552`; [DA-081](semantic-model-and-authority.md#da-081)) |
-| **No declaration** | The native kernels for validity, completion and family guards (typed programs or hand-written SQL strings that reference generated tables but take their membership lists from Python: [DA-070](semantic-model-and-authority.md#da-070), [DA-084](boundaries-and-composition.md#da-084)); DuckDB relation schemas (`semantic/analytical_kernels.py:21–60`; `semantic/rich_relations.py:24–34`; [DA-086](semantic-model-and-authority.md#da-086)); data steps (`schema/data_steps.py`, closed first-party builders); the scientific policy recipe ([DA-077](served-claims.md#da-077)) |
+| **No declaration** | The native kernels for validity, completion and family guards: typed programs that reference generated tables and take their membership lists from Python ([DA-070](semantic-model-and-authority.md#da-070)); role, grant and guard membership ([DA-074](native-integrity.md#da-074)); DuckDB relation schemas (`semantic/analytical_kernels.py:21–60`; `semantic/rich_relations.py:24–34`; [DA-086](semantic-model-and-authority.md#da-086)); data steps (`schema/data_steps.py`, closed first-party builders); the scientific policy recipe ([DA-077](served-claims.md#da-077)) |
 
 <a id="fact-ownership"></a>
 
 ## Fact ownership
 
-"Derivable from today" names an existing typed source in the codebase that the code literal
-could be computed from, or says that none exists and a declaration would be needed. It is a
-statement of what exists, not a selected change.
+**Rebuilt 2026-11-18 at `5139eaba3`.** "Derivable from today" names an existing typed source
+in the codebase that the code literal could be computed from, or says that none exists and a
+declaration would be needed. It is a statement of what exists, not a selected change. The
+last column marks each row against the previous map at `d78c98765`: **new** row, **changed**,
+or **unchanged**. In this table and the next, a Python file named without a directory is under
+`semantic/`, and a YAML file named without a directory is under `model/semantic/`. The table
+has 40 rows.
 
-| Fact | Declared in the model | Held as code | Restated at | Derivable from today |
-|---|---|---|---|---|
-| Record and product shape | LinkML classes (`model/semantic/*.yaml`, packs) | — | Earlier-model copies ([DA-072](semantic-model-and-authority.md#da-072)); DuckDB Arrow schemas (`semantic/analytical_kernels.py:21–60`; `semantic/rich_relations.py:24–34`) | Rich and view relations: none, needs a declaration. PDF: already from `MetaData` |
-| Field type and constraint | LinkML range, pattern, minimum; `ph:checks` JSON | — | The `data_kind_contract` universe check (`model/semantic/data-operation-physical.yaml:71`) beside `_KIND_UNIVERSES` (`semantic/data_operation_compilation.py:341`) | The `NativeKindProjection["universe"]` typed literal, already read at `semantic/support_trust_native.py:91` |
-| Field kind to database and Python type | LinkML type `uri` and the `ph:sql_type` annotation (for example `model/semantic/physical.yaml:33–36`) | — | Four maps (`semantic/native_call_contracts.py:16–25`; `semantic/native_call_sources.py:28–37`; `semantic/pdf_search_native.py:98–104`; `semantic/native_program.py:621–622`; [DA-086](semantic-model-and-authority.md#da-086)) | The physical compiler's type resolution (`schema/relational.py:79–89, 437–440`) |
-| Enum and value set | LinkML enums; protocol enums | — | Six or more enums in both cores; the PDF outcome pair | One side from the other (none chosen) |
-| Operation | — (by the two-route design of ADR-0092) | `__data_operation__` declarations in about 62 modules | — | None; Python is an admitted declaration medium |
-| Operation inputs, outputs and dependencies | — | Literal `roles`, `dependencies` | The `changed_operations` graph (`semantic/change_impact.py:157–193`) | Compiled `selected-dependencies` and `potential-producers` (`semantic/data_operation_model.py:713–725`) |
-| Validity family | **Column only, no values** (`model/semantic/data-operation-physical.yaml:88`) | Tuple at `semantic/data_operation_compiler_native.py:468–519` | Dispatch tuple (`semantic/data_validity_native.py:272–282`); guard lists (contextual `:16–21, 214–219`; definition `:83, 106, 124`; rich `:183`; record grade `:691`); completion chain (`semantic/data_completion_settlement_native.py:712–800`); guard tuple (`:537–553`) | None; needs a declaration. A host exists: the effective operation is lowered right beside it (`data_operation_compiler_native.py:905–926`) |
-| Per-operation family contract (entry point, profile, forms) | Per operation in the effective model | SQL `CASE` (`semantic/contextual_admission_native.py:23–44`) | — | `EffectiveOperation.capabilities.prepared_factory`, `.profile`, `.capabilities.forms` (`semantic/data_operation_model.py:288–296, 497`). Caution: the `CASE` is compared with the admitted definition and so acts as an independent pin; taking it from the effective model keeps a meaningful check only if the kernel's captured model and the admitted release stay distinct inputs |
-| Support-edge meaning; reference-to-node map | — | Validity edges (`semantic/data_validity_native.py:88–240`) | `_support_walk` (`semantic/data_operation_projections.py:117, 132–242`); `_revocation_causes` (`semantic/change_impact.py:332–441`) | None; needs a declaration |
-| Trust-scope key | — | `ops.ddo_scope` (`semantic/support_trust_native.py:100–118`) | `semantic/change_impact.py:427` (disagrees) | The `ddo_scope` program itself, or one shared Python function |
-| Frontier-guard membership | — | Twelve-name tuple (`semantic/data_operation_storage.py:1936–1949`) | The admission descriptor, built from the same list | None; immutability does not separate the relations; needs a declaration |
-| Shared-stream trigger membership | **`ph:immutability: pending-content`** (`model/semantic/physical.yaml:1757, 1776`) | Name set (`semantic/target_installation.py:350`) | — | `relation.info["immutability"]`, already populated (`schema/relational.py:492`) |
-| Immutability and archive triggers | `ph:immutability`, `ph:archive_role` | — | — | Already derived (sound) |
-| Task states and transitions | Protocol lifecycle (`model/semantic/data-operation-native.yaml:5–14`) | String literals in kernels (`semantic/data_claim_native.py:77`; about 37 sites in twelve generators, survey) | — | The protocol lifecycle, already read by the task guard (`semantic/data_operation_protocol.py:116–160`) |
-| Role names; purpose-to-role map | Purposes per protocol function (`data-operation-native.yaml:2783` onward) | Dictionary (`semantic/data_operation_storage.py:1887–1893`); `PUBLISHER`, `DEFAULT_READ_ROLES`, `PURPOSE_ROLES` (`semantic/alembic_privileges.py:25–35`) | `sql/admission.sql:130, 148, 162–186`; `semantic/target_installation.py:209–231, 266–277`; the name chain at `data_operation_storage.py:1896–1914`; 176 occurrences of role names in 39 modules (literals, constants, comments and SQL strings) | Purposes: yes. Role names and defaults: none; needs a declaration |
-| Table read grants | `ph:read_roles` (deny only; all `'[]'`) | Default from code (`semantic/alembic_privileges.py:74–75`) | `sql/admission.sql:148` | `relation.info["read_roles"]`, once defaults are declared |
-| Release composition | Flags (`domains/statistics/operations.yaml`) | `semantic/primary_operations.py:118–392` | Family source functions ([DA-073](semantic-model-and-authority.md#da-073)) | Partly: static operation extraction exists before compilation (`semantic/python_operation_sources.py`). The map from family to source: none |
-| Physical index and check | `ph:indexes`, `ph:checks`, `unique_keys` | — | — | Already derived; admission compares them (sound) |
-| Wire shape | Protocol draft-7 | — | Wire-type map (`data-operation-wire-types.yaml`) | Already derived |
-| Value-codec vocabulary | SourceValue variants in the LinkML observations schema | Python `Literal` types and a hand tuple for the data-operation codec (`semantic/data_operation_value_native.py:44–50`) | — | The SourceValue codec already reads LinkML (`semantic/source_value_native.py:55–66`); the two codecs have separate authorities |
-| Search configuration | `ph:search_configuration` (`model/semantic/physical.yaml:1733`) and a check | — | — | Already derived |
-| Identity determinants | Operation literals (recipe, eligibility) | `_compile_identities` (`semantic/data_operation_compilation.py:2138–2233`) | — | Compiled (sound) |
-| Scientific policy parameters | `scientific-policies.yaml` (not LinkML); a `numerical_policy` asset per operation | — | Archived recipe text ([DA-077](served-claims.md#da-077)) | Not examined |
-| Which code determines an artifact (kernel, PDF lowering, served read) | Implementation slices for Python operations only (`semantic/data_operation_identity.py:378–414`) | Capture enumerated in code; `LOWERING_FILES`; query-custody lists | Each other, in part ([DA-068](execution-fit.md#da-068), [DA-082](execution-fit.md#da-082), [DA-076](served-claims.md#da-076)) | None for native generators, PDF lowering or served reads |
-| Generated-facade and program-set ownership | — | `_NATIVE_OUTPUTS` (`schema/model_change.py:53–61`); the six program lists of [DA-081](semantic-model-and-authority.md#da-081), two of which disagree | Owner writers; `LOWERING_FILES` (`semantic/pdf_lowering.py:33–104`) | The owners' path constants. A registry of the `schema/generate.py:540–578` kind exists only for the earlier model |
-| Graph-projection catalog | — | `compiled_graph_projections` | — | Derived from owned edges (sound; `semantic/data_operation_model.py:705–725`) |
+| Fact | Declared in the model | Held as code | Restated at | Derivable from today | Mark |
+|---|---|---|---|---|---|
+| Record and product shape | LinkML classes | — | Earlier-model copies ([DA-072](semantic-model-and-authority.md#da-072)); DuckDB Arrow schemas (`analytical_kernels.py:21–60`; `rich_relations.py:24–34`) | Rich and view relations: none. PDF: already from `MetaData` | unchanged |
+| Relation and column used by native programs | Physical LinkML, compiled to `MetaData` | — | — | Already derived: generators resolve against captured `MetaData` | changed (now all nine admission modules) |
+| Field type and constraint | LinkML range; `ph:checks` JSON | — | The `data_kind_contract` universe check (`data-operation-physical.yaml:71`) beside `_KIND_UNIVERSES` (`data_operation_compilation.py:341`) | The `NativeKindProjection["universe"]` typed literal (`native_definition_projection.py:23`) | unchanged |
+| Kind-universe values in kernels | Physical check (`data-operation-physical.yaml:71`) | — | 43 lines in `semantic/*.py` (survey), including the new public-disclosure rule (`data_operation_projections.py:97`) | The typed literal, as `support_trust_native.py:91` already reads it | changed |
+| Field kind to database and Python type | LinkML `uri`; `ph:sql_type` | — | `native_call_contracts.py:16–25`; `native_call_sources.py:28–37`; `pdf_search_native.py:98–104`; `native_program.py:657` | The physical compiler's resolution (`schema/relational.py:79–89, 437–440`) | unchanged |
+| Enum and value set | LinkML enums; protocol enums | — | Six enums in both cores; the PDF outcome pair | One side from the other (none chosen) | unchanged |
+| Operation | — (the two-route design of ADR-0092) | `__data_operation__` declarations in about 62 modules | — | None; Python is an admitted declaration medium | unchanged |
+| Operation inputs, outputs and dependencies | — | Literal `roles`, `dependencies` | `change_impact.py:157–193`; producer per input role (`contextual_admission_native.py:301–310`); `STRUCTURAL_REPORT_PRODUCERS` (`declared_structural_admission.py:276`) | Compiled `selected-dependencies` and `potential-producers` (`data_operation_model.py:713–725`); role kinds | changed (kernel restatements located) |
+| Role collection semantics | The operation role's `collection` | — | — | Read directly (`characterization_ports.py:746–749`) | new (sound) |
+| Validity family | **Column only, no values** (`data-operation-physical.yaml:88`) | `data_operation_compiler_native.py:470–519` | Dispatch (`data_validity_native.py:272–288`); guard tuple (`data_completion_settlement_native.py:548–563`); authorization subset (`:576–587`); live chain (`:744–803`); contextual (`contextual_admission_native.py:188–201`); definition (`definition_admission_native.py:33–38`); artifact (`artifact_admission_native.py:112, 147, 217`); rich (`rich_admission_native.py:606–622, 816–823, 903–910`); operation event (`operation_event_native.py:55–60`); record grade (`record_grade_native.py:55`); record fit (`record_policy_completion_native.py:1140, 1170, 1471`) | None; needs a declaration. Hosts exist: lowering beside the effective operation (`data_operation_compiler_native.py:905–926`), and selection by a declared effect, which rich admission already does (`rich_admission_native.py:1136–1145`) | changed |
+| Prepared-factory entry point | Per operation in the effective model (`capabilities.prepared_factory.entrypoint`) | — | 53 lines in 15 files (search), for example `contextual_admission_native.py:189–200`, `definition_admission_native.py:39–44`, `rich_admission_native.py:607–619`, `record_policy_completion_native.py:60–61`, `evaluate/declared_operation_events.py:42–44`, `declared_structural_admission.py:276` | `EffectiveOperation.capabilities`, an `ImplementationCapabilities` (`data_operation_model.py:288–296`). Caution: the guards compare the literal with the admitted row, so it acts as an independent pin | changed (was contextual only) |
+| Profile, forms and receipt count per operation | Effective model | — | `contextual_admission_native.py:234–259`; `definition_admission_native.py:358–372`; `artifact_admission_native.py` | `EffectiveOperation.profile`, `.capabilities.forms` (same caution) | changed |
+| Operation constants in owner modules | — | `AUTHORIZATION_OPERATION` (`evaluate/declared_operation_events.py:31`, the authorize id only); `GRADE_OPERATION` (`record_policy_authority.py:39`); `ADMISSION_OPERATION` (`declared_structural_admission.py:11`) | Inline ids: `"operation_event.frame"` and the fit id, which have no owner constant (`operation_event_native.py:295, 315, 1206`), and `"record_policy.fit"` | The owner constants, where one exists | new |
+| Native effect per family operation | — | Declared in the operation's `effects` for four families (`methods/record_policy.py:70`; `methods/operation_events.py:328`; `methods/rich_knowledge.py:405`; `methods/structural_admission.py:132`); contextual, definition and artifact operations declare none | — | Lowered in `support_contract` and already read by two guards (`rich_admission_native.py:1136–1145`; `record_policy_completion_native.py:425–441`); not used for the family lists ([DA-070](semantic-model-and-authority.md#da-070)) | new (found by the independent challenge) |
+| Encoder failure codes | — | `contextual_encoder_batch.py:19–26`; a `Literal` of two codes (`methods/contextual_embeddings.py:333`) | `contextual_admission_native.py:653–660` | The Python set | new |
+| Product member families, fields and required sets | Protocol definitions `coordinate`, `role_member`, `endpoint`, `coverage`, `choice`, `product_member` (`data-operation-native.yaml`) | `_FAMILIES` (`data_product_admission_native.py:56–90`) | — | The protocol definitions' `properties` and `required` | new |
+| Support-edge meaning; reference-to-node map | — | `data_validity_native.py:88–240` | `_support_walk` (`data_operation_projections.py:156, 171`); `_revocation_causes` (`change_impact.py:332–441`); a narrow lineage walk (`source_admission_native.py:1129–1135`) | None; needs a declaration ([DA-071](semantic-model-and-authority.md#da-071)) | changed (fourth walk located) |
+| Trust-scope key | — | `support_trust_native.py:100–118` | `change_impact.py:427` (disagrees) | The program, or one shared function | unchanged |
+| Public disclosure of a read | `public_disclosure` (`data-operation-physical.yaml:629`); protocol `read_demand_selection` | — | — | Already read (`data_read_boundary_native.py:31–34, 103`; `data_operation_projections.py:84–89`) | new (sound) |
+| Frontier-guard membership | — | Twelve names (`data_operation_storage.py:1952–1965`) | The admission descriptor, built from the same list | None; needs a declaration ([DA-074](native-integrity.md#da-074)) | changed (trigger now typed) |
+| Shared-stream trigger membership | `ph:immutability: pending-content` (`physical.yaml:1757, 1776`, two relations) | Name set (`target_installation.py:371`) | — | `relation.info["immutability"]` | unchanged |
+| Immutability and archive triggers | `ph:immutability`, `ph:archive_role` | — | — | Already derived (sound) | unchanged |
+| Task states and transitions | Protocol lifecycle (`data-operation-native.yaml:5–14`) | Kernel literals (21 quoted `pending` or `running` in eight `*native*.py` files) | — | Already read by the task guard, before and after the range (`data_operation_protocol.py:117–128`) | changed in form only: the guard is now a typed program; the literals are unchanged |
+| Role names | — | `alembic_privileges.py:25–33` | 199 occurrences in 47 `.py` files; new tuples at `native_admission_tables.py:27–32` and `native_admission_principals.py:8–9` | Constants exist; none in the model | changed: the literals moved from the deleted SQL files into Python, and the total fell from 246 to 199 |
+| Purpose-to-role map | Purposes per protocol function | `data_operation_storage.py:1899–1907` | `closure_native.py:174–181` | Purposes: yes. Roles: needs a declaration | changed (second copy) |
+| Execute grants for non-protocol functions | — | `data_operation_storage.py:1908–1928` | `target_installation.py:227–249, 291`; `native_admission_release.py:397–407`; `native_authoring.py:165, 183` | None | changed |
+| Table read grants | `ph:read_roles` (84 annotations, all `'[]'`) | Default (`alembic_privileges.py:74–75`) | JSON literal (`native_admission_tables.py:176–184`) | `DEFAULT_READ_ROLES`, identical in content and order, as `native_admission_functions.py:149` already uses it | changed |
+| Principal restrictions; application schemas; private kernels | — | `native_admission_principals.py:8–16` | — | Schemas: the `MetaData` table schemas (plus `eval`). Kernels: the program objects, if a registry existed ([DA-081](semantic-model-and-authority.md#da-081)) | new |
+| Release composition | Flags (`domains/statistics/operations.yaml`) | `primary_operations.py:118–392` | Family source functions; a new hand source (`characterization_ports.py:1141–1155`) | Partly (`python_operation_sources.py`); [DA-073](semantic-model-and-authority.md#da-073) | changed |
+| Physical index and check | `ph:indexes`, `ph:checks` | — | — | Derived; admission compares them (sound) | unchanged |
+| Wire shape | Protocol draft-7 | — | Wire-type map | Derived | unchanged |
+| Value-codec vocabulary | SourceValue variants in LinkML | `data_operation_value_native.py:44–50` | — | Two codecs, two authorities | unchanged |
+| Codec tags in kernels | The same codec | — | Tag literals in every regenerated module (survey) | The constants of `data_operation_value_native.py` | new |
+| Search configuration | `ph:search_configuration` | — | — | Derived | unchanged |
+| Identity determinants | Operation literals | `_compile_identities` | — | Compiled (sound) | unchanged |
+| Scientific policy parameters | `scientific-policies.yaml` | — | Archived recipe text ([DA-077](served-claims.md#da-077)) | Not examined | unchanged |
+| Which code determines an artifact | Implementation slices, for Python operations only | The capture list (`native_products.py:134–164`, 28 names); `LOWERING_FILES`; the kernel capture; query-custody lists | Each other, in part ([DA-068](execution-fit.md#da-068), [DA-082](execution-fit.md#da-082), [DA-076](served-claims.md#da-076)) | None for generators. The capture list is also digested into the deployed execution-contract descriptor as 48 `authoring/*` entries ([DA-068](execution-fit.md#da-068)) | changed (ten names added) |
+| Generated-facade and program-set ownership | — | `_NATIVE_OUTPUTS` (7); capture sources 91; required set 94; `native_sql` 39; install table 11; providers 7 | Owner writers; `LOWERING_FILES` | The owners' path constants; no registry for the released model | changed |
+| Catalog-check boundaries in the admission guard | — | Marker comments (`native_admission_release.py:35–38, 371, 382`) | Text recovery (`native_admission.py:42–82`) | The program objects, for guards generated in the current process | new |
+| Graph-projection catalog | — | `compiled_graph_projections` | — | Derived (sound) | unchanged |
 
 <a id="library-roles"></a>
 
 ## Data-model libraries and their roles
 
-Pinned versions are in `python/corpus-structure/pyproject.toml` (LinkML 1.12.1, DuckDB 2.0.0,
-SQLAlchemy 2.1.6, pglast 8.7, SQLGlot 30.27.0, pydantic 2.14.1, pyarrow 26.0.0).
+**Rebuilt 2026-11-18 at `5139eaba3`.** Pinned versions are in
+`python/corpus-structure/pyproject.toml` (LinkML 1.12.1, DuckDB 2.0.0, SQLAlchemy 2.1.6,
+pglast 8.7, SQLGlot 30.27.0, pydantic 2.14.1, pyarrow 26.0.0); `pyproject.toml` and `uv.lock`
+have no diff in `d78c98765..5139eaba3`. The last column marks each row against the previous
+map.
 
-| Library | Source of truth for | Holds as derived (from what, where) | Same fact held independently elsewhere |
-|---|---|---|---|
-| LinkML, linkml-runtime | Classes, enums, physical tables (through `ph:`), projections, packs | — | Enums in both cores ([DA-072](semantic-model-and-authority.md#da-072)); operation shapes are Python literals, not LinkML |
-| SQLAlchemy `MetaData` and Core | Nothing primary | Tables, columns, checks, indexes and `info` (`schema/relational.py:385–563`); native programs as Core statements | Role and guard membership beside it ([DA-074](native-integrity.md#da-074)); DuckDB Arrow schemas |
-| Alembic | The migration graph; privilege operations | Autogenerate from `MetaData`; privilege policy from `info["read_roles"]` plus `DEFAULT_READ_ROLES` (`semantic/alembic_privileges.py:74–75`) | Default roles again in `sql/admission.sql:148` |
-| pglast | — | Parses and normalizes every native statement; supplies PostgreSQL-only nodes to programs; re-parses the assembled kernel text (`semantic/data_operation_storage.py:1873–1875`); validates submitted read-only SQL (`semantic/authored_sql.py`) | — |
-| SQLGlot | — | Projection lineage and type analysis (`semantic/projection_analysis.py:15–21`); a change-explanation diff | — |
-| jsonschema | Validation of the protocol (draft-7) | Wire validation from the protocol (`semantic/data_operation_wire.py:22`); nullable inference (`semantic/data_operation_compilation.py:2544–2611`) | Protocol enums also appear in physical checks, derived through `ph:values_from` (sound) |
-| pydantic | Earlier-model shapes (stage B); 144 `BaseModel` classes in `semantic/` and `schema/` (preview requests, data-step parameters, native effects) | A `TypeAdapter` boundary for PDF records from `MetaData` (`semantic/pdf_record_model.py:125`) | The hand-written `BaseModel` classes were not compared field by field with `MetaData` (not examined) |
-| pydantic-settings | Deployment settings (`settings.py:219`) | — | Analytics fields declared and unread ([DA-080](boundaries-and-composition.md#da-080)) |
-| Plain frozen dataclasses with cattrs | The effective operation model (`semantic/data_operation_model.py:53–890`) | cattrs decodes the archive (`:1225–1264`) | The `profile` literal (`:497`) restated in `_PROFILES` (`semantic/data_operation_compilation.py:85`) |
-| pyarrow | DuckDB analytical relation schemas (hand-written) | PDF record and export schemas from `MetaData` (`semantic/pdf_record_model.py:103–122`; `semantic/arrow_types.py:13`); PDF payloads from JSON Schema (`semantic/pdf_payloads.py:87–149`); companion export schema from the LinkML projection (`semantic/companion_projection.py:88–140`) | — |
-| DuckDB | Nothing; it computes over relations built elsewhere | — | Its input shapes are hand-written in three of five modules ([joint page](model-and-execution.md#analytical)) |
-| valuesets | Vendored YAML copies only; the package is not imported | — | — |
-| linkml-term-validator, oaklib, pronto | Ontology bindings; dynamic enum expansion | Members expanded at preparation (`semantic/ontology.py:380–395, 644`) | — |
-| attrs, msgspec | Not used | — | — |
+| Library | Source of truth for | Holds as derived (from what, where) | Same fact held independently elsewhere | Mark |
+|---|---|---|---|---|
+| LinkML, linkml-runtime | Classes, enums, physical tables (through `ph:`), projections, packs | — | Enums in both cores ([DA-072](semantic-model-and-authority.md#da-072)); operation shapes are Python literals | unchanged |
+| SQLAlchemy `MetaData` | Nothing primary | Tables, columns, checks, indexes and `info` (`schema/relational.py:385–563`); the only model input of every regenerated generator | Role, guard and family membership beside it ([DA-070](semantic-model-and-authority.md#da-070), [DA-074](native-integrity.md#da-074)) | changed |
+| SQLAlchemy Core | Statement construction | All admission kernels; the task guard (`data_operation_protocol.py:117–128`); triggers (`native_before_trigger_sql`, `native_objects.py:154`); catalog checks over lightweight `pg_catalog` tables (`native_catalog.py` and the three `native_admission_*` modules) | — | changed (wider) |
+| Alembic | The migration graph; privilege operations | Autogenerate from `MetaData`; privilege policy from `info["read_roles"]` plus `DEFAULT_READ_ROLES`; typed privilege admission over `PURPOSE_ROLES` | Default roles again as JSON text (`native_admission_tables.py:176–184`) | changed |
+| pglast | — | Parses every native statement; retargets scratch tables on the parse tree (`native_authoring.py:303–328`); re-parses the assembled kernel for grants (`data_operation_storage.py:1887–1897`); 62 `semantic/` modules use it (59 before); validates submitted read-only SQL | — | changed |
+| SQLGlot | — | Projection lineage and type analysis | — | unchanged |
+| jsonschema | Validation of the protocol (draft-7) | Wire validation; nullable inference; kind schemas now pass `checked_json_schema` (`data_operation_storage.py:1146–1150`) | Protocol member families restated in `_FAMILIES` (`data_product_admission_native.py:56–90`) | changed |
+| pydantic | Earlier-model shapes; `BaseModel` classes; the `TypedDict` read boundary (`native_definition_projection.py`) | A `TypeAdapter` for native selection custody (`data_operation_preparation.py:304`) and for PDF records | The lowered `support_contract` typed as `dict[str, Any]` beside the typed `EffectiveOperation.capabilities` | changed |
+| pydantic-settings | Deployment settings | — | Analytics fields declared and unread ([DA-020](boundaries-and-composition.md#da-020)) | unchanged |
+| Plain frozen dataclasses with cattrs | The effective operation model | cattrs decodes the archive | Facts it holds per operation (entry points, profile, forms) restated in kernels | changed |
+| pyarrow | DuckDB analytical relation schemas (hand-written) | PDF record and export schemas from `MetaData` | — | unchanged |
+| DuckDB | Nothing; it computes over relations built elsewhere | — | Its input shapes are hand-written in three modules ([joint page](model-and-execution.md#analytical)) | unchanged |
+| valuesets; linkml-term-validator, oaklib, pronto; attrs, msgspec | As on the previous map: vendored YAML copies only; ontology bindings and dynamic enum expansion; not used | As on the previous map | — | unchanged |
 
 ## One compiled operation model, and what sits around it
 
@@ -239,7 +272,7 @@ kinds), their origins are tracked, and conflicting owners and unresolved referen
 (`semantic/data_operation_compilation.py:823–830, 955–960, 1836–1838`). Semantic identity
 (recipe, kind and slice fingerprints) is kept apart from build provenance (the release id), and
 the native request key uses the semantic identity
-(`semantic/binding_admission_native.py:213`; `semantic/request_attachment_native.py:1024–1539`).
+(`semantic/binding_admission_native.py:213`; `semantic/request_attachment_native.py:1254–1317`).
 That separation is what lets a result survive a new release.
 
 Around that model sit further inventories that it does not govern:
@@ -258,13 +291,57 @@ Around that model sit further inventories that it does not govern:
   ([DA-068](execution-fit.md#da-068), [DA-082](execution-fit.md#da-082),
   [DA-076](served-claims.md#da-076)) and the hand-written description of the scientific kernel
   ([DA-077](served-claims.md#da-077));
-- hand-written PostgreSQL whose conversion is scheduled and still open
+- the small residue of hand-written PostgreSQL left by the conversion
   ([DA-084](boundaries-and-composition.md#da-084)).
 
 The model therefore covers operations, kinds, roles, states and identities well. What it does
 not yet hold are several facts about how those operations are *governed at run time*: which
 validity rules apply, what a support edge means, what must be guarded, who may execute what,
 and which code an answer depends on.
+
+<a id="openness"></a>
+
+## Where the model is open and where the kernel closes it
+
+Established 2026-11-18 at `5139eaba3` by the model lane. "Open" here means a state that is
+optional, provisional or allowed to vary; "closed" means a fixed set outside which the code
+refuses.
+
+**Openness declared in the model, kept or added in `d78c98765..5139eaba3`:**
+
+| Site | State | Character |
+|---|---|---|
+| `model/semantic/data-operation-native.yaml:469–493` | A read selection is one of an intent selection or a public selection (`read_demand_selection`); `authority_selection` carries `protected_dependencies: undisclosed`, an explicit undisclosed authority state | Added, declared |
+| `model/semantic/data-operation-physical.yaml:629` | `public_disclosure`, a required boolean on the read boundary with default false, read by the projections | Added, declared |
+| `semantic/characterization_ports.py:746–749`; `methods/characterization.py` (`b0ae4d21a`) | Composition inputs declared `collection: set` and ordered canonically, without asserting a reading order | Added, declared |
+| `semantic/data_operation_bindings.py` (`1d3640990`) | Independent optional binding roles admit the anchor's empty row | Kept, declared by the `optional` operator |
+
+**Openness that is implicit in the kernel:**
+
+| Site | State | Character |
+|---|---|---|
+| A null `validity_family`; the dispatch default; the guards' early returns | "No validator applies" cannot be told apart from "omitted" | Kept, implicit: the fail-open shape of [DA-070](semantic-model-and-authority.md#da-070) |
+| `semantic/definition_admission_native.py:345–350` | An unlisted id falls to the last factory by default | Implicit; masked because the guard returns for unlisted ids first |
+
+**Closed sets, with their origin:**
+
+| Site | Closed set | New or transcribed from the SQL it replaced |
+|---|---|---|
+| `semantic/data_operation_projections.py:91–103` | Public reads disclose only kinds whose universe is `ordinary` or `source` | New (`6d699ab46`, `ed410b80f`) |
+| `semantic/data_operation_preparation.py:305–330` | A native selection must have exactly the keys `profile`, `fingerprint`, `assets`, `asset_custody`, and its file population must equal the declared one | New (`188ec73c2`) |
+| `semantic/contextual_admission_native.py:301–310, 369` | An input role may come only from listed operation ids | Transcribed |
+| `semantic/contextual_admission_native.py:234–259` | Profile, forms and receipt count fixed per id | Transcribed |
+| `semantic/contextual_admission_native.py:653–660` | Four encoder failure codes | Transcribed |
+| `semantic/rich_admission_native.py:623–634` | Rich preparation requires one of three named owners, otherwise it raises | Transcribed |
+| `semantic/closure_native.py:174–186` | An unknown runtime purpose raises | Transcribed |
+| `semantic/data_product_admission_native.py:443–452` | Endpoint scope is `local` or `external`, otherwise it raises | Transcribed |
+| `semantic/operation_event_native.py:488` | Partition is `development` or `feature_fit` | Transcribed (not traced) |
+
+The pattern: the openness added recently is declared in the model (protocol variants, a
+boolean, a role's collection), while the kernel's openness is implicit and its closures are
+lists of operation ids. The transcribed closures are where the model expresses variability
+that the kernel narrows; the query-encoder example is under
+[DA-070](semantic-model-and-authority.md#da-070).
 
 ## How a change becomes recomputation
 
@@ -283,16 +360,18 @@ Traced through source on 2026-11-17 at `fbd3f2a98`; the kernel and release rows 
   declares an episode identity requirement.
 - **Runtime and execution profile.** Excluded from the request key. Distrust is applied by
   explicit revocation, evaluated when results are read.
-- **Native kernel source (re-read 2026-11-18).** Any change to a captured module or to one of
-  six library versions invalidates admission, reads, carried assurance and waiting-obligation
-  watermarks at once, changes every native operation's declared behavior, and changes the
-  release id ([DA-068](execution-fit.md#da-068)).
-- **A model YAML edit (2026-11-18; inferred from what each identity covers, not traced
-  end to end).** A physical model edit changes the physical id, the compiled `MetaData`, every
-  generated program that references the changed table, the kernel digest and the release id.
-  It does not reach hand-written bodies
-  ([DA-084](boundaries-and-composition.md#da-084)) or literals for declared facts
-  ([DA-086](semantic-model-and-authority.md#da-086)).
+- **Native kernel source (re-read 2026-11-18 at `5139eaba3`).** Any change to one of 99
+  captured modules or to one of six library versions invalidates admission, reads, carried
+  assurance and waiting-obligation watermarks at once, changes every native operation's
+  declared behavior, and changes the release id ([DA-068](execution-fit.md#da-068)). One native
+  revision in the range existed only for such a change.
+- **A model YAML edit (inferred from what each identity covers, not traced end to end).** A
+  physical model edit changes the physical id, the compiled `MetaData`, every generated
+  program that references the changed table, the kernel digest and the release id. A renamed
+  relation or column now fails generation in every converted module. The edit does not reach
+  literals for declared facts ([DA-086](semantic-model-and-authority.md#da-086)), and a new
+  member of an operation family reaches no guard
+  ([DA-070](semantic-model-and-authority.md#da-070)).
 
 The unit of recomputation is the request generation. The unit of scheduling is the whole
 demand, swept once per round.
@@ -301,32 +380,49 @@ demand, swept once per round.
 
 ## Strengths to preserve
 
-Established or re-read on 2026-11-18 at `d78c98765`:
+Established or re-read on 2026-11-18 at `5139eaba3`:
 
-- Immutability and archive triggers derive from `ph:immutability` and `ph:archive_role`
-  through `MetaData.info` (`semantic/data_operation_storage.py:1925–1935`;
-  `semantic/target_installation.py:334–347`).
-- Physical enums derive from the protocol (`ph:values_from`, `schema/physical.py:62, 138`;
-  `model/semantic/data-operation-physical.yaml:11–14`).
-- Protocol function grants derive from declared `purposes`
-  (`semantic/data_operation_storage.py:1885–1895`).
+- Every regenerated admission module resolves relations and columns against captured
+  `MetaData`, so a missing relation or column fails at generation; raw SQL text inside a
+  program is refused, as is an unresolved bind parameter (`semantic/native_program.py:128–131`).
+- The task guard, which already read the protocol lifecycle, is now a typed program over the
+  captured `ops.task` columns (`semantic/data_operation_protocol.py:117–128`).
+- Selection by a declared effect read from the lowered definition at run time
+  (`semantic/rich_admission_native.py:1136–1145`), and operation constants taken from the
+  operation's owner module (`GRADE_OPERATION`, `AUTHORIZATION_OPERATION`,
+  `ADMISSION_OPERATION`).
+- One Python table consumed by both the Python validator and the native generator
+  (`STRUCTURAL_REPORT_PRODUCERS`, `semantic/declared_structural_admission.py:276`), which
+  removes a copy where two existed; and a closed-set check at generation of the structural
+  disclosure fields (`semantic/structural_admission_native.py:1680–1694`).
+- Declared variability: the protocol's read-selection variants, the explicit undisclosed
+  authority state, the `public_disclosure` column and `collection: set` read from the role
+  ([above](#openness)).
+- Immutability triggers derive from `ph:immutability` through `MetaData.info`
+  (`semantic/target_installation.py:351–356`); privilege admission compares the complete ACL
+  over `PURPOSE_ROLES`; `semantic/native_admission_functions.py:6, 149` imports
+  `DEFAULT_READ_ROLES` instead of restating it.
+- Scratch relations for authoring are retargeted on the parse tree
+  (`semantic/native_authoring.py:303–328`).
 - Universe validity reads the typed literal with `get_args(get_type_hints(...))`
-  (`semantic/support_trust_native.py:91`), and the SourceValue codec checks its closed set
-  against LinkML and refuses on drift (`semantic/source_value_native.py:55–66`).
+  (`semantic/support_trust_native.py:91`), and the SourceValue codec is generated from the
+  LinkML layout and refuses on drift (`semantic/source_value_native.py:55–66`).
+
+Re-read at `d78c98765` on 2026-11-18; their files have no commit in the range unless noted:
+
+- Physical enums derive from the protocol (`ph:values_from`, `schema/physical.py:62, 138`).
+- Protocol function grants derive from declared `purposes`
+  (`semantic/data_operation_storage.py:1897–1907` at `5139eaba3`).
 - `ops.ddo_classify_command` classifies by eligibility predicates, not by ids
   (`semantic/data_operation_compiler_native.py:530–550`).
 - Arrow schemas for PDF records and exports derive from `MetaData`, with the physical model id
-  in the schema metadata (`semantic/pdf_record_model.py:103–122`; `semantic/arrow_types.py:13`;
-  `serve/native_source.py:944–971`).
+  in the schema metadata (`semantic/pdf_record_model.py:103–122`; `semantic/arrow_types.py:13`).
 - Unresolved operation and kind references refuse at compile
   (`semantic/data_operation_compilation.py:1836–1838`), and graph projections are derived from
   owned edges instead of being a second authored catalog
   (`semantic/data_operation_model.py:705–725`).
 - The physical closure refuses extra or missing sources and pins the LinkML types bytes
   (`schema/physical.py:156–197`).
-- Native programs resolve relations and columns against compiled tables, so a missing relation
-  or column fails at generation; raw SQL text inside a program is refused; a security-definer
-  routine without a search path is refused (`semantic/native_program.py:126–131, 536–538`).
 
 Carried forward from 2026-11-17, not re-read:
 
@@ -347,11 +443,13 @@ Carried forward from 2026-11-17, not re-read:
 
 ## Limits
 
-Read on 2026-11-18 by the model lane: the six model-authority findings and their cited code,
-the composition sites, the model YAML by header and by search counts, and the dataclass fields
-of the effective model. Not read: generator bodies for equivalence with the SQL they replaced;
+Read on 2026-11-18 at `5139eaba3` by the model lane: the model-authority findings and their
+cited code; the contextual and definition admission generators in large part; the three
+`native_admission_*` modules; the full diffs of the model YAML and of six owner modules.
+Sampled: the rich, operation-event, structural, record-policy, record-grade and product
+admission generators. Not read: generator bodies for equivalence with the SQL they replaced;
+`archive_native.py`, `pdf_spool_native.py` and `visual_read_native.py` beyond searches; tests;
 `semantic/ontology.py` beyond its dynamic-enum block; `semantic/conditional_rules.py`;
-`schema/stage_b.py`; `schema/rulelang.py`; the DuckDB modules beyond their schemas. Whether the
-per-consumer closures differ in result was not tested. The library inquiry recorded on
-2026-11-05 (LinkML, Pydantic, RDFLib, pySHACL and others) was not repeated; it is in Git at
-`fbd3f2a98`.
+`schema/stage_b.py`; `schema/rulelang.py`. Counts are search counts with the stated patterns.
+Whether the per-consumer closures differ in result was not tested. The library inquiry
+recorded on 2026-11-05 was not repeated; it is in Git at `fbd3f2a98`.

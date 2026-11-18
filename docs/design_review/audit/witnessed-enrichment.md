@@ -1,22 +1,26 @@
 # Witnessed enrichment
 
-**Source `fbd3f2a98`, 2026-11-17** ([baseline and limits](README.md#baseline)). This refresh
-did not re-examine the witnessed-enrichment transformations (table multiplicity, displayed
-probability support, dossier meaning). The observations below keep their original evidence
-dates, 2026-11-06 and 2026-11-08, and several of the modules they cited no longer exist. Their
-full text is in Git at `fbd3f2a98`, and the earlier diagnosis wording at audit publication
-`86425f72e`.
+**Interface-checked by source inspection, 2026-11-18**, source `5139eaba3`
+([update](README.md#update-2026-11-18-5139eaba3); [baseline and limits](README.md#baseline)).
+The three identities below were re-read at that source by reading the current owners of table
+interpretation, local interpretation reports and structural dossiers. Their first publication
+was 2026-11-06 at audit publication `86425f72e`, and their full earlier text is in Git there
+and at `fbd3f2a98`. Source paths omit `python/corpus-structure/src/corpus_structure/`.
+
+The anchors of these three identities use upper-case ids (`#DA-055`, `#DA-056`, `#DA-057`),
+unlike every other page of this account. They are kept as they are because existing links use
+them.
 
 <a id="reconciliation-at-the-november-8-baseline"></a>
 <a id="DA-055"></a>
 <a id="DA-056"></a>
 <a id="DA-057"></a>
 
-| ID | Status at `fbd3f2a98` | Note |
+| ID | Status at `5139eaba3` | Note |
 |---|---|---|
-| DA-055 | Not re-examined | Corrected at the 2026-11-08 baseline |
-| DA-056 | Not re-examined; cited sources retired | The cross-result numerical consistency gap was open on 2026-11-08. `serve/table_correspondence_replay.py` is gone; detached verification is now `semantic/demand_results.py:476+` and `serve/demand_export.py:409+`. Whether the gap survives there was not traced |
-| DA-057 | Changed footprint | The dossier Reader is `serve/structural_products.py:194–345`; membership, facet and policy digests are bound into the cursor (`:328–337`) |
+| DA-055 | Corrected, holds | Header levels and separate note or unit attachments get separate axes; only competing readings of the same level and role are exclusive (`methods/table_interpretation.py:313–333`) |
+| DA-056 | Corrected (`f3f2d1ca5`) | The gap recorded as open on 2026-11-08 (an event probability could contradict the displayed support) was corrected one hour after that restatement, and this page was not updated then. Each marginal and each event is now bounded against the displayed support (`semantic/local_interpretation_reports.py:285–308`), on the bind path that `semantic/contributions.py:267–270` and `semantic/observations.py:374` reach. The native counterpart, in a hand-written SQL file, was deleted in `3812d31cf`, and no generated native module checks event probabilities (search of `semantic/*native*.py` for probability, marginal and event checks only). Whether native admission still needs these checks was not established |
+| DA-057 | Corrected, holds | Member identity includes the definition interpretation and the applicability outcome (`methods/structural_products.py:1235–1257`), and admission derives it again with the same fields (`semantic/structural_admission.py:242–248`) |
 
 The [WCE coordinator](../../plans/witnessed-corpus-enrichment_2026-11-05.md) holds the recorded
 disposition of the original findings.
