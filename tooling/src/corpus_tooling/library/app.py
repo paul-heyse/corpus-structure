@@ -13,7 +13,7 @@ from typing import Annotated
 
 import typer
 
-from corpus_tooling.library import baseline
+from corpus_tooling.library import baseline, metadata, overview, selection
 from corpus_tooling.library.context import LibraryState
 from corpus_tooling.output import envelope_commands
 
@@ -22,6 +22,9 @@ Registration = Callable[[typer.Typer], None]
 # One line per command; the order is the order `--help` lists them.
 REGISTRATIONS: Sequence[Registration] = [
     baseline.register,
+    selection.register,
+    metadata.register,
+    overview.register,
 ]
 
 
