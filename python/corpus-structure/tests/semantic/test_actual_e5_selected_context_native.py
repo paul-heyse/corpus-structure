@@ -223,12 +223,18 @@ def assert_operation_fulfilled(kernel, result, operation, *, allow_reuse=False):
         if row["operation_id"] == operation
     }
     uses = [row for row in frontier["uses"] if row["obligation_id"] in obligations]
+    episodes = {row["derivation_id"] for row in uses if row["derivation_id"] is not None}
+    operation_receipts = sum(
+        json_loads(receipt)["derivation_id"] in episodes for receipt in result.receipts
+    )
     roles = tuple(
         role.name for role in kernel.model.operation(operation).roles if role.direction == "input"
     )
     diagnostic = {
         "operation": operation,
         "receipts": result.receipt_count,
+        "operation_receipts": operation_receipts,
+        "receipts_truncated": result.receipts_truncated,
         "allow_reuse": allow_reuse,
         "obligations": [(row["operation_id"], row["fate"]) for row in obligations.values()],
         "uses": [
@@ -256,9 +262,10 @@ def assert_operation_fulfilled(kernel, result, operation, *, allow_reuse=False):
             for row in uses[:8]
         ],
     }
-    receipts_valid = result.receipt_count in (0, 1) if allow_reuse else result.receipt_count >= 1
+    receipts_valid = operation_receipts in (0, 1) if allow_reuse else operation_receipts == 1
     if (
-        not receipts_valid
+        result.receipts_truncated
+        or not receipts_valid
         or len(uses) != 1
         or uses[0]["fate"] != "fulfilled"
         or uses[0]["completion_state"] != "success"

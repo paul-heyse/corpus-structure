@@ -133,6 +133,10 @@ def test_supplied_matcher_rejects_nonexact_observations_before_parse(row):
 
 def test_book_gate_refuses_missing_current_population_before_any_acquisition():
     from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductMemberReference,
+        DataProductReference,
+    )
     from semantic.prose_book_comparator import (
         BOOK_DOCUMENT,
         BOOK_PROJECT,
@@ -150,6 +154,12 @@ def test_book_gate_refuses_missing_current_population_before_any_acquisition():
     )
     with pytest.raises(MissingBookPrerequisites, match="selected source population"):
         compare_whole_book_construction(pin, expected_sources=(), acquired=())
+    parent = DataProductReference("same-source-population")
+    members = tuple(DataProductMemberReference(parent, name) for name in ("first", "second"))
+    with pytest.raises(MissingBookPrerequisites, match="missing current acquired construction"):
+        compare_whole_book_construction(pin, expected_sources=members, acquired=())
+    with pytest.raises(MissingBookPrerequisites, match="ambiguous current whole-book"):
+        compare_whole_book_construction(pin, expected_sources=(members[0], members[0]), acquired=())
 
 
 def test_book_comparator_observes_actual_production_region_selection(

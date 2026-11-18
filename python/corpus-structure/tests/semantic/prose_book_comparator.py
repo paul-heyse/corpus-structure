@@ -4,7 +4,7 @@ After the normal native read has acquired all book construction bindings, call::
 
     compare_whole_book_construction(
         acquired_original.reference,
-        expected_sources=tuple(selected_source_product_references),
+        expected_sources=tuple(selected_source_member_references),
         acquired=tuple((port, hydrated_role_values, binding_result) for ...),
     )
 
@@ -25,6 +25,10 @@ from corpus_structure.semantic.construction_products import PreparedConstruction
 from corpus_structure.semantic.constructions import forest
 from corpus_structure.semantic.constructions.declarations import GRAMMAR_FAMILIES
 from corpus_structure.semantic.constructions.layers import ConstructionLayer
+from corpus_structure.semantic.data_product_reference import (
+    DataProductMemberReference,
+    DataProductReference,
+)
 from semantic.prose_regex_oracle import _regex_parser_oracle
 
 if TYPE_CHECKING:
@@ -32,7 +36,6 @@ if TYPE_CHECKING:
     from corpus_structure.semantic.data_operation_bindings import BindingResult
     from corpus_structure.semantic.data_operation_ports import HydratedRoleValue
     from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
-    from corpus_structure.semantic.data_product_reference import DataProductReference
 
 
 BOOK_PROJECT = "nce-grinstead-snell-full-book"
@@ -185,7 +188,7 @@ def _compare_profile_regions(profile, source, formal, options, *, sentences, sub
 def compare_whole_book_construction(
     original: OriginalDocumentRef,
     *,
-    expected_sources: tuple[DataProductReference, ...],
+    expected_sources: tuple[DataProductMemberReference, ...],
     acquired: Iterable[
         tuple[PreparedConstructionPort, tuple[HydratedRoleValue, ...], BindingResult]
     ],
@@ -197,9 +200,13 @@ def compare_whole_book_construction(
         BOOK_SHA256,
     ):
         raise MissingBookPrerequisites("the exact book project/document/SHA pin is required")
-    expected = tuple(reference.product_id for reference in expected_sources)
+    expected = set(expected_sources)
     acquired = tuple(acquired)
-    if not expected or len(expected) != len(set(expected)):
+    if (
+        not expected
+        or len(expected) != len(expected_sources)
+        or any(not isinstance(reference, DataProductMemberReference) for reference in expected)
+    ):
         raise MissingBookPrerequisites(
             "missing or ambiguous current whole-book selected source population"
         )
@@ -226,16 +233,18 @@ def compare_whole_book_construction(
         source_role = next(role for role in binding.roles if role.role == "source")
         if (
             len(source_role.members) != 1
-            or source_role.members[0].member is not None
+            or source_role.members[0].member is None
             or source_role.members[0].multiplicity != 1
         ):
-            raise MissingBookPrerequisites(
-                "construction requires one exact whole selected source product"
-            )
-        source_pin = source_role.members[0].product
+            raise MissingBookPrerequisites("construction requires one exact selected source member")
+        (source_member,) = source_role.members
+        assert source_member.member is not None
+        source_pin = DataProductMemberReference(
+            DataProductReference(source_member.product), source_member.member
+        )
         if source_pin in seen or source_pin not in expected:
             raise MissingBookPrerequisites(
-                "duplicate or unselected book source product: " + source_pin
+                f"duplicate or unselected book source member {source_pin.values()}"
             )
         port._verify()
         inputs = port._inputs(values, binding)
@@ -256,16 +265,16 @@ def compare_whole_book_construction(
             port.construction_options(),
             sentences=inputs.native,
         )
-        records.extend({"source_product": source_pin, **record} for record in compared)
-    if seen != set(expected):
+        records.extend({"source": source_pin.values(), **record} for record in compared)
+    if seen != expected:
         raise MissingBookPrerequisites(
-            "missing acquired book source products: " + ", ".join(sorted(set(expected) - seen))
+            f"missing acquired book source members {len(expected - seen)}"
         )
     return {
         "project": BOOK_PROJECT,
         "document": BOOK_DOCUMENT,
         "sha256": BOOK_SHA256,
-        "source_products": list(expected),
+        "source_members": [reference.values() for reference in expected_sources],
         "regions": records,
     }
 
