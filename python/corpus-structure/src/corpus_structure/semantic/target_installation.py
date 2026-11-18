@@ -566,7 +566,7 @@ def prepare_target_authoring(
         *target_native_definitions(connection, installation),
         *current_admission_definitions(
             connection,
-            admission_kernel(),
+            admission_kernel(target_metadata=installation.metadata),
             source="target-current:admission guard",
             require_descriptor=False,
         ),
