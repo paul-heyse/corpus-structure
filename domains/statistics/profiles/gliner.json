@@ -1,6 +1,68 @@
 {
+  "asset_custody": [
+    [
+      "/home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d/config.json",
+      "d6b515c21ae2100c12267fb42a3f02c1e99ad87580366aebedb161efd74441c7",
+      [
+        66306,
+        22325965,
+        4103,
+        1792331834359143041,
+        1792331834360119057
+      ],
+      false
+    ],
+    [
+      "/home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d/encoder_config/config.json",
+      "d36a845b9f25dcaf1ec45a1c4bdf65ea4ac20596537e14530ec9f660a63aeca4",
+      [
+        66306,
+        22325962,
+        857,
+        1792331833125133497,
+        1792331833126415521
+      ],
+      false
+    ],
+    [
+      "/home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d/model.safetensors",
+      "7274094de2e0c2a37a386f55fc4e23061a954da5bd7a335e7dfe56f2743c277a",
+      [
+        66306,
+        22325959,
+        774366564,
+        1792331853739159193,
+        1792331854567914881
+      ],
+      false
+    ],
+    [
+      "/home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d/tokenizer.json",
+      "cbc8ae6037812709c9c26f2a160f8dc48b0440bcb79c8141804259ae2d6adac3",
+      [
+        66306,
+        22325967,
+        8341713,
+        1792331835599252655,
+        1792331835703397008
+      ],
+      false
+    ],
+    [
+      "/home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d/tokenizer_config.json",
+      "0bf3ea0873234bd9bfdd3853c440395009ac6365a925b91654daed5396d655e1",
+      [
+        66306,
+        22325969,
+        645,
+        1792331834358142953,
+        1792331834359891347
+      ],
+      false
+    ]
+  ],
   "assets": "/home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d",
-  "fingerprint": "21fee5ced2611a741f7aed5aedc43dbe980da7c64245647072d83edbf15be207",
+  "fingerprint": "51db28dc0e342490ce3a560cc5887f266c71e0ad332e1a749814e261c5c6dd95",
   "profile": {
     "artifacts": {
       "config.json": "d6b515c21ae2100c12267fb42a3f02c1e99ad87580366aebedb161efd74441c7",
@@ -57,8 +119,8 @@
     },
     "provider": "gliner",
     "runtime_identity": {
-      "distributions_sha256": "5565f34cf74c49e024941cc8310f61c3dd4813244a934a07ba309dd0d91f3650",
-      "lock_sha256": "774ee62f431cbbb57b126a98ce6c0a2aab0d70c7c4329168f39a723e9675cdbe",
+      "distributions_sha256": "16ffe91eeff4700fc95d8f14c1c2fadb7f4f6b22cda74c221f13761835f3e39a",
+      "lock_sha256": "294a53e7a5165172d74bc83432f7a7d61cb16bee269210df581431a70cbffc59",
       "platform": [
         "linux",
         "x86_64",

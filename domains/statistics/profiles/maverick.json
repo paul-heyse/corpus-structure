@@ -1,6 +1,80 @@
 {
+  "asset_custody": [
+    [
+      "/home/paul/corpus-structure/build/models/pm2/deberta/config.json",
+      "ddec8b81d079d218ce9e54fc0af5d1d5937d6d53b5d42e70c1f251a1cebc830d",
+      [
+        66306,
+        17051719,
+        580,
+        1794193810803502434,
+        1794193810804701101
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/deberta/pytorch_model.bin",
+      "dd5b5d93e2db101aaf281df0ea1216c07ad73620ff59c5b42dccac4bf2eef5b5",
+      [
+        66306,
+        17051701,
+        873673253,
+        1794193826994688391,
+        1794193827160248104
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/deberta/spm.model",
+      "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd",
+      [
+        66306,
+        17051662,
+        2464616,
+        1794193811126486385,
+        1794193811156051818
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/deberta/tokenizer_config.json",
+      "3f3978e0c036f2c2588cac34a6047cbb0af0b0dc1814254e291028529805496d",
+      [
+        66306,
+        17051776,
+        52,
+        1794193810875498859,
+        1794193810877040766
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/maverick/config.yaml",
+      "c0852d84bbc57c20ea42e05d94778f8a066d57990431c48513dd1450794676b3",
+      [
+        66306,
+        17051757,
+        17,
+        1794193810829501143,
+        1794193810831242758
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/maverick/weights.ckpt",
+      "b42053ce171ea904d10d92de5458dce2e8189ef1050e1705e7fced50d2479c1f",
+      [
+        66306,
+        17051696,
+        2017558043,
+        1794193921163209645,
+        1794193921471840016
+      ],
+      false
+    ]
+  ],
   "assets": "/home/paul/corpus-structure/build/models/pm2",
-  "fingerprint": "2c1b5d2ed94dfcd01bf34c45cf2bf6bee8eaf2ccf450783f9d28f91002f1bca5",
+  "fingerprint": "8f08abbd97e31d4f96e7553d6752f579fdeade35c0cf4278be8ce0ed542373f7",
   "profile": {
     "artifacts": {
       "deberta": {
@@ -51,8 +125,8 @@
     },
     "provider": "maverick",
     "runtime_identity": {
-      "distributions_sha256": "5565f34cf74c49e024941cc8310f61c3dd4813244a934a07ba309dd0d91f3650",
-      "lock_sha256": "774ee62f431cbbb57b126a98ce6c0a2aab0d70c7c4329168f39a723e9675cdbe",
+      "distributions_sha256": "16ffe91eeff4700fc95d8f14c1c2fadb7f4f6b22cda74c221f13761835f3e39a",
+      "lock_sha256": "294a53e7a5165172d74bc83432f7a7d61cb16bee269210df581431a70cbffc59",
       "platform": [
         "linux",
         "x86_64",

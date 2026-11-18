@@ -1,6 +1,92 @@
 {
+  "asset_custody": [
+    [
+      "/home/paul/corpus-structure/build/models/pm2/dipo/best_model.pt",
+      "85a2590374d2d3bd82a04dcfa474869a8ae2ee6a64074e61b41540aed6633f24",
+      [
+        66306,
+        17051747,
+        2640746745,
+        1794193939391004710,
+        1794193939812195218
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/dipo/config.json",
+      "219e282474e0968b126d5d82e7b845760709a61398f4fcf6fdc96cb3a7675e99",
+      [
+        66306,
+        17051863,
+        3565,
+        1794193810971494092,
+        1794193810972970442
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/ettin/config.json",
+      "778102ed6dca61fe4258ca87cd302927cc991c239d218e57f33ae272d7324b38",
+      [
+        66306,
+        17051704,
+        1243,
+        1794193810735505811,
+        1794193810736669776
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/ettin/pytorch_model.bin",
+      "195d2c0a336cffa82daf463aac8ee09cc63d6a20caeadfd273c2d29405b3473a",
+      [
+        66306,
+        17051703,
+        1583581246,
+        1794193882501794540,
+        1794193884111271933
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/ettin/special_tokens_map.json",
+      "ea97ecdbcc73713039d8d64dbb05e3689495c96657fbd9a18f5bed381be81049",
+      [
+        66306,
+        17051711,
+        694,
+        1794193810775503825,
+        1794193810776503775
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/ettin/tokenizer.json",
+      "9fd55248d51d33976b324fc11592e28071da7d41e0e9401dfb7082e30574b7b1",
+      [
+        66306,
+        17051751,
+        2132967,
+        1794193810899497667,
+        1794193810901424478
+      ],
+      false
+    ],
+    [
+      "/home/paul/corpus-structure/build/models/pm2/ettin/tokenizer_config.json",
+      "3cd2017ff46d0a527e5d39cae39272eccfa1f19bb9f89b05d166aab2e38354e2",
+      [
+        66306,
+        17051770,
+        20810,
+        1794193810857499753,
+        1794193810858838353
+      ],
+      false
+    ]
+  ],
   "assets": "/home/paul/corpus-structure/build/models/pm2",
-  "fingerprint": "e82d94cbfae4bb76b70bb84949eab8b7dadfaf247a84db37318cbad5a92bc7b3",
+  "fingerprint": "b81dc59b7d417674625bde2d560dd21bfe6ad480bc960306a983710e5671e166",
   "profile": {
     "artifacts": {
       "dipo": {
@@ -55,8 +141,8 @@
     },
     "provider": "dipo",
     "runtime_identity": {
-      "distributions_sha256": "5565f34cf74c49e024941cc8310f61c3dd4813244a934a07ba309dd0d91f3650",
-      "lock_sha256": "774ee62f431cbbb57b126a98ce6c0a2aab0d70c7c4329168f39a723e9675cdbe",
+      "distributions_sha256": "16ffe91eeff4700fc95d8f14c1c2fadb7f4f6b22cda74c221f13761835f3e39a",
+      "lock_sha256": "294a53e7a5165172d74bc83432f7a7d61cb16bee269210df581431a70cbffc59",
       "platform": [
         "linux",
         "x86_64",
