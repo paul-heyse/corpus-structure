@@ -1,6 +1,7 @@
 """Whole native exports use actual selected DDO publication custody."""
 
 import json
+from hashlib import sha256
 
 import pytest
 
@@ -13,6 +14,17 @@ def test_complete_docling_json_export_preserves_native_shape(published_pdf_sourc
     from docling_core.types.doc import DoclingDocument
 
     source = published_pdf_source
+    identity = json.dumps(
+        {
+            "project": "current-source-catalog",
+            "source_uri": "independent-original.pdf",
+            "content_hash": sha256(source.original).hexdigest(),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode()
+    assert source.document_key == "doc:" + sha256(identity).hexdigest()[:32]
     with source.kernel.purpose("read").begin() as connection:
         reference, _ = source.publication(connection)
         request = NativeSourceRequest(**reference.model_dump())

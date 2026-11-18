@@ -56,14 +56,13 @@ def projection_recipe(directory):
 
 
 @contextmanager
-def table_source(scenario_seeds, tmp_path, monkeypatch):
+def table_source(scenario_seeds):
     from evaluate.declared_record_native_support import table_source_content
 
-    from semantic.current_pdf_source_support import _current_pdf_source
+    from semantic.current_pdf_source_support import _published_pdf_source
 
-    with _current_pdf_source(
+    with _published_pdf_source(
         scenario_seeds,
-        tmp_path,
         content=table_source_content(),
         sections=("#/groups/0",),
     ) as source:

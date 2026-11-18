@@ -149,11 +149,11 @@ def test_literal_provider_recipe_has_checked_profile_without_claiming_execution(
 
 
 def test_controlled_cell_mapping_and_unresolved_question_survive_current_native_read(
-    scenario_seeds, tmp_path, monkeypatch
+    scenario_seeds, tmp_path
 ):
     from corpus_structure.semantic.data_operation_service import read_data_demand
 
-    with table_source(scenario_seeds, tmp_path, monkeypatch) as source:
+    with table_source(scenario_seeds) as source:
         kernel = admit_current_target(source, projection_recipe(tmp_path), tmp_path / "consumer")
         ((row, original),) = selected_current_sources(source)
         cell = next(piece for piece in original["pieces"] if piece.get("cell_index") == 0)
@@ -258,16 +258,14 @@ def test_actual_seventeen_question_refusal_stays_at_provider_boundary():
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
-def test_actual_literal_provider_answer_survives_current_selected_read(
-    scenario_seeds, tmp_path, monkeypatch
-):
+def test_actual_literal_provider_answer_survives_current_selected_read(scenario_seeds, tmp_path):
     from corpus_structure.methods.native_profiles import pm2_selection, preflight_native_runtime
     from semantic.current_pm2_provider_fixture import OPERATION as ACTUAL
 
     assets = Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])
     checked = preflight_native_runtime("d1", assets)
     selected = pm2_selection("d1", assets, checked["runtime_identity"], checked["assets"])
-    with table_source(scenario_seeds, tmp_path, monkeypatch) as source:
+    with table_source(scenario_seeds) as source:
         kernel = admit_current_target(
             source, provider_recipe(tmp_path, selected), tmp_path / "consumer"
         )

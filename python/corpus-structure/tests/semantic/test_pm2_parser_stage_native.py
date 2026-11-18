@@ -57,10 +57,8 @@ def test_partial_original_scope_is_ineligible_for_whole_block_inspection(project
     assert not any(item["outcome"] in {"empty", "complete"} for item in coverage)
 
 
-def test_unrequested_parser_scope_is_not_invented_as_an_empty_product(
-    scenario_seeds, tmp_path, monkeypatch
-):
-    with table_source(scenario_seeds, tmp_path, monkeypatch) as source:
+def test_unrequested_parser_scope_is_not_invented_as_an_empty_product(scenario_seeds, tmp_path):
+    with table_source(scenario_seeds) as source:
         kernel = admit_current_target(source, projection_recipe(tmp_path), tmp_path / "consumer")
         ((row, _),) = selected_current_sources(source)
         demand = register(kernel, projection_request(kernel, row, mode="literal"))
@@ -82,10 +80,8 @@ def test_unrequested_parser_scope_is_not_invented_as_an_empty_product(
         assert snapshot.record["attempt_failures"] == []
 
 
-def test_cancelled_current_pm2_scope_has_no_product_or_inspected_count(
-    scenario_seeds, tmp_path, monkeypatch
-):
-    with table_source(scenario_seeds, tmp_path, monkeypatch) as source:
+def test_cancelled_current_pm2_scope_has_no_product_or_inspected_count(scenario_seeds, tmp_path):
+    with table_source(scenario_seeds) as source:
         kernel = admit_current_target(source, projection_recipe(tmp_path), tmp_path / "consumer")
         ((row, _),) = selected_current_sources(source)
         demand = register(kernel, projection_request(kernel, row))

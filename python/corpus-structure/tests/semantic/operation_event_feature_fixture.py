@@ -184,7 +184,7 @@ def operation_sources():
     )
 
 
-def kernel(input_basis: list, *, prepared, check_active):
+def kernel(input_basis: list, *, prepared, check_active) -> dict:
     from corpus_structure.evaluate.selected_operation_events import component_event_features
     from corpus_structure.semantic.data_operation_cpu_basis import (
         cpu_authority_reply,

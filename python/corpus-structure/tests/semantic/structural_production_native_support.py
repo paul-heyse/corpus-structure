@@ -192,7 +192,10 @@ def publish_statement(kernel, report, expected, *, inference, component_id=None)
     retained, result = execute(kernel, pending, purpose="evaluate", author=True)
     assert result.receipt_count >= 1
     (admission,) = selected(
-        kernel, retained["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission"
+        kernel,
+        retained["demand_id"],
+        kind="urn:corpus:structural-admission:DdoStructuralAdmission",
+        purpose="evaluate",
     )
     return retained, admission, originals, passes
 

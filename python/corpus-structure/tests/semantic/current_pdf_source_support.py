@@ -264,7 +264,48 @@ class PublishedCaptureStage:
         return {"capture_producer": "controlled-recipe-content"}
 
     def validate_clone(self, admin):
+        from sqlalchemy import select
+
+        from corpus_structure.semantic.metadata import table
+
         self.kernel.validate_clone(admin)
+        obligations = table("ops.data_obligation")
+        uses = table("ops.demand_use")
+        receipts = table("ops.data_publication_receipt")
+        # Inspect the two selected frontier facts and their actual publication
+        # receipts, without reconstructing products or re-executing a provider.
+        frontier = (
+            select(
+                obligations.c.operation_id,
+                obligations.c.original_source,
+                uses.c.fate,
+                receipts.c.id.label("publication_receipt"),
+            )
+            .select_from(
+                obligations.join(uses, uses.c.obligation_id == obligations.c.id).outerjoin(
+                    receipts, receipts.c.derivation_id == uses.c.derivation_id
+                )
+            )
+            .where(obligations.c.demand_id == self.demand_id)
+            .distinct(obligations.c.id)
+            .order_by(obligations.c.id, uses.c.created_at.desc(), uses.c.id.desc())
+        )
+        with admin.connect() as connection:
+            rows = connection.execute(frontier).mappings().all()
+        if (
+            len(rows) != 2
+            or {row["operation_id"] for row in rows}
+            != {"source.pdf/capture", "source.pdf_views/discovery"}
+            or any(
+                row["original_source"] != self.document_key
+                or row["fate"] != "fulfilled"
+                or row["publication_receipt"] is None
+                for row in rows
+            )
+        ):
+            raise ValueError(
+                "published PDF seed lacks its exact completed capture frontier/publication"
+            )
 
     def acquired(self, clone, *, published_only=False):
         stage = self.kernel
@@ -394,11 +435,45 @@ def current_pdf_process_source(scenario_seeds, directory):
         yield CurrentPdfSource(kernel, demand, key, original, ())
 
 
+@contextmanager
+def _published_pdf_source(scenario_seeds, *, content=None, sections=(), math_context=False):
+    """Clone a completed capture; every later converter entry is a classification error."""
+    from unittest.mock import patch
+
+    from corpus_structure.ingest.pdf_worker import PdfWorker
+
+    scenario = PdfSourceScenario(content or source_content(), tuple(sections), math_context)
+    with scenario_seeds.commit_clone(scenario) as clone:
+
+        def unexpected_conversion(*_args, **_kwargs):
+            raise AssertionError(
+                "published PDF capture consumer reached converter; use a writable PDF source"
+            )
+
+        with patch.object(PdfWorker, "stream", unexpected_conversion):
+            yield clone.stage.acquired(clone, published_only=True)
+
+
 @pytest.fixture
 def published_pdf_source(scenario_seeds):
-    scenario = PdfSourceScenario(source_content())
-    with scenario_seeds.commit_clone(scenario) as clone:
-        yield clone.stage.acquired(clone, published_only=True)
+    with _published_pdf_source(scenario_seeds) as source:
+        yield source
+
+
+@pytest.fixture
+def published_pdf_source_factory(scenario_seeds):
+    """Share recipe-described published section captures across post-capture consumers."""
+
+    def acquire(rows, *, math_context=False):
+        rows = tuple(rows)
+        return _published_pdf_source(
+            scenario_seeds,
+            content=section_content(rows),
+            sections=tuple("#/groups/" + str(i) for i in range(len(rows))),
+            math_context=math_context,
+        )
+
+    return acquire
 
 
 @pytest.fixture

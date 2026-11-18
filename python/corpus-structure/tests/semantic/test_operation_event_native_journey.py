@@ -28,7 +28,7 @@ from corpus_structure.semantic.operation_policy import (
 )
 from semantic.current_pdf_source_support import PROJECT, admit_current_target
 from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory,
+    published_pdf_source_factory as published_pdf_source_factory,
 )
 from semantic.operation_event_native_support import (
     cut_selection,
@@ -47,7 +47,7 @@ from semantic.structural_production_native_support import (
 
 
 @pytest.fixture
-def operation_event_journey(current_pdf_source_factory, tmp_path):
+def operation_event_journey(published_pdf_source_factory, tmp_path):
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.native_definition_projection import (
@@ -55,7 +55,7 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
     )
 
     literals = ("We define variance as spread.", "We define mass as inertia.")
-    with current_pdf_source_factory(
+    with published_pdf_source_factory(
         tuple(("text", text, text, None) for text in literals)
     ) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")

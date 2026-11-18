@@ -18,7 +18,7 @@ from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.current_pdf_source_support import admit_current_target
 from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory,
+    published_pdf_source_factory as published_pdf_source_factory,
 )
 from semantic.structural_admission_native_support import (
     COMPARE,
@@ -212,10 +212,10 @@ def _passes(kernel, report, expected):
 
 
 @pytest.fixture
-def structural_native_journey(current_pdf_source_factory, tmp_path):
+def structural_native_journey(published_pdf_source_factory, tmp_path):
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
-    with current_pdf_source_factory(
+    with published_pdf_source_factory(
         (("text", TEXT, TEXT, None), ("text", TEXT, TEXT, None))
     ) as source:
         kernel = admit_current_target(source, recipe(tmp_path), tmp_path / "consumer")

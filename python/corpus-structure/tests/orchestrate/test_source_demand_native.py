@@ -14,7 +14,7 @@ from semantic.current_pdf_source_support import (
     selected_current_sources,
 )
 from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory,
+    published_pdf_source_factory as published_pdf_source_factory,
 )
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 from sqlalchemy import text
@@ -53,9 +53,9 @@ def _recipe(assets):
 
 
 @pytest.fixture
-def primary_source_case(current_pdf_source_factory, tmp_path):
+def primary_source_case(published_pdf_source_factory, tmp_path):
     assets = Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])
-    with current_pdf_source_factory(
+    with published_pdf_source_factory(
         tuple(("text", passage, passage, None) for passage in PASSAGES)
     ) as source:
         kernel = admit_current_target(source, _recipe(assets), tmp_path / "consumer")
