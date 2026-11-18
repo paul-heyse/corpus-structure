@@ -434,7 +434,7 @@ emits the same diagnostic from the compiled state:
 
 > code `validity_undetermined`; location: the operation id; message: "validity family not
 > declared; conservative validity applies"; outcome `unchecked`; remedy: "declare
-> validity_family: [<family>…] or [none]".
+> `validity_family: [<family>…]` or `[none]`".
 
 A claim that includes a provisional family produces `validity_family_provisional` in its
 place, naming the family. An operation that declares `none` while its declaration shows it
@@ -767,6 +767,27 @@ a default, from permissive to conservative, and only for an operation added with
   provoked by a violating completion.
 
 ## UDM-07 — One declared support-edge meaning and one reference-to-node mapping
+
+**Discovery correspondence (I03).** UDM-05 supplies the current declared discovery relation and
+operation contract. UDM-07 aligns the native attachment and closure paths. Today attachment can
+fulfill an equivalent prior-release discovery while `close_data_population`
+(`semantic/demand_registration_native.py:1338–1365`) separately requires the producing request's
+release to match. Replace that release-equality shortcut with the exact fulfilled current-demand
+use and the relation it admits. Check the authenticated original derivation, producer recipe and
+output role against the current allowed relationship and shape; verify exact member coverage and
+completeness, project and source scope, and live purpose, trust and support. Preserve the old
+producer and release on its evidence. Use existing admitted demand use and native relationships;
+supersede the overlapping same-release-only check. If equivalence cannot be established, attachment
+must not claim closure; report fresh discovery or refusal under current authority as appropriate.
+
+Use UDM-20's small cross-release reproducer before selecting the native revision. This change
+joins B when the proof is expressible over current released facts; it joins the identity transition
+if it needs UDM-10's new identities. Stage confirmation and UDM-22 check an equivalent producer
+that closes without invocation, wrong role/relation, incomplete scope, changed recipe, revoked
+support, and a changed member that schedules only the necessary new work. Retain the actual
+population edge kind and direction in every case. [Identity and current validity](programs-identity-and-revisions.md)
+own the family and authorization gates. [Recovery](operation-reuse-and-recovery.md#udm-25) owns
+private artifacts, which do not enter this closure as published results.
 
 **Implementation vision.** The package annotates the `SupportEdgeKind` members with the traversal
 table, declares the reference-to-node mapping, generates the validity edge program, the

@@ -267,15 +267,39 @@ today it rewrites every body that embeds the digest.
 **Seals and reconfirmation (RC06).** The receipt's `validating_kernel_digest` and the seal's
 kernel field become a map from validity family to validator identity, with one entry for each of
 the operation's families and the conservative validator's entry for an operation whose family is
-undetermined. A receipt skips the battery only when, for every family in its map, the recorded
-identity equals the descriptor's or a reconfirmation row for that receipt, family and identity
-exists. The battery runs today inside stable functions
+undetermined. The skip predicate enumerates the **currently applicable** families from the
+lowered consumer contract, including conservative validity where applicable. Each requires a
+matching recorded identity or a reconfirmation for that receipt, family and current identity.
+A missing entry, including a newly applicable family, runs its check. Historical entries remain
+attributed evidence. Current trust, source and purpose still have their own checks. The battery
+runs today inside stable functions
 (`semantic/data_completion_settlement_native.py:695`), which cannot write, so reconfirmation is
 recorded by a routine that can: the next publish or settlement that runs the gate for that
 request, or an explicit `ci` command that reconfirms a release's receipts after a deployment. The
 record is append-only and idempotent.
 
 ### Code identity
+
+**Producing determinants (I01).** UDM-09's program and reference declarations and UDM-10's
+source closure distinguish production from acquisition, settlement and serving. Start from the
+callable or installed program that produces the outcome, and include the exact effective input
+meaning, selection and parameters, output contract, material assets, scientific policy, and
+output-affecting code, runtime, numerical and batch settings. Keep required subject and replicate
+context in the existing request identity. Admission and validator selectors govern current use;
+full releases, runtime attestations, producer attempts, and generator evidence remain attributable.
+An orchestration, settlement, authoring or downstream edit which cannot change the result does
+not move its producing identity. Trace the current fixed PDF lowering list from
+`semantic/pdf_lowering.py:31` into the actual operations before dropping any dependency.
+Keep a sound coarse closure where the role cannot be narrowed. An unknown required determinant
+withholds reuse with a diagnostic. [Recovery](operation-reuse-and-recovery.md#udm-25) consumes this
+basis for checkpoints and drafts. [CLI](operational-cli.md#udm-26) projects the resulting decisions.
+
+**Serving identity (I04).** Keep authenticated imported-code custody and current read authority.
+Separate the code and declared query/order semantics that determine a continuation from the
+cache wrapper and its retention or file codec. The storage-only cachetools version belongs in
+cache entry compatibility. Identify when an older opaque cursor cannot be interpreted under the
+new basis and report its explicit transition refusal. A later storage-only version move must
+leave a current semantic continuation usable, even if its cached page needs deriving again.
 
 Python code that determines a result but is not an installed program (PDF lowering, served read
 helpers, opaque construction and formal boundaries, the generators themselves) gets a derived
@@ -678,6 +702,12 @@ authority.
   validator identity and the kernel identity change; only that family's receipts run the battery
   and record reconfirmation. The expected sets come from a hand-written fixture map from family to
   program.
+- Add a family that was absent from the original receipt (and a provisional family that becomes
+  ready). Its required check runs even when every recorded identity still matches. An authentic
+  result is retained when the current check accepts it. A revoked or incompatible result is
+  refused. Keep independent expected invocation and derivation counts for equal-content input,
+  an orchestration-only change, a material producer or contract edit, a changed region with
+  unaffected siblings, and an intentional replicate.
 - In a temporary package tree, a module imported inside an entry function moves the code identity
   without any list edit. Replacing it with `importlib.import_module` on a variable marks the
   identity incomplete, and the result is served and neither cached nor resumable.
@@ -765,6 +795,11 @@ verification command named. A revision that changes only the descriptor leaves e
 `inputs_watermark` unchanged, compared with values captured before the revision. Binding returns
 the same admitted expression after the archived `data_operations.json` bytes are altered in the
 test database, which shows that it reads the rows.
+
+Apply the current-family and support checks to revalidation, reconciliation, and UDM-25
+adoption. Keep the eligible reuse decision distinct from the watermark skip. The native owner
+reports the settled fate and its reason to UDM-26. An expired writer or uncertain commit is
+resolved by its exact intent, publication, or recovery authority before additional work starts.
 
 ## Open premises
 

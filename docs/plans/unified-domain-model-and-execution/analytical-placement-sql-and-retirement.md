@@ -430,6 +430,17 @@ confirmed by UDM-17's acceptance evidence, which reads the query plan.
 
 ## UDM-16 — DuckDB conditions of use, declared settings, the folds and the kernels
 
+**Result basis (I05).** Keep PostgreSQL's authorization and mutable support work in its
+acquired session. Derive analytical reuse from that session's immutable identified snapshot,
+the typed expression and output contract, and settings or engine behavior that can affect
+observed order, multiplicity, precision or interpretation. Fix the ordering of any digest fold
+explicitly. Workspace and spill locations remain execution settings absent a declared material
+dependency. A thread setting participates when it can change an admitted numerical result.
+Use [DuckDB 2.0 expression objects and Arrow boundaries](../../libraries/analytical_infrastructure/duckdb_2.md)
+already selected here. Keep independent null, bag/set, binary key and floating-order controls
+before adopting any moved fold. Use the existing bounded placement observation to decide the
+physical route. An equivalent route preserves the contract and retains producer provenance.
+
 **Vision.** The package introduces the connection owner and the text-refusing relation helpers,
 moves all seven connection sites onto them, wires the unread analytics settings, derives the one
 model-owned name list from the rule-view class, bounds the companion export's materialized
@@ -576,6 +587,11 @@ reach statement text, which is an integrity rule about how statements are built 
 
 ## UDM-18 — Release-bound inputs, the derived scientific policy, and two small causes
 
+**Scientific determinants (I01/I05).** Keep the release-bound bytes and actual producer evidence
+for every result. Feed the policy, model assets, grammar and runtime or precision parameters that
+can change the observation into UDM-10's producing identity. Demonstrate one setting that changes
+meaning and one operational-only change with an independently expected reuse fate.
+
 **Vision.** Four changes share a shape: a fact that determines a result gets one home, and the
 code that used a second copy reads the home. The first two are designed under
 [Results use the release's bytes](#results-use-the-releases-bytes).
@@ -661,6 +677,11 @@ classification, as other inadmissible values already are.
   the qualifier between the two lists in the test moves the outcome.
 
 ## UDM-19 — Retirement
+
+**Improvement integration.** Retire obsolete hand-computed preview explanations and partial shell
+recovery actions when UDM-04/26 switch their consumers. Retire old custody or identity shortcuts
+with the implementing owner (UDM-07/10/13/14/25). Preserve accepted archive provenance and useful
+independent checks. UDM-19's own deletions retain the existing consumer and generated-byte checks.
 
 **Vision.** The package deletes what nothing reads and retargets the one explanation that reads a
 place that no longer exists. Its subject is the list in the baseline section

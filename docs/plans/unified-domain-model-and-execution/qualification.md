@@ -101,7 +101,7 @@ a cross product. Four commits target these:
 | `590b67b7a` (with `1fab40234`, `67a6e7a51`) | N28 | Composes captured document populations as sets, with ordering applied at presentation | Unit and permutation tests; "native capture pending" |
 
 None has been run against the book. The N29 book invocation is recorded as unstarted, and the
-retry of the native composition fixture, `82ba7773…`, was interrupted by the operator.
+retry of the native composition fixture, `82ba77a0…`, was interrupted by the operator.
 
 Established from source for this plan: the 120-second limit is
 `DatabaseSettings.completion_statement_timeout_seconds` (`settings.py:70`), applied at
@@ -186,10 +186,9 @@ series: once at the current head (N29) in UDM-21, and once at the final head on 
 after the last revision is frozen. Both adoptions end with the re-adoption check that UDM-21
 defines. The reason is cost. Every adoption of canonical development is a migration of the
 database that holds the 29 originals, followed by re-verification of their custody and
-re-activation of the book, and every change of capture or discovery recipes means the book's
-derived data is regenerated from the original. Regenerating between revisions would be done again
-after the next one and would earn no credit. The DDO plan reasoned the same way when it placed
-development adoption after its last native successor, "so that … nothing is regenerated twice".
+re-activation of the book. At the final head each needed output is adopted, rechecked or
+regenerated from authenticated original custody according to its material basis. Intermediate
+adoption would introduce more work without qualifying final source.
 
 **Outcomes are reported as the repository requires**: `passed`, `failed`, `blocked` with the
 missing prerequisite named, or `not_run`, each with the command that produced it. A controlled
@@ -217,7 +216,7 @@ receipt on final source, accounted by test identity; the quoted receipts are con
 | 3 | Native request, concurrency and recovery: two demands share one request; a stale owner is displaced; revoked support is honoured; a writer crash, a known rollback and an unknown commit are told apart; an exact intent replays; sibling work proceeds; retirement is bounded | `ci test`, native tests against a registered head | Restated in one part: an intent now records validator identity per family and not the kernel digest (UDM-10, UDM-12), so "exact replay" is judged against the new record. The cross-release fan-in assertions left unverified at N28 are observed first in UDM-20 | UDM-22 |
 | 4 | Binding and admission matrices: same base, exact cardinality, incomplete against empty discovery, wrong role, source, contract or support | `ci test`, native | Restated where admission selects by a **lowered operation attribute** instead of an identifier list (UDM-05). The two negative controls recorded as expecting older error codes are routed to their owner before UDM-22; if unresolved at the run, they are second-class failures with that owner | UDM-22 |
 | 5 | Provider qualification on real providers: PDF capture, recognition and enrichment through Docling with CUDA and RapidOCR; Nemotron; spaCy, HanLP, the formal and coreference providers, GLiNER; the E5 encoder | `ci test --providers-only -- PATH`; provider preflights; `ci ingest` | Carried. Nemotron inference on the head is recorded as unverified; the eight process-managed providers are recorded as open | UDM-22 |
-| 6 | Rich, public and serving behaviour: structural issue, dossier, gap and detached export; rich admission, reading and pagination; source revocation; refusal of an old continuation; event fit, issue and score; the tool and resource journeys | `ci test`, native; `ci` export and verify | Restated: continuation and reuse now rest on the declared reuse basis and the **cache tiers** (UDM-13 to UDM-15), and the move of cachetools to 8.0.1 changes the read-basis digest once, so existing cursors refuse once by design. No receipt for the tool and resource journeys is cited in the earlier plan; they are observed here for the first time | UDM-22 |
+| 6 | Rich, public and serving behaviour: structural issue, dossier, gap and detached export; rich admission, reading and pagination; source revocation; refusal of an incompatible continuation; event fit, issue and score; the tool and resource journeys | `ci test`, native; `ci` export and verify | Restated: continuation validity follows the declared semantic basis. Storage-only changes may miss the cache while a compatible continuation still reads under current native authority. No receipt for the tool and resource journeys is cited in the earlier plan; they are observed here for the first time | UDM-22 |
 | 7 | Graph fidelity: isolates and unresolved endpoints, parallel roles and self-loops, strongly connected components, equal-value cutoff, wrong-snapshot cursors, mapping-sensitive rooted assessment, with independently authored expectations | `ci test` | Carried (`not_run` at the earlier plan's authoring). The single support-edge meaning of UDM-07 is its subject for the support graph | UDM-22 |
 | 8 | Export and detached verification keep source and prediction releases separate and exclude protected labels | `ci` export and verify; `ci test` | Carried | UDM-22 |
 | 9 | Fault behaviour: writer crash, cancellation in each of three phases, quarantine, and the budget and retirement controls of the execution host | `uv run ci test --lane fault` | Carried. No fault-lane receipt has ever been recorded | UDM-22 |
@@ -231,7 +230,7 @@ receipt on final source, accounted by test identity; the quoted receipts are con
 | 17 | The whole book runs to completion: 518 pages, 29 regions, a fate for every demanded family in every region, and the whole-view composition | `ci run` on the book under the stated memory policy | Restated: the run is on the series' final release, from the original, with a new demand; its pass criteria are those of UDM-23 | UDM-23, after UDM-20 |
 | 18 | One demand is interrupted under control, resumed, and then repeated unchanged with no work done | `ci run`; `ci run resume` | Carried for interruption and resume, which were demonstrated on N18 and N21 and not since capture's recipe changed. Restated for the repeat, which has never been demonstrated: with the kernel component removed from the watermark (UDM-12), "no work" is judged against the new watermark | UDM-23 |
 | 19 | The construction produced regionally in production agrees with the retained whole-book construction (the comparison the DDO plan names PE-S33) | `compare_retained_book_construction.py` in the evidence folder `2026-11-16_ddo-current-native` | Carried. The script requires the exact retained demand and a complete admitted population, and refuses while products are pending; UDM-23 states how it is pointed at the new demand and which disagreements the recorded recipe change predicts | UDM-23 |
-| 20 | Development adoption is complete: derived data is regenerated under the head | `ci db migrate`; `ci release activate`; the book run | Restated: regeneration happens once, under the series' final release at the second adoption, and not under N29 | UDM-21, UDM-23 |
+| 20 | Development adoption is complete: required derived data is admitted under the head | `ci db migrate`; `ci release activate`; the book run | Restated: adopt eligible prior work, recheck it as needed, and regenerate the rest under the series' final release at the second adoption | UDM-21, UDM-23 |
 | 21 | Integrated recognition through Nemotron works on the head, and the managed launcher restores the generation it owns | `ci ingest` in the Integrated profile | Carried | UDM-21 for the bounded check; UDM-22 for the provider receipt |
 | 22 | Chandra OCR | none | Excluded by the operator; not an obligation | none |
 | 23 | The bounded native composition control completes | Native composition fixture on stage | Dropped as a separate obligation; it becomes the first reproduction of UDM-20 and its assertions join obligation 3 | UDM-20 |
@@ -270,6 +269,11 @@ selection.
 | T15 | A source demand under a release uses that release's archived slices after the working tree's copy changes | UDM-18 |
 | T16 | Timestamps in analytical exports are labelled UTC whatever the machine's zone | UDM-16 |
 | T17 | Nothing imports the earlier model, and neither retired migration tree exists | UDM-04, UDM-19 |
+| T18 | Independently expected producer fates for nonmaterial edits, equal-content cutoff, one changed region, material recipe/input/contract changes, a newly applicable or changed validator, revoked support and intentional replicates | UDM-05/07, UDM-10/12, UDM-16/18 |
+| T19 | Pre-retention rollback, crash after acknowledgment and unknown commit each follow their owning recovery route. Exact draft or PDF contributor evidence survives eligible adoption; stale writers, tampering and incompatible bases refuse. Concurrent consumers settle one result | UDM-25 |
+| T20 | Two writers, reader racing prune, and cache storage-only version change preserve read semantics. Prune or process exit leaves acknowledged production work recoverable | UDM-10, UDM-13/14, UDM-25 |
+| T21 | Passive preview and exact managed retry preserve target, effective policy, and original selection. Bounded, attributed progress and typed model impact agree across terminal and JSON. Watch exit has no effect on the run | UDM-26 |
+| T22 | Exact local stop, stale or unverified identity refusal, demand detach with surviving shared interest, nested uncertainty and independently verified retirement | UDM-27 |
 
 The book does not exercise T1. Every operation of the book pipeline (capture, organization,
 discovery, sentence, formal, math, linguistic, construction and composition work) declares
@@ -342,13 +346,25 @@ ends they are removed (`ALTER ROLE … IN DATABASE … RESET`), and the record i
 development.
 
 **Step 0: keep what the failed run left.** Failures in the managed result store expire in a week.
-Before anything else, the result of run `1dd5d45d…` and the interrupted fixture retry `82ba7773…`
-are placed on hold and copied with `ci evidence retain`, and three facts are read from them and
+Before anything else, hold and retain run `1dd5d45ded4b4ea38399fb121a44d28c`, discovery refusal
+`3fed447a2a5649538c80ac05c1ed7c47`, and interrupted fixture retry
+`82ba77a0731148faa0bd827ead1373cb`. Use `ci evidence retain` and record original outcomes. Read three facts from them and
 from stage: which nine regions timed out and how large each was (pages, sentence occurrences,
 completion payload size); what the "nested physical-join uncertainty" in the settled result
 refers to, by reading the classification that N29 added for nested uncertainty in execution error
 groups; and the state of the one unresolved completion intent. If the records have already
-expired, the package says so and proceeds from the plan's narration alone.
+expired, the package says so and proceeds with the existing scoped evidence and bounded controls.
+
+**Early diagnosis and later confirmation.** In the regional reproduction record the last durable
+boundary for the timed-out attempts. Inspect the exact native intent and publication standing
+after rollback or acknowledgment loss, and identify the output that existed only in its producer.
+Use bounded failure injection to compare a short independently committing intake and the private
+spool when one of them cannot survive the relevant failure. Supply that result to
+[UDM-25](operation-reuse-and-recovery.md#udm-25) before the transition freezes. Reproduce the
+equivalent-discovery attachment/closure mismatch with the existing two-region fixture and route its
+current-use proof to UDM-05/07 before freezing its revision. This early slice can use UDM-26's
+passive reports when available. Later, confirm the bounded controls after the relevant fixes are
+deployed on stage. UDM-21 consumes the early diagnosis; UDM-22/23 consume stage confirmation.
 
 **Reproduction 1: settlement at the 120-second limit.** The smallest scope is one region. The
 package takes the largest of the nine regions that timed out, as an excerpt of the book's
@@ -448,7 +464,8 @@ the rendered statements, the plans and the samples, and one evidence record per 
 with `uv run ci evidence finalize`. The versions of PostgreSQL and of the interpreter are recorded
 with the results.
 
-**Prerequisites.** None.
+**Prerequisites.** None for preservation and diagnosis. Confirmation needs the owning fixes and
+their stage deployment. Diagnosis supplies input to those packages before confirmation.
 
 **Native revision.** None of its own; a byte-changing repair joins a planned revision as above.
 
@@ -497,20 +514,13 @@ revisions, not here. It performs the recorded pending steps in order:
    the generation it owns. The last attempt was interrupted before demand registration with zero
    inference requests.
 
-**What must be regenerated, and when.** The package states this and does not do it. Because the
-recipes of capture, organization, organized-source discovery and construction changed between N23
-and N29, the book's capture must be produced again from the original PDF, which means all 518
-pages are recognized again, and everything downstream of capture is re-derived. Sentence and
-formal-evidence definitions agree across the revisions, so their products could be reused, but
-only where their exact resolved inputs and current trust still match; with capture regenerated,
-that is something the run observes through its equal-content cutoff and is not assumed here.
-Encoder vectors are regenerated under the current numerical policy; no reader for the old ones
-exists. The N28 change lets an active release attach unfinished equivalent work across
-generations, but discovery's recipe changed and uses fresh execution.
-
-None of that regeneration is started under N29: each of the series' revisions forces releases
-to be prepared again, so derived data generated now would be generated again and would earn no
-credit. Regeneration happens once, in UDM-23.
+**What must be regenerated, and when.** Inventory retained work without starting the book at
+N29. The N23/N29 recorded capture, organization, discovery and construction recipe changes
+are candidates for material comparison under UDM-10. The sentence and formal-evidence recipes
+match, but the resolved inputs, current support and eligible use still determine adoption.
+Encoder vectors are regenerated under the current numerical policy; the old vectors lack a current
+reader. Keep the current inadmissible and changed-recipe results distinct from the equivalent
+discovery fixture. UDM-23 records a final-head census and does the fresh work that remains.
 
 **The re-adoption check.** Steps 1, 2 and 4 are defined here once and named *the re-adoption
 check*: the database and release checks, the 29 originals re-verified against the recorded
@@ -618,7 +628,8 @@ series' design packages are part of the selection. The managed result store, the
 for retained copies, and stage.
 
 **Prerequisites.** The functional packages UDM-01 to UDM-19 supply final source, with UDM-15
-only for the queries whose premise was settled; T14 is otherwise recorded as not adopted. UDM-20
+only for the queries whose premise was settled; T14 is otherwise recorded as not adopted.
+UDM-25–27 supply recovery and operational controls. UDM-20
 supplies the knowledge that the native composition path completes, with any repair it made
 confirmed on the stage. The bounded observations of the design packages are complete, UDM-06's
 settlement-fit observation among them.
@@ -654,7 +665,9 @@ the series' frozen revisions to canonical development with the expected predeces
 re-adoption check of UDM-21 on the final head (the two checks, custody of the 29 originals,
 activation of the book on the final release). Confirm that UDM-22's native and provider rows
 passed on this same source, and that Nemotron is reachable: an earlier run failed on an absent
-endpoint.
+endpoint. Independently census retained products, acknowledgments and valid intents and state
+expected adoption, revalidation, and fresh work for each relevant scope before execution. Use the
+original source, actual snapshot and current authority for this comparison.
 
 **The run.**
 
@@ -663,12 +676,14 @@ endpoint.
    reply 201,326,592, one million rows). The policy file used is retained with the run. If UDM-20
    showed that a bound must change, the changed policy is a new file with the reason recorded and
    not an edit of the old one.
-2. *Interrupt during capture*, after a recorded number of pages have been acknowledged, by the
-   cooperative route, and confirm cleanup: no live lease, no orphaned process, the provider's GPU
-   memory released. Capture's recipe changed, so the resume behaviour demonstrated on N18 and N21
-   is demonstrated again.
-3. *Resume* the same demand with `ci run resume`. The acknowledged pages are reused and only the
-   rest are prepared.
+2. *Interrupt during capture* after a recorded number of pages have been acknowledged, using
+   `ci results stop`. Confirm cleanup independently: no live lease, no orphaned process, and
+   the provider's GPU memory released. If all capture work already qualifies for adoption,
+   validate interruption and replay on a bounded actual-provider capture on final source and
+   record the complete reuse at book scale.
+3. *Resume* the same demand from the managed result through `ci run resume --result ID`. Compare
+   its effective policy and target against the recorded binding. Reuse acknowledged pages whose
+   basis still qualifies and prepare only the missing work.
 4. *Interrupt once more during regional work*, after some regions have settled and while others
    are in flight, and resume. This is the phase in which the last run failed and in which no
    interruption has been demonstrated; settled regions must not be redone and in-flight attempts
@@ -702,6 +717,10 @@ executor's own summary alone.
   attempt. The expectation is zero, and it is checked by counting derivations, attempts and
   provider requests in the database and the provider logs before and after, by a query that is
   not the executor's.
+- The first final-head demand accounts for prior and new work independently, including current
+  validation, checkpoint reuse, settlement and actual producer execution. Use T18–T22's bounded
+  cases to distinguish valid adoption across releases and after eviction from a warm cache hit
+  or a deliberately new observation. Preserve real provider evidence and full book coverage.
 - The comparison runs to a conclusion on the complete admitted population. A refusal because
   products are pending is `blocked`, not `passed`. A reported disagreement is a finding to be
   read: it is a failure of the run unless it is among the disagreements predicted before the run
@@ -756,9 +775,9 @@ than the regional production it is compared with.
 
 ## Sequence
 
-UDM-20 starts at once and depends on nothing; UDM-21 follows its diagnosis and is the first
-adoption. Neither waits for the design packages, whose revisions go to stage only. When all
-functional packages are complete, the source is frozen: UDM-22 runs on stage and the
+UDM-20 preservation and diagnosis start at once. UDM-21 follows the diagnosis and is the first
+adoption. UDM-20 confirmation follows the affected design fixes on stage. When confirmation
+and all functional packages are complete, the source is frozen. UDM-22 runs on stage and the
 workstation, the second adoption deploys the series' revisions to canonical development, and
 UDM-23 runs. UDM-22 precedes UDM-23 because a whole-book run on source whose native tests fail
 would be an expensive way to find a defect that a test already shows. If either final run
@@ -777,7 +796,7 @@ only when both accounts are on the same commit.
 | The retained comparison script can be pointed at a new demand without changing what it compares | Reading the script at entry to UDM-23 | Whether a successor copy is needed for step 7 |
 | The failed run's records are still in the result store | Step 0 of UDM-20 | How much of the diagnosis starts from records and how much from narration |
 | A demand can be scoped to one region of the book without registering an excerpt | Reading the demand's scoping at entry to UDM-20 | The construction of the bounded cases only |
-| Sentence and formal-evidence products will be reused after capture is regenerated | Observed in UDM-23 through the equal-content cutoff | Nothing in the plan; it affects only how much work the run does |
+| Retained sentence and formal-evidence products have eligible exact inputs under the final capture | UDM-23 census and equal-content cutoff | Which downstream work the first final-head demand must execute |
 | The fault lane can have the native host to itself | Arrangement with the operator before UDM-22 | When UDM-22's step 3 runs |
 | One full run can serve both this series and TDM-18 | The test series' own judgment of applicability | Whether the test series repeats the run |
 | The premise of served-result reuse is settled (DA-075) | Decided in UDM-15 | Whether T14 is a union row or recorded as not adopted |

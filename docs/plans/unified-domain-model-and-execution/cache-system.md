@@ -158,8 +158,8 @@ owner module, no framework. What has no identity is not cached.
 | T4 Served results | Derived row entries; the shared rich graph index; change-impact comparisons | Query identity, implementation identity, authorization scope, reuse basis | Bytes and an entry count | A future per key that shares failures |
 | T5 CPU runtimes | Loaded CPU pipelines, matchers, compiled packs | Artifact digest, configuration, runtime version | Declared footprint in bytes | Single-flight |
 | T6 Memos | Grammar parsers and parse memos | Normalized call arguments | Count | Built in |
-| D2 Program store | Rendered program bytes, program identities, manifest | Model-sources identity, generator code identity, library versions, format version | Byte budget, oldest pruned first | Write-once with atomic replace |
-| D4 Result pages | Encoded rows of a served result | The T4 key with the cut as basis, plus library versions and format version | Byte budget, oldest pruned first | Write-once with atomic replace |
+| D2 Program store | Rendered program bytes, program identities, manifest | Model-sources identity, generator code identity, library versions, format version | Byte budget, oldest pruned first | Single-winner installation |
+| D4 Result pages | Encoded rows of a served result | Semantic served key with the cut as basis, plus cache storage and codec versions | Byte budget, oldest pruned first | Single-winner installation |
 
 T1 to T6 are in-process; D2 and D4 cross processes. The numbering of the disk tiers follows the
 in-process tier each one extends. An on-disk compiled model (the design's optional D1) stays
@@ -394,6 +394,14 @@ References: the [cachetools report](../../design_review/evidence/2026-11-18_prod
 (sections A, B, C and J, and its table of version differences), and the
 [cachetools documentation](https://cachetools.readthedocs.io/en/stable/) for 8.0.1.
 
+For the pinned 8.0.1 behavior use the [storage implementation](https://github.com/tkem/cachetools/blob/v8.0.1/src/cachetools/__init__.py)
+and [wrapper implementation](https://github.com/tkem/cachetools/blob/v8.0.1/src/cachetools/_decorator.py).
+The [local capability overview](../../libraries/analytical_infrastructure/cachetools.md) describes
+8.0.0 as well; its examples are orientation. Use immutable or exclusively owned values with known
+retained weights; external allocations are declared estimates, not process RSS. The standard
+library [`Future`](https://docs.python.org/3.14/library/concurrent.futures.html#future-objects)
+supplies T4's shared failure and result. Neither eviction nor a waiter timeout retires an owner.
+
 ## What this supersedes
 
 | Passage | What it says | What replaces it |
@@ -419,6 +427,14 @@ It offers no other decorator, no metrics backend and no persistence. The listing
 through `ci cache stats` and through one MCP diagnostic tool for the long-lived server. The
 package also makes [the bounded observation that sets the defaults](#the-bounded-observation-that-sets-the-defaults).
 
+**Attributable maintenance (I04).** Associate each process snapshot with its process/owner,
+generation and observation lifetime. A fresh CLI call can observe its own counters and disk tiers;
+the long-lived MCP or worker owner's snapshot establishes that process's counters. Expose a retained
+snapshot through managed evidence where the invocation already records it. Hits, misses,
+admission skips and evictions are present only when attributed by that tier. Show bytes and the
+tier affected by prune. Keep held evidence and UDM-25's acknowledged handoffs under their own
+custody. Run a cold CLI command, spawned worker and long-lived MCP journey to check attribution.
+
 The tiers are then migrated one at a time. Each migration replaces named holders, keeps each
 holder's callers unchanged where the holder was a function, and moves the tests that reached into
 the old holder. The decisions the package owns are each tier's key function and the footprint a
@@ -428,13 +444,12 @@ or the owner's exception, or times out and derives for itself.
 
 **The cachetools move.** The pin at `python/corpus-structure/pyproject.toml:65` moves from 7.2.7
 to 8.0.1, with the lockfile entry for that one distribution. The single import
-(`semantic/selected_query_cache.py:12`) is unaffected. The move changes exactly one identity: the
-served-read basis hashes the installed cachetools version among its libraries
-(`serve/rich_queries.py:71–100`), so every served-read implementation identity changes once, and
-with it every served-result key and every outstanding cursor, which refuse once. Release,
-deployment and analysis identities do not list cachetools and do not move. The commit names the
-move, and the tests of the served readers are the ones it affects. No hold is recorded in
-`docs/pins.md`.
+(`semantic/selected_query_cache.py:12`) remains usable. Today `serve/rich_queries.py:71–100` hashes
+the cachetools version into the served-read basis. Move that storage determinant to the cache
+entry with UDM-10's semantic continuation basis. If the old opaque format cannot be interpreted,
+report the one-time transition refusal. Check a later storage-only version change with a valid
+continuation and unchanged ordered rows, including a fresh derivation on a cache miss. Keep the
+native read check. The commit names the pin move. No hold is recorded in `docs/pins.md`.
 
 **Exact migration scope, by tier.** These lists are complete at the baseline; UDM-00's re-read
 confirms them at the entry commit.
@@ -553,15 +568,19 @@ content-addressed store under the cache root. An entry is a directory
 `<root>/<tier>/<format version>/<key digest>/` that holds a JSON manifest listing each content
 file with its digest, and the content files. The store reuses the managed result store's
 conventions (`cli/managed.py:178–190, 490–506`): the root is created with mode 0700 and refused
-if it is not owned by the caller or is writable by group or others; a write goes to a temporary
-name opened exclusively and is put in place with `os.replace` through a directory descriptor;
-reads do not follow symbolic links; and a file lock on the tier directory is taken for pruning.
-Entries are write-once and keyed by content identity, so two concurrent writers produce the same
-bytes and the second replace is harmless. A read verifies each content file against the manifest;
-on a mismatch the entry is deleted and the caller rebuilds. Each tier has a byte budget, enforced
-at write time by deleting the oldest entries and on demand by `ci cache prune`. `ci cache stats`
-reports both disk tiers beside the in-process listing. An interrupted write leaves only a
-temporary name, which pruning removes.
+if it is not owned by the caller or is writable by group or others. Create a private exclusive
+temporary directory under the tier and finish its files and manifest there. Under the tier lock,
+inspect the final key. If absent, install by atomic rename within that directory; if present,
+verify the immutable winner and drop the temporary directory. A checksum mismatch or different
+content at the purported same key is a diagnostic and an unusable entry. Recover under the tier
+lock or derive through the authoritative route. Use owned directory descriptors and avoid following
+symlinks. Read and verify under the shared tier lock; install, corruption cleanup and pruning use
+the exclusive lock. Prune only settled cache entries and abandoned temporary entries whose writer
+ownership has been resolved. Each tier has a byte budget and `ci cache prune` reports its own
+removals, never managed evidence or production work. `ci cache stats` reports those disk tiers
+beside the process listing. This single-winner protocol avoids replacing a nonempty directory,
+which Python refuses. [Python `os.replace`](https://docs.python.org/3.14/library/os.html#os.replace)
+and [`fcntl.flock`](https://docs.python.org/3.14/library/fcntl.html#fcntl.flock).
 
 *D2, the program store.* The key is the model-sources identity, the generator code identity, the
 versions of the distributions the generator closure imports, and the format version. The content
@@ -575,8 +594,8 @@ directory); one that is found joins the key or is removed from the generator. Th
 `program_store_bytes` and `page_store_bytes` from the observed bytes of one stored program set and
 one stored result on the stage, as a small multiple that the evidence record states.
 
-*D4, continuation pages.* The key is the served key with basis `cut`, with the library versions
-and the format version. The process that serves the first page derives the bounded entry and
+*D4, continuation pages.* The key extends the served key with basis `cut` by cache storage and
+codec versions. The process that serves the first page derives the bounded entry and
 writes it with the typed codec, if every row is within the codec's closed set. The process that
 serves a later page acquires native authority for the cut through the existing per-request check,
 then reads the stored rows from the cursor's ordinal, in place of reading support again,
@@ -635,6 +654,10 @@ outside it is still served.
   the head revision, which the store did not write. A changed generator module changes the key,
   and so does a changed value of any ambient input the entry step found and added.
 - *Permissions.* A cache root writable by group is refused.
+- *Concurrent publication and prune.* Two fresh writers to the same key leave one complete
+  verified entry. A reader racing prune reads complete verified content or derives; no operation
+  observes a partial entry. An interrupted writer cannot install an incomplete entry. A mismatching
+  winner is reported. Pruning leaves managed receipts and recoverable work intact.
 
 ### UDM-15 — Served-result reuse across fresh requests
 

@@ -696,6 +696,15 @@ home into the integrity layer of the model and makes omissions refuse.
 
 ## UDM-04 — The earlier core and system model retired
 
+**Impact contract (I08).** This package owns the comparison of two compiled model captures and
+the removal of the old preview's second account of model changes. Return typed changes to
+authoritative facts, including vocabulary openness and membership. UDM-09–12 add the program and
+validator effects and UDM-26 projects the combined impact through the existing model-change
+commands. Preserve the earlier revision log's genuine audit or apply prerequisites through the
+operator's existing UDM-04 premise. Verify the compiled comparison without requiring a native
+revision for a model-only change. The report can distinguish a changed producer, reconfirmation,
+and retained work, with unresolved live support reported as conditional.
+
 **Implementation vision.** The package moves every consumer of the earlier model to
 released-model types and then deletes the earlier model. It owns the mapping from each earlier
 type to its released counterpart and the design of the model-change preview's successor. It has
