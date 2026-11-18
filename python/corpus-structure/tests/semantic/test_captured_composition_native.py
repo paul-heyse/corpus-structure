@@ -14,7 +14,10 @@ from corpus_structure.semantic.data_operation_demands import (
     freeze_demand,
 )
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_service import DemandOperationSelection
+from corpus_structure.semantic.data_operation_service import (
+    DemandOperationSelection,
+    execute_data_demand,
+)
 from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.original_documents import acquire_original_document_selection
@@ -118,7 +121,7 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
         selections = _default_profile_selections(kernel.model, (target,), {})
         selections[producer] = DemandOperationSelection(
             operation=producer,
-            parameters={"sections": list(source.sections), "membership": "descendants"},
+            parameters={"sections": list(source.sections), "membership": "direct"},
         )
         graph = kernel.model.projection_graph(
             "selected-dependencies",
@@ -136,6 +139,39 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             original = acquire_original_document_selection(
                 connection, project_id=PROJECT, document_key=source.document_key
             )
+            source_intent = freeze_demand(
+                kernel.model,
+                roots=(original.root,),
+                targets=(producer,),
+                selections=(
+                    OperationSelection(
+                        producer,
+                        parameters=json_bytes(selections[producer].parameters),
+                        replicate=selections[producer].replicate,
+                    ),
+                ),
+                original_sources=(original.selection(),),
+                inference="current-source-journey",
+                execution_profile=kernel.recipe.execution_profile,
+            )
+            source_demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
+                source_intent,
+                project=PROJECT,
+                release=kernel.prepared.release_id,
+                runtime=kernel.runtime,
+            )["demand_id"]
+        # Population closure requires an actual discovery in this release.
+        # Direct membership selects the same two leaf sections with a new declared
+        # discovery meaning, while reusing the already published physical capture.
+        execute_data_demand(
+            kernel.purpose("write"),
+            source_demand,
+            source_root=ROOT,
+            admission_engine=kernel.purpose("admit"),
+            project_id=PROJECT,
+            database_capacity=6,
+        )
+        with kernel.purpose("write").begin() as connection:
             frozen = freeze_demand(
                 kernel.model,
                 roots=(original.root,),
@@ -146,6 +182,7 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
                         parameters=json_bytes(row.parameters),
                         choices=json_bytes(row.choices),
                         selected_dependencies=row.selected_dependencies,
+                        replicate=row.replicate,
                     )
                     for name, row in selections.items()
                 ),
@@ -157,8 +194,7 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
                 frozen, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
             )["demand_id"]
-        # Native attachment reuses the published two-step capture/discovery
-        # chain; this binding regression needs no analytical provider resources.
+        # Attach established source work without preparing analytical providers.
         for _ in range(2):
             with kernel.purpose("write").begin() as connection:
                 snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
@@ -167,7 +203,9 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             with kernel.purpose("write").begin() as connection:
                 planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
                 ready = planner.ready(snapshot, authorization=b"{}")
-                assert not ready, tuple((request.operation, request.action) for request in ready)
+                assert not any(
+                    request.operation in {"source.pdf/capture", producer} for request in ready
+                ), tuple((request.operation, request.action) for request in ready)
         with kernel.purpose("write").begin() as connection:
             snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
         obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
