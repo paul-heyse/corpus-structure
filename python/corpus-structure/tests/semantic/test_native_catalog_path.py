@@ -1,6 +1,10 @@
 """Native catalog facts use the guard's search path, independently of authoring defaults."""
 
+from hashlib import sha256
+
+import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.native_objects import (
     admit_native,
@@ -76,3 +80,69 @@ def test_extension_type_signature_result_and_defaults_are_guard_path_canonical(
         execute_native_sql(
             connection, "DROP FUNCTION catalog_path_control.vector_identity(public.vector)"
         )
+
+
+def test_catalog_fingerprints_keep_signature_order_missing_functions_and_exact_body(
+    infrastructure_rollback,
+):
+    from corpus_structure.semantic.native_catalog import function_body_fingerprints
+
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA body_fingerprint_control")
+    first, second = " SELECT 1 ", " SELECT 'two'::text "
+    connection.exec_driver_sql(
+        "CREATE FUNCTION body_fingerprint_control.first() RETURNS integer LANGUAGE sql "
+        "AS $$" + first + "$$"
+    )
+    connection.exec_driver_sql(
+        "CREATE FUNCTION body_fingerprint_control.second() RETURNS text LANGUAGE sql "
+        "AS $$" + second + "$$"
+    )
+    signatures = tuple(
+        "body_fingerprint_control." + name + "()"
+        for name in ("second", "missing", "first", "second")
+    )
+    assert connection.scalars(function_body_fingerprints(signatures)).all() == [
+        sha256(second.encode()).hexdigest(),
+        None,
+        sha256(first.encode()).hexdigest(),
+        sha256(second.encode()).hexdigest(),
+    ]
+
+
+def test_frozen_catalog_probe_initializes_guard_variables_and_excludes_release_effects(
+    infrastructure_rollback,
+):
+    from corpus_structure.semantic.native_admission import frozen_catalog_verification
+    from corpus_structure.semantic.native_sql_body import catalog_path
+
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA sem; CREATE SCHEMA data")
+    descriptor = (
+        "CREATE OR REPLACE FUNCTION data.execution_contract_descriptor() "
+        'RETURNS jsonb LANGUAGE sql AS $$ SELECT \'{"token":"current"}\'::jsonb $$'
+    )
+    connection.exec_driver_sql(descriptor)
+    body = """BEGIN
+ RAISE EXCEPTION 'release precondition must remain outside catalog replay';
+ -- native catalog checks begin
+ spec := expected;
+ IF spec->>'token' <> 'current' OR owner_name IS DISTINCT FROM current_user THEN
+   RAISE EXCEPTION 'controlled frozen catalog refusal' USING ERRCODE='23514';
+ END IF;
+ -- native catalog checks complete
+ RAISE EXCEPTION 'release publication must remain outside catalog replay';
+END"""
+    verification = frozen_catalog_verification(body)
+    with catalog_path(connection):
+        execute_native_sql(connection, verification)
+        with connection.begin_nested() as changed:
+            connection.exec_driver_sql(descriptor.replace('"current"', '"changed"'))
+            with (
+                pytest.raises(DBAPIError, match="controlled frozen catalog refusal") as refused,
+                connection.begin_nested(),
+            ):
+                execute_native_sql(connection, verification)
+            assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+            changed.rollback()
+        execute_native_sql(connection, verification)

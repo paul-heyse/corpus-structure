@@ -138,7 +138,10 @@ def test_native_receipt_requires_exact_identity_and_restricted_first_admission(
 
 
 def test_catalog_extraction_retains_exact_old_and_current_catalog_area():
+    from pglast import ast, parse_plpgsql, parse_sql
+
     from corpus_structure.semantic.migrations import ALEMBIC_DIR
+    from corpus_structure.semantic.native_admission import frozen_catalog_verification
 
     old = (ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n7_admission.sql").read_text()
     current = admission_kernel()
@@ -149,6 +152,14 @@ def test_catalog_extraction_retains_exact_old_and_current_catalog_area():
         assert "jsonb_array_elements" in checks and "'functions'" in checks
         assert "sem.record_deployment_admission" not in checks
         assert "release is not finalized" not in checks
+        verification = frozen_catalog_verification(body)
+        (parsed,) = parse_sql(verification)
+        assert isinstance(parsed.stmt, ast.DoStmt)
+        assert parsed.stmt.args is not None
+        content = parsed.stmt.args[0].arg
+        assert isinstance(content, ast.String) and content.sval is not None
+        assert checks in content.sval
+        assert parse_plpgsql(verification)
 
 
 def test_release_semantic_guards_follow_explicit_physical_relations():

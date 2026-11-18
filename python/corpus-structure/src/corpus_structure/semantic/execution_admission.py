@@ -85,13 +85,14 @@ def verify_deployment_catalog(
     from sqlalchemy.exc import DBAPIError
 
     from .migrations import ALEMBIC_DIR
+    from .native_admission import frozen_catalog_verification
     from .native_objects import execute_native_sql
 
     versions = ALEMBIC_DIR / "versions" if versions is None else versions
     expected = _deployment_expectation(connection, revision=revision, versions=versions)
     physical_id = expected.physical_id
     try:
-        checks = _catalog_checks(expected.admission_body)
+        verification = frozen_catalog_verification(expected.admission_body)
         # Run the exact catalog clauses in the same search path as the authenticated
         # guard, without running that guard's release-specific admission effects.
         savepoint = connection.begin_nested()
@@ -99,10 +100,7 @@ def verify_deployment_catalog(
             connection.exec_driver_sql("SET LOCAL search_path = pg_catalog, pg_temp")
             execute_native_sql(
                 connection,
-                "DO $deployment_catalog$ DECLARE expected jsonb; spec jsonb; owner_name text; "
-                "BEGIN expected := data.execution_contract_descriptor(); "
-                "SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace "
-                "WHERE nspname='sem';\n" + checks + "\nEND $deployment_catalog$",
+                verification,
             )
         finally:
             savepoint.rollback()
@@ -123,9 +121,8 @@ def _deployment_expectation(
     connection: Connection, *, revision: str | None = None, versions: Path | None = None
 ) -> NativeExpectation:
     """Compare the acquired catalog with its frozen expectations."""
-    from sqlalchemy import text
-
     from .migrations import ALEMBIC_DIR
+    from .native_catalog import function_body_fingerprints
     from .native_objects import NativeAuthoringError, admit_native
 
     if versions is None:
@@ -135,20 +132,9 @@ def _deployment_expectation(
     else:
         # Reader and admission principals deliberately cannot read Alembic's private
         # revision table. A body fingerprint locates a contract, never an Alembic label.
-        bodies = (
-            connection.execute(
-                text("""
-                SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')
-                FROM unnest(ARRAY['data.execution_contract_descriptor()',
-                                  'data.require_execution_release(text)'])
-                     WITH ORDINALITY AS target(signature, position)
-                LEFT JOIN pg_catalog.pg_proc p ON p.oid=to_regprocedure(target.signature)
-                ORDER BY target.position
-            """)
-            )
-            .scalars()
-            .all()
-        )
+        bodies = connection.scalars(
+            function_body_fingerprints((_DESCRIPTOR + "()", _REQUIRED + "(text)"))
+        ).all()
         candidates = tuple(
             item for item in _expectations(versions).values() if item.functions == tuple(bodies)
         )

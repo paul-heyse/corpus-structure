@@ -892,23 +892,19 @@ def verify_frozen_catalog(connection, admission):
     has no released application result: this checks physical/native catalog after DDL,
     using the same predicates and independently observed PostgreSQL catalog facts.
     """
-    from .native_admission import catalog_checks
+    from .native_admission import frozen_catalog_verification
     from .native_products import function_bodies
 
     body = function_bodies(admission)["data.require_execution_release"]
     try:
-        checks = catalog_checks(body)
+        verification = frozen_catalog_verification(body)
     except ValueError as error:
         raise NativeAuthoringError("frozen guard lacks the authoring catalog boundaries") from error
     from .native_sql_body import catalog_path
 
     with catalog_path(connection):
         connection.exec_driver_sql(
-            "DO $candidate_catalog$ DECLARE expected jsonb; spec jsonb; owner_name text; BEGIN "
-            "expected:=data.execution_contract_descriptor(); "
-            "SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace WHERE nspname='sem'; "
-            + checks
-            + " END $candidate_catalog$;",
+            verification,
             execution_options={"no_parameters": True},
         )
 

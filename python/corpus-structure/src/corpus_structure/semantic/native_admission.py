@@ -82,6 +82,49 @@ def catalog_checks(body: str) -> str:
     return "\n".join(checks)
 
 
+def frozen_catalog_verification(body: str) -> str:
+    """Frame the authenticated guard's original catalog predicates for replay.
+
+    Historical PL/pgSQL clauses retain their original bytes. Only the shared
+    declarations, initialization and DO envelope are authored here. This boundary
+    accepts a frozen guard, rather than arbitrary native-program statements.
+    """
+    from pglast import ast
+    from pglast.stream import RawStream
+    from sqlalchemy import func
+
+    from .native_catalog import namespace_owner
+    from .native_program import Assign, Block, Do, Local, SelectInto, pg_type
+    from .prepared_sql import prepare_sql
+
+    checks = catalog_checks(body)
+    initialization = Do(
+        Block(
+            (
+                Assign("expected", func.data.execution_contract_descriptor()),
+                SelectInto(namespace_owner(), ("owner_name",)),
+            ),
+            (
+                Local("expected", pg_type("jsonb")),
+                Local("spec", pg_type("jsonb")),
+                Local("owner_name", pg_type("text")),
+            ),
+        )
+    )
+    envelope = prepare_sql(initialization, source="frozen catalog verifier").private_tree()[0].stmt
+    if not isinstance(envelope, ast.DoStmt) or not envelope.args or len(envelope.args) != 1:
+        raise ValueError("catalog verifier requires its generated DO envelope")
+    content = envelope.args[0].arg
+    if (
+        not isinstance(content, ast.String)
+        or content.sval is None
+        or not content.sval.endswith("\nEND")
+    ):
+        raise ValueError("catalog verifier requires its generated block boundary")
+    content.sval = content.sval.removesuffix("\nEND") + "\n" + checks + "\nEND"
+    return RawStream()(envelope)
+
+
 def _descriptor_sql(descriptor):
     from pglast import ast, enums
     from pglast.stream import RawStream

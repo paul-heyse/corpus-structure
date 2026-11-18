@@ -82,6 +82,31 @@ procedure = _catalog(
     prosupport=OID,
     prosqlbody=_CatalogType("pg_node_tree"),
 )
+
+
+def function_body_fingerprints(signatures: tuple[str, ...]):
+    """Hash function source in requested order, retaining absent identities as NULL."""
+    from sqlalchemy.dialects.postgresql import array
+
+    requested = (
+        func.pg_catalog.unnest(array(signatures, type_=Text))
+        .table_valued(column("signature", Text), with_ordinality="position")
+        .render_derived(name="target")
+    )
+    digest = func.pg_catalog.encode(
+        func.pg_catalog.sha256(func.pg_catalog.convert_to(procedure.c.prosrc, "UTF8")), "hex"
+    )
+    return (
+        select(digest)
+        .select_from(
+            requested.outerjoin(
+                procedure, procedure.c.oid == func.pg_catalog.to_regprocedure(requested.c.signature)
+            )
+        )
+        .order_by(requested.c.position)
+    )
+
+
 language = _catalog("pg_language", oid=OID, lanname=Text)
 trigger = _catalog(
     "pg_trigger",
