@@ -21,7 +21,7 @@ from sqlalchemy.dialects.postgresql import JSONB
     ],
 )
 def test_execution_evidence_guard_checks_exact_fence_after_removing_receipt_fields(
-    semantic_bare_engine,
+    infrastructure_rollback,
     change,
     invalid,
 ):
@@ -53,6 +53,6 @@ def test_execution_evidence_guard_checks_exact_fence_after_removing_receipt_fiel
         literal({**fence, "completion": completion}, type_=JSONB()).label("payload")
     ).subquery("arguments")
     query = select(execution_evidence_differs(arguments.c.payload)).select_from(arguments)
-    with semantic_bare_engine.connect() as connection:
-        actual = connection.scalar(query)
+    connection = infrastructure_rollback
+    actual = connection.scalar(query)
     assert actual is invalid

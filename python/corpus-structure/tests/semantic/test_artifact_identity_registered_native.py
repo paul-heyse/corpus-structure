@@ -26,8 +26,8 @@ from corpus_structure.serve.structural_products import (
 from semantic.current_artifact_support import (
     ARTIFACT,
     CONSTRUCTIONS,
+    artifact_content,
     artifact_recipe,
-    artifact_stream,
     companion_source,
 )
 from semantic.current_pdf_source_support import PROJECT, _current_pdf_source, admit_current_target
@@ -63,11 +63,8 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
         else (("text", "12"),)
     )
 
-    def stream(self, original, **options):
-        return artifact_stream(rows, self, original, **options)
-
     with _current_pdf_source(
-        scenario_seeds, tmp_path, monkeypatch, stream=stream, sections=("#/groups/0",)
+        scenario_seeds, tmp_path, content=artifact_content(rows), sections=("#/groups/0",)
     ) as source:
         kernel = admit_current_target(
             source, artifact_recipe(tmp_path / "recipe"), tmp_path / "consumer"

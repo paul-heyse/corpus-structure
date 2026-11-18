@@ -2,7 +2,6 @@
 
 import json
 from dataclasses import replace
-from importlib.resources import files
 
 import pytest
 import yaml
@@ -90,11 +89,14 @@ def test_current_question_projection_preserves_exact_patterns_and_class_ownershi
     assert b"^(standard|unresolved-value-alternative)$" in serialized
 
 
-def test_constraint_admission_and_graph_guard_sql_parse():
-    for filename in ("admission.sql", "source_record_graph.sql"):
-        source = files("corpus_structure.semantic").joinpath("sql", filename).read_text()
-        assert parse_sql(source)
-        assert parse_plpgsql(source)
+def test_current_admission_kernel_sql_parses():
+    from corpus_structure.semantic.native_products import admission_kernel
+
+    source = admission_kernel()
+    assert parse_sql(source)
+    assert parse_plpgsql(source)
+    # The unloaded source_record_graph.sql parser case retired with its subject.
+    # Current question/constraint guards are exercised through the native journeys below.
 
 
 @pytest.mark.parametrize("ddo_kernel", [QUESTION], indirect=True)

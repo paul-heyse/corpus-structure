@@ -77,6 +77,19 @@ def test_racy_clean_rechecks_even_identical_stat(acquired, monkeypatch):
     assert calls == [True]
 
 
+@pytest.mark.parametrize(
+    ("elapsed_ns", "rechecks"), [(2_000_000_000, True), (2_000_000_001, False)]
+)
+def test_racy_window_includes_exactly_two_seconds(tmp_path, monkeypatch, elapsed_ns, rechecks):
+    path = tmp_path / "captured.py"
+    path.write_bytes(b"exact bytes")
+    stat = path.stat()
+    observed_at = max(stat.st_ctime_ns, stat.st_mtime_ns) + elapsed_ns
+    monkeypatch.setattr(file_custody, "time_ns", lambda: observed_at)
+    record = FileCustody.acquire(path, sha256(b"exact bytes").hexdigest())
+    assert record.racily_clean is rechecks
+
+
 def test_worker_handoff_refuses_changed_metadata(acquired):
     path, record = acquired
     receipt = record.receipt()

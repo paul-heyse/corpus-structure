@@ -145,13 +145,7 @@ def test_task_guard_uses_captured_protocol_states_and_transitions():
             ["running", "cancelled"],
         ],
     }
-    checks = (
-        Path(__file__)
-        .parents[2]
-        .joinpath("src/corpus_structure/semantic/sql/data_operation_task_checks.sql")
-        .read_text()
-    )
-    rendered = target_task_guard_sql(content, checks)
+    rendered = target_task_guard_sql(content)
     assert "__DDO_TASK_" not in rendered
     assert "NEW.attempt<>OLD.attempt+1" in rendered
     assert "NEW.claimed_by IS DISTINCT FROM OLD.claimed_by" in rendered
@@ -160,7 +154,7 @@ def test_task_guard_uses_captured_protocol_states_and_transitions():
     changed["definitions"]["data_task_state"]["x-ddo-lifecycle"]["same_attempt"].remove(
         ["running", "pending"]
     )
-    modified = target_task_guard_sql(yaml.safe_dump(changed).encode(), checks)
+    modified = target_task_guard_sql(yaml.safe_dump(changed).encode())
     assert "('running','pending')" not in modified
     assert "('running','failed')" in modified
 

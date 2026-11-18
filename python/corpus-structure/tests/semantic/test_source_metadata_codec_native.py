@@ -6,25 +6,12 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.data_operation_storage import native_logical_sources
 from corpus_structure.semantic.observations import source_python, source_value
-from corpus_structure.semantic.prepared_sql import prepare_sql
-from corpus_structure.semantic.source_value_native import source_value_native_sql
 
 
 @pytest.fixture
-def metadata_codec(semantic_bare_engine):
-    sql = source_value_native_sql(native_logical_sources()["observations.yaml"])
-    parsed = prepare_sql(sql, source="source-metadata-codec")
-    with semantic_bare_engine.connect() as connection, connection.begin():
-        connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS data")
-        for index in range(len(parsed.statements)):
-            # Only the recursive pure encoder is required; no deployed semantic head.
-            if "CREATE OR REPLACE FUNCTION data.record_json_source(" in parsed.excerpt(index):
-                connection.exec_driver_sql(
-                    parsed.excerpt(index), execution_options={"no_parameters": True}
-                )
-        yield connection
+def metadata_codec(native_read):
+    return native_read
 
 
 def encode(connection, raw):

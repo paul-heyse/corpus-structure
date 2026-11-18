@@ -7,13 +7,14 @@ reused within a worker; committed database state is never shared between cases h
 from __future__ import annotations
 
 import json
+from collections import OrderedDict
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from functools import cache
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, mkdtemp
+from threading import RLock
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Protocol
 
 from scenario_recipes import register_scenario_builder
 from sqlalchemy import Connection, Engine, insert, select
@@ -60,6 +61,34 @@ class CapturedKernelInputs:
     profile: PreparationProfile
 
 
+def split_captured_operations(captured: CapturedKernelInputs | None):
+    """Open the packaged input and keep other dependencies for recomposition."""
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+
+    if captured is None:
+        raise ValueError("operation extension requires captured kernel inputs")
+    dependencies = captured.dependencies
+    decoded = read_data_operation_inputs(dependencies)
+    if decoded is None:
+        raise ValueError("operation extension requires a captured operation manifest")
+    declarations, sources = decoded
+    if sources is None:
+        raise ValueError("operation extension requires captured Python sources")
+    return (
+        ResolvedDependencies(
+            tuple(
+                item
+                for item in dependencies.artifacts
+                if not item.name.startswith("data-operations/")
+            ),
+            dependencies.vocabularies,
+            dependencies.ontology_sources,
+        ),
+        declarations,
+        sources,
+    )
+
+
 @dataclass(frozen=True)
 class KernelRecipe:
     name: str
@@ -72,6 +101,13 @@ class KernelRecipe:
     additional_files: tuple[tuple[str, bytes], ...] = ()
     python_sources: tuple[tuple[str, str, bytes], ...] = ()
     captured_inputs: CapturedKernelInputs | None = None
+
+    @property
+    def requires_consumer_binding(self) -> bool:
+        return self.captured_inputs is not None and any(
+            artifact.name == "data-operations/contracts/pdf-capture/execution-custody"
+            for artifact in self.captured_inputs.dependencies.artifacts
+        )
 
     @property
     def model_version(self):
@@ -106,6 +142,7 @@ def _prepare_kernel(recipe: KernelRecipe, directory: Path | None = None) -> Kern
     owner = TemporaryDirectory(prefix="ddo-" + recipe.name + "-") if directory is None else None
     directory = Path(owner.name) if owner is not None else directory
     assert directory is not None
+    directory.mkdir(parents=True, exist_ok=True)
 
     def source_file(name, content):
         path = Path(name)
@@ -158,13 +195,66 @@ def _prepare_kernel(recipe: KernelRecipe, directory: Path | None = None) -> Kern
     )
 
 
-_prepared_kernel = cache(_prepare_kernel)
+class KernelScenario(Protocol):
+    def bind(self, directory: Path) -> KernelRecipe: ...
+
+
+class WorkerKernelBinding:
+    """Own the scratch lifetime of worker-local, preparation-only PDF recipes."""
+
+    def __init__(self, directory: Path):
+        self.directory = directory
+        self.closed = False
+
+    def close(self):
+        with _preparation_lock:
+            self.closed = True
+            for key in tuple(_preparations):
+                if key[1] is self:
+                    del _preparations[key]
+
+
+_preparations: OrderedDict[tuple[object, WorkerKernelBinding | None], KernelPreparation] = (
+    OrderedDict()
+)
+_preparation_lock = RLock()
+_PREPARATION_LIMIT = 16
+
+
+def _memoized_preparation(
+    recipe: KernelRecipe | KernelScenario, binding: WorkerKernelBinding | None
+) -> KernelPreparation:
+    with _preparation_lock:
+        if binding is not None and binding.closed:
+            raise RuntimeError("kernel preparation binding is closed")
+        key = recipe, binding
+        if key not in _preparations:
+            if binding is None:
+                if not isinstance(recipe, KernelRecipe):
+                    raise ValueError("location-free PDF preparation needs a worker binding")
+                prepared = _prepare_kernel(recipe)
+            else:
+                if isinstance(recipe, KernelRecipe):
+                    raise ValueError("worker binding needs a location-free kernel scenario")
+                workspace = Path(mkdtemp(dir=binding.directory))
+                prepared = _prepare_kernel(recipe.bind(workspace), workspace)
+            _preparations[key] = prepared
+            if len(_preparations) > _PREPARATION_LIMIT:
+                _preparations.popitem(last=False)
+        _preparations.move_to_end(key)
+        return _preparations[key]
+
+
+def prepare_worker_kernel(
+    recipe: KernelScenario, binding: WorkerKernelBinding
+) -> KernelPreparation:
+    return _memoized_preparation(recipe, binding)
 
 
 def prepare_kernel(recipe: KernelRecipe, *, directory: Path | None = None) -> KernelPreparation:
     if directory is not None:
         return _prepare_kernel(recipe, directory)
-    return _prepared_kernel(recipe)
+    return _memoized_preparation(recipe, None)
 
 
 @dataclass(frozen=True)

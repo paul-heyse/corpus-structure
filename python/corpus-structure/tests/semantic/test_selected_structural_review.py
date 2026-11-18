@@ -7,11 +7,11 @@ import pytest
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_results import DemandResult, stream_demand_result
 from corpus_structure.serve import selected_structural_review as review
-from semantic.test_demand_results import _page
+from semantic.demand_result_support import demand_result_page
 
 
 def test_pinned_selected_stream_preserves_scope_and_refuses_another_cut(monkeypatch):
-    page = DemandResult(json_bytes(_page()))
+    page = DemandResult(json_bytes(demand_result_page()))
     requests = []
 
     def read(*args, **kwargs):

@@ -11,7 +11,11 @@ from corpus_structure.semantic.declared_structural_references import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.selected_support import SelectedReadReference
 from semantic.current_pdf_source_support import PROJECT, ROOT, current_pdf_recipe
-from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
+from semantic.data_operation_kernel_support import (
+    CapturedKernelInputs,
+    KernelRecipe,
+    split_captured_operations,
+)
 from semantic.structural_native_fixture import OPERATION, TEXT, operation_sources
 
 COMPARE = "structure.compare/declared"
@@ -25,7 +29,6 @@ def recipe(directory):
     )
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.declared_structural_admission import (
         structural_admission_kind_declarations,
@@ -38,15 +41,11 @@ def recipe(directory):
     )
     from corpus_structure.semantic.dossier_products import dossier_inputs, dossier_operation_sources
     from corpus_structure.semantic.primary_operations import combine_primary_sources
-    from corpus_structure.semantic.types import ResolvedDependencies
 
     original = current_pdf_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None and acquired[1] is not None
-    declared, sources = acquired
-    assert sources is not None
+    base_dependencies, declared, sources = split_captured_operations(captured)
     sources = combine_primary_sources(
         sources,
         operation_sources(),
@@ -55,15 +54,7 @@ def recipe(directory):
         dossier_operation_sources(),
     )
     dependencies = data_operation_dependencies(
-        ResolvedDependencies(
-            tuple(
-                item
-                for item in captured.dependencies.artifacts
-                if not item.name.startswith("data-operations/")
-            ),
-            captured.dependencies.vocabularies,
-            captured.dependencies.ontology_sources,
-        ),
+        base_dependencies,
         (
             *declared,
             structural_operation_declarations(),

@@ -19,7 +19,22 @@ if TYPE_CHECKING:
     from .native_products import NativeAuthoringInputs
 
 
-def target_task_guard_sql(protocol: bytes, checks: str) -> str:
+@dataclass(frozen=True)
+class FoundationPrograms:
+    identity: str
+    closure: str
+
+
+def foundation_programs() -> FoundationPrograms:
+    """Return the maintained primitive programs used by current target installation."""
+    root = Path(__file__).with_name("sql")
+    return FoundationPrograms(
+        identity=root.joinpath("identity.sql").read_text(),
+        closure=root.joinpath("closure.sql").read_text(),
+    )
+
+
+def target_task_guard_sql(protocol: bytes, checks: str | None = None) -> str:
     """Share the existing request/lease/receipt checks, with no legacy task branch."""
     from .data_operation_protocol import render_data_task_guard
 
@@ -188,7 +203,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
     from .published_document import published_reader_definitions
 
     selected = installation.metadata
-    sql = Path(__file__).with_name("sql")
+    foundation = foundation_programs()
     definitions = []
     captured = {item.name: item.content for item in installation.authoring_inputs.sources}
     for filename, schema, name, roles in (
@@ -221,7 +236,9 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 if filename == "scientific_layout.sql"
                 else captured["authoring/closure-native.sql"].decode()
                 if filename == "closure-native.sql"
-                else sql.joinpath(filename).read_text(),
+                else foundation.identity
+                if filename == "identity.sql"
+                else foundation.closure,
                 name=name,
                 schema=schema,
                 source="target-current:" + filename,
@@ -239,7 +256,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
     definitions.extend(
         _release_guard_definitions(
             connection,
-            sql.joinpath("closure.sql").read_text()
+            foundation.closure
             + "\n"
             + captured["authoring/execution-projection-check.sql"].decode(),
             source="target-current:release archive guards",
@@ -298,9 +315,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
     definitions.append(
         definition_from_sql(
             connection,
-            target_task_guard_sql(
-                protocol, sql.joinpath("data_operation_task_checks.sql").read_text()
-            ),
+            target_task_guard_sql(protocol),
             source="target-current:request task fence",
             owner="corpus_sem_publisher",
         )

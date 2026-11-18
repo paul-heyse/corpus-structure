@@ -92,12 +92,12 @@ def acquired_port(captured, operation_id):
 
 
 @pytest.fixture(scope="module")
-def captured_split_pdf_ports(tmp_path_factory):
+def captured_split_pdf_ports(worker_kernel_binding):
     from corpus_structure.semantic.composed import read_data_operation_inputs
-    from semantic.current_pdf_integration_support import current_pdf_recipe
-    from semantic.data_operation_kernel_support import prepare_kernel
+    from semantic.current_pdf_integration_support import integrated_pdf_recipe
+    from semantic.data_operation_kernel_support import prepare_worker_kernel
 
-    prepared = prepare_kernel(current_pdf_recipe(tmp_path_factory.mktemp("split-pdf-resources")))
+    prepared = prepare_worker_kernel(integrated_pdf_recipe(), worker_kernel_binding)
     captured = read_data_operation_inputs(prepared.dependencies)
     assert captured is not None and captured[1] is not None
     return prepared.bundle, captured[1], prepared.prepared, prepared.model

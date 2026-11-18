@@ -4,56 +4,34 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.construction_products import (
     ConstructionOptions,
-    PreparedConstructionProfile,
-    construction_product_inputs,
     validate_construction_product,
 )
-from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
-    formal_operation_sources,
-    prepare_formal_evidence,
 )
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from semantic.construction_products_test_support import (
+    profiles as profiles,
+)
+from semantic.construction_products_test_support import (
+    publication_context as publication_context,
+)
 from semantic.formal_products_support import selected
-
-
-@pytest.fixture(scope="module")
-def profiles():
-    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    bundle = construction_product_inputs(
-        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
-    )
-    prepared = prepare_release(
-        bundle,
-        data_operation_dependencies(
-            ResolvedDependencies(), python_sources=formal_operation_sources()
-        ),
-        PreparationProfile(version="semantic-2"),
-    )
-    model = bound_data_operation_model(prepared)
-    return prepare_formal_evidence(
-        prepared, model, grammar=grammar_identity()
-    ), PreparedConstructionProfile(prepared, model)
 
 
 def test_target_grammar_preserves_operators_binders_choices_and_witnesses(profiles, monkeypatch):
     formal, construction = profiles
     source = selected(formal, "Not every trial succeeds.")
     primary = formal.run(
-        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+        source, FormalEvidenceOptions(), subject_context=publication_context(source)
     )
     from corpus_structure.semantic.constructions import forest
 
     monkeypatch.setattr(
         forest, "classify", lambda *_: pytest.fail("inference reclassified primary text")
     )
-    product = construction.run(source, (primary,), subject_context=_publication_context(source))
+    product = construction.run(source, (primary,), subject_context=publication_context(source))
     values = product.inventory()
     assert any(row["kind"] == "binder" for row in values["terms"])
     assert any(row["value"] == "negation" for row in values["terms"])
@@ -75,19 +53,19 @@ def test_limits_and_custody_do_not_salt_successful_constructed_meaning(profiles)
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
     primary = formal.run(
-        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+        source, FormalEvidenceOptions(), subject_context=publication_context(source)
     )
     left = construction.run(
         source,
         (primary,),
         ConstructionOptions(parse_seconds=2),
-        subject_context=_publication_context(source),
+        subject_context=publication_context(source),
     )
     right = construction.run(
         source,
         (primary,),
         ConstructionOptions(parse_seconds=3, max_region_chars=5000),
-        subject_context=_publication_context(source),
+        subject_context=publication_context(source),
     )
     assert left.content == right.content
     assert left.semantic_id == right.semantic_id
@@ -98,9 +76,9 @@ def test_target_nominal_member_and_original_occurrence_cannot_be_relabelled(prof
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
     primary = formal.run(
-        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+        source, FormalEvidenceOptions(), subject_context=publication_context(source)
     )
-    product = construction.run(source, (primary,), subject_context=_publication_context(source))
+    product = construction.run(source, (primary,), subject_context=publication_context(source))
     body = product.value.model_dump(mode="json", exclude_unset=True)
     occurrence = next(
         packet for packet in body["members"] if packet["body"]["record_type"] == "occurrence"
@@ -124,11 +102,11 @@ def test_contextual_evaluation_consumes_real_products_and_retains_governed_premi
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
     primary = formal.run(
-        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+        source, FormalEvidenceOptions(), subject_context=publication_context(source)
     )
-    symbolic = construction.run(source, (primary,), subject_context=_publication_context(source))
+    symbolic = construction.run(source, (primary,), subject_context=publication_context(source))
     meaning = PreparedContextualProfile(construction.prepared, construction.model).run(
-        source, (symbolic,), (primary,), subject_context=_publication_context(source)
+        source, (symbolic,), (primary,), subject_context=publication_context(source)
     )
     inventory = meaning.inventory()
     assert inventory["terms"]
@@ -145,9 +123,9 @@ def test_construction_choice_members_are_real_flattened_addresses(profiles):
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
     primary = formal.run(
-        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+        source, FormalEvidenceOptions(), subject_context=publication_context(source)
     )
-    product = construction.run(source, (primary,), subject_context=_publication_context(source))
+    product = construction.run(source, (primary,), subject_context=publication_context(source))
     body = product.value.model_dump(mode="json", exclude_unset=True)
     groups = [
         packet["body"] for packet in body["members"] if packet["body"]["record_type"] == "choice"
@@ -178,16 +156,16 @@ def test_combined_document_preserves_source_and_exact_cross_layer_member_address
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
     primary = formal.run(
-        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+        source, FormalEvidenceOptions(), subject_context=publication_context(source)
     )
-    symbolic = construction.run(source, (primary,), subject_context=_publication_context(source))
+    symbolic = construction.run(source, (primary,), subject_context=publication_context(source))
     view = compose_enriched_document(
         construction.prepared,
         construction.model,
         (source,),
         (primary, symbolic),
         active=(DataProductReference(symbolic.semantic_id),),
-        subject_context=_publication_context((source,)[0], document=True),
+        subject_context=publication_context((source,)[0], document=True),
     )
     readings = EnrichedDocumentReadings(view, (primary, symbolic))
     assert readings.source().content == source.content
@@ -209,7 +187,7 @@ def test_combined_document_preserves_source_and_exact_cross_layer_member_address
             (source,),
             (symbolic,),
             active=(symbolic.reference,),
-            subject_context=_publication_context((source,)[0], document=True),
+            subject_context=publication_context((source,)[0], document=True),
         )
     with pytest.raises(ValueError, match="actual retained canonical packet"):
         readings.member(DataProductMemberReference(symbolic.reference, "not-a-member"))
@@ -226,7 +204,7 @@ def test_source_only_and_full_combined_views_preserve_distinct_coverage_claims(p
         (source,),
         (),
         profile="source_only",
-        subject_context=_publication_context((source,)[0], document=True),
+        subject_context=publication_context((source,)[0], document=True),
     )
     assert base.value.model_dump(mode="python")["outcome"] == "complete"
     full = compose_enriched_document(
@@ -235,7 +213,7 @@ def test_source_only_and_full_combined_views_preserve_distinct_coverage_claims(p
         (source,),
         (),
         profile="full_characterization",
-        subject_context=_publication_context((source,)[0], document=True),
+        subject_context=publication_context((source,)[0], document=True),
     )
     full_value = full.value.model_dump(mode="python")
     assert full_value["outcome"] == "partial"
@@ -258,7 +236,7 @@ def test_multi_source_view_keeps_each_projection_local_coordinate(profiles):
     changed["source"]["section_pointer"] = "#/groups/1"
     right = FrozenNativeSource.acquire(construction.prepared, changed)
     products = tuple(
-        formal.run(source, FormalEvidenceOptions(), subject_context=_publication_context(source))
+        formal.run(source, FormalEvidenceOptions(), subject_context=publication_context(source))
         for source in (left, right)
     )
     view = compose_enriched_document(
@@ -267,7 +245,7 @@ def test_multi_source_view_keeps_each_projection_local_coordinate(profiles):
         (left, right),
         products,
         active=tuple(DataProductReference(product.semantic_id) for product in products),
-        subject_context=_publication_context((left, right)[0], document=True),
+        subject_context=publication_context((left, right)[0], document=True),
     )
     readings = EnrichedDocumentReadings(view, products)
     view_value = view.value.model_dump(mode="python")
@@ -365,21 +343,6 @@ def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(m
     assert (doc[1].dep_, doc[1].head.i) == ("punct", 0)
 
 
-def _publication_context(source, *, document=False):
-    from corpus_structure.semantic.data_operation_model import SubjectContext
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.source_products import source_subject
-
-    value = source.value
-    return SubjectContext(
-        "family-test",
-        value["source"]["document"] if document else source_subject(value["source"]),
-        value["source"]["document"],
-        canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
-        subject_definition="original-source-view",
-    )
-
-
 def test_compact_family_members_preserve_parent_identity_and_complete_source_context(profiles):
     import json
     from dataclasses import replace
@@ -395,7 +358,7 @@ def test_compact_family_members_preserve_parent_identity_and_complete_source_con
 
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
-    context = _publication_context(source)
+    context = publication_context(source)
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     symbolic = construction.run(source, (primary,), subject_context=context)
     contextual = PreparedContextualProfile(construction.prepared, construction.model).run(
@@ -438,7 +401,7 @@ def test_compact_family_members_preserve_parent_identity_and_complete_source_con
         tuple(retained),
         active=tuple(DataProductReference(product.semantic_id) for product in retained),
         profile="selected_layers",
-        subject_context=_publication_context(source, document=True),
+        subject_context=publication_context(source, document=True),
     )
     assert json.loads(view.content)["products"] == [
         {"product_id": product.semantic_id} for product in (primary, symbolic, contextual)
@@ -456,16 +419,16 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
     from corpus_structure.methods.native_host import NativeHostGroup
     from corpus_structure.semantic.sentence_products import prepare_sentence_profile
     from corpus_structure.settings import NemotronSettings
-    from semantic.test_sentence_products import _controlled_source_pin
+    from semantic.sentence_products_test_support import controlled_source_pin
 
     formal, construction = profiles
     source = selected(formal, "Mean is finite.")
-    context = _publication_context(source)
+    context = publication_context(source)
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     sentence_profile = prepare_sentence_profile(construction.prepared, construction.model)
     with NativeHostGroup(CharacterizationExecutionPolicy(), NemotronSettings().endpoint) as host:
         annotations = sentence_profile.run(
-            source, host=host, subject_context=context, source_pin=_controlled_source_pin(source)
+            source, host=host, subject_context=context, source_pin=controlled_source_pin(source)
         )
     monkeypatch.setattr(
         "corpus_structure.semantic.sentence_products.pipeline",
@@ -624,7 +587,7 @@ def test_target_math_scope_keeps_unavailable_native_coverage_open(profiles):
 
     formal, construction = profiles
     source = selected(formal, "Suppose x is finite.")
-    context = _publication_context(source)
+    context = publication_context(source)
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     binders = Binders(sentence_initial=("suppose",))
     product = construction.run(
@@ -671,7 +634,7 @@ def test_target_source_owned_atoms_preserve_exact_inline_formula_extent(profiles
             ),
         ],
     )
-    context = _publication_context(source)
+    context = publication_context(source)
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     product = construction.run(source, (primary,), subject_context=context)
     inventory = product.inventory()
@@ -695,7 +658,7 @@ def test_target_source_owned_atoms_preserve_exact_inline_formula_extent(profiles
 def test_target_lexical_formal_root_keeps_paragraph_quantifier_and_predicate(profiles):
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
-    context = _publication_context(source)
+    context = publication_context(source)
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     product = construction.run(source, (primary,), subject_context=context)
     inventory = product.inventory()

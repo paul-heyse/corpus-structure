@@ -5,7 +5,7 @@ from copy import deepcopy
 from hashlib import sha256
 
 import pytest
-from evaluate.test_declared_record_policy import fit_basis as fit_basis
+from evaluate.declared_record_policy_test_support import fit_basis as fit_basis
 from pglast import ast
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -70,7 +70,7 @@ def check(connection, first, second, specification, fitted):
     )
 
 
-def test_native_fit_matches_real_numerical_fit_and_exact_tagged_basis(
+def test_program_fit_matches_real_numerical_fit_and_exact_tagged_basis(
     fit_correspondence_connection, fit_basis
 ):
     first, second, specification = fit_basis
@@ -177,24 +177,24 @@ def test_actual_grade_frame_change_cannot_reuse_old_fit_provenance(
 
 
 @pytest.fixture
-def fit_guard_connection(semantic_bare_engine):
+def fit_guard_connection(infrastructure_rollback):
     sql = record_policy_completion_native_sql(metadata)
-    with semantic_bare_engine.begin() as connection:
-        for name in ("sem", "data", "ops", "kb"):
-            connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {name}")
-        for name in (
-            "ops.data_request",
-            "ops.data_demand",
-            "ops.data_demand_read",
-            "ops.data_derivation",
-            "ops.data_completion_intent",
-            "sem.data_operation_definition",
-            "sem.data_kind_contract",
-            "kb.data_product",
-        ):
-            connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
-        connection.exec_driver_sql(sql, execution_options={"no_parameters": True})
-        yield connection
+    connection = infrastructure_rollback
+    for name in ("sem", "data", "ops", "kb"):
+        connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {name}")
+    for name in (
+        "ops.data_request",
+        "ops.data_demand",
+        "ops.data_demand_read",
+        "ops.data_derivation",
+        "ops.data_completion_intent",
+        "sem.data_operation_definition",
+        "sem.data_kind_contract",
+        "kb.data_product",
+    ):
+        connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
+    connection.exec_driver_sql(sql, execution_options={"no_parameters": True})
+    yield connection
 
 
 def test_fit_native_helpers_compile_and_nonfit_scopes_are_empty(fit_guard_connection):

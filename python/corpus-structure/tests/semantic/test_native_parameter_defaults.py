@@ -11,7 +11,9 @@ from corpus_structure.semantic.native_program import (
 )
 
 
-def test_native_parameter_defaults_preserve_omission_and_explicit_values(semantic_bare_engine):
+def test_postgresql_parameter_defaults_preserve_omission_and_explicit_values(
+    infrastructure_rollback,
+):
     statement = sql_function(
         "public",
         "native_default_control",
@@ -25,10 +27,11 @@ def test_native_parameter_defaults_preserve_omission_and_explicit_values(semanti
         ),
         search_path=("pg_catalog", "pg_temp"),
     )
-    with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql(statement)
-        assert connection.scalar(text("SELECT public.native_default_control()")) == [False, None]
-        assert connection.scalar(text("SELECT public.native_default_control(true)")) == [True, None]
-        assert connection.scalar(
-            text("SELECT public.native_default_control(false,'explicit')")
-        ) == [False, "explicit"]
+    connection = infrastructure_rollback
+    connection.exec_driver_sql(statement)
+    assert connection.scalar(text("SELECT public.native_default_control()")) == [False, None]
+    assert connection.scalar(text("SELECT public.native_default_control(true)")) == [True, None]
+    assert connection.scalar(text("SELECT public.native_default_control(false,'explicit')")) == [
+        False,
+        "explicit",
+    ]

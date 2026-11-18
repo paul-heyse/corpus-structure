@@ -29,8 +29,9 @@ from corpus_structure.semantic.data_operation_execution_evidence import bind_exe
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_outcomes import successful_return_outcome
 from corpus_structure.semantic.data_operation_service import execute_data_demand
+from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
+from corpus_structure.semantic.demand_results import stream_demand_result
 from corpus_structure.semantic.identifiers import ProjectId, ReleaseId, RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.original_documents import (
@@ -248,25 +249,18 @@ class _PrivatePdfBuildFactory:
         )
         kind = self.kernel.prepared.index.definitions["DdoSelectedNativeSource"].iri
         contract = self.kernel.identities[kind, "kind"]
-        rows, cursor = [], None
-        for _ in range(100):
-            with self.writer.connect() as conn:
-                page = serve_demand_query(
-                    conn,
-                    DemandQueryRequest(
-                        project_id=_PROJECT,
-                        demand_id=demand,
-                        view="members",
-                        limit=100,
-                        max_bytes=8 * 1024 * 1024,
-                        cursor=cursor,
-                    ),
+        rows = []
+        with self.writer.begin() as conn:
+            for page in stream_demand_result(conn, demand, project_id=_PROJECT):
+                rows.extend(
+                    dict(
+                        row,
+                        _selected_entry=SelectedSourceSetEntry.from_selected_header(row, page.cut),
+                    )
+                    for row in page.members()
+                    if row["kind_contract"] == contract
                 )
-            rows.extend(row for row in page["items"] if row["kind_contract"] == contract)
-            cursor = page["continuation"]
-            if cursor is None:
-                return rows
-        raise AssertionError("bounded source projection did not finish its selected pages")
+        return rows
 
     def complete(self, build, publication):
         """Publish only the actual sealed staging receipt, without provider claims."""

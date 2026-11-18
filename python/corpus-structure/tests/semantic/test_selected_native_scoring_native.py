@@ -19,7 +19,6 @@ from corpus_structure.evaluate.selected_references import (
 from corpus_structure.semantic._data_operation_wire import WireCutSelection
 from corpus_structure.semantic.composed import (
     data_operation_dependencies,
-    read_data_operation_inputs,
 )
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext, json_context_meaning
@@ -36,7 +35,6 @@ from corpus_structure.semantic.sentence_products import (
     sentence_operation_sources,
     sentence_product_inputs,
 )
-from corpus_structure.semantic.types import ResolvedDependencies
 from semantic.current_pdf_source_support import (
     PROJECT,
     ROOT,
@@ -46,7 +44,7 @@ from semantic.current_pdf_source_support import (
 from semantic.current_pdf_source_support import (
     current_pdf_source_factory as current_pdf_source_factory,
 )
-from semantic.data_operation_kernel_support import CapturedKernelInputs
+from semantic.data_operation_kernel_support import CapturedKernelInputs, split_captured_operations
 from semantic.structural_admission_native_support import request
 from semantic.structural_production_native_support import produce_source_reports
 
@@ -59,19 +57,8 @@ def scoring_recipe(directory):
     original = current_pdf_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
-    inputs = read_data_operation_inputs(captured.dependencies)
-    assert inputs is not None and inputs[1] is not None
-    declarations, sources = inputs
-    assert sources is not None
-    dependencies = ResolvedDependencies(
-        tuple(
-            item
-            for item in captured.dependencies.artifacts
-            if not item.name.startswith("data-operations/")
-        ),
-        captured.dependencies.vocabularies,
-        captured.dependencies.ontology_sources,
-    )
+    base_dependencies, declarations, sources = split_captured_operations(captured)
+    dependencies = base_dependencies
     return replace(
         original,
         name="selected-native-scoring",

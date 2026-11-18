@@ -183,7 +183,10 @@ def test_gpu_slot_waits_on_private_lock_and_checks_cancellation(tmp_path, monkey
     try:
         fcntl.flock(holder, fcntl.LOCK_EX)
         if cancel:
-            with pytest.raises(CancelledError, match="while waiting"), pdf_capacity.pdf_gpu_slot(active):
+            with (
+                pytest.raises(CancelledError, match="while waiting"),
+                pdf_capacity.pdf_gpu_slot(active),
+            ):
                 pytest.fail("cancelled waiter acquired the lock")
             assert len(checks) == 2
         else:

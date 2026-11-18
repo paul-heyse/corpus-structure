@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 from pydantic import ValidationError
-from semantic.test_selected_references import reference_body
+from semantic.selected_references_test_support import reference_body
 
 from corpus_structure.evaluate.native_scoring import SelectedNativeScoringQuestion
 from corpus_structure.evaluate.selected_references import _reference_invariants

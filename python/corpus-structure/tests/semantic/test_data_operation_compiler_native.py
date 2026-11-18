@@ -16,6 +16,7 @@ from corpus_structure.semantic.data_operation_subjects import subject_scope_valu
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
+from semantic.data_operation_kernel_support import STORAGE
 from semantic.test_data_operation_provider_profiles import _facts
 
 SOURCE = "a" * 64
@@ -491,3 +492,123 @@ def test_native_runtime_provider_requires_its_captured_operation_and_attestation
             connection.begin_nested(),
         ):
             require()
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_stale_lowering_refuses_reads_and_demands_until_existing_release_is_relowered(ddo_kernel):
+    from native_refusals import native_refusal
+
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.native_definition_projection import (
+        read_native_definition_projection,
+    )
+    from semantic.data_operation_declaration_support import root_subject
+
+    release = ddo_kernel["prepared"].release_id
+    with ddo_kernel["engine"].connect() as connection:
+        transaction = connection.begin()
+        try:
+            storage = DataOperationStorage(connection)
+
+            def register(subject):
+                intent = freeze_demand(
+                    ddo_kernel["model"],
+                    roots=(root_subject(subject=subject, source="source:test", scope={"page": 1}),),
+                    targets=("urn:ddo-test:source",),
+                    inference="inference:test",
+                    execution_profile="execution:test",
+                )
+                return DemandPlanner(ddo_kernel["model"], storage).register(
+                    intent, project="ddo-test", release=release, runtime=ddo_kernel["runtime"]
+                )
+
+            digest_query = text(
+                "SELECT lowering_digest FROM sem.data_operation_release WHERE release_id=:release"
+            )
+            params = {"release": release}
+            original = connection.scalar(digest_query, params)
+            assert original
+            assert register("lowering:before")["demand_id"]
+            assert (
+                storage.inspect_data_operation_release({"release_id": release})["release_id"]
+                == release
+            )
+            for relation in (
+                "sem.data_operation_definition",
+                "sem.data_operation_release",
+                "sem.runtime_binding",
+            ):
+                connection.exec_driver_sql(
+                    "ALTER TABLE " + relation + " DISABLE TRIGGER semantic_immutable"
+                )
+            connection.execute(
+                text(
+                    "UPDATE sem.data_operation_release SET lowering_digest='authored-stale-lowering' WHERE release_id=:release"
+                ),
+                params,
+            )
+            for relation in (
+                "sem.data_operation_definition",
+                "sem.data_operation_release",
+                "sem.runtime_binding",
+            ):
+                connection.exec_driver_sql(
+                    "ALTER TABLE " + relation + " ENABLE TRIGGER semantic_immutable"
+                )
+            with connection.begin_nested() as savepoint:
+                with native_refusal(
+                    "23514", message="read-only inspection native source correspondence differs"
+                ):
+                    storage.inspect_data_operation_release({"release_id": release})
+                savepoint.rollback()
+            with connection.begin_nested() as savepoint:
+                with native_refusal(
+                    "P0001", message="demand differs from authenticated effective model/selection"
+                ):
+                    register("lowering:stale")
+                savepoint.rollback()
+            projection = read_native_definition_projection(
+                ddo_kernel["prepared"], model=ddo_kernel["model"]
+            )
+            payload = canonical_bytes({**projection, "release_id": release}).decode()
+            with connection.begin_nested() as savepoint:
+                with native_refusal(
+                    "P0001", message="release facts changed under admitted release"
+                ):
+                    connection.execute(
+                        text(
+                            "SELECT sem.admit_data_operation_definitions(CAST(:payload AS jsonb))"
+                        ),
+                        {"payload": payload},
+                    )
+                savepoint.rollback()
+            assert connection.scalar(digest_query, params) == "authored-stale-lowering"
+            for relation in (
+                "sem.data_operation_definition",
+                "sem.data_operation_release",
+                "sem.runtime_binding",
+            ):
+                connection.exec_driver_sql(
+                    "ALTER TABLE " + relation + " DISABLE TRIGGER semantic_immutable"
+                )
+            repaired = connection.scalar(
+                text("SELECT sem.relower_admitted_data_operation_release(:release)"), params
+            )
+            assert repaired["release_id"] == release
+            assert connection.scalar(digest_query, params) == original
+            for relation in (
+                "sem.data_operation_definition",
+                "sem.data_operation_release",
+                "sem.runtime_binding",
+            ):
+                connection.exec_driver_sql(
+                    "ALTER TABLE " + relation + " ENABLE TRIGGER semantic_immutable"
+                )
+            assert (
+                storage.inspect_data_operation_release({"release_id": release})["release_id"]
+                == release
+            )
+            assert register("lowering:after")["demand_id"]
+        finally:
+            transaction.rollback()

@@ -3,10 +3,12 @@
 from decimal import Decimal
 from pathlib import Path
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic import prepare_release
+from corpus_structure.semantic.composed import data_operation_dependencies
+from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.regeneration import acquire_pack
 from corpus_structure.semantic.rich_fact_graph import RichFactGraph
 from corpus_structure.semantic.rich_graph_validation import read_rich_graph
 from corpus_structure.semantic.rich_knowledge_contracts import (
@@ -34,26 +36,8 @@ def domain_source(domain):
     from corpus_structure.semantic.types import ResolvedDependencies
 
     qualification = "StatisticsQualification" if domain == "statistics" else "ToyQualification"
-    sources = [
-        SourceArtifact(
-            domain + "_semantic", (ROOT / "domains" / domain / "semantic.yaml").read_bytes()
-        ),
-        SourceArtifact(
-            "semantic_core",
-            (
-                ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-            ).read_bytes(),
-        ),
-    ]
-    if domain == "statistics":
-        sources.append(
-            SourceArtifact(
-                "statistics_terminology",
-                (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-            )
-        )
     bundle, deps = rich_knowledge_inputs(
-        SourceBundle(domain + "_semantic", tuple(sources)),
+        acquire_pack(ROOT / "domains" / domain).bundle,
         ResolvedDependencies(),
         domain_rules=(ROOT / "domains" / domain / "schema/rules.yaml").read_bytes(),
         core_rules=(ROOT / "domains/core/schema/rules.yaml").read_bytes(),
@@ -61,14 +45,13 @@ def domain_source(domain):
         qualification_class=qualification,
         statement_class="SourceStatement" if domain == "statistics" else "ToySourceStatement",
     )
-    prepared = prepare_release(bundle, deps)
-    model = compile_data_operations(
-        bundle,
-        declarations=(*rich_knowledge_declarations(deps), record_policy_kind_declarations()),
-        python_sources=rich_knowledge_operation_sources(),
-        vocabularies=prepared.vocabularies,
+    deps = data_operation_dependencies(
+        deps,
+        (*rich_knowledge_declarations(deps), record_policy_kind_declarations()),
+        rich_knowledge_operation_sources(),
     )
-    return prepared, model, qualification
+    prepared = prepare_release(bundle, deps)
+    return prepared, bound_data_operation_model(prepared), qualification
 
 
 class DomainGraph:

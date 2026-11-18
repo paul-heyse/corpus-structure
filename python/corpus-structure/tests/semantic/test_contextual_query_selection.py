@@ -12,13 +12,13 @@ from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.selected_support import SelectedSupportAcquisition
+from semantic.demand_result_support import demand_result_page
 from semantic.test_contextual_workflow_preparation import unadmitted_frame
-from semantic.test_demand_results import _page
 
 
 def selection_case():
     frame, context = unadmitted_frame("Ada acts.")
-    page = _page()
+    page = demand_result_page()
     page.update(project_id=context.project_id, demand_id="unadmitted:demand")
     cut = CutSelection.from_native(page)
 

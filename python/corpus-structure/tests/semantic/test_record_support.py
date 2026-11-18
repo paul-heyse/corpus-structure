@@ -3,7 +3,7 @@
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.demand_results import DemandResult
-from semantic.test_demand_results import _page
+from semantic.demand_result_support import demand_result_page
 
 
 def test_support_keeps_real_relations_and_unknown_scientific_standing(monkeypatch):
@@ -21,7 +21,7 @@ def test_support_keeps_real_relations_and_unknown_scientific_standing(monkeypatc
             "record": {"original_source": "source:A", "digest": "actual-retained-digest"},
         },
     ]
-    native = _page()
+    native = demand_result_page()
     native["view"] = "support"
     native["support_page"] = {"records": records, "after": None, "complete": True}
     seen = []

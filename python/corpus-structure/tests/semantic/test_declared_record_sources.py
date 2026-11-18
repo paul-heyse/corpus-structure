@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from statistics_pack_support import statistics_bundle
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import SubjectContext
@@ -191,22 +192,7 @@ def test_declared_literal_record_assembly_preserves_semantic_member_pin():
     )
     from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
 
-    root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
-    repository = Path(__file__).resolve().parents[4]
-    bundle = SourceBundle(
-        "statistics_semantic",
-        (
-            SourceArtifact(
-                "statistics_semantic",
-                (repository / "domains/statistics/semantic.yaml").read_bytes(),
-            ),
-            SourceArtifact(
-                "statistics_terminology",
-                (repository / "domains/statistics/terminology.yaml").read_bytes(),
-            ),
-            SourceArtifact("semantic_core", (root / "core.yaml").read_bytes()),
-        ),
-    )
+    bundle = statistics_bundle()
     bundle = observation_inputs(source_product_inputs(bundle))
     prepared = prepare_release(bundle)
     model = compile_data_operations(bundle)

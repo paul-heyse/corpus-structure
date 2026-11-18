@@ -3,10 +3,8 @@
 from typing import Literal, TypedDict
 
 import pytest
-from pglast import ast
 from sqlalchemy import cast, literal, text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.schema import CreateTable
 
 from corpus_structure.semantic.data_operation_cpu_basis import (
     CPUInputRole,
@@ -14,15 +12,19 @@ from corpus_structure.semantic.data_operation_cpu_basis import (
     cpu_authority_value,
     cpu_basis_values,
     cpu_input_basis,
-    cpu_input_basis_native_sql,
 )
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_json import DdoJsonValue
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
+from semantic.cpu_basis_support import (
+    cpu_basis_connection as cpu_basis_connection,
+)
+from semantic.cpu_basis_support import (
+    cpu_basis_engine as cpu_basis_engine,
+)
 
 
 class _Context(TypedDict):
@@ -56,58 +58,6 @@ class _Role(TypedDict):
     body: DdoJsonValue
     support: list[_Support]
     producer_output: _ProducerOutput
-
-
-@pytest.fixture
-def cpu_basis_connection(semantic_bare_engine):
-    from importlib.resources import files
-
-    from corpus_structure.semantic.data_operation_binding_native import binding_native_sql
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
-
-    root = files("corpus_structure.semantic").joinpath("sql")
-    closure = root.joinpath("closure.sql").read_text()
-    with semantic_bare_engine.begin() as connection:
-        for schema in ("ops", "sem", "data", "kb"):
-            connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        for name in (
-            "ops.data_request",
-            "sem.data_operation_definition",
-            "kb.data_product",
-            "kb.data_product_member",
-            "ops.data_derivation_output",
-            "ops.original_source_admission",
-        ):
-            connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
-        for source, names in (
-            (root.joinpath("identity.sql").read_text(), {"canonical_json", "decimal_canonical"}),
-            (closure, {"require_float_lexical"}),
-            (
-                native_sql(native_protocol_sources()),
-                {
-                    "ddo_normalize",
-                    "ddo_json_meaning",
-                    "ddo_field",
-                    "ddo_operation_subject",
-                    "ddo_digest",
-                    "ddo_cpu_reply_value",
-                },
-            ),
-            (binding_native_sql(), {"ddo_input_support_selection", "ddo_input_support_refs"}),
-            (cpu_input_basis_native_sql(), {"ddo_cpu_input_basis", "ddo_cpu_reply_output"}),
-        ):
-            parsed = prepare_sql(source, source="cpu-actual-input-basis-control")
-            for index, statement in enumerate(parsed.statements):
-                node = statement.stmt
-                if (
-                    isinstance(node, ast.CreateFunctionStmt)
-                    and node.funcname
-                    and node.funcname[-1].sval in names
-                ):
-                    connection.exec_driver_sql(
-                        parsed.excerpt(index), execution_options={"no_parameters": True}
-                    )
-        yield connection
 
 
 def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_connection):

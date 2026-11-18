@@ -22,35 +22,23 @@ from semantic.data_operation_kernel_support import (
     CapturedKernelInputs,
     KernelRecipe,
     prepare_kernel,
+    split_captured_operations,
 )
 
 
 def projection_recipe(directory):
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.declared_candidate_products import candidate_inspection_inputs
     from corpus_structure.semantic.primary_operations import combine_primary_sources
-    from corpus_structure.semantic.types import ResolvedDependencies
 
     captured = current_pdf_recipe(directory).captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None and acquired[1] is not None
-    declarations, sources = acquired
-    assert sources is not None
+    base_dependencies, declarations, sources = split_captured_operations(captured)
     sources = combine_primary_sources(sources, operation_sources())
     dependencies = data_operation_dependencies(
-        ResolvedDependencies(
-            tuple(
-                item
-                for item in captured.dependencies.artifacts
-                if not item.name.startswith("data-operations/")
-            ),
-            captured.dependencies.vocabularies,
-            captured.dependencies.ontology_sources,
-        ),
+        base_dependencies,
         declarations,
         sources,
     )
@@ -69,15 +57,14 @@ def projection_recipe(directory):
 
 @contextmanager
 def table_source(scenario_seeds, tmp_path, monkeypatch):
-    from evaluate.declared_record_native_support import controlled_table_stream
+    from evaluate.declared_record_native_support import table_source_content
 
     from semantic.current_pdf_source_support import _current_pdf_source
 
     with _current_pdf_source(
         scenario_seeds,
         tmp_path,
-        monkeypatch,
-        stream=controlled_table_stream,
+        content=table_source_content(),
         sections=("#/groups/0",),
     ) as source:
         yield source
@@ -155,29 +142,16 @@ def parser_recipe(assets):
 def provider_recipe(directory, selection):
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
-    from corpus_structure.semantic.types import ResolvedDependencies
     from semantic.current_pm2_provider_fixture import operation_sources as provider_sources
 
     captured = projection_recipe(directory).captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None and acquired[1] is not None
-    declarations, sources = acquired
-    assert sources is not None
+    base_dependencies, declarations, sources = split_captured_operations(captured)
     sources = combine_primary_sources(sources, provider_sources(selection))
     dependencies = data_operation_dependencies(
-        ResolvedDependencies(
-            tuple(
-                item
-                for item in captured.dependencies.artifacts
-                if not item.name.startswith("data-operations/")
-            ),
-            captured.dependencies.vocabularies,
-            captured.dependencies.ontology_sources,
-        ),
+        base_dependencies,
         declarations,
         sources,
     )

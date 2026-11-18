@@ -985,7 +985,19 @@ def test_managed_review_composes_attempt_standing_and_unresolved_pages(tmp_path)
     execution = _run(store, *command)
     assert execution.returncode == 0
     review = json.loads(execution.stdout)
-    expected = json.loads(_run(store, "coverage", original.id, repaired.id, "--view", "unresolved", "--limit", "2", "--json").stdout)
+    expected = json.loads(
+        _run(
+            store,
+            "coverage",
+            original.id,
+            repaired.id,
+            "--view",
+            "unresolved",
+            "--limit",
+            "2",
+            "--json",
+        ).stdout
+    )
     assert review["node_coverage"] == expected["node_coverage"]
     assert review["node_coverage"]["required"] == 4
     assert review["node_coverage"]["covered"] == 1
@@ -998,7 +1010,10 @@ def test_managed_review_composes_attempt_standing_and_unresolved_pages(tmp_path)
     assert review["attempts"][0]["lanes"]["ordinary"]["source"]["head"] == "failed"
     assert review["attempts"][0]["lanes"]["ordinary"]["selected_count"] == 4
     assert review["attempts"][0]["lanes"]["ordinary"]["python"] is None
-    assert review["attempts"][0]["lanes"]["ordinary"]["context_sha256"] != review["attempts"][1]["lanes"]["ordinary"]["context_sha256"]
+    assert (
+        review["attempts"][0]["lanes"]["ordinary"]["context_sha256"]
+        != review["attempts"][1]["lanes"]["ordinary"]["context_sha256"]
+    )
     assert review["sources_differ"] is True
     assert review["next_actions"] == expected["next_actions"]
     second = json.loads(_run(store, *command, "--after", "2").stdout)
@@ -1032,7 +1047,9 @@ def test_managed_review_active_and_interrupted_without_receipts(tmp_path):
 @pytest.mark.parametrize("invalid", ["collection", "substituted"])
 def test_managed_review_rejects_inapplicable_or_tampered_artifacts(tmp_path, invalid):
     store = ResultStore(tmp_path)
-    with store.operation("test.collect" if invalid == "collection" else "test", scope={"lane": "ordinary"}) as original:
+    with store.operation(
+        "test.collect" if invalid == "collection" else "test", scope={"lane": "ordinary"}
+    ) as original:
         lane = original.directory / "ordinary"
         _receipt(lane, ["tests/test_sample.py::test_case"], fail=False)
         original.publish("ordinary", lane)

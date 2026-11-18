@@ -16,9 +16,6 @@ from corpus_structure.serve.source_decision_journey import (
 )
 from corpus_structure.serve.structural_gaps import SelectedGapRequest, selected_gap_rows
 from semantic.selected_query_cache_support import (
-    clear_selected_query_cache as clear_selected_query_cache,
-)
-from semantic.selected_query_cache_support import (
     control_frontier,
 )
 from semantic.test_dossier_products import _predecessor

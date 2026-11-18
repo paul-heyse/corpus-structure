@@ -16,7 +16,7 @@ from corpus_structure.methods.native_profiles import (
     pm2_selection,
     preflight_native_runtime,
 )
-from corpus_structure.semantic import SourceArtifact, SourceBundle
+from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import execute_data_demand, read_data_demand
 from corpus_structure.semantic.declared_candidate_products import candidate_member_values
@@ -25,6 +25,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
+from corpus_structure.semantic.regeneration import acquire_pack
 from semantic.current_pdf_source_support import (
     admit_current_target,
     current_consumer_request,
@@ -57,19 +58,7 @@ def _captured_definition_recipe(assets):
     checked = preflight_native_runtime("gliner", gliner.snapshot)
     selections["gliner"] = gliner_selection(gliner, checked["runtime_identity"])
     inputs = primary_operation_inputs(
-        SourceBundle(
-            "toy_semantic",
-            (
-                SourceArtifact("toy_semantic", (ROOT / "domains/toy/semantic.yaml").read_bytes()),
-                SourceArtifact(
-                    "semantic_core",
-                    (
-                        ROOT
-                        / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-                    ).read_bytes(),
-                ),
-            ),
-        ),
+        acquire_pack(DOMAINS / "toy").bundle,
         sentence_configuration=SentenceConfig(exclude=("ner", "lemmatizer")),
         hanlp_selection=prepare_hanlp_selection(assets),
         learned_selections=selections,

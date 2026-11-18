@@ -34,7 +34,7 @@ class SourceRuntime:
 
 @pytest.fixture
 def source_runtime(monkeypatch):
-    from corpus_structure.semantic import demand_results, runtime
+    from corpus_structure.semantic import demand_results, pdf_source_search, runtime
 
     controlled = SourceRuntime(MagicMock(spec=Engine), MagicMock(spec=Connection), [])
 
@@ -50,6 +50,7 @@ def source_runtime(monkeypatch):
 
     monkeypatch.setattr(runtime, "open_runtime_engine", open_engine)
     monkeypatch.setattr(demand_results, "selected_read_snapshot", selected_snapshot)
+    monkeypatch.setattr(pdf_source_search, "search_source_snapshot", selected_snapshot)
     return controlled
 
 
@@ -226,9 +227,16 @@ def test_current_inspection_preserves_exact_product_and_companion_selector(
     assert selected.version == 5 and selected.model_dump(include=set(PIN)) == PIN
     assert selected.view == "manifest" and selected.collection == "coverage"
     assert json.loads(result.stdout)["rows"] == [{"outcome": "unknown"}]
-    for old in (("17", "4"), ("17", "--producing-task", "23", "--native-digest", "a" * 64)):
-        rejected = cli("source", "inspect", *old, "--json")
-        assert rejected.exit_code != 0
+    for old, reason in (
+        (("17", "4"), "Got unexpected extra argument(s) (4)"),
+        (
+            ("17", "--producing-task", "23", "--native-digest", "a" * 64),
+            "No such option: --producing-task",
+        ),
+    ):
+        rejected = cli("source", "inspect", old[0], *_inspect_args()[3:], *old[1:], "--json")
+        assert rejected.exit_code == 2
+        assert reason in rejected.output
     assert len(seen) == 1, "retired physical selection reached the current source reader"
 
 
@@ -269,22 +277,47 @@ def test_source_coverage_summary_keeps_page_counts_and_continuation(
     assert PIN["product_id"] in human.stdout
 
 
-def test_retired_run_catalog_options_refuse_before_opening_runtime(cli, source_runtime):
+def test_source_catalog_requires_project_and_refuses_retired_run_options(
+    cli, source_runtime, monkeypatch
+):
+    from corpus_structure.serve import source_catalog
+
+    def catalog(connection, request):
+        assert connection is source_runtime.connection
+        return source_catalog.SourceCatalogResponse(
+            selection=request,
+            cut={},
+            rows=[],
+            obligations=[],
+            uses=[],
+            populations=[],
+            next_cursor=None,
+            page_complete=True,
+        )
+
+    monkeypatch.setattr(source_catalog, "read_source_catalog", catalog)
     for command in ("native-products", "views"):
-        assert cli("source", command, "17", "--json").exit_code != 0
-    assert (
-        cli(
+        accepted = cli(
+            "source", command, PIN["demand_id"], "--project", PIN["project_id"], "--json"
+        )
+        assert accepted.exit_code == 0, (accepted.output, accepted.exception)
+    source_runtime.opened.clear()
+    for command in ("native-products", "views"):
+        rejected = cli("source", command, "17", "--json")
+        assert rejected.exit_code == 2
+        assert "Missing option '--project'" in rejected.output
+    for option, value in (("--observations", ()), ("--task", ("23",))):
+        rejected = cli(
             "source",
             "native-products",
             PIN["demand_id"],
             "--project",
             PIN["project_id"],
-            "--observations",
-            "--task",
-            "23",
-        ).exit_code
-        != 0
-    )
+            option,
+            *value,
+        )
+        assert rejected.exit_code == 2
+        assert f"No such option: {option}" in rejected.output
     assert not source_runtime.opened
 
 
@@ -356,13 +389,40 @@ def test_source_find_routes_exact_selected_request_and_preserves_current_handles
 
 
 def test_source_find_refuses_unqualified_or_retired_request_before_acquisition(
-    cli, source_runtime, tmp_path
+    cli, source_runtime, tmp_path, monkeypatch
 ):
-    for value in (
-        {"run_id": 17, "text": "Alice"},
-        {"project_id": PIN["project_id"], "demand_id": PIN["demand_id"], "text": "Alice"},
+    from corpus_structure.serve import source_search
+
+    valid = {
+        "project_id": PIN["project_id"],
+        "demand_id": PIN["demand_id"],
+        "read_id": PIN["read_id"],
+        "sources": [PIN],
+        "text": "Alice",
+    }
+
+    def search(connection, request):
+        assert connection is source_runtime.connection
+        return source_search.SourceSearchResponse(cut={}, rows=[], population_complete=True)
+
+    monkeypatch.setattr(source_search, "search_source", search)
+    path = tmp_path / "search.json"
+    path.write_text(json.dumps(valid))
+    accepted = cli("source", "find", str(path), "--json")
+    assert accepted.exit_code == 0, (accepted.output, accepted.exception)
+    source_runtime.opened.clear()
+    for value, code, pointer in (
+        ({**valid, "run_id": 17}, "extra_forbidden", "/run_id"),
+        ({key: value for key, value in valid.items() if key != "read_id"}, "missing", "/read_id"),
+        ({key: value for key, value in valid.items() if key != "sources"}, "missing", "/sources"),
     ):
-        path = tmp_path / "bad.json"
         path.write_text(json.dumps(value))
-        assert cli("source", "find", str(path), "--json").exit_code != 0
+        rejected = cli("source", "find", str(path), "--json")
+        assert rejected.exit_code == 1
+        refusal = json.loads(rejected.stdout)["error"]
+        assert refusal["code"] == "ValidationError"
+        assert refusal["message"] == "invalid SourceSearchRequest input"
+        assert [
+            (row["code"], row["input_path"]) for row in refusal["validation"]["observations"]
+        ] == [(code, pointer)]
     assert not source_runtime.opened

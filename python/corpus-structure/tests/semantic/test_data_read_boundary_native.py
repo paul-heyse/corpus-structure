@@ -15,71 +15,69 @@ from corpus_structure.semantic.prepared_sql import prepare_sql
 
 
 @pytest.fixture
-def read_boundary_control(semantic_bare_engine):
-    with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql("CREATE SCHEMA ops")
-        for name in (
-            "data_demand",
-            "data_demand_read",
-            "data_demand_read_scope",
-            "data_trust_scope",
-            "original_source_admission",
-            "data_revocation",
-        ):
-            connection.execute(
-                CreateTable(table("ops." + name), include_foreign_key_constraints=[])
-            )
-        # These controls isolate boundary admission, rather than qualify universe
-        # authorization, scope hashing, or the census domain providers themselves.
+def read_boundary_control(infrastructure_rollback):
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA ops")
+    for name in (
+        "data_demand",
+        "data_demand_read",
+        "data_demand_read_scope",
+        "data_trust_scope",
+        "original_source_admission",
+        "data_revocation",
+    ):
+        connection.execute(CreateTable(table("ops." + name), include_foreign_key_constraints=[]))
+    # These controls isolate boundary admission, rather than qualify universe
+    # authorization, scope hashing, or the census domain providers themselves.
+    connection.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_scope(project text,source text) RETURNS text LANGUAGE sql IMMUTABLE AS $$SELECT project||':'||coalesce(source,'<project>')$$"
+    )
+    connection.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_authorize(universe text) RETURNS void LANGUAGE plpgsql AS $$BEGIN IF universe='forbidden' THEN RAISE EXCEPTION 'universe refused' USING ERRCODE='42501'; END IF; END$$"
+    )
+    for name in ("ddo_record_grade_require_finite_census", "ddo_record_fit_require_finite_cut"):
         connection.exec_driver_sql(
-            "CREATE FUNCTION ops.ddo_scope(project text,source text) RETURNS text LANGUAGE sql IMMUTABLE AS $$SELECT project||':'||coalesce(source,'<project>')$$"
+            "CREATE FUNCTION ops."
+            + name
+            + "(d ops.data_demand,boundary ops.data_demand_read) RETURNS void LANGUAGE plpgsql STABLE AS $$BEGIN IF d.id='infinite' THEN RAISE EXCEPTION 'not finite' USING ERRCODE='23514'; ELSIF d.id='forbidden' THEN RAISE EXCEPTION 'census refused' USING ERRCODE='42501'; END IF; END$$"
         )
+    prepared = prepare_sql(
+        read_boundary_native_sql(metadata).replace("__DDO_SOURCE_DIGEST__", "kernel:control"),
+        source="read-boundary-control",
+    )
+    for index, _ in enumerate(prepared.statements):
         connection.exec_driver_sql(
-            "CREATE FUNCTION ops.ddo_authorize(universe text) RETURNS void LANGUAGE plpgsql AS $$BEGIN IF universe='forbidden' THEN RAISE EXCEPTION 'universe refused' USING ERRCODE='42501'; END IF; END$$"
+            prepared.excerpt(index), execution_options={"no_parameters": True}
         )
-        for name in ("ddo_record_grade_require_finite_census", "ddo_record_fit_require_finite_cut"):
-            connection.exec_driver_sql(
-                "CREATE FUNCTION ops."
-                + name
-                + "(d ops.data_demand,boundary ops.data_demand_read) RETURNS void LANGUAGE plpgsql STABLE AS $$BEGIN IF d.id='infinite' THEN RAISE EXCEPTION 'not finite' USING ERRCODE='23514'; ELSIF d.id='forbidden' THEN RAISE EXCEPTION 'census refused' USING ERRCODE='42501'; END IF; END$$"
-            )
-        prepared = prepare_sql(
-            read_boundary_native_sql(metadata).replace("__DDO_SOURCE_DIGEST__", "kernel:control"),
-            source="read-boundary-control",
-        )
-        for index, _ in enumerate(prepared.statements):
-            connection.exec_driver_sql(
-                prepared.excerpt(index), execution_options={"no_parameters": True}
-            )
-        now, snapshot, xid = connection.execute(
-            text("SELECT clock_timestamp(),pg_current_snapshot()::text,pg_current_xact_id()::text")
-        ).one()
-        boundary = dict(
-            id="read:one",
-            demand_id="demand:one",
-            frontier_at=now.isoformat(),
-            read_snapshot=snapshot,
-            owner_xid=xid,
-            kernel_digest="kernel:control",
-            access_universes=["accepted"],
-            grade_census_eligible=False,
-            fit_census_eligible=True,
-        )
-        connection.execute(
-            table("ops.data_demand_read_scope").insert(),
-            [
-                dict(read_id="read:one", scope="a", epoch=2, ordinary=True, domain=False),
-                dict(read_id="read:one", scope="b", epoch=3, ordinary=False, domain=True),
-            ],
-        )
-        connection.execute(
-            table("ops.data_trust_scope").insert(),
-            [
-                dict(scope="a", project_id="project", epoch=2),
-                dict(scope="b", project_id="project", epoch=3),
-            ],
-        )
-        yield connection, boundary, now, xid
+    now, snapshot, xid = connection.execute(
+        text("SELECT clock_timestamp(),pg_current_snapshot()::text,pg_current_xact_id()::text")
+    ).one()
+    boundary = dict(
+        id="read:one",
+        demand_id="demand:one",
+        frontier_at=now.isoformat(),
+        read_snapshot=snapshot,
+        owner_xid=xid,
+        kernel_digest="kernel:control",
+        access_universes=["accepted"],
+        grade_census_eligible=False,
+        fit_census_eligible=True,
+    )
+    connection.execute(
+        table("ops.data_demand_read_scope").insert(),
+        [
+            dict(read_id="read:one", scope="a", epoch=2, ordinary=True, domain=False),
+            dict(read_id="read:one", scope="b", epoch=3, ordinary=False, domain=True),
+        ],
+    )
+    connection.execute(
+        table("ops.data_trust_scope").insert(),
+        [
+            dict(scope="a", project_id="project", epoch=2),
+            dict(scope="b", project_id="project", epoch=3),
+        ],
+    )
+    yield connection, boundary, now, xid
 
 
 def _call(connection, name, boundary, *, project="project", ordinary=None):
@@ -191,8 +189,13 @@ def test_visibility_and_original_admission_revocation_selectors(read_boundary_co
         is None
     )
     other_owner = {**boundary, "owner_xid": "other"}
+    # The current transaction can be visible to its own snapshot independently of owner_xid.
+    # An xid beyond xmax independently establishes the invisible, non-owner branch.
+    unseen_xid = str(int(boundary["read_snapshot"].split(":")[1]) + 100)
     assert (
-        connection.scalar(visible, dict(created_at=now, xid=xid, boundary=json.dumps(other_owner)))
+        connection.scalar(
+            visible, dict(created_at=now, xid=unseen_xid, boundary=json.dumps(other_owner))
+        )
         is False
     )
     assert (
@@ -248,7 +251,7 @@ def test_visibility_and_original_admission_revocation_selectors(read_boundary_co
             transaction.rollback()
 
 
-def test_native_boundary_declarations_keep_defaults_security_and_order():
+def test_program_boundary_declarations_keep_defaults_security_and_order():
     from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
 
     sources = native_protocol_sources()

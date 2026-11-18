@@ -21,7 +21,7 @@ from native_test_support import principal_engine
 
 
 @pytest.fixture
-def release_guard_context(semantic_bare_engine):
+def release_guard_context(infrastructure_commit_engine):
     metadata = MetaData()
     release = Table("release", metadata, Column("release_id", Text, primary_key=True), schema="sem")
     finalized = Table(
@@ -37,7 +37,7 @@ def release_guard_context(semantic_bare_engine):
         Column("content", BYTEA),
         schema="sem",
     )
-    with semantic_bare_engine.begin() as connection:
+    with infrastructure_commit_engine.begin() as connection:
         connection.execute(CreateSchema("sem"))
         connection.execute(CreateSchema("data"))
         metadata.create_all(connection)
@@ -62,7 +62,7 @@ def release_guard_context(semantic_bare_engine):
                 search_path=("pg_catalog", "pg_temp"),
             )
         )
-    return semantic_bare_engine, metadata, release, finalized, receipt
+    return infrastructure_commit_engine, metadata, release, finalized, receipt
 
 
 def test_release_preconditions_preserve_finalization_and_unknown_release_refusals(

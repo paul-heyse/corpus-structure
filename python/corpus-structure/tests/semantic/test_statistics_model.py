@@ -1,38 +1,17 @@
 """The actual statistics domain must survive the release boundary, not just a toy."""
 
-from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from statistics_pack_support import statistics_bundle
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.observations import observation_inputs
 
 
 def statistics_inputs():
-    root = Path(__file__).resolve().parents[4]
-    return observation_inputs(
-        SourceBundle(
-            "statistics_semantic",
-            (
-                SourceArtifact(
-                    "statistics_semantic", (root / "domains/statistics/semantic.yaml").read_bytes()
-                ),
-                SourceArtifact(
-                    "statistics_terminology",
-                    (root / "domains/statistics/terminology.yaml").read_bytes(),
-                ),
-                SourceArtifact(
-                    "semantic_core",
-                    (
-                        root
-                        / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-                    ).read_bytes(),
-                ),
-            ),
-        )
-    )
+    return observation_inputs(statistics_bundle())
 
 
 def test_statistics_domain_retains_predicates_identity_and_structured_qualifiers():

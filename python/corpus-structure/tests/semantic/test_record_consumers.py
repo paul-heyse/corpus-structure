@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.demand_results import DemandResult
-from semantic.test_demand_results import _page
+from semantic.demand_result_support import demand_result_page
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def selected_records(monkeypatch):
 
     def read(connection, demand_id, *, project_id, **kwargs):
         seen.append(dict(demand_id=demand_id, project_id=project_id, **kwargs))
-        return DemandResult(json_bytes(_page()))
+        return DemandResult(json_bytes(demand_result_page()))
 
     monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
     return seen

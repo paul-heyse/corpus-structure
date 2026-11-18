@@ -474,12 +474,15 @@ def physical_host():
             policy,
             check_active=lambda: None,
             startup_timeout=5,
-            command=changes.pop("command", [
-                sys.executable,
-                "-I",
-                "-u",
-                str(Path(__file__).with_name("native_host_cases.py")),
-            ]),
+            command=changes.pop(
+                "command",
+                [
+                    sys.executable,
+                    "-I",
+                    "-u",
+                    str(Path(__file__).with_name("native_host_cases.py")),
+                ],
+            ),
             **changes,
         )
         peers.append(host)
@@ -616,8 +619,17 @@ def matching_startup():
 
 
 STARTUP_FIELDS = (
-    "provider", "profile", "runtime_identity", "assets", "device", "dtype", "backend",
-    "matmul_precision", "cudnn_allow_tf32", "native_threads.intra_op", "native_threads.inter_op",
+    "provider",
+    "profile",
+    "runtime_identity",
+    "assets",
+    "device",
+    "dtype",
+    "backend",
+    "matmul_precision",
+    "cudnn_allow_tf32",
+    "native_threads.intra_op",
+    "native_threads.inter_op",
 )
 
 
@@ -657,7 +669,8 @@ def test_startup_comparison_handles_malformed_nested_threads(matching_startup, t
 
     matching_startup["native_threads"] = threads
     assert startup_profile_mismatches(selection(), matching_startup) == (
-        "native_threads.intra_op", "native_threads.inter_op",
+        "native_threads.intra_op",
+        "native_threads.inter_op",
     )
 
 
@@ -673,8 +686,15 @@ def test_real_host_refuses_reported_profile_mismatch_and_retires_peer(physical_h
     adopted = []
     with pytest.raises(Pm2WorkerError, match="frozen provider profile: backend"):
         physical_host(
-            selection(), adopt=adopted.append,
-            command=[sys.executable, "-I", "-u", str(Path(__file__).with_name("native_host_cases.py")), "startup-mismatch"],
+            selection(),
+            adopt=adopted.append,
+            command=[
+                sys.executable,
+                "-I",
+                "-u",
+                str(Path(__file__).with_name("native_host_cases.py")),
+                "startup-mismatch",
+            ],
         )
     assert len(adopted) == 1
     assert adopted[0].startup == {}
@@ -725,7 +745,9 @@ def test_residency_retires_for_external_borrower_and_restarts_real_host(physical
     monkeypatch.setattr(pdf_capacity, "pdf_gpu_slot", unexpected)
     monkeypatch.setattr(pdf_capacity, "_locked_gpu_slot", unexpected)
     # The peer has no model assets or accelerator use. Keep its external service boundary controlled.
-    monkeypatch.setattr(native_host, "suspend_resident_nemotron", lambda *args, **kwargs: nullcontext())
+    monkeypatch.setattr(
+        native_host, "suspend_resident_nemotron", lambda *args, **kwargs: nullcontext()
+    )
 
     policy = CharacterizationExecutionPolicy()
     selected = selection()

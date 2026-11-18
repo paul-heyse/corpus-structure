@@ -60,7 +60,9 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
     assert {
         Decimal(decode_semantic_value(row["reading"])["value"]["value"]["lexical"]) for row in rows
     } == {Decimal(12)}
-    from evaluate.test_declared_rich_native_journey import refuse_rich_completion_substitution
+    from evaluate.declared_rich_native_journey_test_support import (
+        refuse_rich_completion_substitution,
+    )
 
     for attack in ("decision", "missing-cpu"):
         refuse_rich_completion_substitution(

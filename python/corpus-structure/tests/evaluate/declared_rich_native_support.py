@@ -20,9 +20,11 @@ from evaluate.declared_record_native_support import (
     project_context,
     request,
 )
-from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
-
-from corpus_structure.semantic.types import ResolvedDependencies
+from semantic.data_operation_kernel_support import (
+    CapturedKernelInputs,
+    KernelRecipe,
+    split_captured_operations,
+)
 
 NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
 
@@ -30,7 +32,6 @@ NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge
 def rich_policy_recipe(directory):
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.primary_operations import combine_primary_sources
@@ -44,19 +45,8 @@ def rich_policy_recipe(directory):
     original = policy_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None and acquired[1] is not None
-    declarations, sources = acquired
-    assert sources is not None
-    dependencies = ResolvedDependencies(
-        tuple(
-            artifact
-            for artifact in captured.dependencies.artifacts
-            if not artifact.name.startswith("data-operations/")
-        ),
-        captured.dependencies.vocabularies,
-        captured.dependencies.ontology_sources,
-    )
+    base_dependencies, declarations, sources = split_captured_operations(captured)
+    dependencies = base_dependencies
     bundle, dependencies = rich_knowledge_schema_inputs(
         captured.bundle,
         dependencies,

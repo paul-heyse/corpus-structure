@@ -3,10 +3,10 @@
 from functools import cache
 from pathlib import Path
 
+from statistics_pack_support import statistics_bundle
+
 from corpus_structure.semantic import (
     PreparationProfile,
-    SourceArtifact,
-    SourceBundle,
     prepare_release,
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
@@ -47,21 +47,7 @@ PIN = DeclaredRecordSource(
 
 @cache
 def release_inputs():
-    bundle = observation_inputs(
-        SourceBundle(
-            "statistics_semantic",
-            (
-                SourceArtifact(
-                    "statistics_semantic", (ROOT / "domains/statistics/semantic.yaml").read_bytes()
-                ),
-                SourceArtifact("semantic_core", (MODEL / "core.yaml").read_bytes()),
-                SourceArtifact(
-                    "statistics_terminology",
-                    (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                ),
-            ),
-        )
-    )
+    bundle = observation_inputs(statistics_bundle())
     profile = PreparationProfile()
     return bundle, profile, prepare_release(bundle, profile=profile)
 

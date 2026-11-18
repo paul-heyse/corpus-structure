@@ -15,6 +15,7 @@ from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.native_objects import NativeAuthoring, NativeAuthoringError
 
 PREDECESSOR = "semantic_ddo_pe_n2"
+PREDECESSOR_PARTS = ("ops.pdf_artifact_part", "ops.pdf_stage_artifact_part")
 prepare_data_steps = partial(
     data_steps.prepare_data_steps, target=metadata, predecessor=PREDECESSOR
 )
@@ -52,16 +53,44 @@ def test_shared_stream_backfill_and_authenticated_n1_are_explicit_composable_own
     )
     assert [step.name for step in selected] == ["ddo_n1_relower", "pdf_s40_shared_streams"]
     assert selected[1].owner == "corpus_sem_publisher"
-    assert "LOCK ops.pdf_artifact_part" in selected[1].statements[0]
-    assert "pdf_identity_fold_finish" in selected[1].statements[0]
     assert "TO_REGCLASS" not in selected[1].statements[0].upper()
     assert "IN EXECUTE" not in selected[1].statements[0].upper()
-    assert selected[1].retired_relations == RETIRED_PARTS
-    assert set(RETIRED_PARTS) <= set(selected[1].prerequisite_relations)
+    assert selected[1].retired_relations == RETIRED_PARTS == PREDECESSOR_PARTS
+    assert set(PREDECESSOR_PARTS) <= set(selected[1].prerequisite_relations)
     with pytest.raises(ValidationError):
         DataStepRequest.model_validate(
             {"name": "pdf_s40_shared_streams", "parameters": {"sql": "DELETE FROM sem.release"}}
         )
+
+
+def test_shared_stream_step_holds_both_predecessor_locks_before_transaction_end(commit_db_engine):
+    from sqlalchemy import text
+    from sqlalchemy.schema import CreateTable
+
+    from corpus_structure.semantic.native_objects import execute_native_sql
+
+    relations, _ = predecessor_parts(PREDECESSOR)
+    with commit_db_engine.begin() as connection:
+        for relation in relations.values():
+            connection.execute(CreateTable(relation, include_foreign_key_constraints=[]))
+    (step,) = prepare_data_steps((DataStepRequest(name="pdf_s40_shared_streams"),))
+    locks = text(
+        "SELECT namespace.nspname||'.'||relation.relname FROM pg_locks held "
+        "JOIN pg_class relation ON relation.oid=held.relation "
+        "JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace "
+        "WHERE held.pid=pg_backend_pid() AND held.granted "
+        "AND held.mode='AccessExclusiveLock' AND namespace.nspname='ops' "
+        "AND relation.relname IN ('pdf_artifact_part','pdf_stage_artifact_part')"
+    )
+    with commit_db_engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            assert set(connection.scalars(locks)) == set()
+            for statement in step.statements:
+                execute_native_sql(connection, statement)
+            assert set(connection.scalars(locks)) == set(PREDECESSOR_PARTS)
+        finally:
+            transaction.rollback()
 
 
 def test_shared_stream_data_guard_finishes_before_both_retired_tables_drop():
@@ -95,7 +124,7 @@ def test_retired_table_names_never_auto_select_maintenance_and_changed_sql_refus
 def test_retired_shapes_come_from_the_fixed_predecessor_inventory():
     relations, captured = predecessor_parts(PREDECESSOR)
     assert b'"physical_id"' in captured
-    assert tuple(relations) == RETIRED_PARTS
+    assert tuple(relations) == PREDECESSOR_PARTS
     for relation in relations.values():
         assert set(relation.c.keys()) == {
             "product_id",

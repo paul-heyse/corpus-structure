@@ -198,19 +198,21 @@ LANGUAGE sql BEGIN ATOMIC SELECT 1; END;"""
 
 
 def test_current_release_guards_require_current_archive_and_projection_compiler():
-    from pathlib import Path
-
     from corpus_structure.semantic.native_products import function_bodies
+    from corpus_structure.semantic.target_installation import foundation_programs
 
-    source = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
-    archive = function_bodies((source / "closure.sql").read_text())["sem.require_archive_bytes"]
-    projection = function_bodies((source / "execution_projection_check.sql").read_text())[
+    archive = function_bodies(foundation_programs().closure)["sem.require_archive_bytes"]
+    from corpus_structure.semantic.archive_projection_native import execution_projection_check_sql
+    from corpus_structure.semantic.metadata import metadata
+
+    projection = function_bodies(execution_projection_check_sql(metadata))[
         "sem.require_execution_projection"
     ]
     assert "document->>'format' IS DISTINCT FROM 'semantic-release-archive-3'" in archive
     # IS DISTINCT FROM also rejects missing compiler metadata; accepting only 24
     # leaves historical compilers outside both current guard boundaries.
     assert "manifest->'profile'->>'compiler_version' IS DISTINCT FROM '24'" in archive
-    assert "IS DISTINCT FROM '24' THEN RAISE EXCEPTION" in projection
+    assert "IS DISTINCT FROM '24'" in projection
+    assert "execution projection requires current compiler ABI; regenerate" in projection
     assert "THEN RETURN;" not in archive
     assert "THEN RETURN;" not in projection

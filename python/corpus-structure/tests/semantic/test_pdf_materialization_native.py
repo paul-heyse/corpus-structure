@@ -3,10 +3,9 @@
 import json
 
 import pytest
-from pdf_acceptance_support import certify_controlled_pdf_stream
+from pdf_controlled_support import ControlledPdfContent, controlled_pdf_stream
 from sqlalchemy import select
 
-from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
 from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -15,7 +14,7 @@ from corpus_structure.semantic.original_documents import acquire_original_docume
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.refusals import ReadLimit
-from semantic.current_pdf_integration_support import ROOT, current_pdf_recipe
+from semantic.current_pdf_integration_support import ROOT, integrated_pdf_recipe
 from semantic.data_operation_kernel_support import Kernel
 from semantic.data_operation_original_support import OriginalSeedRecipe
 
@@ -33,57 +32,33 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
 
     from corpus_structure.ingest import pdf_worker
 
-    def controlled_stream(
-        self,
-        source,
-        *,
-        spool_root,
-        record_root,
-        build_id,
-        release_id,
-        on_replay,
-        check_active,
-        **options,
-    ):
-        check_active()
+    def capture_content():
         document = DoclingDocument(name="Independent materialization source")
         document.add_page(page_no=1, size=Size(width=200, height=300))
         document.add_text(
             label=DocItemLabel.TEXT,
             text="independent expected text",
             prov=ProvenanceItem(
-                page_no=1,
-                bbox=BoundingBox(l=10, t=20, r=150, b=40),
-                charspan=(0, 25),
+                page_no=1, bbox=BoundingBox(l=10, t=20, r=150, b=40), charspan=(0, 25)
             ),
         )
-        streamed = StreamingPdfResult(
-            document,
-            PdfStreamSpool(spool_root, check_active=check_active),
-            "success",
-            (),
-            self.recipe.to_bytes(),
-            (),
-        )
-        return certify_controlled_pdf_stream(
-            streamed,
-            source,
-            spool_root=spool_root,
-            record_root=record_root,
-            build_id=build_id,
-            release_id=release_id,
-            on_replay=on_replay,
-            **options,
+        return ControlledPdfContent.from_document(document)
+
+    content = capture_content()
+
+    def controlled_stream(worker, request, *, on_replay, check_active=None):
+        return controlled_pdf_stream(
+            worker, request, content, on_replay=on_replay, check_active=check_active
         )
 
     monkeypatch.setattr(pdf_worker.PdfWorker, "stream", controlled_stream)
-    recipe = OriginalSeedRecipe(current_pdf_recipe(tmp_path))
-    with scenario_seeds.commit_clone(recipe) as clone:
+    recipe = OriginalSeedRecipe(integrated_pdf_recipe())
+    with scenario_seeds.build_for_consumer(recipe, tmp_path) as clone:
         kernel = Kernel(
             clone.admin,
             clone.stage.kernel.preparation,
             clone.stage.kernel.identities,
-            recipe.target,
+            clone.stage.kernel.recipe,
             clone,
         )
         selected_original = clone.stage.original
@@ -99,7 +74,7 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
                 targets=("source.pdf/capture",),
                 original_sources=(original.selection(),),
                 inference="pdf-materialization-test",
-                execution_profile=recipe.target.execution_profile,
+                execution_profile=kernel.recipe.execution_profile,
             )
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
                 intent,

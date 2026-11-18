@@ -54,6 +54,7 @@ from semantic.data_operation_demand_support import (
     retain,
 )
 from semantic.data_operation_kernel_support import POPULATION, STORAGE
+from test_preparation import preparation_fixture
 
 
 def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
@@ -889,31 +890,35 @@ def test_actual_writer_rejects_independently_authored_binding_substitutions(ddo_
     )
     # These are protected-admission obligations, not expression-only comparisons.
     reasons = (
-        ("role-too-few", "P0001", "native binding role cardinality differs"),
-        ("extra-role", "P0001", "request input roles differ from admitted definition"),
-        ("missing-role", "P0001", "missing request role"),
-        ("unknown-input", "P0001", "incomplete input cannot attach runnable request"),
-        ("known-absent-required", "P0001", "incomplete input cannot attach runnable request"),
+        ("role-too-few", "23514", "native binding role cardinality differs"),
+        ("extra-role", "23514", "request input roles differ from admitted definition"),
+        ("missing-role", "23514", "missing request role"),
+        ("unknown-input", "23514", "incomplete input cannot attach runnable request"),
+        ("known-absent-required", "23514", "incomplete input cannot attach runnable request"),
         (
             "wrong-source-meaning",
-            "P0001",
+            "23514",
             "semantic request member differs from native product/member",
         ),
         (
             "wrong-context-meaning",
-            "P0001",
+            "23514",
             "semantic request member differs from native product/member",
         ),
-        ("member-removed", "23514", "selected binding row is outside current admitted universe"),
+        ("member-removed", "23514", "selected input support set has no exact native binding row"),
         (
             "position-substitution",
             "23514",
-            "selected binding row is outside current admitted universe",
+            "selected input support set has no exact native binding row",
         ),
-        ("support-episode-substitution", "P0002", "query returned no rows", "ddo_validate_binding"),
+        (
+            "support-episode-substitution",
+            "23514",
+            "unrequested support identity cannot salt semantic input",
+        ),
         (
             "unselected-alternative",
-            "P0001",
+            "23514",
             "population meaning lacks exact native receipt locator",
         ),
     )
@@ -1204,22 +1209,22 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
         ("member-removed", "23514", "selected native input bundles violate frozen binding"),
         (
             "witness-member-removed",
-            "P0001",
+            "23514",
             "population semantic witness differs from native closure value",
         ),
         (
             "witness-member-added",
-            "P0001",
+            "23514",
             "population semantic witness differs from native closure value",
         ),
         (
             "witness-incomplete",
-            "P0001",
+            "23514",
             "population semantic witness differs from native closure value",
         ),
         (
             "witness-receipt-missing",
-            "P0001",
+            "23514",
             "population witness lacks authenticated native receipt reference",
         ),
     )
@@ -2481,7 +2486,7 @@ def test_competing_first_attachments_coalesce_one_request_and_task(ddo_kernel):
         )
 
 
-@pytest.fixture
+@preparation_fixture("ddo_selected_graph")
 def selected_graph_case(request, scenario_seeds):
     with scenario_seeds.rollback_family(request.param) as case:
         yield case
@@ -2976,3 +2981,191 @@ def test_cancellation_locks_recorded_support_scopes_outside_its_roots(ddo_kernel
             )
         assert isinstance(blocked.value.orig, LockNotAvailable)
         assert blocked.value.orig.sqlstate == "55P03"
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+@pytest.mark.parametrize(
+    "shape", ["shared-descendant", "mixed-validity", "two-node-cycle", "superseded-population"]
+)
+def test_installed_validity_closure_matches_authored_reference_graph(ddo_kernel, shape):
+    from datetime import timedelta
+
+    from corpus_structure.semantic.metadata import table
+
+    episodes: dict[str, str] = {}
+    demands: dict[str, str] = {}
+    expected: dict[tuple[str, str], bool]
+    seeds: list[str]
+    producers = ("shared",) if shape == "superseded-population" else ("left", "right", "shared")
+    for name in producers:
+        demand, _, _, attached = attach(ddo_kernel, subject="reference:" + name)
+        fence = claim(ddo_kernel, attached)
+        receipt = publish(ddo_kernel, fence, retain(ddo_kernel, fence))
+        episodes[name] = receipt["derivation_id"]
+        demands[name] = demand["demand_id"]
+
+    with ddo_kernel["engine"].begin() as connection:
+        if shape == "superseded-population":
+            use = connection.scalar(
+                text(
+                    "SELECT id FROM ops.demand_use WHERE demand_id=:demand AND derivation_id=:episode"
+                ),
+                {"demand": demands["shared"], "episode": episodes["shared"]},
+            )
+            assert use is not None
+            now, xid = connection.execute(
+                text("SELECT clock_timestamp(),pg_current_xact_id()::text")
+            ).one()
+            for name, created in (("old", now), ("new", now + timedelta(seconds=1))):
+                connection.execute(
+                    table("ops.data_population").insert(),
+                    {
+                        "id": "reference-population:" + name,
+                        "demand_id": demands["shared"],
+                        "semantic_key": "reference-population-key:" + name,
+                        "name": "reference-population",
+                        "context_key": "reference-context",
+                        "members": [],
+                        "complete": True,
+                        "evidence": {"admission_use_id": use, "derivation_id": episodes["shared"]},
+                        "created_at": created,
+                        "created_xid": xid,
+                    },
+                )
+            expected = {
+                ("population", "reference-population:old"): False,
+                ("population", "reference-population:new"): True,
+                ("use", use): True,
+                ("episode", episodes["shared"]): True,
+                ("producer", episodes["shared"]): True,
+            }
+            seeds = ["reference-population:old", "reference-population:new"]
+            kind = "population"
+            query = text(
+                "SELECT kind,id,valid FROM ops.ddo_valid_closure('{}','{}',NULL,CAST(:seeds AS text[]))"
+            )
+        else:
+            links = [("left", "shared"), ("right", "shared")]
+            if shape == "two-node-cycle":
+                links.append(("shared", "left"))
+            source_scope = connection.scalar(text("SELECT ops.ddo_scope('ddo-test','source:test')"))
+            for parent, child in links:
+                connection.execute(
+                    table("ops.data_derivation_support").insert(),
+                    {
+                        "derivation_id": episodes[parent],
+                        "role": "authored-reference-edge",
+                        "position": 0,
+                        "support_derivation_id": episodes[child],
+                        "scope": source_scope,
+                        "epoch": 0,
+                        "admission_use_id": None,
+                        "occurrence": 0,
+                    },
+                )
+            expected = {
+                (kind, episode): kind == "producer" or shape != "two-node-cycle"
+                for kind in ("episode", "producer")
+                for episode in episodes.values()
+            }
+            seeds = [episodes["left"], episodes["right"]]
+            if shape == "mixed-validity":
+                seeds.append("reference:absent-episode")
+                expected.update(
+                    {
+                        ("episode", "reference:absent-episode"): False,
+                        ("producer", "reference:absent-episode"): False,
+                    }
+                )
+            kind = "episode"
+            query = text(
+                "SELECT kind,id,valid FROM ops.ddo_valid_closure('{}',CAST(:seeds AS text[]))"
+            )
+        actual = {
+            (row.kind, row.id): row.valid for row in connection.execute(query, {"seeds": seeds})
+        }
+        assert actual == expected
+        for seed in seeds:
+            alone = {
+                (row.kind, row.id): row.valid
+                for row in connection.execute(query, {"seeds": [seed]})
+            }
+            assert alone[kind, seed] is expected[kind, seed]
+            assert all(valid is expected[node] for node, valid in alone.items())
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+@pytest.mark.parametrize("seal", ["current", "other", "absent", "battery"])
+def test_historical_completion_rechecks_only_when_validator_seal_changes(ddo_kernel, seal):
+    from native_refusals import native_refusal
+
+    _, _, _, attached = attach(ddo_kernel)
+    fence = claim(ddo_kernel, attached)
+    intent = retain(ddo_kernel, fence)
+    receipt = publish(ddo_kernel, fence, intent)
+    check = text(
+        "SELECT (ops.ddo_require_episode_correspondence(d,i)).id "
+        "FROM ops.data_derivation d JOIN ops.data_completion_intent i ON i.id=d.intent_id "
+        "WHERE d.id=:episode"
+    )
+    params = {"episode": receipt["derivation_id"]}
+    with ddo_kernel["engine"].connect() as connection:
+        transaction = connection.begin()
+        try:
+            assert connection.scalar(check, params) == fence["request_id"]
+            # This owned rollback-only DATA fixture bypasses the intrinsic write guard
+            # so the validator's reuse decision receives deliberately inconsistent data.
+            for relation in ("ops.data_completion_intent", "ops.data_publication_receipt"):
+                connection.exec_driver_sql(
+                    "ALTER TABLE " + relation + " DISABLE TRIGGER semantic_immutable"
+                )
+            connection.execute(
+                text(
+                    "UPDATE ops.data_completion_intent SET payload=payload||CAST(:corruption AS jsonb) WHERE id=:id"
+                ),
+                {
+                    "id": intent["intent_id"],
+                    "corruption": json.dumps({"controlled_corruption": True}),
+                },
+            )
+            if seal != "current":
+                connection.execute(
+                    text(
+                        "UPDATE ops.data_publication_receipt SET validating_kernel_digest=:digest WHERE id=:id"
+                    ),
+                    {
+                        "id": receipt["receipt_id"],
+                        "digest": None if seal == "absent" else "other-validating-kernel",
+                    },
+                )
+            if seal == "battery":
+                connection.execute(
+                    text(
+                        "UPDATE ops.data_completion_intent SET payload=jsonb_set(payload,'{execution_evidence}',"
+                        "CAST(:evidence AS jsonb)) WHERE id=:id"
+                    ),
+                    {
+                        "id": intent["intent_id"],
+                        "evidence": json.dumps(
+                            {"pdf_receipts": [{"controlled": "foreign-PDF-event"}]}
+                        ),
+                    },
+                )
+                connection.execute(
+                    text(
+                        "UPDATE ops.data_completion_intent SET payload_digest=ops.ddo_digest(payload) WHERE id=:id"
+                    ),
+                    {"id": intent["intent_id"]},
+                )
+            if seal == "current":
+                assert connection.scalar(check, params) == fence["request_id"]
+            else:
+                reason = (
+                    "non-PDF computation cannot acquire a PDF execution event"
+                    if seal == "battery"
+                    else "historical intent payload digest differs"
+                )
+                with native_refusal("23514", message=reason):
+                    connection.execute(check, params)
+        finally:
+            transaction.rollback()

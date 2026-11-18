@@ -20,13 +20,13 @@ from corpus_structure.semantic.data_operation_source_sets import (
 )
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.demand_results import read_demand_result
+from semantic.population_completion_support import complete_ready
 from semantic.test_data_operation_pinned_reuse_native import (
     CONSUMER,
     PINNED,
     _produce,
     _ready,
 )
-from semantic.test_data_operation_population_native import _complete_ready
 
 SOURCE_PROOF_CASE = pytest.mark.parametrize(
     "ddo_kernel", [PINNED], indirect=True, ids=["selected-source-proof"]
@@ -170,7 +170,7 @@ def test_native_source_acquisition_distinguishes_anchor_from_actual_producing_us
     source = selected(ddo_kernel, source_demand)
     consumer = register(ddo_kernel, FrozenSourceSet.from_selected("selected", (source,)))
     _, (ready,) = _ready(ddo_kernel, consumer)
-    _complete_ready(ddo_kernel, ready, value=43)
+    complete_ready(ddo_kernel, ready, value=43)
     anchor = selected(ddo_kernel, consumer)
     with (
         ddo_kernel["engine"].begin() as connection,
@@ -353,7 +353,7 @@ def test_native_source_proof_selection_is_role_local_and_preserves_original_reus
     assert positions == {"left": 0, "right": 1}
     original_request = json.loads(ready.native)["request_id"]
     original_binding = json.loads(ready.native)["binding"]
-    _complete_ready(ddo_kernel, ready, value=99)
+    complete_ready(ddo_kernel, ready, value=99)
     swapped = register(
         ddo_kernel,
         (

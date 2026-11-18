@@ -9,7 +9,7 @@ from corpus_structure.semantic.contribution_queries import read_demand_contribut
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_queries import DemandQueryRequest
 from corpus_structure.semantic.demand_results import DemandResult
-from semantic.test_demand_results import _page
+from semantic.demand_result_support import demand_result_page
 
 
 def test_member_selection_does_not_expand_to_incoming_or_outgoing_endpoints(monkeypatch):
@@ -17,7 +17,7 @@ def test_member_selection_does_not_expand_to_incoming_or_outgoing_endpoints(monk
 
     def read(connection, demand_id, *, project_id, **kwargs):
         selected.append((demand_id, project_id, kwargs))
-        return DemandResult(json_bytes(_page()))
+        return DemandResult(json_bytes(demand_result_page()))
 
     monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
     request = DemandQueryRequest(

@@ -135,23 +135,30 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
         def __init__(self, *args, **kwargs):
             pass
 
-        def stream(self, *args, **kwargs):
+        def stream(self, request, **kwargs):
             assert active[0] and engine.active == 0
             assert sleeping[0] == uses_gpu
-            assert schema_load(kwargs["payload_schema"]) == payload_family.json_schema
+            assert schema_load(request.payload_schema) == payload_family.json_schema
             if failure is not None:
                 raise failure("native stopped")
-            from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
+            from pdf_controlled_support import controlled_preparation_report
+
+            from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+            from corpus_structure.ingest.pdf_streaming import PdfStreamSpool
             from corpus_structure.semantic.pdf_certification import PdfProducerCertification
 
-            certificate = kwargs["record_root"].parent / "controlled-certificate.json"
-            access = kwargs["record_root"].parent / "controlled-access.jsonl"
-            options = b'{"fixture":"prepared-native"}'
+            certificate = request.record_root.parent / "controlled-certificate.json"
+            access = request.record_root.parent / "controlled-access.jsonl"
+            options = controlled_preparation_report(
+                recipe, None, PdfStreamSpool(certificate.parent / "prepared")
+            )
             for filename, content, family in (
                 ("controlled-preparation.json", options, "native_preparation"),
                 ("controlled-completion.jsonl", b"{}\n", "native_completion"),
             ):
-                kwargs["on_replay"](_atomic_bytes(certificate.parent / filename, content, family))
+                path = certificate.parent / filename
+                path.write_bytes(content)
+                kwargs["on_replay"](PdfReplayRef.from_path(path, family))
             certificate.write_bytes(
                 PdfProducerCertification(
                     "d" * 64,
@@ -165,8 +172,8 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
                 ).to_bytes()
             )
             access.write_bytes(b"")
-            kwargs["on_replay"](_ref(certificate, "producer_certification"))
-            kwargs["on_replay"](_ref(access, "producer_access"))
+            kwargs["on_replay"](PdfReplayRef.from_path(certificate, "producer_certification"))
+            kwargs["on_replay"](PdfReplayRef.from_path(access, "producer_access"))
             return pdf_stream_types.PdfStreamReply(
                 "success",
                 (),
@@ -174,8 +181,8 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
                 (),
                 (),
                 effective_options=options,
-                certification=_ref(certificate, "producer_certification"),
-                access_replay=_ref(access, "producer_access"),
+                certification=PdfReplayRef.from_path(certificate, "producer_certification"),
+                access_replay=PdfReplayRef.from_path(access, "producer_access"),
             )
 
         def close(self):

@@ -6,10 +6,9 @@ producer fence, runtime authority, published product, or current support standin
 
 import json
 
-import pytest
+from native_refusals import native_refusal
 from pglast import ast
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.established_validity import product_validation_native_sql
@@ -17,12 +16,17 @@ from corpus_structure.semantic.formal_products import FormalEvidenceOptions
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.prepared_sql import prepare_sql
+from semantic.cpu_basis_support import (
+    cpu_basis_connection as cpu_basis_connection,
+)
+from semantic.cpu_basis_support import (
+    cpu_basis_engine as cpu_basis_engine,
+)
 from semantic.formal_products_support import profile as profile
 from semantic.formal_products_support import publication_context, selected
-from semantic.test_data_operation_cpu_basis import cpu_basis_connection as cpu_basis_connection
 
 
-def test_retained_validation_requires_exact_whole_product_context(semantic_bare_engine):
+def test_retained_validation_requires_exact_whole_product_context(infrastructure_rollback):
     """Controlled rows test immutable correspondence, not current support authority."""
     from sqlalchemy import Column, MetaData, Table, Text
     from sqlalchemy.dialects.postgresql import JSONB
@@ -90,41 +94,35 @@ def test_retained_validation_requires_exact_whole_product_context(semantic_bare_
         and raw.stmt.funcname
         and raw.stmt.funcname[-1].sval == "ddo_product_validation"
     )
-    with semantic_bare_engine.connect() as conn:
-        tx = conn.begin()
-        conn.exec_driver_sql("CREATE SCHEMA ops")
-        conn.exec_driver_sql("CREATE SCHEMA kb")
-        physical.create_all(conn)
-        conn.exec_driver_sql(declaration, execution_options={"no_parameters": True})
-        conn.execute(
-            episode.insert().values(id="episode", intent_id="intent", release_id="release")
+    conn = infrastructure_rollback
+    tx = conn.begin_nested()
+    conn.exec_driver_sql("CREATE SCHEMA ops")
+    conn.exec_driver_sql("CREATE SCHEMA kb")
+    physical.create_all(conn)
+    conn.exec_driver_sql(declaration, execution_options={"no_parameters": True})
+    conn.execute(episode.insert().values(id="episode", intent_id="intent", release_id="release"))
+    conn.execute(
+        intent.insert().values(
+            id="intent",
+            payload={"execution_evidence": {"product_validations": [changed, expected]}},
         )
-        conn.execute(
-            intent.insert().values(
-                id="intent",
-                payload={"execution_evidence": {"product_validations": [changed, expected]}},
-            )
-        )
-        conn.execute(product.insert().values(id="product", body_digest="body:result", **context))
-        conn.execute(
-            output.insert().values(
-                derivation_id="episode", product_id="product", member_id="member"
-            )
-        )
-        query = text("SELECT ops.ddo_product_validation(:episode,:product)")
-        assert conn.execute(query, dict(episode="episode", product="product")).scalar_one() is None
-        conn.execute(output.update().values(member_id=None))
-        assert (
-            conn.execute(query, dict(episode="episode", product="product")).scalar_one() == expected
-        )
-        assert conn.execute(query, dict(episode="other", product="product")).scalar_one() is None
-        assert conn.execute(query, dict(episode="episode", product="other")).scalar_one() is None
-        conn.execute(product.update().values(body_digest="body:other"))
-        assert conn.execute(query, dict(episode="episode", product="product")).scalar_one() is None
-        tx.rollback()
+    )
+    conn.execute(product.insert().values(id="product", body_digest="body:result", **context))
+    conn.execute(
+        output.insert().values(derivation_id="episode", product_id="product", member_id="member")
+    )
+    query = text("SELECT ops.ddo_product_validation(:episode,:product)")
+    assert conn.execute(query, dict(episode="episode", product="product")).scalar_one() is None
+    conn.execute(output.update().values(member_id=None))
+    assert conn.execute(query, dict(episode="episode", product="product")).scalar_one() == expected
+    assert conn.execute(query, dict(episode="other", product="product")).scalar_one() is None
+    assert conn.execute(query, dict(episode="episode", product="other")).scalar_one() is None
+    conn.execute(product.update().values(body_digest="body:other"))
+    assert conn.execute(query, dict(episode="episode", product="product")).scalar_one() is None
+    tx.rollback()
 
 
-def test_native_guard_binds_actual_validator_body_and_premises(profile, cpu_basis_connection):
+def test_program_guard_binds_actual_validator_body_and_premises(profile, cpu_basis_connection):
     from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
 
     connection = cpu_basis_connection
@@ -211,15 +209,18 @@ def test_native_guard_binds_actual_validator_body_and_premises(profile, cpu_basi
         )
 
     check(completion)
-    for field, replacement in (
-        ("validator_revision", "0" * 64),
-        ("body_id", "body:" + "0" * 64),
-        ("source_json", "{}"),
-        ("selectors_json", "[]"),
-        ("subject_context_json", "{}"),
-        ("release_id", "another-release"),
+    context_reason = "product validation lacks its actual admitted validator/context"
+    result_reason = "product validation differs from its exact canonical result/source/scope"
+    for field, replacement, reason in (
+        ("validator_revision", "0" * 64, context_reason),
+        ("body_id", "body:" + "0" * 64, result_reason),
+        ("source_json", "{}", result_reason),
+        ("selectors_json", "[]", result_reason),
+        ("subject_context_json", "{}", context_reason),
+        ("release_id", "another-release", context_reason),
     ):
         changed = json.loads(canonical_bytes(completion))
         changed["execution_evidence"]["product_validations"][0][field] = replacement
-        with pytest.raises(DBAPIError), connection.begin_nested():
+        with native_refusal("23514", message=reason), connection.begin_nested():
             check(changed)
+    check(completion)

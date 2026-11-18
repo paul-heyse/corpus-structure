@@ -64,15 +64,13 @@ def test_closed_observation_refuses_unknown_shape_and_false_known_premises(chang
 
 
 @pytest.fixture
-def linguistic_connection(semantic_bare_engine):
+def linguistic_connection(infrastructure_rollback):
     parsed = prepare_sql(contextual_linguistics_native_sql(), source="linguistic-observation")
-    with semantic_bare_engine.connect() as connection, connection.begin():
-        connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ops")
-        for index in range(len(parsed.statements)):
-            connection.exec_driver_sql(
-                parsed.excerpt(index), execution_options={"no_parameters": True}
-            )
-        yield connection
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ops")
+    for index in range(len(parsed.statements)):
+        connection.exec_driver_sql(parsed.excerpt(index), execution_options={"no_parameters": True})
+    yield connection
 
 
 @pytest.mark.db
@@ -105,7 +103,7 @@ def test_actual_catalog_observation_matches_native_and_preserves_known_expected_
 
 @pytest.mark.db
 @pytest.mark.parametrize("change", CHANGES)
-def test_native_observation_uses_same_closed_shape_and_known_provider_refusal(
+def test_program_observation_uses_same_closed_shape_and_known_provider_refusal(
     linguistic_connection, change
 ):
     with pytest.raises(DBAPIError, match="contextual linguistic"):

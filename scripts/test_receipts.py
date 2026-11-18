@@ -1477,20 +1477,29 @@ def _coverage_projection(
                 {
                     "status": receipt["status"],
                     "selected_count": len(receipt["selected"]),
-                    "context_sha256": hashlib.sha256(json.dumps(
-                        {"invocation": invocation, "native_contexts": receipt["native_contexts"]},
-                        sort_keys=True,
-                    ).encode()).hexdigest(),
+                    "context_sha256": hashlib.sha256(
+                        json.dumps(
+                            {
+                                "invocation": invocation,
+                                "native_contexts": receipt["native_contexts"],
+                            },
+                            sort_keys=True,
+                        ).encode()
+                    ).hexdigest(),
                     "reporting_complete": receipt["reporting_complete"],
                     "native_observation": receipt["native_provenance"]["status"],
                     "failure_counts": dict(
                         Counter(event["phase"] for event, _ in _failure_events(receipt))
                     ),
                     "source": {
-                        "head": str(source["head"])[:512] if source and source.get("head") else None,
+                        "head": str(source["head"])[:512]
+                        if source and source.get("head")
+                        else None,
                         "identity_sha256": hashlib.sha256(
                             json.dumps(source, sort_keys=True).encode()
-                        ).hexdigest() if source is not None else None,
+                        ).hexdigest()
+                        if source is not None
+                        else None,
                     },
                     "python": str(invocation["python"])[:512] if invocation.get("python") else None,
                     "versions": {
@@ -2423,7 +2432,9 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("native traceback requires a failure projection")
         if args.phase is not None and args.projection != "failures":
             parser.error("phase requires a failure projection")
-        if args.after < 0 or (args.after and args.projection not in {"failures", "scheduling", "unresolved", "review"}):
+        if args.after < 0 or (
+            args.after and args.projection not in {"failures", "scheduling", "unresolved", "review"}
+        ):
             parser.error("after requires a paginated projection and a nonnegative offset")
         if args.native_after < 0 or (
             (args.native_after or args.native_limit is not None) and args.projection != "failures"

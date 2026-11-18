@@ -480,7 +480,12 @@ def test_explanations_and_computation_ids_do_not_replace_semantics_or_mutate_inp
 
 
 def test_actual_released_role_requiredness_drives_core_scoring():
-    document = yaml.safe_load((ROOT / "domains/statistics/semantic.yaml").read_text())
+    from statistics_pack_support import statistics_bundle
+
+    base = statistics_bundle()
+    document = yaml.safe_load(
+        next(source.content for source in base.sources if source.name == base.root)
+    )
     document["classes"]["MeasurementRecordFields"]["attributes"]["unit"]["range"] = (
         "RequiredLiteralRecordField"
     )

@@ -66,73 +66,73 @@ def test_host_renderers_quote_values_and_keep_exact_extension_versions():
 
 
 def test_generated_purpose_provisioning_is_idempotent_and_fitter_refuses_widened_rights(
-    semantic_bare_engine, monkeypatch
+    infrastructure_rollback, monkeypatch
 ):
     prefix = "host_" + uuid4().hex[:12]
     principals = tuple(replace(role, name=prefix + "_" + role.purpose) for role in host.PRINCIPALS)
     monkeypatch.setattr(host, "PRINCIPALS", principals)
     monkeypatch.setattr(host, "PUBLISHER", principals[0].name)
-    with semantic_bare_engine.connect() as connection:
-        transaction = connection.begin()
-        try:
-            operator = connection.execute(select(func.current_user())).scalar_one()
-            script = host.semantic_roles(operator)
-            execute_native_sql(connection, script)
-            execute_native_sql(connection, script)
-            records = (
-                connection.execute(
-                    select(host.ROLES).where(
-                        host.ROLES.c.rolname.in_(tuple(role.name for role in principals))
-                    )
+    connection = infrastructure_rollback
+    transaction = connection.begin_nested()
+    try:
+        operator = connection.execute(select(func.current_user())).scalar_one()
+        script = host.semantic_roles(operator)
+        execute_native_sql(connection, script)
+        execute_native_sql(connection, script)
+        records = (
+            connection.execute(
+                select(host.ROLES).where(
+                    host.ROLES.c.rolname.in_(tuple(role.name for role in principals))
                 )
-                .mappings()
-                .all()
             )
-            by_name = {row["rolname"]: row for row in records}
-            assert len(by_name) == 6
-            for principal in principals:
-                observed = by_name[principal.name]
-                assert observed["rolcanlogin"] == principal.login
-                assert not any(
-                    observed[name]
-                    for name in (
-                        "rolsuper",
-                        "rolcreatedb",
-                        "rolcreaterole",
-                        "rolreplication",
-                        "rolbypassrls",
-                    )
+            .mappings()
+            .all()
+        )
+        by_name = {row["rolname"]: row for row in records}
+        assert len(by_name) == 6
+        for principal in principals:
+            observed = by_name[principal.name]
+            assert observed["rolcanlogin"] == principal.login
+            assert not any(
+                observed[name]
+                for name in (
+                    "rolsuper",
+                    "rolcreatedb",
+                    "rolcreaterole",
+                    "rolreplication",
+                    "rolbypassrls",
                 )
-            membership = connection.execute(
-                text(
-                    "SELECT m.inherit_option,m.set_option FROM pg_auth_members m "
-                    "JOIN pg_roles r ON r.oid=m.roleid JOIN pg_roles u ON u.oid=m.member "
-                    "WHERE r.rolname=:publisher AND u.rolname=:operator"
-                ),
-                {"publisher": principals[0].name, "operator": operator},
-            ).one()
-            assert tuple(membership) == (False, True)
-            fitter = next(role for role in principals if role.purpose == "fit")
-            assert not by_name[fitter.name]["rolinherit"]
+            )
+        membership = connection.execute(
+            text(
+                "SELECT m.inherit_option,m.set_option FROM pg_auth_members m "
+                "JOIN pg_roles r ON r.oid=m.roleid JOIN pg_roles u ON u.oid=m.member "
+                "WHERE r.rolname=:publisher AND u.rolname=:operator"
+            ),
+            {"publisher": principals[0].name, "operator": operator},
+        ).one()
+        assert tuple(membership) == (False, True)
+        fitter = next(role for role in principals if role.purpose == "fit")
+        assert not by_name[fitter.name]["rolinherit"]
+        execute_native_sql(connection, host.semantic_roles(operator, fitter_only=True))
+        # An existing fitter with widened inheritance must refuse, then recover
+        # through the full normalizer inside this same rollback-only transaction.
+        role = ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=fitter.name)
+        execute_native_sql(
+            connection,
+            RawStream()(
+                ast.AlterRoleStmt(
+                    role=role,
+                    options=(ast.DefElem(defname="inherit", arg=ast.Boolean(boolval=True)),),
+                    action=1,
+                )
+            ),
+        )
+        with pytest.raises(DBAPIError, match="fitting role"), connection.begin_nested():
             execute_native_sql(connection, host.semantic_roles(operator, fitter_only=True))
-            # An existing fitter with widened inheritance must refuse, then recover
-            # through the full normalizer inside this same rollback-only transaction.
-            role = ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=fitter.name)
-            execute_native_sql(
-                connection,
-                RawStream()(
-                    ast.AlterRoleStmt(
-                        role=role,
-                        options=(ast.DefElem(defname="inherit", arg=ast.Boolean(boolval=True)),),
-                        action=1,
-                    )
-                ),
-            )
-            with pytest.raises(DBAPIError, match="fitting role"), connection.begin_nested():
-                execute_native_sql(connection, host.semantic_roles(operator, fitter_only=True))
-            execute_native_sql(connection, script)
-            assert not connection.execute(
-                select(host.ROLES.c.rolinherit).where(host.ROLES.c.rolname == fitter.name)
-            ).scalar_one()
-        finally:
-            transaction.rollback()
+        execute_native_sql(connection, script)
+        assert not connection.execute(
+            select(host.ROLES.c.rolinherit).where(host.ROLES.c.rolname == fitter.name)
+        ).scalar_one()
+    finally:
+        transaction.rollback()

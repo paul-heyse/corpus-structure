@@ -11,7 +11,7 @@ from corpus_structure.semantic.pdf_publication_read_native import pdf_reference_
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
 
-def test_scope_health_does_not_read_other_revision_health_or_formula_rows(semantic_bare_engine):
+def test_scope_health_does_not_read_other_revision_health_or_formula_rows(infrastructure_rollback):
     prepared = prepare_sql(publication_sql(), source="current PDF publication")
     declaration = next(
         prepared.excerpt(index)
@@ -20,71 +20,73 @@ def test_scope_health_does_not_read_other_revision_health_or_formula_rows(semant
         and tuple(part.sval for part in raw.stmt.funcname or ())
         == ("ops", "pdf_record_scope_health")
     )
-    with semantic_bare_engine.connect() as conn:
-        tx = conn.begin()
-        conn.exec_driver_sql("CREATE SCHEMA ops")
-        conn.exec_driver_sql("CREATE SCHEMA kb")
-        conn.exec_driver_sql(
-            "CREATE TABLE ops.pdf_published_revision("
-            "build_id text,task_id bigint,product_key text,logical_digest text)"
-        )
-        conn.exec_driver_sql(
-            "CREATE TABLE kb.pdf_record_companion("
-            "product_id text,revision_id text,family text,local_id text,"
-            "ordinal bigint,body jsonb)"
-        )
-        conn.exec_driver_sql(declaration)
-        conn.exec_driver_sql(
-            "INSERT INTO ops.pdf_published_revision VALUES('build',7,'integrated','digest')"
-        )
-        conn.exec_driver_sql("""INSERT INTO kb.pdf_record_companion VALUES
+    conn = infrastructure_rollback
+    tx = conn.begin_nested()
+    conn.exec_driver_sql("CREATE SCHEMA ops")
+    conn.exec_driver_sql("CREATE SCHEMA kb")
+    conn.exec_driver_sql(
+        "CREATE TABLE ops.pdf_published_revision("
+        "build_id text,task_id bigint,product_key text,logical_digest text)"
+    )
+    conn.exec_driver_sql(
+        "CREATE TABLE kb.pdf_record_companion("
+        "product_id text,revision_id text,family text,local_id text,"
+        "ordinal bigint,body jsonb)"
+    )
+    conn.exec_driver_sql(declaration)
+    conn.exec_driver_sql(
+        "INSERT INTO ops.pdf_published_revision VALUES('build',7,'integrated','digest')"
+    )
+    conn.exec_driver_sql("""INSERT INTO kb.pdf_record_companion VALUES
  ('build','other','health','health',0,'{"source_scope":"whole","quality":"wrong"}'),
  ('build','build','native_metadata','outcome',1,
  '{"kind":"formula_outcomes","pointer":"#/texts/1","outcome":"unknown"}'),
  ('build','other','native_metadata','other-outcome',2,
  '{"kind":"formula_outcomes","pointer":"#/texts/1","outcome":"success"}')""")
-        query = "SELECT ops.pdf_record_scope_health(7,'integrated','digest',ARRAY['#/texts/1'])"
-        assert conn.exec_driver_sql(query).scalar_one() is None
-        conn.exec_driver_sql("""INSERT INTO kb.pdf_record_companion VALUES
+    query = "SELECT ops.pdf_record_scope_health(7,'integrated','digest',ARRAY['#/texts/1'])"
+    assert conn.exec_driver_sql(query).scalar_one() is None
+    conn.exec_driver_sql("""INSERT INTO kb.pdf_record_companion VALUES
  ('build','build','health','health',0,'{"source_scope":"whole","quality":"current"}')""")
-        assert conn.exec_driver_sql(query).scalar_one() == {
-            "quality": "current",
-            "formula_outcomes": [{"pointer": "#/texts/1", "outcome": "unknown"}],
-        }
-        tx.rollback()
+    assert conn.exec_driver_sql(query).scalar_one() == {
+        "quality": "current",
+        "formula_outcomes": [{"pointer": "#/texts/1", "outcome": "unknown"}],
+    }
+    tx.rollback()
 
 
-def test_reference_byte_equality_requires_both_root_and_exact_scoped_length(semantic_bare_engine):
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql("CREATE SCHEMA ops")
-        conn.exec_driver_sql(
-            "CREATE FUNCTION ops.pdf_identity_byte_root(bytes bytea) RETURNS bytea "
-            "LANGUAGE sql IMMUTABLE RETURN sha256(bytes)"
-        )
-        conn.exec_driver_sql(
-            "CREATE TABLE ops.pdf_artifact_stream(product_id text,revision_id text,"
-            "stream_id text,byte_length bigint,byte_root text)"
-        )
-        root = sha256("β".encode()).hexdigest()
-        conn.exec_driver_sql(
-            "INSERT INTO ops.pdf_artifact_stream VALUES "
-            "('b','b','stored',2,%s),('b','b','wrong-length',3,%s),('b','other','foreign',2,%s)",
-            (root, root, root),
-        )
-        execute_native_sql(conn, pdf_reference_bytes_equal_sql(metadata))
-        statement = "SELECT ops.pdf_reference_bytes_equal('b','b','β',NULL,%s,%s)"
-        for text, stream, equal in (
-            ("β", None, True),
-            ("λ", None, False),
-            (None, "stored", True),
-            (None, "wrong-length", False),
-            (None, "foreign", False),
-            (None, None, False),
-        ):
-            assert conn.exec_driver_sql(statement, (text, stream)).scalar_one() is equal
+def test_reference_byte_equality_requires_both_root_and_exact_scoped_length(
+    infrastructure_rollback,
+):
+    conn = infrastructure_rollback
+    conn.exec_driver_sql("CREATE SCHEMA ops")
+    conn.exec_driver_sql(
+        "CREATE FUNCTION ops.pdf_identity_byte_root(bytes bytea) RETURNS bytea "
+        "LANGUAGE sql IMMUTABLE RETURN sha256(bytes)"
+    )
+    conn.exec_driver_sql(
+        "CREATE TABLE ops.pdf_artifact_stream(product_id text,revision_id text,"
+        "stream_id text,byte_length bigint,byte_root text)"
+    )
+    root = sha256("β".encode()).hexdigest()
+    conn.exec_driver_sql(
+        "INSERT INTO ops.pdf_artifact_stream VALUES "
+        "('b','b','stored',2,%s),('b','b','wrong-length',3,%s),('b','other','foreign',2,%s)",
+        (root, root, root),
+    )
+    execute_native_sql(conn, pdf_reference_bytes_equal_sql(metadata))
+    statement = "SELECT ops.pdf_reference_bytes_equal('b','b','β',NULL,%s,%s)"
+    for text, stream, equal in (
+        ("β", None, True),
+        ("λ", None, False),
+        (None, "stored", True),
+        (None, "wrong-length", False),
+        (None, "foreign", False),
+        (None, None, False),
+    ):
+        assert conn.exec_driver_sql(statement, (text, stream)).scalar_one() is equal
 
 
-def test_sealed_projection_uses_catalog_row_shape_and_actual_fence(semantic_bare_engine):
+def test_sealed_projection_uses_catalog_row_shape_and_actual_fence(infrastructure_rollback):
     import json
 
     import pytest
@@ -92,8 +94,8 @@ def test_sealed_projection_uses_catalog_row_shape_and_actual_fence(semantic_bare
 
     from corpus_structure.semantic.pdf_publication_read_native import pdf_publication_projection_sql
 
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql("""
+    conn = infrastructure_rollback
+    conn.exec_driver_sql("""
 CREATE SCHEMA ops;
 CREATE SCHEMA kb;
 CREATE TABLE ops.pdf_published_revision(
@@ -128,40 +130,40 @@ INSERT INTO kb.pdf_record_companion VALUES
  ('build','wrong-revision','health','{"conversion":"wrong"}'),
  ('build','build','health','{"conversion":"success","display_coverage":"complete"}');
 """)
-        execute_native_sql(conn, pdf_publication_projection_sql(metadata))
-        publication = conn.exec_driver_sql(
-            "SELECT to_jsonb(p) FROM ops.pdf_published_revision p"
-        ).scalar_one()
-        receipt = {
-            "publication": publication,
-            "publisher_attempt": 2,
-            "publisher_holder": "sealed-owner",
-            "contributors": [],
-            "certification": {
-                "basis": "producer-certified",
-                "lowering_identity": "lowering",
-                "attested_logical_digest": "logical",
-                "native_document_digest": "document",
-                "oracle_receipt_id": "oracle",
-            },
-        }
-        statement = "SELECT ops.pdf_publication_projection(%s::jsonb,7,3,'current-owner')"
-        assert conn.exec_driver_sql(statement, (json.dumps(receipt),)).scalar_one() == {
-            "document": "registered-key",
-            "source_digest": "source",
-            "schema_digest": "schema",
-            "recipe_digest": "recipe",
-            "logical_digest": "logical",
-            "kind": "native",
-            "health": {
-                "conversion": "success",
-                "display_coverage": "complete",
-                "inline_coverage": None,
-                "cell_coverage": None,
-            },
-        }
-        with (
-            pytest.raises(DBAPIError, match="differs from actual sealed publisher"),
-            conn.begin_nested(),
-        ):
-            conn.exec_driver_sql(statement, (json.dumps(receipt | {"publisher_attempt": 1}),))
+    execute_native_sql(conn, pdf_publication_projection_sql(metadata))
+    publication = conn.exec_driver_sql(
+        "SELECT to_jsonb(p) FROM ops.pdf_published_revision p"
+    ).scalar_one()
+    receipt = {
+        "publication": publication,
+        "publisher_attempt": 2,
+        "publisher_holder": "sealed-owner",
+        "contributors": [],
+        "certification": {
+            "basis": "producer-certified",
+            "lowering_identity": "lowering",
+            "attested_logical_digest": "logical",
+            "native_document_digest": "document",
+            "oracle_receipt_id": "oracle",
+        },
+    }
+    statement = "SELECT ops.pdf_publication_projection(%s::jsonb,7,3,'current-owner')"
+    assert conn.exec_driver_sql(statement, (json.dumps(receipt),)).scalar_one() == {
+        "document": "registered-key",
+        "source_digest": "source",
+        "schema_digest": "schema",
+        "recipe_digest": "recipe",
+        "logical_digest": "logical",
+        "kind": "native",
+        "health": {
+            "conversion": "success",
+            "display_coverage": "complete",
+            "inline_coverage": None,
+            "cell_coverage": None,
+        },
+    }
+    with (
+        pytest.raises(DBAPIError, match="differs from actual sealed publisher"),
+        conn.begin_nested(),
+    ):
+        conn.exec_driver_sql(statement, (json.dumps(receipt | {"publisher_attempt": 1}),))

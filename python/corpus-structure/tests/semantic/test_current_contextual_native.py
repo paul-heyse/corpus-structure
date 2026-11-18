@@ -38,9 +38,9 @@ from semantic.current_pdf_source_support import (
     PROJECT,
     CurrentPdfSource,
     _current_pdf_source,
-    _section_stream,
     admit_current_target,
     current_consumer_request,
+    section_content,
 )
 from semantic.data_operation_kernel_support import Kernel
 from semantic.structural_admission_native_support import (
@@ -74,15 +74,12 @@ def current_contextual_case(scenario_seeds, tmp_path_factory):
     directory = tmp_path_factory.mktemp("current-contextual")
     rows = (("text", TEXT, TEXT, None), ("text", TEXT, TEXT, None))
 
-    def stream(worker, original, **options):
-        return _section_stream(rows, worker, original, **options)
-
-    with (
-        pytest.MonkeyPatch.context() as patch,
-        _current_pdf_source(
-            scenario_seeds, directory, patch, stream=stream, sections=("#/groups/0", "#/groups/1")
-        ) as source,
-    ):
+    with _current_pdf_source(
+        scenario_seeds,
+        directory,
+        content=section_content(rows),
+        sections=("#/groups/0", "#/groups/1"),
+    ) as source:
         encoder = controlled_encoder(directory / "encoder")
         kernel = admit_current_target(
             source, contextual_recipe(directory, encoder), directory / "contextual-release"

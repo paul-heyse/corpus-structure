@@ -135,7 +135,6 @@ def test_correctly_hashed_payload_with_invalid_geometry_refuses_before_staging(t
 def test_lowering_identity_is_the_retained_contract_over_sources_schemas_and_codec():
     context = trusted_pdf_context()
     artifact = context.domain.source(LOWERING_CONTRACT)
-    assert require_lowering_identity(context) == sha256(artifact.content).hexdigest()
     manifest = json.loads(artifact.content)
     names = {item["name"] for item in manifest["inputs"]}
     assert any(name.endswith("semantic/pdf_records.py") for name in names)
@@ -144,6 +143,31 @@ def test_lowering_identity_is_the_retained_contract_over_sources_schemas_and_cod
     assert {"docling-core", "pydantic", "jsonschema", "pyarrow", "python"} <= manifest[
         "libraries"
     ].keys()
+
+
+@pytest.mark.parametrize(
+    ("artifact_name", "message"),
+    [
+        (LOWERING_CONTRACT, "PDF lowering contract differs from the captured execution basis"),
+        ("semantic/pdf_records.py", "captured PDF lowering source differs from its contract"),
+    ],
+)
+def test_lowering_identity_requires_matching_captured_artifacts(artifact_name, message):
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    context = trusted_pdf_context()
+    domain = context.domain
+    assert domain is not None and require_lowering_identity(context)
+
+    def source(name):
+        artifact = domain.source(name)
+        if name == artifact_name or name.endswith("/" + artifact_name):
+            return replace(artifact, content=artifact.content + b"\nchanged")
+        return artifact
+
+    with pytest.raises(ValueError, match=message):
+        require_lowering_identity(SimpleNamespace(domain=SimpleNamespace(source=source)))
 
 
 def test_companion_frame_json_uses_postgresql_numeric_spelling():

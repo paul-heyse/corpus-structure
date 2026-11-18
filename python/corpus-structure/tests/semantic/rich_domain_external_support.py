@@ -14,6 +14,7 @@ from evaluate.declared_record_native_support import (
     request,
 )
 
+from semantic.data_operation_kernel_support import split_captured_operations
 from semantic.rich_domain_preservation_support import NS
 
 EXTERNAL = "https://corpus-structure.dev/semantic/data-operation-external-extraction/"
@@ -24,7 +25,6 @@ def external_recipe(directory, *, domain="statistics"):
 
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.data_operation_model import ExternalExecutorContract
     from corpus_structure.semantic.declared_math_products import math_operation_declarations
@@ -34,7 +34,6 @@ def external_recipe(directory, *, domain="statistics"):
     )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
     from corpus_structure.semantic.sentence_products import sentence_operation_sources
-    from corpus_structure.semantic.types import ResolvedDependencies
     from semantic.data_operation_kernel_support import CapturedKernelInputs
 
     if domain == "toy":
@@ -45,19 +44,8 @@ def external_recipe(directory, *, domain="statistics"):
         original = rich_policy_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None
-    declarations, sources = acquired
-    assert sources is not None
-    deps = ResolvedDependencies(
-        tuple(
-            artifact
-            for artifact in captured.dependencies.artifacts
-            if not artifact.name.startswith("data-operations/")
-        ),
-        captured.dependencies.vocabularies,
-        captured.dependencies.ontology_sources,
-    )
+    base_dependencies, declarations, sources = split_captured_operations(captured)
+    deps = base_dependencies
     protocol = ExternalExecutorContract(
         "external-executor-v1",
         "Return the independently authored controlled domain propositions over the exact native source packet.",

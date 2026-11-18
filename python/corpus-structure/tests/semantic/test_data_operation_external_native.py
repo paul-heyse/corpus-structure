@@ -3,6 +3,7 @@
 from typing import cast as typing_cast
 
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -141,6 +142,9 @@ def test_external_release_takeover_fences_old_producer_and_assertions(ddo_kernel
 
 
 def test_external_packet_byte_limit_and_cancellation_do_not_publish(ddo_kernel):
+    from corpus_structure.semantic.data_operation_external import ExternalResultPort
+    from corpus_structure.semantic.data_operation_json import json_bytes
+
     demand, _, _, attached = attach(ddo_kernel)
     fence = claim(ddo_kernel, attached)
     with pytest.raises(DBAPIError, match="capacity"), ddo_kernel["engine"].begin() as connection:
@@ -159,6 +163,28 @@ def test_external_packet_byte_limit_and_cancellation_do_not_publish(ddo_kernel):
         )
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     leased = session.claim(retained["packet_id"])
+    assert leased["state"] == "claimed"
+    actual = session.read(retained["packet_id"], leased)["packet"]
+    completion = ExternalResultPort(json_bytes(actual), ddo_kernel["model"], 100000).completion(
+        RESULT
+    )
+    admission = typing_cast(
+        WireAdmitExternalDataResultRequest,
+        {
+            "packet_id": retained["packet_id"],
+            **{
+                name: leased[name]
+                for name in ("request_id", "generation", "task_id", "attempt", "holder")
+            },
+            "actor_assertion": "controlled-external",
+            "model_assertion": None,
+            "completion": completion,
+        },
+    )
+    with ddo_kernel["engine"].begin() as connection, connection.begin_nested() as positive:
+        admitted = DataOperationStorage(connection).admit_external_data_result(admission)
+        assert admitted["receipt"]["packet_id"] == retained["packet_id"]
+        positive.rollback()
     with ddo_kernel["engine"].begin() as connection:
         DataOperationStorage(connection).cancel_data_demand(
             typing_cast(
@@ -166,7 +192,7 @@ def test_external_packet_byte_limit_and_cancellation_do_not_publish(ddo_kernel):
                 {"demand_id": demand["demand_id"], "reason": "cancel exact external interest"},
             )
         )
-    with pytest.raises(DBAPIError):
+    with native_refusal("P0001", message="data request has no attached demand interest"):
         session.submit(
             retained["packet_id"],
             leased,
@@ -176,6 +202,10 @@ def test_external_packet_byte_limit_and_cancellation_do_not_publish(ddo_kernel):
         )
     assert session.inspect(retained["packet_id"])["state"] in {"cancelled", "superseded"}
     assert session.queue()["packets"] == []
+    with ddo_kernel["engine"].connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_external_receipt")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_publication_receipt")) == 0
 
 
 def test_ordinary_executor_hands_off_external_command_without_python_port(ddo_kernel):

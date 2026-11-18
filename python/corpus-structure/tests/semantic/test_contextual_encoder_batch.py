@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 from dataclasses import asdict, replace
-from types import SimpleNamespace
 
 import pytest
 
@@ -18,6 +17,7 @@ from corpus_structure.semantic.data_operation_identity import decode_semantic_va
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.identity import canonical_bytes
+from semantic.controlled_encoder_support import controlled_encoder, controlled_vector
 from semantic.selected_context_support import case
 from semantic.test_contextual_target_vectors import population
 
@@ -104,19 +104,10 @@ def _query_members(*, selected=False, bad=None):
 def _model(monkeypatch, *, invalid_vector=False, physical_error=False):
     calls = []
 
-    def encode(texts, **options):
-        calls.append(tuple(texts))
-        if physical_error:
-            raise RuntimeError("controlled native model failure")
-        return [
-            (2.0, 0.0) if invalid_vector and index == 1 else (1.0, 0.0)
-            for index, _ in enumerate(texts)
-        ]
-
-    model = SimpleNamespace(
-        tokenizer=SimpleNamespace(encode=lambda text, **kwargs: tuple(text)),
-        encode_query=encode,
-        encode_document=encode,
+    model = controlled_encoder(
+        lambda texts, options: calls.append(texts),
+        invalid_vector=invalid_vector,
+        physical_error=physical_error,
     )
     monkeypatch.setattr(
         embeddings, "_owned_cpu_encoder", lambda *args: (model, (("controlled", "1"),), ())
@@ -154,7 +145,10 @@ def test_query_packet_interns_body_and_frame_and_preserves_duplicate_occurrence_
     assert len(values) == 2
     assert values[0]["query"]["carrier"] == values[1]["query"]["carrier"]
     assert values[0]["query"]["query_vector_id"] == values[1]["query"]["query_vector_id"]
-    assert all(value["vector"]["vector"]["values"] == [1.0, 0.0] for value in values)
+    assert all(
+        value["vector"]["vector"]["values"] == pytest.approx(controlled_vector(text))
+        for value, text in zip(values, calls[0], strict=True)
+    )
 
 
 @pytest.mark.parametrize(
@@ -199,10 +193,13 @@ def test_packet_custody_refuses_whole_cohort_before_encoder(monkeypatch, tamper)
     assert calls == []
 
 
-def test_target_cohort_keeps_one_vector_per_target_without_query_source_custody(monkeypatch):
+@pytest.mark.parametrize("drop_middle", [False, True])
+def test_target_cohort_keeps_one_vector_per_target_without_query_source_custody(
+    monkeypatch, drop_middle
+):
     profile, calls = _model(monkeypatch)
     members = []
-    for index, value in enumerate(population(("one", "two"))["members"]):
+    for index, value in enumerate(population(("alpha", "beta", "gamma"))["members"]):
         context = SubjectContext(
             "controlled-project",
             value["context"]["subject"],
@@ -210,6 +207,8 @@ def test_target_cohort_keeps_one_vector_per_target_without_query_source_custody(
             json_bytes(value["context"]["analyzed_scope"]),
             subject_definition="contextual-target",
         )
+        if drop_middle and index == 1:
+            context = replace(context, subject="wrong-target-subject")
         basis = cpu_input_basis(
             "controlled-target-batch",
             context,
@@ -235,9 +234,16 @@ def test_target_cohort_keeps_one_vector_per_target_without_query_source_custody(
     assert packet["frames"] == {}
     reply = batch.execute_encoder_batch(packet, asdict(profile), "", (), check_active=lambda: None)
     values = cpu_authority_batch_values(canonical_bytes(reply), expected_members=members)
-    assert [value["vector"]["object_id"] for value in values] == ["one", "two"]
-    assert all(value["original_source"] is None for value in values)
-    assert len(calls) == 1 and len(calls[0]) == 2
+    if drop_middle:
+        assert values[1]["encoder_member_failure"]["code"] == "source-coordinate-mismatch"
+    survivors = [value for value in values if "encoder_member_failure" not in value]
+    assert [value["vector"]["object_id"] for value in survivors] == (
+        ["alpha", "gamma"] if drop_middle else ["alpha", "beta", "gamma"]
+    )
+    assert all(value["original_source"] is None for value in survivors)
+    assert len(calls) == 1 and len(calls[0]) == len(survivors)
+    for value, text in zip(survivors, calls[0], strict=True):
+        assert value["vector"]["values"] == pytest.approx(controlled_vector(text))
 
 
 def test_vector_admission_is_member_local_but_native_execution_fault_is_not(monkeypatch):

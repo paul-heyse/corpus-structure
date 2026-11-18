@@ -8,7 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from semantic.current_pdf_source_support import _current_pdf_source
+from pdf_controlled_support import ScriptedDocumentConverter, controlled_native_child
+from semantic.current_pdf_source_support import current_pdf_process_source
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -18,98 +19,13 @@ from corpus_structure.orchestrate import pdf_streaming
 from corpus_structure.semantic.pdf_staging import inspect_pdf_progress
 
 
-class _ScriptedDocumentConverter:
-    """External Docling provider control; application preparation/hooks remain actual."""
-
-    def __init__(self, *, allowed_formats, format_options):
-        from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
-
-        option = format_options[allowed_formats[0]]
-        self.pipeline = object.__new__(option.pipeline_cls)
-        self.pipeline.pipeline_options = option.pipeline_options
-        self.pipeline.heading_hierarchy_model = SimpleNamespace(
-            retain_parsed_lines=lambda page: None
-        )
-        formula = object.__new__(CodeFormulaVlmModel)
-        formula.elements_batch_size = 1
-        formula.engine = None
-        self.native_images_scale = formula.images_scale
-        self.pipeline.enrichment_pipe = [formula]
-        self.pipeline.assemble_model = SimpleNamespace(options=None)
-        self.initialized_pipelines = {"control": self.pipeline}
-
-    def initialize_pipeline(self, input_format):
-        pass
-
-    def convert(self, source, *, raises_on_error, **options):
-        from docling.datamodel.base_models import AssembledUnit, Page
-        from docling_core.types.doc import (
-            BoundingBox,
-            DocItemLabel,
-            DoclingDocument,
-            PageItem,
-            ProvenanceItem,
-            Size,
-        )
-        from PIL import Image
-
-        # Supply the actual native formula-stage raster capability. The application
-        # captures it before release; this provider control has no rendering backend.
-        side = round(10 * self.native_images_scale)
-        with Image.new("RGB", (side, side), (3, 5, 7)) as image:
-            page = Page(
-                page_no=1,
-                size=Size(width=10, height=10),
-                assembled=AssembledUnit(elements=[], headers=[], body=[]),
-            )
-            page._image_cache = {self.native_images_scale: image}
-            self.pipeline._release_page_resources(
-                SimpleNamespace(
-                    payload=page,
-                    page_no=1,
-                    is_failed=False,
-                    error=None,
-                    conv_res=SimpleNamespace(confidence=SimpleNamespace(pages={}), errors=[]),
-                )
-            )
-            assert not page._image_cache and page.assembled is None
-        document = DoclingDocument(name="scripted provider control")
-        document.pages[1] = PageItem(page_no=1, size=Size(width=10, height=10))
-        document.add_text(
-            label=DocItemLabel.TEXT,
-            text="Private control Ω",
-            prov=ProvenanceItem(
-                page_no=1,
-                bbox=BoundingBox(l=1, t=1, r=9, b=3, coord_origin="TOPLEFT"),
-                charspan=(0, 17),
-            ),
-        )
-        return SimpleNamespace(
-            document=document,
-            status=SimpleNamespace(value="success"),
-            errors=(),
-            input=SimpleNamespace(release=lambda: None),
-        )
-
-
-def _controlled_native_child(connection, recipe, assets, writer_lease=None):
-    # Replace only the external library provider, preserving model-owned application bindings.
-    from docling import document_converter
-
-    from corpus_structure.ingest import pdf_worker
-
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(document_converter, "DocumentConverter", _ScriptedDocumentConverter)
-        pdf_worker._native_child(connection, recipe, assets, writer_lease)
-
-
 def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement(
     scenario_seeds, tmp_path, monkeypatch
 ):
     # The current source demand owns original admission, actual capture/discovery
     # requests and their independent physical task/attempt/publication fences.
     # Only the external Docling converter is controlled inside the actual child.
-    monkeypatch.setattr(PdfWorker, "_child_target", staticmethod(_controlled_native_child))
+    monkeypatch.setattr(PdfWorker, "_child_target", staticmethod(controlled_native_child))
     original_stream = PdfWorker.stream
     replies = []
     workers = []
@@ -156,7 +72,8 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
         return build
 
     monkeypatch.setattr(pdf_streaming, "run_private_native_pdf_build", inspect_private)
-    with _current_pdf_source(scenario_seeds, tmp_path, monkeypatch, stream=inspect_reply) as source:
+    monkeypatch.setattr(PdfWorker, "stream", inspect_reply)
+    with current_pdf_process_source(scenario_seeds, tmp_path) as source:
         assert len(replies) == len(private) == 1
         assert adopted
         build, receipts, directory = private[0]
@@ -209,7 +126,7 @@ def test_resumed_pipeline_limits_page_work_and_restores_full_assembly(monkeypatc
         result.pages = [SimpleNamespace(page_no=number) for number in expected]
 
     spool = SimpleNamespace(restored_pages=restored, restore_pages=restored_pages)
-    monkeypatch.setattr(document_converter, "DocumentConverter", _ScriptedDocumentConverter)
+    monkeypatch.setattr(document_converter, "DocumentConverter", ScriptedDocumentConverter)
     converter = PdfConverter(
         PdfRecipe(
             "a" * 40,

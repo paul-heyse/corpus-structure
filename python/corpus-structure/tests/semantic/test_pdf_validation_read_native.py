@@ -3,7 +3,6 @@
 import json
 from copy import copy
 from hashlib import sha256
-from importlib.resources import files
 from typing import Any
 
 import psycopg
@@ -25,9 +24,9 @@ from corpus_structure.semantic.pdf_validation_read_native import (
 
 
 @pytest.fixture
-def validation_controls(semantic_bare_engine, request):
+def validation_controls(infrastructure_engine, request):
     isolation = getattr(request, "param", "READ COMMITTED")
-    with semantic_bare_engine.connect().execution_options(isolation_level=isolation) as connection:
+    with infrastructure_engine.connect().execution_options(isolation_level=isolation) as connection:
         transaction = connection.begin()
         try:
             for name in ("ops", "kb", "sem", "data"):
@@ -61,9 +60,10 @@ def validation_controls(semantic_bare_engine, request):
                         UniqueConstraint("build_id", "attempt", "holder", "check_name")
                     )
             controls.create_all(connection)
-            source_root = files("corpus_structure").joinpath("semantic/sql")
+            from corpus_structure.semantic.target_installation import foundation_programs
+
             for source, selected in (
-                (source_root.joinpath("identity.sql").read_text(), {"canonical_json"}),
+                (foundation_programs().identity, {"canonical_json"}),
                 (
                     pdf_binary_identity_sql(),
                     {

@@ -208,44 +208,42 @@ def test_authorization_preserves_caller_purpose_and_rejects_unknown_universe(sup
 
 
 def test_read_acquisition_barrier_rejects_later_graph_writes_in_same_transaction(
-    semantic_bare_engine,
+    infrastructure_rollback,
 ):
-    with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql("CREATE SCHEMA ops")
-        connection.execute(
-            CreateTable(table("ops.data_demand_read"), include_foreign_key_constraints=[])
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA ops")
+    connection.execute(
+        CreateTable(table("ops.data_demand_read"), include_foreign_key_constraints=[])
+    )
+    programs = prepare_sql(support_trust_native_sql(metadata), source="acquisition-barrier-control")
+    for index, raw in enumerate(programs.statements):
+        if (
+            isinstance(raw.stmt, ast.CreateFunctionStmt)
+            and raw.stmt.funcname
+            and raw.stmt.funcname[-1].sval == "ddo_refuse_post_acquisition_graph_write"
+        ):
+            execute_native_sql(connection, programs.excerpt(index))
+            break
+    else:
+        raise AssertionError("acquisition write barrier is absent")
+    connection.exec_driver_sql("CREATE TEMP TABLE graph_write_control(value integer)")
+    connection.exec_driver_sql(
+        "CREATE TRIGGER acquisition_barrier BEFORE INSERT ON graph_write_control FOR EACH STATEMENT EXECUTE FUNCTION ops.ddo_refuse_post_acquisition_graph_write()"
+    )
+    connection.exec_driver_sql("INSERT INTO graph_write_control VALUES(1)")
+    connection.execute(
+        table("ops.data_demand_read")
+        .insert()
+        .values(
+            id="read:control",
+            demand_id="demand:control",
+            read_snapshot="1:1:",
+            frontier_at=func.clock_timestamp(),
+            owner_xid=cast(func.pg_current_xact_id(), Text()),
+            trust_snapshot={},
+            scope={},
         )
-        programs = prepare_sql(
-            support_trust_native_sql(metadata), source="acquisition-barrier-control"
-        )
-        for index, raw in enumerate(programs.statements):
-            if (
-                isinstance(raw.stmt, ast.CreateFunctionStmt)
-                and raw.stmt.funcname
-                and raw.stmt.funcname[-1].sval == "ddo_refuse_post_acquisition_graph_write"
-            ):
-                execute_native_sql(connection, programs.excerpt(index))
-                break
-        else:
-            raise AssertionError("acquisition write barrier is absent")
-        connection.exec_driver_sql("CREATE TEMP TABLE graph_write_control(value integer)")
-        connection.exec_driver_sql(
-            "CREATE TRIGGER acquisition_barrier BEFORE INSERT ON graph_write_control FOR EACH STATEMENT EXECUTE FUNCTION ops.ddo_refuse_post_acquisition_graph_write()"
-        )
-        connection.exec_driver_sql("INSERT INTO graph_write_control VALUES(1)")
-        connection.execute(
-            table("ops.data_demand_read")
-            .insert()
-            .values(
-                id="read:control",
-                demand_id="demand:control",
-                read_snapshot="1:1:",
-                frontier_at=func.clock_timestamp(),
-                owner_xid=cast(func.pg_current_xact_id(), Text()),
-                trust_snapshot={},
-                scope={},
-            )
-        )
-        with pytest.raises(DBAPIError, match="fresh transaction"), connection.begin_nested():
-            connection.exec_driver_sql("INSERT INTO graph_write_control VALUES(2)")
-        assert connection.scalars(text("SELECT value FROM graph_write_control")).all() == [1]
+    )
+    with pytest.raises(DBAPIError, match="fresh transaction"), connection.begin_nested():
+        connection.exec_driver_sql("INSERT INTO graph_write_control VALUES(2)")
+    assert connection.scalars(text("SELECT value FROM graph_write_control")).all() == [1]

@@ -230,11 +230,14 @@ def test_native_record_reading_retains_original_decimal_spelling(
     from evaluate import declared_record_native_support as support
     from evaluate.declared_rich_native_support import rich_policy_recipe
 
-    from semantic.rich_domain_native_support import decimal_source_stream
+    from semantic.rich_domain_native_support import decimal_source_content
 
-    monkeypatch.setattr(support, "controlled_table_stream", decimal_source_stream)
     with support.current_record_policy_journey(
-        scenario_seeds, tmp_path, monkeypatch, recipe=rich_policy_recipe(tmp_path)
+        scenario_seeds,
+        tmp_path,
+        monkeypatch,
+        recipe=rich_policy_recipe(tmp_path),
+        content=decimal_source_content(),
     ) as journey:
         source = journey.sources[0]
         readings = run_readings(

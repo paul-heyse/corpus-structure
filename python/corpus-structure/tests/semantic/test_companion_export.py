@@ -6,6 +6,7 @@ from hashlib import file_digest
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from pglast import ast, parse_sql
 
 from corpus_structure.semantic.capture_storage import LogicalRows
 from corpus_structure.semantic.refusals import SemanticRefusal
@@ -395,7 +396,19 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     assert isinstance(options, dict)
     assert options["adbc.postgresql.type_resolver_mode"] == "builtin"
     assert events[1] == {"adbc.postgresql.use_copy": "false"}
-    assert "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ WRITE" in events
+    transaction = next(
+        parse_sql(event)[0].stmt
+        for event in events
+        if isinstance(event, str) and event.startswith("SET TRANSACTION ISOLATION")
+    )
+    assert isinstance(transaction, ast.VariableSetStmt)
+    options = {}
+    for argument in transaction.args or ():
+        assert isinstance(argument, ast.DefElem) and isinstance(argument.arg, ast.A_Const)
+        value = argument.arg.val
+        assert isinstance(value, (ast.String, ast.Integer))
+        options[argument.defname] = value.sval if isinstance(value, ast.String) else value.ival
+    assert options == {"transaction_isolation": "repeatable read", "transaction_read_only": 0}
     assert "SET TRANSACTION SNAPSHOT '00000001-00000002-1'" in events
     assert {
         "adbc.postgresql.use_copy": "true",

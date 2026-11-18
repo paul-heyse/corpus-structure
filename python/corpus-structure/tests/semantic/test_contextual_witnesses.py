@@ -271,9 +271,9 @@ def test_acquisition_pins_original_query_cut_and_refuses_missing_cues(
     _frame, context, roles, other = witness_case()
     query_role = roles[1]
     from corpus_structure.semantic.demand_results import CutSelection
-    from semantic.test_demand_results import _page
+    from semantic.demand_result_support import demand_result_page
 
-    page = _page()
+    page = demand_result_page()
     page.update(
         project_id=context.project_id,
         demand_id="unadmitted:query-demand",

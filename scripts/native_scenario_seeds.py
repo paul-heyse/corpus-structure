@@ -105,16 +105,20 @@ class ScenarioSeed[Stage: SeedStage]:
         return fields | dict(extras)
 
 
-class SeedClone[Stage: SeedStage]:
-    """A frozen stage beside fresh clone engines; stage resource rebinding is explicit."""
+class ScenarioAcquisition[Stage: SeedStage]:
+    """A validated scenario stage with authenticated purpose connections."""
 
     def __init__(
-        self, seed: ScenarioSeed[Stage], admin: Engine, settings: Settings, database_oid: int
+        self,
+        stage: Stage,
+        origin: dict[str, str],
+        admin: Engine,
+        settings: Settings,
+        database_oid: int,
     ):
-        self.seed = seed
-        self.stage = seed.stage
+        self.stage = stage
         self.admin = admin
-        self.origin = seed.origin
+        self.origin = origin
         self._settings = settings
         self._purposes: dict[str, Engine] = {}
         self.database_oid = database_oid
@@ -197,9 +201,74 @@ class ScenarioSeeds:
         self._lock = threading.RLock()
         self._closed = False
 
+    def _build(self, recipe: object, admin: Engine, name: str, directory: Path) -> SeedStage:
+        from scenario_recipes import scenario_builder
+
+        with ExitStack() as build_resources:
+
+            def purpose_engine(purpose):
+                engine = principal_engine(self.settings, purpose, name)
+                build_resources.callback(engine.dispose)
+                return engine
+
+            writer = purpose_engine("write")
+            stage = scenario_builder(recipe)(
+                recipe, admin, writer, directory, purpose_engine=purpose_engine
+            )
+        if not isinstance(stage, SeedStage):
+            raise TypeError("seed builders must declare seed_files and validate_clone(admin)")
+        if not dataclasses.is_dataclass(stage) or not getattr(
+            getattr(type(stage), "__dataclass_params__", None), "frozen", False
+        ):
+            raise TypeError("scenario seed stage output must be a frozen dataclass")
+        if not isinstance(stage.seed_files, tuple):
+            raise TypeError("scenario seed files must be an immutable tuple of paths")
+        for path in stage.seed_files:
+            if not isinstance(path, Path) or not path.resolve().is_relative_to(directory.resolve()):
+                raise ValueError(
+                    "seed runtime/source files must be owned by the supplied seed directory"
+                )
+            if not path.exists():
+                raise ValueError("declared scenario seed file is unavailable")
+        stage.validate_clone(admin)
+        return stage
+
+    @contextmanager
+    def build_for_consumer(
+        self,
+        recipe: object,
+        directory: Path,
+    ) -> Generator[ScenarioAcquisition]:
+        if self._closed:
+            raise RuntimeError("scenario seed registry is closed")
+        identity = recipe_id(recipe)
+        name = database_name("test").name
+        with self.head.clone(name) as admin:
+            stage = self._build(recipe, admin, name, directory)
+            if self.server.policy(name) != self.head.policy:
+                raise RuntimeError("scenario changed its deployed database policy")
+            acquired = self.server._deployment_record(name)
+            if acquired is None:
+                raise RuntimeError("consumer scenario database disappeared during acquisition")
+            origin = {
+                "scenario": type(recipe).__module__ + "." + type(recipe).__qualname__,
+                "recipe_id": identity,
+                "head": self.head.name,
+                "acquisition": "built-for-consumer",
+            }
+            scenario = ScenarioAcquisition(stage, origin, admin, self.settings, acquired[0])
+            try:
+                yield scenario
+            finally:
+                scenario.close()
+
     def seed(self, recipe: object) -> ScenarioSeed:
         if self._closed:
             raise RuntimeError("scenario seed registry is closed")
+        if getattr(recipe, "requires_consumer_binding", False):
+            raise ValueError(
+                "scenario needs a writable binding; acquire it with build_for_consumer"
+            )
         identity = recipe_id(recipe)
         with self._lock:
             key = recipe, self.head.name
@@ -207,43 +276,11 @@ class ScenarioSeeds:
                 seed = self._seeds[key]
                 self.validate(seed)
                 return seed
-            from scenario_recipes import scenario_builder
-
             name = database_name("seed").name
             directory = self._directory("seed-" + type(recipe).__name__)
             with ExitStack() as lifetime:
                 admin = lifetime.enter_context(self.head.clone(name))
-                with ExitStack() as build_resources:
-
-                    def purpose_engine(purpose):
-                        engine = principal_engine(self.settings, purpose, name)
-                        build_resources.callback(engine.dispose)
-                        return engine
-
-                    writer = purpose_engine("write")
-                    stage = scenario_builder(recipe)(
-                        recipe, admin, writer, directory, purpose_engine=purpose_engine
-                    )
-                if not isinstance(stage, SeedStage):
-                    raise TypeError(
-                        "seed builders must declare seed_files and validate_clone(admin)"
-                    )
-                if not dataclasses.is_dataclass(stage) or not getattr(
-                    getattr(type(stage), "__dataclass_params__", None), "frozen", False
-                ):
-                    raise TypeError("scenario seed stage output must be a frozen dataclass")
-                if not isinstance(stage.seed_files, tuple):
-                    raise TypeError("scenario seed files must be an immutable tuple of paths")
-                for path in stage.seed_files:
-                    if not isinstance(path, Path) or not path.resolve().is_relative_to(
-                        directory.resolve()
-                    ):
-                        raise ValueError(
-                            "seed runtime/source files must be owned by the supplied seed directory"
-                        )
-                    if not path.exists():
-                        raise ValueError("declared scenario seed file is unavailable")
-                stage.validate_clone(admin)
+                stage = self._build(recipe, admin, name, directory)
                 with admin.connect() as connection:
                     unfinished = connection.execute(
                         text(
@@ -301,7 +338,7 @@ class ScenarioSeeds:
             self.server._wait_for_backend_exit(seed.database, drained)
 
     @contextmanager
-    def commit_clone(self, recipe: object) -> Generator[SeedClone]:
+    def commit_clone(self, recipe: object) -> Generator[ScenarioAcquisition]:
         seed = self.seed(recipe)
         with self.server.database(
             database_name("test").name, seed.database, policy=seed.policy, scenario_seed=seed.origin
@@ -313,7 +350,7 @@ class ScenarioSeeds:
             acquired = self.server._deployment_record(database)
             if acquired is None or acquired[0] == seed.database_oid:
                 raise RuntimeError("scenario consumer must acquire a fresh clone OID")
-            clone = SeedClone(seed, admin, self.settings, acquired[0])
+            clone = ScenarioAcquisition(stage, seed.origin, admin, self.settings, acquired[0])
             try:
                 yield clone
             finally:

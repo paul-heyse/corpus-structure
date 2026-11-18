@@ -17,61 +17,22 @@ from corpus_structure.semantic.declared_record_sources import DeclaredNativeFram
 from corpus_structure.semantic.m1_products import (
     candidate_report,
     m1_operation_inputs,
-    m1_operation_sources,
     m1_profile_assets,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_subject
-from corpus_structure.semantic.types import PreparationProfile, SourceArtifact, SourceBundle
-
-ROOT = Path(__file__).resolve().parents[4]
-
-
-def record_schemas():
-    return SourceBundle(
-        "statistics_semantic",
-        (
-            SourceArtifact(
-                "statistics_semantic", (ROOT / "domains/statistics/semantic.yaml").read_bytes()
-            ),
-            SourceArtifact(
-                "statistics_terminology",
-                (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-            ),
-            SourceArtifact(
-                "semantic_core",
-                (
-                    ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-                ).read_bytes(),
-            ),
-        ),
-    )
-
-
-def configuration():
-    from methods.domain_configuration import candidate_configuration
-
-    return M1Config.model_validate(candidate_configuration(ROOT / "domains/statistics", "default"))
-
-
-def _sources():
-    """Capture controlled provider metadata only; never acquire an executable model."""
-    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
-
-    config = configuration()
-    selected = NativeSelection(
-        NativeProfile(
-            "spacy",
-            {"fixture": "preparation"},
-            {"files": {}},
-            config.sentences.model_dump(mode="json"),
-            "float32",
-            "cupy",
-        ),
-        Path("."),
-    )
-    return m1_operation_sources(
-        config, record_schemas=record_schemas(), sentence_selection=selected
-    )
+from corpus_structure.semantic.types import PreparationProfile
+from semantic.m1_declared_products_test_support import (
+    ROOT as ROOT,
+)
+from semantic.m1_declared_products_test_support import (
+    configuration as configuration,
+)
+from semantic.m1_declared_products_test_support import (
+    record_schemas as record_schemas,
+)
+from semantic.m1_declared_products_test_support import (
+    sources as sources,
+)
 
 
 def test_empty_m1_inspection_has_successful_typed_report_and_exact_denominator():
@@ -151,7 +112,7 @@ def test_actual_m1_producer_captures_selection_witnesses_and_single_stored_membe
     bundle = m1_operation_inputs(record_schemas())
     model = compile_data_operations(
         bundle,
-        python_sources=_sources(),
+        python_sources=sources(),
     )
     operation = model.operation("extract.m1_candidates")
     assert operation.subject == "original-source-view"
@@ -221,7 +182,7 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
     prepared = prepare_release(bundle, profile=PreparationProfile(version="semantic-2"))
     model = compile_data_operations(
         bundle,
-        python_sources=_sources(),
+        python_sources=sources(),
     )
     source = FrozenNativeSource.from_projection(
         prepared,
@@ -358,7 +319,7 @@ def test_partial_produced_inspection_preserves_real_candidates_after_later_worke
     prepared = prepare_release(bundle, profile=PreparationProfile(version="semantic-2"))
     model = compile_data_operations(
         bundle,
-        python_sources=_sources(),
+        python_sources=sources(),
     )
     source = FrozenNativeSource.from_projection(
         prepared,
@@ -828,7 +789,7 @@ def test_actual_m1_discovery_separates_scalar_child_from_complete_context_popula
     bundle = m1_operation_inputs(record_schemas())
     model = compile_data_operations(
         bundle,
-        python_sources=_sources(),
+        python_sources=sources(),
     )
     operation = model.operation("extract.m1_candidates")
     assert operation.dependencies == ("text.constructions/source-native",)

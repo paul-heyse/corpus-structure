@@ -17,44 +17,41 @@ from corpus_structure.semantic.pdf_shared_streams import pdf_companion_scratch_s
 
 
 @pytest.fixture
-def adoption(semantic_bare_engine):
-    with semantic_bare_engine.begin() as conn:
-        execute_native_sql(conn, "CREATE SCHEMA ops")
-        names = [
-            "ops.pdf_stage_build",
-            *(spec.source.fullname for spec in pdf_companion_scratch_specs(metadata)),
-        ]
-        for name in dict.fromkeys(names):
-            source = (
-                metadata.tables[name]
-                if name in metadata.tables
-                else next(
-                    spec.source
-                    for spec in pdf_companion_scratch_specs(metadata)
-                    if spec.source.fullname == name
-                )
+def adoption(infrastructure_rollback):
+    conn = infrastructure_rollback
+    execute_native_sql(conn, "CREATE SCHEMA ops")
+    names = [
+        "ops.pdf_stage_build",
+        *(spec.source.fullname for spec in pdf_companion_scratch_specs(metadata)),
+    ]
+    for name in dict.fromkeys(names):
+        source = (
+            metadata.tables[name]
+            if name in metadata.tables
+            else next(
+                spec.source
+                for spec in pdf_companion_scratch_specs(metadata)
+                if spec.source.fullname == name
             )
-            relation = Table(
-                source.name,
-                MetaData(),
-                *(
-                    Column(field.name, field.type, primary_key=field.primary_key)
-                    for field in source.c
-                ),
-                schema=source.schema,
-            )
-            conn.execute(CreateTable(relation))
-        for spec in pdf_companion_scratch_specs(metadata):
-            relation = Table(
-                spec.name,
-                MetaData(),
-                *(Column(field.name, field.type) for field in spec.source.c),
-                schema="pg_temp",
-            )
-            conn.execute(CreateTable(relation))
-        execute_native_sql(
-            conn,
-            """
+        )
+        relation = Table(
+            source.name,
+            MetaData(),
+            *(Column(field.name, field.type, primary_key=field.primary_key) for field in source.c),
+            schema=source.schema,
+        )
+        conn.execute(CreateTable(relation))
+    for spec in pdf_companion_scratch_specs(metadata):
+        relation = Table(
+            spec.name,
+            MetaData(),
+            *(Column(field.name, field.type) for field in spec.source.c),
+            schema="pg_temp",
+        )
+        conn.execute(CreateTable(relation))
+    execute_native_sql(
+        conn,
+        """
 CREATE FUNCTION ops.require_pdf_build(text,bigint,bigint,text) RETURNS ops.pdf_stage_build
 LANGUAGE plpgsql AS $$
 DECLARE b ops.pdf_stage_build;
@@ -71,9 +68,9 @@ CREATE FUNCTION ops.pdf_adopt_shared_stream_parts(text,regclass) RETURNS void LA
 CREATE FUNCTION ops.pdf_verify_shared_stream(text,text) RETURNS void LANGUAGE sql AS 'SELECT NULL::void';
 CREATE FUNCTION ops.pdf_companion_field_bytes(text,text,text,boolean) RETURNS bytea LANGUAGE sql RETURN ''::bytea;
 """,
-        )
-        execute_native_sql(conn, companion_adoption_sql(trusted_pdf_context(), metadata))
-        yield conn
+    )
+    execute_native_sql(conn, companion_adoption_sql(trusted_pdf_context(), metadata))
+    yield conn
 
 
 def occurrence(name):

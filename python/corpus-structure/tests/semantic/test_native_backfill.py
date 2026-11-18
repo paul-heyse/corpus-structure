@@ -73,45 +73,45 @@ SELECT '"native backfill".helper(integer)'::regprocedure::oid,
     ).one()
 
 
-def test_backfill_normalization_preserves_exact_frozen_dependents_and_oids(semantic_bare_engine):
-    with semantic_bare_engine.connect() as connection, connection.begin():
-        definitions, objects = fixture(connection)
-        before = oid_pins(connection)
-        # The old helper was previously outside managed state; its already managed
-        # SQL-standard function and view are the explicit frozen normalization context.
-        normalized = normalize_native_backfill(
+def test_backfill_normalization_preserves_exact_frozen_dependents_and_oids(infrastructure_rollback):
+    connection = infrastructure_rollback
+    definitions, objects = fixture(connection)
+    before = oid_pins(connection)
+    # The old helper was previously outside managed state; its already managed
+    # SQL-standard function and view are the explicit frozen normalization context.
+    normalized = normalize_native_backfill(
+        connection, definitions[:1], context=objects[1:], owned_authoring=True
+    )
+    assert len(normalized) == 1
+    assert normalized[0].catalog == objects[0].catalog
+    assert oid_pins(connection) == before
+    admit_native(connection, objects)
+    assert connection.scalar(text('SELECT n FROM "native backfill".answer')) == 4
+    # Existing declaration order may put a newly managed helper after a view.
+    # Observed bounded dependencies, rather than tuple position, govern drops.
+    current = prepare_native_authoring(
+        connection,
+        definitions,
+        predecessor=(objects[2], objects[0], objects[1]),
+        owned_authoring=True,
+    )
+    assert tuple(item.identity for item in current.desired) == tuple(
+        item.identity for item in objects
+    )
+    assert oid_pins(connection) == before
+    admit_native(connection, objects)
+
+
+def test_backfill_refuses_external_dependents_and_restores_owned_context(infrastructure_rollback):
+    connection = infrastructure_rollback
+    definitions, objects = fixture(connection)
+    connection.exec_driver_sql("""CREATE VIEW "native backfill".external AS
+SELECT "native backfill".consumer(7) AS n""")
+    before = oid_pins(connection)
+    with pytest.raises(NativeAuthoringError, match="dependent"):
+        normalize_native_backfill(
             connection, definitions[:1], context=objects[1:], owned_authoring=True
         )
-        assert len(normalized) == 1
-        assert normalized[0].catalog == objects[0].catalog
-        assert oid_pins(connection) == before
-        admit_native(connection, objects)
-        assert connection.scalar(text('SELECT n FROM "native backfill".answer')) == 4
-        # Existing declaration order may put a newly managed helper after a view.
-        # Observed bounded dependencies, rather than tuple position, govern drops.
-        current = prepare_native_authoring(
-            connection,
-            definitions,
-            predecessor=(objects[2], objects[0], objects[1]),
-            owned_authoring=True,
-        )
-        assert tuple(item.identity for item in current.desired) == tuple(
-            item.identity for item in objects
-        )
-        assert oid_pins(connection) == before
-        admit_native(connection, objects)
-
-
-def test_backfill_refuses_external_dependents_and_restores_owned_context(semantic_bare_engine):
-    with semantic_bare_engine.connect() as connection, connection.begin():
-        definitions, objects = fixture(connection)
-        connection.exec_driver_sql("""CREATE VIEW "native backfill".external AS
-SELECT "native backfill".consumer(7) AS n""")
-        before = oid_pins(connection)
-        with pytest.raises(NativeAuthoringError, match="dependent"):
-            normalize_native_backfill(
-                connection, definitions[:1], context=objects[1:], owned_authoring=True
-            )
-        assert oid_pins(connection) == before
-        admit_native(connection, objects)
-        assert connection.scalar(text('SELECT n FROM "native backfill".external')) == 8
+    assert oid_pins(connection) == before
+    admit_native(connection, objects)
+    assert connection.scalar(text('SELECT n FROM "native backfill".external')) == 8

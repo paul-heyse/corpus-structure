@@ -9,14 +9,13 @@ from typing import Any
 
 import pytest
 from conftest import settings_for_native_clone
-from pdf_acceptance_support import certify_controlled_pdf_stream
+from pdf_controlled_support import ControlledPdfContent, controlled_pdf_stream
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.pdf_enrichment import PdfEnrichmentResult
 from corpus_structure.ingest.pdf_recognition import RecognitionPage
-from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.orchestrate.source_operation import run_source_operation
 from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
@@ -39,7 +38,7 @@ from corpus_structure.semantic.pdf_effect_contract import (
 )
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.runtime import open_runtime_engine
-from semantic.current_pdf_integration_support import current_pdf_recipe
+from semantic.current_pdf_integration_support import integrated_pdf_recipe
 from semantic.data_operation_kernel_support import Kernel
 from semantic.data_operation_original_support import OriginalSeedRecipe
 from semantic.pdf_logical_meaning_support import assert_published_target_meaning
@@ -63,20 +62,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
 
     calls = []
 
-    def controlled_stream(
-        self,
-        source,
-        *,
-        spool_root,
-        record_root,
-        build_id,
-        release_id,
-        on_replay,
-        check_active,
-        **options,
-    ):
-        check_active()
-        calls.append("capture")
+    def capture_content():
         document = DoclingDocument(name="Controlled native transformation source")
         document.add_page(page_no=1, size=Size(width=200, height=300))
         document.add_heading(text="1 Controlled", level=1)
@@ -87,23 +73,14 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                 page_no=1, bbox=BoundingBox(l=10, t=20, r=150, b=40), charspan=(0, 22)
             ),
         )
-        streamed = StreamingPdfResult(
-            document,
-            PdfStreamSpool(spool_root, check_active=check_active),
-            "success",
-            (),
-            self.recipe.to_bytes(),
-            (),
-        )
-        return certify_controlled_pdf_stream(
-            streamed,
-            source,
-            spool_root=spool_root,
-            record_root=record_root,
-            build_id=build_id,
-            release_id=release_id,
-            on_replay=on_replay,
-            **options,
+        return ControlledPdfContent.from_document(document)
+
+    content = capture_content()
+
+    def controlled_stream(worker, request, *, on_replay, check_active=None):
+        calls.append("capture")
+        return controlled_pdf_stream(
+            worker, request, content, on_replay=on_replay, check_active=check_active
         )
 
     def controlled_enrichment(self, request, *, check_active):
@@ -172,13 +149,13 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
     monkeypatch.setattr(
         pdf_recognition.RecognitionWorker, "_recognize_pages", ControlledRecognition.recognize_pages
     )
-    recipe = OriginalSeedRecipe(current_pdf_recipe(tmp_path))
-    with scenario_seeds.commit_clone(recipe) as clone:
+    recipe = OriginalSeedRecipe(integrated_pdf_recipe())
+    with scenario_seeds.build_for_consumer(recipe, tmp_path) as clone:
         kernel = Kernel(
             clone.admin,
             clone.stage.kernel.preparation,
             clone.stage.kernel.identities,
-            recipe.target,
+            clone.stage.kernel.recipe,
             clone,
         )
         original = clone.stage.original.reference
@@ -340,7 +317,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             "recognize",
             "enrich",
         ]
-        assert not tuple((tmp_path / "owned").rglob("selected-*"))
+        assert not tuple((kernel.preparation.directory / "owned").rglob("selected-*"))
         effects = (
             "source.pdf_sections/organize",
             "source.pdf_math/enrich",

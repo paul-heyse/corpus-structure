@@ -264,30 +264,23 @@ def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
     ]
 
 
-def test_current_context_source_and_identity_helper_changes_are_visible(monkeypatch):
-    from pathlib import Path
+def test_current_context_model_changes_are_visible():
+    from sqlalchemy import MetaData
 
+    from corpus_structure.semantic.metadata import metadata
     from corpus_structure.semantic.native_products import function_bodies
-    from corpus_structure.semantic.pdf_publication_native import publication_sql
+    from corpus_structure.semantic.pdf_record_context_native import pdf_record_context_sql
 
-    original = Path.read_text
-    before = function_bodies(publication_sql())
-
-    def changed(path, *args, **kwargs):
-        content = original(path, *args, **kwargs)
-        if path.name == "pdf_record_context.sql":
-            return content.replace(
-                "'descriptor',jsonb_build_object", "'changed_descriptor',jsonb_build_object"
-            )
-        return content
-
-    monkeypatch.setattr(Path, "read_text", changed)
-    after = function_bodies(publication_sql())
-    assert "'changed_descriptor'" in after["ops.record_integrated_source_context"]
-    assert (
-        before["ops.record_integrated_source_context"]
-        != after["ops.record_integrated_source_context"]
-    )
+    before = function_bodies(pdf_record_context_sql(metadata))
+    changed = MetaData()
+    for relation in metadata.tables.values():
+        relation.to_metadata(changed)
+    changed.tables["kb.pdf_record_companion"].c.body.name = "changed_body"
+    after = function_bodies(pdf_record_context_sql(changed))
+    context = "ops.pdf_record_context_rows"
+    assert "changed_body" in after[context]
+    assert "changed_body" not in before[context]
+    assert before[context] != after[context]
 
 
 @pytest.mark.parametrize(

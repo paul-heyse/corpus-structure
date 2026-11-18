@@ -2,6 +2,7 @@
 
 import os
 import runpy
+import shutil
 import subprocess
 from contextlib import contextmanager
 from hashlib import sha256
@@ -186,11 +187,100 @@ def test_executed_body_imports_and_bytes_are_construction_inputs(source_tree):
         deployment_key(**source_tree)
 
 
+def test_executed_body_content_and_new_import_each_change_key(source_tree):
+    body = source_tree["chain"] / "upgrade.txt"
+    body.write_text("def upgrade():\n    return 1\n")
+    (source_tree["chain"] / "revision.py").write_text("NATIVE_UPGRADE_FILE = 'upgrade.txt'\n")
+    initial, _ = deployment_key(**source_tree)
+    body.write_text("def upgrade():\n    return 2\n")
+    changed, _ = deployment_key(**source_tree)
+    assert changed != initial
+    body.write_text(body.read_text() + "\nfrom corpus_structure import unrelated\n")
+    imported, components = deployment_key(**source_tree)
+    assert imported != changed
+    assert any(name.endswith("unrelated.py") for name, _ in components["module_imports"])
+
+
+@pytest.mark.parametrize(
+    "fact,value",
+    [
+        ("server_version", "180001"),
+        ("cluster", "other-cluster"),
+        ("template_oid", 18),
+        ("extensions", {"vector": "0.9.0"}),
+    ],
+)
+def test_each_observed_server_fact_changes_key(source_tree, fact, value):
+    source_tree["server"] = {
+        "server_version": "180000",
+        "cluster": "independent-cluster",
+        "template_oid": 17,
+        "extensions": {"vector": "0.8.2"},
+        "principals": {"roles": [], "memberships": []},
+    }
+    before, _ = deployment_key(**source_tree)
+    source_tree["server"][fact] = value
+    assert deployment_key(**source_tree)[0] != before
+
+
 def test_timestamp_changes_do_not_change_key(source_tree):
     before, components = deployment_key(**source_tree)
-    for path in source_tree["chain"].iterdir():
-        os.utime(path, ns=(1000000000, 1000000000))
+    for path in source_tree["repository"].rglob("*"):
+        if path.is_file():
+            os.utime(path, ns=(1000000000, 1000000000))
     assert deployment_key(**source_tree) == (before, components)
+
+
+def test_equal_content_in_another_checkout_has_the_same_key(source_tree):
+    before = deployment_key(**source_tree)
+    original = source_tree["repository"]
+    copied = original.with_name(original.name + "-copy")
+    shutil.copytree(original, copied)
+    relocated = {
+        **source_tree,
+        **{
+            name: copied / source_tree[name].relative_to(original)
+            for name in ("repository", "chain", "package", "construction", "lockfile")
+        },
+    }
+    assert deployment_key(**relocated) == before
+
+
+def test_unpinned_artifact_content_changes_key_with_size_and_timestamps_restored(source_tree):
+    artifact = source_tree["chain"] / "state.json"
+    original = artifact.read_bytes()
+    observed = artifact.stat()
+    before, _ = deployment_key(**source_tree)
+    altered = original.replace(b"frozen", b"wrong!")
+    assert altered != original and len(altered) == len(original)
+    artifact.write_bytes(altered)
+    os.utime(artifact, ns=(observed.st_atime_ns, observed.st_mtime_ns))
+    assert artifact.stat().st_size == observed.st_size
+    assert artifact.stat().st_mtime_ns == observed.st_mtime_ns
+    assert deployment_key(**source_tree)[0] != before
+
+
+def test_interpreter_version_is_a_key_determinant(source_tree, monkeypatch):
+    import native_deployment_key
+
+    before, _ = deployment_key(**source_tree)
+    monkeypatch.setattr(
+        native_deployment_key.sys, "version", native_deployment_key.sys.version + "+authored-change"
+    )
+    assert deployment_key(**source_tree)[0] != before
+
+
+def test_key_components_match_independently_named_determinant_groups(source_tree):
+    _, components = deployment_key(**source_tree)
+    assert set(components) == {
+        "chain",
+        "artifacts",
+        "module_imports",
+        "construction",
+        "lockfile",
+        "interpreter",
+        "server",
+    }
 
 
 def test_pinned_artifact_identity_uses_checked_declaration(source_tree):
@@ -227,9 +317,60 @@ def test_pinned_artifact_identity_uses_checked_declaration(source_tree):
     ],
 )
 def test_observed_role_policy_changes_key_with_stable_identity(source_tree, attribute):
-    source_tree["server"]["principals"] = {"name": "reader", "oid": 91, attribute: False}
+    source_tree["server"]["principals"] = {
+        "roles": [
+            {
+                "rolname": "reader",
+                "oid": 91,
+                "rolcanlogin": False,
+                "rolinherit": False,
+                "rolsuper": False,
+                "rolcreatedb": False,
+                "rolcreaterole": False,
+                "rolreplication": False,
+                "rolbypassrls": False,
+            }
+        ],
+        "memberships": [
+            {
+                "member": 91,
+                "roleid": 92,
+                "grantor": 93,
+                "member_name": "reader",
+                "role_name": "publisher",
+                "grantor_name": "operator",
+                "set_option": False,
+                "inherit_option": False,
+                "admin_option": False,
+            }
+        ],
+    }
     before, _ = deployment_key(**source_tree)
-    source_tree["server"]["principals"][attribute] = True
+    group = "roles" if attribute.startswith("rol") else "memberships"
+    source_tree["server"]["principals"][group][0][attribute] = True
+    assert deployment_key(**source_tree)[0] != before
+
+
+@pytest.mark.parametrize("identity", ["member", "roleid", "grantor"])
+def test_effective_membership_identity_changes_key(source_tree, identity):
+    source_tree["server"]["principals"] = {
+        "roles": [],
+        "memberships": [
+            {
+                "member": 91,
+                "roleid": 92,
+                "grantor": 93,
+                "member_name": "reader",
+                "role_name": "publisher",
+                "grantor_name": "operator",
+                "set_option": True,
+                "inherit_option": False,
+                "admin_option": False,
+            }
+        ],
+    }
+    before, _ = deployment_key(**source_tree)
+    source_tree["server"]["principals"]["memberships"][0][identity] += 10
     assert deployment_key(**source_tree)[0] != before
 
 

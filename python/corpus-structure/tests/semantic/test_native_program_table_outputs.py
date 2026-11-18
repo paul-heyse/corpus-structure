@@ -1,7 +1,7 @@
 """Actual PostgreSQL grammar for generated table-output parameter names."""
 
 import pytest
-from pglast import parse_sql
+from pglast import ast, parse_sql
 from pglast.stream import RawStream
 from sqlalchemy import BigInteger, case, cast, literal, select, text
 
@@ -18,7 +18,9 @@ from corpus_structure.semantic.native_program import (
 
 
 @pytest.mark.parametrize("language", ["sql", "plpgsql"])
-def test_table_output_position_uses_contextual_identifier_quoting(semantic_bare_engine, language):
+def test_table_output_position_uses_contextual_identifier_quoting(
+    infrastructure_rollback, language
+):
     returns = pg_type("record")
     returns.setof = True
     query = select(cast(literal(7), BigInteger()), literal("retained"))
@@ -32,13 +34,18 @@ def test_table_output_position_uses_contextual_identifier_quoting(semantic_bare_
         if language == "sql"
         else function("public", "typed_table_output", body=Block((ReturnQuery(query),)), **options)
     )
-    assert '"position" bigint' in program
-    with semantic_bare_engine.begin() as connection:
-        execute_native_sql(connection, program)
-        assert connection.execute(text("SELECT * FROM public.typed_table_output()")).one() == (
-            7,
-            "retained",
-        )
+    statement = parse_sql(program)[0].stmt
+    assert isinstance(statement, ast.CreateFunctionStmt)
+    position, *_ = statement.parameters or ()
+    assert position.name == "position"
+    assert position.argType is not None and position.argType.names
+    assert position.argType.names[-1].sval == "int8"
+    connection = infrastructure_rollback
+    execute_native_sql(connection, program)
+    assert connection.execute(text("SELECT * FROM public.typed_table_output()")).one() == (
+        7,
+        "retained",
+    )
 
 
 def test_unambiguous_table_output_retains_native_printer_bytes():
@@ -57,7 +64,7 @@ def test_unambiguous_table_output_retains_native_printer_bytes():
     assert RawStream()(statement) == program
 
 
-def test_case_then_remains_inside_procedural_condition(semantic_bare_engine):
+def test_case_then_remains_inside_procedural_condition(infrastructure_rollback):
     condition = literal("matched").is_distinct_from(
         case((literal(False), "other"), else_="matched")
     )
@@ -68,6 +75,6 @@ def test_case_then_remains_inside_procedural_condition(semantic_bare_engine):
         returns=pg_type("bool"),
         body=Block((If(condition, (Return(literal(False)),)), Return(literal(True)))),
     )
-    with semantic_bare_engine.begin() as connection:
-        execute_native_sql(connection, program)
-        assert connection.scalar(text("SELECT public.typed_nested_condition()")) is True
+    connection = infrastructure_rollback
+    execute_native_sql(connection, program)
+    assert connection.scalar(text("SELECT public.typed_nested_condition()")) is True

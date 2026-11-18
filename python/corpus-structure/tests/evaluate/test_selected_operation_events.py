@@ -4,10 +4,10 @@ from math import log1p
 
 import pytest
 from pydantic import ValidationError
-from semantic.test_demand_results import _page
-from semantic.test_sentence_products import nominal_profile as nominal_profile
-from semantic.test_sentence_products import nominal_schema as nominal_schema
-from semantic.test_sentence_products import selected
+from semantic.demand_result_support import demand_result_page
+from semantic.sentence_products_test_support import nominal_profile as nominal_profile
+from semantic.sentence_products_test_support import nominal_schema as nominal_schema
+from semantic.sentence_products_test_support import selected
 
 from corpus_structure.evaluate.operation_fitting import fit_operation_event
 from corpus_structure.evaluate.selected_operation_events import (
@@ -41,7 +41,7 @@ PROJECT = "pure:operation-events"
 
 
 def event_read(profile, name):
-    page = _page()
+    page = demand_result_page()
     page.update(
         project_id=PROJECT,
         demand_id="pure-demand:" + name,

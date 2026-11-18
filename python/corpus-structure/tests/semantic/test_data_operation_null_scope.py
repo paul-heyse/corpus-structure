@@ -11,7 +11,7 @@ from semantic.data_operation_kernel_support import STORAGE
 
 
 @pytest.mark.db
-def test_context_bind_and_comparison_distinguish_json_null_from_sql_null(semantic_bare_engine):
+def test_context_bind_and_comparison_distinguish_json_null_from_sql_null(infrastructure_rollback):
     json_null = literal_column("'null'::jsonb", ContextJSONB())
     sql_null = literal_column("NULL::jsonb", ContextJSONB())
     query = select(
@@ -22,14 +22,14 @@ def test_context_bind_and_comparison_distinguish_json_null_from_sql_null(semanti
         json_null.is_(None),
         sql_null.is_(None),
     )
-    with semantic_bare_engine.connect() as connection:
-        assert tuple(connection.execute(query).one()) == ("null", True, True, None, False, True)
+    connection = infrastructure_rollback
+    assert tuple(connection.execute(query).one()) == ("null", True, True, None, False, True)
 
 
 @pytest.mark.db
 @pytest.mark.parametrize("qualified", [False, True])
 def test_scope_parameter_keeps_explicit_json_null_distinct_from_unqualified_sql_null(
-    semantic_bare_engine,
+    infrastructure_rollback,
     qualified,
 ):
     # Independent SQL/JSON NULL values exercise the production context binder.
@@ -45,10 +45,10 @@ def test_scope_parameter_keeps_explicit_json_null_distinct_from_unqualified_sql_
     query = select(
         admission.c.analyzed_scope.is_not_distinct_from(parameter), func.jsonb_typeof(parameter)
     )
-    with semantic_bare_engine.connect() as connection:
-        assert tuple(connection.execute(query).one()) == (
-            (True, "null") if qualified else (False, None)
-        )
+    connection = infrastructure_rollback
+    assert tuple(connection.execute(query).one()) == (
+        (True, "null") if qualified else (False, None)
+    )
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
@@ -77,7 +77,10 @@ def test_native_demand_retains_json_null_scope_through_product_binding(ddo_kerne
             release=ddo_kernel["prepared"].release_id,
             runtime=ddo_kernel["runtime"],
         )["demand_id"]
-        ready = planner.ready(planner.resume(demand), authorization=b"{}")
+        snapshot = planner.resume(demand)
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        ready = planner.ready(snapshot, authorization=b"{}")
         assert len(ready) == 1 and ready[0].operation == "urn:ddo-test:sample"
     sample = ddo_kernel["model"].operation("urn:ddo-test:sample")
     sample_kernel = {**ddo_kernel, "kind": ddo_kernel["identities"][sample.roles[0].kind, "kind"]}
@@ -85,7 +88,10 @@ def test_native_demand_retains_json_null_scope_through_product_binding(ddo_kerne
     publish(sample_kernel, fence, retain(sample_kernel, fence, outputs=({"value": 12},)))
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
-        ready = planner.ready(planner.resume(demand), authorization=b"{}")
+        snapshot = planner.resume(demand)
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        ready = planner.ready(snapshot, authorization=b"{}")
         assert len(ready) == 1 and ready[0].operation == "urn:ddo-test:consumer"
         assert ready[0].resolved.subject_context.analyzed_scope == b"null"
         assert ready[0].binding_result.roles[0].members[0].analyzed_scope == b"null"

@@ -14,22 +14,26 @@ from semantic.data_operation_kernel_support import STORAGE
 
 
 @pytest.fixture
-def snapshot_connection(semantic_bare_engine):
-    from corpus_structure.semantic.metadata import metadata
-    from corpus_structure.semantic.support_trust_native import support_trust_native_sql
-    from semantic.native_program_support import routine_declaration
+def snapshot_connection(native_read):
+    return native_read
 
-    function = routine_declaration(
-        support_trust_native_sql(metadata), "ops", "ddo_trust_snapshot_meaning", temporary=False
+
+def test_snapshot_comparison_reaches_installed_function(native_rollback):
+    from corpus_structure.semantic.native_objects import native_owner
+
+    connection = native_rollback.connection
+    test_native_read_and_binding_snapshot_comparisons_preserve_epoch_meaning(
+        connection, {"root": 1}, {"root": 2}, True
     )
-    with semantic_bare_engine.connect() as connection:
-        transaction = connection.begin()
-        try:
-            connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ops")
-            connection.exec_driver_sql(function)
-            yield connection
-        finally:
-            transaction.rollback()
+    with native_owner(connection, "corpus_sem_publisher"):
+        connection.exec_driver_sql(
+            "CREATE OR REPLACE FUNCTION ops.ddo_trust_snapshot_meaning(snapshot jsonb) "
+            "RETURNS jsonb LANGUAGE sql IMMUTABLE RETURN '{}'::jsonb"
+        )
+    with pytest.raises(AssertionError):
+        test_native_read_and_binding_snapshot_comparisons_preserve_epoch_meaning(
+            connection, {"root": 1}, {"root": 2}, True
+        )
 
 
 @pytest.mark.db
@@ -140,23 +144,27 @@ def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materi
             runtime=ddo_kernel["runtime"],
         )["demand_id"]
         pinned = planner.resume(demand)
-        assert pinned["trust_snapshot"] == {}
         explicit_zeros = {
             connection.scalar(
                 text("SELECT ops.ddo_scope('ddo-test',:source)"), {"source": source}
             ): 0
             for source in ("source:one", "source:two")
         }
-        # Older pins could explicitly retain zero epochs. The native reader
-        # validates their meaning; the Python adapter must consume its answer.
-        ready = planner.ready({**pinned, "trust_snapshot": explicit_zeros}, authorization=b"{}")
+        assert pinned["trust_snapshot"] == explicit_zeros
+        # Omitted zero epochs have the same trust meaning as the acquired map.
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        ready = planner.ready({**pinned, "trust_snapshot": {}}, authorization=b"{}")
         assert len(ready) == 2
         assert {request.resolved.subject_context.original_source for request in ready} == {
             "source:one",
             "source:two",
         }
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         reread = planner.resume(demand, read_id=pinned["read_id"])
-        assert reread["read_id"] == pinned["read_id"] and reread["trust_snapshot"] == {}
+        assert reread["read_id"] == pinned["read_id"]
+        assert reread["trust_snapshot"] == explicit_zeros
         assert list(connection.scalars(text("SELECT epoch FROM ops.data_trust_scope"))) == [0, 0]
     first = next(
         request

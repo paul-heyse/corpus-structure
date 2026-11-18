@@ -21,7 +21,7 @@ from time import monotonic
 from typing import Any, cast, overload
 from uuid import uuid4
 
-from sqlalchemy import Connection, Engine
+from sqlalchemy import Engine
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.work import (
@@ -42,19 +42,15 @@ from corpus_structure.semantic._data_operation_wire import (
 from corpus_structure.semantic.claim_lifetime import (
     ClaimFenceLost,
     ClaimSettlementUncertain,
-    OwnedClaim,
-    maintained_claims,
 )
 from corpus_structure.semantic.cpu_execution import (
     CapacityExceeded,
     OwnedByteBudget,
 )
 from corpus_structure.semantic.data_operation_admission import (
-    acquire_prepared_execution,
-    acquire_python_execution,
     bound_data_operation_model,
 )
-from corpus_structure.semantic.data_operation_demands import DemandPlanner, ReadyDataRequest
+from corpus_structure.semantic.data_operation_demands import ReadyDataRequest
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.data_operation_ports import (
@@ -66,9 +62,6 @@ from corpus_structure.semantic.data_operation_ports import (
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 from corpus_structure.semantic.data_operation_service import (
     DataExecutionBasis,
-)
-from corpus_structure.semantic.data_operation_storage import (
-    DataOperationStorage,
 )
 from corpus_structure.semantic.identifiers import RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
@@ -652,12 +645,16 @@ class NativeDemandExecutor:
         execution_host=None,
         host_run=None,
         execution_basis=None,
+        native_io=None,
     ):
         if runtime.release_id != prepared.release_id:
             raise ValueError("runtime belongs to another release")
         self.engine, self.prepared, self.runtime, self.sources = engine, prepared, runtime, sources
         self.fitter_engine = fitter_engine
         self.admission_engine = engine if admission_engine is None else admission_engine
+        from .native_demand_io import NativeDemandIO
+
+        self.native_io = native_io or NativeDemandIO(engine, self.admission_engine)
         basis = execution_basis or DataExecutionBasis(
             prepared, runtime, sources, schema, declarations, captured_contracts, runtime_locations
         )
@@ -693,6 +690,7 @@ class NativeDemandExecutor:
         self._preparation_bytes = 0
         self._invocation = Lock()
         self._quarantined = False
+        self._failed_requests = set()
         self.ports = self._target_context.ports
         self.consumer_selectors = self._target_context.consumer_selectors
         self.holder = "demand-owner:" + uuid4().hex
@@ -717,17 +715,7 @@ class NativeDemandExecutor:
                 )
                 if factory is None:
                     raise PortRefusal("declared prepared capability is not acquired")
-                with self.admission_engine.begin() as connection:
-                    admission = acquire_prepared_execution(
-                        connection,
-                        basis.prepared,
-                        basis.sources,
-                        operation,
-                        basis.runtime,
-                        schema=basis.schema,
-                        declarations=basis.declarations,
-                        captured_contracts=basis.captured_contracts,
-                    )
+                admission = self.native_io.acquire_execution(basis, operation, prepared=True)
                 port = factory(
                     basis.prepared,
                     context.model,
@@ -763,17 +751,7 @@ class NativeDemandExecutor:
                         ),
                     )
             else:
-                with self.admission_engine.begin() as connection:
-                    admission = acquire_python_execution(
-                        connection,
-                        basis.prepared,
-                        basis.sources,
-                        operation,
-                        basis.runtime,
-                        schema=basis.schema,
-                        declarations=basis.declarations,
-                        captured_contracts=basis.captured_contracts,
-                    )
+                admission = self.native_io.acquire_execution(basis, operation)
                 context.ports[operation] = resolve_python_port(
                     context.model,
                     basis.sources,
@@ -803,12 +781,7 @@ class NativeDemandExecutor:
         if created:
             context.admitted_operations.add(operation)
         elif operation not in context.admitted_operations:
-            from corpus_structure.semantic.data_operation_admission import recheck_cached_execution
-
-            with self.admission_engine.begin() as connection:
-                recheck_cached_execution(
-                    connection, basis.prepared, basis.runtime, context.ports[operation].identity
-                )
+            self.native_io.recheck_execution(basis, context.ports[operation].identity)
             context.admitted_operations.add(operation)
         return context.ports[operation]
 
@@ -820,14 +793,9 @@ class NativeDemandExecutor:
             host = self._host
             if host is None:
                 raise RuntimeError("execution basis acquisition requires its active process host")
-            with self.engine.begin() as connection:
-                basis = host.acquire_basis(
-                    self.engine,
-                    connection,
-                    *key,
-                    source_root=self.source_root,
-                    token=self._host_run,
-                )
+            basis = self.native_io.acquire_basis(
+                host, *key, source_root=self.source_root, token=self._host_run
+            )
             self._contexts[key] = host.context(basis)
             context = self._contexts[key]
             context.admitted_operations.clear()
@@ -846,8 +814,8 @@ class NativeDemandExecutor:
         from corpus_structure.semantic._data_operation_wire import WireReadDemandResultRequest
 
         binding = claimed["binding"]
-        with self.engine.begin() as connection:
-            storage = DataOperationStorage(connection)
+        with self.native_io.transaction() as connection:
+            storage = connection.calls
             request = {
                 "demand_id": claimed["binding_demand_id"],
                 "read_id": binding["read_id"],
@@ -863,7 +831,7 @@ class NativeDemandExecutor:
                 raise PortRefusal("claimed generation lacks its original pinned obligation")
             binding_snapshot = {**snapshot, "obligations": obligations}
             candidates = tuple(
-                DemandPlanner(context.model, storage).bound_requests(
+                connection.planner(context.model).bound_requests(
                     binding_snapshot, authorization=authorization, retained=True
                 )
             )
@@ -909,28 +877,21 @@ class NativeDemandExecutor:
         self._physical.select_operations(operations, context)
         return original
 
-    def _renew(self, connection: Connection, claim: OwnedClaim):
-        if not isinstance(claim, NativeRequestClaim):
-            raise TypeError("native owner requires a request-generation fence")
-        result = DataOperationStorage(connection).renew_data_request(
-            {**claim.fence, "lease_seconds": 300}
-        )
-        if result["state"] == "lost":
-            raise ClaimFenceLost(claim, result["reason"])
-
     def _hydrate(
         self, ready: ReadyDataRequest, execution_owner=None, *, context=None, connection=None
     ):
         context = self._target_context if context is None else context
         from corpus_structure.semantic.data_operation_consumers import (
             BoundConsumerSelection,
-            hydrate_consumer_selection,
         )
 
         pins = wire_json_loads(ready.resolved.trust_evidence)
-        with self.engine.begin() if connection is None else nullcontext(connection) as connection:
-            selected = hydrate_consumer_selection(
-                connection,
+        with (
+            self.native_io.transaction()
+            if connection is None
+            else nullcontext(connection) as connection
+        ):
+            selected = connection.hydrate(
                 context.model,
                 BoundConsumerSelection.from_binding(
                     ready.binding_result, operation=ready.operation
@@ -1078,8 +1039,8 @@ class NativeDemandExecutor:
         if len(json_bytes(completion)) > self.policy.max_reply_bytes:
             raise ValueError("completion exceeds owned draft capacity")
 
-        def retain(connection):
-            return DataOperationStorage(connection).retain_data_completion_intent(
+        def retain(calls):
+            return calls.retain_data_completion_intent(
                 {
                     **claim.fence,
                     "runtime_id": RuntimeId(claim.runtime_id),
@@ -1127,9 +1088,9 @@ class NativeDemandExecutor:
         packet_bytes, overflow = 0, False
         packet_members = []
         seen = set()
-        with self.engine.begin() as connection:
+        with self.native_io.transaction() as connection:
             requested = [wire_json_loads(item.native) for item in ready]
-            result = DataOperationStorage(connection).claim_data_requests(
+            result = connection.calls.claim_data_requests(
                 cast(
                     WireClaimDataRequestsRequest,
                     {
@@ -1255,8 +1216,8 @@ class NativeDemandExecutor:
         return prepared.claim, prepared.native
 
     def _publish(self, claim, retained, owner):
-        def publish(connection):
-            return DataOperationStorage(connection).publish_data_derivation(
+        def publish(calls):
+            return calls.publish_data_derivation(
                 {
                     **claim.fence,
                     "intent_id": retained,
@@ -1273,8 +1234,8 @@ class NativeDemandExecutor:
         if not retained:
             raise ValueError("native reconciliation lacks exact retained intent")
 
-        def adopt(connection):
-            return DataOperationStorage(connection).adopt_data_completion_intent(
+        def adopt(calls):
+            return calls.adopt_data_completion_intent(
                 {
                     **claim.fence,
                     "intent_id": retained,
@@ -1349,11 +1310,11 @@ class NativeDemandExecutor:
 
         # Preserve the actual exception to the caller. The immutable native record
         # describes custody without copying protected values from exception text.
-        def release(connection):
+        def release(calls):
             from corpus_structure.semantic.d1_limitation import known_d1_failure
 
             failure = known_d1_failure(error, fence=claim.fence, runtime_id=claim.runtime_id)
-            return DataOperationStorage(connection).release_data_attempt(
+            return calls.release_data_attempt(
                 {
                     **claim.fence,
                     "physical_retirement": "confirmed",
@@ -1395,8 +1356,8 @@ class NativeDemandExecutor:
             ):
                 phase = "external packet custody"
 
-                def retain_packet(connection):
-                    return DataOperationStorage(connection).retain_external_data_packet(
+                def retain_packet(calls):
+                    return calls.retain_external_data_packet(
                         {
                             **claim.fence,
                             "runtime_id": RuntimeId(claim.runtime_id),
@@ -1661,8 +1622,8 @@ class NativeDemandExecutor:
             physical.release_retired_inputs()
 
     def _prepare_page(self, snapshot, authorization):
-        with self.engine.begin() as connection:
-            planner = DemandPlanner(self.model, DataOperationStorage(connection))
+        with self.native_io.transaction() as connection:
+            planner = connection.planner(self.model)
             ready = planner.ready(
                 snapshot,
                 authorization=authorization,
@@ -1956,7 +1917,7 @@ class NativeDemandExecutor:
         try:
             with (
                 self._report_execution_failure(demand),
-                maintained_claims(self.engine, (), self.holder, renew=self._renew) as owner,
+                self.native_io.claims(self.holder) as owner,
                 host.execution(self, self._host_run) as physical,
             ):
                 self._physical = physical
@@ -1968,10 +1929,8 @@ class NativeDemandExecutor:
                         nonlocal progress
                         continuation = None
                         while True:
-                            with self.engine.begin() as connection:
-                                planner = DemandPlanner(
-                                    self.model, DataOperationStorage(connection)
-                                )
+                            with self.native_io.transaction() as connection:
+                                planner = connection.planner(self.model)
                                 page = planner.resume(
                                     demand,
                                     limit=limit,
@@ -1994,10 +1953,8 @@ class NativeDemandExecutor:
                                 self._last_snapshot = json_bytes(page)
                                 if page.get("state") == "cancelled":
                                     return
-                            with self.engine.begin() as connection:
-                                planner = DemandPlanner(
-                                    self.model, DataOperationStorage(connection)
-                                )
+                            with self.native_io.transaction() as connection:
+                                planner = connection.planner(self.model)
                                 obligations = {
                                     item["obligation_id"]: item for item in page["obligations"]
                                 }
@@ -2062,10 +2019,8 @@ class NativeDemandExecutor:
                     progress = progress or bool(settled) or bool(selected) or bool(logical_progress)
                     if not progress:
                         break
-            with self.engine.begin() as connection:
-                final = DemandPlanner(self.model, DataOperationStorage(connection)).resume(
-                    demand, limit=limit
-                )
+            with self.native_io.transaction() as connection:
+                final = connection.planner(self.model).resume(demand, limit=limit)
             result = self._result(demand, json_bytes(final))
             if self._member_failures:
                 raise NativeDemandExecutionError(result, tuple(self._member_failures))

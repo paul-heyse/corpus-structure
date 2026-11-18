@@ -43,8 +43,6 @@ from corpus_structure.semantic.terminology import acquire_terminology
 from corpus_structure.semantic.types import (
     PreparationProfile,
     ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
 )
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -53,26 +51,10 @@ SENTENCE = "The sample mean is the sum of the observations divided by the sample
 
 def _recipe(*, empty=False):
     from methods.domain_configuration import candidate_configuration
+    from statistics_pack_support import statistics_bundle
 
-    terminology, vocabulary_assets, ontology_sources = acquire_terminology(
-        ROOT / "domains/statistics"
-    )
-    schemas = SourceBundle(
-        "statistics_semantic",
-        (
-            *tuple(
-                SourceArtifact(name, (ROOT / path).read_bytes())
-                for name, path in (
-                    ("statistics_semantic", "domains/statistics/semantic.yaml"),
-                    (
-                        "semantic_core",
-                        "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml",
-                    ),
-                )
-            ),
-            *terminology,
-        ),
-    )
+    _, vocabulary_assets, ontology_sources = acquire_terminology(ROOT / "domains/statistics")
+    schemas = statistics_bundle()
     cfg = candidate_configuration(ROOT / "domains/statistics", "default")
     # This is an explicit supported producer profile, with no undeclared rule or
     # formal input and no extra local question. Family semantics remain original.

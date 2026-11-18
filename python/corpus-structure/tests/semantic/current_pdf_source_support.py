@@ -9,8 +9,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from pdf_controlled_support import ControlledPdfContent
+from scenario_recipes import register_scenario_builder
 
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
@@ -37,82 +40,40 @@ from corpus_structure.semantic.types import (
     SourceArtifact,
     SourceBundle,
 )
-from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
+from semantic.data_operation_kernel_support import (
+    CapturedKernelInputs,
+    Kernel,
+    KernelRecipe,
+    KernelSeedStage,
+    build_kernel,
+)
 
 ROOT = Path(__file__).resolve().parents[4]
 PROJECT = "current-source-catalog"
 
 
-def current_pdf_recipe(directory, *, math_context=False):
+def compose_current_pdf_recipe(directory, *, name, bundle, operation_sources, declarations=()):
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 
-    capture = pdf_capture_operation_sources(
-        PdfRecipe(
-            "0" * 40,
-            "1" * 40,
-            device="cpu",
-            ocr_device="cpu",
-            recipe_id="docling-standard-pdf-stream-v1",
-        ),
-        PreparedPdfAssets(directory, b"{}", ()),
-        directory=directory / "owned",
+    recipe = PdfRecipe(
+        "0" * 40,
+        "1" * 40,
+        device="cpu",
+        ocr_device="cpu",
+        recipe_id="docling-standard-pdf-stream-v1",
     )
-    from corpus_structure.semantic.native_requests import (
-        pdf_region_inputs,
-        pdf_region_operation_sources,
-    )
-    from corpus_structure.semantic.primary_operations import combine_primary_sources
-    from corpus_structure.semantic.visual_requests import (
-        visual_external_declaration,
-        visual_operation_sources,
-    )
-
-    sources = combine_primary_sources(
-        pdf_views_operation_sources(capture),
-        pdf_region_operation_sources(capture),
-        visual_operation_sources(),
-        source_discovery_operation_sources(),
-        source_profile_operation_sources(),
-    )
-    if math_context:
-        from corpus_structure.semantic.declared_math_products import (
-            DeclaredMathOptions,
-            math_profile_assets,
-        )
-
-        # Offline formula preparation consumes this actual captured profile;
-        # a source-only recipe does not acquire an ambient mathematical context.
-        sources = replace(
-            sources,
-            boundary_contracts=(
-                *sources.boundary_contracts,
-                math_profile_assets(DeclaredMathOptions()),
-            ),
-        )
-    core = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-    bundle = source_profile_inputs(
-        pdf_region_inputs(
-            source_discovery_inputs(
-                pdf_capture_inputs(
-                    SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
-                )
-            )
-        )
-    )
+    assets = PreparedPdfAssets(directory, b"{}", ())
+    capture = pdf_capture_operation_sources(recipe, assets, directory=directory / "owned")
     native = native_protocol_sources()
     pdf = pdf_domain_dependencies(ResolvedDependencies())
     dependencies = data_operation_dependencies(
         ResolvedDependencies((*pdf.artifacts, *native, *capture_port_generator_sources())),
-        (
-            native_operation_declarations(native),
-            visual_external_declaration(),
-            source_profile_declarations(),
-        ),
-        sources,
+        (native_operation_declarations(native), *declarations),
+        operation_sources(recipe, assets, capture),
     )
     return KernelRecipe(
-        "current-pdf-source",
+        name,
         "",
         None,
         "",
@@ -124,6 +85,61 @@ def current_pdf_recipe(directory, *, math_context=False):
     )
 
 
+def current_pdf_recipe(directory, *, math_context=False):
+    from corpus_structure.semantic.native_requests import (
+        pdf_region_inputs,
+        pdf_region_operation_sources,
+    )
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from corpus_structure.semantic.visual_requests import (
+        visual_external_declaration,
+        visual_operation_sources,
+    )
+
+    def operation_sources(_recipe, _assets, capture):
+        sources = combine_primary_sources(
+            pdf_views_operation_sources(capture),
+            pdf_region_operation_sources(capture),
+            visual_operation_sources(),
+            source_discovery_operation_sources(),
+            source_profile_operation_sources(),
+        )
+        if math_context:
+            from corpus_structure.semantic.declared_math_products import (
+                DeclaredMathOptions,
+                math_profile_assets,
+            )
+
+            # Offline formula preparation consumes this actual captured profile;
+            # a source-only recipe does not acquire an ambient mathematical context.
+            sources = replace(
+                sources,
+                boundary_contracts=(
+                    *sources.boundary_contracts,
+                    math_profile_assets(DeclaredMathOptions()),
+                ),
+            )
+        return sources
+
+    core = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
+    bundle = source_profile_inputs(
+        pdf_region_inputs(
+            source_discovery_inputs(
+                pdf_capture_inputs(
+                    SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+                )
+            )
+        )
+    )
+    return compose_current_pdf_recipe(
+        directory,
+        name="current-pdf-source",
+        bundle=bundle,
+        operation_sources=operation_sources,
+        declarations=(visual_external_declaration(), source_profile_declarations()),
+    )
+
+
 @dataclass(frozen=True)
 class CurrentPdfSource:
     kernel: Kernel
@@ -131,6 +147,7 @@ class CurrentPdfSource:
     document_key: str
     original: bytes
     sections: tuple[str, ...]
+    published_only: bool = False
 
     def publication(self, connection):
         from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
@@ -157,6 +174,10 @@ class CurrentPdfSource:
         raise AssertionError("bounded current source fixture did not reach its publication")
 
     def register(self, connection, target, *, selections=()):
+        if self.published_only:
+            raise ValueError(
+                "published capture cannot register a new demand; use a writable PDF source"
+            )
         from corpus_structure.semantic.data_operation_json import json_loads
         from corpus_structure.semantic.data_operation_service import (
             DemandOriginalSelection,
@@ -195,32 +216,7 @@ class CurrentPdfSource:
         return create_native_demand(connection, request)["demand_id"]
 
 
-def _certified_controlled_reply(result, request, on_replay):
-    """Exercise real encoding and certification over independently authored fixture content."""
-    from corpus_structure.ingest.pdf_streaming import _atomic_bytes
-
-    on_replay(
-        _atomic_bytes(
-            request.spool_root / "native-preparation.json",
-            result.effective_options,
-            "native_preparation",
-        )
-    )
-    return result.certified_reply(request, on_replay=on_replay)
-
-
-def _controlled_stream(
-    self,
-    source,
-    *,
-    spool_root,
-    record_root,
-    build_id,
-    release_id,
-    on_replay,
-    check_active,
-    **options,
-):
+def source_content():
     from docling_core.types.doc import (
         BoundingBox,
         DocItemLabel,
@@ -228,11 +224,8 @@ def _controlled_stream(
         ProvenanceItem,
         Size,
     )
+    from pdf_controlled_support import ControlledPdfContent
 
-    from corpus_structure.ingest.pdf_stream_types import PdfStreamRequest
-    from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-
-    check_active()
     document = DoclingDocument(name="Independent current source")
     document.add_page(page_no=1, size=Size(width=200, height=300))
     document.add_heading(text="1 Selected source", level=1)
@@ -241,41 +234,52 @@ def _controlled_stream(
         text="Alice was running.",
         prov=ProvenanceItem(page_no=1, bbox=BoundingBox(l=10, t=20, r=150, b=40), charspan=(0, 18)),
     )
-    result = StreamingPdfResult(
-        document,
-        PdfStreamSpool(spool_root, check_active=check_active),
-        "success",
-        (),
-        self.recipe.to_bytes(),
-        (),
-        b'{"fixture":"controlled-source-search"}',
-    )
-    return _certified_controlled_reply(
-        result,
-        PdfStreamRequest(
-            source,
-            spool_root,
-            record_root,
-            build_id,
-            release_id,
-            options["validation_contract"],
-            options["lowering_identity"],
-            options["payload_schema"],
-        ),
-        on_replay,
-    )
+    return ControlledPdfContent.from_document(document, formula_outcomes=())
 
 
-@contextmanager
-def _current_pdf_source(
-    scenario_seeds, tmp_path, monkeypatch, *, stream=None, sections=(), math_context=False
-):
+@dataclass(frozen=True)
+class PdfSourceScenario:
+    content: ControlledPdfContent
+    sections: tuple[str, ...] = ()
+    math_context: bool = False
+
+    def bind(self, directory: Path) -> KernelRecipe:
+        return current_pdf_recipe(directory, math_context=self.math_context)
+
+
+@dataclass(frozen=True)
+class PublishedCaptureStage:
+    kernel: KernelSeedStage
+    demand_id: str
+    document_key: str
+    original: bytes
+    sections: tuple[str, ...]
+
+    @property
+    def seed_files(self):
+        return self.kernel.seed_files
+
+    @property
+    def seed_origin(self):
+        return {"capture_producer": "controlled-recipe-content"}
+
+    def validate_clone(self, admin):
+        self.kernel.validate_clone(admin)
+
+    def acquired(self, clone, *, published_only=False):
+        stage = self.kernel
+        kernel = Kernel(clone.admin, stage.preparation, stage.identities, stage.recipe, clone)
+        return CurrentPdfSource(
+            kernel, self.demand_id, self.document_key, self.original, self.sections, published_only
+        )
+
+
+def _capture_source(kernel, directory, sections):
     from hashlib import sha256
 
     import pypdfium2 as pdfium
 
     from corpus_structure.core.evidence import document_key
-    from corpus_structure.ingest import pdf_worker
     from corpus_structure.semantic.data_operation_demands import (
         DemandPlanner,
         OperationSelection,
@@ -289,7 +293,6 @@ def _current_pdf_source(
         register_original_document,
     )
 
-    monkeypatch.setattr(pdf_worker.PdfWorker, "stream", stream or _controlled_stream)
     document = pdfium.PdfDocument.new()
     page = document.new_page(200, 300)
     page.close()
@@ -297,87 +300,124 @@ def _current_pdf_source(
     document.save(output)
     document.close()
     original = output.getvalue()
-    path = tmp_path / "independent-original.pdf"
+    path = directory / "independent-original.pdf"
     path.write_bytes(original)
-    recipe = current_pdf_recipe(tmp_path, math_context=math_context)
-    with scenario_seeds.commit_clone(recipe) as clone:
+    with kernel.purpose("write").begin() as connection:
+        DataOperationStorage(connection).initialize_source_project(
+            {
+                "project_id": ProjectId(PROJECT),
+                "release_id": ReleaseId(kernel.prepared.release_id),
+            }
+        )
+        register_original_document(
+            connection,
+            prepared=kernel.prepared,
+            project_id=PROJECT,
+            source_uri="independent-original.pdf",
+            original_path=str(path),
+            original=original,
+            mime="application/pdf",
+        )
+        key = document_key(PROJECT, "independent-original.pdf", sha256(original).hexdigest())
+        selected = acquire_original_document_selection(
+            connection, project_id=PROJECT, document_key=key
+        )
+        intent = freeze_demand(
+            kernel.model,
+            roots=(selected.root,),
+            targets=("source.pdf_views/discovery",),
+            original_sources=(selected.selection(),),
+            selections=(
+                OperationSelection(
+                    "source.pdf_views/discovery",
+                    parameters=json_bytes(
+                        {"sections": list(sections), "membership": "descendants"}
+                    ),
+                ),
+            )
+            if sections
+            else (),
+            inference="current-source-journey",
+            execution_profile=kernel.recipe.execution_profile,
+        )
+        demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
+            intent, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
+        )["demand_id"]
+    path.unlink()  # The source owner must use retained custody, never a local fallback.
+    result = execute_data_demand(
+        kernel.purpose("write"),
+        demand,
+        source_root=ROOT,
+        admission_engine=kernel.purpose("admit"),
+        project_id=PROJECT,
+        database_capacity=6,
+    )
+    assert result.receipt_count == 2
+    return demand, key, original
+
+
+def build_pdf_source(scenario, admin, writer, directory, *, purpose_engine):
+    from pdf_controlled_support import controlled_pdf_converter
+
+    recipe = scenario.bind(directory)
+    stage = build_kernel(recipe, admin, writer, directory, purpose_engine=purpose_engine)
+    kernel = Kernel(
+        admin,
+        stage.preparation,
+        stage.identities,
+        recipe,
+        SimpleNamespace(purpose=purpose_engine),
+    )
+    with controlled_pdf_converter(scenario.content):
+        demand, document, original = _capture_source(kernel, directory, scenario.sections)
+    return PublishedCaptureStage(stage, demand, document, original, scenario.sections)
+
+
+register_scenario_builder(PdfSourceScenario, build_pdf_source)
+
+
+@contextmanager
+def _current_pdf_source(scenario_seeds, tmp_path, *, content=None, sections=(), math_context=False):
+    scenario = PdfSourceScenario(content or source_content(), tuple(sections), math_context)
+    with scenario_seeds.build_for_consumer(scenario, tmp_path) as clone:
+        yield clone.stage.acquired(clone)
+
+
+@contextmanager
+def current_pdf_process_source(scenario_seeds, directory):
+    """Acquire a writable case that executes the actual PDF worker process."""
+    recipe = current_pdf_recipe(directory)
+    with scenario_seeds.build_for_consumer(recipe, directory) as clone:
         stage = clone.stage
         kernel = Kernel(clone.admin, stage.preparation, stage.identities, recipe, clone)
-        with kernel.purpose("write").begin() as connection:
-            DataOperationStorage(connection).initialize_source_project(
-                {
-                    "project_id": ProjectId(PROJECT),
-                    "release_id": ReleaseId(kernel.prepared.release_id),
-                }
-            )
-            register_original_document(
-                connection,
-                prepared=kernel.prepared,
-                project_id=PROJECT,
-                source_uri="independent-original.pdf",
-                original_path=str(path),
-                original=original,
-                mime="application/pdf",
-            )
-            key = document_key(PROJECT, "independent-original.pdf", sha256(original).hexdigest())
-            selected = acquire_original_document_selection(
-                connection, project_id=PROJECT, document_key=key
-            )
-            intent = freeze_demand(
-                kernel.model,
-                roots=(selected.root,),
-                targets=("source.pdf_views/discovery",),
-                original_sources=(selected.selection(),),
-                selections=(
-                    OperationSelection(
-                        "source.pdf_views/discovery",
-                        parameters=json_bytes(
-                            {"sections": list(sections), "membership": "descendants"}
-                        ),
-                    ),
-                )
-                if sections
-                else (),
-                inference="current-source-journey",
-                execution_profile=recipe.execution_profile,
-            )
-            demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
-                intent, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
-            )["demand_id"]
-        path.unlink()  # The source owner must use retained custody, never a local fallback.
-        result = execute_data_demand(
-            kernel.purpose("write"),
-            demand,
-            source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
-            project_id=PROJECT,
-            database_capacity=6,
-        )
-        assert result.receipt_count == 2
-        yield CurrentPdfSource(kernel, demand, key, original, tuple(sections))
+        demand, key, original = _capture_source(kernel, directory, ())
+        yield CurrentPdfSource(kernel, demand, key, original, ())
 
 
 @pytest.fixture
-def current_pdf_source(scenario_seeds, tmp_path, monkeypatch):
-    with _current_pdf_source(scenario_seeds, tmp_path, monkeypatch) as source:
+def published_pdf_source(scenario_seeds):
+    scenario = PdfSourceScenario(source_content())
+    with scenario_seeds.commit_clone(scenario) as clone:
+        yield clone.stage.acquired(clone, published_only=True)
+
+
+@pytest.fixture
+def current_pdf_source(scenario_seeds, tmp_path):
+    with _current_pdf_source(scenario_seeds, tmp_path) as source:
         yield source
 
 
 @pytest.fixture
-def current_pdf_source_factory(scenario_seeds, tmp_path, monkeypatch):
+def current_pdf_source_factory(scenario_seeds, tmp_path):
     """Real current custody with independently selected converter section contents."""
 
     def acquire(rows, *, math_context=False):
         rows = tuple(rows)
 
-        def stream(self, source, **options):
-            return _section_stream(rows, self, source, **options)
-
         return _current_pdf_source(
             scenario_seeds,
             tmp_path,
-            monkeypatch,
-            stream=stream,
+            content=section_content(rows),
             sections=tuple("#/groups/" + str(i) for i in range(len(rows))),
             math_context=math_context,
         )
@@ -385,19 +425,7 @@ def current_pdf_source_factory(scenario_seeds, tmp_path, monkeypatch):
     return acquire
 
 
-def _section_stream(
-    rows,
-    self,
-    source,
-    *,
-    spool_root,
-    record_root,
-    build_id,
-    release_id,
-    on_replay,
-    check_active,
-    **options,
-):
+def section_content(rows):
     from docling_core.types.doc import (
         BoundingBox,
         DocItemLabel,
@@ -406,11 +434,8 @@ def _section_stream(
         ProvenanceItem,
         Size,
     )
+    from pdf_controlled_support import ControlledPdfContent
 
-    from corpus_structure.ingest.pdf_stream_types import PdfStreamRequest
-    from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-
-    check_active()
     document = DoclingDocument(name="Independently selected current sections")
     document.add_page(page_no=1, size=Size(width=200, height=300))
     from corpus_structure.ingest.pdf_health import FormulaOutcome
@@ -430,29 +455,7 @@ def _section_stream(
             )
             if label == "formula":
                 outcomes.append(FormulaOutcome(item.self_ref, outcome))
-    result = StreamingPdfResult(
-        document,
-        PdfStreamSpool(spool_root, check_active=check_active),
-        "success",
-        (),
-        self.recipe.to_bytes(),
-        tuple(outcomes),
-        b'{"fixture":"controlled-source-search-sections"}',
-    )
-    return _certified_controlled_reply(
-        result,
-        PdfStreamRequest(
-            source,
-            spool_root,
-            record_root,
-            build_id,
-            release_id,
-            options["validation_contract"],
-            options["lowering_identity"],
-            options["payload_schema"],
-        ),
-        on_replay,
-    )
+    return ControlledPdfContent.from_document(document, formula_outcomes=tuple(outcomes))
 
 
 def admit_current_target(source, recipe, directory):
@@ -460,6 +463,8 @@ def admit_current_target(source, recipe, directory):
     from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
 
     directory.mkdir()
+    if not isinstance(recipe, KernelRecipe):
+        recipe = recipe.bind(directory)
     preparation = prepare_kernel(recipe, directory=directory)
     with source.kernel.engine.begin() as connection:
         admitted = admit_kernel(

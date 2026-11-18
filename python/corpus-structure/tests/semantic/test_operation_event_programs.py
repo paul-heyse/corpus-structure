@@ -118,33 +118,33 @@ def test_generated_operation_event_guards_bind_and_keep_exact_eligibility(native
 
 
 @pytest.fixture
-def event_scope_connection(semantic_bare_engine):
-    with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql("CREATE SCHEMA ops")
-        connection.execute(
-            CreateTable(metadata.tables["ops.data_request"], include_foreign_key_constraints=[])
-        )
-        # Controlled input and cut ports let the actual generated scope consumer
-        # select and validate its original/prediction/frame values independently.
-        connection.exec_driver_sql(
-            "CREATE FUNCTION ops.ddo_record_grade_input(r ops.data_request,role_name text) RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$ SELECT jsonb_build_object('body',r.binding->role_name) $$"
-        )
-        connection.exec_driver_sql(
-            "CREATE FUNCTION ops.ddo_record_grade_cut_scopes(project text,cut text) RETURNS SETOF text LANGUAGE sql IMMUTABLE AS $$ SELECT 'grade:'||cut $$"
-        )
-        connection.exec_driver_sql(
-            "CREATE FUNCTION ops.ddo_record_fit_cut_scopes(project text,selection jsonb) RETURNS SETOF text LANGUAGE sql IMMUTABLE AS $$ SELECT 'fit:'||(selection->>'use_id') $$"
-        )
-        parsed = prepare_sql(operation_event_native_sql(metadata), source="event-scopes")
-        for i, statement in enumerate(parsed.statements):
-            node = statement.stmt
-            if (
-                isinstance(node, ast.CreateFunctionStmt)
-                and node.funcname
-                and node.funcname[-1].sval == "ddo_operation_event_completion_scopes"
-            ):
-                execute_native_sql(connection, parsed.excerpt(i))
-        yield connection
+def event_scope_connection(infrastructure_rollback):
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA ops")
+    connection.execute(
+        CreateTable(metadata.tables["ops.data_request"], include_foreign_key_constraints=[])
+    )
+    # Controlled input and cut ports let the actual generated scope consumer
+    # select and validate its original/prediction/frame values independently.
+    connection.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_record_grade_input(r ops.data_request,role_name text) RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$ SELECT jsonb_build_object('body',r.binding->role_name) $$"
+    )
+    connection.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_record_grade_cut_scopes(project text,cut text) RETURNS SETOF text LANGUAGE sql IMMUTABLE AS $$ SELECT 'grade:'||cut $$"
+    )
+    connection.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_record_fit_cut_scopes(project text,selection jsonb) RETURNS SETOF text LANGUAGE sql IMMUTABLE AS $$ SELECT 'fit:'||(selection->>'use_id') $$"
+    )
+    parsed = prepare_sql(operation_event_native_sql(metadata), source="event-scopes")
+    for i, statement in enumerate(parsed.statements):
+        node = statement.stmt
+        if (
+            isinstance(node, ast.CreateFunctionStmt)
+            and node.funcname
+            and node.funcname[-1].sval == "ddo_operation_event_completion_scopes"
+        ):
+            execute_native_sql(connection, parsed.excerpt(i))
+    yield connection
 
 
 def _scopes(connection, request):

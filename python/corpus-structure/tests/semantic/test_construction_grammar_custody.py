@@ -9,9 +9,9 @@ from corpus_structure.semantic.constructions.lexical import (
     classify,
 )
 from corpus_structure.semantic.file_custody import FileCustodyError
+from semantic.construction_products_test_support import profiles as construction_profiles  # noqa: F401
 from semantic.prose_book_comparator import _forest_shape
 from semantic.prose_regex_oracle import _regex_parser_oracle
-from semantic.test_construction_products import profiles as construction_profiles  # noqa: F401
 
 
 def test_parser_cache_rechecks_grammar_content_and_accepts_equal_touch(tmp_path, monkeypatch):
@@ -157,16 +157,16 @@ def test_book_comparator_observes_actual_production_region_selection(
     construction_profiles,  # noqa: F811
 ):
     from corpus_structure.semantic.formal_products import FormalEvidenceOptions
+    from semantic.construction_products_test_support import publication_context
     from semantic.formal_products_support import selected
     from semantic.prose_book_comparator import _compare_profile_regions
-    from semantic.test_construction_products import _publication_context
 
     # Reuse the existing ordinary typed-product fixture; this bounded control
     # verifies the comparator mechanics and grants no actual-book evidence.
     formal, construction = construction_profiles
     source = selected(formal, "Every trial succeeds.")
     primary = formal.run(
-        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+        source, FormalEvidenceOptions(), subject_context=publication_context(source)
     )
     monkeypatch.setattr(forest, "classify", lambda *_: pytest.fail("reclassified primary text"))
     from corpus_structure.semantic.construction_products import ConstructionOptions
@@ -177,7 +177,7 @@ def test_book_comparator_observes_actual_production_region_selection(
         (primary,),
         ConstructionOptions(),
         sentences=None,
-        subject_context=_publication_context(source),
+        subject_context=publication_context(source),
     )
     assert len(compared) == 1
     assert compared[0]["outcome"] in {"complete", "partial"}

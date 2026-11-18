@@ -19,7 +19,7 @@ from docling_core.types.doc import (
 from pdf_process_support import fake_stream_child, partial_stream_child
 from PIL import Image
 
-from corpus_structure.ingest.pdf_stream_types import OwnedPdfSource
+from corpus_structure.ingest.pdf_stream_types import OwnedPdfSource, PdfStreamRequest
 from corpus_structure.ingest.pdf_streaming import (
     PdfStreamSpool,
     StreamingPdfResult,
@@ -322,12 +322,14 @@ def test_worker_adopts_replay_before_terminal_result(tmp_path):
         worker = Worker(recipe)
         try:
             result = worker.stream(
-                ref,
-                spool_root=tmp_path / "pages",
-                record_root=tmp_path / "records",
-                build_id="build",
-                release_id="release",
-                **explicit_producer_contract(),
+                PdfStreamRequest(
+                    ref,
+                    spool_root=tmp_path / "pages",
+                    record_root=tmp_path / "records",
+                    build_id="build",
+                    release_id="release",
+                    **explicit_producer_contract(),
+                ),
                 on_replay=adopted.append,
             )
             assert len(adopted) == 1 and result.page_replays == (adopted[0],)
@@ -372,12 +374,14 @@ def test_partial_stream_disposes_containing_worker(tmp_path):
         worker = Worker(PdfRecipe("a" * 40, "b" * 40, recipe_id="docling-standard-pdf-stream-v1"))
         try:
             result = worker.stream(
-                source,
-                spool_root=tmp_path / "pages",
-                record_root=tmp_path / "records",
-                build_id="build",
-                release_id="release",
-                **explicit_producer_contract(),
+                PdfStreamRequest(
+                    source,
+                    spool_root=tmp_path / "pages",
+                    record_root=tmp_path / "records",
+                    build_id="build",
+                    release_id="release",
+                    **explicit_producer_contract(),
+                ),
                 on_replay=lambda _: None,
             )
             assert result.conversion_status == "partial_success"

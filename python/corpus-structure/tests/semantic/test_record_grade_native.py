@@ -14,7 +14,7 @@ from corpus_structure.semantic.record_grade_native import record_grade_native_sq
 
 
 @pytest.fixture
-def grade_guard_connection(semantic_bare_engine):
+def grade_guard_connection(infrastructure_rollback):
     # Real current physical composite types, no fake producer, publication or CPU
     # receipt. This compiles private PL/pgSQL and tests early closed refusals only.
     required = (
@@ -27,18 +27,18 @@ def grade_guard_connection(semantic_bare_engine):
         "sem.artifact",
         "sem.release_finalization",
     )
-    with semantic_bare_engine.begin() as connection:
-        for schema in ("ops", "sem", "data", "kb"):
-            connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        for name in required:
-            connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
-        sql = record_grade_native_sql(metadata)
-        assert "__DDO_CORE_" not in sql
-        connection.exec_driver_sql(sql, execution_options={"no_parameters": True})
-        yield connection
+    connection = infrastructure_rollback
+    for schema in ("ops", "sem", "data", "kb"):
+        connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    for name in required:
+        connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
+    sql = record_grade_native_sql(metadata)
+    assert "__DDO_CORE_" not in sql
+    connection.exec_driver_sql(sql, execution_options={"no_parameters": True})
+    yield connection
 
 
-def test_native_grade_helpers_are_private_and_closed(grade_guard_connection):
+def test_program_grade_helpers_are_private_and_closed(grade_guard_connection):
     connection = grade_guard_connection
     request = json.dumps({"operation_id": "unrelated.operation", "project_id": "unrelated-project"})
     assert (
@@ -68,7 +68,7 @@ def test_native_grade_helpers_are_private_and_closed(grade_guard_connection):
     assert public_functions == 0
 
 
-def test_native_grade_scope_refuses_missing_project_or_retained_cut(grade_guard_connection):
+def test_program_grade_scope_refuses_missing_project_or_retained_cut(grade_guard_connection):
     with pytest.raises(DBAPIError):
         grade_guard_connection.execute(
             text("SELECT * FROM ops.ddo_record_grade_cut_scopes('actual-project',:cut)"),
@@ -76,7 +76,7 @@ def test_native_grade_scope_refuses_missing_project_or_retained_cut(grade_guard_
         )
 
 
-def test_native_grade_function_population_has_independent_expected_signatures():
+def test_program_grade_function_population_has_independent_expected_signatures():
     statements = prepare_sql(
         record_grade_native_sql(metadata), source="record-grade-native"
     ).statements

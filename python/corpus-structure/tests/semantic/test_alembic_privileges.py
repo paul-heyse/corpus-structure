@@ -103,96 +103,96 @@ def test_owned_ddl_rendering_preserves_upgrade_caller_without_ast_repair():
     compile("def upgrade():\n" + rendered, "candidate.py", "exec")
 
 
-def test_live_normalization_exact_transition_stale_before_and_role_restore(semantic_bare_engine):
+def test_live_normalization_exact_transition_stale_before_and_role_restore(infrastructure_rollback):
     schema = "privilege_" + uuid4().hex[:12]
-    with semantic_bare_engine.begin() as conn:
-        original = conn.scalar(text("SELECT current_user"))
-        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
-        conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
-        conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample (id integer)')
-        conn.exec_driver_sql(f'ALTER TABLE "{schema}".sample OWNER TO corpus_sem_publisher')
-        conn.exec_driver_sql(f'GRANT SELECT (id) ON "{schema}".sample TO PUBLIC')
-        policy = {
-            "kind": "table",
-            "name": schema + ".sample",
-            "owner": "corpus_sem_publisher",
-            "acl": [("corpus_sem_reader", "SELECT", False)],
-            "columns": [],
-        }
-        operations = Operations(MigrationContext.configure(conn))
-        operations.invoke(PrivilegeTransitionOp(None, policy, normalization=True))
-        admit_privileges(conn, [policy])
-        assert conn.scalar(text("SELECT current_user")) == original
-        assert conn.scalar(
-            text("SELECT has_table_privilege('corpus_sem_reader',:relation,'SELECT')"),
-            {"relation": policy["name"]},
-        )
-        changed = dict(policy, acl=[])
+    conn = infrastructure_rollback
+    original = conn.scalar(text("SELECT current_user"))
+    conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+    conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
+    conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample (id integer)')
+    conn.exec_driver_sql(f'ALTER TABLE "{schema}".sample OWNER TO corpus_sem_publisher')
+    conn.exec_driver_sql(f'GRANT SELECT (id) ON "{schema}".sample TO PUBLIC')
+    policy = {
+        "kind": "table",
+        "name": schema + ".sample",
+        "owner": "corpus_sem_publisher",
+        "acl": [("corpus_sem_reader", "SELECT", False)],
+        "columns": [],
+    }
+    operations = Operations(MigrationContext.configure(conn))
+    operations.invoke(PrivilegeTransitionOp(None, policy, normalization=True))
+    admit_privileges(conn, [policy])
+    assert conn.scalar(text("SELECT current_user")) == original
+    assert conn.scalar(
+        text("SELECT has_table_privilege('corpus_sem_reader',:relation,'SELECT')"),
+        {"relation": policy["name"]},
+    )
+    changed = dict(policy, acl=[])
+    operations.invoke(PrivilegeTransitionOp(policy, changed))
+    admit_privileges(conn, [changed])
+    from corpus_structure.semantic.alembic_privileges import admission_comparison_sql
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    expected = canonical_bytes({"privileges": [changed]}).decode().replace("'", "''")
+    conn.exec_driver_sql(
+        "DO $test$ DECLARE expected jsonb := '"
+        + expected
+        + "'::jsonb; BEGIN "
+        + admission_comparison_sql()
+        + " END $test$;"
+    )
+    with pytest.raises(NativeAuthoringError, match="stale privilege before-state"):
         operations.invoke(PrivilegeTransitionOp(policy, changed))
-        admit_privileges(conn, [changed])
-        from corpus_structure.semantic.alembic_privileges import admission_comparison_sql
-        from corpus_structure.semantic.identity import canonical_bytes
-
-        expected = canonical_bytes({"privileges": [changed]}).decode().replace("'", "''")
-        conn.exec_driver_sql(
-            "DO $test$ DECLARE expected jsonb := '"
-            + expected
-            + "'::jsonb; BEGIN "
-            + admission_comparison_sql()
-            + " END $test$;"
-        )
-        with pytest.raises(NativeAuthoringError, match="stale privilege before-state"):
-            operations.invoke(PrivilegeTransitionOp(policy, changed))
-        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+    conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
 
 
-def test_live_schema_normalization_and_frozen_guard_reject_grant_options(semantic_bare_engine):
+def test_live_schema_normalization_and_frozen_guard_reject_grant_options(infrastructure_rollback):
     from sqlalchemy.exc import DBAPIError
 
     from corpus_structure.semantic.alembic_privileges import admission_comparison_sql
     from corpus_structure.semantic.identity import canonical_bytes
 
     schema = "schema_acl_" + uuid4().hex[:10]
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
-        conn.exec_driver_sql(f'GRANT USAGE ON SCHEMA "{schema}" TO PUBLIC')
-        conn.exec_driver_sql(f'GRANT CREATE ON SCHEMA "{schema}" TO corpus_sem_reader')
-        policy = {
-            "kind": "schema",
-            "name": schema,
-            "owner": None,
-            "acl": [
-                ["corpus_sem_publisher", "CREATE", False],
-                ["corpus_sem_publisher", "USAGE", False],
-                ["corpus_sem_reader", "USAGE", False],
-            ],
-            "columns": [],
-        }
-        Operations(MigrationContext.configure(conn)).invoke(
-            PrivilegeTransitionOp(None, policy, normalization=True)
+    conn = infrastructure_rollback
+    conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+    conn.exec_driver_sql(f'GRANT USAGE ON SCHEMA "{schema}" TO PUBLIC')
+    conn.exec_driver_sql(f'GRANT CREATE ON SCHEMA "{schema}" TO corpus_sem_reader')
+    policy = {
+        "kind": "schema",
+        "name": schema,
+        "owner": None,
+        "acl": [
+            ["corpus_sem_publisher", "CREATE", False],
+            ["corpus_sem_publisher", "USAGE", False],
+            ["corpus_sem_reader", "USAGE", False],
+        ],
+        "columns": [],
+    }
+    Operations(MigrationContext.configure(conn)).invoke(
+        PrivilegeTransitionOp(None, policy, normalization=True)
+    )
+    admit_privileges(conn, [policy])
+    expected = canonical_bytes({"privileges": [policy]}).decode().replace("'", "''")
+    guard = (
+        "DO $test$ DECLARE expected jsonb := '"
+        + expected
+        + "'::jsonb; BEGIN "
+        + admission_comparison_sql()
+        + " END $test$;"
+    )
+    conn.exec_driver_sql(guard)
+    with conn.begin_nested():
+        conn.exec_driver_sql(
+            f'GRANT USAGE ON SCHEMA "{schema}" TO corpus_sem_reader WITH GRANT OPTION'
         )
-        admit_privileges(conn, [policy])
-        expected = canonical_bytes({"privileges": [policy]}).decode().replace("'", "''")
-        guard = (
-            "DO $test$ DECLARE expected jsonb := '"
-            + expected
-            + "'::jsonb; BEGIN "
-            + admission_comparison_sql()
-            + " END $test$;"
-        )
-        conn.exec_driver_sql(guard)
-        with conn.begin_nested():
-            conn.exec_driver_sql(
-                f'GRANT USAGE ON SCHEMA "{schema}" TO corpus_sem_reader WITH GRANT OPTION'
-            )
-            with pytest.raises(DBAPIError, match="privilege policy differs"), conn.begin_nested():
-                conn.exec_driver_sql(guard)
-        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+        with pytest.raises(DBAPIError, match="privilege policy differs"), conn.begin_nested():
+            conn.exec_driver_sql(guard)
+    conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
 
 
 @pytest.mark.parametrize("drift", ["reader-owner", "fitter-create"])
 def test_schema_policy_refuses_effective_create_despite_owner_acl_filter(
-    semantic_bare_engine, drift
+    infrastructure_rollback, drift
 ):
     from sqlalchemy.exc import DBAPIError
 
@@ -211,36 +211,36 @@ def test_schema_policy_refuses_effective_create_despite_owner_acl_filter(
         ],
         "columns": [],
     }
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
-        Operations(MigrationContext.configure(conn)).invoke(
-            PrivilegeTransitionOp(None, policy, normalization=True)
-        )
-        expected = canonical_bytes({"privileges": [policy]}).decode().replace("'", "''")
-        guard = (
-            "DO $test$ DECLARE expected jsonb := '"
-            + expected
-            + "'::jsonb; BEGIN "
-            + admission_comparison_sql()
-            + " END $test$;"
-        )
-        conn.exec_driver_sql(guard)
-        with conn.begin_nested() as drift_scope:
-            if drift == "reader-owner":
-                conn.exec_driver_sql(f'ALTER SCHEMA "{schema}" OWNER TO corpus_sem_reader')
-            else:
-                conn.exec_driver_sql(f'GRANT CREATE ON SCHEMA "{schema}" TO corpus_sem_fitter')
-            with pytest.raises(NativeAuthoringError, match="effective schema CREATE"):
-                admit_privileges(conn, [policy])
-            with pytest.raises(DBAPIError, match="effective schema CREATE"), conn.begin_nested():
-                conn.exec_driver_sql(guard)
-            drift_scope.rollback()
-        admit_privileges(conn, [policy])
-        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+    conn = infrastructure_rollback
+    conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+    Operations(MigrationContext.configure(conn)).invoke(
+        PrivilegeTransitionOp(None, policy, normalization=True)
+    )
+    expected = canonical_bytes({"privileges": [policy]}).decode().replace("'", "''")
+    guard = (
+        "DO $test$ DECLARE expected jsonb := '"
+        + expected
+        + "'::jsonb; BEGIN "
+        + admission_comparison_sql()
+        + " END $test$;"
+    )
+    conn.exec_driver_sql(guard)
+    with conn.begin_nested() as drift_scope:
+        if drift == "reader-owner":
+            conn.exec_driver_sql(f'ALTER SCHEMA "{schema}" OWNER TO corpus_sem_reader')
+        else:
+            conn.exec_driver_sql(f'GRANT CREATE ON SCHEMA "{schema}" TO corpus_sem_fitter')
+        with pytest.raises(NativeAuthoringError, match="effective schema CREATE"):
+            admit_privileges(conn, [policy])
+        with pytest.raises(DBAPIError, match="effective schema CREATE"), conn.begin_nested():
+            conn.exec_driver_sql(guard)
+        drift_scope.rollback()
+    admit_privileges(conn, [policy])
+    conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
 
 
 def test_rendered_candidate_executes_exact_upgrade_before_admission_and_rolls_back(
-    semantic_bare_engine, monkeypatch
+    infrastructure_rollback, monkeypatch
 ):
     from types import SimpleNamespace
 
@@ -275,18 +275,18 @@ def test_rendered_candidate_executes_exact_upgrade_before_admission_and_rolls_ba
 
     monkeypatch.setattr(native_objects, "admit_native", native_check)
     monkeypatch.setattr(native_authoring, "verify_frozen_catalog", catalog_check)
-    with semantic_bare_engine.begin() as conn:
-        role = conn.scalar(text("SELECT current_user"))
-        native_authoring.verify_rendered_candidate(
-            conn, source, SimpleNamespace(desired=()), (), "frozen"
-        )
-        assert observed == ["native", "catalog"]
-        assert conn.scalar(text("SELECT to_regclass(:name)"), {"name": "public." + name}) is None
-        assert conn.scalar(text("SELECT current_user")) == role
+    conn = infrastructure_rollback
+    role = conn.scalar(text("SELECT current_user"))
+    native_authoring.verify_rendered_candidate(
+        conn, source, SimpleNamespace(desired=()), (), "frozen"
+    )
+    assert observed == ["native", "catalog"]
+    assert conn.scalar(text("SELECT to_regclass(:name)"), {"name": "public." + name}) is None
+    assert conn.scalar(text("SELECT current_user")) == role
 
 
 def test_schema_normalization_orders_explicit_delegation_leaves_without_cascade(
-    semantic_bare_engine,
+    infrastructure_rollback,
 ):
     from corpus_structure.semantic.native_objects import native_owner
 
@@ -302,41 +302,43 @@ def test_schema_normalization_orders_explicit_delegation_leaves_without_cascade(
         ],
         "columns": [],
     }
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
-        conn.exec_driver_sql(
-            f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher WITH GRANT OPTION'
-        )
-        with native_owner(conn, "corpus_sem_publisher"):
-            conn.exec_driver_sql(f'GRANT USAGE ON SCHEMA "{schema}" TO corpus_sem_reader')
-        Operations(MigrationContext.configure(conn)).invoke(
-            PrivilegeTransitionOp(None, policy, normalization=True)
-        )
-        admit_privileges(conn, [policy])
-        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+    conn = infrastructure_rollback
+    conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+    conn.exec_driver_sql(
+        f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher WITH GRANT OPTION'
+    )
+    with native_owner(conn, "corpus_sem_publisher"):
+        conn.exec_driver_sql(f'GRANT USAGE ON SCHEMA "{schema}" TO corpus_sem_reader')
+    Operations(MigrationContext.configure(conn)).invoke(
+        PrivilegeTransitionOp(None, policy, normalization=True)
+    )
+    admit_privileges(conn, [policy])
+    conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
 
 
-def test_rendered_candidate_failure_exposes_safe_site_without_sql_or_payload(semantic_bare_engine):
+def test_rendered_candidate_failure_exposes_safe_site_without_sql_or_payload(
+    infrastructure_rollback,
+):
     from types import SimpleNamespace
 
     from corpus_structure.semantic.native_authoring import verify_rendered_candidate
 
     source = "from alembic import op\ndef upgrade():\n    op.execute(\"SELECT 'private-payload-sentinel'::integer\")\n"
-    with semantic_bare_engine.begin() as conn:
-        with pytest.raises(NativeAuthoringError, match="SQLSTATE 22P02") as failure:
-            verify_rendered_candidate(conn, source, SimpleNamespace(desired=()), (), "unreachable")
-        assert failure.value.authoring_context == {
-            "operation_kind": "execute",
-            "sqlstate": "22P02",
-            "source_line": 3,
-        }
-        assert "private-payload-sentinel" not in str(failure.value)
-        assert conn.scalar(text("SELECT 1")) == 1
+    conn = infrastructure_rollback
+    with pytest.raises(NativeAuthoringError, match="SQLSTATE 22P02") as failure:
+        verify_rendered_candidate(conn, source, SimpleNamespace(desired=()), (), "unreachable")
+    assert failure.value.authoring_context == {
+        "operation_kind": "execute",
+        "sqlstate": "22P02",
+        "source_line": 3,
+    }
+    assert "private-payload-sentinel" not in str(failure.value)
+    assert conn.scalar(text("SELECT 1")) == 1
 
 
 @pytest.mark.parametrize("dynamic", [False, True])
 def test_rendered_candidate_retains_only_exact_declared_literal_refusal(
-    semantic_bare_engine, dynamic
+    infrastructure_rollback, dynamic
 ):
     from types import SimpleNamespace
 
@@ -348,23 +350,25 @@ def test_rendered_candidate_retains_only_exact_declared_literal_refusal(
         f"RAISE EXCEPTION {message} USING ERRCODE='23514'; END $$"
     )
     source = "from alembic import op\ndef upgrade():\n    op.execute('SELECT public.refuse_candidate()')\n"
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql(declaration, execution_options={"no_parameters": True})
-        with pytest.raises(NativeAuthoringError) as failure:
-            verify_rendered_candidate(
-                conn,
-                source,
-                SimpleNamespace(desired=(SimpleNamespace(statements=(declaration,)),)),
-                (),
-                "unreachable",
-            )
-        context = failure.value.authoring_context
-        assert context is not None
-        assert context.get("declared_refusal") == (None if dynamic else "declared refusal")
-        assert "private-input" not in str(context)
+    conn = infrastructure_rollback
+    conn.exec_driver_sql(declaration, execution_options={"no_parameters": True})
+    with pytest.raises(NativeAuthoringError) as failure:
+        verify_rendered_candidate(
+            conn,
+            source,
+            SimpleNamespace(desired=(SimpleNamespace(statements=(declaration,)),)),
+            (),
+            "unreachable",
+        )
+    context = failure.value.authoring_context
+    assert context is not None
+    assert context.get("declared_refusal") == (None if dynamic else "declared refusal")
+    assert "private-input" not in str(context)
 
 
-def test_privilege_failure_context_survives_aborted_owner_scope(semantic_bare_engine, monkeypatch):
+def test_privilege_failure_context_survives_aborted_owner_scope(
+    infrastructure_rollback, monkeypatch
+):
     schema = "acl_failure_" + uuid4().hex[:10]
     policy = {
         "kind": "schema",
@@ -376,34 +380,36 @@ def test_privilege_failure_context_survives_aborted_owner_scope(semantic_bare_en
         ],
         "columns": [],
     }
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
-        conn.exec_driver_sql(f'GRANT USAGE ON SCHEMA "{schema}" TO corpus_sem_publisher')
-        execute = conn.exec_driver_sql
+    conn = infrastructure_rollback
+    conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+    conn.exec_driver_sql(f'GRANT USAGE ON SCHEMA "{schema}" TO corpus_sem_publisher')
+    execute = conn.exec_driver_sql
 
-        def fail_revoke(statement, *args, **kwargs):
-            return execute(
-                "SELECT 1/0" if statement.startswith("REVOKE") else statement, *args, **kwargs
-            )
+    def fail_revoke(statement, *args, **kwargs):
+        return execute(
+            "SELECT 1/0" if statement.startswith("REVOKE") else statement, *args, **kwargs
+        )
 
-        with (
-            pytest.raises(NativeAuthoringError) as failure,
-            conn.begin_nested(),
-            monkeypatch.context() as patch,
-        ):
-            patch.setattr(conn, "exec_driver_sql", fail_revoke)
-            Operations(MigrationContext.configure(conn)).invoke(
-                PrivilegeTransitionOp(None, policy, normalization=True)
-            )
-        context = failure.value.authoring_context
-        assert context is not None and context["sqlstate"] == "22012"
-        assert context["object_name"] == schema
-        assert context["dependency_objects"]
-        assert conn.scalar(text("SELECT 1")) == 1
-        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+    with (
+        pytest.raises(NativeAuthoringError) as failure,
+        conn.begin_nested(),
+        monkeypatch.context() as patch,
+    ):
+        patch.setattr(conn, "exec_driver_sql", fail_revoke)
+        Operations(MigrationContext.configure(conn)).invoke(
+            PrivilegeTransitionOp(None, policy, normalization=True)
+        )
+    context = failure.value.authoring_context
+    assert context is not None and context["sqlstate"] == "22012"
+    assert context["object_name"] == schema
+    assert context["dependency_objects"]
+    assert conn.scalar(text("SELECT 1")) == 1
+    conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
 
 
-def test_owner_column_acl_is_removed_without_changing_implicit_owner_rights(semantic_bare_engine):
+def test_owner_column_acl_is_removed_without_changing_implicit_owner_rights(
+    infrastructure_rollback,
+):
     from corpus_structure.semantic.native_objects import native_owner
 
     schema = "owner_column_" + uuid4().hex[:10]
@@ -414,33 +420,31 @@ def test_owner_column_acl_is_removed_without_changing_implicit_owner_rights(sema
         "acl": [],
         "columns": [],
     }
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
-        conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
-        conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample(id integer)')
-        conn.exec_driver_sql(f'ALTER TABLE "{schema}".sample OWNER TO corpus_sem_publisher')
-        with native_owner(conn, "corpus_sem_publisher"):
-            conn.exec_driver_sql(
-                f'GRANT SELECT(id) ON TABLE "{schema}".sample TO corpus_sem_publisher'
-            )
-        assert conn.scalar(
-            text(
-                "SELECT attacl IS NOT NULL FROM pg_attribute WHERE attrelid=to_regclass(:name) AND attname='id'"
-            ),
-            {"name": policy["name"]},
-        )
-        Operations(MigrationContext.configure(conn)).invoke(
-            PrivilegeTransitionOp(None, policy, normalization=True)
-        )
-        admit_privileges(conn, [policy])
-        assert conn.scalar(
-            text("SELECT has_table_privilege('corpus_sem_publisher',:name,'SELECT')"),
-            {"name": policy["name"]},
-        )
-        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+    conn = infrastructure_rollback
+    conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+    conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
+    conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample(id integer)')
+    conn.exec_driver_sql(f'ALTER TABLE "{schema}".sample OWNER TO corpus_sem_publisher')
+    with native_owner(conn, "corpus_sem_publisher"):
+        conn.exec_driver_sql(f'GRANT SELECT(id) ON TABLE "{schema}".sample TO corpus_sem_publisher')
+    assert conn.scalar(
+        text(
+            "SELECT attacl IS NOT NULL FROM pg_attribute WHERE attrelid=to_regclass(:name) AND attname='id'"
+        ),
+        {"name": policy["name"]},
+    )
+    Operations(MigrationContext.configure(conn)).invoke(
+        PrivilegeTransitionOp(None, policy, normalization=True)
+    )
+    admit_privileges(conn, [policy])
+    assert conn.scalar(
+        text("SELECT has_table_privilege('corpus_sem_publisher',:name,'SELECT')"),
+        {"name": policy["name"]},
+    )
+    conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
 
 
-def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(semantic_bare_engine):
+def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(infrastructure_rollback):
     from corpus_structure.semantic.alembic_native import NativeTransitionOp
     from corpus_structure.semantic.native_authoring import final_native_catalog
     from corpus_structure.semantic.native_objects import (
@@ -457,39 +461,41 @@ def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(semantic_ba
         "acl": [],
         "columns": [],
     }
-    with semantic_bare_engine.begin() as conn:
-        original_owner = conn.scalar(text("SELECT current_user"))
-        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
-        conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
-        conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample(id integer)')
-        conn.exec_driver_sql(
-            f'CREATE FUNCTION "{schema}".guard() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$'
-        )
-        trigger = definition_from_sql(
-            conn,
-            f'CREATE TRIGGER guarded BEFORE INSERT ON "{schema}".sample FOR EACH ROW EXECUTE FUNCTION "{schema}".guard()',
-            source="test:trigger",
-        )
-        authoring = prepare_native_authoring(conn, (trigger,), owned_authoring=True)
-        operations = Operations(MigrationContext.configure(conn))
-        for obj in authoring.desired:
-            operations.invoke(NativeTransitionOp(None, obj))
-        # The native transition's intermediate owner is still the actual predecessor table owner.
-        assert authoring.desired[0].expected_catalog(conn)["owner"] == original_owner
-        admit_native(conn, authoring.desired)
-        final = final_native_catalog(authoring.desired, [policy])
-        trigger_obj = next(obj for obj in final if obj.identity.kind == "trigger")
-        assert trigger_obj.catalog["owner"] == "corpus_sem_publisher"
-        assert trigger_obj.role_bindings == () and trigger_obj.binding_version == 1
-        Operations(MigrationContext.configure(conn)).invoke(
-            PrivilegeTransitionOp(None, policy, normalization=True)
-        )
-        admit_native(conn, final)
-        admit_privileges(conn, [policy])
-        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
+    conn = infrastructure_rollback
+    original_owner = conn.scalar(text("SELECT current_user"))
+    conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+    conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
+    conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample(id integer)')
+    conn.exec_driver_sql(
+        f'CREATE FUNCTION "{schema}".guard() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$'
+    )
+    trigger = definition_from_sql(
+        conn,
+        f'CREATE TRIGGER guarded BEFORE INSERT ON "{schema}".sample FOR EACH ROW EXECUTE FUNCTION "{schema}".guard()',
+        source="test:trigger",
+    )
+    authoring = prepare_native_authoring(conn, (trigger,), owned_authoring=True)
+    operations = Operations(MigrationContext.configure(conn))
+    for obj in authoring.desired:
+        operations.invoke(NativeTransitionOp(None, obj))
+    # The native transition's intermediate owner is still the actual predecessor table owner.
+    assert authoring.desired[0].expected_catalog(conn)["owner"] == original_owner
+    admit_native(conn, authoring.desired)
+    final = final_native_catalog(authoring.desired, [policy])
+    trigger_obj = next(obj for obj in final if obj.identity.kind == "trigger")
+    assert trigger_obj.catalog["owner"] == "corpus_sem_publisher"
+    assert trigger_obj.role_bindings == () and trigger_obj.binding_version == 1
+    Operations(MigrationContext.configure(conn)).invoke(
+        PrivilegeTransitionOp(None, policy, normalization=True)
+    )
+    admit_native(conn, final)
+    admit_privileges(conn, [policy])
+    conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
 
 
-def test_rendered_candidate_catalog_failure_keeps_owning_phase(semantic_bare_engine, monkeypatch):
+def test_rendered_candidate_catalog_failure_keeps_owning_phase(
+    infrastructure_rollback, monkeypatch
+):
     from types import SimpleNamespace
 
     from corpus_structure.semantic import native_authoring
@@ -500,14 +506,14 @@ def test_rendered_candidate_catalog_failure_keeps_owning_phase(semantic_bare_eng
         )
 
     monkeypatch.setattr(native_authoring, "verify_frozen_catalog", catalog_refusal)
-    with semantic_bare_engine.begin() as conn:
-        with pytest.raises(NativeAuthoringError) as failure:
-            native_authoring.verify_rendered_candidate(
-                conn, "def upgrade():\n    pass\n", SimpleNamespace(desired=()), (), "frozen"
-            )
-        assert failure.value.authoring_context == {
-            "operation_kind": "frozen_catalog_admission",
-            "sqlstate": "23514",
-        }
-        assert "withheld diagnostic" not in str(failure.value)
-        assert conn.scalar(text("SELECT 1")) == 1
+    conn = infrastructure_rollback
+    with pytest.raises(NativeAuthoringError) as failure:
+        native_authoring.verify_rendered_candidate(
+            conn, "def upgrade():\n    pass\n", SimpleNamespace(desired=()), (), "frozen"
+        )
+    assert failure.value.authoring_context == {
+        "operation_kind": "frozen_catalog_admission",
+        "sqlstate": "23514",
+    }
+    assert "withheld diagnostic" not in str(failure.value)
+    assert conn.scalar(text("SELECT 1")) == 1

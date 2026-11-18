@@ -23,8 +23,8 @@ from corpus_structure.semantic.data_operation_storage import DataOperationStorag
 from corpus_structure.semantic.data_product_reference import DataProductReference
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.data_operation_demand_support import attach, claim, publish, retain
+from semantic.population_completion_support import complete_ready
 from semantic.test_data_operation_pinned_reuse_native import CONSUMER, PINNED, PRODUCER
-from semantic.test_data_operation_population_native import _complete_ready
 
 DOWNSTREAM = "urn:transitive-scope-consumer"
 
@@ -122,7 +122,7 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
         operation=CONSUMER,
         inference="produce:B",
     )
-    b = _complete_ready(ddo_kernel, ready_b, value=42)
+    b = complete_ready(ddo_kernel, ready_b, value=42)
     demand_a, page_a, (ready_a,) = _demand(
         ddo_kernel,
         _entry(ddo_kernel, b),
@@ -206,7 +206,7 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
         operation=CONSUMER,
         inference="produce:B:fresh",
     )
-    fresh_b_receipt = _complete_ready(ddo_kernel, fresh_b, value=44)
+    fresh_b_receipt = complete_ready(ddo_kernel, fresh_b, value=44)
     _, fresh_page, (fresh_a,) = _demand(
         ddo_kernel,
         _entry(ddo_kernel, fresh_b_receipt),
@@ -215,7 +215,7 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
         inference="consume:A:fresh",
     )
     assert fresh_page["trust_snapshot"][scope_c] == 1
-    assert _complete_ready(ddo_kernel, fresh_a)["derivation_id"]
+    assert complete_ready(ddo_kernel, fresh_a)["derivation_id"]
 
 
 REBOUND_DOWNSTREAM = "urn:rebound-support-dependent"
@@ -265,7 +265,7 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
         operation=DOWNSTREAM,
         inference="rebound:A",
     )
-    original_a = _complete_ready(ddo_kernel, ready_a, value=42)
+    original_a = complete_ready(ddo_kernel, ready_a, value=42)
 
     _, _, _, request_c = attach(ddo_kernel, subject="subject:C", original_source="source:C")
     fence_c = claim(ddo_kernel, request_c)
@@ -279,7 +279,7 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
         operation=CONSUMER,
         inference="replacement:B",
     )
-    equivalent_b = _complete_ready(ddo_kernel, replacement_b, value=41)
+    equivalent_b = complete_ready(ddo_kernel, replacement_b, value=41)
     assert _entry(ddo_kernel, equivalent_b).reference == _entry(ddo_kernel, original_b).reference
     with ddo_kernel["engine"].begin() as connection:
         DataOperationStorage(connection).revoke_data_support(

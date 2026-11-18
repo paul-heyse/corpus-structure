@@ -3,6 +3,8 @@
 import json
 from hashlib import sha256
 
+from pglast import ast, parse_sql
+from pglast.stream import RawStream
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateIndex, CreateTable
 
@@ -16,7 +18,9 @@ from corpus_structure.semantic.pdf_source_search import (
 )
 
 
-def test_search_projection_has_private_immutable_stored_vector_and_gin_index():
+def test_search_projection_has_private_immutable_stored_vector_and_gin_index(
+    infrastructure_rollback,
+):
     sources = physical_source_closure(
         PHYSICAL_MODEL.name,
         lambda name: PHYSICAL_MODEL.with_name(name).read_bytes(),
@@ -32,13 +36,46 @@ def test_search_projection_has_private_immutable_stored_vector_and_gin_index():
         "membership",
     )
     ddl = str(CreateTable(section).compile(dialect=postgresql.dialect()))
-    assert (
-        "TSVECTOR GENERATED ALWAYS AS (to_tsvector(CAST('english' AS REGCONFIG), text)) STORED"
-        in ddl
+    statement = parse_sql(ddl)[0].stmt
+    assert isinstance(statement, ast.CreateStmt)
+    column = next(
+        item
+        for item in statement.tableElts or ()
+        if isinstance(item, ast.ColumnDef) and item.colname == "search_vector"
     )
-    assert any(
-        "USING gin (search_vector)" in str(CreateIndex(index).compile(dialect=postgresql.dialect()))
+    generated = next(item for item in column.constraints or () if item.generated_when == "a")
+    assert generated.generated_kind == "s"
+    expression = generated.raw_expr
+    assert isinstance(expression, ast.FuncCall) and expression.args
+    configuration = expression.args[0]
+    assert isinstance(configuration, ast.TypeCast)
+    sql = RawStream()(expression)
+    connection = infrastructure_rollback
+    assert (
+        connection.exec_driver_sql(
+            f"SELECT ({sql}) @@ websearch_to_tsquery('simple', 'run') "
+            "FROM (VALUES ('running')) AS sample(text)"
+        ).scalar_one()
+        is True
+    )
+    configuration.arg = ast.A_Const(val=ast.String(sval="simple"))
+    sql = RawStream()(expression)
+    assert (
+        connection.exec_driver_sql(
+            f"SELECT ({sql}) @@ websearch_to_tsquery('simple', 'run') "
+            "FROM (VALUES ('running')) AS sample(text)"
+        ).scalar_one()
+        is False
+    )
+    indexes = [
+        parse_sql(str(CreateIndex(index).compile(dialect=postgresql.dialect())))[0].stmt
         for index in section.indexes
+    ]
+    assert any(
+        isinstance(index, ast.IndexStmt)
+        and index.accessMethod == "gin"
+        and tuple(parameter.name for parameter in index.indexParams or ()) == ("search_vector",)
+        for index in indexes
     )
     assert column_type_annotation(section.c.search_vector) == "str"
 
@@ -106,6 +143,9 @@ def test_generated_search_tracks_quoted_physical_fields_and_result_types():
 
 
 def test_search_configuration_changes_the_vector_program_and_wire_together():
+    from pglast import enums, parse_plpgsql
+    from pglast.visitors import Visitor
+
     from corpus_structure.schema.physical import compile_physical
     from corpus_structure.semantic.data_operation_wire import wire_contracts
     from corpus_structure.semantic.metadata import metadata
@@ -121,5 +161,55 @@ def test_search_configuration_changes_the_vector_program_and_wire_together():
     request = wire["definitions"]["ensure_pdf_search_projection_request"]
     assert request["properties"]["configuration"] == {"const": "simple"}
     statement = search_projection_sql(captured.native_sources)
-    assert "websearch_to_tsquery(CAST('simple' AS REGCONFIG)" in statement
-    assert "configuration') IS DISTINCT FROM 'simple'" in statement
+
+    class Configurations(Visitor):
+        def __init__(self):
+            super().__init__()
+            self.queries = []
+            self.guards = []
+
+        def visit_FuncCall(self, ancestors, node):
+            if node.funcname[-1].sval == "websearch_to_tsquery":
+                configuration = node.args[0]
+                assert isinstance(configuration, ast.TypeCast)
+                assert configuration.typeName is not None and configuration.typeName.names
+                assert configuration.typeName.names[-1].sval == "regconfig"
+                assert isinstance(configuration.arg, ast.A_Const)
+                assert isinstance(configuration.arg.val, ast.String)
+                self.queries.append(configuration.arg.val.sval)
+
+        def visit_A_Expr(self, ancestors, node):
+            key = node.lexpr
+            if (
+                node.kind == enums.A_Expr_Kind.AEXPR_DISTINCT
+                and isinstance(key, ast.A_Expr)
+                and isinstance(key.rexpr, ast.A_Const)
+                and isinstance(key.rexpr.val, ast.String)
+                and key.rexpr.val.sval == "configuration"
+            ):
+                assert isinstance(node.rexpr, ast.A_Const)
+                assert isinstance(node.rexpr.val, ast.String)
+                self.guards.append(node.rexpr.val.sval)
+
+    configurations = Configurations()
+
+    def inspect(value):
+        if isinstance(value, dict):
+            for kind, contents in value.items():
+                if kind in {"PLpgSQL_stmt_assign", "PLpgSQL_stmt_if"}:
+                    expression = contents["expr" if kind == "PLpgSQL_stmt_assign" else "cond"][
+                        "PLpgSQL_expr"
+                    ]["query"]
+                    # pglast retains the assignment target in this expression field.
+                    if kind == "PLpgSQL_stmt_assign":
+                        _, separator, expression = expression.partition(":=")
+                        assert separator
+                    configurations(parse_sql("SELECT " + expression))
+                inspect(contents)
+        elif isinstance(value, list):
+            for contents in value:
+                inspect(contents)
+
+    inspect(parse_plpgsql(statement))
+    assert configurations.queries == ["simple"]
+    assert configurations.guards == ["simple"]

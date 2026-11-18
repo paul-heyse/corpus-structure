@@ -5,8 +5,8 @@ from dataclasses import replace
 from typing import cast as typing_cast
 
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitAuthoredDataRequest,
@@ -182,6 +182,8 @@ def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_ke
         assert fact["evidence"]["standing"] == "authored"
         assert fact["evidence"]["author_assertion"] == "operator assertion"
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
+    with kernel.engine.begin() as connection:
+        storage = DataOperationStorage(connection)
         (ready,) = DemandPlanner(kernel.model, storage).ready(read, authorization=b"{}")
         member = ready.resolved.roles[0].members[0]
         assert member.support_episodes == ()
@@ -200,7 +202,12 @@ def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_ke
         assert repeated["admission_id"] == fact["admission_id"]
         changed = authored.record()
         changed["reference"]["selection_id"] = "different"
-        with pytest.raises(DBAPIError, match="immutable demand"), connection.begin_nested():
+        with (
+            native_refusal(
+                "P0001", message="original source selection differs from immutable demand"
+            ),
+            connection.begin_nested(),
+        ):
             storage.admit_authored_data(
                 typing_cast(
                     WireAdmitAuthoredDataRequest,
@@ -208,18 +215,33 @@ def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_ke
                 )
             )
         wire = json.loads(ready.binding)
+        support_available = text(
+            "SELECT ops.ddo_bound_support_available(request,CAST(:support AS jsonb),CAST(:binding AS jsonb)) FROM ops.data_request request WHERE id=:request"
+        )
+        arguments = {
+            "support": json.dumps(wire["support"]),
+            "binding": json.dumps(wire),
+            "request": json.loads(ready.native)["request_id"],
+        }
+        assert connection.scalar(support_available, arguments) is True
+        assert connection.scalar(text("SELECT count(*) FROM ops.original_source_admission")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         wire["support"][0]["kind"] = "original-source"
-        with pytest.raises(DBAPIError), connection.begin_nested():
+        with (
+            native_refusal(
+                "P0001", message="original support differs from selected factual input custody"
+            ),
+            connection.begin_nested(),
+        ):
             connection.execute(
-                text(
-                    "SELECT ops.ddo_bound_support_available(request,CAST(:support AS jsonb),CAST(:binding AS jsonb)) FROM ops.data_request request WHERE id=:request"
-                ),
+                support_available,
                 {
+                    **arguments,
                     "support": json.dumps(wire["support"]),
                     "binding": json.dumps(wire),
-                    "request": json.loads(ready.native)["request_id"],
                 },
             )
+        assert connection.scalar(support_available, arguments) is True
 
 
 @pytest.mark.parametrize("ddo_kernel", [_recipe()], indirect=True)
@@ -270,6 +292,8 @@ def test_native_product_scoped_authored_fact_preserves_context_and_current_trust
             release=kernel.prepared.release_id,
             runtime=kernel.preparation.runtime.runtime_id,
         )
+    with kernel.engine.begin() as connection:
+        storage = DataOperationStorage(connection)
         unscoped = storage.read_demand_result(
             typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]})
         )
@@ -318,7 +342,11 @@ def test_native_product_scoped_authored_fact_preserves_context_and_current_trust
             assert absent["original_source_admissions"] == []
             assert absent["support_page"] is not None
             assert absent["support_page"]["records"] == []
-        for project in (context.project_id, "ddo-other"):
+    # Register unrelated demands before acquiring their independent read fences.
+    for project in (context.project_id, "ddo-other"):
+        with kernel.engine.begin() as connection:
+            storage = DataOperationStorage(connection)
+            planner = DemandPlanner(kernel.model, storage)
             if project != context.project_id:
                 connection.execute(insert(table("data.project")).values(project_id=project))
             unrelated = planner.register(
@@ -333,6 +361,8 @@ def test_native_product_scoped_authored_fact_preserves_context_and_current_trust
                 release=kernel.prepared.release_id,
                 runtime=kernel.preparation.runtime.runtime_id,
             )
+        with kernel.engine.begin() as connection:
+            storage = DataOperationStorage(connection)
             absent = storage.read_demand_result(
                 typing_cast(
                     WireReadDemandResultRequest,
@@ -343,6 +373,8 @@ def test_native_product_scoped_authored_fact_preserves_context_and_current_trust
             assert absent["original_source_admissions"] == []
             assert absent["support_page"] is not None
             assert absent["support_page"]["records"] == []
+    with kernel.engine.begin() as connection:
+        storage = DataOperationStorage(connection)
         storage.revoke_data_support(
             typing_cast(
                 WireRevokeDataSupportRequest,
@@ -355,13 +387,15 @@ def test_native_product_scoped_authored_fact_preserves_context_and_current_trust
                 },
             )
         )
-        with (
-            pytest.raises(DBAPIError, match="pins or current trust differ"),
-            connection.begin_nested(),
-        ):
-            storage.read_demand_result(
-                typing_cast(WireReadDemandResultRequest, {**request, "read_id": scoped["read_id"]})
-            )
+    with (
+        native_refusal("23514", message="read trust changed; reacquire demand read"),
+        kernel.engine.begin() as connection,
+    ):
+        DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {**request, "read_id": scoped["read_id"]})
+        )
+    with kernel.engine.begin() as connection:
+        storage = DataOperationStorage(connection)
         current = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, request))
         assert current["original_source_admissions"] == []
         assert len(current["obligations"]) == 1

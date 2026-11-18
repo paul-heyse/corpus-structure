@@ -5,7 +5,7 @@ from typing import Any
 import anyio
 import pytest
 from fastmcp import Client
-from methods.test_declared_contextual_query import POINTER, TEXT, primary, source
+from methods.contextual_query_support import POINTER, TEXT, primary, source
 from sqlalchemy import create_engine
 
 from corpus_structure.semantic.contributions import occurrence_identity
@@ -15,7 +15,7 @@ from corpus_structure.semantic.demand_results import DemandResult
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin
 from corpus_structure.serve.demand_context import DemandContextRequest, inspect_demand_context
-from semantic.test_demand_results import _page
+from semantic.demand_result_support import demand_result_page
 
 
 def fixture() -> tuple[DemandContextRequest, list[dict[str, Any]]]:
@@ -120,7 +120,7 @@ def install(monkeypatch, rows, *, trust=None):
 
     def read(connection, demand_id, *, project_id, scope, **kwargs):
         calls.append((demand_id, project_id, scope, kwargs))
-        native = _page(trust=trust)
+        native = demand_result_page(trust=trust)
         native["scope"] = scope
         return DemandResult(json_bytes(native))
 

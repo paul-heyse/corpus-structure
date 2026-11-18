@@ -78,7 +78,7 @@ def test_search_continuation_carries_exact_score_and_population_identity():
 
 @pytest.mark.parametrize("surface", ["main", "retained"])
 def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(
-    monkeypatch, semantic_bare_engine, surface
+    monkeypatch, infrastructure_engine, surface
 ):
     from contextlib import nullcontext
 
@@ -128,9 +128,9 @@ def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(
     from corpus_structure.semantic.demand_results import CutSelection
 
     server = (
-        build_server(project="p", demand=pin.demand_id, read_engine=semantic_bare_engine)
+        build_server(project="p", demand=pin.demand_id, read_engine=infrastructure_engine)
         if surface == "main"
-        else build_retained_reader_server(project="p", read_engine=semantic_bare_engine)
+        else build_retained_reader_server(project="p", read_engine=infrastructure_engine)
     )
 
     async def journey():

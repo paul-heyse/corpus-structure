@@ -31,9 +31,6 @@ from corpus_structure.serve import identity_exclusion_comparison as comparison
 from corpus_structure.serve.selected_contributions import SelectedContributionScope
 from semantic.record_contracts_support import release_inputs
 from semantic.selected_query_cache_support import (
-    clear_selected_query_cache as clear_selected_query_cache,
-)
-from semantic.selected_query_cache_support import (
     control_frontier,
     index_frontier,
 )

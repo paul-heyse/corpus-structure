@@ -1,9 +1,9 @@
 """Current composition preserves exact products, source selection and weak coverage."""
 
 import pytest
+from semantic.construction_products_test_support import profiles as profiles
+from semantic.construction_products_test_support import publication_context
 from semantic.formal_products_support import selected
-from semantic.test_construction_products import _publication_context
-from semantic.test_construction_products import profiles as profiles
 
 from corpus_structure.semantic.data_product_reference import DataProductReference
 from corpus_structure.semantic.enriched_document_products import compose_enriched_document
@@ -19,7 +19,7 @@ def test_source_only_view_preserves_source_without_analytical_coverage(profiles)
         (source,),
         (),
         profile="source_only",
-        subject_context=_publication_context(source, document=True),
+        subject_context=publication_context(source, document=True),
     ).value.model_dump(mode="json", exclude_unset=True)
     assert view["sources"] == [source.value]
     assert view["profile"] == "source_only"
@@ -29,7 +29,7 @@ def test_source_only_view_preserves_source_without_analytical_coverage(profiles)
 def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_product(profiles):
     formal, construction = profiles
     source = selected(formal, "Not every trial succeeds.")
-    context = _publication_context(source)
+    context = publication_context(source)
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     symbolic = construction.run(source, (primary,), subject_context=context)
     original = (primary.content, primary.semantic_id, primary.prepared)
@@ -39,7 +39,7 @@ def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_produ
         (source,),
         (primary, symbolic),
         active=(DataProductReference(symbolic.semantic_id),),
-        subject_context=_publication_context(source, document=True),
+        subject_context=publication_context(source, document=True),
     ).value.model_dump(mode="json", exclude_unset=True)
     assert result["products"] == [
         DataProductReference(primary.semantic_id).values(),
@@ -64,7 +64,7 @@ def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_produ
                 (source,),
                 (primary, symbolic),
                 active=active,
-                subject_context=_publication_context(source, document=True),
+                subject_context=publication_context(source, document=True),
             )
     with pytest.raises(ValueError, match="exact selected dependency"):
         compose_enriched_document(
@@ -73,7 +73,7 @@ def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_produ
             (source,),
             (symbolic,),
             active=(DataProductReference(symbolic.semantic_id),),
-            subject_context=_publication_context(source, document=True),
+            subject_context=publication_context(source, document=True),
         )
     with pytest.raises(ValueError, match="source-only"):
         compose_enriched_document(
@@ -82,7 +82,7 @@ def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_produ
             (source,),
             (primary,),
             profile="source_only",
-            subject_context=_publication_context(source, document=True),
+            subject_context=publication_context(source, document=True),
         )
 
 
@@ -90,9 +90,7 @@ def test_composition_refuses_an_actual_product_from_an_unselected_source(profile
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
     other = selected(formal, "Every trial succeeds.")
-    product = formal.run(
-        other, FormalEvidenceOptions(), subject_context=_publication_context(other)
-    )
+    product = formal.run(other, FormalEvidenceOptions(), subject_context=publication_context(other))
     with pytest.raises(ValueError, match="no retained original source coordinate"):
         compose_enriched_document(
             construction.prepared,
@@ -100,5 +98,5 @@ def test_composition_refuses_an_actual_product_from_an_unselected_source(profile
             (source,),
             (product,),
             active=(DataProductReference(product.semantic_id),),
-            subject_context=_publication_context(source, document=True),
+            subject_context=publication_context(source, document=True),
         )

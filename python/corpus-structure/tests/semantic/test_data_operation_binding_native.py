@@ -8,6 +8,7 @@ from typing import Any
 
 import pglast
 import pytest
+from native_refusals import native_refusal
 from pglast import ast
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -710,20 +711,36 @@ def test_project_source_scope_is_checked_by_definition_and_has_real_trust_scope(
                 dict(scopes=scopes),
             )
         else:
-            with pytest.raises(DBAPIError, match="checked project"), connection.begin_nested():
+            with (
+                native_refusal(
+                    "23514", message="only a checked project subject can have no original source"
+                ),
+                connection.begin_nested(),
+            ):
                 connection.execute(
                     text(
                         "SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),'semantic:subject',NULL)"
                     ),
                     dict(scopes=scopes),
                 )
-    for scopes, subject, source in [
-        ({"project": "original-source"}, "project", None),
-        ({"subject": "unknown"}, "subject", "source"),
-        ({"subject": "project"}, "missing", None),
-        ({"subject": "project"}, "subject", ""),
+    unknown_scope = "subject definition is outside checked release scopes"
+    for scopes, subject, source, reason in [
+        (
+            {"project": "original-source"},
+            "project",
+            None,
+            "only a checked project subject can have no original source",
+        ),
+        ({"subject": "unknown"}, "subject", "source", unknown_scope),
+        ({"subject": "project"}, "missing", None, unknown_scope),
+        (
+            {"subject": "project"},
+            "subject",
+            "",
+            "only a checked project subject can have no original source",
+        ),
     ]:
-        with pytest.raises(DBAPIError), connection.begin_nested():
+        with native_refusal("23514", message=reason), connection.begin_nested():
             connection.execute(
                 text(
                     "SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),:subject,:source)"
@@ -943,7 +960,7 @@ def test_native_primitive_parameters_preserve_exact_meaning_and_required_policy(
         (
             {"kind": "field", "field": {"role": "items", "projection": "other", "field": "value"}},
             "P0001",
-            "projection differs",
+            "native binding projection differs from qualified role",
         ),
     ],
 )
@@ -951,9 +968,17 @@ def test_native_operand_refusals_preserve_policy(
     binding_native_connection, operand, expected_state, message
 ):
     query = text("SELECT ops.ddo_binding_values(CAST(:operand AS jsonb),CAST(:facts AS jsonb))")
-    with pytest.raises(DBAPIError) as refusal, binding_native_connection.begin_nested():
+    values = {"operand": json.dumps(field("items", "value")), "facts": json.dumps(context(2))}
+    binding_native_connection.execute(query, values).scalar_one()
+    with (
+        native_refusal(
+            expected_state,
+            message=message,
+            context="ddo_binding_values" if expected_state == "P0002" else None,
+        ),
+        binding_native_connection.begin_nested(),
+    ):
         binding_native_connection.execute(
             query, {"operand": json.dumps(operand), "facts": json.dumps(context(2))}
         )
-    assert getattr(refusal.value.orig, "sqlstate", None) == expected_state
-    assert message in str(refusal.value)
+    assert binding_native_connection.execute(query, values).scalar_one() is not None

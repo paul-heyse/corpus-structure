@@ -6,7 +6,7 @@ from typing import cast
 
 import pytest
 from semantic.data_operation_demand_support import attach, cancel_demand, claim
-from semantic.data_operation_kernel_support import EXECUTION, STORAGE, prepare_kernel
+from semantic.data_operation_kernel_support import EXECUTION, STORAGE, admit_kernel, prepare_kernel
 from sqlalchemy import text
 
 from corpus_structure.orchestrate.data_operations import (
@@ -14,7 +14,6 @@ from corpus_structure.orchestrate.data_operations import (
     NativeDemandExecutor,
 )
 from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestsRequest
-from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
     RootSubject,
@@ -22,8 +21,6 @@ from corpus_structure.semantic.data_operation_demands import (
 )
 from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.releases import persist_release
-from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
 
 
 def _intent(model):
@@ -55,7 +52,10 @@ def test_two_admitted_releases_coalesce_and_use_original_basis_after_creating_de
     with ddo_kernel.engine.begin() as connection:
         original_demand = _register(connection, original)
         planner = DemandPlanner(original.model, DataOperationStorage(connection))
-        (old_ready,) = planner.ready(planner.resume(original_demand), authorization=b"{}")
+        snapshot = planner.resume(original_demand)
+    with ddo_kernel.engine.begin() as connection:
+        planner = DemandPlanner(original.model, DataOperationStorage(connection))
+        (old_ready,) = planner.ready(snapshot, authorization=b"{}")
     old = json.loads(old_ready.native)
     if retained:
 
@@ -93,14 +93,13 @@ def test_two_admitted_releases_coalesce_and_use_original_basis_after_creating_de
         == _intent(original.model).record["operations"][0]["recipe"]
     )
     with ddo_kernel.engine.begin() as connection:
-        persist_release(
-            connection, target.bundle, target.dependencies, target.profile, target.prepared
-        )
-        admit_data_operation_release(connection, target.prepared)
-        persist_runtime_binding(connection, target.prepared, target.runtime)
+        admit_kernel(connection, recipe, preparation=target)
         demand = _register(connection, target)
         planner = DemandPlanner(target.model, DataOperationStorage(connection))
-        (current_ready,) = planner.ready(planner.resume(demand), authorization=b"{}")
+        snapshot = planner.resume(demand)
+    with ddo_kernel.engine.begin() as connection:
+        planner = DemandPlanner(target.model, DataOperationStorage(connection))
+        (current_ready,) = planner.ready(snapshot, authorization=b"{}")
         current = json.loads(current_ready.native)
         assert (current["request_id"], current["generation"], current["task_id"]) == (
             old["request_id"],

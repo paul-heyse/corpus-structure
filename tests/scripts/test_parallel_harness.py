@@ -448,18 +448,19 @@ def test_preparation_affinity_follows_imported_shared_and_qualified_local_fixtur
         (ROOT / "conftest.py").read_text()
         + """
 from shared_support import statistics_pack_prepared, statistics_rules_policy
-PREPARATION_AFFINITY += (("profile", "test_case.py", "local_profile"),)
-@pytest.fixture
+from test_preparation import preparation_fixture
+@preparation_fixture("local_profile")
 def profile(): return "local"
 """
     )
     support = """import pytest
+from test_preparation import preparation_fixture
 from pathlib import Path
-@pytest.fixture(scope="session")
+@preparation_fixture("statistics_pack", scope="session")
 def statistics_pack_prepared():
     with Path("prepare-count").open("a") as stream: stream.write("prepared\\n")
     return object()
-@pytest.fixture(scope="session")
+@preparation_fixture("statistics_pack", scope="session")
 def statistics_rules_policy(statistics_pack_prepared): return statistics_pack_prepared
 """
     source = """import pytest
@@ -489,7 +490,7 @@ def test_unrelated(profile): assert profile == "local"
     assert set(groups["test_case.py::test_shared"]) == {"statistics_pack"}
     assert groups["test_other.py::test_shared_elsewhere"] == ["statistics_pack"]
     assert groups["test_case.py::test_local"] == ["local_profile"]
-    assert groups["test_other.py::test_unrelated"] == []
+    assert groups["test_other.py::test_unrelated"] == ["local_profile"]
     assert (tmp_path / "case" / "prepare-count").read_text().splitlines() == ["prepared"]
     owners = {
         event["worker"]
@@ -502,7 +503,8 @@ def test_unrelated(profile): assert profile == "local"
 def test_distinct_preparation_affinity_refuses_before_execution(tmp_path):
     hooks = (ROOT / "conftest.py").read_text()
     source = """import pytest
-@pytest.fixture
+from test_preparation import preparation_fixture
+@preparation_fixture("statistics_pack")
 def statistics_pack_prepared(): return object()
 @pytest.mark.xdist_group("another_preparation")
 def test_conflict(statistics_pack_prepared): raise AssertionError("body must not run")
@@ -513,3 +515,70 @@ def test_conflict(statistics_pack_prepared): raise AssertionError("body must not
     assert not any(event["event"] == "phase_start" for event in events(output))
     diagnostic = (output / "pytest.stdout").read_text() + (output / "pytest.stderr").read_text()
     assert "conflicting preparation affinity groups" in diagnostic
+
+
+def test_preparation_resolution_uses_local_overrides_and_requested_parent(tmp_path):
+    hooks = (
+        (ROOT / "conftest.py").read_text()
+        + """
+from test_preparation import preparation_fixture
+@preparation_fixture("parent")
+def resource(): return ["parent"]
+"""
+    )
+    source = """from test_preparation import preparation_fixture
+@preparation_fixture("child")
+def resource(): return ["child"]
+def test_override(resource): assert resource == ["child"]
+"""
+    other = """from test_preparation import preparation_fixture
+@preparation_fixture("parent")
+def resource(resource): return resource + ["local"]
+def test_parent(resource): assert resource == ["parent", "local"]
+"""
+    output = isolated(tmp_path, source, 2, conftest=hooks, extra_files=(("test_other.py", other),))
+    result = classify_receipt(output)
+    assert result["status"] == "passed"
+    manifest = next(event for event in events(output) if event["event"] == "collection_finish")
+    groups = {
+        logical: manifest["affinity_groups"][raw]
+        for raw, logical in manifest["nodeid_aliases"].items()
+    }
+    assert groups["test_case.py::test_override"] == ["child"]
+    assert groups["test_other.py::test_parent"] == ["parent"]
+
+
+def test_preparation_resolution_rejects_parent_affinity_conflict(tmp_path):
+    hooks = (
+        (ROOT / "conftest.py").read_text()
+        + """
+from test_preparation import preparation_fixture
+@preparation_fixture("parent")
+def resource(): return ["parent"]
+"""
+    )
+    source = """from test_preparation import preparation_fixture
+@preparation_fixture("child")
+def resource(resource): return resource + ["child"]
+def test_conflict(resource): raise AssertionError("body must not run")
+"""
+    output = isolated(tmp_path, source, 0, conftest=hooks)
+    result = classify_receipt(output)
+    assert result["process"]["returncode"] != 0
+    assert not any(event["event"] == "phase_start" for event in events(output))
+    diagnostic = (output / "pytest.stdout").read_text() + (output / "pytest.stderr").read_text()
+    assert "conflicting preparation affinity groups" in diagnostic
+    assert "parent" in diagnostic and "child" in diagnostic
+
+
+def test_preparation_resolution_reports_unsupported_pytest_version(monkeypatch):
+    from types import SimpleNamespace
+    from typing import cast
+
+    import test_preparation
+
+    monkeypatch.setattr(test_preparation, "_PYTEST_VERSION", "future")
+    with pytest.raises(pytest.UsageError, match=r"requires pytest 9\.1\.1"):
+        test_preparation.preparation_group(
+            cast(pytest.Item, SimpleNamespace(nodeid="authored::item"))
+        )

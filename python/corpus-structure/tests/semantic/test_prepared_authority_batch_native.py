@@ -119,7 +119,7 @@ def test_real_batch_retained_intent_keeps_original_member_after_adoption(
         outputs = [_native_output(connection, row["request_id"], row["payload"]) for row in intents]
         assert sorted(outputs) == [semantic_value(5), semantic_value(9)]
         assert connection.scalar(text("SELECT count(*) FROM ops.data_publication_receipt")) == 0
-    successor = claim(kernel, {"request_id": original["request_id"]}, holder="adopting-holder")
+    successor = claim(kernel, original, holder="adopting-holder")
     assert successor["attempt"] > original["producer_attempt"]
     with kernel.engine.begin() as connection:
         adopted = DataOperationStorage(connection).adopt_data_completion_intent(

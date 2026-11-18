@@ -3,16 +3,16 @@
 from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.graph_inspection import GraphInspectionRequest, read_graph_inspection
 from semantic.current_pdf_source_support import PROJECT
-from semantic.current_pdf_source_support import current_pdf_source as current_pdf_source
+from semantic.current_pdf_source_support import published_pdf_source as published_pdf_source
 from semantic.selected_graph_test_support import _offline_snapshot, _selected_snapshot
 
 
 def test_actual_computational_source_hierarchy_keeps_native_pointer_custody(
-    current_pdf_source, tmp_path
+    published_pdf_source, tmp_path
 ):
     from corpus_structure.serve.demand_export import export_demand_result
 
-    case, kernel = current_pdf_source, current_pdf_source.kernel
+    case, kernel = published_pdf_source, published_pdf_source.kernel
     demand = case.demand_id
     request = GraphInspectionRequest(
         release_id=kernel.prepared.release_id,

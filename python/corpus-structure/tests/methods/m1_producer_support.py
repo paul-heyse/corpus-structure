@@ -5,6 +5,7 @@ from functools import cache
 from pathlib import Path
 
 from pydantic import JsonValue
+from statistics_pack_support import statistics_bundle
 
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.methods.gliner_worker import (
@@ -12,7 +13,7 @@ from corpus_structure.methods.gliner_worker import (
     GlinerBatchResult,
     GlinerWorkerError,
 )
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import observation_inputs
 
@@ -33,25 +34,7 @@ def detail_objects(value: JsonValue) -> tuple[dict[str, JsonValue], ...]:
 def bundle():
     from corpus_structure.semantic.m1_products import m1_operation_inputs
 
-    model = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic"
-    return m1_operation_inputs(
-        observation_inputs(
-            SourceBundle(
-                "statistics_semantic",
-                (
-                    SourceArtifact(
-                        "statistics_semantic",
-                        (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
-                    ),
-                    SourceArtifact("semantic_core", (model / "core.yaml").read_bytes()),
-                    SourceArtifact(
-                        "statistics_terminology",
-                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                    ),
-                ),
-            )
-        )
-    )
+    return m1_operation_inputs(observation_inputs(statistics_bundle()))
 
 
 @cache

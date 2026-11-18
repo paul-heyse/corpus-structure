@@ -434,7 +434,7 @@ def test_native_logical_family_contract_does_not_require_a_port_body_projection(
     from corpus_structure.semantic.record_contracts import record_family_contract
 
     recipe = policy_recipe(tmp_path / "family-contract")
-    with scenario_seeds.commit_clone(recipe) as clone:
+    with scenario_seeds.build_for_consumer(recipe, tmp_path / "family-contract") as clone:
         prepared = clone.stage.preparation
         family = record_family_contract(prepared.model, "FixtureRecordFields")
         release = prepared.prepared.release_id

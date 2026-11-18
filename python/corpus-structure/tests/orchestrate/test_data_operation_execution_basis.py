@@ -4,21 +4,22 @@ import importlib
 import inspect
 import json
 from contextlib import nullcontext
+from dataclasses import replace
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
-from orchestrate.test_data_operation_byte_admission import (
+from orchestrate.executor_support import (
     Active,
-    controlled_executor,
-    execution_resources,
+    execution_case,
+    executor_case,
     policy_for,
 )
-from orchestrate.test_data_operation_byte_admission import (
+from orchestrate.executor_support import (
     prepared as prepared,
 )
 
 from corpus_structure.orchestrate import data_operations
-from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope, release_capsule
 from corpus_structure.semantic.data_operation_cpu import PythonCPUDescriptor
 from corpus_structure.semantic.identity import canonical_bytes
@@ -44,10 +45,7 @@ def test_claim_uses_authenticated_expected_generation_and_original_basis(
 ):
     metadata = attached_basis()
     seen, claims = [], []
-    executor = object.__new__(NativeDemandExecutor)
-    monkeypatch.setattr(
-        executor, "engine", SimpleNamespace(begin=lambda: nullcontext(None)), raising=False
-    )
+    executor = executor_case()
     executor.holder = "owner"
     from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 
@@ -77,11 +75,7 @@ def test_claim_uses_authenticated_expected_generation_and_original_basis(
             }
         )
 
-    monkeypatch.setattr(
-        data_operations,
-        "DataOperationStorage",
-        lambda _: SimpleNamespace(claim_data_requests=claim),
-    )
+    cast(Any, executor.native_io).calls = SimpleNamespace(claim_data_requests=claim)
     result, _ = executor._claim(
         SimpleNamespace(native=canonical_bytes(metadata)), SimpleNamespace(add_claim=claims.append)
     )
@@ -106,10 +100,7 @@ def test_claim_uses_authenticated_expected_generation_and_original_basis(
 def test_reconstructed_binding_consumes_original_pinned_read_without_attachment(monkeypatch):
     metadata = attached_basis()
     seen: list[tuple[object, ...]] = []
-    executor = object.__new__(NativeDemandExecutor)
-    monkeypatch.setattr(
-        executor, "engine", SimpleNamespace(begin=lambda: nullcontext(None)), raising=False
-    )
+    executor = executor_case()
     context = SimpleNamespace(model=object())
     snapshot = dict(
         read_id="read:original",
@@ -137,10 +128,8 @@ def test_reconstructed_binding_consumes_original_pinned_read_without_attachment(
         return (bound,)
 
     storage = SimpleNamespace(read_demand_result=read)
-    monkeypatch.setattr(data_operations, "DataOperationStorage", lambda _: storage)
-    monkeypatch.setattr(
-        data_operations, "DemandPlanner", lambda *_: SimpleNamespace(bound_requests=bindings)
-    )
+    cast(Any, executor.native_io).calls = storage
+    cast(Any, executor.native_io).plan = lambda _model: SimpleNamespace(bound_requests=bindings)
     monkeypatch.setattr(
         data_operations, "ReadyDataRequest", lambda **values: SimpleNamespace(**values)
     )
@@ -180,30 +169,44 @@ def test_batches_never_mix_distinct_execution_bases(monkeypatch, prepared):
         return SimpleNamespace(members=tuple((member.member, member.values) for member in members))
 
     port = SimpleNamespace(native_selections=(), plan_batch_python=batch)
-    executor, observed = controlled_executor(
+    executor, observed = execution_case(
         monkeypatch, prepared, policy_for(prepared, credits=4), ("batch",) * 4, {"batch": port}
     )
     contexts = [
         SimpleNamespace(
             model=executor.model,
-            basis=SimpleNamespace(key=("release:" + name, "runtime:" + name)),
+            basis=SimpleNamespace(
+                key=("release:" + name, "runtime:" + name),
+                prepared=prepared,
+                runtime=SimpleNamespace(runtime_id="runtime:" + name),
+                sources=executor.sources,
+            ),
             cpu=None,
+            ports={},
+            consumer_selectors={},
+            prepared_schema=False,
             admitted_operations=set(),
         )
         for name in ("old", "new")
     ]
-    for item in executor._ready_items:
-        release, runtime = contexts[int(item.obligation) % 2].basis.key
-        item.native = canonical_bytes(
-            {**json.loads(item.native), "release_id": release, "runtime_id": runtime}
+    executor._ready_items = tuple(
+        replace(
+            item,
+            native=canonical_bytes(
+                {
+                    **json.loads(item.native),
+                    "release_id": contexts[int(item.obligation) % 2].basis.key[0],
+                    "runtime_id": contexts[int(item.obligation) % 2].basis.key[1],
+                }
+            ),
         )
+        for item in executor._ready_items
+    )
     executor._ready_context = lambda item: contexts[int(item.obligation) % 2]
     executor._execution_context = lambda claim: contexts[int(claim.request_id) % 2]
 
-    with execution_resources(executor) as physical:
-        executor._physical = physical
-        receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
-    assert len(receipts) == 4 and not failures
+    result = executor.advance("controlled-demand")
+    assert result.receipt_count == 4
     assert sorted(batches) == [(0, 2), (1, 3)]
     assert executor.budget.used_bytes == 0 and not observed.live
 
@@ -358,73 +361,55 @@ def test_shared_capsule_descriptor_rejects_changed_archive_digest(prepared):
 
 
 @pytest.mark.parametrize("refuse", [False, True])
-def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(monkeypatch, refuse):
+def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(
+    monkeypatch, refuse, prepared
+):
     from contextlib import contextmanager
 
+    from corpus_structure.semantic.data_operation_consumers import HydratedConsumerSelection
+
     events = []
-    metadata = attached_basis()
-    claimed = dict(
-        metadata,
-        state="claimed",
-        task_id=13,
-        attempt=2,
-        holder="owner",
-        lease_until="2026-11-17T00:00:00Z",
-        trust_snapshot={},
+    executor, _ = execution_case(
+        monkeypatch,
+        prepared,
+        policy_for(prepared),
+        ("scalar",),
+        {"scalar": SimpleNamespace(native_selections=())},
     )
+    unit = executor.native_io
+    native_claim = unit.calls.replies["claim_data_requests"]
 
-    class Connection:
-        @contextmanager
-        def begin_nested(self):
-            events.append("savepoint")
-            try:
-                yield
-            except Exception:
-                events.append("rollback hydration")
-                raise
-            else:
-                events.append("release savepoint")
+    def claim_reply(payload):
+        events.append("claim")
+        return native_claim(payload)
 
-    connection = Connection()
+    unit.calls.replies["claim_data_requests"] = claim_reply
 
     @contextmanager
     def transaction():
         events.append("begin claim")
-        yield connection
+        yield unit
         events.append("commit claim")
 
-    executor = object.__new__(NativeDemandExecutor)
-    monkeypatch.setattr(executor, "engine", SimpleNamespace(begin=transaction), raising=False)
-    executor.holder = "owner"
-    monkeypatch.setattr(
-        executor,
-        "_execution_context",
-        lambda _: SimpleNamespace(
-            model=SimpleNamespace(operation=lambda _: SimpleNamespace(external=None))
-        ),
-    )
+    @contextmanager
+    def savepoint():
+        events.append("savepoint")
+        try:
+            yield
+        except Exception:
+            events.append("rollback hydration")
+            raise
+        else:
+            events.append("release savepoint")
 
-    def native_claim(_payload):
-        events.append("claim")
-        return {"items": [{"state": "claimed", "result": claimed}]}
-
-    monkeypatch.setattr(
-        data_operations,
-        "DataOperationStorage",
-        lambda conn: SimpleNamespace(
-            claim_data_requests=native_claim if conn is connection else None
-        ),
-    )
-
-    def hydrate(_ready, _physical, *, connection, **_):
-        assert connection is not None
+    def hydrate(model, selected, **options):
         events.append("hydrate")
+        assert selected.subject == "0"
         if refuse:
             raise ValueError("controlled hydration refusal")
-        _physical.hydrated_sizes["obligation"] = 10
-        return ("selected input",)
+        return HydratedConsumerSelection(selected, (), measured_bytes=10)
 
-    monkeypatch.setattr(executor, "_hydrate", hydrate)
+    unit.transaction, unit.savepoint, unit.hydrate_inputs = transaction, savepoint, hydrate
     physical = SimpleNamespace(
         hydrated_inputs=None,
         hydration_error=None,
@@ -433,15 +418,13 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(monkey
         consumer_results={},
         binding_rows={},
     )
-    ready = SimpleNamespace(
-        native=canonical_bytes(metadata), operation="operation", obligation="obligation"
-    )
+    ready = executor._ready_items[0]
     claim, result = executor._claim(
         ready,
         SimpleNamespace(add_claim=lambda _: events.append("renew committed claim")),
         physical=physical,
     )
-    assert claim is not None and result == claimed
+    assert claim is not None and result["request_id"] == "0"
     assert events == [
         "begin claim",
         "claim",
@@ -455,18 +438,16 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(monkey
         assert isinstance(physical.hydration_error, ValueError)
         assert physical.hydrated_inputs is None
     else:
-        assert physical.hydrated_inputs == ("selected input",)
+        assert physical.hydrated_inputs == ()
+        assert physical.hydrated_sizes == {"0": 10}
         assert physical.hydration_error is None
 
 
 def test_claim_set_preserves_refusal_siblings_and_owns_repeated_identity_once(monkeypatch):
     metadata = attached_basis()
     events, owners = [], []
-    executor = object.__new__(NativeDemandExecutor)
+    executor = executor_case()
     executor.holder = "owner"
-    monkeypatch.setattr(
-        executor, "engine", SimpleNamespace(begin=lambda: nullcontext(None)), raising=False
-    )
     native = dict(
         metadata,
         state="claimed",
@@ -488,13 +469,7 @@ def test_claim_set_preserves_refusal_siblings_and_owns_repeated_identity_once(mo
             ]
         }
 
-    monkeypatch.setattr(
-        data_operations,
-        "DataOperationStorage",
-        lambda _: SimpleNamespace(
-            claim_data_requests=claim_set,
-        ),
-    )
+    cast(Any, executor.native_io).calls = SimpleNamespace(claim_data_requests=claim_set)
     items = tuple(SimpleNamespace(native=canonical_bytes(metadata)) for _ in range(4))
     result = executor._claim_many(items, SimpleNamespace(add_claim=owners.append))
     assert len(events) == 1 and len(events[0]["items"]) == 4
@@ -502,3 +477,41 @@ def test_claim_set_preserves_refusal_siblings_and_owns_repeated_identity_once(mo
     assert result[1].claim is owners[0] and len(owners) == 1
     assert result[2].claim is None and result[2].error is None
     assert result[3].claim is None and result[3].error is None
+
+
+def test_public_advance_uses_controlled_native_transactions_without_engine_access():
+    from orchestrate.executor_support import ControlledNativeIO, executor_case
+
+    native_io = ControlledNativeIO()
+    executor = executor_case(native_io=native_io)
+    snapshot = dict(
+        demand_id="authored-demand",
+        release_id=executor.prepared.release_id,
+        runtime_id=executor.runtime.runtime_id,
+        state="active",
+        obligations=[],
+        uses=[],
+        populations=[],
+        continuation=None,
+        intent={"discovery": []},
+        selection={"operations": [{"operation": "scalar"}]},
+    )
+    reads = []
+
+    def resume(demand, **options):
+        reads.append(demand)
+        return snapshot
+
+    native_io.plan = lambda model: SimpleNamespace(
+        ready=lambda *args, **options: (),
+        resume=resume,
+        logical_progress=0,
+        selected_population_ids=(),
+        refusals=(),
+    )
+    owner = Active()
+    native_io.claims = lambda holder: nullcontext(owner)
+    result = executor.advance("authored-demand")
+    assert result.demand_id == "authored-demand"
+    assert result.receipt_count == 0
+    assert reads == ["authored-demand", "authored-demand"]

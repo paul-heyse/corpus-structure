@@ -4,8 +4,10 @@ import json
 from functools import cache
 from pathlib import Path
 
+from statistics_pack_support import statistics_bundle
+
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.data_operation_model import BoundRoleMember
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.identity import canonical_bytes
@@ -22,31 +24,7 @@ ROOT = Path(__file__).resolve().parents[4]
 
 @cache
 def bundle():
-    return source_product_inputs(
-        observation_inputs(
-            SourceBundle(
-                "statistics_semantic",
-                (
-                    SourceArtifact(
-                        "statistics_semantic",
-                        (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
-                    ),
-                    SourceArtifact(
-                        "statistics_terminology",
-                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                    ),
-                    SourceArtifact(
-                        "semantic_core",
-                        (
-                            ROOT
-                            / "python/corpus-structure/src/corpus_structure"
-                            / "model/semantic/core.yaml"
-                        ).read_bytes(),
-                    ),
-                ),
-            )
-        )
-    )
+    return source_product_inputs(observation_inputs(statistics_bundle()))
 
 
 @cache

@@ -4,11 +4,10 @@ import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from hashlib import sha256
-from importlib.resources import files
 
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_identity import (
     CollectionValue,
@@ -58,10 +57,7 @@ def test_deployed_subject_context_json_meaning_has_literal_vectors(native_read):
 
 
 @pytest.mark.db
-def test_native_frame_matches_independent_literal_vectors(native_rollback):
-    helper = (
-        files("corpus_structure.semantic").joinpath("sql/data_operation_identity.sql").read_text()
-    )
+def test_deployed_frame_matches_independent_literal_vectors(native_read):
     # Literal encodings are independent of both native and Python production codecs.
     vectors = [
         (None, '["null"]'),
@@ -95,28 +91,27 @@ def test_native_frame_matches_independent_literal_vectors(native_rollback):
         ),
     ]
     # JSONB cannot represent U+0000; this parity contract covers JSONB-compatible text.
-    conn = native_rollback.connection
-    conn.exec_driver_sql(helper)
+    conn = native_read
     query = text(
-        "SELECT pg_temp.ddo_canonical_input('vector','1',CAST(:v AS jsonb)), "
-        "pg_temp.ddo_identity_digest('vector','1',CAST(:v AS jsonb))"
+        "SELECT data.canonical_json(jsonb_build_array('ddo','vector','1', "
+        "data.ddo_normalize(CAST(:v AS jsonb)))), "
+        "data.ddo_identity('vector',CAST(:v AS jsonb))"
     )
     for value, encoded in vectors:
         literal = ('["ddo","vector","1",' + encoded + "]").encode()
         actual, digest = conn.execute(query, {"v": encoded}).one()
-        assert bytes(actual) == literal
-        assert digest == sha256(literal).hexdigest()
+        assert actual.encode() == literal
+        assert digest == "vector:" + sha256(literal).hexdigest()
         assert canonical_identity("vector", value).canonical_input == literal
     # Numeric fields must have passed the typed lexical codec first.
     for value in (["integer", 1], ["mapping", {}], ["null", None]):
         with conn.begin_nested() as savepoint:
-            with pytest.raises(DBAPIError, match="normalized tagged values"):
+            with native_refusal(
+                "23514", message=f"invalid or unsupported DDO semantic tag {value[0]}"
+            ):
                 conn.execute(query, {"v": json.dumps(value)})
             savepoint.rollback()
-    with conn.begin_nested() as savepoint:
-        with pytest.raises(DBAPIError, match="domain/version"):
-            conn.execute(text("SELECT pg_temp.ddo_canonical_input('vector','2','[\"null\"]')"))
-        savepoint.rollback()
+    # The deployed codec fixes its encoding version and exposes no caller version argument.
 
 
 @pytest.mark.db

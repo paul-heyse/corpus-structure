@@ -17,6 +17,7 @@ from pgtap_batch import (
     selected_sql_cases,
     sql_literal,
 )
+from test_preparation import preparation_fixture
 
 pytestmark = pytest.mark.db
 
@@ -180,7 +181,7 @@ def sql_recipe() -> SqlRecipe:
     return SqlRecipe.create(_FAMILY, tuple(cases))
 
 
-@pytest.fixture(scope="module")
+@preparation_fixture("local_semantic_sql", scope="module")
 def local_semantic_sql_batch(request, scenario_seeds, tmp_path_factory):
     selected = selected_sql_cases(request.session, _FAMILY)
     with scenario_seeds.commit_clone(sql_recipe()) as clone:

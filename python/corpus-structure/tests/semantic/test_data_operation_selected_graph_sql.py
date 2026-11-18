@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import JSONB
     ],
 )
 def test_selected_dependency_guard_preserves_declared_required_and_alternative_edges(
-    semantic_bare_engine,
+    infrastructure_rollback,
     declared,
     selected,
     invalid,
@@ -37,6 +37,6 @@ def test_selected_dependency_guard_preserves_declared_required_and_alternative_e
             literal(selected, type_=JSONB()),
         )
     )
-    with semantic_bare_engine.connect() as connection:
-        actual = connection.scalar(query)
+    connection = infrastructure_rollback
+    actual = connection.scalar(query)
     assert actual is invalid

@@ -1,7 +1,6 @@
-"""Native nominal packets and leaf projections retain custody and exact replay."""
+"""Generated nominal packets and leaf projections retain custody and exact replay."""
 
 import json
-from pathlib import Path
 
 import pytest
 from pglast import ast
@@ -18,93 +17,90 @@ from corpus_structure.semantic.prepared_sql import prepare_sql
 
 
 @pytest.fixture
-def product_connection(semantic_bare_engine):
-    with semantic_bare_engine.begin() as connection:
-        for name in ("data", "ops", "sem", "kb"):
-            connection.exec_driver_sql(f"CREATE SCHEMA {name}")
-        for name in (
-            "sem.data_kind_contract",
-            "sem.data_kind_release",
-            "kb.data_product",
-            "kb.data_product_member",
-            *(
-                "kb.data_member_" + name
-                for name in ("coordinate", "role", "endpoint", "coverage", "choice")
-            ),
+def product_connection(infrastructure_rollback):
+    connection = infrastructure_rollback
+    for name in ("data", "ops", "sem", "kb"):
+        connection.exec_driver_sql(f"CREATE SCHEMA {name}")
+    for name in (
+        "sem.data_kind_contract",
+        "sem.data_kind_release",
+        "kb.data_product",
+        "kb.data_product_member",
+        *(
+            "kb.data_member_" + name
+            for name in ("coordinate", "role", "endpoint", "coverage", "choice")
+        ),
+    ):
+        connection.execute(CreateTable(metadata.tables[name], include_foreign_key_constraints=[]))
+    from corpus_structure.semantic.target_installation import foundation_programs
+
+    identity = prepare_sql(foundation_programs().identity, source="product-identity-test-helpers")
+    for i, statement in enumerate(identity.statements):
+        node = statement.stmt
+        if (
+            isinstance(node, ast.CreateFunctionStmt)
+            and node.funcname
+            and node.funcname[-1].sval in {"canonical_json", "decimal_canonical"}
         ):
-            connection.execute(
-                CreateTable(metadata.tables[name], include_foreign_key_constraints=[])
-            )
-        source = (
-            Path(__file__).resolve().parents[2] / "src/corpus_structure/semantic/sql/identity.sql"
-        )
-        identity = prepare_sql(source.read_text(), source="product-identity-test-helpers")
-        for i, statement in enumerate(identity.statements):
-            node = statement.stmt
-            if (
-                isinstance(node, ast.CreateFunctionStmt)
-                and node.funcname
-                and node.funcname[-1].sval in {"canonical_json", "decimal_canonical"}
-            ):
-                execute_native_sql(connection, identity.excerpt(i))
-        parsed = prepare_sql(
-            native_sql(native_protocol_sources()), source="product-realization-test-helpers"
-        )
-        for i, statement in enumerate(parsed.statements):
-            node = statement.stmt
-            if (
-                isinstance(node, ast.CreateFunctionStmt)
-                and node.funcname
-                and node.funcname[-1].sval
-                in {
-                    "ddo_fields",
-                    "ddo_normalize",
-                    "ddo_json_meaning",
-                    "ddo_identity",
-                    "ddo_digest",
-                    "ddo_authorize",
-                    "ddo_require_subject_source",
-                    "ddo_field",
-                    "ddo_json",
-                    "ddo_kind_access",
-                    "ddo_body_kind_contracts",
-                    "ddo_body_access",
-                }
-            ):
-                execute_native_sql(connection, parsed.excerpt(i))
-        # This isolated database intentionally omits request/source tables. The
-        # directly tested product program uses real codecs, policy and schemas.
-        selected = prepare_sql(product_admission_native_sql(metadata), source="product-realization")
-        for i, statement in enumerate(selected.statements):
-            node = statement.stmt
-            if (
-                isinstance(node, ast.CreateFunctionStmt)
-                and node.funcname
-                and node.funcname[-1].sval == "ddo_install_product_context"
-            ):
-                execute_native_sql(connection, selected.excerpt(i))
-        for name, member_schema, member_contracts in (
-            ("container", {}, ["leaf"]),
-            ("leaf", {"not": {}}, []),
+            execute_native_sql(connection, identity.excerpt(i))
+    parsed = prepare_sql(
+        native_sql(native_protocol_sources()), source="product-realization-test-helpers"
+    )
+    for i, statement in enumerate(parsed.statements):
+        node = statement.stmt
+        if (
+            isinstance(node, ast.CreateFunctionStmt)
+            and node.funcname
+            and node.funcname[-1].sval
+            in {
+                "ddo_fields",
+                "ddo_normalize",
+                "ddo_json_meaning",
+                "ddo_identity",
+                "ddo_digest",
+                "ddo_authorize",
+                "ddo_require_subject_source",
+                "ddo_field",
+                "ddo_json",
+                "ddo_kind_access",
+                "ddo_body_kind_contracts",
+                "ddo_body_access",
+            }
         ):
-            connection.execute(
-                insert(metadata.tables["sem.data_kind_contract"]).values(
-                    kind_contract=name,
-                    kind="urn:" + name,
-                    body_schema={},
-                    meaning_schema={},
-                    member_schema=member_schema,
-                    member_contracts=member_contracts,
-                    families=["coordinate", "role", "endpoint", "coverage", "choice"],
-                    universe="ordinary",
-                )
+            execute_native_sql(connection, parsed.excerpt(i))
+    # This isolated database intentionally omits request/source tables. The
+    # directly tested product program uses real codecs, policy and schemas.
+    selected = prepare_sql(product_admission_native_sql(metadata), source="product-realization")
+    for i, statement in enumerate(selected.statements):
+        node = statement.stmt
+        if (
+            isinstance(node, ast.CreateFunctionStmt)
+            and node.funcname
+            and node.funcname[-1].sval == "ddo_install_product_context"
+        ):
+            execute_native_sql(connection, selected.excerpt(i))
+    for name, member_schema, member_contracts in (
+        ("container", {}, ["leaf"]),
+        ("leaf", {"not": {}}, []),
+    ):
+        connection.execute(
+            insert(metadata.tables["sem.data_kind_contract"]).values(
+                kind_contract=name,
+                kind="urn:" + name,
+                body_schema={},
+                meaning_schema={},
+                member_schema=member_schema,
+                member_contracts=member_contracts,
+                families=["coordinate", "role", "endpoint", "coverage", "choice"],
+                universe="ordinary",
             )
-            connection.execute(
-                insert(metadata.tables["sem.data_kind_release"]).values(
-                    release_id="release", kind_contract=name
-                )
+        )
+        connection.execute(
+            insert(metadata.tables["sem.data_kind_release"]).values(
+                release_id="release", kind_contract=name
             )
-        yield connection
+        )
+    yield connection
 
 
 def product_packet():

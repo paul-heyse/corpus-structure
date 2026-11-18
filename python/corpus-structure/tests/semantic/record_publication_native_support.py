@@ -8,7 +8,6 @@ from evaluate.declared_record_native_support import (
     PROJECT,
     ROOT,
     authored,
-    current_record_policy_journey,
     project_context,
     request,
 )
@@ -69,11 +68,14 @@ classes:
 
 
 @pytest.fixture
-def rich_publication(scenario_seeds, tmp_path, monkeypatch):
-    with current_record_policy_journey(
-        scenario_seeds, tmp_path, monkeypatch, recipe=publication_recipe(tmp_path)
-    ) as journey:
-        yield journey
+def rich_publication(scenario_seeds):
+    from evaluate.declared_record_native_support import (
+        RecordPublicationCapture,
+        table_source_content,
+    )
+
+    with scenario_seeds.commit_clone(RecordPublicationCapture(table_source_content())) as clone:
+        yield clone.stage.acquired(clone)
 
 
 def authored_propositions(prepared, model, context, values, *, qualifications=None, entities=None):
@@ -172,6 +174,7 @@ def publish_authored(journey, values, *, inference, qualifications=None, entitie
         body_identity,
         contextual_product_identity,
     )
+    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
     from corpus_structure.semantic.data_product_reference import DataProductReference
@@ -250,7 +253,11 @@ def publish_authored(journey, values, *, inference, qualifications=None, entitie
         project_id=PROJECT,
         database_capacity=6,
     )
-    assert result.receipt_count == 2
+    frontier = json_loads(result.snapshot)
+    assert result.receipt_count == 2, (
+        result.receipt_count,
+        [(item["operation_id"], item["fate"]) for item in frontier["obligations"]],
+    )
     cut, products, uses, episodes, _ = journey.selected_products(
         journey.kernel.purpose("read"),
         retained["demand_id"],

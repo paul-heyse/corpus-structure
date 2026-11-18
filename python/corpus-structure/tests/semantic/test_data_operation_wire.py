@@ -1208,3 +1208,44 @@ def test_waiting_fate_retains_the_inputs_watermark_in_its_closed_reason_selectio
         selection["inputs_watermark"] = invalid
         with pytest.raises(ValueError):
             validate_native_wire("record_data_fate", "input", malformed)
+
+
+def test_controlled_storage_validates_request_dependent_and_ordered_replies():
+    from corpus_structure.semantic._data_operation_wire import (
+        WireClaimDataRequestsRequest,
+        WireRequestId,
+    )
+    from semantic.data_operation_binding_support import WireCheckedStorage
+
+    payload: WireClaimDataRequestsRequest = {
+        "items": [{"request_id": WireRequestId("request:one"), "generation": 1}],
+        "holder": "owner",
+        "lease_seconds": 3,
+    }
+    seen = []
+
+    def reply(request):
+        seen.append(request["items"][0]["request_id"])
+        return {"items": [{"state": "no-work"}]}
+
+    storage = WireCheckedStorage({"claim_data_requests": iter((reply, {"items": []}))})
+    assert storage.claim_data_requests(payload) == {"items": [{"state": "no-work"}]}
+    assert storage.claim_data_requests(payload) == {"items": []}
+    assert seen == ["request:one"]
+    with pytest.raises(StopIteration):
+        storage.claim_data_requests(payload)
+    invalid = WireCheckedStorage(
+        {"claim_data_requests": lambda request: {"items": [{"state": "claimed", "result": {}}]}}
+    )
+    with pytest.raises(ValueError, match="native wire violates schema"):
+        invalid.claim_data_requests(payload)
+
+
+def test_controlled_read_page_has_required_native_fields():
+    from semantic.demand_result_support import demand_result_page
+
+    page = demand_result_page()
+    assert page["obligations"][0]["operation_id"] == "op:A"
+    del page["obligations"][0]["inputs_watermark"]
+    with pytest.raises(ValueError, match="inputs_watermark"):
+        validate_native_wire("read_demand_result", "output", page)

@@ -16,7 +16,12 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.rich_admission_native import rich_admission_native_sql
-from semantic.test_data_operation_cpu_basis import cpu_basis_connection as cpu_basis_connection
+from semantic.cpu_basis_support import (
+    cpu_basis_connection as cpu_basis_connection,
+)
+from semantic.cpu_basis_support import (
+    cpu_basis_engine as cpu_basis_engine,
+)
 
 
 @pytest.fixture
@@ -168,6 +173,11 @@ def test_rich_command_name_without_real_factory_cpu_and_effect_is_refused(rich_g
             input_roles=[],
             output_roles=[],
             support_contract={"effects": []},
+            binding_expression={"operator": "all", "children": []},
+            definition_identity="definition:controlled",
+            eligibility_identity="eligibility:controlled",
+            quantified=False,
+            dependencies=[],
         )
     )
     request = json.dumps(
@@ -207,6 +217,11 @@ def test_private_rich_name_does_not_grant_computed_authority(rich_guard_connecti
             input_roles=[],
             output_roles=[],
             support_contract={"effects": []},
+            binding_expression={"operator": "all", "children": []},
+            definition_identity="definition:controlled",
+            eligibility_identity="eligibility:controlled",
+            quantified=False,
+            dependencies=[],
         )
     )
     request = {

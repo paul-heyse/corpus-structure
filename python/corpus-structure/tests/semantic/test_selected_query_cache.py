@@ -22,6 +22,21 @@ def entry(value):
     return result
 
 
+@pytest.mark.xdist_group("selected-cache-isolation-control")
+def test_cache_isolation_can_warm_global_cache_within_a_case():
+    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE
+
+    assert SELECTED_QUERY_CACHE.put(b"isolation-control", entry({"payload": "owned"}))
+    assert SELECTED_QUERY_CACHE.get(b"isolation-control") is not None
+
+
+@pytest.mark.xdist_group("selected-cache-isolation-control")
+def test_cache_isolation_clears_previous_cases_without_support_import():
+    from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE
+
+    assert SELECTED_QUERY_CACHE.get(b"isolation-control") is None
+
+
 def test_lru_charges_actual_encoded_buffers_and_defends_cached_values():
     first, second, third = (entry({"value": i}) for i in range(3))
     capacity = sum(

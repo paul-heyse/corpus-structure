@@ -272,21 +272,21 @@ def test_recognition_recipe_owns_recovery_and_integration_recipe_owns_selection(
 
 
 def test_integration_policy_change_keeps_actual_recognition_recipe_identity(tmp_path):
-    from semantic.current_pdf_integration_support import current_pdf_recipe
+    from semantic.current_pdf_integration_support import integrated_pdf_recipe
     from semantic.data_operation_kernel_support import prepare_kernel
 
-    first = prepare_kernel(current_pdf_recipe(tmp_path))
+    first = prepare_kernel(integrated_pdf_recipe().bind(tmp_path), directory=tmp_path)
     second = prepare_kernel(
-        current_pdf_recipe(
-            tmp_path,
+        integrated_pdf_recipe(
             integration_policy={
                 "policy_id": "pdf-integration-v1",
                 "conflict_action": "keep",
                 "unmatched_action": "add",
                 "specialized_crop_precedence": True,
                 "comparison_demand": "lexical",
-            },
-        )
+            }
+        ).bind(tmp_path),
+        directory=tmp_path,
     )
     recognition = "source.pdf_recognition/observe"
     integration = "source.pdf_integrated/reconcile"
@@ -329,10 +329,10 @@ def test_pdf_only_modes_declare_their_actual_source_member_contexts(tmp_path):
     from corpus_structure.semantic.data_operation_ports import PortRefusal, project_product_members
     from corpus_structure.semantic.source_discovery import selected_source_population
     from corpus_structure.semantic.source_products import FrozenNativeSource
-    from semantic.current_pdf_integration_support import current_pdf_recipe
+    from semantic.current_pdf_integration_support import integrated_pdf_recipe
     from semantic.data_operation_kernel_support import prepare_kernel
 
-    profile = prepare_kernel(current_pdf_recipe(tmp_path))
+    profile = prepare_kernel(integrated_pdf_recipe().bind(tmp_path), directory=tmp_path)
     assert not any(
         name.startswith("text.") for name in (op.semantic_id for op in profile.model.operations)
     )
@@ -440,3 +440,33 @@ def test_recognition_custody_keeps_virtualenv_entrypoint_and_checks_executable_b
     )
     assert base_prefix != str(environment)
     assert found is False
+
+
+def test_integrated_scenario_keeps_content_identity_across_bindings(tmp_path):
+    from native_scenario_seeds import recipe_id
+    from semantic.current_pdf_integration_support import integrated_pdf_recipe
+    from semantic.data_operation_original_support import OriginalSeedRecipe
+
+    scenario = integrated_pdf_recipe()
+    before = recipe_id(OriginalSeedRecipe(scenario))
+    first = scenario.bind(tmp_path / "first")
+    second = scenario.bind(tmp_path / "second")
+    assert recipe_id(OriginalSeedRecipe(scenario)) == before
+    assert recipe_id(OriginalSeedRecipe(integrated_pdf_recipe())) == before
+    assert first != second
+    assert (
+        recipe_id(
+            OriginalSeedRecipe(
+                integrated_pdf_recipe(
+                    integration_policy={
+                        "policy_id": "pdf-integration-v1",
+                        "conflict_action": "keep",
+                        "unmatched_action": "add",
+                        "specialized_crop_precedence": True,
+                        "comparison_demand": "lexical",
+                    }
+                )
+            )
+        )
+        != before
+    )

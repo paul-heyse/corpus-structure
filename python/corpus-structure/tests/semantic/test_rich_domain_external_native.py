@@ -50,16 +50,14 @@ def test_native_controlled_external_source_retains_exact_statistics_meaning(
 ):
     from evaluate import declared_record_native_support as support
 
-    from semantic.rich_domain_native_support import decimal_source_stream
+    from semantic.rich_domain_native_support import decimal_source_content
 
-    monkeypatch.setattr(
-        support, "controlled_table_stream", partial(decimal_source_stream, text=SOURCE_TEXT[case])
-    )
     with support.current_record_policy_journey(
         scenario_seeds,
         tmp_path,
         monkeypatch,
         recipe=external_recipe(tmp_path, domain="toy" if case == "toy" else "statistics"),
+        content=decimal_source_content(SOURCE_TEXT[case]),
     ) as journey:
         selected, external_receipt, _report = publish_external_report(
             journey,

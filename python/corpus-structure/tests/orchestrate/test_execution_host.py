@@ -4,7 +4,7 @@ from collections import namedtuple
 from types import SimpleNamespace
 
 import pytest
-from orchestrate.test_data_operation_byte_admission import prepared as prepared
+from orchestrate.executor_support import prepared as prepared
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.orchestrate.execution_host import ProcessExecutionHost, execution_host_scope
@@ -125,6 +125,53 @@ def test_verified_basis_reuses_only_exact_engine_header_runtime_and_root(monkeyp
     assert host.budget.used_bytes == 0
 
 
+@pytest.mark.parametrize("determinant", ["root", "library", "compiler"])
+def test_execution_basis_invalidates_on_changed_preparation_basis(
+    monkeypatch, tmp_path, determinant
+):
+    from corpus_structure.semantic import determinants, types
+
+    state, connection = controlled_archive(monkeypatch)
+    engine = object()
+    host = ProcessExecutionHost()
+    policy = CharacterizationExecutionPolicy()
+    try:
+        with host.run(policy) as token:
+            first = host.acquire_basis(
+                engine,
+                connection,
+                "release:first",
+                "runtime",
+                source_root=tmp_path,
+                token=token,
+            )
+        root = tmp_path
+        if determinant == "root":
+            root = tmp_path / "other-root"
+        elif determinant == "library":
+            version = determinants.determinant_version
+            monkeypatch.setattr(
+                determinants,
+                "determinant_version",
+                lambda name: "independent-version" if name == "psycopg" else version(name),
+            )
+        else:
+            monkeypatch.setattr(types, "SEMANTIC_COMPILER_VERSION", "independent-version")
+        with host.run(policy) as token:
+            other = host.acquire_basis(
+                engine,
+                connection,
+                "release:first",
+                "runtime",
+                source_root=root,
+                token=token,
+            )
+        assert other is not first
+        assert len(state.acquisitions) == 2
+    finally:
+        host.close()
+
+
 def test_runtime_rewrite_refuses_and_idle_lru_releases_real_credit(monkeypatch):
     state, connection = controlled_archive(monkeypatch)
     engine = object()
@@ -158,9 +205,8 @@ def test_two_runs_reuse_worker_and_capsule_with_actual_spawned_calls(
     import json
     from dataclasses import replace
 
-    from orchestrate.test_data_operation_byte_admission import (
-        Active,
-        controlled_executor,
+    from orchestrate.executor_support import (
+        execution_case,
         policy_for,
     )
 
@@ -186,9 +232,12 @@ def derive(value: int, prepared: PreparedRelease) -> int:
         prepared_parameter="prepared",
         prepared_release_id=prepared.release_id,
     )
-    pids = []
+    pids, generations, capsule_names, baselines = [], [], [], []
 
     def scalar(value, *, execution_owner, check_active, **_):
+        generations.append(execution_owner.cpu.scope)
+        capsule_names.append(execution_owner.cpu.capsule.name)
+        baselines.append(execution_owner.invocation.host.budget.used_bytes)
         reply = yield from plan_cpu_call(
             descriptor,
             signature.bind(value, prepared),
@@ -200,48 +249,47 @@ def derive(value: int, prepared: PreparedRelease) -> int:
         pids.append(reply.pid)
         return json.loads(reply.content)
 
-    executor, observed = controlled_executor(
-        monkeypatch,
-        prepared,
-        replace(policy_for(prepared), workers=1, max_submissions=1),
-        ("prepared",),
-        {
-            "prepared": SimpleNamespace(
-                native_selections=(), requires_prepared_schema=True, plan_python=scalar
-            )
-        },
-    )
     host = ProcessExecutionHost()
-    generations, capsule_names, baselines = [], [], []
+    policy = replace(policy_for(prepared), workers=1, max_submissions=1)
+    observed_runs = []
     try:
         for _ in range(2):
-            with host.run(executor.policy) as token, host.execution(executor, token) as physical:
-                executor._physical = physical
-                physical.select_operations(("prepared",))
-                generations.append(physical.cpu)
-                capsule_names.append(
-                    physical.cpu._release_capsules[prepared.release_id].reference.name
+            with host.run(policy) as token:
+                executor, observed = execution_case(
+                    monkeypatch,
+                    prepared,
+                    policy,
+                    ("prepared",),
+                    {
+                        "prepared": SimpleNamespace(
+                            native_selections=(),
+                            requires_prepared_schema=True,
+                            plan_python=scalar,
+                        )
+                    },
+                    execution_host=host,
+                    host_run=token,
                 )
-                baselines.append(host.budget.used_bytes)
-                receipts, _, _, failures = executor._drive_sweep(({},), b"{}", Active())
-                assert receipts == (b"0",) and not failures
+                result = executor.advance("controlled-demand")
+                assert [json.loads(receipt)["receipt_id"] for receipt in result.receipts] == ["0"]
+                observed_runs.append(observed)
         assert generations[0] is generations[1]
         assert len(pids) == 2 and pids[0] == pids[1]
         assert capsule_names[0] == capsule_names[1]
         assert baselines[0] == baselines[1] > 0
     finally:
         host.close()
-    assert host.budget.used_bytes == 0 and not observed.live
+    assert host.budget.used_bytes == 0 and all(not observed.live for observed in observed_runs)
 
 
 def test_idle_cpu_generation_can_retire_inside_same_logical_run(monkeypatch, prepared):
-    from orchestrate.test_data_operation_byte_admission import controlled_executor, policy_for
+    from orchestrate.executor_support import execution_case, policy_for
 
     from corpus_structure.orchestrate.execution_host import ExecutionPreparationDeferred
 
     _, connection = controlled_archive(monkeypatch)
     engine = object()
-    executor, _ = controlled_executor(
+    executor, _ = execution_case(
         monkeypatch,
         prepared,
         policy_for(prepared),
@@ -366,12 +414,12 @@ def test_shared_immutable_runtime_buffers_are_charged_once_until_last_basis_evic
 
 
 def test_unstarted_stage_a_credit_defers_preparation_without_evicting_cpu(prepared, monkeypatch):
-    from orchestrate.test_data_operation_byte_admission import controlled_executor, policy_for
+    from orchestrate.executor_support import execution_case, policy_for
 
     from corpus_structure.orchestrate.execution_host import ExecutionPreparationDeferred
     from corpus_structure.semantic.cpu_execution import release_capsule
 
-    executor, _ = controlled_executor(
+    executor, _ = execution_case(
         monkeypatch,
         prepared,
         policy_for(prepared),

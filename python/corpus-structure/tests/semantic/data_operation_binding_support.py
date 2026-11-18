@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 from typing import cast as typing_cast
 
-import pytest
 from pglast import ast
 from scenario_recipes import register_scenario_builder
 from sqlalchemy import text
@@ -41,6 +40,7 @@ from corpus_structure.semantic.data_operation_model import (
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
+from test_preparation import preparation_fixture
 
 
 @dataclass(frozen=True)
@@ -114,7 +114,7 @@ def build_binding_source(recipe, admin, writer, directory, *, purpose_engine=Non
 register_scenario_builder(BindingSourceRecipe, build_binding_source)
 
 
-@pytest.fixture
+@preparation_fixture("ddo_binding_source")
 def binding_native_connection(scenario_seeds):
     with scenario_seeds.rollback_family(binding_source_recipe()) as case:
         yield case.connection
@@ -259,7 +259,14 @@ class WireCheckedStorage(DataOperationCalls):
             raise ValueError("unknown configured native data operation")
         payload = validate_native_wire(name, "input", payload)
         self.calls.append((name, deepcopy(payload)))
-        return validate_native_wire(name, "output", deepcopy(self.replies[name]))
+        from collections.abc import Iterator
+
+        reply = self.replies[name]
+        if isinstance(reply, Iterator):
+            reply = next(reply)
+        if callable(reply):
+            reply = reply(deepcopy(payload))
+        return validate_native_wire(name, "output", deepcopy(reply))
 
 
 # Independently authored admitted facts. The relational fixture does not consume

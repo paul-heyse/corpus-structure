@@ -80,11 +80,9 @@ def test_consumer_handoff_refuses_ambiguous_or_undeclared_role():
 def test_executor_scalar_handoff_preserves_optional_omission_and_exact_cardinality(
     monkeypatch, presence, minimum, count, accepted
 ):
-    from contextlib import nullcontext
     from types import SimpleNamespace
     from typing import cast
 
-    from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
     from corpus_structure.semantic.data_operation_consumers import (
         HydratedConsumerSelection,
         SelectedConsumerValue,
@@ -114,18 +112,16 @@ def test_executor_scalar_handoff_preserves_optional_omission_and_exact_cardinali
     )
     # SQL hydration is replaced above: these controlled stand-ins supply only
     # this handoff's inputs, with no native/provider execution claim.
-    executor = cast(
-        NativeDemandExecutor,
-        SimpleNamespace(
-            engine=SimpleNamespace(begin=lambda: nullcontext(None)),
-            model=SimpleNamespace(
-                operation=lambda _: operation,
-                identities=(SimpleNamespace(owner="view", domain="kind", key="kind:view"),),
-            ),
-            demand="demand",
-            policy=SimpleNamespace(max_packet_bytes=1024),
-        ),
+    from orchestrate.executor_support import ControlledNativeIO, executor_case
+
+    executor = executor_case(
+        native_io=ControlledNativeIO(hydrate=lambda *args, **options: selected)
     )
+    executor.model = SimpleNamespace(
+        operation=lambda _: operation,
+        identities=(SimpleNamespace(owner="view", domain="kind", key="kind:view"),),
+    )
+    executor.demand = "demand"
     context = SimpleNamespace(model=executor.model, consumer_selectors={})
     ready = cast(
         ReadyDataRequest,
@@ -137,9 +133,9 @@ def test_executor_scalar_handoff_preserves_optional_omission_and_exact_cardinali
     )
     if not accepted:
         with pytest.raises(PortRefusal, match="scalar input requires one admitted member"):
-            NativeDemandExecutor._hydrate(executor, ready, context=context)
+            executor._hydrate(ready, context=context)
     else:
-        values = NativeDemandExecutor._hydrate(executor, ready, context=context)
+        values = executor._hydrate(ready, context=context)
         assert [item.value for item in values] == ([] if count == 0 else [{"value": 7}])
         from corpus_structure.semantic.data_operation_ports import HydratedRoleValue
 

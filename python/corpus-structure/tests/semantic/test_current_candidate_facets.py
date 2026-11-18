@@ -31,9 +31,6 @@ from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from corpus_structure.serve import contribution_facets as serving
 from semantic.selected_query_cache_support import (
-    clear_selected_query_cache as clear_selected_query_cache,
-)
-from semantic.selected_query_cache_support import (
     control_frontier,
 )
 

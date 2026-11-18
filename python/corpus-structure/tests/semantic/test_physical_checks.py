@@ -98,7 +98,7 @@ def test_search_configuration_changes_both_generated_vector_and_population_check
     assert "configuration = 'english'" not in predicates
 
 
-def test_postgresql_enforces_generated_cross_field_constraint(semantic_bare_engine):
+def test_postgresql_enforces_generated_cross_field_constraint(infrastructure_rollback):
     from sqlalchemy.exc import IntegrityError
     from sqlalchemy.schema import CreateSchema
 
@@ -110,16 +110,16 @@ def test_postgresql_enforces_generated_cross_field_constraint(semantic_bare_engi
             }
         ]
     )
-    with semantic_bare_engine.begin() as connection:
-        connection.execute(CreateSchema("data"))
-        relation.create(connection)
-        connection.execute(relation.insert(), [{"start": 1, "end": 2}, {"start": 3, "end": 3}])
-        with pytest.raises(IntegrityError, match="ordered_span"), connection.begin_nested():
-            connection.execute(relation.insert(), {"start": 4, "end": 3})
-        assert connection.execute(relation.select()).all() == [(1, 2), (3, 3)]
+    connection = infrastructure_rollback
+    connection.execute(CreateSchema("data"))
+    relation.create(connection)
+    connection.execute(relation.insert(), [{"start": 1, "end": 2}, {"start": 3, "end": 3}])
+    with pytest.raises(IntegrityError, match="ordered_span"), connection.begin_nested():
+        connection.execute(relation.insert(), {"start": 4, "end": 3})
+    assert connection.execute(relation.select()).all() == [(1, 2), (3, 3)]
 
 
-def test_postgresql_same_name_check_change_has_ordered_drop_and_create(semantic_bare_engine):
+def test_postgresql_same_name_check_change_has_ordered_drop_and_create(infrastructure_rollback):
     from alembic.autogenerate import produce_migrations
     from alembic.migration import MigrationContext
     from alembic.operations.ops import CreateCheckConstraintOp, DropConstraintOp, ModifyTableOps
@@ -143,42 +143,42 @@ def test_postgresql_same_name_check_change_has_ordered_drop_and_create(semantic_
             }
         ]
     )
-    with semantic_bare_engine.begin() as connection:
-        connection.execute(CreateSchema("data"))
-        original.create(connection)
-        context = MigrationContext.configure(
-            connection,
-            opts={
-                "include_schemas": True,
-                "include_name": lambda name, kind, parents: (
-                    name == "data" if kind == "schema" else True
-                ),
-                "autogenerate_plugins": [
-                    "alembic.autogenerate.*",
-                    "alembic.ext.checkconstraint_byname",
-                    plugin.name,
-                ],
-            },
-        )
-        unchanged = produce_migrations(context, original.metadata)
-        assert unchanged.upgrade_ops is not None and unchanged.upgrade_ops.is_empty()
-        changed = produce_migrations(context, proposed.metadata)
-        assert changed.upgrade_ops is not None
-        (table_changes,) = changed.upgrade_ops.ops
-        assert isinstance(table_changes, ModifyTableOps)
-        assert [type(operation) for operation in table_changes.ops] == [
-            DropConstraintOp,
-            CreateCheckConstraintOp,
-        ]
-        first, second = table_changes.ops
-        assert isinstance(first, DropConstraintOp) and first.constraint_name == "ordered_span"
-        assert (
-            isinstance(second, CreateCheckConstraintOp) and second.constraint_name == "ordered_span"
-        )
+    connection = infrastructure_rollback
+    connection.execute(CreateSchema("data"))
+    original.create(connection)
+    context = MigrationContext.configure(
+        connection,
+        opts={
+            "include_schemas": True,
+            "include_name": lambda name, kind, parents: (
+                name == "data" if kind == "schema" else True
+            ),
+            "autogenerate_plugins": [
+                "alembic.autogenerate.*",
+                "alembic.ext.checkconstraint_byname",
+                plugin.name,
+            ],
+        },
+    )
+    unchanged = produce_migrations(context, original.metadata)
+    assert unchanged.upgrade_ops is not None and unchanged.upgrade_ops.is_empty()
+    changed = produce_migrations(context, proposed.metadata)
+    assert changed.upgrade_ops is not None
+    (table_changes,) = changed.upgrade_ops.ops
+    assert isinstance(table_changes, ModifyTableOps)
+    assert [type(operation) for operation in table_changes.ops] == [
+        DropConstraintOp,
+        CreateCheckConstraintOp,
+    ]
+    first, second = table_changes.ops
+    assert isinstance(first, DropConstraintOp) and first.constraint_name == "ordered_span"
+    assert isinstance(second, CreateCheckConstraintOp) and second.constraint_name == "ordered_span"
 
 
 @pytest.mark.parametrize("changed_option", ["predicate", "include", "method", "expression"])
-def test_postgresql_index_changes_use_declared_bound_catalog(semantic_bare_engine, changed_option):
+def test_postgresql_index_changes_use_declared_bound_catalog(
+    infrastructure_rollback, changed_option
+):
     from alembic.autogenerate import produce_migrations
     from alembic.migration import MigrationContext
     from alembic.operations.ops import CreateIndexOp, DropIndexOp, ModifyTableOps
@@ -207,29 +207,29 @@ def test_postgresql_index_changes_use_declared_bound_catalog(semantic_bare_engin
         "expression": {"expression": {"op": "gt", "args": [{"field": "start"}, {"value": 0}]}},
     }[changed_option]
     proposed = compile_checks([], [{"name": "ix_span", **change}])
-    with semantic_bare_engine.begin() as connection:
-        connection.execute(CreateSchema("data"))
-        original.create(connection)
+    connection = infrastructure_rollback
+    connection.execute(CreateSchema("data"))
+    original.create(connection)
 
-        def compare(relation):
-            indexes = _declared_physical_catalog(connection, relation.metadata).indexes
-            context = MigrationContext.configure(
-                connection,
-                opts={
-                    "include_schemas": True,
-                    "include_name": lambda name, kind, parents: (
-                        name == "data" if kind == "schema" else True
-                    ),
-                    "autogenerate_plugins": ["alembic.autogenerate.*", plugin.name],
-                    "declared_physical_indexes": indexes,
-                },
-            )
-            return produce_migrations(context, relation.metadata)
+    def compare(relation):
+        indexes = _declared_physical_catalog(connection, relation.metadata).indexes
+        context = MigrationContext.configure(
+            connection,
+            opts={
+                "include_schemas": True,
+                "include_name": lambda name, kind, parents: (
+                    name == "data" if kind == "schema" else True
+                ),
+                "autogenerate_plugins": ["alembic.autogenerate.*", plugin.name],
+                "declared_physical_indexes": indexes,
+            },
+        )
+        return produce_migrations(context, relation.metadata)
 
-        unchanged = compare(original)
-        assert unchanged.upgrade_ops is not None and unchanged.upgrade_ops.is_empty()
-        changed = compare(proposed)
-        assert changed.upgrade_ops is not None
-        (table_changes,) = changed.upgrade_ops.ops
-        assert isinstance(table_changes, ModifyTableOps)
-        assert [type(operation) for operation in table_changes.ops] == [DropIndexOp, CreateIndexOp]
+    unchanged = compare(original)
+    assert unchanged.upgrade_ops is not None and unchanged.upgrade_ops.is_empty()
+    changed = compare(proposed)
+    assert changed.upgrade_ops is not None
+    (table_changes,) = changed.upgrade_ops.ops
+    assert isinstance(table_changes, ModifyTableOps)
+    assert [type(operation) for operation in table_changes.ops] == [DropIndexOp, CreateIndexOp]

@@ -90,7 +90,8 @@ def test_native_current_publication_replay_keeps_partial_family_and_exact_produc
 ):
     source = characterization_source
     demand, result, snapshot = source.run(CONSTRUCTION)
-    assert result.receipt_count == 2
+    # Exact source discovery, formal evidence, sentences and construction each complete.
+    assert result.receipt_count == 4
     product = operation_product(snapshot, CONSTRUCTION)
     body = decode_semantic_value(product["body"])
     assert body["source"] == source.source.value["source"]

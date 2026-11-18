@@ -29,9 +29,10 @@ from corpus_structure.semantic.source_products import (
     native_projection_identity,
     source_subject,
 )
+from test_preparation import preparation_fixture
 
 
-@pytest.fixture(scope="module")
+@preparation_fixture("hanlp_profile", scope="module")
 def profile():
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = hanlp_product_inputs(

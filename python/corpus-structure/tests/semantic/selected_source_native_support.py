@@ -1,8 +1,8 @@
 """Shared controlled inputs and builders for selected source native support."""
 
 from hashlib import sha256
+from typing import Any
 
-import pyarrow as pa
 from docling_core.types.doc import (
     ContentLayer,
     DocItemLabel,
@@ -11,9 +11,9 @@ from docling_core.types.doc import (
     TableCell,
     TableData,
 )
+from pdf_acceptance_support import stage_pdf_document
 
 from corpus_structure.ingest.pdf_health import FormulaOutcome
-from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.semantic.execution_admission import verify_deployment_catalog
 from corpus_structure.semantic.pdf_publication import (
     freeze_pdf_build,
@@ -21,8 +21,7 @@ from corpus_structure.semantic.pdf_publication import (
     seal_pdf_build,
     validate_pdf_build,
 )
-from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, begin_pdf_build
-from semantic.pdf_companion_set_support import adopt_controlled_companions
+from corpus_structure.semantic.pdf_staging import begin_pdf_build
 
 
 def deploy_selected(engine):
@@ -133,145 +132,110 @@ def publish_selected(
             label=DocItemLabel.PAGE_FOOTER, text="Excluded native footer", parent=section
         )
         footer.content_layer = ContentLayer.FURNITURE
-    result = StreamingPdfResult(
-        document, PdfStreamSpool(directory / "pages"), "success", (), b"{}", ()
-    )
-    for replay in result.write_record_batches(
-        directory / "records",
-        build_id=build.build_id,
-        release_id=build.release_id,
-        source_digest=build.source_digest,
-    ):
-        with pa.memory_map(str(replay.path), "r") as source:
-            batches = pa.ipc.open_file(source)
-            for index in range(batches.num_record_batches):
-                with engine.begin() as conn:
-                    adopt_pdf_batch(
-                        conn,
-                        build,
-                        f"{replay.family}:{index}",
-                        {replay.family: (batches.get_batch(index),)},
-                    )
-    with engine.begin() as conn:
-        adopt_controlled_companions(
-            conn,
-            build,
-            "health",
-            [
-                dict(
-                    conversion="success",
-                    display_coverage="unknown",
-                    inline_coverage="unknown",
-                    cell_coverage="unknown",
-                    source_scope="whole_document",
-                )
-            ],
-            "health",
-        )
-        adopt_controlled_companions(
-            conn,
-            build,
-            "native_metadata",
-            [
-                dict(
-                    kind="formula_outcomes",
-                    ordinal=index,
-                    value=dict(pointer=pointer, outcome=outcome),
-                )
-                for index, (pointer, outcome) in enumerate(formula_outcomes)
-            ]
-            + [
-                dict(
-                    kind="recognition_coverage",
-                    ordinal=len(formula_outcomes) + index,
-                    value=dict(
-                        section_pointer=pointer,
-                        membership=membership,
-                        universe="display",
-                        outcome=outcome,
-                        policy="detected-native-display-v1",
-                    ),
-                )
-                for index, (pointer, membership, outcome) in enumerate(
-                    (
-                        ("#/groups/1", "descendants", "partial"),
-                        ("#/groups/2", "direct", "unknown"),
-                        ("#/groups/0", "descendants", "unknown"),
-                    )
-                )
-            ],
-            "recognition",
-        )
-        if diagnostics:
-            adopt_controlled_companions(
-                conn, build, "native_metadata", diagnostics, "selected-diagnostics"
+    companions: dict[str, list[dict[str, Any]]] = {}
+    companions.setdefault("health", []).extend(
+        [
+            dict(
+                conversion="success",
+                display_coverage="unknown",
+                inline_coverage="unknown",
+                cell_coverage="unknown",
+                source_scope="whole_document",
             )
-        adopt_controlled_companions(
-            conn,
-            build,
-            "occurrence",
-            [
-                dict(
-                    occurrence_id="o1",
-                    kind="formula",
-                    address_space="native_item",
-                    precision="item",
-                    pointer=formula.self_ref,
-                    text="x=1",
-                )
-            ],
-            "occurrence",
-        )
-        adopt_controlled_companions(
-            conn,
-            build,
-            "relation",
-            [
-                dict(
-                    relation_id="r1",
-                    kind="correspondence",
-                    outcome="matched",
-                    comparison="text",
-                    policy="fixture",
-                    evidence="repeated endpoints",
-                    endpoints=[
-                        dict(role="output", occurrence_id="o1"),
-                        dict(role="evidence", occurrence_id="o1"),
-                    ],
-                )
-            ],
-            "relation",
-        )
-        adopt_controlled_companions(
-            conn,
-            build,
-            "coverage",
-            [
-                dict(
-                    coverage_id="c1",
-                    scope="whole_document",
-                    family="formula",
-                    discovery_policy="fixture",
-                    outcome="partial",
-                    detail="not complete science",
-                )
-            ]
-            + [
-                dict(
-                    coverage_id=identity,
-                    scope=scope,
-                    family="formula",
-                    discovery_policy="fixture",
+        ]
+    )
+    companions.setdefault("native_metadata", []).extend(
+        [
+            dict(
+                kind="formula_outcomes", ordinal=index, value=dict(pointer=pointer, outcome=outcome)
+            )
+            for index, (pointer, outcome) in enumerate(formula_outcomes)
+        ]
+        + [
+            dict(
+                kind="recognition_coverage",
+                ordinal=len(formula_outcomes) + index,
+                value=dict(
+                    section_pointer=pointer,
+                    membership=membership,
+                    universe="display",
                     outcome=outcome,
-                    detail="preserve original scope",
+                    policy="detected-native-display-v1",
+                ),
+            )
+            for index, (pointer, membership, outcome) in enumerate(
+                (
+                    ("#/groups/1", "descendants", "partial"),
+                    ("#/groups/2", "direct", "unknown"),
+                    ("#/groups/0", "descendants", "unknown"),
                 )
-                for identity, scope, outcome in (
-                    ("nested", "#/groups/2:direct", "unknown"),
-                    ("ancestor", "#/body:descendants", "partial"),
-                )
-            ],
-            "coverage",
-        )
+            )
+        ]
+    )
+    if diagnostics:
+        companions.setdefault("native_metadata", []).extend(diagnostics)
+    companions.setdefault("occurrence", []).extend(
+        [
+            dict(
+                occurrence_id="o1",
+                kind="formula",
+                address_space="native_item",
+                precision="item",
+                pointer=formula.self_ref,
+                text="x=1",
+            )
+        ]
+    )
+    companions.setdefault("relation", []).extend(
+        [
+            dict(
+                relation_id="r1",
+                kind="correspondence",
+                outcome="matched",
+                comparison="text",
+                policy="fixture",
+                evidence="repeated endpoints",
+                endpoints=[
+                    dict(role="output", occurrence_id="o1"),
+                    dict(role="evidence", occurrence_id="o1"),
+                ],
+            )
+        ]
+    )
+    companions.setdefault("coverage", []).extend(
+        [
+            dict(
+                coverage_id="c1",
+                scope="whole_document",
+                family="formula",
+                discovery_policy="fixture",
+                outcome="partial",
+                detail="not complete science",
+            )
+        ]
+        + [
+            dict(
+                coverage_id=identity,
+                scope=scope,
+                family="formula",
+                discovery_policy="fixture",
+                outcome=outcome,
+                detail="preserve original scope",
+            )
+            for identity, scope, outcome in (
+                ("nested", "#/groups/2:direct", "unknown"),
+                ("ancestor", "#/body:descendants", "partial"),
+            )
+        ]
+    )
+    stage_pdf_document(
+        engine,
+        build,
+        directory,
+        document,
+        companions=companions,
+    )
+    with engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     validate_pdf_build(engine, frozen)
@@ -296,80 +260,59 @@ def publish_native_record_fixture(
             schema_digest=sha256(product.schema_bytes).hexdigest(),
             replay_key="fixture-records:" + values["product_key"],
         )
-    result = StreamingPdfResult(
+    companions: dict[str, list[dict[str, Any]]] = {}
+    health = dict(values["health"])
+    outcomes = health.pop("formula_outcomes", ())
+    wrapper = dict(health, source_scope=values["source_scope"])
+    for key in ("page_start", "page_end"):
+        if key in values:
+            wrapper[key] = values[key]
+    companions.setdefault("health", []).extend((wrapper,))
+    if values.get("parent_task_id") is not None:
+        companions.setdefault("input", []).extend(
+            (
+                dict(
+                    role="structural",
+                    task_id=values["parent_task_id"],
+                    product_key=values["parent_product_key"],
+                    content_digest=values["parent_digest"],
+                ),
+            )
+        )
+    metadata = []
+    for kind, records in (
+        ("formula_outcomes", outcomes),
+        *(
+            (kind, values.get(kind, ()))
+            for kind in (
+                "derivation_mappings",
+                "cell_reports",
+                "inline_alignment_reports",
+                "recognition_coverage",
+                "inline_candidate_pages",
+            )
+        ),
+        ("runtime_report", (values["runtime_report"],) if "runtime_report" in values else ()),
+    ):
+        metadata.extend(
+            (dict(kind=kind, ordinal=index, value=value) for index, value in enumerate(records))
+        )
+    if metadata:
+        companions.setdefault("native_metadata", []).extend(metadata)
+    stage_pdf_document(
+        engine,
+        build,
+        directory,
         document,
-        PdfStreamSpool(directory / "pages"),
-        values["health"]["conversion"],
-        tuple(values["health"].get("issues", ())),
-        product.recipe_bytes,
-        tuple(
-            FormulaOutcome(row["pointer"], row["outcome"], row.get("error"))
-            for row in values["health"].get("formula_outcomes", ())
+        companions=companions,
+        recipe_bytes=product.recipe_bytes,
+        conversion_status=values["health"]["conversion"],
+        errors=values["health"].get("issues", ()),
+        formula_outcomes=tuple(
+            FormulaOutcome(row["pointer"], row["outcome"], row.get("error")) for row in outcomes
         ),
     )
-    for replay in result.write_record_batches(
-        directory / "records",
-        build_id=build.build_id,
-        release_id=build.release_id,
-        source_digest=build.source_digest,
-    ):
-        with pa.memory_map(str(replay.path), "r") as source:
-            batches = pa.ipc.open_file(source)
-            for index in range(batches.num_record_batches):
-                with engine.begin() as conn:
-                    adopt_pdf_batch(
-                        conn,
-                        build,
-                        f"{replay.family}:{index}",
-                        {
-                            replay.family: (batches.get_batch(index),),
-                        },
-                    )
     with engine.begin() as conn:
-        health = dict(values["health"])
-        outcomes = health.pop("formula_outcomes", ())
-        wrapper = dict(health, source_scope=values["source_scope"])
-        for key in ("page_start", "page_end"):
-            if key in values:
-                wrapper[key] = values[key]
-        adopt_controlled_companions(conn, build, "health", (wrapper,), "fixture-health")
-        if values.get("parent_task_id") is not None:
-            adopt_controlled_companions(
-                conn,
-                build,
-                "input",
-                (
-                    dict(
-                        role="structural",
-                        task_id=values["parent_task_id"],
-                        product_key=values["parent_product_key"],
-                        content_digest=values["parent_digest"],
-                    ),
-                ),
-                "fixture-parent",
-            )
-        metadata = []
-        for kind, records in (
-            ("formula_outcomes", outcomes),
-            *(
-                (kind, values.get(kind, ()))
-                for kind in (
-                    "derivation_mappings",
-                    "cell_reports",
-                    "inline_alignment_reports",
-                    "recognition_coverage",
-                    "inline_candidate_pages",
-                )
-            ),
-            ("runtime_report", (values["runtime_report"],) if "runtime_report" in values else ()),
-        ):
-            metadata.extend(
-                dict(kind=kind, ordinal=index, value=value) for index, value in enumerate(records)
-            )
-        if metadata:
-            adopt_controlled_companions(
-                conn, build, "native_metadata", metadata, "fixture-metadata"
-            )
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     validate_pdf_build(engine, frozen)

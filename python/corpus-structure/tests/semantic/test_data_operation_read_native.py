@@ -19,8 +19,8 @@ from corpus_structure.semantic.native_objects import execute_native_sql, native_
 
 
 @pytest.mark.parametrize("change", ["none", "digest", "duplicate", "not-string", "not-object"])
-def test_native_cpu_reply_preserves_exact_utf8_receipt_and_declared_object(
-    semantic_bare_engine, change
+def test_program_cpu_reply_preserves_exact_utf8_receipt_and_declared_object(
+    infrastructure_rollback, change
 ):
     reply = "[1,2]" if change == "not-object" else '{"text":"λ","value":7}'
     digest = sha256(reply.encode()).hexdigest()
@@ -31,29 +31,29 @@ def test_native_cpu_reply_preserves_exact_utf8_receipt_and_declared_object(
         evidence["cpu_replies"].append(reply)
     elif change == "not-string":
         evidence["cpu_replies"] = [dict(value=7)]
-    with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql("CREATE SCHEMA ops")
-        execute_native_sql(connection, _cpu_reply_program())
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA ops")
+    execute_native_sql(connection, _cpu_reply_program())
 
-        def read():
-            return connection.scalar(
-                text("SELECT ops.ddo_cpu_reply_value(CAST(:completion AS jsonb))"),
-                {"completion": canonical_bytes(dict(execution_evidence=evidence)).decode()},
-            )
+    def read():
+        return connection.scalar(
+            text("SELECT ops.ddo_cpu_reply_value(CAST(:completion AS jsonb))"),
+            {"completion": canonical_bytes(dict(execution_evidence=evidence)).decode()},
+        )
 
-        if change == "none":
-            assert read() == {"text": "λ", "value": 7}
-        else:
-            message = (
-                "declared object result"
-                if change == "not-object"
-                else "original execution receipt"
-                if change == "digest"
-                else "actual CPU reply and original receipt"
-            )
-            with pytest.raises(DBAPIError, match=message) as caught, connection.begin_nested():
-                read()
-            assert getattr(caught.value.orig, "sqlstate", None) == "23514"
+    if change == "none":
+        assert read() == {"text": "λ", "value": 7}
+    else:
+        message = (
+            "declared object result"
+            if change == "not-object"
+            else "original execution receipt"
+            if change == "digest"
+            else "actual CPU reply and original receipt"
+        )
+        with pytest.raises(DBAPIError, match=message) as caught, connection.begin_nested():
+            read()
+        assert getattr(caught.value.orig, "sqlstate", None) == "23514"
 
 
 def _body_fixture(connection):
@@ -84,7 +84,7 @@ def _packet(kind, body):
 
 
 @pytest.mark.parametrize("case", ["ordinary", "protected", "nested", "duplicate"])
-def test_native_actual_member_closure_preserves_order_and_purpose(native_rollback, case):
+def test_program_actual_member_closure_preserves_order_and_purpose(native_rollback, case):
     connection = native_rollback.connection
     _body_fixture(connection)
     packets = [_packet("ordinary", 7)]
@@ -148,7 +148,7 @@ def test_native_actual_member_closure_preserves_order_and_purpose(native_rollbac
 
 
 @pytest.mark.parametrize("case", ["unlisted", "wrong-body"])
-def test_native_member_cannot_change_nominal_kind_or_schema(native_rollback, case):
+def test_program_member_cannot_change_nominal_kind_or_schema(native_rollback, case):
     connection = native_rollback.connection
     _body_fixture(connection)
     body = semantic_value(
@@ -181,8 +181,8 @@ def test_native_member_cannot_change_nominal_kind_or_schema(native_rollback, cas
 
 
 @pytest.mark.parametrize("case", ["missing-read", "foreign-read", "operation", "source-shape"])
-def test_native_binding_requires_exact_read_and_frozen_operation_before_projection(
-    semantic_bare_engine, case
+def test_program_binding_requires_exact_read_and_frozen_operation_before_projection(
+    infrastructure_rollback, case
 ):
     """Bare current columns isolate refusals before any selected-body query."""
     from sqlalchemy import cast, func
@@ -192,62 +192,62 @@ def test_native_binding_requires_exact_read_and_frozen_operation_before_projecti
 
     demand = metadata.tables["ops.data_demand"]
     read = metadata.tables["ops.data_demand_read"]
-    with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql("CREATE SCHEMA ops")
-        for relation in (demand, read):
-            connection.execute(CreateTable(relation, include_foreign_key_constraints=[]))
-        connection.execute(
-            insert(demand).values(
-                id="demand:literal",
-                project_id="project:literal",
-                release_id="release:literal",
-                runtime_id="runtime:literal",
-                root={},
-                selection={"operations": [{"operation": "literal:consumer"}]},
-                strength="value",
-                created_at=func.clock_timestamp(),
-            )
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA ops")
+    for relation in (demand, read):
+        connection.execute(CreateTable(relation, include_foreign_key_constraints=[]))
+    connection.execute(
+        insert(demand).values(
+            id="demand:literal",
+            project_id="project:literal",
+            release_id="release:literal",
+            runtime_id="runtime:literal",
+            root={},
+            selection={"operations": [{"operation": "literal:consumer"}]},
+            strength="value",
+            created_at=func.clock_timestamp(),
         )
-        connection.execute(
-            insert(read).values(
-                id="read:literal",
-                demand_id="demand:literal",
-                read_snapshot=cast(func.pg_current_snapshot(), Text()),
-                frontier_at=func.clock_timestamp(),
-                owner_xid=cast(func.pg_current_xact_id(), Text()),
-                trust_snapshot={},
-                scope=[],
-            )
+    )
+    connection.execute(
+        insert(read).values(
+            id="read:literal",
+            demand_id="demand:literal",
+            read_snapshot=cast(func.pg_current_snapshot(), Text()),
+            frontier_at=func.clock_timestamp(),
+            owner_xid=cast(func.pg_current_xact_id(), Text()),
+            trust_snapshot={},
+            scope=[],
         )
-        for program in _binding_programs(metadata):
-            execute_native_sql(connection, program)
-        query = text(
-            "SELECT * FROM ops.ddo_binding_rows('demand:literal',:operation,'{}'::jsonb,:read,NULL,CAST(:source AS jsonb),NULL,true,NULL,true)"
-        )
-        values = dict(
-            operation="foreign:operation" if case == "operation" else "literal:consumer",
-            read=None
-            if case == "missing-read"
-            else "read:foreign"
-            if case == "foreign-read"
-            else "read:literal",
-            source="[]" if case == "source-shape" else None,
-        )
-        expected = (
-            "exact native read acquisition"
-            if case == "missing-read"
-            else "no rows"
-            if case == "foreign-read"
-            else "outside frozen demand"
-            if case == "operation"
-            else "source filter requires JSON string or explicit null"
-        )
-        with pytest.raises(DBAPIError, match=expected), connection.begin_nested():
-            connection.execute(query, values)
+    )
+    for program in _binding_programs(metadata):
+        execute_native_sql(connection, program)
+    query = text(
+        "SELECT * FROM ops.ddo_binding_rows('demand:literal',:operation,'{}'::jsonb,:read,NULL,CAST(:source AS jsonb),NULL,true,NULL,true)"
+    )
+    values = dict(
+        operation="foreign:operation" if case == "operation" else "literal:consumer",
+        read=None
+        if case == "missing-read"
+        else "read:foreign"
+        if case == "foreign-read"
+        else "read:literal",
+        source="[]" if case == "source-shape" else None,
+    )
+    expected = (
+        "exact native read acquisition"
+        if case == "missing-read"
+        else "no rows"
+        if case == "foreign-read"
+        else "outside frozen demand"
+        if case == "operation"
+        else "source filter requires JSON string or explicit null"
+    )
+    with pytest.raises(DBAPIError, match=expected), connection.begin_nested():
+        connection.execute(query, values)
 
 
 @pytest.mark.parametrize("runtime", ["absent", "exact", "missing"])
-def test_native_execution_inspection_returns_only_exact_selected_contract_runtime(
+def test_program_execution_inspection_returns_only_exact_selected_contract_runtime(
     native_rollback, runtime
 ):
     from corpus_structure.semantic.data_operation_read_native import _inspection_programs

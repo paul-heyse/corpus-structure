@@ -21,9 +21,6 @@ from corpus_structure.semantic.record_contracts import interpretation_identity
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
 from corpus_structure.serve.selected_contributions import SelectedContribution
 from semantic.selected_query_cache_support import (
-    clear_selected_query_cache as clear_selected_query_cache,
-)
-from semantic.selected_query_cache_support import (
     control_frontier,
 )
 

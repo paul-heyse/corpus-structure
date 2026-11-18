@@ -14,27 +14,18 @@ from pathlib import Path
 from typing import Any
 
 from conftest import settings_for_native_clone
-from pdf_acceptance_support import certify_controlled_pdf_stream
+from pdf_controlled_support import ControlledPdfContent, controlled_pdf_stream
 from sqlalchemy import text
 
 from corpus_structure.core.method import MethodSettings
-from corpus_structure.ingest.pdf import PdfRecipe
-from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
 from corpus_structure.ingest.pdf_recognition import NemotronRecipe, RecognitionPage
-from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.orchestrate.source_operation import run_source_operation
 from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
-from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
+from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import read_data_demand
-from corpus_structure.semantic.data_operation_storage import (
-    native_operation_declarations,
-    native_protocol_sources,
-)
-from corpus_structure.semantic.pdf_capture import pdf_capture_inputs, pdf_capture_operation_sources
-from corpus_structure.semantic.pdf_domain import pdf_domain_dependencies
+from corpus_structure.semantic.pdf_capture import pdf_capture_inputs
 from corpus_structure.semantic.pdf_transforms import (
     PdfEnrichmentOptions,
     PdfIntegrationOptions,
@@ -45,108 +36,98 @@ from corpus_structure.semantic.pdf_transforms import (
 from corpus_structure.semantic.pdf_views import pdf_views_operation_sources
 from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.semantic.regeneration import acquire_pack
 from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.source_discovery import source_discovery_inputs
-from corpus_structure.semantic.types import (
-    PreparationProfile,
-    ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
-)
-from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
+from semantic.current_pdf_source_support import compose_current_pdf_recipe
+from semantic.data_operation_kernel_support import Kernel, KernelRecipe
 from semantic.data_operation_original_support import OriginalSeedRecipe
 from semantic.pdf_native_source_support import IMAGE, make_native_source
 
 ROOT = Path(__file__).resolve().parents[4]
 
 
-def current_pdf_recipe(directory, *, integration_policy=None):
-    native = PdfRecipe(
-        "0" * 40,
-        "1" * 40,
-        device="cpu",
-        ocr_device="cpu",
-        recipe_id="docling-standard-pdf-stream-v1",
-    )
-    assets = PreparedPdfAssets(directory, b"{}", ())
-    capture = pdf_capture_operation_sources(native, assets, directory=directory / "owned")
-    organization = pdf_transform_operation_sources(
-        "organized",
-        options=SectionPolicy("explicit-native-headings"),
-        directory=directory / "owned",
-    )
-    enriched = pdf_transform_operation_sources(
-        "enriched",
-        recipe=native,
-        assets=assets,
-        options=PdfEnrichmentOptions(),
-        directory=directory / "owned",
-        input_operation="source.pdf_sections/organize",
-    )
-    worker = directory / "explicit-provider.py"
-    worker.write_text(
-        "raise AssertionError('controlled provider boundary must replace inference')\n"
-    )
-    integration = pdf_transform_operation_sources(
-        "integrated",
-        recognition_recipe=NemotronRecipe("2" * 64, "3" * 64),
-        options=PdfIntegrationOptions(
-            integration_policy={} if integration_policy is None else integration_policy
-        ),
-        recognition_options=PdfRecognitionOptions(recovery_policy=None),
-        resources=PdfRecognitionResources(
-            python=sys.executable,
-            script=str(worker),
-            endpoint="http://127.0.0.1:8123/v1",
-            receipts=str(directory / "receipts"),
-            timeout_seconds=1,
-        ),
-        directory=directory / "owned",
-        input_operation="source.pdf_sections/organize",
-    )
-    sources = combine_primary_sources(
-        pdf_views_operation_sources(capture, mode="organized", transformation_sources=organization),
-        pdf_views_operation_sources(capture, mode="enriched", transformation_sources=enriched),
-        pdf_views_operation_sources(capture, mode="integrated", transformation_sources=integration),
-    )
-    bundle = source_discovery_inputs(
-        pdf_capture_inputs(
-            SourceBundle(
-                "toy_semantic",
-                (
-                    SourceArtifact(
-                        "toy_semantic", (ROOT / "domains/toy/semantic.yaml").read_bytes()
-                    ),
-                    SourceArtifact(
-                        "semantic_core",
-                        (
-                            ROOT
-                            / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-                        ).read_bytes(),
-                    ),
-                ),
-            )
+@dataclass(frozen=True)
+class IntegratedPdfScenario:
+    integration_policy: bytes = b"{}"
+
+    @property
+    def requires_consumer_binding(self) -> bool:
+        return True
+
+    def bind(self, directory: Path) -> KernelRecipe:
+        directory.mkdir(parents=True, exist_ok=True)
+        from corpus_structure.semantic.data_operation_json import json_loads
+
+        return _integrated_pdf_kernel(
+            directory, integration_policy=json_loads(self.integration_policy)
         )
+
+
+def integrated_pdf_recipe(
+    *, integration_policy: dict[str, Any] | None = None
+) -> IntegratedPdfScenario:
+    from corpus_structure.semantic.data_operation_json import json_bytes
+
+    return IntegratedPdfScenario(
+        json_bytes({} if integration_policy is None else integration_policy)
     )
-    native_sources = native_protocol_sources()
-    dependencies = pdf_domain_dependencies(ResolvedDependencies())
-    dependencies = data_operation_dependencies(
-        ResolvedDependencies(
-            (*dependencies.artifacts, *native_sources, *capture_port_generator_sources())
-        ),
-        (native_operation_declarations(native_sources),),
-        sources,
-    )
-    return KernelRecipe(
-        "controlled-pdf-transform-demand",
-        "",
-        None,
-        "",
-        project_id=None,
-        execution_profile="source-native",
-        captured_inputs=CapturedKernelInputs(
-            bundle, dependencies, PreparationProfile(version="semantic-2")
-        ),
+
+
+def _integrated_pdf_kernel(directory, *, integration_policy):
+    def operation_sources(native, assets, capture):
+        organization = pdf_transform_operation_sources(
+            "organized",
+            options=SectionPolicy("explicit-native-headings"),
+            directory=directory / "owned",
+        )
+        enriched = pdf_transform_operation_sources(
+            "enriched",
+            recipe=native,
+            assets=assets,
+            options=PdfEnrichmentOptions(),
+            directory=directory / "owned",
+            input_operation="source.pdf_sections/organize",
+        )
+        worker = directory / "explicit-provider.py"
+        content = "raise AssertionError('controlled provider boundary must replace inference')\n"
+        if worker.exists() and worker.read_text() != content:
+            raise ValueError("controlled provider binding contains a different program")
+        if not worker.exists():
+            worker.write_text(content)
+        integration = pdf_transform_operation_sources(
+            "integrated",
+            recognition_recipe=NemotronRecipe("2" * 64, "3" * 64),
+            options=PdfIntegrationOptions(
+                integration_policy={} if integration_policy is None else integration_policy
+            ),
+            recognition_options=PdfRecognitionOptions(recovery_policy=None),
+            resources=PdfRecognitionResources(
+                python=sys.executable,
+                script=str(worker),
+                endpoint="http://127.0.0.1:8123/v1",
+                receipts=str(directory / "receipts"),
+                timeout_seconds=1,
+            ),
+            directory=directory / "owned",
+            input_operation="source.pdf_sections/organize",
+        )
+        return combine_primary_sources(
+            pdf_views_operation_sources(
+                capture, mode="organized", transformation_sources=organization
+            ),
+            pdf_views_operation_sources(capture, mode="enriched", transformation_sources=enriched),
+            pdf_views_operation_sources(
+                capture, mode="integrated", transformation_sources=integration
+            ),
+        )
+
+    bundle = source_discovery_inputs(pdf_capture_inputs(acquire_pack(DOMAINS / "toy").bundle))
+    return compose_current_pdf_recipe(
+        directory,
+        name="controlled-pdf-transform-demand",
+        bundle=bundle,
+        operation_sources=operation_sources,
     )
 
 
@@ -195,7 +176,7 @@ def remap_current_integration(case, policy):
 
     kernel = admit_current_target(
         case,
-        current_pdf_recipe(case.directory, integration_policy=policy),
+        integrated_pdf_recipe(integration_policy=policy).bind(case.kernel.preparation.directory),
         case.directory / "policy-consumer",
     )
     request = SourceRunRequest(
@@ -244,62 +225,42 @@ def current_integration_journey(
     from corpus_structure.orchestrate import pdf_streaming
     from corpus_structure.semantic import pdf_integrated
 
-    target = OriginalSeedRecipe(current_pdf_recipe(tmp_path))
-    with scenario_seeds.commit_clone(target) as clone, monkeypatch.context() as patches:
+    target = OriginalSeedRecipe(integrated_pdf_recipe())
+    with (
+        scenario_seeds.build_for_consumer(target, tmp_path) as clone,
+        monkeypatch.context() as patches,
+    ):
         kernel = Kernel(
             clone.admin,
             clone.stage.kernel.preparation,
             clone.stage.kernel.identities,
-            target.target,
+            clone.stage.kernel.recipe,
             clone,
         )
         original = clone.stage.original.reference
         settings = settings_for_native_clone(native_settings, clone.admin.url.database)
         case = CurrentPdfIntegration(kernel, clone, original, settings, tmp_path)
 
-        def controlled_stream(
-            self,
-            source,
-            *,
-            spool_root,
-            record_root,
-            build_id,
-            release_id,
-            on_replay,
-            check_active,
-            **options,
-        ):
-            from docling_core.types.doc import DoclingDocument
+        from corpus_structure.semantic.original_documents import read_original_document_bytes
 
-            check_active()
-            case.calls.append("capture")
-            supplied = make_native_source(source.path.read_bytes())
-            document = DoclingDocument.model_validate(supplied.payload["document"])
-            document.pages.pop(2)
-            document.texts[0].prov = document.texts[0].prov[:1]
-            document.add_heading(text="1 Controlled", level=1)
-            # The independent fixture retains equal text in distinct native cells.
-            assert document.tables[0].data.table_cells[0].text == "equal"
-            spool = PdfStreamSpool(spool_root, on_page=on_replay, check_active=check_active)
-            for page in candidate_pages:
-                spool.capture_candidates(page)
-            streamed = StreamingPdfResult(
-                document,
-                spool,
-                "success",
-                (),
-                self.recipe.to_bytes(),
-                (),
+        with kernel.purpose("read").connect() as connection:
+            original_bytes = read_original_document_bytes(
+                connection, original, prepared=kernel.prepared
             )
-            return certify_controlled_pdf_stream(
-                streamed,
-                source,
-                spool_root=spool_root,
-                record_root=record_root,
-                build_id=build_id,
-                release_id=release_id,
-                on_replay=on_replay,
-                **options,
+        supplied = make_native_source(original_bytes)
+        from docling_core.types.doc import DoclingDocument
+
+        document = DoclingDocument.model_validate(supplied.payload["document"])
+        document.pages.pop(2)
+        document.texts[0].prov = document.texts[0].prov[:1]
+        document.add_heading(text="1 Controlled", level=1)
+        assert document.tables[0].data.table_cells[0].text == "equal"
+        content = ControlledPdfContent.from_document(document, candidate_pages=candidate_pages)
+
+        def controlled_stream(worker, request, *, on_replay, check_active=None):
+            case.calls.append("capture")
+            return controlled_pdf_stream(
+                worker, request, content, on_replay=on_replay, check_active=check_active
             )
 
         def controlled_recognition(self, source, recipe, pages, *, check_active, **options):

@@ -40,7 +40,7 @@ def test_current_project_init_registers_exact_original_without_activating_or_exe
     )
     monkeypatch.setattr(pack, "DOMAINS", domain.parent)
     recipe = current_pdf_recipe(tmp_path)
-    with scenario_seeds.commit_clone(recipe) as clone:
+    with scenario_seeds.build_for_consumer(recipe, tmp_path) as clone:
         kernel = Kernel(clone.admin, clone.stage.preparation, clone.stage.identities, recipe, clone)
 
         @contextmanager

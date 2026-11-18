@@ -4,9 +4,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from semantic.test_construction_products import _publication_context
-from semantic.test_construction_products import profiles as profiles
-from semantic.test_source_annotations import detached as detached
+from semantic.construction_products_test_support import profiles as profiles
+from semantic.construction_products_test_support import publication_context
+from semantic.source_annotations_test_support import detached as detached
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.annotation_rules import (
@@ -51,7 +51,7 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
     formal, construction = profiles
     prepared, model, configuration, _selection = acquired
     source, value = detached
-    context = _publication_context(source)
+    context = publication_context(source)
     retained = validate_source_annotations(
         prepared, model, value, source, configuration=configuration, subject_context=context
     )

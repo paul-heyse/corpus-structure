@@ -19,6 +19,7 @@ from corpus_structure.semantic.original_documents import (
 from semantic.data_operation_kernel_support import (
     Kernel,
     KernelRecipe,
+    KernelScenario,
     KernelSeedStage,
     admit_kernel,
     prepare_kernel,
@@ -29,7 +30,11 @@ PROJECT = "current-original-source"
 
 @dataclass(frozen=True)
 class OriginalSeedRecipe:
-    target: KernelRecipe
+    target: KernelRecipe | KernelScenario
+
+    @property
+    def requires_consumer_binding(self) -> bool:
+        return getattr(self.target, "requires_consumer_binding", False)
 
 
 @dataclass(frozen=True)
@@ -76,13 +81,18 @@ class OriginalSourceCase:
 def build_original_seed(recipe, admin, writer, directory, *, purpose_engine=None):
     import pypdfium2 as pdfium
 
-    if recipe.target.project_id is not None:
-        raise ValueError("original seed initialization owns its explicit source project")
     kernel_directory = directory / "kernel"
     kernel_directory.mkdir()
-    preparation = prepare_kernel(recipe.target, directory=kernel_directory)
+    target = (
+        recipe.target
+        if isinstance(recipe.target, KernelRecipe)
+        else recipe.target.bind(kernel_directory)
+    )
+    if target.project_id is not None:
+        raise ValueError("original seed initialization owns its explicit source project")
+    preparation = prepare_kernel(target, directory=kernel_directory)
     with admin.begin() as connection:
-        admitted = admit_kernel(connection, recipe.target, engine=admin, preparation=preparation)
+        admitted = admit_kernel(connection, target, engine=admin, preparation=preparation)
 
     document = pdfium.PdfDocument.new()
     page = document.new_page(200, 300)
@@ -123,9 +133,7 @@ def build_original_seed(recipe, admin, writer, directory, *, purpose_engine=None
             != original
         ):
             raise ValueError("original seed retained bytes differ from the registered source")
-    return OriginalSeedStage(
-        selected, KernelSeedStage(preparation, admitted.identities, recipe.target)
-    )
+    return OriginalSeedStage(selected, KernelSeedStage(preparation, admitted.identities, target))
 
 
 register_scenario_builder(OriginalSeedRecipe, build_original_seed)
@@ -135,11 +143,20 @@ def original_source_clone(request, scenario_seeds):
     recipe = getattr(request, "param", None)
     if not isinstance(recipe, OriginalSeedRecipe):
         raise TypeError("ddo_original_source requires an explicit OriginalSeedRecipe")
-    with scenario_seeds.commit_clone(recipe) as clone:
+    acquisition = (
+        scenario_seeds.build_for_consumer(recipe, request.getfixturevalue("tmp_path"))
+        if recipe.requires_consumer_binding
+        else scenario_seeds.commit_clone(recipe)
+    )
+    with acquisition as clone:
         stage = clone.stage
         if not isinstance(stage, OriginalSeedStage):
             raise TypeError("original recipe produced a different stage")
         kernel = Kernel(
-            clone.admin, stage.kernel.preparation, stage.kernel.identities, recipe.target, clone
+            clone.admin,
+            stage.kernel.preparation,
+            stage.kernel.identities,
+            stage.kernel.recipe,
+            clone,
         )
         yield OriginalSourceCase(stage.original, kernel, clone)

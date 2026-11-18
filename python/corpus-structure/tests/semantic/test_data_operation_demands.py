@@ -10,7 +10,6 @@ from typing import cast
 import pytest
 
 from corpus_structure.semantic._data_operation_wire import (
-    DataOperationCalls,
     WireReadDemandResultResult,
     WireRootSubject,
 )
@@ -632,30 +631,37 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
     intent = freeze(compiled, discovery=relations).record
     assert set(intent["root_operations"]) == {"op:discover", "op:result"}
 
-    class Storage(DataOperationCalls):
-        def __init__(self):
-            self.calls = []
-
-        def _invoke(self, name, payload):
-            self.calls.append((name, payload))
-            if name == "close_data_population":
-                return {
-                    "population_id": "one-authentic-population",
-                    "inserted_obligations": 3,
-                    "members": [
-                        {
-                            "subject": "child",
-                            "original_source": "source:one",
-                            "analyzed_scope": {"part": 1},
-                        }
-                    ],
-                }
-
-    from typing import cast
-
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from semantic.data_operation_binding_support import WireCheckedStorage
 
-    storage = Storage()
+    storage = WireCheckedStorage(
+        {
+            "close_data_population": {
+                "population_id": "one-authentic-population",
+                "inserted_obligations": 3,
+                "name": "children",
+                "semantic_key": "population:children",
+                "complete": True,
+                "evidence": dict(
+                    admission_use_id="use:discovery",
+                    derivation_id="source-episode",
+                    member_role="result",
+                    population_id="one-authentic-population",
+                    product_id="source-population-product",
+                    trust_snapshot={},
+                ),
+                "members": [
+                    dict(
+                        member_id="child:one",
+                        subject="child",
+                        subject_definition="document",
+                        original_source="source:one",
+                        analyzed_scope={"part": 1},
+                    )
+                ],
+            },
+        }
+    )
     DemandPlanner(compiled, cast(DataOperationStorage, storage)).expand_discovery(
         cast(WireReadDemandResultResult, {"demand_id": "demand", "intent": intent}),
         population="children",

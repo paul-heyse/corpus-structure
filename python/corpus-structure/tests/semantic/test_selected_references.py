@@ -20,7 +20,10 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.observations import source_value
-from semantic.test_demand_results import _page
+from semantic.demand_result_support import demand_result_page
+from semantic.selected_references_test_support import (
+    reference_body as reference_body,
+)
 
 
 def graph_inventory(shared=True):
@@ -122,52 +125,6 @@ def acquired():
         bundle,
         data_operation_dependencies(ResolvedDependencies(), python_sources=sources),
         PreparationProfile(version="semantic-2"),
-    )
-
-
-def reference_body() -> dict[str, Any]:
-    source = _page()
-    source.update(
-        demand_id="demand:original-source",
-        release_id="release:original-source",
-        runtime_id="runtime:source",
-        read_id="read:original-source",
-    )
-    cut = CutSelection.from_native(source)
-    member = dict(
-        product_id="product:source",
-        member_id="source:one",
-        subject="source",
-        subject_definition="original-source-view",
-        original_source="document:A",
-        kind_contract="kind:source",
-        analyzed_scope_meaning='["mapping",[]]',
-    )
-    return dict(
-        retained_correspondence=source_value(None),
-        reference_name="independent-question",
-        author="independent operator",
-        pass_kind="C",
-        direction="source_first",
-        source_demand_id=source["demand_id"],
-        source_cut_id=cut.identity,
-        source_read_id=source["read_id"],
-        source_cut=source_value(cut.record),
-        source_release_id=source["release_id"],
-        source_runtime_id=source["runtime_id"],
-        source_members=[member],
-        output_members=[],
-        cases=[
-            dict(
-                case_id="case:root",
-                opportunity_id="opportunity:source",
-                question="Which retained kind does the source express?",
-                matcher="fields",
-                source_members=[member],
-                expected=source_value({"value": {"kind": "predicate"}}),
-                judgment="supported",
-            )
-        ],
     )
 
 
@@ -351,7 +308,7 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
 
             yield CutSelection(json_bytes(source_python(body["source_cut"]))), source_index
         else:
-            native = _page()
+            native = demand_result_page()
             native.update(
                 demand_id=demand_id,
                 scope=scope,
@@ -694,7 +651,7 @@ def test_admitted_assessment_snapshot_qualifies_members_and_parallel_occurrences
                     )
                 )
             )
-        native = _page()
+        native = demand_result_page()
         native["release_id"] = acquired.release_id
         cut = CutSelection.from_native(native)
         snapshot = assessment_graph_snapshot(
@@ -845,7 +802,7 @@ def test_assessment_roots_share_one_container_guard_load(tmp_path, monkeypatch):
             "mapping",
             lambda relation, fields: CountingMapping(mapping(relation, fields), relation),
         )
-        native = dict(_page(), release_id=prepared.release_id)
+        native = dict(demand_result_page(), release_id=prepared.release_id)
         snapshot = owner.assessment_graph_snapshot(
             prepared,
             CutSelection.from_native(native),

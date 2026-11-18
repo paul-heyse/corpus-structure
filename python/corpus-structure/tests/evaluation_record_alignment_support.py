@@ -4,6 +4,8 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from statistics_pack_support import statistics_bundle
+
 from corpus_structure.evaluate.record_alignment import RecordEvaluationFrame
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_model import SubjectContext
@@ -44,21 +46,7 @@ PIN = DeclaredRecordSource(
 
 @cache
 def bundle():
-    declared = observation_inputs(
-        SourceBundle(
-            "statistics_semantic",
-            (
-                SourceArtifact(
-                    "statistics_semantic", (ROOT / "domains/statistics/semantic.yaml").read_bytes()
-                ),
-                SourceArtifact("semantic_core", (MODEL / "core.yaml").read_bytes()),
-                SourceArtifact(
-                    "statistics_terminology",
-                    (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                ),
-            ),
-        )
-    )
+    declared = observation_inputs(statistics_bundle())
     # Exact current scope schema, supplied explicitly for pure alignment only.
     root = "record_alignment_scope_root"
     return SourceBundle(

@@ -31,48 +31,18 @@ from corpus_structure.semantic.pdf_publication import (
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 
 
-def certify_controlled_pdf_stream(
-    streamed,
-    source,
-    *,
-    spool_root,
-    record_root,
-    build_id,
-    release_id,
-    on_replay,
-    validation_contract,
-    lowering_identity,
-    payload_schema,
-    **options,
-):
-    """Send controlled Docling output through the real worker certification route."""
-    from corpus_structure.ingest.pdf_stream_types import PdfStreamRequest
-    from corpus_structure.ingest.pdf_streaming import _atomic_bytes
-
-    request = PdfStreamRequest(
-        source=source,
-        spool_root=spool_root,
-        record_root=record_root,
-        build_id=build_id,
-        release_id=release_id,
-        validation_contract=validation_contract,
-        lowering_identity=lowering_identity,
-        payload_schema=payload_schema,
-        page_range=options.get("page_range"),
-        recovery_pages=options.get("recovery_pages", ()),
-    )
-    on_replay(
-        _atomic_bytes(
-            request.spool_root / "native-preparation.json",
-            streamed.effective_options,
-            "native_preparation",
-        )
-    )
-    return streamed.certified_reply(request, on_replay=on_replay)
-
-
 def stage_pdf_document(
-    engine, build, directory, document, *, companions=None, cell_coverage="unknown"
+    engine,
+    build,
+    directory,
+    document,
+    *,
+    companions=None,
+    cell_coverage="unknown",
+    recipe_bytes=b"{}",
+    conversion_status="success",
+    errors=(),
+    formula_outcomes=(),
 ):
     """Certify the exact authored bytes before their native COPY and attestation.
 
@@ -88,7 +58,12 @@ def stage_pdf_document(
         context = pdf_context_for_task(conn, build.task_id)
     contract = prepare_pdf_producer_contract(context, kind="native")
     result = StreamingPdfResult(
-        document, PdfStreamSpool(directory / "pages"), "success", (), b"{}", ()
+        document,
+        PdfStreamSpool(directory / "pages"),
+        conversion_status,
+        tuple(errors),
+        recipe_bytes,
+        tuple(formula_outcomes),
     )
     replays = tuple(
         result.write_record_batches(
@@ -103,7 +78,7 @@ def stage_pdf_document(
         "health",
         [
             {
-                "conversion": "success",
+                "conversion": conversion_status,
                 "display_coverage": "unknown",
                 "inline_coverage": "unknown",
                 "cell_coverage": cell_coverage,

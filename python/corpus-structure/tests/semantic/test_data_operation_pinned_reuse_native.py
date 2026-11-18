@@ -26,7 +26,7 @@ from corpus_structure.semantic.data_product_reference import DataProductReferenc
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.data_operation_demand_support import attach, claim, publish, retain
 from semantic.data_operation_kernel_support import STORAGE
-from semantic.test_data_operation_population_native import _complete_ready
+from semantic.population_completion_support import complete_ready
 
 PRODUCER = "urn:ddo-test:source"
 CONSUMER = "urn:explicit-retained-consumer"
@@ -510,7 +510,7 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
         assert result["sqlstate"] == "23514"
         assert "support set has no exact native binding row" in result["reason"]
         assert counts(connection) == before
-    receipt = _complete_ready(ddo_kernel, ready)
+    receipt = complete_ready(ddo_kernel, ready)
     with ddo_kernel["engine"].connect() as connection:
         retained = (
             connection.execute(

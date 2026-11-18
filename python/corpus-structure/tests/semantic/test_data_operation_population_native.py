@@ -12,14 +12,12 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import (
     WireReadDemandResultRequest,
-    WireRetainDataCompletionIntentRequest,
     WireSelectDataPopulationRequest,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from semantic.data_operation_binding_support import discover
-from semantic.data_operation_demand_support import claim, publish
 from semantic.data_operation_kernel_support import POPULATION
+from semantic.population_completion_support import complete_ready
 
 pytestmark = pytest.mark.parametrize("ddo_kernel", [POPULATION], indirect=True, ids=["population"])
 
@@ -142,48 +140,6 @@ def test_native_planner_preserves_ambiguous_authentic_parent_populations(ddo_ker
         ]
 
 
-def _complete_ready(ddo_kernel, ready, value=1):
-    binding = json.loads(ready.binding)
-    claim_fence = claim(ddo_kernel, json.loads(ready.native))
-    kind = next(
-        role.kind
-        for operation in ddo_kernel["model"].operations
-        if operation.semantic_id == ready.operation
-        for role in operation.roles
-        if role.direction == "output"
-    )
-    kind_contract = ddo_kernel["identities"][kind, "kind"]
-    with ddo_kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).retain_data_completion_intent(
-            typing_cast(
-                WireRetainDataCompletionIntentRequest,
-                {
-                    **claim_fence,
-                    "runtime_id": ddo_kernel["runtime"],
-                    "completion": {
-                        "outcome": "success",
-                        "implementation_revision": "native-test-source-v1",
-                        "inputs": binding["inputs"],
-                        "support": binding["support"],
-                        "outputs": [
-                            {
-                                "role": "result",
-                                "position": 0,
-                                "multiplicity": 1,
-                                "product": {
-                                    "kind_contract": kind_contract,
-                                    "body": semantic_value(value),
-                                    "members": [],
-                                },
-                            }
-                        ],
-                    },
-                },
-            )
-        )
-    return publish(ddo_kernel, claim_fence, intent)
-
-
 def test_native_discovery_children_closed_fanin_and_pinned_resume(ddo_kernel):
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
 
@@ -212,7 +168,7 @@ def test_native_discovery_children_closed_fanin_and_pinned_resume(ddo_kernel):
             for request in children
         )
     for child in children[:2]:
-        _complete_ready(ddo_kernel, child)
+        complete_ready(ddo_kernel, child)
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
@@ -225,8 +181,8 @@ def test_native_discovery_children_closed_fanin_and_pinned_resume(ddo_kernel):
         assert [
             member.member for role in aggregate[0].binding_result.roles for member in role.members
         ] == ["m15"]
-    _complete_ready(ddo_kernel, aggregate[0])
-    _complete_ready(ddo_kernel, children[2])
+    complete_ready(ddo_kernel, aggregate[0])
+    complete_ready(ddo_kernel, children[2])
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         count = connection.execute(text("SELECT count(*) FROM ops.data_derivation")).scalar_one()
@@ -330,7 +286,7 @@ def test_discovery_same_local_subject_distinct_contexts_reach_child_publication(
         (json.loads(child.resolved.subject_context.analyzed_scope) for child in children),
         key=lambda value: json.dumps(value, sort_keys=True),
     ) == sorted(scopes, key=lambda value: json.dumps(value, sort_keys=True))
-    receipts = [_complete_ready(ddo_kernel, child) for child in children]
+    receipts = [complete_ready(ddo_kernel, child) for child in children]
     assert len({receipt["derivation_id"] for receipt in receipts}) == 2
     with ddo_kernel["engine"].connect() as connection:
         uses = DataOperationStorage(connection).read_demand_result(

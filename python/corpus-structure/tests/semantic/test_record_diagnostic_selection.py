@@ -3,11 +3,11 @@
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.demand_results import DemandResult
-from semantic.test_demand_results import _page
+from semantic.demand_result_support import demand_result_page
 
 
 def test_operation_diagnostics_are_actual_frontier_and_do_not_expand_output_body(monkeypatch):
-    native = _page(empty=True)
+    native = demand_result_page(empty=True)
     native["view"] = "frontier"
     native["obligations"][0].update(fate="failed", reason="producer refused authentic source")
 

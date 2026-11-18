@@ -35,7 +35,7 @@ from semantic.current_pdf_source_support import (
     ids=["closed-empty", "partial-empty", "closed-computational-views"],
 )
 def test_actual_source_discovery_closure_and_scoped_child_publication(
-    current_pdf_source, complete, views
+    current_pdf_source, complete, views, tmp_path
 ):
     case, kernel = current_pdf_source, current_pdf_source.kernel
     members = [row for row, _ in selected_current_sources(case)]
@@ -49,7 +49,7 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
             from corpus_structure.core.evidence import document_key as original_key
             from corpus_structure.semantic.original_documents import register_original_document
 
-            path = kernel.preparation.directory / "uncaptured.pdf"
+            path = tmp_path / "uncaptured.pdf"
             path.write_bytes(case.original)
             register_original_document(
                 connection,
@@ -97,13 +97,18 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
         planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
         invalid = intent.record
         invalid["discovery"][0]["target_role"] = "not-an-input"
-        with pytest.raises(DBAPIError, match="discovery target role"), connection.begin_nested():
+        with pytest.raises(DBAPIError) as refusal, connection.begin_nested():
             planner.register(
                 replace(intent, content=json_bytes(invalid)),
                 project=PROJECT,
                 release=kernel.prepared.release_id,
                 runtime=kernel.runtime,
             )
+        cause = refusal.value.orig
+        assert getattr(cause, "sqlstate", None) == "P0001"
+        assert getattr(getattr(cause, "diag", None), "message_primary", None) == (
+            "discovery target role differs from declared member/input contracts"
+        )
         demand = planner.register(
             intent, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
         )["demand_id"]
@@ -117,20 +122,25 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
     )
     with kernel.purpose("read").begin() as connection:
         page = read_demand_result(connection, demand, project_id=PROJECT)
+        assert page.continuation is None
         obligations = [
             row
             for row in page.record["obligations"]
             if row["operation_id"] == "profile.segments/source-native"
         ]
         assert len(obligations) == len(selected)
+        (population,) = page.record["populations"]
+        assert population["complete"] is complete
+        assert len(population["members"]) == len(selected)
         with selected_record_index(
-            connection, demand, project_id=PROJECT, scope={}, capture_frontier=True
+            connection,
+            demand,
+            project_id=PROJECT,
+            scope={},
+            read_id=page.cut.record["read_id"],
+            expected_cut=page.cut.identity,
+            capture_frontier=True,
         ) as (_, index):
-            populations = list(index.rows("ops.data_population"))
-            assert len(populations) == 1
-            population = populations[0]
-            assert population["complete"] is complete
-            assert len(population["members"]) == len(selected)
             child_uses = [
                 row
                 for row in index.frontier_rows("uses")
@@ -152,7 +162,7 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
                 for row in outputs
             ]
             assert sorted(body["chars"] for body in bodies) == sorted(
-                len(decode_semantic_value(row["body"])["text"]) for row in selected
+                len(row["body"]["text"]) for row in selected
             )
             # The only original facts remain actual document references. Selected views
             # have producing episodes and cannot be recast as original admissions.

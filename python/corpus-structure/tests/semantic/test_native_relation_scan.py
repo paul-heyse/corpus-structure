@@ -18,7 +18,7 @@ from corpus_structure.semantic.native_program import (
 )
 
 
-def test_model_owned_dynamic_scan_quotes_percent_and_relation_names(semantic_bare_engine):
+def test_model_owned_dynamic_scan_quotes_percent_and_relation_names(infrastructure_rollback):
     from sqlalchemy import BigInteger
 
     value = core_variable("value_", BigInteger())
@@ -46,23 +46,23 @@ def test_model_owned_dynamic_scan_quotes_percent_and_relation_names(semantic_bar
         ),
         search_path=("pg_catalog", "pg_temp"),
     )
-    with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql("CREATE SCHEMA checker_test")
-        execute_native_sql(
-            connection, 'CREATE TEMP TABLE "incoming % uploads" ("number%quoted" bigint)'
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA checker_test")
+    execute_native_sql(
+        connection, 'CREATE TEMP TABLE "incoming % uploads" ("number%quoted" bigint)'
+    )
+    execute_native_sql(connection, 'INSERT INTO "incoming % uploads" VALUES (9),(2),(4)')
+    execute_native_sql(connection, sql)
+    assert (
+        connection.scalar(
+            text("SELECT checker_test.sum_uploaded(CAST(:relation AS regclass))"),
+            {"relation": 'pg_temp."incoming % uploads"'},
         )
-        execute_native_sql(connection, 'INSERT INTO "incoming % uploads" VALUES (9),(2),(4)')
-        execute_native_sql(connection, sql)
-        assert (
-            connection.scalar(
-                text("SELECT checker_test.sum_uploaded(CAST(:relation AS regclass))"),
-                {"relation": 'pg_temp."incoming % uploads"'},
-            )
-            == 15
-        )
+        == 15
+    )
 
 
-def test_native_perform_query_executes_every_selected_effect_row(semantic_bare_engine):
+def test_postgresql_perform_query_executes_every_selected_effect_row(infrastructure_rollback):
     from sqlalchemy import cast, func, select
     from sqlalchemy import literal as sql_literal
     from sqlalchemy.dialects.postgresql import REGCLASS
@@ -81,9 +81,9 @@ def test_native_perform_query_executes_every_selected_effect_row(semantic_bare_e
         body=Block((PerformQuery(query),)),
         search_path=("pg_catalog", "pg_temp"),
     )
-    with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql("CREATE SCHEMA checker_test")
-        connection.exec_driver_sql("CREATE TEMP SEQUENCE effect_counter")
-        execute_native_sql(connection, program)
-        connection.execute(text("SELECT checker_test.consume_rows()")).one()
-        assert connection.scalar(text("SELECT last_value FROM pg_temp.effect_counter")) == 3
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA checker_test")
+    connection.exec_driver_sql("CREATE TEMP SEQUENCE effect_counter")
+    execute_native_sql(connection, program)
+    connection.execute(text("SELECT checker_test.consume_rows()")).one()
+    assert connection.scalar(text("SELECT last_value FROM pg_temp.effect_counter")) == 3

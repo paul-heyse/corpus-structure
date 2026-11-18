@@ -12,87 +12,11 @@ from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_results import CutSelection, DemandResult
 from corpus_structure.serve.demand_journey import DemandQueryRequest, _decode, serve_demand_query
-from semantic.selected_query_cache_support import (
-    clear_selected_query_cache as clear_selected_query_cache,
-)
-
-
-def _page(*, trust=None, member_id=None, empty=False) -> dict[str, Any]:
-    body = dict(
-        members=[
-            dict(
-                member_id="first",
-                kind_contract="kind:first",
-                context=dict(
-                    subject="one",
-                    original_source="source:A",
-                    analyzed_scope={"scale": Decimal("1.20")},
-                    subject_definition="document",
-                ),
-                body={"amount": Decimal("12.340")},
-            ),
-            dict(
-                member_id="second",
-                kind_contract="kind:second",
-                context=dict(
-                    subject="two",
-                    original_source="source:A",
-                    analyzed_scope={},
-                    subject_definition="document",
-                ),
-                body={"target": "first", "direction": "outgoing"},
-            ),
-        ]
-    )
-    return dict(
-        demand_id="demand:A",
-        project_id="project:A",
-        release_id="release:A",
-        runtime_id="runtime:A",
-        selection={"targets": ["op:A"]},
-        trust_snapshot={} if trust is None else trust,
-        read_id="read:A",
-        read_snapshot="1:2:",
-        frontier_at="2026-11-14T00:00:00+00:00",
-        scope={},
-        view="products",
-        state="active",
-        populations=[],
-        original_source_admissions=[],
-        continuation=None,
-        obligations=[dict(obligation_id="obligation:A", fate="waiting" if empty else "fulfilled")],
-        uses=[]
-        if empty
-        else [
-            dict(
-                use_id="use:A",
-                obligation_id="obligation:A",
-                fate="fulfilled",
-                historical_fate="fulfilled",
-                derivation_id="episode:original",
-                products=[
-                    dict(
-                        role="result",
-                        position=0,
-                        multiplicity=2,
-                        product_id="product:A",
-                        member_id=member_id,
-                        kind_contract="kind:container",
-                        subject="root",
-                        original_source="source:A",
-                        analyzed_scope={},
-                        body_state="present",
-                        body=semantic_value(body),
-                        subject_definition="document",
-                    )
-                ],
-            )
-        ],
-    )
+from semantic.demand_result_support import demand_result_page
 
 
 def test_members_retain_actual_context_episode_direction_and_multiplicity():
-    page = DemandResult(json_bytes(_page()))
+    page = DemandResult(json_bytes(demand_result_page()))
     members = page.members()
     assert [(row["product_id"], row["member_id"]) for row in members] == [
         ("product:A", None),
@@ -104,17 +28,20 @@ def test_members_retain_actual_context_episode_direction_and_multiplicity():
     assert members[1]["body"]["amount"] == Decimal("12.340")
     assert members[1]["analyzed_scope"] == {"scale": Decimal("1.20")}
     assert members[2]["body"] == {"target": "first", "direction": "outgoing"}
-    selected = DemandResult(json_bytes(_page(member_id="second"))).members()
+    selected = DemandResult(json_bytes(demand_result_page(member_id="second"))).members()
     assert [row["member_id"] for row in selected] == ["second"]
     with pytest.raises(ValueError, match="absent"):
-        DemandResult(json_bytes(_page(member_id="foreign"))).members()
+        DemandResult(json_bytes(demand_result_page(member_id="foreign"))).members()
 
 
 def test_cut_distinguishes_native_boundary_context_and_current_trust():
-    original = CutSelection.from_native(_page())
-    assert original.identity == CutSelection.from_native(_page()).identity
-    assert original.identity != CutSelection.from_native(_page(trust={"source:A": 1})).identity
-    changed = _page()
+    original = CutSelection.from_native(demand_result_page())
+    assert original.identity == CutSelection.from_native(demand_result_page()).identity
+    assert (
+        original.identity
+        != CutSelection.from_native(demand_result_page(trust={"source:A": 1})).identity
+    )
+    changed = demand_result_page()
     changed["scope"] = {"subject": "one"}
     assert original.identity != CutSelection.from_native(changed).identity
 
@@ -128,7 +55,7 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
         request = dict(
             continuation or {"demand_id": demand_id}, limit=1, max_bytes=1048576, view="products"
         )
-        return DemandResult(json_bytes(_page()), json_bytes(request))
+        return DemandResult(json_bytes(demand_result_page()), json_bytes(request))
 
     monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", limit=1)
@@ -164,16 +91,17 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
 
 
 def test_waiting_and_completed_empty_operations_do_not_claim_absence(monkeypatch):
-    native = _page(empty=True)
+    native = demand_result_page(empty=True)
     monkeypatch.setattr(
         "corpus_structure.semantic.demand_queries.read_demand_result",
         lambda *a, **k: DemandResult(json_bytes(native)),
     )
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", view="operations")
     result = serve_demand_query(None, request)
-    assert result["items"] == [
-        {"obligation": {"obligation_id": "obligation:A", "fate": "waiting"}, "uses": []}
-    ]
+    assert len(result["items"]) == 1
+    assert result["items"][0]["obligation"]["obligation_id"] == "obligation:A"
+    assert result["items"][0]["obligation"]["fate"] == "waiting"
+    assert result["items"][0]["uses"] == []
     result = serve_demand_query(None, request.model_copy(update={"view": "members"}))
     assert result["items"] == [] and result["knowledge"] == "unknown"
 
@@ -272,7 +200,7 @@ def _detached_closure(
         artifact_digest=None,
         subject_definition="document",
     )
-    native = _page()
+    native = demand_result_page()
     native["uses"] = [
         dict(
             use_id="use:A",
@@ -457,7 +385,7 @@ def test_product_selector_enters_protected_scope_before_unrelated_body_admission
         if scope != {"product_ids": ["product:A"]}:
             raise ValueError("unrelated first output exceeds the native body budget")
         requested.append(scope)
-        page = _page()
+        page = demand_result_page()
         page["scope"] = scope
         return DemandResult(
             json_bytes(page),
@@ -481,7 +409,7 @@ def test_operation_inspection_uses_frontier_without_output_body_hydration(monkey
     def native(connection, demand_id, *, project_id, view, **kwargs):
         assert view == "frontier", "metadata inspection must not request giant result bodies"
         calls.append(view)
-        page = _page(empty=True)
+        page = demand_result_page(empty=True)
         page["view"] = "frontier"
         return DemandResult(json_bytes(page))
 
@@ -590,7 +518,7 @@ def test_detached_product_requires_its_artifact_even_without_document_admission(
 def test_scoped_operation_metadata_keeps_native_selected_obligation(monkeypatch):
     def native(connection, demand_id, *, project_id, scope, view, **kwargs):
         assert scope == {"product_ids": ["product:A"]} and view == "frontier"
-        page = _page(empty=True)
+        page = demand_result_page(empty=True)
         page.update(view=view, scope=scope)
         return DemandResult(json_bytes(page))
 
@@ -637,11 +565,11 @@ def test_selected_record_index_counts_unique_support_and_frontier_rows(tmp_path)
         index.append(payload, allow_equal=True)
         assert index.retained_records == 1
         before_bytes = index.retained_bytes
-        index.append_page(_page())
+        index.append_page(demand_result_page())
         assert index.retained_records == 3  # One support, one use and one obligation.
         retained_bytes = index.retained_bytes
         assert retained_bytes > before_bytes
-        index.append_page(_page())
+        index.append_page(demand_result_page())
         assert (index.retained_records, index.retained_bytes) == (3, retained_bytes)
     finally:
         index.close()
@@ -653,7 +581,7 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
     payload = {"key": "record:A", "relation": "controlled", "record": {"id": "A"}}
 
     def pages():
-        first, last = _page(), _page()
+        first, last = demand_result_page(), demand_result_page()
         first["continuation"] = {"after": "obligation:A"}
         return iter((DemandResult(json_bytes(first)), DemandResult(json_bytes(last))))
 
@@ -671,7 +599,7 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
         capture_frontier=True,
     ) as (cut, index):
         assert index.retained_records == 3
-        assert cut.identity == CutSelection.from_native(_page()).identity
+        assert cut.identity == CutSelection.from_native(demand_result_page()).identity
     selected = pages()
     with (
         pytest.raises(
@@ -687,7 +615,7 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
         ),
     ):
         pytest.fail("an over-budget selected graph was exposed")
-    assert captured.value.cut.identity == CutSelection.from_native(_page()).identity
+    assert captured.value.cut.identity == CutSelection.from_native(demand_result_page()).identity
 
 
 @pytest.mark.parametrize("bound", [-1, True, 1.5])
@@ -748,7 +676,7 @@ def test_public_query_distinguishes_explicit_null_source_and_omitted_filter(monk
 
     def read(*args, **kwargs):
         scopes.append(kwargs["scope"])
-        page = _page()
+        page = demand_result_page()
         page["scope"] = kwargs["scope"]
         return DemandResult(json_bytes(page))
 

@@ -5,7 +5,8 @@ from functools import cache
 from typing import Any
 
 from evaluate.declared_record_policy_support import source
-from evaluation_record_alignment_support import MODEL, ROOT, reading
+from evaluation_record_alignment_support import reading
+from statistics_pack_support import statistics_bundle
 
 from corpus_structure.evaluate.declared_record_policy import (
     DdoRecordReference,
@@ -13,7 +14,8 @@ from corpus_structure.evaluate.declared_record_policy import (
     record_policy_inputs,
 )
 from corpus_structure.semantic import prepare_release
-from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.composed import data_operation_dependencies
+from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.reading_resolution_products import (
@@ -28,33 +30,19 @@ from corpus_structure.semantic.record_contracts import (
     record_family_contract,
     record_identity,
 )
-from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+from corpus_structure.semantic.types import ResolvedDependencies
 
 
 @cache
 def current():
-    bundle = record_policy_inputs(
-        SourceBundle(
-            "statistics_semantic",
-            (
-                SourceArtifact(
-                    "statistics_semantic", (ROOT / "domains/statistics/semantic.yaml").read_bytes()
-                ),
-                SourceArtifact("semantic_core", (MODEL / "core.yaml").read_bytes()),
-                SourceArtifact(
-                    "statistics_terminology",
-                    (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                ),
-            ),
-        )
+    bundle = record_policy_inputs(statistics_bundle())
+    dependencies = data_operation_dependencies(
+        ResolvedDependencies(),
+        (reading_resolution_declarations(),),
+        reading_resolution_operation_sources(),
     )
-    prepared = prepare_release(bundle)
-    model = compile_data_operations(
-        bundle,
-        declarations=(reading_resolution_declarations(),),
-        python_sources=reading_resolution_operation_sources(),
-    )
-    return prepared, model
+    prepared = prepare_release(bundle, dependencies)
+    return prepared, bound_data_operation_model(prepared)
 
 
 def cut():

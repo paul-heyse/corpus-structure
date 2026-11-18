@@ -7,6 +7,7 @@ captured assets, tokenizer and owned CPU execution; it is not provider evidence.
 from hashlib import sha256
 
 from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
+from semantic.data_operation_kernel_support import split_captured_operations
 
 
 def controlled_encoder(directory):
@@ -108,7 +109,6 @@ def controlled_encoder(directory):
 def contextual_recipe(directory, selection):
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.contextual_encoder import (
         contextual_encoder_declarations,
@@ -120,7 +120,6 @@ def contextual_recipe(directory, selection):
     )
     from corpus_structure.semantic.declared_structural_calls import structural_inputs
     from corpus_structure.semantic.primary_operations import combine_primary_sources
-    from corpus_structure.semantic.types import ResolvedDependencies
     from semantic.current_pdf_source_support import current_pdf_recipe
     from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
     from semantic.structural_native_fixture import operation_sources
@@ -128,23 +127,12 @@ def contextual_recipe(directory, selection):
     base = current_pdf_recipe(directory)
     captured = base.captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None and acquired[1] is not None
-    declarations, sources = acquired
-    assert sources is not None
+    base_dependencies, declarations, sources = split_captured_operations(captured)
     sources = combine_primary_sources(
         sources, operation_sources(), contextual_encoder_operation_sources(selection)
     )
     dependencies = data_operation_dependencies(
-        ResolvedDependencies(
-            tuple(
-                item
-                for item in captured.dependencies.artifacts
-                if not item.name.startswith("data-operations/")
-            ),
-            captured.dependencies.vocabularies,
-            captured.dependencies.ontology_sources,
-        ),
+        base_dependencies,
         (
             *declarations,
             contextual_encoder_declarations(),
@@ -170,7 +158,6 @@ def contextual_workflow_recipe(directory, selection):
     """Compose the actual definition consumer and the separate finite source matcher."""
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.contextual_encoder import (
         contextual_encoder_declarations,
@@ -182,7 +169,6 @@ def contextual_workflow_recipe(directory, selection):
         applicability_operation_sources,
     )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
-    from corpus_structure.semantic.types import ResolvedDependencies
     from semantic.contextual_native_fixture import operation_sources
     from semantic.current_pdf_source_support import current_pdf_recipe
     from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
@@ -190,20 +176,9 @@ def contextual_workflow_recipe(directory, selection):
     base = current_pdf_recipe(directory)
     captured = base.captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None and acquired[1] is not None
-    declarations, sources = acquired
-    assert sources is not None
+    base_dependencies, declarations, sources = split_captured_operations(captured)
     dependencies = data_operation_dependencies(
-        ResolvedDependencies(
-            tuple(
-                row
-                for row in captured.dependencies.artifacts
-                if not row.name.startswith("data-operations/")
-            ),
-            captured.dependencies.vocabularies,
-            captured.dependencies.ontology_sources,
-        ),
+        base_dependencies,
         (
             *declarations,
             contextual_encoder_declarations(),

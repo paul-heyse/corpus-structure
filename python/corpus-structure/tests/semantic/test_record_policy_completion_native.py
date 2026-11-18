@@ -23,6 +23,7 @@ from corpus_structure.semantic.record_policy_completion_native import (
     record_policy_completion_native_sql,
 )
 from semantic.record_policy_support import calibrated, fitted
+from test_preparation import preparation_fixture
 
 
 @dataclass(frozen=True)
@@ -68,7 +69,7 @@ def build_policy_projection(recipe, admin, writer, directory, *, purpose_engine=
 register_scenario_builder(PolicyProjectionRecipe, build_policy_projection)
 
 
-@pytest.fixture
+@preparation_fixture("record_policy_projection")
 def policy_projection_connection(scenario_seeds):
     from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
 

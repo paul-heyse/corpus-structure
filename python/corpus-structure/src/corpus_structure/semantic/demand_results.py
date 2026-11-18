@@ -617,13 +617,18 @@ def verify_detached_result(
     actual_definitions = row_map("sem.data_operation_definition", "release_id", "operation_id")
     if definitions is not None:
         from .metadata import table
+        from .native_definition_projection import NativeOperationProjection
 
-        stored_fields = tuple(table("sem.data_operation_definition").c.keys())
-        # The archive additionally carries definition/eligibility/binding facts.
-        # Compare exactly the native row projection, not that larger artifact.
+        # Detached rows publish the facts shared by the stored and archived
+        # contracts. Compiler-derived placement facts belong to native custody.
+        stored_fields = set(table("sem.data_operation_definition").c.keys())
+        exported_fields = stored_fields & {
+            "release_id",
+            *NativeOperationProjection.__required_keys__,
+        }
         for key, value in actual_definitions.items():
             expected = definitions.get(key)
-            if expected is None or value != {name: expected[name] for name in stored_fields}:
+            if expected is None or value != {name: expected[name] for name in exported_fields}:
                 raise ValueError("detached operation differs from its captured release contract")
     target_definitions = actual_definitions if definitions is None else definitions
     requests = row_map("ops.data_request", "id")

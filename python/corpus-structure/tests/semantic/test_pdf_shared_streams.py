@@ -4,6 +4,7 @@ from hashlib import sha256
 
 import pyarrow as pa
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -152,9 +153,11 @@ def test_equal_stage_streams_store_parts_once_and_descriptor_only_reuse_is_real(
         changed = part_rows(second)
         changed[0]["body"] = b"x" * 65536
         changed[0]["sha256_digest"] = sha256(changed[0]["body"]).hexdigest()
-        with pytest.raises(DBAPIError) as refused, connection.begin_nested():
+        with (
+            native_refusal("23514", message="shared stream part replay differs"),
+            connection.begin_nested(),
+        ):
             adopt_pdf_batch(connection, second, "changed", packet("artifact_part", changed))
-        assert getattr(refused.value.orig, "sqlstate", None) == "23514"
 
 
 def test_live_pending_owner_refuses_and_expired_owner_reclaim_preserves_fences(
@@ -222,15 +225,21 @@ def test_abandon_cleans_only_pending_content_and_verified_bytes_refuse_mutation(
         abandon_pdf_build(connection, second)
     with commit_db_engine.begin() as connection:
         assert count_content(connection) == (1, 2, 1)
-        for statement in (
-            "DELETE FROM ops.pdf_shared_stream_part",
-            "UPDATE ops.pdf_shared_stream_part SET body=body",
-            "TRUNCATE ops.pdf_shared_stream_part",
-            "DELETE FROM ops.pdf_shared_stream",
+        for statement, reason in (
+            ("DELETE FROM ops.pdf_shared_stream_part", "verified content is immutable"),
+            (
+                "UPDATE ops.pdf_shared_stream_part SET body=body",
+                "shared content cannot be updated or truncated",
+            ),
+            (
+                "TRUNCATE ops.pdf_shared_stream_part",
+                "shared content cannot be updated or truncated",
+            ),
+            ("DELETE FROM ops.pdf_shared_stream", "verified content is immutable"),
         ):
-            with pytest.raises(DBAPIError) as refused, connection.begin_nested():
+            with native_refusal("23514", message=reason), connection.begin_nested():
                 connection.execute(text(statement))
-            assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+            assert count_content(connection) == (1, 2, 1)
 
 
 def test_shared_part_tampering_refuses_every_referencing_build(
@@ -446,7 +455,8 @@ def test_pending_reclaim_does_not_race_a_locked_original_append_fence(
 
 
 def test_replay_and_companion_producers_emit_descriptors_before_complete_parts(tmp_path):
-    from corpus_structure.ingest.pdf_streaming import _ref, iter_replay_artifact_batches
+    from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+    from corpus_structure.ingest.pdf_streaming import iter_replay_artifact_batches
     from corpus_structure.semantic.pdf_publication import (
         PdfCompanionEncodingBasis,
         prepare_pdf_companion_batches,
@@ -456,7 +466,7 @@ def test_replay_and_companion_producers_emit_descriptors_before_complete_parts(t
     source.write_bytes(BODY)
     batches = tuple(
         iter_replay_artifact_batches(
-            _ref(source, "candidate"),
+            PdfReplayRef.from_path(source, "candidate"),
             build_id="build",
             stream_id="candidate",
             encoding_profile=PROFILE,

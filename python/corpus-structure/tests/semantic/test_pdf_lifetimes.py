@@ -50,36 +50,36 @@ def test_db_free_validation_cancellation_reaps_its_actual_spawned_child(tmp_path
     assert all(p.pid != pids[0] for p in multiprocessing.active_children())
 
 
-def test_native_stream_close_sink_failure_and_cancel_release_cursor(semantic_bare_engine):
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql("CREATE SCHEMA ops")
-        conn.exec_driver_sql("""CREATE FUNCTION ops.read_pdf_native_events(bigint,text,text)
-            RETURNS SETOF jsonb LANGUAGE sql AS $$
-            SELECT jsonb_build_object('kind','literal','value',value)
-            FROM (VALUES ('['),('1'),(']')) AS events(value) $$""")
-        reader = PublishedPdfReader(
-            conn, ProductReference(1, "native", "f" * 64), revision={"release_id": "r"}
-        )
-        chunks = reader.iter_native_json()
-        assert next(chunks) == b"["
-        assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 1
-        chunks.close()
-        assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 0
+def test_program_stream_close_sink_failure_and_cancel_release_cursor(infrastructure_rollback):
+    conn = infrastructure_rollback
+    conn.exec_driver_sql("CREATE SCHEMA ops")
+    conn.exec_driver_sql("""CREATE FUNCTION ops.read_pdf_native_events(bigint,text,text)
+        RETURNS SETOF jsonb LANGUAGE sql AS $$
+        SELECT jsonb_build_object('kind','literal','value',value)
+        FROM (VALUES ('['),('1'),(']')) AS events(value) $$""")
+    reader = PublishedPdfReader(
+        conn, ProductReference(1, "native", "f" * 64), revision={"release_id": "r"}
+    )
+    chunks = reader.iter_native_json()
+    assert next(chunks) == b"["
+    assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 1
+    chunks.close()
+    assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 0
 
-        class BrokenSink(io.BytesIO):
-            def write(self, chunk):
-                raise OSError("sink unavailable")
+    class BrokenSink(io.BytesIO):
+        def write(self, chunk):
+            raise OSError("sink unavailable")
 
-        with pytest.raises(OSError, match="sink unavailable"):
-            reader.write_native_json(BrokenSink())
-        assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 0
-        chunks = reader.iter_native_json()
-        assert next(chunks) == b"["
-        reader.cancellation.request_cancel()
-        with pytest.raises(DatabaseOperationCancelled):
-            next(chunks)
-        assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 0
-        assert conn.scalar(text("SELECT 37")) == 37
+    with pytest.raises(OSError, match="sink unavailable"):
+        reader.write_native_json(BrokenSink())
+    assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 0
+    chunks = reader.iter_native_json()
+    assert next(chunks) == b"["
+    reader.cancellation.request_cancel()
+    with pytest.raises(DatabaseOperationCancelled):
+        next(chunks)
+    assert conn.scalar(text("SELECT count(*) FROM pg_cursors")) == 0
+    assert conn.scalar(text("SELECT 37")) == 37
 
 
 def test_borrowed_event_fragments_remain_owned_by_selected_source_caller():
@@ -212,7 +212,7 @@ def test_validation_settlement_after_ack_keeps_owner_cancellation_and_reaps(tmp_
 
 
 @pytest.mark.parametrize("close_fails", [False, True])
-def test_native_child_acknowledges_only_after_owned_store_cleanup(
+def test_program_child_acknowledges_only_after_owned_store_cleanup(
     tmp_path, monkeypatch, close_fails
 ):
     from corpus_structure.semantic import pdf_payload_validation, pdf_records

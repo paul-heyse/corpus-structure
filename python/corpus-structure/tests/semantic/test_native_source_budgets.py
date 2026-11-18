@@ -45,7 +45,7 @@ def test_v5_requires_explicit_row_byte_admission_and_refuses_old_meaning():
             request(**changes)
 
 
-def test_native_cursor_binds_byte_and_row_work_budgets_and_rejects_old_tokens():
+def test_program_cursor_binds_byte_and_row_work_budgets_and_rejects_old_tokens():
     selected = request()
     token = native_source._source_cursor(selected, 17)
     assert native_source._source_position(selected.model_copy(update={"cursor": token})) == 17
@@ -104,7 +104,7 @@ def test_scalar_length_refuses_before_first_artifact_part():
     reader.iter_rows.assert_not_called()
 
 
-def test_native_envelope_refuses_complete_oversized_body(monkeypatch):
+def test_program_envelope_refuses_complete_oversized_body(monkeypatch):
     selected = request(max_bytes=1024)
     response = native_source.NativeSourceResponse(
         selection=selected, release_id="r", cut={}, health={}, rows=[{"text": "x" * 2048}]
@@ -118,29 +118,29 @@ def test_native_envelope_refuses_complete_oversized_body(monkeypatch):
 
 
 def test_postgresql_preflight_admits_only_requested_page_and_refuses_body_transfer(
-    semantic_bare_engine,
+    infrastructure_rollback,
 ):
     from sqlalchemy import Text, column, event, table, text
 
-    with semantic_bare_engine.begin() as conn:
-        conn.execute(text("CREATE TABLE selected_body(id int, payload text)"))
-        conn.execute(text("INSERT INTO selected_body VALUES (1,'ok'),(2,repeat('x',4096))"))
-        body = table("selected_body", column("id"), column("payload", Text))
-        budget = PublishedReadBudget(10, 1024)
-        query = select(body).order_by(body.c.id)
-        budget.preflight(conn, query.limit(1))
-        assert budget.rows == 1
-        statements = []
-        event.listen(
-            conn,
-            "before_cursor_execute",
-            lambda c, cur, statement, params, ctx, many: statements.append(statement),
-        )
-        with pytest.raises(ReadLimit) as caught:
-            budget.preflight(conn, query.where(body.c.id == 2))
-        assert caught.value.reason == "oversized_item"
-        assert len(statements) == 1 and "octet_length" in statements[0]
-        assert "count(*)" in statements[0]
+    conn = infrastructure_rollback
+    conn.execute(text("CREATE TABLE selected_body(id int, payload text)"))
+    conn.execute(text("INSERT INTO selected_body VALUES (1,'ok'),(2,repeat('x',4096))"))
+    body = table("selected_body", column("id"), column("payload", Text))
+    budget = PublishedReadBudget(10, 1024)
+    query = select(body).order_by(body.c.id)
+    budget.preflight(conn, query.limit(1))
+    assert budget.rows == 1
+    statements = []
+    event.listen(
+        conn,
+        "before_cursor_execute",
+        lambda c, cur, statement, params, ctx, many: statements.append(statement),
+    )
+    with pytest.raises(ReadLimit) as caught:
+        budget.preflight(conn, query.where(body.c.id == 2))
+    assert caught.value.reason == "oversized_item"
+    assert len(statements) == 1 and "octet_length" in statements[0]
+    assert "count(*)" in statements[0]
 
 
 @pytest.mark.parametrize("bytes_limit,oversized", [(1048576, False), (2048, True)])

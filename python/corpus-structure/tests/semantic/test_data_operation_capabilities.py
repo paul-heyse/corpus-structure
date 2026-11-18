@@ -398,14 +398,9 @@ def test_deferred_failure_fenced_owner_cannot_release_another_attempt():
     from datetime import UTC, datetime
 
     from corpus_structure.orchestrate.data_operations import (
-        NativeDemandExecutor,
         NativeRequestClaim,
     )
     from corpus_structure.semantic.claim_lifetime import ClaimFenceLost
-
-    class ForbiddenEngine:
-        def begin(self):
-            raise AssertionError("a lost fence cannot perform native release")
 
     claim = NativeRequestClaim(
         "request:one",
@@ -425,8 +420,9 @@ def test_deferred_failure_fenced_owner_cannot_release_another_attempt():
         def settle(self, *args):
             raise AssertionError("a lost fence cannot settle deferred work")
 
-    executor: Any = object.__new__(NativeDemandExecutor)
-    executor.engine = ForbiddenEngine()
+    from orchestrate.executor_support import executor_case
+
+    executor = executor_case()
     executor._known_failure(
         claim, LostOwner(), RuntimeError("original failure"), phase="computation"
     )

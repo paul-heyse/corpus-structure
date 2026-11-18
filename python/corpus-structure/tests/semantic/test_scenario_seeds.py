@@ -74,6 +74,25 @@ def build_tiny_seed(recipe, admin, writer, directory, *, purpose_engine=None):
 register_scenario_builder(TinyRecipe, build_tiny_seed)
 
 
+def test_direct_consumer_uses_one_writable_clone_without_sealing(
+    scenario_seeds, native_server, tmp_path
+):
+    seeds_before = set(native_server.names("ci_seed_"))
+    with scenario_seeds.build_for_consumer(TinyRecipe("direct"), tmp_path) as acquired:
+        name = acquired.admin.url.database
+        assert name is not None and native_server.exists(name)
+        assert acquired.origin["acquisition"] == "built-for-consumer"
+        assert "source_database" not in acquired.origin
+        with acquired.reader.connect() as connection:
+            assert (
+                connection.exec_driver_sql("SELECT name FROM public.seed_control").scalar_one()
+                == "direct"
+            )
+        acquired.stage.source.write_bytes(b"writable")
+    assert not native_server.exists(name)
+    assert set(native_server.names("ci_seed_")) == seeds_before
+
+
 @pytest.fixture
 def seed_consumers(scenario_seeds, native_server, monkeypatch):
     import qualification_plugin

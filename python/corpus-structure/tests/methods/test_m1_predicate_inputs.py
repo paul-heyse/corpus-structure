@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 from annotation_support import controlled as controlled
-from semantic.test_m1_declared_products import _sources, configuration, record_schemas
-from semantic.test_source_annotations import detached as detached
+from semantic.m1_declared_products_test_support import configuration, record_schemas, sources
+from semantic.source_annotations_test_support import detached as detached
 
 from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.methods.assertion_qualification import AssertionQualification
@@ -56,7 +56,7 @@ def acquired():
     )
     bundle = m1_operation_inputs(record_schemas())
     prepared = prepare_release(bundle, profile=PreparationProfile(version="semantic-2"))
-    return prepared, compile_data_operations(bundle, python_sources=_sources()), config, selected
+    return prepared, compile_data_operations(bundle, python_sources=sources()), config, selected
 
 
 NEGATIVE = {

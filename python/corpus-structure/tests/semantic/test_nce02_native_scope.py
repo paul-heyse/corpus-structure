@@ -8,7 +8,6 @@ only their exact returned products; retired run/LayerReport SQL is not exercised
 from dataclasses import replace
 
 import pytest
-from pdf_acceptance_support import certify_controlled_pdf_stream
 
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import AnnotationProfile
@@ -203,24 +202,12 @@ def test_current_native_clipped_role_population_detects_omitted_roles(
             scoped_evidence(changed, annotations_, primary)
 
 
-def list_stream(
-    self,
-    source,
-    *,
-    spool_root,
-    record_root,
-    build_id,
-    release_id,
-    on_replay,
-    check_active,
-    **_options,
-):
-    """Controlled Docling decoding only; every downstream producer executes normally."""
+def list_content():
+    from pdf_controlled_support import ControlledPdfContent
+
+    "Controlled Docling decoding only; every downstream producer executes normally."
     from docling_core.types.doc import DocItemLabel, DoclingDocument, GroupLabel, Size
 
-    from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-
-    check_active()
     document = DoclingDocument(name="Independent list membership")
     document.add_page(page_no=1, size=Size(width=200, height=300))
     section = document.add_group(label=GroupLabel.SECTION, name="Selected list")
@@ -228,24 +215,7 @@ def list_stream(
     group = document.add_group(label=GroupLabel.LIST, name="Selected children", parent=section)
     document.add_list_item(text="The analyst records the input.", parent=group)
     document.add_list_item(text="The reviewer checks the result.", parent=group)
-    result = StreamingPdfResult(
-        document,
-        PdfStreamSpool(spool_root, check_active=check_active),
-        "success",
-        (),
-        self.recipe.to_bytes(),
-        (),
-    )
-    return certify_controlled_pdf_stream(
-        result,
-        source,
-        spool_root=spool_root,
-        record_root=record_root,
-        build_id=build_id,
-        release_id=release_id,
-        on_replay=on_replay,
-        **_options,
-    )
+    return ControlledPdfContent.from_document(document)
 
 
 LIST_INTRO = "For each of the following, assume that all inputs are valid:"
@@ -263,7 +233,7 @@ def test_current_native_list_host_requires_exact_selected_membership(
 
     spelling = LIST_INTRO + "\nThe analyst records the input.\nThe reviewer checks the result."
     with _current_pdf_source(
-        scenario_seeds, tmp_path, monkeypatch, stream=list_stream, sections=("#/groups/0",)
+        scenario_seeds, tmp_path, content=list_content(), sections=("#/groups/0",)
     ) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         _, original, products, _ = produce_source_reports(source, kernel, PREDICATES, text=spelling)

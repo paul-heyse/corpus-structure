@@ -16,7 +16,6 @@ from sqlalchemy import text
 
 from corpus_structure.semantic.composed import (
     data_operation_dependencies,
-    read_data_operation_inputs,
 )
 from corpus_structure.semantic.contextual_registry import RegistryTarget
 from corpus_structure.semantic.data_operation_json import json_loads
@@ -40,9 +39,9 @@ from semantic.current_contextual_support import (
 )
 from semantic.current_pdf_source_support import (
     _current_pdf_source,
-    _section_stream,
     admit_current_target,
     current_consumer_request,
+    section_content,
     selected_current_sources,
     source_entry,
 )
@@ -94,13 +93,12 @@ TARGETS = (
 
 
 def provider_recipe(directory, encoder):
+    from semantic.data_operation_kernel_support import split_captured_operations
+
     recipe = contextual_recipe(directory, encoder)
     captured = recipe.captured_inputs
     assert captured is not None
-    inputs = read_data_operation_inputs(captured.dependencies)
-    assert inputs is not None
-    declarations, sources = inputs
-    assert sources is not None
+    base_dependencies, declarations, sources = split_captured_operations(captured)
     primary_schema = schema()
     bundle = SourceBundle(
         "selected_context_root",
@@ -120,14 +118,7 @@ def provider_recipe(directory, encoder):
         ),
     )
     dependencies = data_operation_dependencies(
-        replace(
-            captured.dependencies,
-            artifacts=tuple(
-                item
-                for item in captured.dependencies.artifacts
-                if not item.name.startswith("data-operations/")
-            ),
-        ),
+        base_dependencies,
         declarations,
         combine_primary_sources(sources, operation_sources()),
     )
@@ -143,15 +134,9 @@ def actual_e5_native_case(scenario_seeds, tmp_path_factory):
     directory = tmp_path_factory.mktemp("actual-e5-selected-context")
     rows = (("text", TEXT, TEXT, None),)
 
-    def stream(worker, original, **options):
-        return _section_stream(rows, worker, original, **options)
-
-    with (
-        pytest.MonkeyPatch.context() as patch,
-        _current_pdf_source(
-            scenario_seeds, directory, patch, stream=stream, sections=("#/groups/0",)
-        ) as source,
-    ):
+    with _current_pdf_source(
+        scenario_seeds, directory, content=section_content(rows), sections=("#/groups/0",)
+    ) as source:
         encoder = acquire_e5()
         assert encoder.profile.model == "intfloat/e5-small-v2"
         assert encoder.profile.revision == "ffb93f3bd4047442299a41ebb6fa998a38507c52"

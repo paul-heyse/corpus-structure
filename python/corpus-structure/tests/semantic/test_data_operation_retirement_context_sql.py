@@ -1,7 +1,7 @@
 """Physical attempt and contextual product constraints use their declared owners."""
 
 import json
-from importlib.resources import files
+from typing import cast as typing_cast
 
 import pytest
 from sqlalchemy import MetaData, UniqueConstraint, insert, select, text
@@ -14,93 +14,77 @@ from corpus_structure.semantic.data_operation_identity import (
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.target_installation import target_task_guard_sql
+from semantic.data_operation_kernel_support import STORAGE
 
 
 @pytest.mark.db
-def test_retired_attempt_preserves_holder_until_a_new_claim_fence(semantic_bare_engine):
-    checks = (
-        files("corpus_structure.semantic")
-        .joinpath("sql/data_operation_task_checks.sql")
-        .read_text()
-    )
-    protocol = (
-        files("corpus_structure.model").joinpath("semantic/data-operation-native.yaml").read_bytes()
-    )
-    source = target_task_guard_sql(protocol, checks)
-    association_start = source.index("   IF (NEW.data_request_id,")
-    association_end = source.index(" END IF;", association_start) + len(" END IF;")
-    fence_start = source.index("   IF NEW.attempt<>OLD.attempt THEN")
-    fence_end = source.index("\n  END IF;\n  IF NEW.status='running'", fence_start)
-    checks_start = source.index("  IF NEW.status='running' AND", fence_end)
-    checks_end = source.index("  RETURN NEW;", checks_start)
-    guard = (
-        source[association_start:association_end]
-        + source[fence_start:fence_end]
-        + source[checks_start:checks_end]
-    )
-    with semantic_bare_engine.connect() as connection:
-        transaction = connection.begin()
-        try:
-            connection.exec_driver_sql("""CREATE TEMP TABLE task_guard_case (
- id integer PRIMARY KEY, data_request_id text, data_generation integer, release_id text,
- invocation_key text, status text, attempt integer, claimed_by text,
- lease_until timestamptz, result_digest text)""")
-            connection.exec_driver_sql("""INSERT INTO task_guard_case VALUES
- (1,'request:one',1,'release:one','invocation:one','running',1,'original-holder',
- clock_timestamp()+interval '1 hour',NULL)""")
-            # Exercise the production state/fence branch, without replacing its
-            # separate request admission or publication authority.
-            connection.exec_driver_sql(
-                "CREATE FUNCTION pg_temp.guard_task_case() RETURNS trigger "
-                "LANGUAGE plpgsql AS $$ BEGIN " + guard + " RETURN NEW; END $$"
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_retired_attempt_preserves_holder_until_a_new_claim_fence(ddo_kernel):
+    from native_refusals import native_refusal
+
+    from corpus_structure.semantic._data_operation_wire import WireReleaseDataAttemptRequest
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.native_objects import native_owner
+    from semantic.data_operation_demand_support import attach, claim
+
+    _, _, _, attached = attach(ddo_kernel)
+    fence = claim(ddo_kernel, attached, holder="original-holder")
+    with ddo_kernel["engine"].begin() as connection:
+        released = DataOperationStorage(connection).release_data_attempt(
+            typing_cast(
+                WireReleaseDataAttemptRequest,
+                {
+                    **fence,
+                    "physical_retirement": "confirmed",
+                    "failure": {"code": "compute-error", "message": "retired control"},
+                },
             )
-            connection.exec_driver_sql(
-                "CREATE TRIGGER guard_task_case BEFORE UPDATE ON task_guard_case "
-                "FOR EACH ROW EXECUTE FUNCTION pg_temp.guard_task_case()"
-            )
-            connection.exec_driver_sql(
-                "UPDATE task_guard_case SET status='pending',lease_until=NULL"
-            )
-            assert tuple(
-                connection.execute(
-                    text("SELECT status,attempt,claimed_by,lease_until FROM task_guard_case")
-                ).one()
-            ) == ("pending", 1, "original-holder", None)
-            for update, message in (
-                ("claimed_by=NULL", "holder requires new attempt"),
+        )
+        assert released["state"] == "released"
+        row = connection.execute(
+            text("SELECT status,attempt,claimed_by,lease_until FROM ops.task WHERE id=:id"),
+            {"id": fence["task_id"]},
+        ).one()
+        assert tuple(row) == ("pending", 1, "original-holder", None)
+        with native_owner(connection, "corpus_sem_publisher"):
+            for update, reason in (
+                ("claimed_by=NULL", "data holder requires new attempt"),
                 (
                     "status='running',lease_until=clock_timestamp()+interval '1 hour'",
                     "invalid data task transition",
                 ),
-                ("lease_until=clock_timestamp()+interval '1 hour'", "retains lease"),
+                (
+                    "lease_until=clock_timestamp()+interval '1 hour'",
+                    "data terminal task retains lease",
+                ),
             ):
                 with connection.begin_nested() as savepoint:
-                    with pytest.raises(DBAPIError, match=message):
-                        connection.exec_driver_sql("UPDATE task_guard_case SET " + update)
+                    with native_refusal("P0001", message=reason):
+                        connection.execute(
+                            text("UPDATE ops.task SET " + update + " WHERE id=:id"),
+                            {"id": fence["task_id"]},
+                        )
                     savepoint.rollback()
-            connection.exec_driver_sql(
-                "UPDATE task_guard_case SET status='running',attempt=2,claimed_by='replacement',"
-                "lease_until=clock_timestamp()+interval '1 hour'"
+    replacement = claim(ddo_kernel, attached, holder="replacement")
+    assert replacement["attempt"] == 2
+    with (
+        ddo_kernel["engine"].begin() as connection,
+        native_owner(connection, "corpus_sem_publisher"),
+        connection.begin_nested() as savepoint,
+    ):
+        with native_refusal("P0001", message="invalid data claim fence"):
+            connection.execute(
+                text(
+                    "UPDATE ops.task SET attempt=1,status='pending',lease_until=NULL WHERE id=:id"
+                ),
+                {"id": fence["task_id"]},
             )
-            assert tuple(
-                connection.execute(
-                    text("SELECT status,attempt,claimed_by FROM task_guard_case")
-                ).one()
-            ) == ("running", 2, "replacement")
-            with connection.begin_nested() as savepoint:
-                with pytest.raises(DBAPIError, match="invalid data claim fence"):
-                    connection.exec_driver_sql(
-                        "UPDATE task_guard_case SET attempt=1,status='pending',lease_until=NULL"
-                    )
-                savepoint.rollback()
-        finally:
-            transaction.rollback()
+        savepoint.rollback()
 
 
 @pytest.mark.db
 def test_declared_product_primary_identity_allows_equal_body_in_distinct_scopes(
-    semantic_bare_engine,
+    infrastructure_rollback,
 ):
     product = table("kb.data_product").to_metadata(MetaData(), schema="pg_temp")
     assert not any(isinstance(constraint, UniqueConstraint) for constraint in product.constraints)
@@ -126,22 +110,22 @@ def test_declared_product_primary_identity_allows_equal_body_in_distinct_scopes(
         for context in contexts
     ]
     assert rows[0]["id"] != rows[1]["id"]
-    with semantic_bare_engine.connect() as connection:
-        transaction = connection.begin()
-        try:
-            connection.execute(CreateTable(product, include_foreign_key_constraints=[]))
-            connection.execute(insert(product), rows)
-            assert set(connection.scalars(select(product.c.id))) == {row["id"] for row in rows}
-            with connection.begin_nested() as savepoint:
-                with pytest.raises(IntegrityError):
-                    connection.execute(insert(product), rows[0])
-                savepoint.rollback()
-        finally:
-            transaction.rollback()
+    connection = infrastructure_rollback
+    transaction = connection.begin_nested()
+    try:
+        connection.execute(CreateTable(product, include_foreign_key_constraints=[]))
+        connection.execute(insert(product), rows)
+        assert set(connection.scalars(select(product.c.id))) == {row["id"] for row in rows}
+        with connection.begin_nested() as savepoint:
+            with pytest.raises(IntegrityError):
+                connection.execute(insert(product), rows[0])
+            savepoint.rollback()
+    finally:
+        transaction.rollback()
 
 
 @pytest.mark.db
-def test_qualified_population_preserves_distinct_subject_definitions(semantic_bare_engine):
+def test_qualified_population_preserves_distinct_subject_definitions(infrastructure_rollback):
     from corpus_structure.semantic.binding_recursive_native import binding_population_native_sql
 
     source = binding_population_native_sql()
@@ -168,41 +152,37 @@ def test_qualified_population_preserves_distinct_subject_definitions(semantic_ba
         }
         for member in members
     ]
-    with semantic_bare_engine.connect() as connection:
-        transaction = connection.begin()
-        try:
-            connection.exec_driver_sql(helpers)
-            witness = connection.execute(
-                text(
-                    "SELECT pg_temp.ddo_project_population('population:one',true,CAST(:members AS jsonb),'{}','project','qualified-context')"
-                ),
-                {"members": json.dumps(members)},
-            ).scalar_one()
-            assert witness["members"] == expected
-            assert len({member["subject_definition"] for member in witness["members"]}) == 2
-            meaning = connection.execute(
-                text(
-                    "SELECT pg_temp.ddo_binding_population_meaning(CAST(:witness AS jsonb),false)"
-                ),
-                {"witness": json.dumps(witness)},
-            ).scalar_one()
-            assert meaning == {
-                "identity": "population:one",
-                "complete": True,
-                "members": expected,
-                "projection": "qualified-context",
-            }
-            del witness["members"][0]["subject_definition"]
-            with connection.begin_nested() as savepoint:
-                with pytest.raises(
-                    DBAPIError, match="invalid structured native population witness"
-                ):
-                    connection.execute(
-                        text(
-                            "SELECT pg_temp.ddo_binding_population_meaning(CAST(:witness AS jsonb),false)"
-                        ),
-                        {"witness": json.dumps(witness)},
-                    )
-                savepoint.rollback()
-        finally:
-            transaction.rollback()
+    connection = infrastructure_rollback
+    transaction = connection.begin_nested()
+    try:
+        connection.exec_driver_sql(helpers)
+        witness = connection.execute(
+            text(
+                "SELECT pg_temp.ddo_project_population('population:one',true,CAST(:members AS jsonb),'{}','project','qualified-context')"
+            ),
+            {"members": json.dumps(members)},
+        ).scalar_one()
+        assert witness["members"] == expected
+        assert len({member["subject_definition"] for member in witness["members"]}) == 2
+        meaning = connection.execute(
+            text("SELECT pg_temp.ddo_binding_population_meaning(CAST(:witness AS jsonb),false)"),
+            {"witness": json.dumps(witness)},
+        ).scalar_one()
+        assert meaning == {
+            "identity": "population:one",
+            "complete": True,
+            "members": expected,
+            "projection": "qualified-context",
+        }
+        del witness["members"][0]["subject_definition"]
+        with connection.begin_nested() as savepoint:
+            with pytest.raises(DBAPIError, match="invalid structured native population witness"):
+                connection.execute(
+                    text(
+                        "SELECT pg_temp.ddo_binding_population_meaning(CAST(:witness AS jsonb),false)"
+                    ),
+                    {"witness": json.dumps(witness)},
+                )
+            savepoint.rollback()
+    finally:
+        transaction.rollback()

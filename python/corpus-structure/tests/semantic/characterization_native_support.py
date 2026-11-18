@@ -17,13 +17,11 @@ from corpus_structure.semantic.characterization_ports import (
 )
 from corpus_structure.semantic.composed import (
     data_operation_dependencies,
-    read_data_operation_inputs,
 )
 from corpus_structure.semantic.construction_products import construction_product_inputs
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
     OperationSelection,
-    RootSubject,
     freeze_demand,
 )
 from corpus_structure.semantic.data_operation_json import json_bytes
@@ -36,9 +34,8 @@ from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
 from corpus_structure.semantic.pdf_staging import PdfBuildRef
 from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.source_products import FrozenNativeSource
-from corpus_structure.semantic.types import ResolvedDependencies
 from semantic.current_pdf_source_support import ROOT, current_pdf_recipe
-from semantic.data_operation_kernel_support import CapturedKernelInputs
+from semantic.data_operation_kernel_support import CapturedKernelInputs, split_captured_operations
 from semantic.pdf_staging_support import _private_build_factory, _PrivatePdfBuildFactory
 from semantic.selected_source_native_support import publish_selected
 
@@ -48,10 +45,7 @@ def characterization_recipe(directory, *, construction_options=None):
     recipe = current_pdf_recipe(directory)
     captured = recipe.captured_inputs
     assert captured is not None
-    decoded = read_data_operation_inputs(captured.dependencies)
-    assert decoded is not None and decoded[1] is not None
-    declarations, current = decoded
-    assert current is not None
+    base_dependencies, declarations, current = split_captured_operations(captured)
     from corpus_structure.ingest.sentences import SentenceConfig
 
     sources = combine_primary_sources(
@@ -64,15 +58,7 @@ def characterization_recipe(directory, *, construction_options=None):
     )
     # Recompose the decoded declaration package once. All independent native/PDF
     # inputs remain supplied, including their original registration authority.
-    dependencies = ResolvedDependencies(
-        tuple(
-            item
-            for item in captured.dependencies.artifacts
-            if not item.name.startswith("data-operations/")
-        ),
-        captured.dependencies.vocabularies,
-        captured.dependencies.ontology_sources,
-    )
+    dependencies = base_dependencies
     return replace(
         recipe,
         name="current-characterization-controls",
@@ -117,25 +103,66 @@ class CurrentCharacterization:
         )
 
     def register(self, target, *, profile=None):
+        from corpus_structure.orchestrate.source_operation import _default_profile_selections
+        from corpus_structure.semantic.data_operation_service import DemandOperationSelection
+        from corpus_structure.semantic.data_operation_source_discovery import (
+            source_discovery_relations,
+        )
+        from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+
+        producer = "source.selected_views/discovery"
+        supplied = (
+            {target: DemandOperationSelection(operation=target, parameters={"profile": profile})}
+            if profile is not None
+            else {}
+        )
+        selections = _default_profile_selections(self.kernel.model, (target,), supplied)
+        selections[producer] = DemandOperationSelection(
+            operation=producer, parameters={"complete": True}
+        )
+        graph = self.kernel.model.projection_graph(
+            "selected-dependencies",
+            selected_dependencies=tuple(
+                (name, value.selected_dependencies) for name, value in selections.items()
+            ),
+        )
+        required = {target, producer, *graph.closure((target,))}
+        relations = tuple(
+            relation
+            for operation in sorted(required)
+            for relation in source_discovery_relations(
+                self.kernel.model,
+                producer,
+                "result",
+                operation,
+                choices=selections[operation].choices if operation in selections else {},
+            )
+        )
+        targets = (producer,) if target in {row.target for row in relations} else (producer, target)
         with self.factory.writer.begin() as connection:
-            if target == "text.compose_view/source-native":
-                original = acquire_original_document_selection(
-                    connection, project_id=self.factory.project_id, document_key=self.factory.key
-                )
-                root = original.root
-            else:
-                root = RootSubject(
-                    self.context.subject, self.context.original_source, self.context.analyzed_scope
-                )
+            original = acquire_original_document_selection(
+                connection, project_id=self.factory.project_id, document_key=self.factory.key
+            )
             intent = freeze_demand(
                 self.kernel.model,
-                roots=(root,),
-                targets=(target,),
-                selections=(
-                    OperationSelection(target, parameters=json_bytes({"profile": profile})),
-                )
-                if profile is not None
-                else (),
+                roots=(original.root,),
+                targets=targets,
+                selections=tuple(
+                    OperationSelection(
+                        name,
+                        parameters=json_bytes(value.parameters),
+                        choices=json_bytes(value.choices),
+                        selected_dependencies=value.selected_dependencies,
+                    )
+                    for name, value in selections.items()
+                ),
+                discovery=relations,
+                source_sets=(
+                    FrozenSourceSet.from_selected(
+                        "selected-source-views", (self.source_row["_selected_entry"],)
+                    ),
+                ),
+                original_sources=(original.selection(),),
                 inference="controlled-pdf-records-v1",
                 execution_profile=self.kernel.recipe.execution_profile,
             )
@@ -158,7 +185,7 @@ class CurrentCharacterization:
             database_capacity=6,
             policy=policy or CharacterizationExecutionPolicy(workers=1, max_submissions=1),
         )
-        with self.reader.connect() as connection:
+        with self.reader.begin() as connection:
             snapshot = read_data_demand(connection, demand, view="products", max_bytes=64 * 1024**2)
         return result, snapshot
 
@@ -168,7 +195,8 @@ class CurrentCharacterization:
         return demand, result, snapshot
 
     def query(self, demand, **selection):
-        with self.reader.connect() as connection:
+        selection.setdefault("max_bytes", 64 * 1024**2)
+        with self.reader.begin() as connection:
             return serve_demand_query(
                 connection,
                 DemandQueryRequest(
@@ -184,7 +212,7 @@ class CurrentCharacterization:
             inspect_demand_characterization,
         )
 
-        with self.reader.connect() as connection:
+        with self.reader.begin() as connection:
             return inspect_demand_characterization(
                 connection,
                 DemandCharacterizationRequest(
@@ -206,8 +234,18 @@ def operation_use(snapshot, operation):
 
 
 def operation_product(snapshot, operation):
-    (product,) = operation_use(snapshot, operation)["products"]
-    return product
+    use = operation_use(snapshot, operation)
+    products = use["products"]
+    obligations = {row["obligation_id"]: row["operation_id"] for row in snapshot["obligations"]}
+    producers = [
+        (obligations[row["obligation_id"]], row["fate"], len(row["products"]))
+        for row in snapshot["uses"]
+    ]
+    assert len(products) == 1, (
+        f"{operation}: expected one product, observed {len(products)}; "
+        f"fate={use.get('fate')}; continuation={snapshot.get('continuation') is not None}; producers={producers}"
+    )
+    return products[0]
 
 
 @pytest.fixture

@@ -14,42 +14,42 @@ from corpus_structure.semantic.pdf_companion_read_native import (
 
 
 @pytest.fixture
-def generated_companion_reads(semantic_bare_engine):
-    with semantic_bare_engine.connect() as connection:
-        transaction = connection.begin()
-        try:
-            connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ops")
-            connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS kb")
-            controls = MetaData()
-            for name in (
-                "kb.pdf_record_companion_field",
-                "kb.pdf_record_companion",
-                "ops.pdf_published_revision",
-            ):
-                owner = metadata.tables[name]
-                Table(
-                    owner.name,
-                    controls,
-                    *(Column(c.name, c.type) for c in owner.columns),
-                    schema=owner.schema,
-                )
-            controls.create_all(connection)
-            connection.exec_driver_sql("""
-                CREATE TEMP TABLE controlled_parts(product_id text,revision_id text,
-                  stream_id text,stage boolean,ordinal bigint,body bytea);
-                CREATE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,
-                  p_stage boolean,p_streams text[]) RETURNS TABLE(stream_id text,ordinal bigint,body bytea)
-                LANGUAGE sql STABLE AS $control$
-                  SELECT stream_id,ordinal,body FROM pg_temp.controlled_parts
-                  WHERE product_id=p_product AND revision_id=p_revision AND stage=p_stage
-                    AND (p_streams IS NULL OR stream_id=ANY(p_streams))
-                $control$;
-            """)
-            execute_native_sql(connection, pdf_native_record_shape_sql())
-            execute_native_sql(connection, pdf_companion_field_read_sql(metadata))
-            yield connection
-        finally:
-            transaction.rollback()
+def generated_companion_reads(infrastructure_rollback):
+    connection = infrastructure_rollback
+    transaction = connection.begin_nested()
+    try:
+        connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ops")
+        connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS kb")
+        controls = MetaData()
+        for name in (
+            "kb.pdf_record_companion_field",
+            "kb.pdf_record_companion",
+            "ops.pdf_published_revision",
+        ):
+            owner = metadata.tables[name]
+            Table(
+                owner.name,
+                controls,
+                *(Column(c.name, c.type) for c in owner.columns),
+                schema=owner.schema,
+            )
+        controls.create_all(connection)
+        connection.exec_driver_sql("""
+            CREATE TEMP TABLE controlled_parts(product_id text,revision_id text,
+              stream_id text,stage boolean,ordinal bigint,body bytea);
+            CREATE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,
+              p_stage boolean,p_streams text[]) RETURNS TABLE(stream_id text,ordinal bigint,body bytea)
+            LANGUAGE sql STABLE AS $control$
+              SELECT stream_id,ordinal,body FROM pg_temp.controlled_parts
+              WHERE product_id=p_product AND revision_id=p_revision AND stage=p_stage
+                AND (p_streams IS NULL OR stream_id=ANY(p_streams))
+            $control$;
+        """)
+        execute_native_sql(connection, pdf_native_record_shape_sql())
+        execute_native_sql(connection, pdf_companion_field_read_sql(metadata))
+        yield connection
+    finally:
+        transaction.rollback()
 
 
 def test_shape_predicates_preserve_unknown_required_scalar_and_native_float_rules(

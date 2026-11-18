@@ -6,8 +6,8 @@ import json
 from dataclasses import replace
 
 import pytest
+from native_refusals import native_refusal
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
 from corpus_structure.semantic.data_operation_identity import semantic_value
@@ -15,7 +15,7 @@ from corpus_structure.semantic.data_operation_storage import DataOperationStorag
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.data_operation_binding_support import discover
 from semantic.data_operation_kernel_support import POPULATION
-from semantic.test_data_operation_population_native import _complete_ready
+from semantic.population_completion_support import complete_ready
 
 
 def _recipe():
@@ -70,7 +70,11 @@ pytestmark = pytest.mark.parametrize(
 def _frontier(kernel, demand):
     with kernel["engine"].begin() as connection:
         planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
-        return planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+        snapshot = planner.resume(demand["demand_id"])
+    with kernel["engine"].begin() as connection:
+        return DemandPlanner(kernel["model"], DataOperationStorage(connection)).ready(
+            snapshot, authorization=b"{}"
+        )
 
 
 def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_resume(ddo_kernel):
@@ -84,6 +88,8 @@ def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_
         snapshot = planner.resume(demand["demand_id"])
         use = next(use for use in snapshot["uses"] if use["products"])
         assert use["derivation_id"] is not None
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         planner.expand_discovery(
             snapshot,
             population="all-items",
@@ -95,9 +101,9 @@ def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_
     assert {
         json.loads(child.resolved.subject_context.analyzed_scope)["page"] for child in children
     } == {1, 2}
-    _complete_ready(ddo_kernel, children[0], {"value": 101, "document_subject": "doc"})
+    complete_ready(ddo_kernel, children[0], {"value": 101, "document_subject": "doc"})
     assert not any(ready.operation == "urn:consumer" for ready in _frontier(ddo_kernel, demand))
-    _complete_ready(ddo_kernel, children[1], {"value": 202, "document_subject": "doc"})
+    complete_ready(ddo_kernel, children[1], {"value": 202, "document_subject": "doc"})
     (aggregate,) = _frontier(ddo_kernel, demand)
     assert aggregate.obligation == consumer["obligation_id"]
     assert len(aggregate.binding_result.roles[0].members) == 2
@@ -137,8 +143,21 @@ def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_
     # Independently exercise the same protected validator attachment invokes:
     # a portable caller cannot invent a smaller/wrong closure or another project.
     binding = json.loads(aggregate.binding)
+    meaning = json.loads(aggregate.request)[3]
+    arguments = {
+        "demand": demand["demand_id"],
+        "operation": aggregate.operation,
+        "subject": aggregate.subject,
+        "meaning": json.dumps(meaning),
+        "binding": json.dumps(binding),
+        "trust": json.dumps(json.loads(aggregate.resolved.trust_evidence)["trust"]),
+    }
+    require_binding = text(
+        "SELECT ops.ddo_require_binding(:demand,:operation,:subject,CAST(:meaning AS jsonb),CAST(:binding AS jsonb),CAST(:trust AS jsonb))"
+    )
+    with ddo_kernel["engine"].begin() as connection:
+        connection.execute(require_binding, arguments)
     for mutate in ("project", "scope", "missing"):
-        meaning = json.loads(aggregate.request)[3]
         raw = json.loads(json.dumps(binding))
         # Request-input witness is a typed semantic mapping. Rebuild from an
         # independent changed value so native reconstruction, not shape, decides.
@@ -155,23 +174,16 @@ def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_
         raw["request_inputs"] = semantic_value(inputs)
         with (
             ddo_kernel["engine"].begin() as connection,
-            pytest.raises(DBAPIError),
+            native_refusal(
+                "23514", message="semantic population witness differs from native closure meaning"
+            ),
             connection.begin_nested(),
         ):
             connection.execute(
-                text(
-                    "SELECT ops.ddo_require_binding(:demand,:operation,:subject,CAST(:meaning AS jsonb),CAST(:binding AS jsonb),CAST(:trust AS jsonb))"
-                ),
-                {
-                    "demand": demand["demand_id"],
-                    "operation": aggregate.operation,
-                    "subject": aggregate.subject,
-                    "meaning": json.dumps(meaning),
-                    "binding": json.dumps(raw),
-                    "trust": json.dumps(json.loads(aggregate.resolved.trust_evidence)["trust"]),
-                },
+                require_binding,
+                {**arguments, "binding": json.dumps(raw)},
             )
-    _complete_ready(ddo_kernel, aggregate)
+    complete_ready(ddo_kernel, aggregate)
     assert _frontier(ddo_kernel, demand) == ()
 
 
@@ -197,6 +209,8 @@ def test_native_one_discovery_population_fans_out_without_duplicate_custody(ddo_
         snapshot = planner.resume(demand["demand_id"])
         use = next(use for use in snapshot["uses"] if use["products"])
         assert use["derivation_id"] is not None
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         for _ in range(2):
             closed = planner.expand_discovery(
                 snapshot,

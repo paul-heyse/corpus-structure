@@ -24,7 +24,7 @@ class ControlledBatchOperation:
             {
                 "name": "index",
                 "parameter": "index",
-                "kind": "integer",
+                "kind": "primitive:integer",
                 "direction": "input",
                 "minimum": 1,
                 "maximum": 1,
@@ -40,7 +40,7 @@ class ControlledBatchOperation:
             },
             {
                 "name": "result",
-                "kind": "integer",
+                "kind": "primitive:integer",
                 "direction": "output",
                 "minimum": 1,
                 "maximum": 1,
@@ -116,8 +116,16 @@ def controlled_sources():
     from corpus_structure.semantic.types import SourceArtifact
 
     path = Path(__file__).resolve()
+    adapter = path.parents[2] / "src/corpus_structure/semantic/data_operation_prepared_call.py"
     return PythonSourceCollection(
-        (PythonSource(__name__, path.read_bytes(), str(path)),),
+        (
+            PythonSource(__name__, path.read_bytes(), str(path)),
+            PythonSource(
+                "corpus_structure.semantic.data_operation_prepared_call",
+                adapter.read_bytes(),
+                str(adapter),
+            ),
+        ),
         boundary_contracts=(
             SourceArtifact(
                 "controlled-batch/algorithm",
@@ -201,34 +209,48 @@ def resolve_controlled_port(prepared, model, operation, *, identity, authorize, 
 
 def controlled_recipe():
     from pathlib import Path
+    from tempfile import TemporaryDirectory
 
     from corpus_structure.semantic.composed import data_operation_dependencies
-    from corpus_structure.semantic.types import (
-        PreparationProfile,
-        ResolvedDependencies,
-        SourceArtifact,
-        SourceBundle,
+    from corpus_structure.semantic.data_operation_preparation import acquire_data_operation_inputs
+    from semantic.data_operation_kernel_support import (
+        CapturedKernelInputs,
+        KernelRecipe,
+        split_captured_operations,
     )
-    from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 
     root = Path(__file__).resolve().parents[2]
-    bundle = SourceBundle(
-        "core",
-        (
-            SourceArtifact(
-                "core", (root / "src/corpus_structure/model/semantic/core.yaml").read_bytes()
-            ),
-        ),
-    )
-    dependencies = data_operation_dependencies(
-        ResolvedDependencies(), python_sources=controlled_sources()
-    )
+    sources = controlled_sources()
+    # Production acquisition supplies native protocol and generator dependencies.
+    # Retain the read-only module filename for execution source custody.
+    with TemporaryDirectory(prefix="controlled-batch-acquisition-") as name:
+        directory = Path(name)
+        (directory / "schema.yaml").write_bytes(
+            (root / "src/corpus_structure/model/semantic/core.yaml").read_bytes()
+        )
+        (directory / "control.py").write_bytes(sources.sources[0].content)
+        (directory / "algorithm.json").write_bytes(sources.boundary_contracts[0].content)
+        (directory / "target.yaml").write_text("""version: data-operation-inputs-v1
+root: core
+schemas: [{name: core, path: schema.yaml}]
+python:
+  sources: [{module: semantic.prepared_batch_control, path: control.py}]
+  interpreter: python-3.14
+  interpretation: closed-python-operations-v1
+  stub_policy: source-authoritative
+  boundary_contracts: [{name: controlled-batch/algorithm, path: algorithm.json}]
+""")
+        acquired = acquire_data_operation_inputs(directory, "target.yaml")
+    captured = CapturedKernelInputs(acquired.bundle, acquired.dependencies, acquired.profile)
+    dependencies, declarations, _ = split_captured_operations(captured)
     return KernelRecipe(
         "actual-prepared-batch-control",
         "",
         None,
         "",
         captured_inputs=CapturedKernelInputs(
-            bundle, dependencies, PreparationProfile(version="semantic-2")
+            acquired.bundle,
+            data_operation_dependencies(dependencies, declarations, sources),
+            acquired.profile,
         ),
     )

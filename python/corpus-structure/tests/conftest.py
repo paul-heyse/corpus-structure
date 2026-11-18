@@ -98,48 +98,17 @@ hypothesis_settings.register_profile(
 hypothesis_settings.register_profile("dev")
 hypothesis_settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "dev"))
 
-DB_FIXTURES = frozenset(
-    {
-        "domain_default_case",
-        "domain_formula_source",
-        "exclusion_case",
-        "exclusion_read_case",
-        "exclusion_literal_case",
-        "exclusion_refusal_family",
-        "occurrence_case",
-        "occurrence_refusal_family",
-        "imported_declaration_case",
-        "imported_membership_case",
-        "declared_membership_case",
-        "record_source_settings",
-        "ddo_original_source",
-        "db_server",
-        "native_server",
-        "commit_db_engine",
-        "semantic_head_template",
-        "semantic_bare_engine",
-        "semantic_database_at",
-        "semantic_absent_database",
-        "commit_writer_engine",
-        "commit_reader_engine",
-        "commit_evaluator_engine",
-        "commit_admitter_engine",
-        "commit_application_settings",
-        "native_read",
-        "native_rollback",
-        "commit_clone",
-        "infrastructure_engine",
-        "infrastructure_rollback",
-        "infrastructure_commit_engine",
-        "scenario_seeds",
-        "ddo_kernel",
-        "record_source_admin",
-        "record_source_writer",
-        "record_source_reader",
-        "record_source_evaluator",
-        "record_source_admitter",
-    }
-)
+
+@pytest.fixture(autouse=True)
+def clear_selected_query_cache():
+    module_name = "corpus_structure.semantic.selected_query_cache"
+    if (module := sys.modules.get(module_name)) is not None:
+        module.SELECTED_QUERY_CACHE.clear()
+    try:
+        yield
+    finally:
+        if (module := sys.modules.get(module_name)) is not None:
+            module.SELECTED_QUERY_CACHE.clear()
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -278,7 +247,7 @@ _prerequisite_cache = pytest.StashKey[dict[str, str | None]]()
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     for item in items:
-        if DB_FIXTURES & set(getattr(item, "fixturenames", ())):
+        if "native_server" in getattr(item, "fixturenames", ()):
             item.add_marker(pytest.mark.db)
 
 
@@ -483,6 +452,17 @@ def infrastructure_commit_engine(native_server: PgAdmin) -> Iterator[Engine]:
 
 
 @pytest.fixture(scope="session")
+def worker_kernel_binding(tmp_path_factory):
+    from semantic.data_operation_kernel_support import WorkerKernelBinding
+
+    binding = WorkerKernelBinding(tmp_path_factory.mktemp("kernel-preparation"))
+    try:
+        yield binding
+    finally:
+        binding.close()
+
+
+@pytest.fixture(scope="session")
 def scenario_seeds(native_server, semantic_head_template, native_settings, tmp_path_factory):
     from native_scenario_seeds import ScenarioSeeds
 
@@ -496,13 +476,15 @@ def scenario_seeds(native_server, semantic_head_template, native_settings, tmp_p
 
 
 @pytest.fixture
-def observed_store_checkouts(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+def observed_store_checkouts(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, infrastructure_engine: Engine
+):
     """Attach the existing recorder to actual Store sessions, including startup refusal."""
     from psycopg_pool import ConnectionPool
 
     from native_test_support import observe_connection
 
-    engine = request.getfixturevalue("infrastructure_engine")
+    engine = infrastructure_engine
     nodeid = request.node.nodeid
     check = ConnectionPool.check_connection
 
@@ -527,44 +509,6 @@ def original_target(tmp_path, request):
     from semantic.data_operation_kernel_support import original_target as build_original_target
 
     return build_original_target(tmp_path, request)
-
-
-@pytest.fixture
-def record_source_admin(private_source):
-    """Maintenance access to this source's owned committed clone."""
-    assert private_source.clone is not None
-    return private_source.clone.admin
-
-
-@pytest.fixture
-def record_source_writer(private_source):
-    assert private_source.clone is not None
-    return private_source.clone.writer
-
-
-@pytest.fixture
-def record_source_reader(private_source):
-    assert private_source.clone is not None
-    return private_source.clone.reader
-
-
-@pytest.fixture
-def record_source_evaluator(private_source):
-    assert private_source.clone is not None
-    return private_source.clone.evaluator
-
-
-@pytest.fixture
-def record_source_admitter(private_source):
-    assert private_source.clone is not None
-    return private_source.clone.admitter
-
-
-@pytest.fixture
-def record_source_settings(native_settings, record_source_admin):
-    database = record_source_admin.url.database
-    assert database is not None
-    return settings_for_native_clone(native_settings, database)
 
 
 @pytest.fixture

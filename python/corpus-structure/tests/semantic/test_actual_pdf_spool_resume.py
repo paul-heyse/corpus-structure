@@ -8,7 +8,11 @@ import pyarrow as pa
 import pytest
 
 from corpus_structure.ingest.pdf_build_spool import native_preparation_identity
-from corpus_structure.ingest.pdf_stream_types import OwnedPdfSource, PdfPageRecovery
+from corpus_structure.ingest.pdf_stream_types import (
+    OwnedPdfSource,
+    PdfPageRecovery,
+    PdfStreamRequest,
+)
 from corpus_structure.ingest.pdf_worker import PdfWorker
 from semantic.actual_pdf_resume_support import ORIGINAL, PAGE_RANGE, prepared_pdf_resume_assets
 
@@ -85,29 +89,33 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
             pytest.raises(InterruptedAfterDurablePage),
         ):
             worker.stream(
-                source,
-                spool_root=tmp_path / "interrupted",
-                record_root=tmp_path / "discarded-records",
-                build_id="controlled-recovery",
-                release_id="controlled-release",
+                PdfStreamRequest(
+                    source,
+                    spool_root=tmp_path / "interrupted",
+                    record_root=tmp_path / "discarded-records",
+                    build_id="controlled-recovery",
+                    release_id="controlled-release",
+                    page_range=PAGE_RANGE,
+                    **bindings,
+                ),
                 on_replay=stop_after_page,
-                page_range=PAGE_RANGE,
-                **bindings,
             )
         first = _recoveries(interrupted)
         assert len(first) == 1
         resumed_replays = []
         with closing(PdfWorker(recipe, assets=assets)) as worker:
             resumed = worker.stream(
-                source,
-                spool_root=tmp_path / "resumed",
-                record_root=tmp_path / "resumed-records",
-                build_id="controlled-recovery",
-                release_id="controlled-release",
+                PdfStreamRequest(
+                    source,
+                    spool_root=tmp_path / "resumed",
+                    record_root=tmp_path / "resumed-records",
+                    build_id="controlled-recovery",
+                    release_id="controlled-release",
+                    page_range=PAGE_RANGE,
+                    recovery_pages=first,
+                    **bindings,
+                ),
                 on_replay=resumed_replays.append,
-                page_range=PAGE_RANGE,
-                recovery_pages=first,
-                **bindings,
             )
         expected = set(range(PAGE_RANGE[0], PAGE_RANGE[1] + 1))
         computed = {item.page_no for item in resumed_replays if item.family == "page"}
@@ -117,15 +125,17 @@ def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
         replayed = []
         with closing(PdfWorker(recipe, assets=assets)) as worker:
             rebuilt = worker.stream(
-                source,
-                spool_root=tmp_path / "rebuilt",
-                record_root=tmp_path / "rebuilt-records",
-                build_id="controlled-recovery",
-                release_id="controlled-release",
+                PdfStreamRequest(
+                    source,
+                    spool_root=tmp_path / "rebuilt",
+                    record_root=tmp_path / "rebuilt-records",
+                    build_id="controlled-recovery",
+                    release_id="controlled-release",
+                    page_range=PAGE_RANGE,
+                    recovery_pages=all_pages,
+                    **bindings,
+                ),
                 on_replay=replayed.append,
-                page_range=PAGE_RANGE,
-                recovery_pages=all_pages,
-                **bindings,
             )
         assert not any(item.family in {"page", "candidate_payload"} for item in replayed)
         assert rebuilt.conversion_status == resumed.conversion_status == "success"

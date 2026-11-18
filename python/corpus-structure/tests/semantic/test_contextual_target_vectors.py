@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 from dataclasses import asdict, replace
-from types import SimpleNamespace
 
 import pytest
 
@@ -18,6 +17,7 @@ from corpus_structure.semantic.contextual_target_products import (
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.observations import source_python, source_value
+from semantic.controlled_encoder_support import controlled_encoder, controlled_vector
 
 
 def population(names):
@@ -37,15 +37,7 @@ def population(names):
 def controlled_model(monkeypatch):
     calls = []
 
-    def encode(texts, **options):
-        calls.append((texts, options))
-        return [(1.0, 0.0)] * len(texts)
-
-    model = SimpleNamespace(
-        tokenizer=SimpleNamespace(encode=lambda text, **k: tuple(text)),
-        encode_document=encode,
-        encode_query=encode,
-    )
+    model = controlled_encoder(lambda texts, options: calls.append((texts, options)))
     monkeypatch.setattr(
         embeddings, "_owned_cpu_encoder", lambda *a: (model, (("controlled", "1"),), ())
     )
@@ -119,7 +111,7 @@ def test_target_encoding_uses_document_profile_rendering_and_only_one_target(mon
     )
     assert result["original_source"] is None
     assert result["vector"]["object_id"] == "one"
-    assert result["vector"]["values"] == (1.0, 0.0)
+    assert result["vector"]["values"] == pytest.approx(controlled_vector(calls[0][0][0]))
     assert result["rendered"]["role"] == "document"
     assert len(calls) == 1 and len(calls[0][0]) == 1
     assert calls[0][1]["prompt"] == "passage: "

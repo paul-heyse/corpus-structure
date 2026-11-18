@@ -14,9 +14,17 @@ from typing import Any
 
 import pytest
 import yaml
-from pdf_acceptance_support import certify_controlled_pdf_stream
+from pdf_controlled_support import ControlledPdfContent, controlled_pdf_converter
+from scenario_recipes import register_scenario_builder
 from semantic.current_pdf_source_support import current_pdf_recipe
-from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
+from semantic.data_operation_kernel_support import (
+    CapturedKernelInputs,
+    Kernel,
+    KernelRecipe,
+    KernelSeedStage,
+    build_kernel,
+    split_captured_operations,
+)
 
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
@@ -38,7 +46,6 @@ def policy_recipe(directory):
     )
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
     from corpus_structure.semantic.reading_resolution_products import (
@@ -54,11 +61,17 @@ def policy_recipe(directory):
     original = current_pdf_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None
-    declared, source = acquired
-    assert source is not None
-    statistics = yaml.safe_load((ROOT / "domains/statistics/semantic.yaml").read_bytes())
+    base_dependencies, declared, source = split_captured_operations(captured)
+    from statistics_pack_support import statistics_bundle
+
+    statistics_inputs = statistics_bundle()
+    statistics = yaml.safe_load(
+        next(
+            source.content
+            for source in statistics_inputs.sources
+            if source.name == statistics_inputs.root
+        )
+    )
     statistics["classes"].pop("TableRecordFields")
     statistics["imports"] = ["core", "policy_fixture_terminology"]
     (terminology_module,), terminology_artifacts, ontology_names = acquire_terminology(
@@ -160,14 +173,9 @@ def policy_recipe(directory):
     # physical, helper and generator cut rather than acquiring any legacy catalog.
     dependencies = data_operation_dependencies(
         ResolvedDependencies(
-            tuple(
-                artifact
-                for artifact in captured.dependencies.artifacts
-                if not artifact.name.startswith("data-operations/")
-            )
-            + terminology_artifacts,
-            captured.dependencies.vocabularies,
-            (*captured.dependencies.ontology_sources, *ontology_names),
+            base_dependencies.artifacts + terminology_artifacts,
+            base_dependencies.vocabularies,
+            (*base_dependencies.ontology_sources, *ontology_names),
         ),
         (
             *declared,
@@ -188,23 +196,10 @@ def policy_recipe(directory):
     )
 
 
-def controlled_table_stream(
-    self,
-    source,
-    *,
-    spool_root,
-    record_root,
-    build_id,
-    release_id,
-    on_replay,
-    check_active,
-    **options,
-):
+def table_source_content():
     from docling_core.types.doc import DoclingDocument, GroupLabel, TableCell, TableData
+    from pdf_controlled_support import ControlledPdfContent
 
-    from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-
-    check_active()
     document = DoclingDocument(name="Independent native two-cell source")
     section = document.add_group(label=GroupLabel.SECTION, name="Measurements")
     document.add_table(
@@ -224,24 +219,7 @@ def controlled_table_stream(
             ],
         ),
     )
-    result = StreamingPdfResult(
-        document,
-        PdfStreamSpool(spool_root, check_active=check_active),
-        "success",
-        (),
-        self.recipe.to_bytes(),
-        (),
-    )
-    return certify_controlled_pdf_stream(
-        result,
-        source,
-        spool_root=spool_root,
-        record_root=record_root,
-        build_id=build_id,
-        release_id=release_id,
-        on_replay=on_replay,
-        **options,
-    )
+    return ControlledPdfContent.from_document(document)
 
 
 @dataclass(frozen=True)
@@ -330,13 +308,11 @@ class CurrentRecordPolicyJourney:
             return cut, tuple(products), uses, episodes, outputs
 
 
-@contextmanager
-def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, recipe, source_count=4):
+def _capture_record_policy(kernel, tmp_path, source_count):
     import pypdfium2 as pdfium
 
     from corpus_structure.core.evidence import document_key
     from corpus_structure.evaluate.declared_record_policy import _selected_body
-    from corpus_structure.ingest import pdf_worker
     from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_model import json_context_meaning
@@ -351,149 +327,218 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
     )
     from corpus_structure.semantic.selected_support import SelectedReadReference
 
-    monkeypatch.setattr(pdf_worker.PdfWorker, "stream", controlled_table_stream)
-    with scenario_seeds.commit_clone(recipe) as clone:
-        kernel = Kernel(clone.admin, clone.stage.preparation, clone.stage.identities, recipe, clone)
-        with kernel.purpose("write").begin() as connection:
-            DataOperationStorage(connection).initialize_source_project(
-                {
-                    "project_id": ProjectId(PROJECT),
-                    "release_id": ReleaseId(kernel.prepared.release_id),
-                }
+    with kernel.purpose("write").begin() as connection:
+        DataOperationStorage(connection).initialize_source_project(
+            {
+                "project_id": ProjectId(PROJECT),
+                "release_id": ReleaseId(kernel.prepared.release_id),
+            }
+        )
+        originals = []
+        for ordinal in range(source_count):
+            document = pdfium.PdfDocument.new()
+            page = document.new_page(200 + ordinal, 300)
+            page.close()
+            output = BytesIO()
+            document.save(output)
+            document.close()
+            content = output.getvalue()
+            path = tmp_path / f"independent-policy-{ordinal}.pdf"
+            path.write_bytes(content)
+            register_original_document(
+                connection,
+                prepared=kernel.prepared,
+                project_id=PROJECT,
+                source_uri=path.name,
+                original_path=str(path),
+                original=content,
+                mime="application/pdf",
             )
-            originals = []
-            for ordinal in range(source_count):
-                document = pdfium.PdfDocument.new()
-                page = document.new_page(200 + ordinal, 300)
-                page.close()
-                output = BytesIO()
-                document.save(output)
-                document.close()
-                content = output.getvalue()
-                path = tmp_path / f"independent-policy-{ordinal}.pdf"
-                path.write_bytes(content)
-                register_original_document(
+            key = document_key(PROJECT, path.name, sha256(content).hexdigest())
+            originals.append(
+                acquire_original_document_selection(
                     connection,
-                    prepared=kernel.prepared,
                     project_id=PROJECT,
-                    source_uri=path.name,
-                    original_path=str(path),
-                    original=content,
-                    mime="application/pdf",
+                    document_key=key,
+                    name=f"policy-original-{ordinal}",
                 )
-                key = document_key(PROJECT, path.name, sha256(content).hexdigest())
-                originals.append(
-                    acquire_original_document_selection(
-                        connection,
-                        project_id=PROJECT,
-                        document_key=key,
-                        name=f"policy-original-{ordinal}",
-                    )
-                )
-                path.unlink()
-            intent = freeze_demand(
-                kernel.model,
-                roots=tuple(item.root for item in originals),
-                targets=("source.pdf_views/discovery",),
-                original_sources=tuple(item.selection() for item in originals),
-                inference="current-record-policy-source",
-                execution_profile=recipe.execution_profile,
             )
-            demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
-                intent, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
-            )["demand_id"]
-        result = execute_data_demand(
-            kernel.purpose("write"),
-            demand,
-            source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
-            project_id=PROJECT,
-            database_capacity=6,
+            path.unlink()
+        intent = freeze_demand(
+            kernel.model,
+            roots=tuple(item.root for item in originals),
+            targets=("source.pdf_views/discovery",),
+            original_sources=tuple(item.selection() for item in originals),
+            inference="current-record-policy-source",
+            execution_profile=kernel.recipe.execution_profile,
         )
-        assert result.receipt_count == 2 * source_count
-        contracts = {
-            identity.key
-            for identity in kernel.model.identities
-            if identity.domain == "kind"
-            and identity.owner
-            == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
-        }
-        selected = []
-        with (
-            kernel.purpose("evaluate").begin() as connection,
-            selected_record_index(
-                connection, demand, project_id=PROJECT, scope={}, capture_frontier=True
-            ) as (
-                source_cut,
-                index,
-            ),
-        ):
-            source_read = SelectedReadReference.from_cut(source_cut)
-            for row in index.rows("kb.data_product_member"):
-                if row["kind_contract"] not in contracts:
-                    continue
-                _, body = _selected_body(index, row["product_id"], row["member_id"])
-                if not any(item["label"] == "table" for item in body["items"]):
-                    continue
-                coordinate = body["source"]
-                pin = DeclaredStructuralSource(
-                    source=canonical_bytes([row["product_id"], row["member_id"]]).decode(),
-                    source_product=row["product_id"],
-                    source_member=row["member_id"],
-                    subject=row["subject"],
-                    subject_definition=row["subject_definition"],
-                    document=coordinate["document"],
-                    original_source=row["original_source"],
-                    projection_digest=coordinate["projection"],
-                    section_pointer=coordinate["section_pointer"],
-                    membership=coordinate["membership"],
-                    project_id=PROJECT,
-                    analyzed_scope_meaning=json_context_meaning(
-                        json_bytes(row["analyzed_scope"])
-                    ).decode(),
-                    kind_contract=row["kind_contract"],
-                )
-                (selected_entry,) = selected_product_entries(
-                    index, source_read, row["product_id"], row["member_id"]
-                )
-                selected.append(
-                    SourceChoice(
-                        pin,
-                        body,
-                        SubjectContext(
-                            PROJECT,
-                            row["subject"],
-                            row["original_source"],
-                            json_bytes(row["analyzed_scope"]),
-                            subject_definition=row["subject_definition"],
-                        ),
-                        selected_entry,
-                    )
-                )
-        # The source-only question selects one actual table-bearing native region
-        # per independent original before any candidate, score or label exists.
-        by_original = {}
-        for item in selected:
-            by_original.setdefault(item.pin.original_source, []).append(item)
-        selected = [
-            min(
-                items,
-                key=lambda item: (
-                    len(item.body["items"]),
-                    item.pin.section_pointer,
-                    item.pin.membership,
-                ),
-            )
-            for items in by_original.values()
-        ]
-        assert len(selected) == source_count
-        assert len({pin.original_source for pin in (item.pin for item in selected)}) == source_count
-        yield CurrentRecordPolicyJourney(
-            kernel,
-            demand,
-            tuple(sorted(selected, key=lambda item: item.pin.original_source)),
+        demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
+            intent, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
+        )["demand_id"]
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+
+    # The controlled content yields identical shared stream parts across the
+    # originals. This scenario exercises derived record publication, so let
+    # each capture publish those parts before another capture reuses them.
+    result = execute_data_demand(
+        kernel.purpose("write"),
+        demand,
+        source_root=ROOT,
+        admission_engine=kernel.purpose("admit"),
+        project_id=PROJECT,
+        database_capacity=6,
+        policy=CharacterizationExecutionPolicy(
+            workers=1, max_submissions=1, max_regions=1, max_claims=1
+        ),
+    )
+    assert result.receipt_count == 2 * source_count
+    contracts = {
+        identity.key
+        for identity in kernel.model.identities
+        if identity.domain == "kind"
+        and identity.owner
+        == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
+    }
+    selected = []
+    with (
+        kernel.purpose("evaluate").begin() as connection,
+        selected_record_index(
+            connection, demand, project_id=PROJECT, scope={}, capture_frontier=True
+        ) as (
             source_cut,
+            index,
+        ),
+    ):
+        source_read = SelectedReadReference.from_cut(source_cut)
+        for row in index.rows("kb.data_product_member"):
+            if row["kind_contract"] not in contracts:
+                continue
+            _, body = _selected_body(index, row["product_id"], row["member_id"])
+            if not any(item["label"] == "table" for item in body["items"]):
+                continue
+            coordinate = body["source"]
+            pin = DeclaredStructuralSource(
+                source=canonical_bytes([row["product_id"], row["member_id"]]).decode(),
+                source_product=row["product_id"],
+                source_member=row["member_id"],
+                subject=row["subject"],
+                subject_definition=row["subject_definition"],
+                document=coordinate["document"],
+                original_source=row["original_source"],
+                projection_digest=coordinate["projection"],
+                section_pointer=coordinate["section_pointer"],
+                membership=coordinate["membership"],
+                project_id=PROJECT,
+                analyzed_scope_meaning=json_context_meaning(
+                    json_bytes(row["analyzed_scope"])
+                ).decode(),
+                kind_contract=row["kind_contract"],
+            )
+            (selected_entry,) = selected_product_entries(
+                index, source_read, row["product_id"], row["member_id"]
+            )
+            selected.append(
+                SourceChoice(
+                    pin,
+                    body,
+                    SubjectContext(
+                        PROJECT,
+                        row["subject"],
+                        row["original_source"],
+                        json_bytes(row["analyzed_scope"]),
+                        subject_definition=row["subject_definition"],
+                    ),
+                    selected_entry,
+                )
+            )
+    # The source-only question selects one actual table-bearing native region
+    # per independent original before any candidate, score or label exists.
+    by_original = {}
+    for item in selected:
+        by_original.setdefault(item.pin.original_source, []).append(item)
+    selected = [
+        min(
+            items,
+            key=lambda item: (
+                len(item.body["items"]),
+                item.pin.section_pointer,
+                item.pin.membership,
+            ),
         )
+        for items in by_original.values()
+    ]
+    assert len(selected) == source_count
+    assert len({pin.original_source for pin in (item.pin for item in selected)}) == source_count
+    return CurrentRecordPolicyJourney(
+        kernel,
+        demand,
+        tuple(sorted(selected, key=lambda item: item.pin.original_source)),
+        source_cut,
+    )
+
+
+@contextmanager
+def current_record_policy_journey(
+    scenario_seeds, tmp_path, monkeypatch, *, recipe, source_count=4, content=None
+):
+    with (
+        controlled_pdf_converter(table_source_content() if content is None else content),
+        scenario_seeds.build_for_consumer(recipe, tmp_path) as clone,
+    ):
+        kernel = Kernel(clone.admin, clone.stage.preparation, clone.stage.identities, recipe, clone)
+        yield _capture_record_policy(kernel, tmp_path, source_count)
+
+
+@dataclass(frozen=True)
+class RecordPublicationCapture:
+    content: ControlledPdfContent
+    source_count: int = 4
+
+
+@dataclass(frozen=True)
+class RecordPublicationStage:
+    kernel: KernelSeedStage
+    source_demand: str
+    sources: tuple[SourceChoice, ...]
+    source_cut: CutSelection
+
+    @property
+    def seed_files(self):
+        return self.kernel.seed_files
+
+    @property
+    def seed_origin(self):
+        return {"capture_producer": "controlled-record-publication"}
+
+    def validate_clone(self, admin):
+        self.kernel.validate_clone(admin)
+
+    def acquired(self, clone):
+        from copy import deepcopy
+
+        stage = self.kernel
+        kernel = Kernel(clone.admin, stage.preparation, stage.identities, stage.recipe, clone)
+        return CurrentRecordPolicyJourney(
+            kernel, self.source_demand, deepcopy(self.sources), self.source_cut
+        )
+
+
+def _build_record_publication(scenario, admin, writer, directory, *, purpose_engine):
+    from types import SimpleNamespace
+
+    from semantic.record_publication_native_support import publication_recipe
+
+    recipe = publication_recipe(directory)
+    stage = build_kernel(recipe, admin, writer, directory, purpose_engine=purpose_engine)
+    kernel = Kernel(
+        admin, stage.preparation, stage.identities, recipe, SimpleNamespace(purpose=purpose_engine)
+    )
+    with controlled_pdf_converter(scenario.content):
+        journey = _capture_record_policy(kernel, directory, scenario.source_count)
+    return RecordPublicationStage(stage, journey.source_demand, journey.sources, journey.source_cut)
+
+
+register_scenario_builder(RecordPublicationCapture, _build_record_publication)
 
 
 @pytest.fixture

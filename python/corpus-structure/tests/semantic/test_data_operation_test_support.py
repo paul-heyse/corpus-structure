@@ -159,9 +159,9 @@ def test_actual_package_kernel_inputs_preserve_read_only_source_custody(monkeypa
     )
     from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
     from corpus_structure.semantic.demand_results import CutSelection
-    from semantic.test_demand_results import _page
+    from semantic.demand_result_support import demand_result_page
 
-    page = _page()
+    page = demand_result_page()
     page.update(project_id=current_sources.PROJECT)
     cut = CutSelection.from_native(page)
     rows = tuple(

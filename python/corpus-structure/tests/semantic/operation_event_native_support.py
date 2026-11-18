@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from semantic.current_pdf_source_support import PROJECT, ROOT
+from semantic.data_operation_kernel_support import split_captured_operations
 from semantic.structural_admission_native_support import Product
 from semantic.structural_production_native_support import recipe as structural_recipe
 
@@ -21,33 +22,20 @@ def recipe(directory):
     )
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.operation_score_sources import (
         operation_score_inputs,
         operation_score_sources,
     )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
-    from corpus_structure.semantic.types import ResolvedDependencies
     from semantic.operation_event_feature_fixture import operation_sources as feature_sources
 
     original = structural_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None and acquired[1] is not None
-    declarations, sources = acquired
-    assert sources is not None
+    base_dependencies, declarations, sources = split_captured_operations(captured)
     dependencies = data_operation_dependencies(
-        ResolvedDependencies(
-            tuple(
-                artifact
-                for artifact in captured.dependencies.artifacts
-                if not artifact.name.startswith("data-operations/")
-            ),
-            captured.dependencies.vocabularies,
-            captured.dependencies.ontology_sources,
-        ),
+        base_dependencies,
         (*declarations, *operation_score_inputs(), operation_event_kind_declarations()),
         combine_primary_sources(
             sources,

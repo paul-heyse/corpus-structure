@@ -7,9 +7,9 @@ from typing import Any
 
 import pglast
 import pytest
+from native_refusals import native_refusal
 from pglast import ast
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from semantic.data_operation_binding_support import (
@@ -113,10 +113,12 @@ def test_population_filter_uses_only_frozen_active_choice(selection_connection):
     predicate = project(selection_connection, node, choices={"which": "items"})
     assert evaluate(selection_connection, predicate, context(15)) is True
     assert evaluate(selection_connection, predicate, context(5)) is False
-    with selection_connection.begin_nested() as savepoint:
-        with pytest.raises(DBAPIError, match="not uniquely frozen"):
-            project(selection_connection, node, choices={"which": "unknown"})
-        savepoint.rollback()
+    with (
+        native_refusal("P0001", message="population filter branch is not uniquely frozen"),
+        selection_connection.begin_nested(),
+    ):
+        project(selection_connection, node, choices={"which": "unknown"})
+    assert project(selection_connection, node, choices={"which": "items"}) == predicate
 
 
 @pytest.mark.db
@@ -145,25 +147,43 @@ def test_population_filter_optional_parameter_absence_preserves_native_semantics
 
 @pytest.mark.db
 @pytest.mark.parametrize(
-    "node",
+    ("node", "reason"),
     [
-        {"operator": "unreviewed", "roles": ["items"]},
-        {"operator": "absent", "roles": ["items"], "population": "selected-items"},
-        {
-            "operator": "membership",
-            "operands": [field(), {"kind": "population", "name": "selected-items"}],
-        },
-        {
-            "operator": "optional",
-            "children": [within(), {"operator": "cardinality", "roles": ["items"], "maximum": 1}],
-        },
+        (
+            {"operator": "unreviewed", "roles": ["items"]},
+            "unrepresentable selected-population filter operator",
+        ),
+        (
+            {"operator": "absent", "roles": ["items"], "population": "selected-items"},
+            "absence cannot define a positive selected population",
+        ),
+        (
+            {
+                "operator": "membership",
+                "operands": [field(), {"kind": "population", "name": "selected-items"}],
+            },
+            "selected population filter requires explicit non-circular membership operands",
+        ),
+        (
+            {
+                "operator": "optional",
+                "children": [
+                    within(),
+                    {"operator": "cardinality", "roles": ["items"], "maximum": 1},
+                ],
+            },
+            "optional population filter is not a closed row-local predicate",
+        ),
     ],
 )
-def test_population_filter_refuses_unrepresentable_role_qualification(selection_connection, node):
-    with selection_connection.begin_nested() as savepoint:
-        with pytest.raises(DBAPIError):
-            project(selection_connection, node)
-        savepoint.rollback()
+def test_population_filter_refuses_unrepresentable_role_qualification(
+    selection_connection, node, reason
+):
+    predicate = project(selection_connection, within())
+    assert evaluate(selection_connection, predicate, context(15)) is True
+    with native_refusal("P0001", message=reason), selection_connection.begin_nested():
+        project(selection_connection, node)
+    assert project(selection_connection, within()) == predicate
 
 
 @pytest.mark.db

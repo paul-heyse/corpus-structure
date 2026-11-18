@@ -12,6 +12,7 @@ from evaluate.declared_record_native_support import (
     request,
 )
 
+from semantic.data_operation_kernel_support import split_captured_operations
 from semantic.record_publication_native_support import RichPublication
 from semantic.rich_domain_preservation_support import NS
 
@@ -22,7 +23,6 @@ def toy_recipe(directory):
 
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.primary_operations import combine_primary_sources
@@ -33,18 +33,20 @@ def toy_recipe(directory):
         rich_knowledge_schema_inputs,
         rich_policy_inputs,
     )
-    from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
     from semantic.current_pdf_source_support import current_pdf_recipe
     from semantic.data_operation_kernel_support import CapturedKernelInputs
 
     original = current_pdf_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None and acquired[1] is not None
-    declarations, sources = acquired
-    assert sources is not None
-    toy_schema = yaml.safe_load((ROOT / "domains/toy/semantic.yaml").read_bytes())
+    base_dependencies, declarations, sources = split_captured_operations(captured)
+    from corpus_structure.semantic.regeneration import acquire_pack
+
+    acquired_toy = acquire_pack(ROOT / "domains/toy").bundle
+    toy_schema = yaml.safe_load(
+        next(source.content for source in acquired_toy.sources if source.name == acquired_toy.root)
+    )
     toy_schema["imports"] = ["core"]
     toy = SourceArtifact("toy_semantic", yaml.safe_dump(toy_schema).encode())
     root = SourceArtifact(
@@ -52,15 +54,7 @@ def toy_recipe(directory):
         f"id: urn:toy-native-controls\nname: toy_native_controls\nimports: [{captured.bundle.root}, toy_semantic]\n".encode(),
     )
     bundle = SourceBundle(root.name, (*captured.bundle.sources, toy, root))
-    deps = ResolvedDependencies(
-        tuple(
-            artifact
-            for artifact in captured.dependencies.artifacts
-            if not artifact.name.startswith("data-operations/")
-        ),
-        captured.dependencies.vocabularies,
-        captured.dependencies.ontology_sources,
-    )
+    deps = base_dependencies
     bundle, deps = rich_knowledge_schema_inputs(
         bundle, deps, qualification_class="ToyQualification", statement_class="ToySourceStatement"
     )
@@ -90,26 +84,11 @@ def toy_publication(scenario_seeds, tmp_path, monkeypatch):
         yield journey
 
 
-def decimal_source_stream(
-    self,
-    source,
-    *,
-    spool_root,
-    record_root,
-    build_id,
-    release_id,
-    on_replay,
-    check_active,
-    text="12.3400",
-    **options,
-):
+def decimal_source_content(text="12.3400"):
     """Controlled Docling output with literal spelling; no PDF recognition accuracy claim."""
     from docling_core.types.doc import DoclingDocument, GroupLabel, TableCell, TableData
-    from pdf_acceptance_support import certify_controlled_pdf_stream
+    from pdf_controlled_support import ControlledPdfContent
 
-    from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-
-    check_active()
     document = DoclingDocument(name="Exact decimal spelling source")
     section = document.add_group(label=GroupLabel.SECTION, name="Measurements")
     document.add_table(
@@ -129,24 +108,7 @@ def decimal_source_stream(
             ],
         ),
     )
-    result = StreamingPdfResult(
-        document,
-        PdfStreamSpool(spool_root, check_active=check_active),
-        "success",
-        (),
-        self.recipe.to_bytes(),
-        (),
-    )
-    return certify_controlled_pdf_stream(
-        result,
-        source,
-        spool_root=spool_root,
-        record_root=record_root,
-        build_id=build_id,
-        release_id=release_id,
-        on_replay=on_replay,
-        **options,
-    )
+    return ControlledPdfContent.from_document(document)
 
 
 def publish_domain(journey, graph, *, inference):

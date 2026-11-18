@@ -15,8 +15,8 @@ from corpus_structure.semantic.sentence_products import (
     source_annotation_rows,
     validate_source_annotations,
 )
-from semantic.test_source_annotations import acquired as acquired
-from semantic.test_source_annotations import detached as detached
+from semantic.source_annotations_test_support import acquired as acquired
+from semantic.source_annotations_test_support import detached as detached
 
 
 def test_declared_maverick_mapping_retains_original_contributions_and_context_hypotheses(

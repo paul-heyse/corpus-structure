@@ -6,6 +6,7 @@ import io
 import threading
 from contextlib import contextmanager
 from dataclasses import replace
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import event, text
@@ -17,6 +18,64 @@ from test_prerequisites import PrerequisiteUnavailable
 
 def name(kind="test"):
     return database_name(kind, pid=999999999).name
+
+
+def test_clone_policy_is_verified_once_after_replay(native_server, monkeypatch):
+    source, target = name("bare"), name()
+    with native_server.database(source, native_server.template):
+        expected = native_server.policy(source)
+        observed = []
+        policy = native_server.policy
+
+        def read(database):
+            observed.append(database)
+            return policy(database)
+
+        monkeypatch.setattr(native_server, "policy", read)
+        with native_server.database(target, source, policy=expected):
+            # Replay reads the initial policy, then verifies its final postcondition once.
+            assert observed == [target, target]
+
+
+def test_deployment_role_observation_retains_effective_policy(native_server):
+    from corpus_structure.core.db.host_bootstrap import observe_semantic_role_policy
+    from native_test_support import semantic_principals
+
+    native_server.semantic_ready()
+    names = tuple(semantic_principals().values())
+    with native_server.connect() as connection:
+        observed = observe_semantic_role_policy(connection, names)
+    roles = {role["rolname"]: role for role in observed["roles"]}
+    assert set(roles) == set(names)
+    assert all(not role["rolbypassrls"] and not role["rolsuper"] for role in roles.values())
+    assert roles["corpus_sem_publisher"]["rolcanlogin"] is False
+    assert roles["corpus_sem_fitter"]["rolinherit"] is False
+    assert not any(item["member_name"] in names for item in observed["memberships"])
+    publisher = [
+        item for item in observed["memberships"] if item["role_name"] == "corpus_sem_publisher"
+    ]
+    assert publisher
+    assert all(item["set_option"] and not item["inherit_option"] for item in publisher)
+
+
+def test_failed_frozen_verification_replaces_owned_head_before_use(native_server, monkeypatch):
+    from corpus_structure.semantic import execution_admission, migrations
+
+    def refuse(connection, *, revision):
+        raise execution_admission.ExecutionAdmissionError("authored stale catalog refusal")
+
+    # A unique key keeps this repair control independent of the worker's shared deployment.
+    with native_server.deployment(key=uuid4().hex, run_private=False) as deployment:
+        stale = deployment.name
+        deployment.verification = "pending"
+        monkeypatch.setattr(execution_admission, "verify_deployment_catalog", refuse)
+        with deployment.clone(name()) as engine:
+            assert deployment.name != stale
+            assert deployment.gap is not None
+            assert deployment.gap["reason"] == "authored stale catalog refusal"
+            assert deployment.verification == "fresh"
+            with engine.connect() as connection:
+                assert migrations.current_revision(connection) == migrations.head_revision()
 
 
 def test_head_is_sealed_and_has_no_migration_backend(native_server, semantic_head_template):
@@ -146,9 +205,10 @@ def test_missing_roles_are_one_typed_preflight(native_server, db_support):
     assert all(role in failure.value.reason for role in missing.values())
 
 
-@pytest.mark.db
 @pytest.mark.parametrize("purpose", ["write", "read", "evaluate", "admit"])
-def test_actual_restricted_principals_deny_temp_dml_reference_and_escalation(request, purpose):
+def test_actual_restricted_principals_deny_temp_dml_reference_and_escalation(
+    request, purpose, commit_db_engine
+):
     engines = {
         "write": "commit_writer_engine",
         "read": "commit_reader_engine",

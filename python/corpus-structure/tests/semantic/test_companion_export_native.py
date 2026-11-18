@@ -18,15 +18,15 @@ from corpus_structure.serve.companion_export import (
     inventory_companion_export,
 )
 from semantic.companion_export_native_support import read_settings as read_settings
-from semantic.current_pdf_source_support import current_pdf_source as current_pdf_source
+from semantic.current_pdf_source_support import published_pdf_source as published_pdf_source
 
 
 def test_current_selected_companion_families_export_exact_empty_populations(
-    current_pdf_source,
+    published_pdf_source,
     native_settings,
     tmp_path,
 ):
-    source = current_pdf_source
+    source = published_pdf_source
     with source.kernel.purpose("read").begin() as connection:
         pin, _ = source.publication(connection)
     target = tmp_path / "export"
@@ -98,7 +98,7 @@ def test_json_direction_preserves_transport_nulls(
 
 @pytest.mark.parametrize("phase", ["metadata", "handoff", "bulk"])
 def test_export_cancellation_spans_actual_metadata_handoff_and_bulk(
-    current_pdf_source, native_settings, tmp_path, monkeypatch, phase
+    published_pdf_source, native_settings, tmp_path, monkeypatch, phase
 ):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
@@ -110,7 +110,7 @@ def test_export_cancellation_spans_actual_metadata_handoff_and_bulk(
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.serve import companion_export as export
 
-    source = current_pdf_source
+    source = published_pdf_source
     commit_db_engine = source.kernel.engine
     commit_reader_engine = source.kernel.purpose("read")
     with commit_reader_engine.begin() as connection:

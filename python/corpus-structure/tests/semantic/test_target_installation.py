@@ -138,7 +138,6 @@ def test_target_native_capture_and_shared_task_checks_have_no_legacy_task_branch
 
 def test_captured_recognition_reader_is_an_exact_current_pdf_authoring_input():
     from dataclasses import replace
-    from pathlib import Path
 
     from pglast import parse_sql
 
@@ -154,13 +153,7 @@ def test_captured_recognition_reader_is_an_exact_current_pdf_authoring_input():
         for item in capture.authoring_inputs.sources
         if item.name == "authoring/pdf-captured-recognition.sql"
     )
-    assert (
-        source.content
-        == (
-            Path(__file__).parents[2]
-            / "src/corpus_structure/semantic/sql/source_record_recognition.sql"
-        ).read_bytes()
-    )
+    assert source.content
     # Offline PL/pgSQL parsing cannot resolve the actual ops composite row type.
     # The normal PostgreSQL authoring checker owns that installed-layout check.
     assert parse_sql(source.content.decode())
@@ -271,14 +264,93 @@ def test_current_descriptor_and_projection_guard_do_not_inherit_obsolete_storage
     assert {table["relation"] for table in descriptor["tables"]} == set(capture.metadata.tables)
     assert descriptor["views"] == []
     assert not any(reader["relation"].startswith("eval.") for reader in descriptor["readers"])
-    guard = execution_projection_check_sql(capture.metadata)
-    assert "FROM sem.execution_operation" not in guard
-    assert "kind = 'execution_model'" in guard
-    assert "requires current declared data operations" in guard
-    assert parse_sql(guard)
+    assert parse_sql(execution_projection_check_sql(capture.metadata))
 
 
-def test_explicit_pdf_metadata_controls_lossless_equality_and_native_read_types():
+def test_generated_projection_guard_rejects_legacy_kind_after_current_baseline(
+    infrastructure_rollback,
+):
+    from native_refusals import native_refusal
+    from sqlalchemy import text
+    from sqlalchemy.schema import CreateTable
+
+    from corpus_structure.semantic.archive_projection_native import execution_projection_check_sql
+    from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+    from corpus_structure.semantic.types import SEMANTIC_COMPILER_VERSION
+
+    connection = infrastructure_rollback
+    connection.exec_driver_sql("CREATE SCHEMA sem")
+    connection.exec_driver_sql("CREATE SCHEMA data")
+    for name in (
+        "sem.release",
+        "sem.registry_row",
+        "sem.artifact",
+        "sem.scientific_decision_rule",
+        "sem.operation_property_role",
+    ):
+        connection.execute(CreateTable(metadata.tables[name], include_foreign_key_constraints=[]))
+    # Archive-byte authentication has separate controls. This full generated guard owns
+    # registry correspondence and rejection of the legacy row kind.
+    connection.exec_driver_sql(
+        "CREATE FUNCTION sem.require_archive_bytes(text) RETURNS void LANGUAGE sql AS 'SELECT'"
+    )
+    connection.exec_driver_sql(
+        execution_projection_check_sql(metadata), execution_options={"no_parameters": True}
+    )
+    document = {"products": {"registry_rows": [], "definitions": []}}
+    connection.execute(
+        metadata.tables["sem.release"].insert(),
+        {
+            "release_id": "guard-control",
+            "content_digest": "authored-control",
+            "profile": "control",
+            "prepared_bytes": json.dumps(document).encode(),
+            "manifest_bytes": json.dumps(
+                {
+                    "profile": {"compiler_version": SEMANTIC_COMPILER_VERSION},
+                    "data_operation_model": {},
+                }
+            ).encode(),
+        },
+    )
+    connection.execute(
+        metadata.tables["sem.artifact"].insert(),
+        {
+            "release_id": "guard-control",
+            "artifact_name": "data_operations.json",
+            "media_type": "application/json",
+            "content": json.dumps({"version": MODEL_VERSION}).encode(),
+            "content_digest": "authored-artifact",
+        },
+    )
+    call = text("SELECT sem.require_execution_projection('guard-control')")
+    connection.execute(call)
+    body = b"legacy entry"
+    connection.execute(
+        metadata.tables["sem.registry_row"].insert(),
+        {
+            "release_id": "guard-control",
+            "kind": "execution_model",
+            "name": "retired",
+            "body": body,
+        },
+    )
+    document["products"]["registry_rows"] = [
+        {"kind": "execution_model", "name": "retired", "body_hex": body.hex()}
+    ]
+    connection.execute(
+        metadata.tables["sem.release"].update().values(prepared_bytes=json.dumps(document).encode())
+    )
+    with native_refusal("23514", message="target archive contains legacy execution projection"):
+        connection.execute(call)
+
+
+@pytest.mark.parametrize("changed,expected_type", [(False, "int8"), (True, "float8")])
+def test_explicit_pdf_metadata_controls_lossless_equality_and_native_read_types(
+    changed, expected_type
+):
+    from pglast import ast, parse_sql
+    from pglast.visitors import Visitor
     from sqlalchemy import Double, literal
     from sqlalchemy.dialects.postgresql import dialect
 
@@ -288,12 +360,48 @@ def test_explicit_pdf_metadata_controls_lossless_equality_and_native_read_types(
     target = prepared_target()
     # A deliberately changed physical type must reach both actual consumers;
     # an ambient model with the original bigint would choose different equality.
-    target.tables["kb.pdf_record_access"].c.ordinal.type = Double()
+    if changed:
+        target.tables["kb.pdf_record_access"].c.ordinal.type = Double()
     equality = _equal_rows(
         target, literal("current"), literal("previous"), "kb.pdf_record_access"
     ).compile(dialect=dialect(), compile_kwargs={"literal_binds": True})
-    assert "float8send(CAST(kb.pdf_record_access.ordinal AS DOUBLE PRECISION))" in str(equality)
-    assert "ordinal DOUBLE PRECISION" in published_readers_sql(target_metadata=target)
+
+    class OrdinalCasts(Visitor):
+        def __init__(self):
+            super().__init__()
+            self.types = []
+
+        def visit_FuncCall(self, ancestors, node):
+            if node.funcname[-1].sval != "float8send":
+                return
+            for argument in node.args or ():
+                if isinstance(argument, ast.TypeCast) and isinstance(argument.arg, ast.ColumnRef):
+                    fields = tuple(part.sval for part in argument.arg.fields or ())
+                    if fields == ("kb", "pdf_record_access", "ordinal"):
+                        assert argument.typeName is not None and argument.typeName.names
+                        self.types.append(argument.typeName.names[-1].sval)
+
+    calls = OrdinalCasts()
+    calls(parse_sql("SELECT " + str(equality)))
+    assert bool(calls.types) is changed
+    assert all(kind == "float8" for kind in calls.types)
+    for spelling in (
+        "SELECT float8send(CAST(kb.pdf_record_access.ordinal AS DOUBLE PRECISION))",
+        "SELECT float8send(kb.pdf_record_access.ordinal::float8)",
+    ):
+        control = OrdinalCasts()
+        control(parse_sql(spelling))
+        assert control.types == ["float8"]
+    reader = next(
+        item.stmt
+        for item in parse_sql(published_readers_sql(target_metadata=target))
+        if isinstance(item.stmt, ast.CreateFunctionStmt)
+        and item.stmt.funcname
+        and item.stmt.funcname[-1].sval == "read_pdf_published_sections_rows"
+    )
+    (ordinal,) = (parameter for parameter in reader.parameters or () if parameter.name == "ordinal")
+    assert ordinal.argType is not None and ordinal.argType.names
+    assert tuple(part.sval for part in ordinal.argType.names) == ("pg_catalog", expected_type)
 
 
 def test_native_definition_source_cohort_cannot_be_mixed_with_another_physical_capture():

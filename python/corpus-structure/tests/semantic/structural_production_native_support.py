@@ -8,6 +8,7 @@ functional cases, not a population or universal linguistic accuracy claim.
 from dataclasses import replace
 
 from semantic.current_pdf_source_support import PROJECT, ROOT, current_pdf_recipe
+from semantic.data_operation_kernel_support import split_captured_operations
 from semantic.structural_admission_native_support import Product, execute
 
 NAMED = "structure.definition_named_components/declared"
@@ -23,7 +24,6 @@ def recipe(directory):
     from corpus_structure.semantic.characterization_ports import construction_operation_sources
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
-        read_data_operation_inputs,
     )
     from corpus_structure.semantic.construction_products import load_construction_options
     from corpus_structure.semantic.declared_structural_admission import (
@@ -46,17 +46,10 @@ def recipe(directory):
     original = current_pdf_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
-    acquired = read_data_operation_inputs(captured.dependencies)
-    assert acquired is not None
-    declarations, sources = acquired
-    assert sources is not None
+    base_dependencies, declarations, sources = split_captured_operations(captured)
     deps = ResolvedDependencies(
         (
-            *tuple(
-                item
-                for item in captured.dependencies.artifacts
-                if not item.name.startswith("data-operations/")
-            ),
+            *base_dependencies.artifacts,
             SourceArtifact(
                 "operation/model-observation.json",
                 (
@@ -65,8 +58,8 @@ def recipe(directory):
                 ).read_bytes(),
             ),
         ),
-        captured.dependencies.vocabularies,
-        captured.dependencies.ontology_sources,
+        base_dependencies.vocabularies,
+        base_dependencies.ontology_sources,
     )
     sources = combine_primary_sources(
         sources,

@@ -21,11 +21,12 @@ from sqlalchemy import text
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.semantic import SourceArtifact, SourceBundle
+from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import execute_data_demand, read_data_demand
 from corpus_structure.semantic.hanlp_products import prepare_hanlp_selection
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
+from corpus_structure.semantic.regeneration import acquire_pack
 
 ROOT = Path(__file__).resolve().parents[4]
 PASSAGES = (
@@ -36,19 +37,7 @@ PASSAGES = (
 
 def _recipe(assets):
     inputs = primary_operation_inputs(
-        SourceBundle(
-            "toy_semantic",
-            (
-                SourceArtifact("toy_semantic", (ROOT / "domains/toy/semantic.yaml").read_bytes()),
-                SourceArtifact(
-                    "semantic_core",
-                    (
-                        ROOT
-                        / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-                    ).read_bytes(),
-                ),
-            ),
-        ),
+        acquire_pack(DOMAINS / "toy").bundle,
         sentence_configuration=SentenceConfig(exclude=("ner", "lemmatizer")),
         hanlp_selection=prepare_hanlp_selection(assets),
     )

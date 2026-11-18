@@ -17,7 +17,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from evaluate.test_declared_record_policy import fit_basis as fit_basis
+from evaluate.declared_record_policy_test_support import fit_basis as fit_basis
 from pglast import ast
 from sqlalchemy import cast, literal, text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -49,7 +49,12 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
-from semantic.test_data_operation_cpu_basis import cpu_basis_connection as cpu_basis_connection
+from semantic.cpu_basis_support import (
+    cpu_basis_connection as cpu_basis_connection,
+)
+from semantic.cpu_basis_support import (
+    cpu_basis_engine as cpu_basis_engine,
+)
 
 
 @dataclass(frozen=True)
