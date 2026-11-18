@@ -930,6 +930,7 @@ def attachment_native_sql(model, protocol: bytes):
         receipts,
         generations,
         uses,
+        projects,
     ) = (
         model.tables[name]
         for name in (
@@ -951,6 +952,7 @@ def attachment_native_sql(model, protocol: bytes):
             "ops.data_publication_receipt",
             "ops.data_request_generation",
             "ops.demand_use",
+            "data.project",
         )
     )
 
@@ -978,6 +980,9 @@ def attachment_native_sql(model, protocol: bytes):
     def binding_use(field):
         return row("binding_use", uses, field)
 
+    def project(field):
+        return row("project", projects, field)
+
     j = {
         name: _value(name, JSONB()) for name in ("p", "snapshot", "read_trust", "item", "declared")
     }
@@ -990,6 +995,7 @@ def attachment_native_sql(model, protocol: bytes):
     invalid_current, invalid_retained = (
         _value(name, Boolean()) for name in ("invalid_current", "invalid_retained")
     )
+    replace_capture = _value("replace_capture", Boolean())
     lifecycle = wire["data_task_state"]["x-ddo-lifecycle"]
     pending, running, terminal = (lifecycle[name] for name in ("initial", "running", "terminal"))
 
@@ -1248,6 +1254,23 @@ def attachment_native_sql(model, protocol: bytes):
                     "retained",
                     strict=False,
                 ),
+                _check(
+                    and_(
+                        retained("id").is_(None),
+                        r("release_id") == project("active_release_id"),
+                        r("release_id") != d("release_id"),
+                    ),
+                    "inactive demand cannot replace the active release generation",
+                    "23514",
+                ),
+                Assign(
+                    "replace_capture",
+                    and_(
+                        retained("id").is_(None),
+                        r("release_id") != d("release_id"),
+                        d("release_id") == project("active_release_id"),
+                    ),
+                ),
                 Assign(
                     "invalid_current",
                     or_(
@@ -1276,7 +1299,7 @@ def attachment_native_sql(model, protocol: bytes):
                 ),
                 _check(
                     and_(
-                        or_(invalid_current, invalid_retained),
+                        or_(invalid_current, invalid_retained, replace_capture),
                         current("status") == running,
                         or_(
                             current("lease_until").is_(None),
@@ -1290,7 +1313,7 @@ def attachment_native_sql(model, protocol: bytes):
                     or_(
                         current("status").in_(terminal),
                         and_(
-                            or_(invalid_current, invalid_retained),
+                            or_(invalid_current, invalid_retained, replace_capture),
                             or_(
                                 current("status") == pending,
                                 and_(
@@ -1387,6 +1410,14 @@ def attachment_native_sql(model, protocol: bytes):
         ),
         _selected(obligations, obligations.c.id == p["obligation_id"].astext, "o"),
         _selected(demands, demands.c.id == o("demand_id"), "d"),
+        SelectInto(
+            select(core_relation_row(projects))
+            .select_from(projects)
+            .where(projects.c.project_id == d("project_id"))
+            .with_for_update(read=True),
+            ("project",),
+            strict=True,
+        ),
         _selected(
             definitions,
             and_(
@@ -1769,6 +1800,7 @@ def attachment_native_sql(model, protocol: bytes):
                 ("current_task", tasks),
                 ("binding_use", uses),
                 ("boundary", boundaries),
+                ("project", projects),
             )
         ),
         *(
@@ -1780,6 +1812,7 @@ def attachment_native_sql(model, protocol: bytes):
         Local("cnt", pg_type("bigint")),
         Local("invalid_current", pg_type("boolean")),
         Local("invalid_retained", pg_type("boolean")),
+        Local("replace_capture", pg_type("boolean")),
     )
     return _procedure("ddo_attach_data_request", parameters, steps, locals_)
 

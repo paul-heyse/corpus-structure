@@ -5,7 +5,7 @@ from dataclasses import replace
 from typing import cast
 
 import pytest
-from semantic.data_operation_demand_support import attach, cancel_demand, claim
+from semantic.data_operation_demand_support import attach, cancel_demand, claim, expire_lease
 from semantic.data_operation_kernel_support import EXECUTION, STORAGE, admit_kernel, prepare_kernel
 from sqlalchemy import text
 
@@ -21,6 +21,7 @@ from corpus_structure.semantic.data_operation_demands import (
 )
 from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.releases import activate_release
 
 
 def _intent(model):
@@ -40,6 +41,35 @@ def _register(connection, preparation):
         release=preparation.prepared.release_id,
         runtime=preparation.runtime.runtime_id,
     )["demand_id"]
+
+
+def _target_release(kernel, tmp_path):
+    recipe = replace(
+        EXECUTION,
+        name="execution-unrelated-release",
+        project_id=None,
+        schema_text=EXECUTION.schema_text + "  UnrelatedReleaseMarker: {}\n",
+    )
+    directory = tmp_path / "target-release"
+    directory.mkdir()
+    target = prepare_kernel(recipe, directory=directory)
+    assert target.prepared.release_id != kernel.prepared.release_id
+    assert (
+        _intent(target.model).record["operations"][0]["recipe"]
+        == _intent(kernel.model).record["operations"][0]["recipe"]
+    )
+    with kernel.engine.begin() as connection:
+        admit_kernel(connection, recipe, preparation=target)
+    return target
+
+
+def _ready(kernel, preparation, demand):
+    with kernel.engine.begin() as connection:
+        snapshot = DemandPlanner(preparation.model, DataOperationStorage(connection)).resume(demand)
+    with kernel.engine.begin() as connection:
+        planner = DemandPlanner(preparation.model, DataOperationStorage(connection))
+        ready = planner.ready(snapshot, authorization=b"{}")
+        return ready, planner.refusals
 
 
 @pytest.mark.parametrize("ddo_kernel", [EXECUTION], indirect=True, ids=["execution"])
@@ -183,3 +213,112 @@ def test_stale_attach_generation_cannot_claim_a_replacement_basis(ddo_kernel):
         )
     current = claim(ddo_kernel, successor, holder="current-basis")
     assert current["generation"] == successor["generation"]
+
+
+@pytest.mark.parametrize("ddo_kernel", [EXECUTION], indirect=True, ids=["execution"])
+@pytest.mark.parametrize("state", ["pending", "active", "expired", "retained", "published"])
+def test_active_release_admits_fresh_unleased_capture_and_preserves_existing_authority(
+    ddo_kernel, monkeypatch, state, tmp_path
+):
+    original = ddo_kernel.preparation
+    monkeypatch.syspath_prepend(str(original.directory))
+    with ddo_kernel.engine.begin() as connection:
+        original_demand = _register(connection, original)
+    (old_ready,), errors = _ready(ddo_kernel, original, original_demand)
+    assert errors == ()
+    old = json.loads(old_ready.native)
+    fence = None
+    if state in {"active", "expired"}:
+        fence = claim(ddo_kernel, old, seconds=30)
+        if state == "expired":
+            expire_lease(ddo_kernel, fence)
+    elif state in {"retained", "published"}:
+        if state == "retained":
+
+            def stop_after_retention(self, claim, intent, owner):
+                raise RuntimeError("controlled stop after native retention")
+
+            with monkeypatch.context() as patch:
+                patch.setattr(NativeDemandExecutor, "_publish", stop_after_retention)
+                with pytest.raises(NativeDemandExecutionError):
+                    execute_data_demand(
+                        ddo_kernel.engine,
+                        original_demand,
+                        source_root=original.directory,
+                        database_capacity=6,
+                    )
+        else:
+            assert (
+                execute_data_demand(
+                    ddo_kernel.engine,
+                    original_demand,
+                    source_root=original.directory,
+                    database_capacity=6,
+                ).receipt_count
+                == 1
+            )
+
+    target = _target_release(ddo_kernel, tmp_path)
+    with ddo_kernel.purpose("admit").begin() as connection:
+        activated = activate_release(
+            connection,
+            "execution",
+            target.prepared.release_id,
+            expected_parent=None,
+            expected_generation=0,
+        )
+        assert activated.generation == 1
+    with ddo_kernel.engine.begin() as connection:
+        demand = _register(connection, target)
+    ready, errors = _ready(ddo_kernel, target, demand)
+    if state == "active":
+        assert ready == () and len(errors) == 1
+        assert "active producer lease" in str(errors[0])
+    elif state == "published":
+        assert ready == () and errors == ()
+    else:
+        (selected,) = ready
+        assert errors == ()
+        current = json.loads(selected.native)
+        assert current["request_id"] == old["request_id"]
+        if state == "retained":
+            assert (
+                current["generation"],
+                current["task_id"],
+                current["release_id"],
+                current["runtime_id"],
+            ) == (
+                old["generation"],
+                old["task_id"],
+                original.prepared.release_id,
+                original.runtime.runtime_id,
+            )
+            assert current["action"] == "reconcile" and current["retained_intent_id"]
+        else:
+            assert current["generation"] == old["generation"] + 1
+            assert current["task_id"] != old["task_id"]
+            assert (current["release_id"], current["runtime_id"]) == (
+                target.prepared.release_id,
+                target.runtime.runtime_id,
+            )
+            assert current["action"] == "compute" and current["retained_intent_id"] is None
+            stale_ready, stale_errors = _ready(ddo_kernel, original, original_demand)
+            assert stale_ready == () and len(stale_errors) == 1
+            assert "inactive demand cannot replace" in str(stale_errors[0])
+            with ddo_kernel.engine.connect() as connection:
+                assert (
+                    connection.scalar(
+                        text(
+                            "SELECT count(*) FROM ops.data_request_generation WHERE request_id=:request"
+                        ),
+                        {"request": old["request_id"]},
+                    )
+                    == 2
+                )
+                assert (
+                    connection.scalar(
+                        text("SELECT release_id FROM ops.task WHERE id=:task"),
+                        {"task": old["task_id"]},
+                    )
+                    == original.prepared.release_id
+                )
