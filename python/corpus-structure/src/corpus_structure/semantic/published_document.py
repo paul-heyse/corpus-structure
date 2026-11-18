@@ -219,7 +219,13 @@ def published_read_statements(*, target_metadata=None) -> dict[str, Select]:
     )
     section_filter = or_(
         root.is_(None),
-        and_(membership == "direct", selected.c.section_pointer == root),
+        and_(
+            membership == "direct",
+            or_(
+                selected.c.section_pointer == root,
+                and_(root == "#/body", selected.c.pointer.in_(select(members.c.pointer))),
+            ),
+        ),
         and_(membership == "descendants", selected.c.pointer.in_(select(page_scope.c.pointer))),
     )
     pointer = bindparam("p_pointer", type_=Text())
