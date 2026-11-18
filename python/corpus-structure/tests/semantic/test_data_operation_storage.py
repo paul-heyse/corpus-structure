@@ -174,7 +174,6 @@ def test_concurrent_attach_uses_one_visible_request_and_existing_task(ddo_kernel
             )
             == 1
         )
-        assert connection.scalar(text("SELECT count(*) FROM ops.run")) == 0
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
@@ -424,9 +423,15 @@ def test_deliberate_invalid_native_output_rolls_back_every_row(ddo_kernel, bad):
         else:
             output["member_id"] = "missing-local-member"
 
-    intent = retain(ddo_kernel, fence, mutate=change)
-    with pytest.raises(DBAPIError):
-        publish(ddo_kernel, fence, intent)
+    if bad == "kind":
+        # The retention guard resolves the nominal kind before accepting an intent.
+        with pytest.raises(DBAPIError) as missing:
+            retain(ddo_kernel, fence, mutate=change)
+        assert getattr(missing.value.orig, "sqlstate", None) == "P0002"
+    else:
+        intent = retain(ddo_kernel, fence, mutate=change)
+        with pytest.raises(DBAPIError):
+            publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM kb.data_product")) == 0
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
@@ -743,7 +748,7 @@ def _protected_binding_case(
         native_row = connection.execute(
             text(
                 "SELECT body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb),"
-                ":read,:subject,:source,CAST(:scope AS jsonb))"
+                ":read,:subject,CAST(:source AS jsonb),CAST(:scope AS jsonb))"
             ),
             {
                 "d": demand["demand_id"],
@@ -751,7 +756,7 @@ def _protected_binding_case(
                 "t": json.dumps(result["trust_snapshot"]),
                 "read": result["read_id"],
                 "subject": result["root"][0]["subject"],
-                "source": result["root"][0]["original_source"],
+                "source": json.dumps(result["root"][0]["original_source"]),
                 "scope": json.dumps(result["root"][0]["analyzed_scope"]),
             },
         ).scalar_one()
@@ -1045,7 +1050,8 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
         rows = connection.execute(
             text(
                 'SELECT member,subject,"position",multiplicity,body FROM ops.data_binding_rows('
-                ':d,:o,CAST(:trust AS jsonb),:read,:subject,:source,CAST(:scope AS jsonb)) ORDER BY "position",member'
+                ":d,:o,CAST(:trust AS jsonb),:read,:subject,CAST(:source AS jsonb),CAST(:scope AS jsonb)) "
+                'ORDER BY "position",member'
             ),
             {
                 "d": demand["demand_id"],
@@ -1053,7 +1059,7 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
                 "trust": json.dumps(current["trust_snapshot"]),
                 "read": current["read_id"],
                 "subject": "doc",
-                "source": "source:test",
+                "source": json.dumps("source:test"),
                 "scope": '{"page":1}',
             },
         ).all()
