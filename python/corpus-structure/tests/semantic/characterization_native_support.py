@@ -254,7 +254,8 @@ def operation_product(snapshot, operation):
     ]
     assert len(products) == 1, (
         f"{operation}: expected one product, observed {len(products)}; "
-        f"fate={use.get('fate')}; continuation={snapshot.get('continuation') is not None}; producers={producers}"
+        f"fate={use.get('fate')}; continuation={snapshot.get('continuation') is not None}; "
+        f"reasons={use['selection'].get('reasons', [])!r:.1500}; producers={producers}"
     )
     return products[0]
 

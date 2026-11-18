@@ -58,7 +58,7 @@ class ComposeEnrichedDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "optional",
                 "parameter": "products",
                 "support": {
@@ -77,7 +77,7 @@ class ComposeEnrichedDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "optional",
                 "parameter": "active",
                 "support": {
@@ -128,8 +128,8 @@ class ComposeEnrichedDocumentOperation(PreparedCompositionReceiver):
             "operator": "all",
             "children": [
                 {"operator": "collection", "roles": ["sources"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["products"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["active"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["products"], "collection": "set"},
+                {"operator": "collection", "roles": ["active"], "collection": "set"},
                 {
                     "operator": "membership",
                     "operands": [

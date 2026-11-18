@@ -43,6 +43,7 @@ from semantic.formal_products_support import selected
 FORMAL = "text.formal_evidence/source-native"
 CONSTRUCTION = "text.constructions/source-native"
 COMPOSITION = "text.compose_view/source-native"
+SENTENCES = "segment.sentences/source-native"
 
 
 @pytest.fixture(scope="module")
@@ -125,11 +126,12 @@ def test_native_current_source_only_then_selected_composition_preserves_actual_d
     analytical_demand, _, primary = source.run(CONSTRUCTION)
     formal = operation_product(primary, FORMAL)
     construction = operation_product(primary, CONSTRUCTION)
+    sentences = operation_product(primary, SENTENCES)
     from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
     from corpus_structure.semantic.demand_results import CutSelection
 
     selections = {}
-    for operation in (FORMAL, CONSTRUCTION):
+    for operation in (FORMAL, SENTENCES, CONSTRUCTION):
         product = operation_product(primary, operation)
         (manifest,) = [
             packet
@@ -160,6 +162,7 @@ def test_native_current_source_only_then_selected_composition_preserves_actual_d
     view = decode_semantic_value(operation_product(combined, COMPOSITION)["body"])
     assert {row["product_id"] for row in view["products"]} == {
         formal["product_id"],
+        sentences["product_id"],
         construction["product_id"],
     }
     assert {row["product_id"] for row in view["active"]} == {construction["product_id"]}
