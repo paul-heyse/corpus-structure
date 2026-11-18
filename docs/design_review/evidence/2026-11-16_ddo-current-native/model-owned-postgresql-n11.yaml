@@ -1,0 +1,4 @@
+# Recapture the PDF domain after retiring the fixture-only occurrence replay producer.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n10
+native_revision: semantic_ddo_pe_n11
