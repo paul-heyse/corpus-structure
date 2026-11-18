@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N10 with its matching application active at generation 11. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N11 with its matching application active at generation 12. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -328,6 +328,42 @@ products, 361 verified streams and 376 parts. Six publication and projection jou
 replay format because the current producer requires certified companion and access artifacts.
 Both narrower retries passed in `3211fb6439c741549ed9dadd122cc192` after the fixtures emitted
 the exact preparation and completion custody entries along with the certified producer reply.
+
+### Fixture occurrence replay retirement · 2026-11-17
+
+Seven controlled native consumers moved to certified producer custody. The spawned worker and
+controlled fixtures use one reply emitter for record batches, completion, companion artifacts,
+access projection and certification. The former occurrence replay writer and its replay family
+were removed. The underlying current `occurrence` companion remains part of the producer model.
+Actual Docling recovery and a same-spool rebuild on three pages of the registered book passed in
+`95d99f3e8a8e4e0389a1851b491aff06`.
+
+The [N11 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n11.yaml)
+preview `fb80a21b65fd40b6a40ed7335fc0acf1`, apply `a3dec0a4b6a94b169ce842e4ff39d4a4`, candidate
+`302a5db59519435a909b5de0c6619e8e`, registration `83648f10f3324adfa09ae3b30acddca7` and native
+deployment `3954bb18e43943b58970fef57de34a72` passed. The changed producer source recaptured four
+native definitions with zero ordinary or privilege effects.
+
+Twenty focused cases passed in `b34d8c178ebd47b5b224da516b643617`, including native publication and
+controlled integration. The two failed find surfaces passed in `6d7c4cf892c041ce9ae1efe6a458c785`
+after moving their fixture to a PostgreSQL connection for the declared `READ COMMITTED` boundary.
+The borrower-lifetime fixture supplies the current producer identity, preparation and completion
+receipts while retaining its teardown assertions. The final model render, Pyrefly
+`09df63a6b58e457d8b0552eb9818ce27` and Ruff `d619c83319b14f9bae6d188706291fb4` passed.
+
+Matching application preview `2c3a5d42f0524044b05eae4e16ba9cf7`, apply
+`f45d83e3661d43599dc128cf678de2cf`, candidate `d3ef2bae4cfb47c8b168a5301a4fe513` and deployment
+`a55d4122ce954972aa549d1d671018e2` passed for
+`release:f71837feb37e65afc41d0c7c1c35fb36d2546697859e4366b64f3f2e936aaac7` and
+`runtime:afac1570f9c1fc6e73198a36914d412285b32c86c25da34ba5b89f05c0e2b2f0`.
+Separate `ci db check` and `ci release check --project ddo-current-pdf-bounded` passed.
+Compare-and-swap activation from generation 11 to 12 passed. An independent read confirmed the
+exact release, 15 PDF products, 361 verified streams and 376 parts.
+
+The N10 fixture retry `e06d03c1fab64c1592e32126c5ab0e9c` passed the materialization and
+transformation journeys. The NCE list-host journey reached the downstream structural demand.
+Its characterization CPU worker returned `'str' object has no attribute 'get'`. That case remains
+open under structural production acceptance. Its PDF capture and custody had completed.
 
 ## Production-efficiency integration · 2026-11-17
 

@@ -1,21 +1,22 @@
 # Status
 
-_Updated 2026-11-17. Owned stage is at model-built N10 with its matching application active at generation 11. The broader DDO authoring conversion remains open._
+_Updated 2026-11-17. Owned stage is at model-built N11 with its matching application active at generation 12. The broader DDO authoring conversion remains open._
 
 ## Current owners
 
-- The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#pdf-inventory-and-source-proof-authoring--2026-11-17) owns actual rollout and remaining work. The [PostgreSQL companion](docs/plans/declared-data-operations/postgresql-realization-and-retirement.md#model-owned-sql-authoring) owns typed authoring under [ADR-0131](docs/adr/0131-model-owned-postgresql-programs.md).
+- The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#fixture-occurrence-replay-retirement--2026-11-17) owns actual rollout and remaining work. The [PostgreSQL companion](docs/plans/declared-data-operations/postgresql-realization-and-retirement.md#model-owned-sql-authoring) owns typed authoring under [ADR-0131](docs/adr/0131-model-owned-postgresql-programs.md).
 - N6 includes model-bound facade/DATA generation, typed physical checks and indexes, PDF search configuration, shared-stream writes, producer certification, scratch, closure programs, native privileges, runtime guards and host bootstrap. DuckDB 2.0 owns rich set/view queries, companion analysis, replay sorting and PDF geometry.
 - N7 adds typed PDF staging, request claim and release, contextual scoring and the corrected residual search body reader. N8 adds generated PDF freeze and projection controls, source-set binding and release receipt guards. The superseded Python companion upload wrappers were removed.
 - N9 adds typed PDF contract admission, companion reads, validation and sealing, DDO binding operands, and read and epoch-lock boundaries.
 - N10 adds typed PDF inventory, contract folds, frozen checks and sealed receipt projection, plus original-document and PDF capture proofs.
+- N11 removes the fixture-only PDF occurrence replay writer. Native workers and controlled fixtures use the same certified reply emitter.
 
 - [Library-discovery tooling](tooling/docs/plans/library-discovery-tooling_2026-11-17.md#current-state) (LDT series, [ADR-0132](docs/adr/0132-tooling-package.md)) is implemented for LDT-00–08: the `tooling library` commands `baseline`, `selection`, `metadata`, `inventory`, `census`, `compare` and `overview`, with the discovery guide and skill pointing to them. Verified 2026-11-17: `uv run ci test -- tooling/tests tests/scripts/test_test_receipts.py` passed (`8cd3bc5aa2b24d5a9e5d8d4c4a69270b`, 302 tests) and `uv run ci check` passed (`34811b452107403d90e5035f8a2e0550`); the full product suite is `not_run` for this series (no product change). Conditional LDT-C1–C3 are unstarted and wait for their triggers; the series owns known limits and next work.
 
 ## Native and data boundary
 
-- `corpus_structure_ddo_stage`, OID130661481/system7701811359771751232, reached `semantic_ddo_pe_n10` in deployment `7293ab8630c64924a80e14a86f743244`. Independent reads observed 15 PDF products, 361 verified streams and 376 parts.
-- `release:f161e7dcb71aafa694d6db0c55151282d5c0bd96cd4d70ee3d641c8092d3a5f0` and its source-native runtime passed application deployment `fbd34b5672da420d98ef5382c83521fb`, `ci db check` and `ci release check`. Activation and the separate generation-11 read passed. Development remains at `semantic_bep_located_v2`.
+- `corpus_structure_ddo_stage`, OID130661481/system7701811359771751232, reached `semantic_ddo_pe_n11` in deployment `3954bb18e43943b58970fef57de34a72`. Independent reads observed 15 PDF products, 361 verified streams and 376 parts.
+- `release:f71837feb37e65afc41d0c7c1c35fb36d2546697859e4366b64f3f2e936aaac7` and its source-native runtime passed application deployment `a55d4122ce954972aa549d1d671018e2`, `ci db check` and `ci release check`. Activation and the separate generation-12 read passed. Development remains at `semantic_bep_located_v2`.
 
 ## Last verified · 2026-11-17
 
@@ -24,8 +25,9 @@ _Updated 2026-11-17. Owned stage is at model-built N10 with its matching applica
 - **passed on N8:** PDF companion, payload, publication and retained-contract consumers `620154b496144b378ec12417752b7a58` (15 passing), plus the corrected projection replay `1f2871a72dc649f8af1647f5bda85ac8`. The coordinator retains the earlier fixture failures and describes their corrections.
 - **passed on N9:** 65 native controls `d66a898a8bb946e483c085e45a0a00eb`, six publication journeys `ced70c4b8fb94fedb8a0b36879e5e774`, Pyrefly `bfbe18e106c84b69958a13a93f79ed4f`.
 - **passed on N10:** 43 focused controls `4478865c9e9b4591bc23441daa2c24d5`, six publication/projection journeys `df34e1b754424193b6f3e9dadc5c9816`, two corrected integration journeys `3211fb6439c741549ed9dadd122cc192`, model render, Pyrefly `59c7cbe26b014cb78bc5534d53ed2caf`, Ruff `ee804d2e669341029a5a366d2104f0c8` and docs `0b3c2eccf4c745b08f9b0a0761397ef4`.
+- **passed on N11:** 22 focused cases across `b34d8c178ebd47b5b224da516b643617` and `6d7c4cf892c041ce9ae1efe6a458c785`, actual three-page Docling recovery `95d99f3e8a8e4e0389a1851b491aff06`, model render, Pyrefly `09df63a6b58e457d8b0552eb9818ce27` and Ruff `d619c83319b14f9bae6d188706291fb4`.
 
 ## Next execution
 
-- Complete remaining PDF publication and record readers, DDO binding/acquisition/completion and event kernels, general native admission, native test provisioning, and fixture-only occurrence replay retirement. Complete applicable native/application qualification against their exact successor.
+- Complete protected PDF companion adoption, the observation publisher and remaining record readers, DDO binding/acquisition/completion and event kernels, general native admission and native test provisioning. The NCE list-host case reaches a downstream characterization CPU failure after successful PDF capture. Complete the remaining native/application qualification against the applicable successors.
 - The separate DDO-12 boundary includes actual-book S33 parser adoption, faithful29-original registration and adoption, native scoring/provider/public/rich/graph/export/fault coverage, and same-demand518-page interruption/resume/repeat. Chandra OCR remains excluded. Restart the normal managed Nemotron launcher when recognition is due.
