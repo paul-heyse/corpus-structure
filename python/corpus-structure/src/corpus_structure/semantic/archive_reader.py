@@ -108,22 +108,6 @@ def reconstruct_release(
     descendants = {name: tuple(items) for name, items in recipe["descendants"].items()}
     models = {}
 
-    def build(class_names=None, target_models=None):
-        return build_boundary_adapters(
-            definitions,
-            vocabularies,
-            primitive_types=primitive_types,
-            aliases=aliases,
-            conditional_fragments=fragments,
-            conditional_scope=profile.constraint_scope,
-            finite_fields=True,
-            descendant_order=descendants,
-            models_out=models if target_models is None else target_models,
-            class_names=class_names,
-        )
-
-    adapters = ()
-
     def check_schema(name, adapter):
         actual_schema = json.loads(canonical_bytes(adapter.json_schema()))
         expected_schema = json.loads(artifact_map[f"json_schema/{name}"].content)
@@ -147,12 +131,22 @@ def reconstruct_release(
                 f"{difference(actual_schema, expected_schema)}"
             )
 
-    for name, adapter in adapters:
-        check_schema(name, adapter)
-
     def load_adapter(name):
         staged_models = dict(models)
-        built = dict(build((name,), staged_models))
+        built = dict(
+            build_boundary_adapters(
+                definitions,
+                vocabularies,
+                primitive_types=primitive_types,
+                aliases=aliases,
+                conditional_fragments=fragments,
+                conditional_scope=profile.constraint_scope,
+                finite_fields=True,
+                descendant_order=descendants,
+                models_out=staged_models,
+                class_names=(name,),
+            )
+        )
         adapter = built[name]
         check_schema(name, adapter)
         models.update(staged_models)
@@ -168,7 +162,7 @@ def reconstruct_release(
         artifacts=artifacts,
         required_capabilities=products.required_capabilities,
         diagnostics=products.diagnostics,
-        _adapters=adapters,
+        _adapters=(),
         _boundary_models=models,
         _adapter_loader=load_adapter,
     )
