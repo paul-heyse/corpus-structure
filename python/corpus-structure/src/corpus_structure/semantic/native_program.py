@@ -236,7 +236,7 @@ class Return:
 
 @dataclass(frozen=True)
 class ReturnNext:
-    value: Expression
+    value: Expression | None = None
 
 
 @dataclass(frozen=True)
@@ -265,8 +265,17 @@ class CatchDataConversion:
     handler: tuple[Statement, ...]
 
 
+@dataclass(frozen=True)
+class CatchDependencyInvalidity:
+    """Treat invalid dependency data, constraints and strict lookups as false."""
+
+    body: tuple[Statement, ...]
+    handler: tuple[Statement, ...]
+
+
 type Statement = (
     CatchDataConversion
+    | CatchDependencyInvalidity
     | Sql
     | Continue
     | Exit
@@ -384,6 +393,12 @@ def _step(statement: Statement, nested: str) -> str:
                 f"{nested[:-1]}EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN\n"
                 f"{_statements(handler, nested)}\n{nested[:-1]}END"
             )
+        case CatchDependencyInvalidity(body, handler):
+            return (
+                f"BEGIN\n{_statements(body, nested)}\n"
+                f"{nested[:-1]}EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN\n"
+                f"{_statements(handler, nested)}\n{nested[:-1]}END"
+            )
         case CatchCheckViolation(body, handler):
             return (
                 f"BEGIN\n{_statements(body, nested)}\n"
@@ -393,7 +408,7 @@ def _step(statement: Statement, nested: str) -> str:
         case Return(value):
             return "RETURN" if value is None else "RETURN " + _render(value)
         case ReturnNext(value):
-            return "RETURN NEXT " + _render(value)
+            return "RETURN NEXT" if value is None else "RETURN NEXT " + _render(value)
     assert_never(statement)
 
 
