@@ -30,6 +30,13 @@ def test_generated_validation_refuses_stale_snapshot_before_receipt_lookup(
     with commit_db_engine.begin() as connection, native_owner(connection, "corpus_sem_publisher"):
         execute_native_sql(connection, pdf_validation_and_seal_native_sql(metadata))
     with commit_writer_engine.connect().execution_options(isolation_level=level) as connection:
-        with pytest.raises(DBAPIError, match="PDF projection admission requires READ COMMITTED") as failure, connection.begin():
-            connection.execute(text("SELECT * FROM ops.validate_pdf_build(NULL,NULL,NULL,NULL,NULL)")).all()
+        with (
+            pytest.raises(
+                DBAPIError, match="PDF projection admission requires READ COMMITTED"
+            ) as failure,
+            connection.begin(),
+        ):
+            connection.execute(
+                text("SELECT * FROM ops.validate_pdf_build(NULL,NULL,NULL,NULL,NULL)")
+            ).all()
         assert getattr(failure.value.orig, "sqlstate", None) == "25000"

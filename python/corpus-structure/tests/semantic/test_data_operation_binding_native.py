@@ -855,16 +855,29 @@ def test_native_binding_roles_recurses_and_keeps_sorted_distinct_null(binding_na
         "children": [{"roles": ["d", "a"]}, {"children": [{"roles": ["e"]}]}],
     }
     query = text("SELECT ops.ddo_binding_roles(CAST(:node AS jsonb))")
-    assert binding_native_connection.scalar(query, {"node": json.dumps(node)}) == ["a", "b", "c", "d", "e", "z", None]
+    assert binding_native_connection.scalar(query, {"node": json.dumps(node)}) == [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "z",
+        None,
+    ]
     assert binding_native_connection.scalar(query, {"node": "{}"}) == []
 
 
 @pytest.mark.parametrize("case", ["valid", "display", "missing", "default", "sequence", "tag"])
-def test_native_primitive_parameters_preserve_exact_meaning_and_required_policy(binding_native_connection, case):
+def test_native_primitive_parameters_preserve_exact_meaning_and_required_policy(
+    binding_native_connection, case
+):
     from corpus_structure.semantic.data_operation_identity import semantic_value
 
     parameters: dict[str, Any] = {"values": [1, 2]}
-    definitions: dict[str, dict[str, Any]] = {"values": {"value_type": "primitive:integer", "many": True}, "optional": {"value_type": "primitive:string", "required": False}}
+    definitions: dict[str, dict[str, Any]] = {
+        "values": {"value_type": "primitive:integer", "many": True},
+        "optional": {"value_type": "primitive:string", "required": False},
+    }
     if case in {"missing", "default"}:
         definitions["absent"] = {"value_type": "primitive:string", "required": case == "missing"}
         if case == "default":
@@ -873,30 +886,70 @@ def test_native_primitive_parameters_preserve_exact_meaning_and_required_policy(
         parameters["values"] = 1
     elif case == "tag":
         parameters["values"] = [True]
-    selection: dict[str, Any] = {"parameters": parameters, "parameter_meaning": semantic_value(parameters)}
+    selection: dict[str, Any] = {
+        "parameters": parameters,
+        "parameter_meaning": semantic_value(parameters),
+    }
     if case == "display":
         selection["parameters"] = {"values": [2, 1]}
-    query = text("SELECT ops.ddo_validate_parameters(CAST(:operation AS jsonb),CAST(:selection AS jsonb),'{}'::jsonb)")
-    values = {"operation": json.dumps({"parameters": {"json": definitions}}), "selection": json.dumps(selection)}
+    query = text(
+        "SELECT ops.ddo_validate_parameters(CAST(:operation AS jsonb),CAST(:selection AS jsonb),'{}'::jsonb)"
+    )
+    values = {
+        "operation": json.dumps({"parameters": {"json": definitions}}),
+        "selection": json.dumps(selection),
+    }
     if case == "valid":
         binding_native_connection.execute(query, values)
     else:
         with pytest.raises(DBAPIError) as refusal, binding_native_connection.begin_nested():
             binding_native_connection.execute(query, values)
-        message = {"display": "display differs", "missing": "missing frozen demand parameter absent", "default": "missing frozen demand parameter absent", "sequence": "typed sequence", "tag": "tag differs"}[case]
+        message = {
+            "display": "display differs",
+            "missing": "missing frozen demand parameter absent",
+            "default": "missing frozen demand parameter absent",
+            "sequence": "typed sequence",
+            "tag": "tag differs",
+        }[case]
         assert message in str(refusal.value)
 
 
-@pytest.mark.parametrize("operand,expected_state,message", [
-    ({"kind": "unknown", "value_type": "primitive:string"}, "23514", "unsupported native binding operand unknown"),
-    ({"value_type": "primitive:string"}, "23514", "unsupported native binding operand <NULL>"),
-    ({"kind": "literal", "value_type": "primitive:string"}, "P0001", "missing typed native literal"),
-    ({"kind": "field", "field": {"role": "missing", "projection": "urn:item", "field": "value"}}, "P0002", "query returned no rows"),
-    ({"kind": "field", "field": {"role": "items", "projection": "other", "field": "value"}}, "P0001", "projection differs"),
-])
-def test_native_operand_refusals_preserve_policy(binding_native_connection, operand, expected_state, message):
+@pytest.mark.parametrize(
+    "operand,expected_state,message",
+    [
+        (
+            {"kind": "unknown", "value_type": "primitive:string"},
+            "23514",
+            "unsupported native binding operand unknown",
+        ),
+        ({"value_type": "primitive:string"}, "23514", "unsupported native binding operand <NULL>"),
+        (
+            {"kind": "literal", "value_type": "primitive:string"},
+            "P0001",
+            "missing typed native literal",
+        ),
+        (
+            {
+                "kind": "field",
+                "field": {"role": "missing", "projection": "urn:item", "field": "value"},
+            },
+            "P0002",
+            "query returned no rows",
+        ),
+        (
+            {"kind": "field", "field": {"role": "items", "projection": "other", "field": "value"}},
+            "P0001",
+            "projection differs",
+        ),
+    ],
+)
+def test_native_operand_refusals_preserve_policy(
+    binding_native_connection, operand, expected_state, message
+):
     query = text("SELECT ops.ddo_binding_values(CAST(:operand AS jsonb),CAST(:facts AS jsonb))")
     with pytest.raises(DBAPIError) as refusal, binding_native_connection.begin_nested():
-        binding_native_connection.execute(query, {"operand": json.dumps(operand), "facts": json.dumps(context(2))})
+        binding_native_connection.execute(
+            query, {"operand": json.dumps(operand), "facts": json.dumps(context(2))}
+        )
     assert getattr(refusal.value.orig, "sqlstate", None) == expected_state
     assert message in str(refusal.value)

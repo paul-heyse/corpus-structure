@@ -22,11 +22,17 @@ def generated_companion_reads(semantic_bare_engine):
             connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS kb")
             controls = MetaData()
             for name in (
-                "kb.pdf_record_companion_field", "kb.pdf_record_companion",
+                "kb.pdf_record_companion_field",
+                "kb.pdf_record_companion",
                 "ops.pdf_published_revision",
             ):
                 owner = metadata.tables[name]
-                Table(owner.name, controls, *(Column(c.name, c.type) for c in owner.columns), schema=owner.schema)
+                Table(
+                    owner.name,
+                    controls,
+                    *(Column(c.name, c.type) for c in owner.columns),
+                    schema=owner.schema,
+                )
             controls.create_all(connection)
             connection.exec_driver_sql("""
                 CREATE TEMP TABLE controlled_parts(product_id text,revision_id text,
@@ -46,26 +52,50 @@ def generated_companion_reads(semantic_bare_engine):
             transaction.rollback()
 
 
-def test_shape_predicates_preserve_unknown_required_scalar_and_native_float_rules(generated_companion_reads):
+def test_shape_predicates_preserve_unknown_required_scalar_and_native_float_rules(
+    generated_companion_reads,
+):
     connection = generated_companion_reads
-    assert connection.execute(text("""
+    assert connection.execute(
+        text("""
         SELECT proname,provolatile,prosecdef,proisstrict,pronargdefaults
         FROM pg_proc WHERE pronamespace='ops'::regnamespace
           AND proname IN ('pdf_native_record_shape','pdf_companion_field_bytes',
             'pdf_companion_restore_fields','pdf_companion_body') ORDER BY proname
-    """)).all() == [
+    """)
+    ).all() == [
         ("pdf_companion_body", "s", True, False, 0),
         ("pdf_companion_field_bytes", "s", False, False, 1),
         ("pdf_companion_restore_fields", "s", False, False, 0),
         ("pdf_native_record_shape", "i", False, False, 0),
     ]
-    assert connection.scalar(text("SELECT has_function_privilege('corpus_sem_reader', 'ops.pdf_companion_body(text,text,text,text,jsonb)', 'EXECUTE')")) is True
-    assert connection.scalar(text("SELECT has_function_privilege('corpus_sem_reader', 'ops.pdf_companion_field_bytes(text,text,text,boolean)', 'EXECUTE')")) is False
+    assert (
+        connection.scalar(
+            text(
+                "SELECT has_function_privilege('corpus_sem_reader', 'ops.pdf_companion_body(text,text,text,text,jsonb)', 'EXECUTE')"
+            )
+        )
+        is True
+    )
+    assert (
+        connection.scalar(
+            text(
+                "SELECT has_function_privilege('corpus_sem_reader', 'ops.pdf_companion_field_bytes(text,text,text,boolean)', 'EXECUTE')"
+            )
+        )
+        is False
+    )
 
     def shape(kind, scalars, fields):
-        return connection.scalar(select(func.ops.pdf_native_record_shape(
-            kind, bindparam("scalars", scalars, type_=JSONB), bindparam("fields", fields, type_=JSONB),
-        )))
+        return connection.scalar(
+            select(
+                func.ops.pdf_native_record_shape(
+                    kind,
+                    bindparam("scalars", scalars, type_=JSONB),
+                    bindparam("fields", fields, type_=JSONB),
+                )
+            )
+        )
 
     assert shape("not-a-native-type", {}, {}) is False
     assert shape(None, {}, {}) is False
@@ -85,7 +115,9 @@ def test_shape_predicates_preserve_unknown_required_scalar_and_native_float_rule
     assert shape("Size", {"width": 12, "height": 1, "foreign": 1}, {}) is False
 
 
-def test_companion_reads_keep_exact_bytes_scope_json_null_and_published_guards(generated_companion_reads):
+def test_companion_reads_keep_exact_bytes_scope_json_null_and_published_guards(
+    generated_companion_reads,
+):
     connection = generated_companion_reads
     parts = [
         ("product", "product", "text", False, 1, b"\x00tail"),
@@ -97,24 +129,81 @@ def test_companion_reads_keep_exact_bytes_scope_json_null_and_published_guards(g
         ("product", "product", "json", False, 0, b'{"number":2,"value":null}'),
         ("product", "product", "string", False, 0, "aβ".encode()),
     ]
-    connection.execute(text("INSERT INTO pg_temp.controlled_parts VALUES(:p,:r,:s,:stage,:o,:b)"), [
-        dict(zip(("p", "r", "s", "stage", "o", "b"), row, strict=True)) for row in parts
-    ])
-    assert connection.scalar(select(func.ops.pdf_companion_field_bytes("product", "product", "text"))) == "aβ".encode() + b"\x00tail"
-    assert connection.scalar(select(func.ops.pdf_companion_field_bytes("product", "product", "text", True))) == b"stage"
-    assert connection.scalar(select(func.ops.pdf_companion_field_bytes("product", "product", "missing"))) == b""
+    connection.execute(
+        text("INSERT INTO pg_temp.controlled_parts VALUES(:p,:r,:s,:stage,:o,:b)"),
+        [dict(zip(("p", "r", "s", "stage", "o", "b"), row, strict=True)) for row in parts],
+    )
+    assert (
+        connection.scalar(select(func.ops.pdf_companion_field_bytes("product", "product", "text")))
+        == "aβ".encode() + b"\x00tail"
+    )
+    assert (
+        connection.scalar(
+            select(func.ops.pdf_companion_field_bytes("product", "product", "text", True))
+        )
+        == b"stage"
+    )
+    assert (
+        connection.scalar(
+            select(func.ops.pdf_companion_field_bytes("product", "product", "missing"))
+        )
+        == b""
+    )
     fields = metadata.tables["kb.pdf_record_companion_field"]
-    connection.execute(fields.insert(), [
-        dict(product_id="product", revision_id="product", family="relation", local_id="one", field_name="evidence", scalar_kind="s", stream_id="string"),
-        dict(product_id="product", revision_id="product", family="relation", local_id="one", field_name="endpoints", scalar_kind="y", stream_id="json"),
-        dict(product_id="product", revision_id="other", family="relation", local_id="one", field_name="foreign", scalar_kind="s", stream_id="string"),
-        dict(product_id="product", revision_id="product", family="relation", local_id="other", field_name="foreign", scalar_kind="s", stream_id="string"),
-    ])
+    connection.execute(
+        fields.insert(),
+        [
+            dict(
+                product_id="product",
+                revision_id="product",
+                family="relation",
+                local_id="one",
+                field_name="evidence",
+                scalar_kind="s",
+                stream_id="string",
+            ),
+            dict(
+                product_id="product",
+                revision_id="product",
+                family="relation",
+                local_id="one",
+                field_name="endpoints",
+                scalar_kind="y",
+                stream_id="json",
+            ),
+            dict(
+                product_id="product",
+                revision_id="other",
+                family="relation",
+                local_id="one",
+                field_name="foreign",
+                scalar_kind="s",
+                stream_id="string",
+            ),
+            dict(
+                product_id="product",
+                revision_id="product",
+                family="relation",
+                local_id="other",
+                field_name="foreign",
+                scalar_kind="s",
+                stream_id="string",
+            ),
+        ],
+    )
 
     def read(name, body, *, family="relation", local="one", revision="product"):
-        return connection.scalar(select(getattr(func.ops, name)(
-            "product", revision, family, local, bindparam("body", body, type_=JSONB),
-        )))
+        return connection.scalar(
+            select(
+                getattr(func.ops, name)(
+                    "product",
+                    revision,
+                    family,
+                    local,
+                    bindparam("body", body, type_=JSONB),
+                )
+            )
+        )
 
     expected = {"id": "one", "evidence": "aβ", "endpoints": {"number": 2, "value": None}}
     assert read("pdf_companion_restore_fields", {"id": "one"}) == expected
@@ -123,17 +212,56 @@ def test_companion_reads_keep_exact_bytes_scope_json_null_and_published_guards(g
         read("pdf_companion_restore_fields", {"evidence": None})
     with pytest.raises(DBAPIError, match="not in a published revision"), connection.begin_nested():
         read("pdf_companion_body", {"id": "one"})
-    connection.execute(metadata.tables["ops.pdf_published_revision"].insert(), {"build_id": "product"})
-    connection.execute(metadata.tables["kb.pdf_record_companion"].insert(), [
-        dict(product_id="product", revision_id="product", family="relation", local_id="one", body={"id": "one"}),
-        dict(product_id="product", revision_id="product", family="native_metadata", local_id="recognition", body={"kind": "recognition_coverage"}),
-        dict(product_id="product", revision_id="product", family="native_metadata", local_id="opaque", body={"kind": "inline_candidate_pages"}),
-        dict(product_id="product", revision_id="product", family="native_metadata", local_id="missing-kind", body={}),
-    ])
+    connection.execute(
+        metadata.tables["ops.pdf_published_revision"].insert(), {"build_id": "product"}
+    )
+    connection.execute(
+        metadata.tables["kb.pdf_record_companion"].insert(),
+        [
+            dict(
+                product_id="product",
+                revision_id="product",
+                family="relation",
+                local_id="one",
+                body={"id": "one"},
+            ),
+            dict(
+                product_id="product",
+                revision_id="product",
+                family="native_metadata",
+                local_id="recognition",
+                body={"kind": "recognition_coverage"},
+            ),
+            dict(
+                product_id="product",
+                revision_id="product",
+                family="native_metadata",
+                local_id="opaque",
+                body={"kind": "inline_candidate_pages"},
+            ),
+            dict(
+                product_id="product",
+                revision_id="product",
+                family="native_metadata",
+                local_id="missing-kind",
+                body={},
+            ),
+        ],
+    )
     assert read("pdf_companion_body", {"id": "one"}) == expected
-    assert read("pdf_companion_body", {"kind": "recognition_coverage"}, family="native_metadata", local="recognition") == {"kind": "recognition_coverage"}
+    assert read(
+        "pdf_companion_body",
+        {"kind": "recognition_coverage"},
+        family="native_metadata",
+        local="recognition",
+    ) == {"kind": "recognition_coverage"}
     assert read("pdf_companion_body", {}, family="native_metadata", local="missing-kind") == {}
     with pytest.raises(DBAPIError, match="lossless byte reader"), connection.begin_nested():
-        read("pdf_companion_body", {"kind": "inline_candidate_pages"}, family="native_metadata", local="opaque")
+        read(
+            "pdf_companion_body",
+            {"kind": "inline_candidate_pages"},
+            family="native_metadata",
+            local="opaque",
+        )
     with pytest.raises(DBAPIError, match="not in a published revision"), connection.begin_nested():
         read("pdf_companion_body", {"id": "one"}, revision="other")

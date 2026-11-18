@@ -361,8 +361,13 @@ def native_protocol_sources(
             "native/data-attempt-release.py",
             Path(__file__).with_name("data_attempt_release_native.py").read_bytes(),
         ),
-        SourceArtifact("native/data-read-boundary.sql", read_boundary_native_sql(target_metadata).encode()),
-        SourceArtifact("native/data-read-boundary.py", Path(__file__).with_name("data_read_boundary_native.py").read_bytes()),
+        SourceArtifact(
+            "native/data-read-boundary.sql", read_boundary_native_sql(target_metadata).encode()
+        ),
+        SourceArtifact(
+            "native/data-read-boundary.py",
+            Path(__file__).with_name("data_read_boundary_native.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-renewal.sql",
             renewal_native_sql(target_metadata, protocol).encode(),
@@ -639,7 +644,9 @@ def native_sql(sources=None) -> str:
             "native/data-operation-support-scopes.sql",
         )
     )
-    sql = sql.replace("__DDO_READ_BOUNDARY_PROGRAMS__", bodies["native/data-read-boundary.sql"].decode())
+    sql = sql.replace(
+        "__DDO_READ_BOUNDARY_PROGRAMS__", bodies["native/data-read-boundary.sql"].decode()
+    )
     sql += "\n" + bodies["native/data-operation-external.sql"].decode()
     from .pdf_source_search import search_projection_sql
 

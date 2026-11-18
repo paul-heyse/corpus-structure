@@ -110,9 +110,15 @@ def policy_visibility_connection(semantic_bare_engine):
         from corpus_structure.semantic.data_read_boundary_native import read_boundary_native_sql
         from corpus_structure.semantic.metadata import metadata
 
-        boundary_helpers = prepare_sql(read_boundary_native_sql(metadata), source="read-visibility-control")
+        boundary_helpers = prepare_sql(
+            read_boundary_native_sql(metadata), source="read-visibility-control"
+        )
         for index, raw in enumerate(boundary_helpers.statements):
-            if isinstance(raw.stmt, ast.CreateFunctionStmt) and raw.stmt.funcname and raw.stmt.funcname[-1].sval == "ddo_read_visible":
+            if (
+                isinstance(raw.stmt, ast.CreateFunctionStmt)
+                and raw.stmt.funcname
+                and raw.stmt.funcname[-1].sval == "ddo_read_visible"
+            ):
                 connection.exec_driver_sql(boundary_helpers.excerpt(index))
         prepared = prepare_sql(record_policy_native_sql(), source="policy-visibility-control")
         for index, statement in enumerate(prepared.statements):

@@ -2110,8 +2110,12 @@ def _projection_write_levels(model, pdf_domain):
 
     from .pdf_contracts import _context_from_domain, trusted_pdf_context
 
-    context = trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
-    policy_source = yaml.safe_load(model.info["physical_sources"]["pdf-staging.yaml"])["annotations"]["pds:projection_write_profile"]
+    context = (
+        trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
+    )
+    policy_source = yaml.safe_load(model.info["physical_sources"]["pdf-staging.yaml"])[
+        "annotations"
+    ]["pds:projection_write_profile"]
     policy = context.boundary.validate_json("PdfProjectionWriteProfile", policy_source)
     return sorted(set(policy.model_dump(mode="json")["allowed_isolation"]))
 
@@ -2149,12 +2153,27 @@ def pdf_validation_and_seal_native_sql(model, *, pdf_domain=None):
     product_artifact = model.tables["ops.pdf_product_artifact"]
     artifact = model.tables["kb.source_artifact"]
     request = model.tables["ops.data_request"]
-    fence = tuple(Parameter(name, column_type(field)) for name, field in (
-        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder), ("p_frozen", frozen.c.frozen_digest),
-    ))
-    p_build, p_task, p_attempt, p_holder, p_frozen = (core_variable(name, field.type) for name, field in (
-        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder), ("p_frozen", frozen.c.frozen_digest),
-    ))
+    fence = tuple(
+        Parameter(name, column_type(field))
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+            ("p_frozen", frozen.c.frozen_digest),
+        )
+    )
+    p_build, p_task, p_attempt, p_holder, p_frozen = (
+        core_variable(name, field.type)
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+            ("p_frozen", frozen.c.frozen_digest),
+        )
+    )
+
     def row(name, relation, field):
         return core_variable(name, relation.c[field].type, field)
 
@@ -2165,105 +2184,330 @@ def pdf_validation_and_seal_native_sql(model, *, pdf_domain=None):
     def local_result(name, relation):
         return select(*(core_variable(name, field.type, field.name) for field in relation.c))
 
-    has_seal_check = exists(select(1).select_from(checks).where(checks.c.build_id == p_build, checks.c.check_name == "seal"))
-    require_owner = Perform(func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder))
-    lock_build = PerformQuery(select(literal(1)).select_from(build).where(build.c.build_id == p_build).with_for_update(key_share=True))
-    require_frozen = Assign("b", func.ops.require_pdf_frozen(p_build, p_task, p_attempt, p_holder, p_frozen))
-    lookup = func.ops.lookup_pdf_validation(p_build, p_task, p_attempt, p_holder, p_frozen).table_valued(
-        *(column(field.name, field.type) for field in validation.c)
+    has_seal_check = exists(
+        select(1)
+        .select_from(checks)
+        .where(checks.c.build_id == p_build, checks.c.check_name == "seal")
     )
+    require_owner = Perform(func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder))
+    lock_build = PerformQuery(
+        select(literal(1))
+        .select_from(build)
+        .where(build.c.build_id == p_build)
+        .with_for_update(key_share=True)
+    )
+    require_frozen = Assign(
+        "b", func.ops.require_pdf_frozen(p_build, p_task, p_attempt, p_holder, p_frozen)
+    )
+    lookup = func.ops.lookup_pdf_validation(
+        p_build, p_task, p_attempt, p_holder, p_frozen
+    ).table_valued(*(column(field.name, field.type) for field in validation.c))
     qualified_fields = (
-        ("lowering_identity", certification.c.lowering_identity), ("kind", certification.c.kind),
-        ("logical_digest", certification.c.logical_digest), ("native_document_digest", certification.c.native_document_digest),
-        ("oracle_receipt_id", validation.c.oracle_receipt_id), ("certification_basis", validation.c.certification_basis),
+        ("lowering_identity", certification.c.lowering_identity),
+        ("kind", certification.c.kind),
+        ("logical_digest", certification.c.logical_digest),
+        ("native_document_digest", certification.c.native_document_digest),
+        ("oracle_receipt_id", validation.c.oracle_receipt_id),
+        ("certification_basis", validation.c.certification_basis),
     )
     qualification_sources = dict(qualified_fields)
-    qualified = func.ops.read_pdf_certification_requirement(p_build, p_task, p_attempt, p_holder, p_frozen).table_valued(
-        *(column(name, field.type) for name, field in qualified_fields)
-    )
+    qualified = func.ops.read_pdf_certification_requirement(
+        p_build, p_task, p_attempt, p_holder, p_frozen
+    ).table_valued(*(column(name, field.type) for name, field in qualified_fields))
     logical = core_variable("logical_", validation.c.logical_digest.type)
     contract = core_variable("contract_", validation.c.contract_digest.type)
     native_contract = func.ops.pdf_validation_contract(row("b", build, "release_id"))
-    context = func.ops.pdf_task_context(row("b", build, "task_id")).table_valued(column("project_id", request.c.project_id.type))
+    context = func.ops.pdf_task_context(row("b", build, "task_id")).table_valued(
+        column("project_id", request.c.project_id.type)
+    )
     levels = _projection_write_levels(model, pdf_domain)
     validation_type = pg_type(validation.schema, validation.name)
     validation_type.setof = True
-    validate = _publication_control_routine("validate_pdf_build", fence, validation_type, (
-        If(not_(func.current_setting("transaction_isolation") == any_(array(levels, type_=Text()))),
-           (Raise("PDF projection admission requires " + ", ".join(levels).upper(), "25000"),)),
-        If(has_seal_check, (require_owner,)), lock_build, require_frozen,
-        Perform(func.ops.require_pdf_operation(row("b", build, "release_id"), "validate_pdf_build")),
-        SelectInto(select(lookup), ("prior_validation",)),
-        If(core_variable("found", Boolean()), (ReturnQuery(local_result("prior_validation", validation)), Return())),
-        SelectInto(select(qualified), ("certification_",), True),
-        If(qualification("oracle_receipt_id").is_(None), (Raise("PDF lowering has no passed round-trip oracle", "23514"),)),
-        If(has_seal_check, (
-            SelectInto(select(func.max(checks.c.result_digest).filter(checks.c.check_name == "identity"),
-                              func.max(checks.c.result_digest).filter(checks.c.check_name == "projection")).where(
-                checks.c.build_id == p_build, checks.c.attempt == p_attempt, checks.c.holder == p_holder,
-                checks.c.frozen_digest == p_frozen, checks.c.contract_digest == native_contract,
-            ).having(func.count() == 5), ("logical_", "contract_")),
-            If(or_(logical.is_(None), contract.is_(None)), (Raise("incomplete frozen PDF validation checks", "23514"),)),
-        ), (
-            Perform(func.ops.pdf_check_build_inventory(p_build, row("b", build, "source_digest"), select(context.c.project_id).scalar_subquery())),
-            Perform(func.ops.pdf_check_access_correspondence(p_build)),
-            Assign("logical_", func.ops.pdf_record_logical_identity(p_build, p_build)),
-            Assign("contract_", func.ops.pdf_projection_contract(p_build, row("b", build, "release_id"))),
-        )),
-        Perform(func.ops.require_pdf_frozen(p_build, p_task, p_attempt, p_holder, p_frozen)),
-        If(func.ops.pdf_producer_stream_identity(p_build, row("b", build, "schema_digest")).is_distinct_from(
-            select(certification.c.stream_inventory_digest).where(certification.c.build_id == p_build).scalar_subquery()),
-           (Raise("stored PDF stream roots differ from producer attestation", "23514"),)),
-        If(logical.is_distinct_from(qualification("logical_digest")), (Raise("stored PDF identity differs from producer attestation", "23514"),)),
-        Sql(insert(validation).values({validation.c.build_id: p_build, validation.c.frozen_digest: p_frozen,
-            validation.c.logical_digest: logical, validation.c.contract_digest: contract, validation.c.native_callbacks: True,
-            validation.c.native_contract_digest: native_contract, validation.c.certification_basis: qualification("certification_basis"),
-            validation.c.lowering_identity: qualification("lowering_identity"), validation.c.attested_logical_digest: qualification("logical_digest"),
-            validation.c.native_document_digest: qualification("native_document_digest"), validation.c.oracle_receipt_id: qualification("oracle_receipt_id"),
-        }).on_conflict_do_nothing()),
-        If(~exists(select(1).select_from(validation).where(validation.c.build_id == p_build, validation.c.frozen_digest == p_frozen,
-            validation.c.logical_digest == logical, validation.c.contract_digest == contract,
-            validation.c.native_contract_digest == native_contract, validation.c.native_callbacks)),
-           (Raise("PDF validation result differs for frozen premises", "23514"),)),
-        ReturnQuery(select(validation).where(validation.c.build_id == p_build, validation.c.frozen_digest == p_frozen, validation.c.contract_digest == contract)),
-    ), (Local("b", build), Local("logical_", column_type(validation.c.logical_digest)), Local("contract_", column_type(validation.c.contract_digest)),
-        Local("certification_", pg_type("record")), Local("prior_validation", validation)))
+    validate = _publication_control_routine(
+        "validate_pdf_build",
+        fence,
+        validation_type,
+        (
+            If(
+                not_(
+                    func.current_setting("transaction_isolation")
+                    == any_(array(levels, type_=Text()))
+                ),
+                (Raise("PDF projection admission requires " + ", ".join(levels).upper(), "25000"),),
+            ),
+            If(has_seal_check, (require_owner,)),
+            lock_build,
+            require_frozen,
+            Perform(
+                func.ops.require_pdf_operation(row("b", build, "release_id"), "validate_pdf_build")
+            ),
+            SelectInto(select(lookup), ("prior_validation",)),
+            If(
+                core_variable("found", Boolean()),
+                (ReturnQuery(local_result("prior_validation", validation)), Return()),
+            ),
+            SelectInto(select(qualified), ("certification_",), True),
+            If(
+                qualification("oracle_receipt_id").is_(None),
+                (Raise("PDF lowering has no passed round-trip oracle", "23514"),),
+            ),
+            If(
+                has_seal_check,
+                (
+                    SelectInto(
+                        select(
+                            func.max(checks.c.result_digest).filter(
+                                checks.c.check_name == "identity"
+                            ),
+                            func.max(checks.c.result_digest).filter(
+                                checks.c.check_name == "projection"
+                            ),
+                        )
+                        .where(
+                            checks.c.build_id == p_build,
+                            checks.c.attempt == p_attempt,
+                            checks.c.holder == p_holder,
+                            checks.c.frozen_digest == p_frozen,
+                            checks.c.contract_digest == native_contract,
+                        )
+                        .having(func.count() == 5),
+                        ("logical_", "contract_"),
+                    ),
+                    If(
+                        or_(logical.is_(None), contract.is_(None)),
+                        (Raise("incomplete frozen PDF validation checks", "23514"),),
+                    ),
+                ),
+                (
+                    Perform(
+                        func.ops.pdf_check_build_inventory(
+                            p_build,
+                            row("b", build, "source_digest"),
+                            select(context.c.project_id).scalar_subquery(),
+                        )
+                    ),
+                    Perform(func.ops.pdf_check_access_correspondence(p_build)),
+                    Assign("logical_", func.ops.pdf_record_logical_identity(p_build, p_build)),
+                    Assign(
+                        "contract_",
+                        func.ops.pdf_projection_contract(p_build, row("b", build, "release_id")),
+                    ),
+                ),
+            ),
+            Perform(func.ops.require_pdf_frozen(p_build, p_task, p_attempt, p_holder, p_frozen)),
+            If(
+                func.ops.pdf_producer_stream_identity(
+                    p_build, row("b", build, "schema_digest")
+                ).is_distinct_from(
+                    select(certification.c.stream_inventory_digest)
+                    .where(certification.c.build_id == p_build)
+                    .scalar_subquery()
+                ),
+                (Raise("stored PDF stream roots differ from producer attestation", "23514"),),
+            ),
+            If(
+                logical.is_distinct_from(qualification("logical_digest")),
+                (Raise("stored PDF identity differs from producer attestation", "23514"),),
+            ),
+            Sql(
+                insert(validation)
+                .values(
+                    {
+                        validation.c.build_id: p_build,
+                        validation.c.frozen_digest: p_frozen,
+                        validation.c.logical_digest: logical,
+                        validation.c.contract_digest: contract,
+                        validation.c.native_callbacks: True,
+                        validation.c.native_contract_digest: native_contract,
+                        validation.c.certification_basis: qualification("certification_basis"),
+                        validation.c.lowering_identity: qualification("lowering_identity"),
+                        validation.c.attested_logical_digest: qualification("logical_digest"),
+                        validation.c.native_document_digest: qualification(
+                            "native_document_digest"
+                        ),
+                        validation.c.oracle_receipt_id: qualification("oracle_receipt_id"),
+                    }
+                )
+                .on_conflict_do_nothing()
+            ),
+            If(
+                ~exists(
+                    select(1)
+                    .select_from(validation)
+                    .where(
+                        validation.c.build_id == p_build,
+                        validation.c.frozen_digest == p_frozen,
+                        validation.c.logical_digest == logical,
+                        validation.c.contract_digest == contract,
+                        validation.c.native_contract_digest == native_contract,
+                        validation.c.native_callbacks,
+                    )
+                ),
+                (Raise("PDF validation result differs for frozen premises", "23514"),),
+            ),
+            ReturnQuery(
+                select(validation).where(
+                    validation.c.build_id == p_build,
+                    validation.c.frozen_digest == p_frozen,
+                    validation.c.contract_digest == contract,
+                )
+            ),
+        ),
+        (
+            Local("b", build),
+            Local("logical_", column_type(validation.c.logical_digest)),
+            Local("contract_", column_type(validation.c.contract_digest)),
+            Local("certification_", pg_type("record")),
+            Local("prior_validation", validation),
+        ),
+    )
 
     p_key = core_variable("p_key", published.c.product_key.type)
     kind = core_variable("kind_", frozen.c.kind.type)
     published_type = pg_type(published.schema, published.name)
     published_type.setof = True
-    seal = _publication_control_routine("seal_pdf_build", (*fence, Parameter("p_key", column_type(published.c.product_key))), published_type, (
-        require_owner, lock_build, require_frozen,
-        SelectInto(select(published).where(published.c.build_id == p_build), ("prior",)),
-        If(core_variable("found", Boolean()), (
-            If(row("prior", published, "product_key").is_distinct_from(p_key), (Raise("published key replay differs", "P0001"),)),
-            ReturnQuery(local_result("prior", published)), Return(),
-        )),
-        Perform(func.ops.require_pdf_operation(row("b", build, "release_id"), "seal_pdf_build")),
-        SelectInto(select(lookup), ("v",), True),
-        If(or_(p_key.is_(None), p_key == ""), (Raise("empty PDF product key", "P0001"),)),
-        SelectInto(select(frozen.c.kind).where(frozen.c.build_id == p_build), ("kind_",), True),
-        If((kind == "integrated") & or_(
-            ~exists(select(1).select_from(companion).where(companion.c.product_id == p_build, companion.c.family == "input")),
-            ~exists(select(1).select_from(companion).where(companion.c.product_id == p_build, companion.c.family == "coverage")),
-        ), (Raise("integrated publication lacks input/coverage inventory", "23514"),)),
-        Sql(insert(product).values({product.c.task_id: p_task, product.c.product_key: p_key, product.c.content_digest: row("v", validation, "logical_digest"),
-            product.c.kind: kind, product.c.artifact_digest: row("b", build, "source_digest"), product.c.release_id: row("b", build, "release_id"), product.c.contract_digest: row("v", validation, "contract_digest")})),
-        Sql(insert(product_input).from_select((product_input.c.task_id, product_input.c.product_key, product_input.c.input_index, product_input.c.role,
-            product_input.c.input_task_id, product_input.c.input_product_key, product_input.c.input_content_digest),
-            select(p_task, p_key, cast(companion.c.local_id, product_input.c.input_index.type), companion.c.body["role"].astext,
-                cast(companion.c.body["task_id"].astext, product_input.c.input_task_id.type), companion.c.body["product_key"].astext,
-                companion.c.body["content_digest"].astext).where(companion.c.product_id == p_build, companion.c.family == "input"))),
-        Sql(insert(artifact).from_select((artifact.c.artifact_digest, artifact.c.content), select(row("b", build, "schema_digest"),
-            func.ops.pdf_contract_input(row("b", build, "release_id"), "implementation/pdf/docling-validation.schema.json"))).on_conflict_do_nothing()),
-        Sql(insert(product_artifact).from_select((product_artifact.c.task_id, product_artifact.c.product_key, product_artifact.c.artifact_digest),
-            select(p_task, p_key, artifact.c.artifact_digest).where(artifact.c.artifact_digest.in_((row("b", build, "source_digest"), row("b", build, "schema_digest"), row("b", build, "recipe_digest")))))),
-        SelectInto(insert(published).values({published.c.build_id: p_build, published.c.task_id: p_task, published.c.product_key: p_key,
-            published.c.logical_digest: row("v", validation, "logical_digest"), published.c.release_id: row("b", build, "release_id"),
-            published.c.source_digest: row("b", build, "source_digest"), published.c.schema_digest: row("b", build, "schema_digest"),
-            published.c.recipe_digest: row("b", build, "recipe_digest"), published.c.frozen_digest: p_frozen, published.c.kind: kind}).returning(*published.c), ("prior",)),
-        Sql(update(build).values({build.c.state: "published"}).where(build.c.build_id == p_build)),
-        ReturnQuery(local_result("prior", published)),
-    ), (Local("b", build), Local("v", validation), Local("prior", published), Local("kind_", column_type(frozen.c.kind))))
+    seal = _publication_control_routine(
+        "seal_pdf_build",
+        (*fence, Parameter("p_key", column_type(published.c.product_key))),
+        published_type,
+        (
+            require_owner,
+            lock_build,
+            require_frozen,
+            SelectInto(select(published).where(published.c.build_id == p_build), ("prior",)),
+            If(
+                core_variable("found", Boolean()),
+                (
+                    If(
+                        row("prior", published, "product_key").is_distinct_from(p_key),
+                        (Raise("published key replay differs", "P0001"),),
+                    ),
+                    ReturnQuery(local_result("prior", published)),
+                    Return(),
+                ),
+            ),
+            Perform(
+                func.ops.require_pdf_operation(row("b", build, "release_id"), "seal_pdf_build")
+            ),
+            SelectInto(select(lookup), ("v",), True),
+            If(or_(p_key.is_(None), p_key == ""), (Raise("empty PDF product key", "P0001"),)),
+            SelectInto(select(frozen.c.kind).where(frozen.c.build_id == p_build), ("kind_",), True),
+            If(
+                (kind == "integrated")
+                & or_(
+                    ~exists(
+                        select(1)
+                        .select_from(companion)
+                        .where(companion.c.product_id == p_build, companion.c.family == "input")
+                    ),
+                    ~exists(
+                        select(1)
+                        .select_from(companion)
+                        .where(companion.c.product_id == p_build, companion.c.family == "coverage")
+                    ),
+                ),
+                (Raise("integrated publication lacks input/coverage inventory", "23514"),),
+            ),
+            Sql(
+                insert(product).values(
+                    {
+                        product.c.task_id: p_task,
+                        product.c.product_key: p_key,
+                        product.c.content_digest: row("v", validation, "logical_digest"),
+                        product.c.kind: kind,
+                        product.c.artifact_digest: row("b", build, "source_digest"),
+                        product.c.release_id: row("b", build, "release_id"),
+                        product.c.contract_digest: row("v", validation, "contract_digest"),
+                    }
+                )
+            ),
+            Sql(
+                insert(product_input).from_select(
+                    (
+                        product_input.c.task_id,
+                        product_input.c.product_key,
+                        product_input.c.input_index,
+                        product_input.c.role,
+                        product_input.c.input_task_id,
+                        product_input.c.input_product_key,
+                        product_input.c.input_content_digest,
+                    ),
+                    select(
+                        p_task,
+                        p_key,
+                        cast(companion.c.local_id, product_input.c.input_index.type),
+                        companion.c.body["role"].astext,
+                        cast(
+                            companion.c.body["task_id"].astext, product_input.c.input_task_id.type
+                        ),
+                        companion.c.body["product_key"].astext,
+                        companion.c.body["content_digest"].astext,
+                    ).where(companion.c.product_id == p_build, companion.c.family == "input"),
+                )
+            ),
+            Sql(
+                insert(artifact)
+                .from_select(
+                    (artifact.c.artifact_digest, artifact.c.content),
+                    select(
+                        row("b", build, "schema_digest"),
+                        func.ops.pdf_contract_input(
+                            row("b", build, "release_id"),
+                            "implementation/pdf/docling-validation.schema.json",
+                        ),
+                    ),
+                )
+                .on_conflict_do_nothing()
+            ),
+            Sql(
+                insert(product_artifact).from_select(
+                    (
+                        product_artifact.c.task_id,
+                        product_artifact.c.product_key,
+                        product_artifact.c.artifact_digest,
+                    ),
+                    select(p_task, p_key, artifact.c.artifact_digest).where(
+                        artifact.c.artifact_digest.in_(
+                            (
+                                row("b", build, "source_digest"),
+                                row("b", build, "schema_digest"),
+                                row("b", build, "recipe_digest"),
+                            )
+                        )
+                    ),
+                )
+            ),
+            SelectInto(
+                insert(published)
+                .values(
+                    {
+                        published.c.build_id: p_build,
+                        published.c.task_id: p_task,
+                        published.c.product_key: p_key,
+                        published.c.logical_digest: row("v", validation, "logical_digest"),
+                        published.c.release_id: row("b", build, "release_id"),
+                        published.c.source_digest: row("b", build, "source_digest"),
+                        published.c.schema_digest: row("b", build, "schema_digest"),
+                        published.c.recipe_digest: row("b", build, "recipe_digest"),
+                        published.c.frozen_digest: p_frozen,
+                        published.c.kind: kind,
+                    }
+                )
+                .returning(*published.c),
+                ("prior",),
+            ),
+            Sql(
+                update(build)
+                .values({build.c.state: "published"})
+                .where(build.c.build_id == p_build)
+            ),
+            ReturnQuery(local_result("prior", published)),
+        ),
+        (
+            Local("b", build),
+            Local("v", validation),
+            Local("prior", published),
+            Local("kind_", column_type(frozen.c.kind)),
+        ),
+    )
     return validate + "\n" + seal
