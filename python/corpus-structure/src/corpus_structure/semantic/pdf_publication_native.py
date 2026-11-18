@@ -807,7 +807,6 @@ BEGIN
 
 def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
     metadata = default_metadata if target_metadata is None else target_metadata
-    identifier = dialect().identifier_preparer.quote
     from .pdf_domain import pdf_call_bindings
     from .pdf_record_reader_native import (
         pdf_companion_export_sql,
@@ -816,82 +815,6 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         pdf_record_reader_sql,
     )
 
-    sql = (
-        _native_shape_guard()
-        + _companion_field_sql()
-        + """
-CREATE OR REPLACE FUNCTION ops.bind_pdf_stage_recipe(p_task bigint,p_attempt bigint,p_holder \
-text,p_recipe bytea)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE owner record; root_ ops.source_build; digest_ text;
-BEGIN
- SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- SELECT * INTO STRICT root_ FROM ops.source_build WHERE task_id=p_task AND \
-release_id=owner.release_id;
- PERFORM ops.require_pdf_operation(owner.release_id,'retain_pdf_stage_recipe');
- PERFORM convert_from(p_recipe,'UTF8')::jsonb;
- IF p_recipe IS NULL OR octet_length(p_recipe)=0 THEN RAISE EXCEPTION 'empty stage recipe'; END IF;
- digest_:=encode(sha256(p_recipe),'hex');
- INSERT INTO kb.source_artifact(artifact_digest,content) VALUES(digest_,p_recipe) ON CONFLICT DO \
-NOTHING;
- IF NOT EXISTS(SELECT FROM kb.source_artifact WHERE artifact_digest=digest_ AND \
-content=p_recipe) THEN
- RAISE EXCEPTION 'stage recipe custody conflict'; END IF;
- INSERT INTO ops.pdf_stage_recipe VALUES(p_task,root_.artifact_digest,root_.recipe_digest,digest_\
-,owner.release_id) ON CONFLICT DO NOTHING;
- RETURN digest_;
-END $$;
-REVOKE ALL ON FUNCTION ops.bind_pdf_stage_recipe(bigint,bigint,text,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.bind_pdf_stage_recipe(bigint,bigint,text,bytea) TO corpus_sem_writer;
-CREATE OR REPLACE FUNCTION ops.require_pdf_frozen(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text,p_frozen text)
-RETURNS ops.pdf_stage_build LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp \
-AS $$
-DECLARE b ops.pdf_stage_build; job ops.task; owner record;
-BEGIN
- -- Pure immutable-candidate inspection must not block the lease heartbeat.
- SELECT * INTO STRICT owner FROM ops.pdf_task_context(p_task);
- IF NOT ops.pdf_stage_owner_current(p_task,p_attempt,p_holder) THEN
- RAISE EXCEPTION 'stale frozen PDF owner' USING ERRCODE='P0004'; END IF;
- SELECT * INTO STRICT b FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task;
- IF b.release_id IS DISTINCT FROM owner.release_id OR b.state NOT IN ('frozen','published') OR \
-b.attempt IS DISTINCT FROM p_attempt OR b.holder IS DISTINCT FROM p_holder
- OR NOT EXISTS(SELECT FROM ops.pdf_frozen_build WHERE build_id=p_build AND \
-frozen_digest=p_frozen) THEN
- RAISE EXCEPTION 'PDF frozen owner/inventory differs' USING ERRCODE='23514'; END IF;
- RETURN b;
-END $$;
-CREATE OR REPLACE FUNCTION ops.freeze_pdf_build(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text,p_kind text)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; job ops.task; owner record; f text;
- state_ bytea:=ops.pdf_identity_fold_start('pdf-frozen-inventory-v1');
- row_ record; payload bytea; count_ bigint:=0; total_ bigint:=0;
- family_count_ bigint; inventory_ jsonb:='{}'::jsonb;
-BEGIN
- IF NOT (current_setting('transaction_isolation')=ANY({pdf_projection_isolation_array})) THEN
- RAISE EXCEPTION '{pdf_freeze_isolation_message}' USING ERRCODE='25000'; END IF;
- -- Inspect before expensive work; acquire the owner fence again at freeze commit.
- SELECT * INTO STRICT owner FROM ops.pdf_task_context(p_task);
- IF NOT ops.pdf_stage_owner_current(p_task,p_attempt,p_holder) THEN
- RAISE EXCEPTION 'stale private PDF build owner' USING ERRCODE='P0004'; END IF;
- SELECT * INTO STRICT b FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task;
- IF b.attempt IS DISTINCT FROM p_attempt OR b.holder IS DISTINCT FROM p_holder OR \
-b.state='abandoned' THEN
- RAISE EXCEPTION 'PDF freeze owner differs' USING ERRCODE='23514'; END IF;
- SELECT frozen_digest INTO f FROM ops.pdf_frozen_build WHERE build_id=p_build;
- IF FOUND THEN
- PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- SELECT * INTO STRICT b FROM ops.pdf_stage_build
- WHERE build_id=p_build AND task_id=p_task FOR UPDATE;
- IF b.attempt IS DISTINCT FROM p_attempt OR b.holder IS DISTINCT FROM p_holder
- OR b.state='abandoned'
- THEN RAISE EXCEPTION 'PDF freeze owner differs' USING ERRCODE='23514'; END IF;
- IF p_kind IS DISTINCT FROM (SELECT kind FROM ops.pdf_frozen_build WHERE build_id=p_build)
- THEN RAISE EXCEPTION 'frozen publication kind differs'; END IF; RETURN f; END IF;
- PERFORM ops.require_pdf_operation(b.release_id,'freeze_pdf_build');
-"""
-    )
     stage = {
         **STAGE_FAMILIES,
         "companion": "ops.pdf_stage_companion",
@@ -900,83 +823,8 @@ b.state='abandoned' THEN
         "access": "ops.pdf_stage_access",
         "region": "ops.pdf_stage_region",
     }
-    inventory_stage = {
-        **stage,
-        "spool_producer": "ops.pdf_spool_producer",
-        "spool_contributor": "ops.pdf_spool_contributor",
-        "producer_certification": "ops.pdf_producer_certification",
-    }
+    sql = _native_shape_guard() + _companion_field_sql() + pdf_freeze_native_sql(metadata, stage, pdf_domain=pdf_domain)
     sql += """
- IF EXISTS(SELECT FROM ops.pdf_stage_artifact_stream stream WHERE stream.product_id=p_build
- AND stream.revision_id=p_build AND NOT ops.pdf_shared_stream_ready(p_build,stream.encoding_profile,stream.byte_length,stream.byte_root)) THEN
- RAISE EXCEPTION 'PDF freeze requires verified project-scoped stream bytes' USING ERRCODE='23514'; END IF;
-"""
-    for family, relation in sorted(inventory_stage.items()):
-        keys = ",".join(
-            identifier(column.name) for column in metadata.tables[relation].primary_key.columns
-        )
-        owner_column = (
-            "build_id"
-            if family.startswith("spool_") or family == "producer_certification"
-            else "product_id"
-        )
-        sql += f"""
- family_count_:=0;
- FOR row_ IN SELECT to_jsonb(t) body FROM {relation} t WHERE {owner_column}=p_build ORDER BY {keys} LOOP
- payload:=convert_to(row_.body::text,'UTF8');
- state_:=ops.pdf_identity_fold_step(state_,count_,convert_to('{family}:','UTF8')||sha256(payload));
- count_:=count_+1; total_:=total_+octet_length(payload);
- family_count_:=family_count_+1;
- END LOOP;
- inventory_:=inventory_||jsonb_build_object('{family}',family_count_);
-"""
-    sql += """
- IF NOT EXISTS(SELECT FROM ops.pdf_producer_certification c WHERE c.build_id=p_build
- AND c.kind=p_kind AND c.lowering_identity=ops.pdf_lowering_identity(b.release_id)
- AND (c.source_digest,c.recipe_digest,c.schema_digest)=(b.source_digest,b.recipe_digest,b.schema_digest)) THEN
- RAISE EXCEPTION 'PDF freeze requires exact producer certification' USING ERRCODE='23514'; END IF;
- IF NOT EXISTS(SELECT FROM ops.pdf_stage_document WHERE product_id=p_build) THEN
- RAISE EXCEPTION 'PDF freeze has no native document header' USING ERRCODE='23514'; END IF;
- f:=encode(ops.pdf_identity_fold_finish(state_,count_,total_),'hex');
- -- Stage rows are append-only through protected operations. Exact replay is
- -- neutral; changed family cardinality invalidates this candidate. Retain the
- -- ordinary task -> build lock order, after hashing payloads without either lock.
- SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- SELECT * INTO STRICT b FROM ops.pdf_stage_build
- WHERE build_id=p_build AND task_id=p_task FOR UPDATE;
- IF b.release_id IS DISTINCT FROM owner.release_id OR b.attempt IS DISTINCT FROM p_attempt
- OR b.holder IS DISTINCT FROM p_holder OR b.state='abandoned' THEN
- RAISE EXCEPTION 'PDF freeze owner differs' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM ops.pdf_frozen_build WHERE build_id=p_build) THEN
- IF p_kind IS DISTINCT FROM (SELECT kind FROM ops.pdf_frozen_build WHERE build_id=p_build)
- THEN RAISE EXCEPTION 'frozen publication kind differs'; END IF;
- RETURN (SELECT frozen_digest FROM ops.pdf_frozen_build WHERE build_id=p_build);
- END IF;
- IF b.state<>'open' THEN
- RAISE EXCEPTION 'PDF freeze build is not open' USING ERRCODE='23514'; END IF;
-"""
-    sql += """
- IF EXISTS(SELECT FROM ops.pdf_stage_artifact_stream stream WHERE stream.product_id=p_build
- AND stream.revision_id=p_build AND NOT ops.pdf_shared_stream_ready(p_build,stream.encoding_profile,stream.byte_length,stream.byte_root)) THEN
- RAISE EXCEPTION 'PDF freeze requires verified project-scoped stream bytes' USING ERRCODE='23514'; END IF;
-"""
-    for family, relation in sorted(inventory_stage.items()):
-        owner_column = (
-            "build_id"
-            if family.startswith("spool_") or family == "producer_certification"
-            else "product_id"
-        )
-        sql += f"""
- SELECT count(*) INTO family_count_ FROM {relation} WHERE {owner_column}=p_build;
- IF family_count_ IS DISTINCT FROM (inventory_->>'{family}')::bigint THEN
- RAISE EXCEPTION 'PDF freeze inventory changed; retry from the current private build'
- USING ERRCODE='40001'; END IF;
-"""
-    sql += """
- INSERT INTO ops.pdf_frozen_build VALUES(p_build,f,p_kind);
- UPDATE ops.pdf_stage_build SET state='frozen' WHERE build_id=p_build;
- RETURN f;
-END $$;
 __PDF_COMPANION_ADOPTION__
 CREATE OR REPLACE FUNCTION ops.pdf_reference_bytes_equal(p_product text,p_revision text,p_left \
 text,p_left_stream text,p_right text,p_right_stream text)
@@ -1534,10 +1382,6 @@ END $$;
             "'{pdf_projection_isolation_message}'",
             _quote("PDF projection admission requires " + ", ".join(levels).upper()),
         )
-        .replace(
-            "'{pdf_freeze_isolation_message}'",
-            _quote("PDF freeze requires " + ", ".join(levels).upper()),
-        )
         .replace("{pdf_projection_profile_digest}", policy_digest)
         .replace("{pdf_integrated_metadata_policy_digest}", metadata_policy_digest)
     )
@@ -1739,8 +1583,6 @@ REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) 
         "lookup_pdf_frozen_digest(text,bigint,bigint,text)",
         "lookup_pdf_frozen_kind(text,bigint,bigint,text)",
         "lookup_pdf_published_build(text,bigint,bigint,text)",
-        "require_pdf_frozen(text,bigint,bigint,text,text)",
-        "freeze_pdf_build(text,bigint,bigint,text,text)",
         "prepare_pdf_companions()",
         "adopt_pdf_companions(text,bigint,bigint,text,text)",
         "prepare_pdf_build(text,bigint,bigint,text,text)",
@@ -1793,3 +1635,196 @@ def pdf_record_logical_identity_sql() -> str:
     return sql.replace("'{pdf_payload_profile}'", _quote(PROFILE)).replace(
         "'{pdf_payload_family}'", _quote(FAMILY)
     )
+
+
+def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
+    """Compile exact frozen inventory custody with hashing outside the owner lock."""
+    from pglast import ast, enums, parse_sql
+    from pglast.stream import RawStream
+    from sqlalchemy import (
+        BigInteger,
+        Boolean,
+        Text,
+        any_,
+        cast,
+        column,
+        exists,
+        literal,
+        not_,
+        or_,
+        tuple_,
+        update,
+    )
+    from sqlalchemy.dialects.postgresql import BYTEA, JSONB, array
+
+    from .native_program import (
+        Assign,
+        Block,
+        ForQuery,
+        If,
+        Local,
+        Parameter,
+        Perform,
+        Raise,
+        Return,
+        SelectInto,
+        Sql,
+        Statement,
+        column_type,
+        function,
+        pg_type,
+    )
+    from .pdf_contracts import _context_from_domain, trusted_pdf_context
+
+    stages = {
+        **STAGE_FAMILIES, "companion": "ops.pdf_stage_companion", "endpoint": "ops.pdf_stage_endpoint",
+        "companion_field": "ops.pdf_stage_companion_field", "access": "ops.pdf_stage_access", "region": "ops.pdf_stage_region",
+    } if stages is None else stages
+    inventory = {**stages, "spool_producer": "ops.pdf_spool_producer", "spool_contributor": "ops.pdf_spool_contributor", "producer_certification": "ops.pdf_producer_certification"}
+    build = model.tables["ops.pdf_stage_build"]
+    task = model.tables["ops.task"]
+    request = model.tables["ops.data_request"]
+    document = model.tables["kb.document"]
+    sources = model.tables["ops.source_build"]
+    recipes = model.tables["ops.pdf_stage_recipe"]
+    artifacts = model.tables["kb.source_artifact"]
+    frozen = model.tables["ops.pdf_frozen_build"]
+    certified = model.tables["ops.pdf_producer_certification"]
+    streams = model.tables["ops.pdf_stage_artifact_stream"]
+    header = model.tables["ops.pdf_stage_document"]
+    context = trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
+    import yaml
+
+    policy_source = yaml.safe_load(model.info["physical_sources"]["pdf-staging.yaml"])["annotations"]["pds:projection_write_profile"]
+    policy = context.boundary.validate_json("PdfProjectionWriteProfile", policy_source)
+    levels = sorted(set(policy.model_dump(mode="json")["allowed_isolation"]))
+    fence = tuple(Parameter(name, column_type(field)) for name, field in (
+        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder),
+    ))
+    p_build, p_task, p_attempt, p_holder = (core_variable(name, field.type) for name, field in (
+        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder),
+    ))
+    def row(name, relation, field):
+        return core_variable(name, relation.c[field].type, field)
+
+    owner_fields = {"project_id": request.c.project_id, "release_id": task.c.release_id,
+        "request_id": request.c.id, "generation": task.c.data_generation,
+        "document_id": document.c.id, "source_digest": document.c.content_hash}
+    def owner(field):
+        return core_variable("owner", owner_fields[field].type, field)
+
+    def require_owner_query(name):
+        values = func.ops.pdf_task_context(p_task) if name == "inspect" else func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder)
+        return SelectInto(select(values.table_valued(*(column(field, source.type) for field, source in owner_fields.items()))), ("owner",), True)
+
+    def routine(name, parameters, returns, statements, locals_, *, writer=True):
+        declaration = parse_sql(function("ops", name, parameters=parameters, returns=returns,
+            body=Block(tuple(statements), tuple(locals_)), security_definer=True,
+            search_path=("pg_catalog", "pg_temp")))[0].stmt
+        if not isinstance(declaration, ast.CreateFunctionStmt):
+            raise ValueError("PDF frozen custody requires a typed function declaration")
+        identity = ast.ObjectWithArgs(objname=(ast.String(sval="ops"), ast.String(sval=name)), objargs=tuple(parameter.type_ for parameter in parameters), args_unspecified=False)
+        statements_ = [declaration, ast.GrantStmt(is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+            objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,),
+            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),), grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT)]
+        if writer:
+            statements_.append(ast.GrantStmt(is_grant=True, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+                objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,), privileges=(ast.AccessPriv(priv_name="execute"),),
+                grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"),), behavior=enums.DropBehavior.DROP_RESTRICT))
+        return ";\n".join(RawStream()(statement) for statement in statements_) + ";\n"
+
+    p_recipe = core_variable("p_recipe", BYTEA())
+    recipe_digest = core_variable("digest_", Text())
+    out = [routine("bind_pdf_stage_recipe", (*fence[1:], Parameter("p_recipe", column_type(artifacts.c.content))), pg_type("text"), (
+        require_owner_query("lock"), SelectInto(select(sources).where(sources.c.task_id == p_task, sources.c.release_id == owner("release_id")), ("root_",), True),
+        Perform(func.ops.require_pdf_operation(owner("release_id"), "retain_pdf_stage_recipe")),
+        Perform(cast(func.convert_from(p_recipe, "UTF8"), JSONB())),
+        If(or_(p_recipe.is_(None), func.octet_length(p_recipe) == 0), (Raise("empty stage recipe", "P0001"),)),
+        Assign("digest_", func.encode(func.sha256(p_recipe), "hex")),
+        Sql(insert(artifacts).values({artifacts.c.artifact_digest: recipe_digest, artifacts.c.content: p_recipe}).on_conflict_do_nothing()),
+        If(~exists(select(1).select_from(artifacts).where(artifacts.c.artifact_digest == recipe_digest, artifacts.c.content == p_recipe)), (Raise("stage recipe custody conflict", "P0001"),)),
+        Sql(insert(recipes).values({recipes.c.task_id: p_task, recipes.c.source_digest: row("root_", sources, "artifact_digest"), recipes.c.root_recipe_digest: row("root_", sources, "recipe_digest"), recipes.c.stage_recipe_digest: recipe_digest, recipes.c.release_id: owner("release_id")}).on_conflict_do_nothing()),
+        Return(recipe_digest),
+    ), (Local("owner", pg_type("record")), Local("root_", sources), Local("digest_", pg_type("text"))))]
+
+    p_frozen = core_variable("p_frozen", frozen.c.frozen_digest.type)
+    out.append(routine("require_pdf_frozen", (*fence, Parameter("p_frozen", column_type(frozen.c.frozen_digest))), pg_type(build.schema, build.name), (
+        require_owner_query("inspect"),
+        If(not_(func.ops.pdf_stage_owner_current(p_task, p_attempt, p_holder)), (Raise("stale frozen PDF owner", "P0004"),)),
+        SelectInto(select(build).where(build.c.build_id == p_build, build.c.task_id == p_task), ("b",), True),
+        If(or_(row("b", build, "release_id").is_distinct_from(owner("release_id")), row("b", build, "state").not_in(("frozen", "published")),
+            row("b", build, "attempt").is_distinct_from(p_attempt), row("b", build, "holder").is_distinct_from(p_holder),
+            ~exists(select(1).select_from(frozen).where(frozen.c.build_id == p_build, frozen.c.frozen_digest == p_frozen))),
+           (Raise("PDF frozen owner/inventory differs", "23514"),)),
+        Return(core_variable("b", JSONB())),
+    ), (Local("b", build), Local("owner", pg_type("record"))), writer=False))
+
+    p_kind = core_variable("p_kind", frozen.c.kind.type)
+    state, payload = core_variable("state_", BYTEA()), core_variable("payload", BYTEA())
+    count, total, family_count = (core_variable(name, BigInteger()) for name in ("count_", "total_", "family_count_"))
+    inventory_value = core_variable("inventory_", JSONB())
+    body = core_variable("body_", JSONB())
+    digest = core_variable("f", frozen.c.frozen_digest.type)
+    build_query = select(build).where(build.c.build_id == p_build, build.c.task_id == p_task)
+    owner_changed = or_(row("b", build, "attempt").is_distinct_from(p_attempt), row("b", build, "holder").is_distinct_from(p_holder), row("b", build, "state") == "abandoned")
+    frozen_kind = select(frozen.c.kind).where(frozen.c.build_id == p_build).scalar_subquery()
+    frozen_digest = select(frozen.c.frozen_digest).where(frozen.c.build_id == p_build).scalar_subquery()
+    ready = ~exists(select(1).select_from(streams).where(streams.c.product_id == p_build, streams.c.revision_id == p_build,
+        not_(func.ops.pdf_shared_stream_ready(p_build, streams.c.encoding_profile, streams.c.byte_length, streams.c.byte_root))))
+    statements: list[Statement] = [
+        If(not_(func.current_setting("transaction_isolation") == any_(array(levels, type_=Text()))),
+           (Raise("PDF freeze requires " + ", ".join(levels).upper(), "25000"),)),
+        require_owner_query("inspect"),
+        If(not_(func.ops.pdf_stage_owner_current(p_task, p_attempt, p_holder)), (Raise("stale private PDF build owner", "P0004"),)),
+        SelectInto(build_query, ("b",), True), If(owner_changed, (Raise("PDF freeze owner differs", "23514"),)),
+        SelectInto(select(frozen.c.frozen_digest).where(frozen.c.build_id == p_build), ("f",)),
+        If(core_variable("found", Boolean()), (
+            Perform(func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder)), SelectInto(build_query.with_for_update(), ("b",), True),
+            If(owner_changed, (Raise("PDF freeze owner differs", "23514"),)),
+            If(p_kind.is_distinct_from(frozen_kind), (Raise("frozen publication kind differs", "P0001"),)), Return(digest),
+        )),
+        Perform(func.ops.require_pdf_operation(row("b", build, "release_id"), "freeze_pdf_build")),
+        If(not_(ready), (Raise("PDF freeze requires verified project-scoped stream bytes", "23514"),)),
+    ]
+    for family, name in sorted(inventory.items()):
+        relation = model.tables[name]
+        alias = relation.alias("t")
+        owner_column = "build_id" if family.startswith("spool_") or family == "producer_certification" else "product_id"
+        statements.extend((
+            Assign("family_count_", literal(0)),
+            ForQuery(("body_",), select(func.to_jsonb(alias.table_valued())).where(alias.c[owner_column] == p_build).order_by(*(alias.c[field.name] for field in relation.primary_key)), (
+                Assign("payload", func.convert_to(cast(body, Text()), "UTF8")),
+                Assign("state_", func.ops.pdf_identity_fold_step(state, count, func.convert_to(family + ":", "UTF8").op("||")(func.sha256(payload)))),
+                Assign("count_", count + 1), Assign("total_", total + func.octet_length(payload)), Assign("family_count_", family_count + 1),
+            )),
+            Assign("inventory_", inventory_value.op("||")(func.jsonb_build_object(family, family_count))),
+        ))
+    statements.extend((
+        If(~exists(select(1).select_from(certified).where(certified.c.build_id == p_build, certified.c.kind == p_kind,
+            certified.c.lowering_identity == func.ops.pdf_lowering_identity(row("b", build, "release_id")),
+            tuple_(certified.c.source_digest, certified.c.recipe_digest, certified.c.schema_digest) == tuple_(row("b", build, "source_digest"), row("b", build, "recipe_digest"), row("b", build, "schema_digest")))),
+           (Raise("PDF freeze requires exact producer certification", "23514"),)),
+        If(~exists(select(1).select_from(header).where(header.c.product_id == p_build)), (Raise("PDF freeze has no native document header", "23514"),)),
+        Assign("f", func.encode(func.ops.pdf_identity_fold_finish(state, count, total), "hex")),
+        require_owner_query("lock"), SelectInto(build_query.with_for_update(), ("b",), True),
+        If(or_(row("b", build, "release_id").is_distinct_from(owner("release_id")), owner_changed), (Raise("PDF freeze owner differs", "23514"),)),
+        If(exists(select(1).select_from(frozen).where(frozen.c.build_id == p_build)), (
+            If(p_kind.is_distinct_from(frozen_kind), (Raise("frozen publication kind differs", "P0001"),)), Return(frozen_digest),
+        )),
+        If(row("b", build, "state") != "open", (Raise("PDF freeze build is not open", "23514"),)),
+        If(not_(ready), (Raise("PDF freeze requires verified project-scoped stream bytes", "23514"),)),
+    ))
+    for family, name in sorted(inventory.items()):
+        relation = model.tables[name]
+        owner_column = "build_id" if family.startswith("spool_") or family == "producer_certification" else "product_id"
+        statements.extend((SelectInto(select(func.count()).select_from(relation).where(relation.c[owner_column] == p_build), ("family_count_",)),
+            If(family_count.is_distinct_from(cast(inventory_value[family].astext, BigInteger())), (Raise("PDF freeze inventory changed; retry from the current private build", "40001"),))))
+    statements.extend((Sql(insert(frozen).values({frozen.c.build_id: p_build, frozen.c.frozen_digest: digest, frozen.c.kind: p_kind})),
+        Sql(update(build).values({build.c.state: "frozen"}).where(build.c.build_id == p_build)), Return(digest)))
+    out.append(routine("freeze_pdf_build", (*fence, Parameter("p_kind", column_type(frozen.c.kind))), pg_type("text"), statements, (
+        Local("b", build), Local("owner", pg_type("record")), Local("f", pg_type("text")),
+        Local("state_", pg_type("bytea"), func.ops.pdf_identity_fold_start("pdf-frozen-inventory-v1")),
+        Local("body_", pg_type("jsonb")), Local("payload", pg_type("bytea")), Local("count_", pg_type("bigint"), literal(0)),
+        Local("total_", pg_type("bigint"), literal(0)), Local("family_count_", pg_type("bigint")), Local("inventory_", pg_type("jsonb"), cast(literal("{}"), JSONB())),
+    )))
+    return "\n".join(out)
