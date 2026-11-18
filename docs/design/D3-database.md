@@ -849,9 +849,19 @@ context. Neither pgTAP installation nor private bootstrap changes production pre
 The [tooling companion](../plans/test-system-target-design/postgresql-tooling.md) owns the
 selected scope and final-source qualification limits.
 
-> Decision: ADR-0102
+**Accepted target, 2026-11-18.** Key reuse from the production migration chain, executed
+construction, artifact content, and observed effective server policy. Keep first-use frozen
+verification. Infrastructure rollback can install temporary objects for PostgreSQL expression
+checks independent of deployed semantic objects.
 
-> Decision: ADR-0101
+Keep scenario recipes free of paths and supply binding and lifetime at acquisition. Sealed
+published-capture seeds can carry recipe-owned controlled content certified through the
+production protocol. Authenticated readers retain access under the reservation. New capture
+and transform claims require a private writable binding.
+
+> Decision: ADR-0133
+
+> Decision: ADR-0134
 
 ## Composed-model admission fence
 

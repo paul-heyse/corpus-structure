@@ -1,10 +1,10 @@
 ---
 id: ADR-0102
 title: Reuse eligible committed scenarios through worker-local sealed seeds
-status: accepted
+status: superseded
 date: 2026-11-13
 supersedes: [ADR-0048]
-superseded-by: null
+superseded-by: ADR-0134
 design: [§B4]
 evidence: Proposed
 revisit: A seed premise ceases to hold, or consumers need producer lifecycle evidence rather than committed prepared state.

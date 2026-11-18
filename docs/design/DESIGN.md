@@ -797,7 +797,11 @@ cold deployment and nonce/OID/owner cleanup remain. Read and rollback classes ex
 shared semantic engine. Driver-only controls use extension-ready infrastructure clones; durable
 writes use isolated clones. [D3](D3-database.md#native-test-deployment-equivalence) owns detail.
 
-> Decision: ADR-0101
+**Accepted target, 2026-11-18.** Head identity follows the executed migration chain, artifact
+content and observed role policy. Infrastructure rollback may serve temporary SQL expression
+checks that reference no deployed semantic object.
+
+> Decision: ADR-0133
 
 **Scenario seed operation implemented; consumer migration and qualification remain scoped (2026-11-13).**
 Eligible committed recipes use worker-local sealed seeds through the same native lifecycle.
@@ -805,7 +809,11 @@ Nothing built under an implementation override or holding a claimed/running task
 even with an expired lease. Committing readers receive fresh clones; compatible rollback families
 share only rollback-safe state. Independent expectations and actual acquisition context remain.
 
-> Decision: ADR-0102
+**Accepted target, 2026-11-18.** Builders bind content-only recipes to an owned workspace.
+Eligible controlled captures may seed when recipe identity includes producer content and the
+production protocol checks it. Consumers that write to the workspace build in private bindings.
+
+> Decision: ADR-0134
 
 **Implemented; scoped Tested (2026-10-29).** The transitioned composed-model boundary now
 uses finite trusted lifecycle/conditional guards and protected terminal effects. Completed output

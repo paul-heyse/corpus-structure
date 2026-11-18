@@ -72,9 +72,9 @@ are cited as the review cites them: step 3 moves controlled PDF fixtures through
 producer, step 4 converts the kernel SQL, step 5 routes host bootstrap and test provisioning
 through shared administration builders, and step 6 turns analytical SQL into DuckDB relations.
 The *head* is the sealed, keyed and verified database that the migration chain builds and from
-which test databases are cloned ([ADR-0101](../adr/0101-verified-test-deployments.md)). A *seed*
+which test databases are cloned ([ADR-0133](../adr/0133-native-test-deployment-inputs.md)). A *seed*
 is a sealed, worker-local database that holds one prepared scenario on top of the head
-([ADR-0102](../adr/0102-reusable-native-scenario-seeds.md)). A *commit clone* is a fresh database
+([ADR-0134](../adr/0134-native-test-scenario-bindings.md)). A *commit clone* is a fresh database
 cloned from a seed or the head for one consumer that commits. A *rollback family* is a group of
 tests that share one clone, each inside a transaction that is rolled back. The *read class* is a
 read-only, rolled-back transaction on a worker's session clone of the head. *DDO* is the
@@ -124,11 +124,11 @@ owning design section amended in the same commit.
 
 | Item | Decision | What changes | Route | Needed by |
 |---|---|---|---|---|
-| RC07 | Accepted 2026-11-17 | The deployment key covers what the build runs: the migration chain production deploys, located by production's own constant; the native bodies its revisions execute and their module-level imports; artifacts by content instead of size and modification time. Steps executed during a build are reached from the construction entry, whose closure is keyed; provisioning applied to the server beforehand enters as observed server facts (role names, attributes and memberships), not as source | ADR superseding [ADR-0101](../adr/0101-verified-test-deployments.md) | TDM-06 |
-| RC08 | Accepted 2026-11-17 | A seed recipe is content only. A workspace or asset location is a binding the builder supplies. A recipe that needs a per-consumer binding is built in the consumer's clone and never sealed | ADR superseding [ADR-0102](../adr/0102-reusable-native-scenario-seeds.md) | TDM-07, TDM-08 |
+| RC07 | Accepted 2026-11-17 | The deployment key covers what the build runs: the migration chain production deploys, located by production's own constant; the native bodies its revisions execute and their module-level imports; artifacts by content instead of size and modification time. Steps executed during a build are reached from the construction entry, whose closure is keyed; provisioning applied to the server beforehand enters as observed server facts (role names, attributes and memberships), not as source | [ADR-0133](../adr/0133-native-test-deployment-inputs.md) supersedes ADR-0101 | TDM-06 |
+| RC08 | Accepted 2026-11-17 | A seed recipe is content only. A workspace or asset location is a binding the builder supplies. A recipe that needs a per-consumer binding is built in the consumer's clone and never sealed | [ADR-0134](../adr/0134-native-test-scenario-bindings.md) supersedes ADR-0102 | TDM-07, TDM-08 |
 | RC09 | Accepted 2026-11-17 | The `db` mark derives from the native root fixture and worker groups are declared where a fixture is defined. The two hand-kept name lists are removed | Recorded here; the earlier series' TS-12 mechanism is replaced. No ADR | TDM-15 |
-| RC10 | Accepted 2026-11-17 | Infrastructure clones may serve rolled-back connections for SQL expression checks that install only temporary objects | Same ADR that supersedes ADR-0101 | TDM-16 |
-| RC11 | Accepted 2026-11-17 (revealed by authoring) | ADR-0102 says nothing built under an implementation override is seedable. A seed may now be built behind a controlled boundary double when the double's content is part of the recipe, and so of the seed's identity, and production's own protocol and checks still run. Seeds built under any other implementation override stay forbidden | Same ADR that supersedes ADR-0102 | TDM-08 |
+| RC10 | Accepted 2026-11-17 | Infrastructure clones may serve rolled-back connections for SQL expression checks that install only temporary objects | ADR-0133 | TDM-16 |
+| RC11 | Accepted 2026-11-17 (revealed by authoring) | ADR-0102 says nothing built under an implementation override is seedable. A seed may now be built behind a controlled boundary double when the double's content is part of the recipe, and so of the seed's identity, and production's own protocol and checks still run. Seeds built under any other implementation override stay forbidden | ADR-0134 | TDM-08 |
 
 Two further confirmations from the same decision. The completeness case of a perturbation
 table (a test that fails when a mechanism declares a determinant no case covers) is a test of
@@ -576,7 +576,7 @@ place after this series completes.
 | Release admission is not one production operation, so the test helper `admit_kernel` restates the order persist, admit, bind | Production (DA-033) | `admit_kernel` is the single test-side owner of that order (TDM-03); when production offers the operation, the helper calls it and the restated order goes |
 | Superseded production machinery other than code kept alive only by tests | Production (the remaining DA-080 items) | None. Code whose last caller is a test retires inside the package that owns that test. One such item is known and is scope, not handover: the `--principals` mode of `scripts/pg_semantic_roles.sh`, which has no caller and goes in TDM-06. The conversion already deleted the fixture-only occurrence writer, and `function_bodies` has four production callers and stays |
 | Six files in `src/corpus_structure/semantic/sql/` have no loader in `src/`: `exclusions.sql`, `fact.sql`, `selection.sql`, `validation.sql`, `source_record_graph.sql` and `data_operation_identity.sql` | Production (the conversion's owner, ADR-0131; DA-080 family) | None, beyond TDM-16 moving the two tests that read `source_record_graph.sql` and `data_operation_identity.sql` by path |
-| Production has no public operation that reopens packaged data-operation inputs | Production (data-operation composition) | The recipe-extension helper holds the `"data-operations/"` prefix in one place (TDM-03) |
+| Production exposes a decoder for packaged data-operation inputs. Its package owner does not replace previously captured artifacts | Production (data-operation composition) | The recipe-extension helper holds the `"data-operations/"` prefix in one place (TDM-03) |
 | The search selection digest has no pure production function (none found in `src/corpus_structure/semantic/pdf_source_search.py` at `12f57dc4d`) | Production (PDF source search) | Perturbation cases on the cursor's selection; no literal vector for that digest (TDM-05) |
 | The certification-requirement program reports `producer-certified` before it knows that a prior receipt qualifies | Production (PDF certification) | The oracle-skip table asserts the receipt id and the oracle rows, not the basis alone (TDM-13) |
 | The selected-query cache does not report whether it answered | Production (serving) | A counting spy on the whole-result read (TDM-13) |

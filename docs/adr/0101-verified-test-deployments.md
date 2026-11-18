@@ -1,10 +1,10 @@
 ---
 id: ADR-0101
 title: Reuse verified native test deployments and choose isolation by claim
-status: accepted
+status: superseded
 date: 2026-11-13
 supersedes: [ADR-0032]
-superseded-by: null
+superseded-by: ADR-0133
 design: [§B4]
 evidence: Proposed
 revisit: Clone replay cannot preserve a required native policy, or the selected reuse verification misses a result-affecting deployment input.

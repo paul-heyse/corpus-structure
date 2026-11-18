@@ -65,8 +65,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0097](0097-ddo-native-composition.md) | Declared nominal refinements and document paths preserve concrete input identity | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0098](0098-typed-release-archive.md) | Release archives use model-owned binary staging and atomic native finalization | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0100](0100-ddo-contextual-identities.md) | Qualified subject context governs DDO request and product identity | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
-| [ADR-0101](0101-verified-test-deployments.md) | Reuse verified native test deployments and choose isolation by claim | 2026-11-13 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0032](0032-native-test-deployment-equivalence.md) |
-| [ADR-0102](0102-reusable-native-scenario-seeds.md) | Reuse eligible committed scenarios through worker-local sealed seeds | 2026-11-13 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0048](0048-populated-native-scenarios.md) |
 | [ADR-0103](0103-ddo-privilege-policy.md) | Freeze complete table and schema privilege policy in compared operations | 2026-11-14 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0104](0104-ddo-discovery-input-association.md) | Bind discovery child inputs to explicit parent members | 2026-11-14 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0105](0105-compact-effective-identity-archives.md) | Archive effective identity headers without repeated canonical witnesses | 2026-11-14 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
@@ -95,6 +93,8 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0130](0130-pdf-producer-certified-publication.md) | Certify PDF output at the producer and qualify reconstruction per lowering identity | 2026-11-17 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0045 |
 | [ADR-0131](0131-model-owned-postgresql-programs.md) | Generate maintained PostgreSQL SQL from LinkML and typed programs | 2026-11-17 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0132](0132-tooling-package.md) | Keep library-discovery tooling in a separate workspace package with its own CLI | 2026-11-17 | [§2](../design/DESIGN.md#section-2) | Proposed |  |
+| [ADR-0133](0133-native-test-deployment-inputs.md) | Key native test deployments by effective construction and policy | 2026-11-18 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0101](0101-verified-test-deployments.md) |
+| [ADR-0134](0134-native-test-scenario-bindings.md) | Bind scenario recipes at acquisition and seal eligible captures | 2026-11-18 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0102](0102-reusable-native-scenario-seeds.md) |
 
 ## Superseded, still in the tree
 
@@ -129,5 +129,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0087](0087-book-characterization-policy-and-recovery.md) | Share final characterization policy and retain native demand anchors for recovery | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0088](0088-gpu-default-native-hosts.md) | Run GPU-default NLP in shared hosts with explicit workflow intent | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0087](0087-book-characterization-policy-and-recovery.md) |
 | [ADR-0093](0093-ddo-products-and-support.md) | Semantic products retain authentic support independently of execution | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0101](0101-verified-test-deployments.md) | Reuse verified native test deployments and choose isolation by claim | 2026-11-13 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0032](0032-native-test-deployment-equivalence.md) |
+| [ADR-0102](0102-reusable-native-scenario-seeds.md) | Reuse eligible committed scenarios through worker-local sealed seeds | 2026-11-13 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0048](0048-populated-native-scenarios.md) |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

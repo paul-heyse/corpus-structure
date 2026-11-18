@@ -4,7 +4,7 @@ Expected gains can remain qualitative without a measurement task. Consider perfo
 for serious regression concerns under DP-23 and the repository's validation guidance. Existing
 correctness requirements remain.
 
-**Version 1.2 · 2026-10-23 · Assessment guidance.** Repository- and domain-agnostic
+**Version 1.3 · 2026-11-18 · Assessment guidance.** Repository- and domain-agnostic
 companion to the [core principles](design-principles.md), selected through the repository's
 standard declaration. Applicable domain profiles continue to supply scientific and other
 correctness obligations.
@@ -61,6 +61,26 @@ Assess its derivation, scope, assumptions and maintenance. A copied implementati
 the same error; a small analytic case, independently derived reference or different method may
 provide a stronger challenge. No universal second implementation is required.
 
+### Bind test values according to their role
+
+For each value, ask what role it plays in the claim. Obtain scenario construction from the
+model's owner. If a scenario acquired a model, use that instance for its behavior and setup.
+Rebuilding the model beside the acquisition creates a second authority that can diverge.
+
+Author expectations independently of the behavior under test. Use a literal answer, a simpler
+calculation, or a relevant independent reference. When testing whether behavior follows a
+declaration, change the declaration in the test and assert the corresponding effect. A literal
+name used as a coordinate still selects the intended subject.
+
+| Bind to the model | Keep independent |
+|---|---|
+| Acquire package content and the model its release carries | Author the altered input or expected result when composition is the claim |
+| Enumerate operations, declarations, or columns to generate cases | Author the expected membership of a small model and include an undeclared member when testing completeness |
+| Build a scenario with the owning recipe and use literal names to select its subjects | Keep the case's differentiating inputs and outcomes visible |
+| Call the identity implementation with the authored input frame | Preserve the authored representation and expected bytes rather than deriving them from the result |
+| Obtain a generated program from its owner | Check declared structure or observable behavior with independent expectations |
+| Let the real protocol validate a double's input and output | Author the double's boundary result and exercise refusals through the boundary that owns them |
+
 ## 2. Consolidation that preserves meaning — FP-01, FP-03, FP-04, FP-06
 
 Judge sharing by responsibility and consequences. Repeated resource management, scenario
@@ -79,6 +99,9 @@ can hide irrelevant setup, but should not silently determine the property being 
 relevant defaults, generated values and transformations when judging an assertion. Parameterization,
 loops and property generators are legitimate when their cases, properties and failures remain
 understandable; straight-line syntax is not a universal requirement.
+
+Use the [role of each value](#bind-test-values-according-to-their-role) to decide which setup a
+helper should obtain from the owner and which examples callers should author independently.
 
 Test-support boundaries follow assurance responsibilities and shared needs. They need not mirror
 production modules. A substantial independent reference model can be justified by a concrete
@@ -133,6 +156,9 @@ Inspect consequential differences from the real boundary, appropriate contract o
 coverage, and whether the double introduces its own unexamined decision rules. Neither mock counts
 nor real-service counts establish quality. Avoid production changes whose only benefit is enabling
 an elaborate test seam when a simpler boundary would preserve the supported behavior.
+
+The [model-binding rule](#bind-test-values-according-to-their-role) also applies to a double's
+values and to the boundary decisions its consumer exercises.
 
 ## 6. Isolation, replay and diagnosis — FP-05, FP-06, FP-07
 
