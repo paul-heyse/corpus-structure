@@ -134,19 +134,20 @@ def test_nominal_parameter_defaults_missing_null_and_nested_tags(parameter_model
     }
 
 
-def test_kind_body_schemas_compile_nested_generated_definitions_to_closed_draft7(parameter_model):
+def test_kind_body_schemas_preserve_storage_and_normalize_generated_validation(parameter_model):
     from jsonschema import Draft7Validator
 
     from corpus_structure.semantic.data_operation_storage import _kind_schema
-    from corpus_structure.semantic.data_operation_wire import checked_json_schema
+    from corpus_structure.semantic.data_operation_wire import generated_json_schema
 
     prepared, model = parameter_model
     kinds = {kind.name: kind for kind in model.kinds}
     envelope = _kind_schema(prepared, kinds["Envelope"])
-    checked_json_schema(envelope)
-    assert "definitions" in envelope
-    assert "$defs" not in envelope
-    validator = Draft7Validator(envelope)
+    assert envelope == prepared.json_schema("Envelope")
+    assert "$defs" in envelope
+    stored = canonical_bytes(envelope)
+    validator = Draft7Validator(generated_json_schema(envelope))
+    assert canonical_bytes(envelope) == stored
     assert validator.is_valid({"selected": {"kind": "count", "value": 2}})
     assert validator.is_valid({"selected": {"kind": "label", "value": "actual"}})
     for value in (
@@ -157,7 +158,9 @@ def test_kind_body_schemas_compile_nested_generated_definitions_to_closed_draft7
         {},
     ):
         assert not validator.is_valid(value)
-    span = Draft7Validator(_kind_schema(prepared, kinds["Span"]))
+    span_schema = _kind_schema(prepared, kinds["Span"])
+    assert span_schema == prepared.json_schema("Span")
+    span = Draft7Validator(generated_json_schema(span_schema))
     assert span.is_valid({"first": 0, "last": 2})
     assert not span.is_valid({"first": -1, "last": 2})
 

@@ -1140,13 +1140,13 @@ def require_data_operation_native(connection: Connection, prepared: PreparedRele
 
 
 def _kind_schema(prepared: PreparedRelease, kind) -> dict[str, Any]:
-    from .data_operation_wire import checked_json_schema, generated_json_schema
+    from .data_operation_wire import checked_json_schema
 
     facts = json.loads(kind.facts)
     if "json_schema" in facts:
         return checked_json_schema(facts["json_schema"])
     if kind.category == "class" and kind.name in prepared.index.definitions:
-        return generated_json_schema(prepared.json_schema(kind.name))
+        return prepared.json_schema(kind.name)
     if kind.category == "enum":
         return {"type": "string", "enum": sorted(prepared.enum_members(kind.name))}
     primitive = facts.get("primitive", facts.get("effective_primitive", kind.name))

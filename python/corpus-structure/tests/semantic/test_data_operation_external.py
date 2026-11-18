@@ -55,7 +55,14 @@ def test_external_protocol_refuses_unadmitted_authority(change):
         compile_data_operations(declarations=declarations(declared, kinds=kinds))
 
 
-def test_external_result_port_preserves_integer_meaning_and_refuses_receipt_injection():
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "integer"},
+        {"$defs": {"Count": {"type": "integer"}}, "$ref": "#/$defs/Count"},
+    ],
+)
+def test_external_result_port_preserves_integer_meaning_and_refuses_receipt_injection(schema):
     declared = external_declaration()
     model = compile_data_operations(declarations=declarations(declared))
     packet = {
@@ -68,7 +75,7 @@ def test_external_result_port_preserves_integer_meaning_and_refuses_receipt_inje
             {
                 "role": "result",
                 "kind_contract": identity(model, "primitive:integer", "kind"),
-                "schema": {"type": "integer"},
+                "schema": schema,
             }
         ],
     }
@@ -77,6 +84,7 @@ def test_external_result_port_preserves_integer_meaning_and_refuses_receipt_inje
     completion = port.completion(result)
     assert completion["outputs"][0]["product"]["body"] == ["integer", "7"]
     assert completion["inputs"] == [] and "execution_evidence" not in completion
+    assert port.packet == json_bytes(packet)
     with pytest.raises(ValueError):
         port.completion({**result, "execution_evidence": {"made_up": True}})
     with pytest.raises(ValueError):

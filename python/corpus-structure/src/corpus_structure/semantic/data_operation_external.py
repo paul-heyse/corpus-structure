@@ -40,7 +40,7 @@ from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_model import EffectiveDataOperationModel
 from .data_operation_ports import PortRefusal, project_product_members
 from .data_operation_storage import DataOperationStorage
-from .data_operation_wire import validate_wire_schema
+from .data_operation_wire import generated_json_schema, prepare_wire_schema
 from .releases import open_release
 
 _FENCE = ("request_id", "generation", "task_id", "attempt", "holder")
@@ -85,6 +85,7 @@ class ExternalResultPort:
             if role.direction == "output"
         }
         positions, outputs = {}, []
+        validators: dict[str, Callable[[Any], Any]] = {}
         for output in result["outputs"]:
             if not isinstance(output, dict) or set(output) != {"role", "body"}:
                 raise PortRefusal("external output requires exactly role and body")
@@ -93,7 +94,11 @@ class ExternalResultPort:
             role = roles.get(output["role"])
             if role is None:
                 raise PortRefusal("external output names an undeclared role")
-            body = validate_wire_schema(role["schema"], output["body"])
+            if output["role"] not in validators:
+                validators[output["role"]] = prepare_wire_schema(
+                    generated_json_schema(role["schema"])
+                )
+            body = validators[output["role"]](output["body"])
             position = positions.get(output["role"], 0)
             positions[output["role"]] = position + 1
             members = project_product_members(self.model, owners[role["kind_contract"]], body)
