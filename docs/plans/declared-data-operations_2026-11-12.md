@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N9 with its matching application active at generation 10. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N10 with its matching application active at generation 11. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -294,6 +294,40 @@ generation 9 to 10 passed and a further read confirmed the exact release, 15 PDF
 361 verified streams and 376 parts. Six publication journeys, including validation through seal,
 predecessor reuse, missing-check refusal and projection membership, passed in
 `ced70c4b8fb94fedb8a0b36879e5e774`.
+
+### PDF inventory and source proof authoring · 2026-11-17
+
+N10 generates native inventory, retained dependency and projection folds, frozen-build checks,
+receipt projection, scoped health and byte equality. Validation and freeze share the captured
+projection policy. Exact read-back expands composites in PostgreSQL's physical row order so an
+equivalent LinkML column order cannot swap adjacent fields. Original-document and PDF capture
+proofs use the current source and product owners, retaining the sealed episode and exact pins.
+
+The [N10 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n10.yaml)
+preview `bb581d6c26534f478b30467f2b3ccf6a`, apply `6c40b8510ffd4ac4a66dfff003d1a12d`, candidate
+`7de1d6ccfb634d2b828365298f97a1ec`, registration `d9d089968a3843e8bb071943cbfc5a49` and native
+deployment `7293ab8630c64924a80e14a86f743244` passed. Replay covered 21 native transitions and
+emitted no ordinary or privilege operations. The assembled inventory, frozen-check, scoped-reader
+and source-proof controls passed 39 cases in `545bee8d76ed4b1a8ca51e2827fb3c5a`.
+The main-tree selection passed 43 cases in `4478865c9e9b4591bc23441daa2c24d5`, including the
+explicit model counterfactual and host bootstrap. `ci model check` now reaches isolated schema
+rendering and confirms revision `0.6.7` at `a5aa0928c339`. The extension record is resolved when
+a database workflow needs it, which lets the isolated package import schema types before a
+checkout is available. Pyrefly `59c7cbe26b014cb78bc5534d53ed2caf` and Ruff
+`ee804d2e669341029a5a366d2104f0c8` passed.
+
+Matching application preview `110c26b73ea14be28c790aa6abfe922f`, apply
+`60301818091a462ea5f9943f6a329fc7`, candidate `bdd6cb35c0bc4877831480cb37465779` and deployment
+`fbd34b5672da420d98ef5382c83521fb` passed for
+`release:f161e7dcb71aafa694d6db0c55151282d5c0bd96cd4d70ee3d641c8092d3a5f0` and
+`runtime:b563019bda61a962a9f05b5839200a3488a029a65877c142af1e3f8ce7219bf0`.
+Separate `ci db check` and `ci release check --project ddo-current-pdf-bounded` passed. Compare-and-swap
+activation from generation 10 to 11 and independent reads confirmed the exact release, 15 PDF
+products, 361 verified streams and 376 parts. Six publication and projection journeys passed in
+`df34e1b754424193b6f3e9dadc5c9816`. Two wider journeys stopped on the fixture-only occurrence
+replay format because the current producer requires certified companion and access artifacts.
+Both narrower retries passed in `3211fb6439c741549ed9dadd122cc192` after the fixtures emitted
+the exact preparation and completion custody entries along with the certified producer reply.
 
 ## Production-efficiency integration · 2026-11-17
 

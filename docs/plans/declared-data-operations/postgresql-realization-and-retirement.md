@@ -379,15 +379,19 @@ ownership helpers generate creation, status, catalog and ownership commands. The
 owns verification and stage results.
 
 Shared-stream mutation, reclaim and verification, physical checks and indexes, host bootstrap,
-PDF staging, freeze and access projection, release receipt guards and source-set binding now use
-model-owned programs. Native preview renders the matching Python call and column facades from
-the snapshot used for SQL and retains them as exact file effects. Continue by owner through the
-remaining PDF companion adoption, publication inventory and record proof/read routines, DDO
-acquisition and completion kernels and event paths, and the remaining catalog, scientific,
-public-read and maintenance routines. Remove each superseded SQL source and fallback with its
-callers. Preserve frozen migrations, independent test controls and explicitly submitted read-only
-SQL. Qualification covers each deployed native/application pair and the final DDO-12 union has
-its own assembled acceptance boundary.
+PDF staging, freeze, inventory, validation and sealing, release receipt guards, and source-set
+binding now use model-owned programs. Native preview renders the matching Python call and column
+facades from the snapshot used for SQL and retains them as exact file effects. The current PDF
+producer receipt and source proofs derive their columns from the compiled physical model.
+Whole-record reads use PostgreSQL's catalog row order when populating native composite values.
+
+Continue by owner through protected companion adoption, the live observation publisher and
+remaining PDF record proof/read routines, DDO acquisition and completion kernels and event paths,
+and remaining catalog, scientific, public-read and maintenance routines. The exact float decoder
+remains until its native replacement preserves adjacent and subnormal values in exact comparisons.
+Remove each superseded SQL source and fallback with its callers. Preserve frozen migrations,
+independent test controls and explicitly submitted read-only SQL. Qualification covers each deployed
+native/application pair. The final DDO-12 union has its own assembled acceptance boundary.
 
 ### Broader conversion mechanisms · 2026-11-17
 
