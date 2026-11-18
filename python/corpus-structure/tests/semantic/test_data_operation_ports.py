@@ -1498,3 +1498,77 @@ def test_sequence_with_unordered_callable_container_refuses_at_acquisition(tmp_p
         resolve_python_port(
             model, sources, model.operations[0].semantic_id, authorize=lambda _: None
         )
+
+
+@pytest.mark.parametrize(
+    "annotation,body",
+    [
+        ("tuple[int, ...]", "return (index, index + 1, index)"),
+        ("tuple[int, int, int]", "return (index, index + 1, index)"),
+        ("list[int]", "return [index, index + 1, index]"),
+    ],
+)
+def test_eager_sequence_outputs_keep_order_duplicates_and_nominal_item_meaning(
+    tmp_path, monkeypatch, annotation, body
+):
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    declaration = controlled_port_declaration()
+    declaration["roles"][-1].update(kind="integer", collection="sequence", minimum=3, maximum=3)
+    model, sources = fixture_source(
+        tmp_path, monkeypatch, "index: int", body, returns=annotation, metadata=declaration
+    )
+    port = resolve_python_port(model, sources, model.operations[0].semantic_id, authorize=lambda _: None)
+    result = port.invoke_python((PythonRoleValue("index", kind(model, "index"), 7),))
+    assert [item.value() for item in result.outputs] == [7, 8, 7]
+    assert [item.role for item in result.outputs] == ["address"] * 3
+    assert {item.kind_contract for item in result.outputs} == {kind(model, "address")}
+    assert [item.meaning for item in result.outputs] == [
+        canonical_bytes(semantic_value(value)) for value in (7, 8, 7)
+    ]
+    assert result.outcome == "addressed"
+
+
+@pytest.mark.parametrize("body", ["return ()", "return (index,)", "return (index, index, index, index)"])
+def test_eager_sequence_output_cardinality_refuses_before_any_completion(tmp_path, monkeypatch, body):
+    declaration = controlled_port_declaration()
+    declaration["roles"][-1].update(kind="integer", collection="sequence", minimum=2, maximum=3)
+    model, sources = fixture_source(
+        tmp_path, monkeypatch, "index: int", body, returns="tuple[int, ...]", metadata=declaration
+    )
+    port = resolve_python_port(model, sources, model.operations[0].semantic_id, authorize=lambda _: None)
+    with pytest.raises(PortRefusal, match="item count differs"):
+        port.invoke_python((PythonRoleValue("index", kind(model, "index"), 7),))
+
+
+def test_eager_sequence_validates_every_item_before_encoding_completion(tmp_path, monkeypatch):
+    declaration = controlled_port_declaration()
+    declaration["roles"][-1].update(kind="integer", collection="sequence", minimum=1, maximum=None)
+    model, sources = fixture_source(
+        tmp_path,
+        monkeypatch,
+        "index: int",
+        "return (index, 'invalid-later-item')",
+        returns="tuple[int, ...]",
+        metadata=declaration,
+    )
+    port = resolve_python_port(model, sources, model.operations[0].semantic_id, authorize=lambda _: None)
+    with pytest.raises(ValidationError):
+        port.invoke_python((PythonRoleValue("index", kind(model, "index"), 7),))
+    from typing import Annotated
+
+    from pydantic import AfterValidator
+
+    with pytest.raises(PortRefusal, match="changed admitted multiplicity"):
+        port._complete((7, 8), Annotated[tuple[int, ...], AfterValidator(lambda values: values[:1])])
+    with pytest.raises(PortRefusal, match="finite ordered container"):
+        port._complete((7, 8), Annotated[tuple[int, ...], AfterValidator(iter)])
+
+
+@pytest.mark.parametrize("annotation", [set[int], tuple[int, str], Any])
+def test_eager_sequence_annotation_does_not_guess_unordered_or_heterogeneous_fields(annotation):
+    from corpus_structure.semantic.data_operation_ports import _eager_sequence_annotation
+
+    with pytest.raises(PortRefusal, match="sequence output requires"):
+        _eager_sequence_annotation(annotation)

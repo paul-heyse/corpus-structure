@@ -190,6 +190,27 @@ def _hydrated_container(annotation):
     return None
 
 
+def _eager_sequence_annotation(annotation):
+    """One homogeneous, finite ordered return container, never tuple field guessing."""
+    while get_origin(annotation) is typing.Annotated:
+        annotation = get_args(annotation)[0]
+    container, arguments = get_origin(annotation), get_args(annotation)
+    if container is list and len(arguments) == 1:
+        item = arguments[0]
+    elif container is tuple and arguments:
+        if (len(arguments) == 2 and arguments[1] is Ellipsis) or all(
+            argument == arguments[0] for argument in arguments
+        ):
+            item = arguments[0]
+        else:
+            raise PortRefusal("sequence output requires one homogeneous item annotation")
+    else:
+        raise PortRefusal("sequence output requires a typed finite tuple or list")
+    if item is Any:
+        raise PortRefusal("sequence output requires one explicit item annotation")
+    return container, item
+
+
 def _validated_hydrated_collection(
     annotation, population, container, *, collection, role, adapters=None
 ):
@@ -932,9 +953,38 @@ class ResolvedPythonPort:
             )
             return PortCompletion(self.operation.semantic_id, encoded_outputs, outcome=outcome)
         # Multiple outputs require explicit correspondence, never tuple guessing.
-        if len(outputs) != 1 or outputs[0].collection != "scalar":
+        if len(outputs) != 1:
             raise PortRefusal("direct function result requires one declared scalar output")
         output = outputs[0]
+        if output.collection == "sequence":
+            container, item_annotation = _eager_sequence_annotation(return_annotation)
+            if type(result) is not container or type(checked) is not container:
+                raise PortRefusal("sequence output validation requires its finite ordered container")
+            if len(result) != len(checked):
+                raise PortRefusal("sequence output validation changed admitted multiplicity")
+            if len(checked) < output.minimum or (
+                output.maximum is not None and len(checked) > output.maximum
+            ):
+                raise PortRefusal("sequence output item count differs from declared cardinality")
+            item_adapter = self.adapters.get(item_annotation)
+            # Validate the complete result first, then encode every ordered item
+            # privately. The caller retains the original whole CPU reply/receipt;
+            # the publication owner supplies contiguous per-role positions.
+            encoded_outputs = []
+            for item in checked:
+                semantic = item_adapter.dump_python(item, mode="python")
+                encoded_outputs.append(
+                    RoleValue(
+                        output.name,
+                        contracts[output.kind],
+                        item_adapter.dump_json(item),
+                        canonical_bytes(semantic_value(semantic)),
+                        project_product_members(self.model, output.kind, semantic),
+                    )
+                )
+            return PortCompletion(self.operation.semantic_id, tuple(encoded_outputs), outcome=outcome)
+        if output.collection != "scalar":
+            raise PortRefusal("direct function result requires a declared scalar or ordered sequence")
         adapter = self.adapters.get(return_annotation)
         encoded = adapter.dump_json(checked)
         semantic = adapter.dump_python(checked, mode="python")
