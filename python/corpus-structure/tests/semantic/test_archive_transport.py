@@ -69,7 +69,13 @@ def test_every_declared_projection_has_exact_typed_columns_and_binary_encoder():
     prepared = prepare_release(source_bundle(), ResolvedDependencies(), PreparationProfile())
     projections = _projection_rows(prepared)
     tables = archive_tables()
-    assert len(tables) == 20
+    assert {relation.fullname for relation in tables} == {
+        "sem.release", "sem.artifact", "sem.class_definition", "sem.input",
+        "sem.metric_definition", "sem.property_definition", "sem.registry_row",
+        "sem.scientific_decision_rule", "sem.vocabulary_member", "sem.class_hierarchy",
+        "sem.conditional_rule", "sem.identity_slot", "sem.property_applicability",
+        "sem.conditional_atom", "sem.operation_property_role",
+    }
     assert tables[0].fullname == "sem.release"
     assert "runtime_binding" not in {relation.name for relation in tables}
     assert set(projections) == {t.name for t in tables if t.info["archive_role"] == "projection"}
@@ -86,7 +92,11 @@ def test_native_archive_has_one_typed_transport_and_parses():
     assert len(prepare_sql(sql, source="archive").statements) == 3
     assert "jsonb_agg" not in sql
     assert "jsonb_populate_recordset" not in sql
-    assert "FULL JOIN" in sql
+    from pglast import parse_plpgsql
+
+    programs = parse_plpgsql(sql)
+    assert len(programs) == 3
+    assert "FULL OUTER JOIN" in sql
     assert "sem.require_archive_bytes(p_release_id)" in sql
     assert "sem.require_execution_projection(p_release_id)" in sql
 
@@ -119,3 +129,43 @@ def test_archive_chunks_share_schema_and_preserve_rows_without_eager_consumption
         bytes([index]) for index in range(5)
     ]
     assert list(archive_batches(relation, profile, ())) == []
+
+
+
+def test_archive_native_consumes_exact_supplied_model_for_columns_keys_and_scratch(monkeypatch):
+    from pglast import parse_plpgsql
+    from pglast.visitors import Visitor
+    from sqlalchemy import Column, MetaData, Text
+
+    from corpus_structure.semantic import archive_transport
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_products import function_bodies
+
+    target = MetaData()
+    for relation in (*archive_tables(), metadata.tables["sem.release_finalization"]):
+        relation.to_metadata(target)
+    target.tables["sem.input"].append_column(Column("quoted payload", Text()))
+    monkeypatch.setattr(archive_transport, "metadata", MetaData())
+    sql = archive_native_sql(target_metadata=target)
+    assert len(parse_plpgsql(sql)) == 3
+    body = function_bodies(sql)["sem.publish_release_archive"]
+    assert '"quoted payload"' in body
+    inserts = []
+
+    class ArchiveInserts(Visitor):
+        def visit_InsertStmt(self, ancestors, node):
+            if node.relation.schemaname == "sem" and node.relation.relname == "input":
+                inserts.append(node)
+
+    # The header remains first according to captured foreign-key dependency
+    # ordering, and scratch creation uses the exact model-owned source relation.
+    prepare = function_bodies(sql)["sem.prepare_release_archive"]
+    assert prepare.index("CREATE TEMPORARY TABLE cs_archive_release") < prepare.index("CREATE TEMPORARY TABLE cs_archive_input")
+    assert "LIKE sem.input INCLUDING CONSTRAINTS" in prepare
+    assert "ON COMMIT DROP" in prepare
+    assert "TO corpus_sem_admitter" in prepare
+    assert "FROM PUBLIC" in prepare
+    query = body[body.index("INSERT INTO sem.input"):].split(";", 1)[0]
+    ArchiveInserts()(prepare_sql(query, source="captured archive insert").statements)
+    (insertion,) = inserts
+    assert tuple(item.name for item in insertion.cols) == tuple(target.tables["sem.input"].c.keys())
