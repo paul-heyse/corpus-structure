@@ -621,21 +621,6 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
  AND (later.created_at,later.id)>(u.created_at,u.id)))
 $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_claim(r ops.data_request,p jsonb) RETURNS ops.task
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE t ops.task;
-BEGIN
- PERFORM ops.ddo_authorize_request(r);
- IF NOT ops.ddo_request_useful(r) THEN RAISE EXCEPTION 'data request has no attached demand interest'; END IF;
- SELECT * INTO STRICT t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
- IF (t.data_request_id,t.data_generation,t.id,t.attempt,t.claimed_by) IS DISTINCT FROM
- (r.id,r.generation,(p->>'task_id')::bigint,(p->>'attempt')::integer,p->>'holder')
- OR r.generation IS DISTINCT FROM (p->>'generation')::integer
- OR t.status IS DISTINCT FROM 'running' OR t.lease_until IS NULL OR t.lease_until<=clock_timestamp() THEN
- RAISE EXCEPTION 'stale data task attempt fence' USING ERRCODE='23514'; END IF;
- RETURN t;
-END $$;
-
 CREATE OR REPLACE FUNCTION ops.register_data_demand(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; key text; d ops.data_demand; subject_scopes jsonb; root_context jsonb; selected_definition sem.data_operation_definition; inserted_count bigint;
@@ -1134,38 +1119,6 @@ BEGIN
  AND original_use.selection=r.binding-'execution_profile'
  ORDER BY original_use.id LIMIT 1;
  RETURN jsonb_build_object('payload',jsonb_build_object('request_id',r.id,'release_id',r.release_id,'runtime_id',r.runtime_id,'binding',r.binding-'execution_profile','binding_demand_id',binding_use.demand_id,'binding_obligation_id',binding_use.obligation_id,'generation',r.generation,'task_id',r.live_task_id,'fate',CASE WHEN episode IS NULL THEN 'attached' ELSE 'fulfilled' END,'derivation_id',episode,'use_id',usekey,'trust_snapshot',snapshot,'action',CASE WHEN episode IS NOT NULL THEN 'reuse' WHEN retained_id IS NOT NULL THEN 'reconcile' ELSE 'compute' END,'retained_intent_id',retained_id));
-END $$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_claim_data_request(p_payload jsonb) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; retained_id text; packet ops.data_external_packet; binding_use ops.demand_use;
-BEGIN
- PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','holder','lease_seconds'],ARRAY['external_packet_id']);
- IF nullif(p->>'holder','') IS NULL OR (p->>'lease_seconds')::integer NOT BETWEEN 1 AND 86400 THEN RAISE EXCEPTION 'invalid holder/lease' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
- PERFORM ops.ddo_authorize_request(r);
- snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
- IF r.generation IS DISTINCT FROM (p->>'generation')::integer THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
- IF NOT ops.ddo_request_useful(r) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
- SELECT * INTO STRICT t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
- SELECT * INTO packet FROM ops.data_external_packet WHERE request_id=r.id AND generation=r.generation;
- SELECT intent.id INTO retained_id FROM ops.data_completion_intent intent WHERE intent.request_id=r.id AND intent.generation=r.generation AND NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.intent_id=intent.id);
- IF p ? 'external_packet_id' AND (packet.id IS NULL OR packet.id<>p->>'external_packet_id' OR packet.task_id<>t.id) THEN RAISE EXCEPTION 'external claim differs from its exact current packet/task' USING ERRCODE='23514'; END IF;
- IF packet.id IS NOT NULL AND retained_id IS NULL AND p->>'external_packet_id' IS DISTINCT FROM packet.id THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
- IF t.status='running' AND t.lease_until IS NULL THEN RAISE EXCEPTION 'running task has no publication lease'; END IF;
- IF t.status NOT IN ('pending','running') OR (t.status='running' AND t.lease_until>clock_timestamp()) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
- PERFORM ops.ddo_assert_support(r,r.binding->'support');
- IF packet.id IS NOT NULL THEN PERFORM ops.ddo_assert_external_active(r); END IF;
- -- A useful shared request retains its generation's original admitted binding,
- -- even when the creating demand no longer supplies the current usefulness.
- SELECT * INTO STRICT binding_use FROM ops.demand_use original_use
- WHERE original_use.request_id=r.id AND original_use.generation=r.generation
- AND original_use.selection=r.binding-'execution_profile'
- ORDER BY original_use.id LIMIT 1;
- UPDATE ops.task SET status='running',attempt=attempt+1,claimed_by=p->>'holder',lease_until=clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer),started_at=coalesce(started_at,clock_timestamp()) WHERE id=t.id RETURNING * INTO t;
- SELECT intent.id INTO retained_id FROM ops.data_completion_intent intent WHERE intent.request_id=r.id AND intent.generation=r.generation AND NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.intent_id=intent.id);
- RETURN jsonb_build_object('payload',jsonb_build_object('state','claimed','request_id',r.id,'release_id',r.release_id,'runtime_id',r.runtime_id,'binding',r.binding-'execution_profile','binding_demand_id',binding_use.demand_id,'binding_obligation_id',binding_use.obligation_id,'generation',r.generation,'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot,'action',CASE WHEN retained_id IS NULL THEN 'compute' ELSE 'reconcile' END,'retained_intent_id',retained_id));
 END $$;
 
 -- Public set boundaries validate once in their generated wrappers. Only explicit
