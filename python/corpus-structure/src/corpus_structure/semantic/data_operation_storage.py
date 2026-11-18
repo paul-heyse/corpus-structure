@@ -756,9 +756,11 @@ def _rename_native_entrypoints(sql: str, names: set[str]) -> str:
 
 
 def native_sql(sources=None) -> str:
+    from .native_objects import native_sql_script
+
     captured = native_protocol_sources() if sources is None else tuple(sources)
     bodies = _captured(captured)
-    sql = "\n".join(
+    sql = native_sql_script(
         bodies[name].decode()
         for name in (
             "native/data-operation-source-values.sql",
