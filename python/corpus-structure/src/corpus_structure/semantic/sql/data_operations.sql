@@ -219,61 +219,11 @@ BEGIN
  RETURN NULL;
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_read_acquisition_present(boundary ops.data_demand_read) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT boundary.id IS NOT NULL AND boundary.kernel_digest='__DDO_SOURCE_DIGEST__'
- AND boundary.access_universes IS NOT NULL AND boundary.grade_census_eligible IS NOT NULL AND boundary.fit_census_eligible IS NOT NULL
- AND EXISTS(SELECT FROM ops.data_demand_read_scope WHERE read_id=boundary.id)
-$$;
+__DDO_READ_BOUNDARY_PROGRAMS__
 -- Only immutable acquisition facts are reused. Caller membership and each
 -- selected live epoch are checked under canonical shared locks on every use.
-CREATE OR REPLACE FUNCTION ops.ddo_require_read_epochs(boundary ops.data_demand_read,project text,ordinary_only boolean DEFAULT false) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE retained ops.data_demand_read_scope; epoch bigint; snapshot jsonb:='{}';
-BEGIN
- IF NOT coalesce(ops.ddo_read_acquisition_present(boundary),false) THEN
- RAISE EXCEPTION 'read requires reacquisition under current native kernel' USING ERRCODE='23514'; END IF;
- FOR retained IN SELECT * FROM ops.data_demand_read_scope WHERE read_id=boundary.id
- AND (NOT ordinary_only OR ordinary) ORDER BY scope LOOP
- SELECT s.epoch INTO STRICT epoch FROM ops.data_trust_scope s WHERE s.scope=retained.scope AND s.project_id=project FOR SHARE;
- IF epoch<>retained.epoch THEN RAISE EXCEPTION 'read trust changed; reacquire demand read' USING ERRCODE='23514'; END IF;
- snapshot:=snapshot||jsonb_build_object(retained.scope,epoch); END LOOP;
- RETURN snapshot;
-END $$;
-CREATE OR REPLACE FUNCTION ops.ddo_require_read_current(boundary ops.data_demand_read,project text,ordinary_only boolean DEFAULT false) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE snapshot jsonb;
-BEGIN
- snapshot:=ops.ddo_require_read_epochs(boundary,project,ordinary_only);
- PERFORM ops.ddo_authorize(value#>>'{}') FROM jsonb_array_elements(boundary.access_universes);
- RETURN snapshot;
-END $$;
 -- These are structural properties of the frozen graph, not caller authority.
 -- The original refusal checks execute once before the read evidence is sealed.
-CREATE OR REPLACE FUNCTION ops.ddo_read_census_eligible(d ops.data_demand,boundary ops.data_demand_read,census text) RETURNS boolean
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-BEGIN
- IF census='grade' THEN PERFORM ops.ddo_record_grade_require_finite_census(d,boundary);
- ELSIF census='fit' THEN PERFORM ops.ddo_record_fit_require_finite_cut(d,boundary);
- ELSE RAISE EXCEPTION 'unknown census property'; END IF;
- RETURN true;
- EXCEPTION WHEN check_violation THEN RETURN false;
-END $$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_read_visible(created_at timestamp with time zone,created_xid text,boundary ops.data_demand_read) RETURNS boolean
-LANGUAGE sql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
- SELECT created_at<=boundary.frontier_at AND (created_xid=boundary.owner_xid OR pg_visible_in_snapshot(created_xid::xid8,boundary.read_snapshot::pg_snapshot))
-$$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_original_admission_valid(admission ops.original_source_admission,boundary ops.data_demand_read DEFAULT NULL) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT admission.id IS NOT NULL AND (boundary.id IS NULL OR ops.ddo_read_visible(admission.created_at,admission.created_xid,boundary))
- AND NOT EXISTS(SELECT FROM ops.data_revocation revoked WHERE revoked.scope=ops.ddo_scope(admission.project_id,admission.original_source)
- AND ((revoked.selector_kind='original-admission' AND revoked.selector=admission.id)
- OR (revoked.selector_kind='original-source' AND revoked.selector=admission.source_reference)
- OR (revoked.selector_kind='product' AND revoked.selector=admission.product_id)))
-$$;
-
 CREATE OR REPLACE FUNCTION ops.ddo_support_reference_matches(reference jsonb,row_value jsonb) RETURNS boolean
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE item jsonb;

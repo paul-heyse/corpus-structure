@@ -80,7 +80,6 @@ def test_native_issuer_requires_exact_command_effect_factory(semantic_bare_engin
 def policy_visibility_connection(semantic_bare_engine):
     """Isolate the real summary's cut guard; issuer/trust admission is controlled here."""
     from datetime import timedelta
-    from importlib.resources import files
 
     from pglast import ast
 
@@ -108,10 +107,13 @@ def policy_visibility_connection(semantic_bare_engine):
             "CREATE FUNCTION ops.ddo_node_valid(text,text,ops.data_demand_read) "
             "RETURNS boolean LANGUAGE sql AS 'SELECT true'"
         )
-        source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-        start = source.index("CREATE OR REPLACE FUNCTION ops.ddo_read_visible(")
-        end = source.index("$$;", source.index("AS $$", start)) + len("$$;")
-        connection.exec_driver_sql(source[start:end])
+        from corpus_structure.semantic.data_read_boundary_native import read_boundary_native_sql
+        from corpus_structure.semantic.metadata import metadata
+
+        boundary_helpers = prepare_sql(read_boundary_native_sql(metadata), source="read-visibility-control")
+        for index, raw in enumerate(boundary_helpers.statements):
+            if isinstance(raw.stmt, ast.CreateFunctionStmt) and raw.stmt.funcname and raw.stmt.funcname[-1].sval == "ddo_read_visible":
+                connection.exec_driver_sql(boundary_helpers.excerpt(index))
         prepared = prepare_sql(record_policy_native_sql(), source="policy-visibility-control")
         for index, statement in enumerate(prepared.statements):
             function = statement.stmt
