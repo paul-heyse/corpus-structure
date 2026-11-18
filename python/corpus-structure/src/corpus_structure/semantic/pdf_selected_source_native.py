@@ -59,51 +59,81 @@ def selected_content_relations(metadata: MetaData, selected, ancestors):
     """Follow pinned native children and select contextual native metadata."""
     native = metadata.tables["kb.pdf_record_native"].alias("n")
     published = table("published", column("build_id", native.c.product_id.type))
-    contained = select(native.c.record_id).select_from(
-        native.join(published, (native.c.product_id == published.c.build_id)
-                    & (native.c.revision_id == published.c.build_id))
-        .join(selected, selected.c.pointer == native.c.native_address)
-    ).cte("contained", recursive=True)
+    contained = (
+        select(native.c.record_id)
+        .select_from(
+            native.join(
+                published,
+                (native.c.product_id == published.c.build_id)
+                & (native.c.revision_id == published.c.build_id),
+            ).join(selected, selected.c.pointer == native.c.native_address)
+        )
+        .cte("contained", recursive=True)
+    )
     source = metadata.tables["kb.pdf_record_native"].alias("contained_native")
-    fields = func.jsonb_each(source.c.structure_json["fields"]).table_valued(
-        column("key", Text()), column("value", JSONB())
-    ).lateral("f")
+    fields = (
+        func.jsonb_each(source.c.structure_json["fields"])
+        .table_valued(column("key", Text()), column("value", JSONB()))
+        .lateral("f")
+    )
     members = metadata.tables["kb.pdf_record_membership"].alias("m")
     children = union_all(
         select(fields.c.value["target"].astext.label("record_id"))
-        .select_from(fields).where(fields.c.value["kind"].astext == "object")
+        .select_from(fields)
+        .where(fields.c.value["kind"].astext == "object")
         .correlate(source, published),
-        select(members.c.record_id).where(
+        select(members.c.record_id)
+        .where(
             members.c.product_id == published.c.build_id,
             members.c.revision_id == published.c.build_id,
-            members.c.parent_id == source.c.record_id, members.c.value_kind == "record",
-        ).correlate(source, published),
+            members.c.parent_id == source.c.record_id,
+            members.c.value_kind == "record",
+        )
+        .correlate(source, published),
     ).lateral("child")
     contained = contained.union(
         select(children.c.record_id).select_from(
             contained.join(source, source.c.record_id == contained.c.record_id)
-            .join(published, (source.c.product_id == published.c.build_id)
-                  & (source.c.revision_id == published.c.build_id))
+            .join(
+                published,
+                (source.c.product_id == published.c.build_id)
+                & (source.c.revision_id == published.c.build_id),
+            )
             .join(children, true())
         )
     )
     companion = metadata.tables["kb.pdf_record_companion"].alias("c")
     selected_pointers = select(selected.c.pointer)
     coverage_pointer = func.ops.pdf_companion_body(
-        companion.c.product_id, companion.c.revision_id, companion.c.family,
-        companion.c.local_id, companion.c.body, type_=JSONB(),
+        companion.c.product_id,
+        companion.c.revision_id,
+        companion.c.family,
+        companion.c.local_id,
+        companion.c.body,
+        type_=JSONB(),
     )["value"]["section_pointer"].astext
     contextual_pointers = selected_pointers.union(select(ancestors.c.pointer))
-    selected_metadata = select(companion).join(
-        published, (companion.c.product_id == published.c.build_id)
-        & (companion.c.revision_id == published.c.build_id)
-    ).where(
-        companion.c.family == "native_metadata",
-        case({
-            "formula_outcomes": companion.c.body["pointer"].astext.in_(selected_pointers),
-            "recognition_coverage": coverage_pointer.in_(contextual_pointers),
-        }, value=companion.c.body["kind"].astext, else_=False),
-    ).cte("selected_metadata").prefix_with("MATERIALIZED")
+    selected_metadata = (
+        select(companion)
+        .join(
+            published,
+            (companion.c.product_id == published.c.build_id)
+            & (companion.c.revision_id == published.c.build_id),
+        )
+        .where(
+            companion.c.family == "native_metadata",
+            case(
+                {
+                    "formula_outcomes": companion.c.body["pointer"].astext.in_(selected_pointers),
+                    "recognition_coverage": coverage_pointer.in_(contextual_pointers),
+                },
+                value=companion.c.body["kind"].astext,
+                else_=False,
+            ),
+        )
+        .cte("selected_metadata")
+        .prefix_with("MATERIALIZED")
+    )
     return contained, selected_metadata
 
 

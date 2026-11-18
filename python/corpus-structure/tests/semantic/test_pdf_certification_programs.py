@@ -30,12 +30,39 @@ def test_generated_certification_entrypoints_keep_writer_fences(native_rollback)
     connection = native_rollback.connection
     with native_owner(connection, "corpus_sem_publisher"):
         execute_native_sql(connection, pdf_certification_native_sql(target_metadata=metadata))
-    arguments = {name: None for name in ("build", "task", "attempt", "holder", "frozen", "oracle", "state", "actual", "error", "lowering", "kind", "logical", "native", "streams", "targets", "schema", "release")}
+    arguments = {
+        name: None
+        for name in (
+            "build",
+            "task",
+            "attempt",
+            "holder",
+            "frozen",
+            "oracle",
+            "state",
+            "actual",
+            "error",
+            "lowering",
+            "kind",
+            "logical",
+            "native",
+            "streams",
+            "targets",
+            "schema",
+            "release",
+        )
+    }
     calls = (
-        ("ops.record_pdf_producer_certification(:build,:task,:attempt,:holder,:lowering,:kind,:logical,:native,:streams)", "P0004"),
+        (
+            "ops.record_pdf_producer_certification(:build,:task,:attempt,:holder,:lowering,:kind,:logical,:native,:streams)",
+            "P0004",
+        ),
         ("ops.read_pdf_certification_requirement(:build,:task,:attempt,:holder,:frozen)", "P0002"),
         ("ops.begin_pdf_roundtrip_oracle(:build,:task,:attempt,:holder,:frozen)", "P0004"),
-        ("ops.finish_pdf_roundtrip_oracle(:build,:task,:attempt,:holder,:frozen,:oracle,:state,:actual,:error)", "P0002"),
+        (
+            "ops.finish_pdf_roundtrip_oracle(:build,:task,:attempt,:holder,:frozen,:oracle,:state,:actual,:error)",
+            "P0002",
+        ),
         ("ops.read_pdf_certification_targets(:build,:task,:attempt,:holder,:targets)", "P0004"),
         ("ops.pdf_lowering_identity(:release)", "42501"),
         ("ops.pdf_producer_stream_identity(:build,:schema)", "42501"),
@@ -49,20 +76,49 @@ def test_generated_certification_entrypoints_keep_writer_fences(native_rollback)
 
 def test_generated_stream_inventory_matches_independent_python_frames(native_rollback):
     source = metadata.tables["ops.pdf_artifact_stream"]
-    fixture = Table("certification_streams", MetaData(), *(
-        Column(column.name, column.type, nullable=column.nullable) for column in source.c
-    ), schema="pg_temp")
+    fixture = Table(
+        "certification_streams",
+        MetaData(),
+        *(Column(column.name, column.type, nullable=column.nullable) for column in source.c),
+        schema="pg_temp",
+    )
     supplied = SimpleNamespace(tables={**metadata.tables, "ops.pdf_artifact_stream": fixture})
     declaration = next(
-        item.stmt for item in parse_sql(pdf_certification_native_sql(target_metadata=supplied))
-        if isinstance(item.stmt, ast.CreateFunctionStmt) and item.stmt.funcname
+        item.stmt
+        for item in parse_sql(pdf_certification_native_sql(target_metadata=supplied))
+        if isinstance(item.stmt, ast.CreateFunctionStmt)
+        and item.stmt.funcname
         and item.stmt.funcname[-1].sval == "pdf_producer_stream_identity"
     )
     connection = native_rollback.connection
     rows: list[StreamFixture] = [
-        {"product_id": "owned", "revision_id": "owned", "stream_id": "z-stream", "byte_length": 19, "byte_root": "a" * 64, "encoding_profile": "profile-z", "serialization_sha256": None},
-        {"product_id": "owned", "revision_id": "owned", "stream_id": "a-stream", "byte_length": 0, "byte_root": "b" * 64, "encoding_profile": "profile-a", "serialization_sha256": "c" * 64},
-        {"product_id": "owned", "revision_id": "owned", "stream_id": "á-stream", "byte_length": 7, "byte_root": "d" * 64, "encoding_profile": "profile-unicode", "serialization_sha256": "e" * 64},
+        {
+            "product_id": "owned",
+            "revision_id": "owned",
+            "stream_id": "z-stream",
+            "byte_length": 19,
+            "byte_root": "a" * 64,
+            "encoding_profile": "profile-z",
+            "serialization_sha256": None,
+        },
+        {
+            "product_id": "owned",
+            "revision_id": "owned",
+            "stream_id": "a-stream",
+            "byte_length": 0,
+            "byte_root": "b" * 64,
+            "encoding_profile": "profile-a",
+            "serialization_sha256": "c" * 64,
+        },
+        {
+            "product_id": "owned",
+            "revision_id": "owned",
+            "stream_id": "á-stream",
+            "byte_length": 7,
+            "byte_root": "d" * 64,
+            "encoding_profile": "profile-unicode",
+            "serialization_sha256": "e" * 64,
+        },
     ]
     with native_owner(connection, "corpus_sem_publisher"):
         connection.execute(CreateTable(fixture))
@@ -70,8 +126,29 @@ def test_generated_stream_inventory_matches_independent_python_frames(native_rol
         execute_native_sql(connection, RawStream()(declaration))
     folded = IdentityFold("pdf-producer-streams-v1")
     for row in sorted(rows, key=lambda row: row["stream_id"].encode("utf-8")):
-        folded.add(record_frame("schema-control", "producer-stream", row["stream_id"], (
-            (name, row[name]) for name in ("byte_length", "byte_root", "encoding_profile", "serialization_sha256")
-        )))
-    assert connection.scalar(text("SELECT ops.pdf_producer_stream_identity('owned','schema-control')")) == folded.digest().hex()
-    assert connection.scalar(text("SELECT ops.pdf_producer_stream_identity('absent','schema-control')")) == IdentityFold("pdf-producer-streams-v1").digest().hex()
+        folded.add(
+            record_frame(
+                "schema-control",
+                "producer-stream",
+                row["stream_id"],
+                (
+                    (name, row[name])
+                    for name in (
+                        "byte_length",
+                        "byte_root",
+                        "encoding_profile",
+                        "serialization_sha256",
+                    )
+                ),
+            )
+        )
+    assert (
+        connection.scalar(text("SELECT ops.pdf_producer_stream_identity('owned','schema-control')"))
+        == folded.digest().hex()
+    )
+    assert (
+        connection.scalar(
+            text("SELECT ops.pdf_producer_stream_identity('absent','schema-control')")
+        )
+        == IdentityFold("pdf-producer-streams-v1").digest().hex()
+    )

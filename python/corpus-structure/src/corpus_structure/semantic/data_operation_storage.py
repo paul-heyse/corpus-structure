@@ -334,8 +334,14 @@ def native_protocol_sources(
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
-        SourceArtifact("native/data-operation-renewal.sql", renewal_native_sql(target_metadata, protocol).encode()),
-        SourceArtifact("native/data-operation-renewal.py", Path(__file__).with_name("data_operation_renewal.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-renewal.sql",
+            renewal_native_sql(target_metadata, protocol).encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-renewal.py",
+            Path(__file__).with_name("data_operation_renewal.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-support-scopes.sql",
             _SQL.with_name("data_operation_support_scopes.sql").read_bytes(),

@@ -72,31 +72,61 @@ def _normalized_function_checks(item, procedure, owner):
     p = procedure.c
     empty = cast(literal("[]", Text()), JSONB())
     config = func.unnest(p.proconfig).table_valued("value").render_derived("configuration")
-    sorted_config = select(func.coalesce(
-        func.jsonb_agg(aggregate_order_by(config.c.value, config.c.value)), empty
-    )).select_from(config).correlate(procedure).scalar_subquery()
+    sorted_config = (
+        select(
+            func.coalesce(func.jsonb_agg(aggregate_order_by(config.c.value, config.c.value)), empty)
+        )
+        .select_from(config)
+        .correlate(procedure)
+        .scalar_subquery()
+    )
     configuration = case(
         (item.bool_op("?")("result_definition"), sorted_config),
         else_=func.coalesce(func.to_jsonb(p.proconfig), empty),
     )
-    rows = acl_rows(p.proacl, literal("f"), p.proowner).correlate(procedure).subquery("observed_acl")
-    observed_acl = select(func.coalesce(func.jsonb_agg(aggregate_order_by(
-        func.jsonb_build_array(*rows.c), *rows.c
-    )), empty)).select_from(rows).correlate(procedure).scalar_subquery()
-    entries = func.jsonb_array_elements(item["catalog_acl"]).table_valued(
-        "value"
-    ).render_derived("entry")
+    rows = (
+        acl_rows(p.proacl, literal("f"), p.proowner).correlate(procedure).subquery("observed_acl")
+    )
+    observed_acl = (
+        select(
+            func.coalesce(
+                func.jsonb_agg(aggregate_order_by(func.jsonb_build_array(*rows.c), *rows.c)), empty
+            )
+        )
+        .select_from(rows)
+        .correlate(procedure)
+        .scalar_subquery()
+    )
+    entries = (
+        func.jsonb_array_elements(item["catalog_acl"]).table_valued("value").render_derived("entry")
+    )
     entry = cast(entries.c.value, JSONB())
-    grantee = case((entry[0].astext == "$migration_owner", cast(owner, Text())),
-                   else_=entry[0].astext)
+    grantee = case(
+        (entry[0].astext == "$migration_owner", cast(owner, Text())), else_=entry[0].astext
+    )
     privilege = entry[1].astext
-    bound_acl = select(
-        grantee.label("grantee"), privilege.label("privilege"),
-        func.bool_or(cast(entry[2].astext, Boolean())).label("grantable"),
-    ).select_from(entries).group_by(grantee, privilege).subquery("bound_acl")
-    expected_acl = select(func.coalesce(func.jsonb_agg(aggregate_order_by(
-        func.jsonb_build_array(*bound_acl.c), *bound_acl.c
-    )), empty)).select_from(bound_acl).scalar_subquery()
+    bound_acl = (
+        select(
+            grantee.label("grantee"),
+            privilege.label("privilege"),
+            func.bool_or(cast(entry[2].astext, Boolean())).label("grantable"),
+        )
+        .select_from(entries)
+        .group_by(grantee, privilege)
+        .subquery("bound_acl")
+    )
+    expected_acl = (
+        select(
+            func.coalesce(
+                func.jsonb_agg(
+                    aggregate_order_by(func.jsonb_build_array(*bound_acl.c), *bound_acl.c)
+                ),
+                empty,
+            )
+        )
+        .select_from(bound_acl)
+        .scalar_subquery()
+    )
     checks = (
         ("result_definition", func.pg_get_function_result(p.oid)),
         ("argument_definition", func.pg_get_function_arguments(p.oid)),
@@ -104,10 +134,16 @@ def _normalized_function_checks(item, procedure, owner):
         ("support", cast(cast(p.prosupport, _CatalogType("regproc")), Text())),
     )
     return configuration, or_(
-        *(and_(item.bool_op("?")(name), observed.is_distinct_from(item[name].astext))
-          for name, observed in checks),
-        *(and_(item.bool_op("?")(name), observed.is_distinct_from(cast(item[name].astext, REAL())))
-          for name, observed in (("cost", p.procost), ("rows", p.prorows))),
+        *(
+            and_(item.bool_op("?")(name), observed.is_distinct_from(item[name].astext))
+            for name, observed in checks
+        ),
+        *(
+            and_(
+                item.bool_op("?")(name), observed.is_distinct_from(cast(item[name].astext, REAL()))
+            )
+            for name, observed in (("cost", p.procost), ("rows", p.prorows))
+        ),
         and_(item.bool_op("?")("catalog_acl"), observed_acl.is_distinct_from(expected_acl)),
     )
 
@@ -120,7 +156,8 @@ def _normalized_function_sql():
     from .native_program import core_variable
 
     configuration, predicate = _normalized_function_checks(
-        core_variable("item", JSONB(), "value"), procedure.alias("p"),
+        core_variable("item", JSONB(), "value"),
+        procedure.alias("p"),
         core_variable("owner_name", Text()),
     )
     return render(configuration), render(predicate)
@@ -136,13 +173,19 @@ def _descriptor_sql(descriptor):
     from .native_program import pg_type, sql_function
 
     role = ast.VariableSetStmt(
-        kind=enums.VariableSetKind.VAR_SET_VALUE, name="role", is_local=True,
+        kind=enums.VariableSetKind.VAR_SET_VALUE,
+        name="role",
+        is_local=True,
         args=(ast.A_Const(val=ast.String(sval="corpus_sem_publisher")),),
     )
     definition = sql_function(
-        "data", "execution_contract_descriptor", parameters=(), returns=pg_type("jsonb"),
+        "data",
+        "execution_contract_descriptor",
+        parameters=(),
+        returns=pg_type("jsonb"),
         body=select(cast(literal(canonical_bytes(descriptor).decode(), Text()), JSONB())),
-        volatility="immutable", search_path=("pg_catalog", "pg_temp"),
+        volatility="immutable",
+        search_path=("pg_catalog", "pg_temp"),
     )
     return RawStream()(role) + ";\n" + definition + ";\n"
 
@@ -387,7 +430,9 @@ def native_admission_sql(
             raise ValueError("missing function admission comparison boundary")
         configuration, predicate = _normalized_function_sql()
         required = required.replace(
-            "COALESCE(to_jsonb(p.proconfig),'[]'::jsonb)", configuration, 1,
+            "COALESCE(to_jsonb(p.proconfig),'[]'::jsonb)",
+            configuration,
+            1,
         )
         required = required.replace(marker, marker + "\n OR (" + predicate + ")", 1)
     from .native_products import function_bodies

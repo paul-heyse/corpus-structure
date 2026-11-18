@@ -20,21 +20,58 @@ def test_generated_closure_receipts_bind_and_keep_mutation_guards(commit_db_engi
     with commit_db_engine.begin() as connection:
         _, _, _, prepared = stage(connection)
         release = prepared.release_id
-        definitions = tuple(definition_from_sql(
-            connection, RawStream()(item), source="generated-closure", owner="corpus_sem_publisher",
-        ) for item in parse_sql(closure_native_sql(metadata)))
-        ordinary = frozenset(item.identity for item in definitions if item.identity.name not in {
-            "refuse_immutable_mutation", "guard_finalized_insert",
-        })
-        assert len(prepare_native_authoring(
-            connection, tuple(item for item in definitions if item.identity in ordinary),
-            owned_authoring=True, check_plpgsql=ordinary,
-        ).desired) == 3
+        definitions = tuple(
+            definition_from_sql(
+                connection,
+                RawStream()(item),
+                source="generated-closure",
+                owner="corpus_sem_publisher",
+            )
+            for item in parse_sql(closure_native_sql(metadata))
+        )
+        ordinary = frozenset(
+            item.identity
+            for item in definitions
+            if item.identity.name
+            not in {
+                "refuse_immutable_mutation",
+                "guard_finalized_insert",
+            }
+        )
+        assert (
+            len(
+                prepare_native_authoring(
+                    connection,
+                    tuple(item for item in definitions if item.identity in ordinary),
+                    owned_authoring=True,
+                    check_plpgsql=ordinary,
+                ).desired
+            )
+            == 3
+        )
         for definition in definitions:
             execute_native_sql(connection, definition.sql)
         for name, parameters in (
-            ("record_deployment_admission", {"r": release, "p": "physical:test", "d": "deployment:test", "k": "native", "c": b"exact control"}),
-            ("record_sql_admission", {"r": release, "ik": "dependency", "n": "opaque", "p": "physical:test", "c": b"exact control"}),
+            (
+                "record_deployment_admission",
+                {
+                    "r": release,
+                    "p": "physical:test",
+                    "d": "deployment:test",
+                    "k": "native",
+                    "c": b"exact control",
+                },
+            ),
+            (
+                "record_sql_admission",
+                {
+                    "r": release,
+                    "ik": "dependency",
+                    "n": "opaque",
+                    "p": "physical:test",
+                    "c": b"exact control",
+                },
+            ),
         ):
             placeholders = ",".join(":" + key for key in parameters)
             statement = text("SELECT sem." + name + "(" + placeholders + ")")
@@ -47,13 +84,20 @@ def test_generated_closure_receipts_bind_and_keep_mutation_guards(commit_db_engi
                 connection.execute(statement, {**parameters, "r": "release:absent"})
             assert getattr(missing.value.orig, "sqlstate", None) == "P0001"
         with pytest.raises(DBAPIError) as immutable, connection.begin_nested():
-            connection.execute(text("UPDATE sem.release SET profile=profile WHERE release_id=:r"), {"r": release})
+            connection.execute(
+                text("UPDATE sem.release SET profile=profile WHERE release_id=:r"), {"r": release}
+            )
         assert getattr(immutable.value.orig, "sqlstate", None) == "23514"
         assert "immutable semantic content: sem.release UPDATE" in str(immutable.value)
         with pytest.raises(DBAPIError) as intrinsic, connection.begin_nested():
-            connection.execute(text("INSERT INTO sem.input VALUES(:r,'extra','extra','x'::bytea,'wrong')"), {"r": release})
+            connection.execute(
+                text("INSERT INTO sem.input VALUES(:r,'extra','extra','x'::bytea,'wrong')"),
+                {"r": release},
+            )
         assert getattr(intrinsic.value.orig, "sqlstate", None) == "23514"
-        assert "finalized release cannot acquire intrinsic meaning: " + release in str(intrinsic.value)
+        assert "finalized release cannot acquire intrinsic meaning: " + release in str(
+            intrinsic.value
+        )
 
 
 def test_closure_capture_includes_exact_compiler_and_generated_effect():

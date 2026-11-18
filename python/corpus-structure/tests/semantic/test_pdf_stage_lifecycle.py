@@ -43,12 +43,27 @@ def test_generated_scratch_authorization_checks_actual_owner_columns_and_checks(
     connection = native_rollback.connection
     with native_owner(connection, "corpus_sem_publisher"):
         execute_native_sql(connection, stage_scratch_authorization_sql())
-        execute_native_sql(connection, 'CREATE TEMP TABLE wire_reference (value bigint NOT NULL CHECK (value > 0))')
-        execute_native_sql(connection, 'CREATE TEMP TABLE wire_matching (LIKE wire_reference INCLUDING CONSTRAINTS)')
-        execute_native_sql(connection, 'CREATE TEMP TABLE wire_different_check (value bigint NOT NULL CHECK (value >= 0))')
-        execute_native_sql(connection, 'CREATE TEMP TABLE wire_different_column (value text NOT NULL)')
-    execute_native_sql(connection, 'CREATE TEMP TABLE wire_untrusted_owner (LIKE wire_reference INCLUDING CONSTRAINTS)')
-    query = text("SELECT ops.require_pdf_stage_scratch(:scratch,CAST('pg_temp.wire_reference' AS regclass))")
+        execute_native_sql(
+            connection, "CREATE TEMP TABLE wire_reference (value bigint NOT NULL CHECK (value > 0))"
+        )
+        execute_native_sql(
+            connection,
+            "CREATE TEMP TABLE wire_matching (LIKE wire_reference INCLUDING CONSTRAINTS)",
+        )
+        execute_native_sql(
+            connection,
+            "CREATE TEMP TABLE wire_different_check (value bigint NOT NULL CHECK (value >= 0))",
+        )
+        execute_native_sql(
+            connection, "CREATE TEMP TABLE wire_different_column (value text NOT NULL)"
+        )
+    execute_native_sql(
+        connection,
+        "CREATE TEMP TABLE wire_untrusted_owner (LIKE wire_reference INCLUDING CONSTRAINTS)",
+    )
+    query = text(
+        "SELECT ops.require_pdf_stage_scratch(:scratch,CAST('pg_temp.wire_reference' AS regclass))"
+    )
     connection.execute(query, {"scratch": "wire_matching"}).one()
     for scratch, message in (
         ("wire_different_check", "private PDF scratch schema differs"),
@@ -60,7 +75,16 @@ def test_generated_scratch_authorization_checks_actual_owner_columns_and_checks(
             connection.execute(query, {"scratch": scratch}).all()
         assert getattr(failure.value.orig, "sqlstate", None) == "23514"
     with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, "CREATE FUNCTION pg_temp.scratch_trap() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'scratch trigger ran'; END$$")
-        execute_native_sql(connection, "CREATE TRIGGER scratch_trap BEFORE TRUNCATE ON wire_matching FOR EACH STATEMENT EXECUTE FUNCTION pg_temp.scratch_trap()")
-    with pytest.raises(DBAPIError, match="untrusted private PDF scratch"), connection.begin_nested():
+        execute_native_sql(
+            connection,
+            "CREATE FUNCTION pg_temp.scratch_trap() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'scratch trigger ran'; END$$",
+        )
+        execute_native_sql(
+            connection,
+            "CREATE TRIGGER scratch_trap BEFORE TRUNCATE ON wire_matching FOR EACH STATEMENT EXECUTE FUNCTION pg_temp.scratch_trap()",
+        )
+    with (
+        pytest.raises(DBAPIError, match="untrusted private PDF scratch"),
+        connection.begin_nested(),
+    ):
         connection.execute(query, {"scratch": "wire_matching"}).all()

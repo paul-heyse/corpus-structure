@@ -395,12 +395,19 @@ def stage_lifecycle_sql(model):
     p_attempt = core_variable("p_attempt", task.c.attempt.type)
     p_holder = core_variable("p_holder", task.c.claimed_by.type)
     fence_parameters = (
-        Parameter("p_task", column_type(task.c.id)), Parameter("p_attempt", column_type(task.c.attempt)), Parameter("p_holder", column_type(task.c.claimed_by)),
+        Parameter("p_task", column_type(task.c.id)),
+        Parameter("p_attempt", column_type(task.c.attempt)),
+        Parameter("p_holder", column_type(task.c.claimed_by)),
     )
     build_parameters = (Parameter("p_build", column_type(build.c.build_id)), *fence_parameters)
-    owner_fields: dict[str, TypeEngine[Any]] = {"project_id": request.c.project_id.type, "release_id": task.c.release_id.type,
-                    "request_id": request.c.id.type, "generation": task.c.data_generation.type,
-                    "document_id": document.c.id.type, "source_digest": document.c.content_hash.type}
+    owner_fields: dict[str, TypeEngine[Any]] = {
+        "project_id": request.c.project_id.type,
+        "release_id": task.c.release_id.type,
+        "request_id": request.c.id.type,
+        "generation": task.c.data_generation.type,
+        "document_id": document.c.id.type,
+        "source_digest": document.c.content_hash.type,
+    }
 
     def owner_value(field):
         return core_variable("owner", owner_fields[field], field)
@@ -412,116 +419,373 @@ def stage_lifecycle_sql(model):
         *(column(name, type_) for name, type_ in owner_fields.items())
     )
     require_owner = SelectInto(select(owner_rows), ("owner",), True)
-    require_build = Assign("build", func.ops.require_pdf_build(p_build, p_task, p_attempt, p_holder))
+    require_build = Assign(
+        "build", func.ops.require_pdf_build(p_build, p_task, p_attempt, p_holder)
+    )
 
     def require_operation(name, *, from_build=False):
-        return Perform(func.ops.require_pdf_operation(build_value("release_id") if from_build else owner_value("release_id"), name))
+        return Perform(
+            func.ops.require_pdf_operation(
+                build_value("release_id") if from_build else owner_value("release_id"), name
+            )
+        )
 
     def routine(name, parameters, returns, statements, locals_, *, output=(), writer=True):
-        declaration = parse_sql(function("ops", name, parameters=parameters, returns=returns,
-            body=Block(tuple(statements), tuple(locals_)), security_definer=True,
-            search_path=("pg_catalog", "pg_temp")))[0].stmt
+        declaration = parse_sql(
+            function(
+                "ops",
+                name,
+                parameters=parameters,
+                returns=returns,
+                body=Block(tuple(statements), tuple(locals_)),
+                security_definer=True,
+                search_path=("pg_catalog", "pg_temp"),
+            )
+        )[0].stmt
         if not isinstance(declaration, ast.CreateFunctionStmt):
             raise ValueError("PDF lifecycle requires its typed native declaration")
         if output:
-            declaration.parameters = (*(declaration.parameters or ()), *(
-                ast.FunctionParameter(name=field, argType=column_type(source), mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE)
-                for field, source in output
-            ))
-        identity = ast.ObjectWithArgs(objname=(ast.String(sval="ops"), ast.String(sval=name)),
-            objargs=tuple(p.type_ for p in parameters), args_unspecified=False)
-        revoke = ast.GrantStmt(is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-            objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,),
-            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),), grant_option=False,
-            behavior=enums.DropBehavior.DROP_RESTRICT)
+            declaration.parameters = (
+                *(declaration.parameters or ()),
+                *(
+                    ast.FunctionParameter(
+                        name=field,
+                        argType=column_type(source),
+                        mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE,
+                    )
+                    for field, source in output
+                ),
+            )
+        identity = ast.ObjectWithArgs(
+            objname=(ast.String(sval="ops"), ast.String(sval=name)),
+            objargs=tuple(p.type_ for p in parameters),
+            args_unspecified=False,
+        )
+        revoke = ast.GrantStmt(
+            is_grant=False,
+            targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+            objtype=enums.ObjectType.OBJECT_FUNCTION,
+            objects=(identity,),
+            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
+            grant_option=False,
+            behavior=enums.DropBehavior.DROP_RESTRICT,
+        )
         statements_ = [declaration, revoke]
         if writer:
-            statements_.append(ast.GrantStmt(is_grant=True, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-                objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,),
-                privileges=(ast.AccessPriv(priv_name="execute"),),
-                grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"),),
-                behavior=enums.DropBehavior.DROP_RESTRICT))
+            statements_.append(
+                ast.GrantStmt(
+                    is_grant=True,
+                    targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+                    objtype=enums.ObjectType.OBJECT_FUNCTION,
+                    objects=(identity,),
+                    privileges=(ast.AccessPriv(priv_name="execute"),),
+                    grantees=(
+                        ast.RoleSpec(
+                            roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
+                            rolename="corpus_sem_writer",
+                        ),
+                    ),
+                    behavior=enums.DropBehavior.DROP_RESTRICT,
+                )
+            )
         return ";\n".join(RawStream()(value) for value in statements_) + ";\n"
 
     out = []
     owner_local = Local("owner", pg_type("record"))
     build_local = Local("build", build)
-    out.append(routine("require_pdf_build", build_parameters, pg_type(build.schema, build.name), (
-        require_owner,
-        If(p_build.is_(None), (Raise("private PDF build is not owned/open", "P0004"),)),
-        SelectInto(select(build).where(build.c.build_id == p_build, build.c.task_id == p_task).with_for_update(), ("build",), True),
-        If(or_(build_value("release_id").is_distinct_from(owner_value("release_id")),
-            build_value("attempt").is_distinct_from(p_attempt), build_value("holder").is_distinct_from(p_holder),
-            build_value("state") != "open"), (Raise("private PDF build is not owned/open", "P0004"),)),
-        Return(core_variable("build", JSONB())),
-    ), (owner_local, build_local), writer=False))
+    out.append(
+        routine(
+            "require_pdf_build",
+            build_parameters,
+            pg_type(build.schema, build.name),
+            (
+                require_owner,
+                If(p_build.is_(None), (Raise("private PDF build is not owned/open", "P0004"),)),
+                SelectInto(
+                    select(build)
+                    .where(build.c.build_id == p_build, build.c.task_id == p_task)
+                    .with_for_update(),
+                    ("build",),
+                    True,
+                ),
+                If(
+                    or_(
+                        build_value("release_id").is_distinct_from(owner_value("release_id")),
+                        build_value("attempt").is_distinct_from(p_attempt),
+                        build_value("holder").is_distinct_from(p_holder),
+                        build_value("state") != "open",
+                    ),
+                    (Raise("private PDF build is not owned/open", "P0004"),),
+                ),
+                Return(core_variable("build", JSONB())),
+            ),
+            (owner_local, build_local),
+            writer=False,
+        )
+    )
 
     p_original = core_variable("p_original", BYTEA())
     p_recipe = core_variable("p_recipe", BYTEA())
-    original_digest, recipe_digest = (core_variable(name, Text()) for name in ("original_digest", "recipe_digest_"))
-    out.append(routine("retain_pdf_original", (*fence_parameters, Parameter("p_original", pg_type("bytea")), Parameter("p_recipe", pg_type("bytea"))), pg_type("text"), (
-        require_owner, require_operation("retain_pdf_original"),
-        If(or_(p_original.is_(None), func.substr(p_original, 1, 5) != func.convert_to("%PDF-", "UTF8"), p_recipe.is_(None), func.octet_length(p_recipe) == 0), (Raise("original PDF or recipe bytes unavailable", "23514"),)),
-        Perform(cast(func.convert_from(p_recipe, "UTF8"), JSONB())),
-        Assign("original_digest", func.encode(func.sha256(p_original), "hex")),
-        Assign("recipe_digest_", func.encode(func.sha256(p_recipe), "hex")),
-        If(original_digest.is_distinct_from(owner_value("source_digest")), (Raise("original PDF differs from exact document custody", "23514"),)),
-        Sql(insert(artifacts).values([
-            {artifacts.c.artifact_digest: original_digest, artifacts.c.content: p_original},
-            {artifacts.c.artifact_digest: recipe_digest, artifacts.c.content: p_recipe},
-        ]).on_conflict_do_nothing()),
-        If(or_(~exists(select(1).select_from(artifacts).where(artifacts.c.artifact_digest == original_digest, artifacts.c.content == p_original)),
-                   ~exists(select(1).select_from(artifacts).where(artifacts.c.artifact_digest == recipe_digest, artifacts.c.content == p_recipe))),
-           (Raise("original PDF or recipe artifact digest conflict", "23514"),)),
-        Sql(insert(sources).values({sources.c.task_id: p_task, sources.c.release_id: owner_value("release_id"),
-                                   sources.c.artifact_digest: original_digest, sources.c.recipe_digest: recipe_digest}).on_conflict_do_nothing()),
-        If(~exists(select(1).select_from(sources).where(sources.c.task_id == p_task, sources.c.release_id == owner_value("release_id"), sources.c.artifact_digest == original_digest, sources.c.recipe_digest == recipe_digest)), (Raise("original PDF source build replay differs", "23514"),)),
-        Return(original_digest),
-    ), (owner_local, Local("original_digest", pg_type("text")), Local("recipe_digest_", pg_type("text")))))
+    original_digest, recipe_digest = (
+        core_variable(name, Text()) for name in ("original_digest", "recipe_digest_")
+    )
+    out.append(
+        routine(
+            "retain_pdf_original",
+            (
+                *fence_parameters,
+                Parameter("p_original", pg_type("bytea")),
+                Parameter("p_recipe", pg_type("bytea")),
+            ),
+            pg_type("text"),
+            (
+                require_owner,
+                require_operation("retain_pdf_original"),
+                If(
+                    or_(
+                        p_original.is_(None),
+                        func.substr(p_original, 1, 5) != func.convert_to("%PDF-", "UTF8"),
+                        p_recipe.is_(None),
+                        func.octet_length(p_recipe) == 0,
+                    ),
+                    (Raise("original PDF or recipe bytes unavailable", "23514"),),
+                ),
+                Perform(cast(func.convert_from(p_recipe, "UTF8"), JSONB())),
+                Assign("original_digest", func.encode(func.sha256(p_original), "hex")),
+                Assign("recipe_digest_", func.encode(func.sha256(p_recipe), "hex")),
+                If(
+                    original_digest.is_distinct_from(owner_value("source_digest")),
+                    (Raise("original PDF differs from exact document custody", "23514"),),
+                ),
+                Sql(
+                    insert(artifacts)
+                    .values(
+                        [
+                            {
+                                artifacts.c.artifact_digest: original_digest,
+                                artifacts.c.content: p_original,
+                            },
+                            {
+                                artifacts.c.artifact_digest: recipe_digest,
+                                artifacts.c.content: p_recipe,
+                            },
+                        ]
+                    )
+                    .on_conflict_do_nothing()
+                ),
+                If(
+                    or_(
+                        ~exists(
+                            select(1)
+                            .select_from(artifacts)
+                            .where(
+                                artifacts.c.artifact_digest == original_digest,
+                                artifacts.c.content == p_original,
+                            )
+                        ),
+                        ~exists(
+                            select(1)
+                            .select_from(artifacts)
+                            .where(
+                                artifacts.c.artifact_digest == recipe_digest,
+                                artifacts.c.content == p_recipe,
+                            )
+                        ),
+                    ),
+                    (Raise("original PDF or recipe artifact digest conflict", "23514"),),
+                ),
+                Sql(
+                    insert(sources)
+                    .values(
+                        {
+                            sources.c.task_id: p_task,
+                            sources.c.release_id: owner_value("release_id"),
+                            sources.c.artifact_digest: original_digest,
+                            sources.c.recipe_digest: recipe_digest,
+                        }
+                    )
+                    .on_conflict_do_nothing()
+                ),
+                If(
+                    ~exists(
+                        select(1)
+                        .select_from(sources)
+                        .where(
+                            sources.c.task_id == p_task,
+                            sources.c.release_id == owner_value("release_id"),
+                            sources.c.artifact_digest == original_digest,
+                            sources.c.recipe_digest == recipe_digest,
+                        )
+                    ),
+                    (Raise("original PDF source build replay differs", "23514"),),
+                ),
+                Return(original_digest),
+            ),
+            (
+                owner_local,
+                Local("original_digest", pg_type("text")),
+                Local("recipe_digest_", pg_type("text")),
+            ),
+        )
+    )
 
     p_runtime = core_variable("p_runtime", runtime.c.runtime_id.type)
-    basis = select(
-        request.c.id, request.c.generation, request.c.release_id, request.c.operation_id,
-        definition.c.definition_identity, definition.c.recipe, definition.c.implementation_revision,
-        runtime.c.execution_profile, runtime.c.runtime_id, func.encode(func.sha256(runtime.c.manifest_bytes), "hex"), inputs.c.content_digest,
-    ).select_from(request.join(definition, and_(definition.c.release_id == request.c.release_id,
-        definition.c.operation_id == request.c.operation_id)).join(runtime, and_(runtime.c.release_id == request.c.release_id,
-        runtime.c.runtime_id == p_runtime)).join(inputs, and_(inputs.c.release_id == request.c.release_id,
-        inputs.c.input_kind == "dependency", inputs.c.input_name == "pdf-domain/contract.json",
-        func.encode(func.sha256(inputs.c.content), "hex") == inputs.c.content_digest))).where(
-        request.c.id == owner_value("request_id"), request.c.generation == owner_value("generation"), request.c.runtime_id == p_runtime)
+    basis = (
+        select(
+            request.c.id,
+            request.c.generation,
+            request.c.release_id,
+            request.c.operation_id,
+            definition.c.definition_identity,
+            definition.c.recipe,
+            definition.c.implementation_revision,
+            runtime.c.execution_profile,
+            runtime.c.runtime_id,
+            func.encode(func.sha256(runtime.c.manifest_bytes), "hex"),
+            inputs.c.content_digest,
+        )
+        .select_from(
+            request.join(
+                definition,
+                and_(
+                    definition.c.release_id == request.c.release_id,
+                    definition.c.operation_id == request.c.operation_id,
+                ),
+            )
+            .join(
+                runtime,
+                and_(
+                    runtime.c.release_id == request.c.release_id, runtime.c.runtime_id == p_runtime
+                ),
+            )
+            .join(
+                inputs,
+                and_(
+                    inputs.c.release_id == request.c.release_id,
+                    inputs.c.input_kind == "dependency",
+                    inputs.c.input_name == "pdf-domain/contract.json",
+                    func.encode(func.sha256(inputs.c.content), "hex") == inputs.c.content_digest,
+                ),
+            )
+        )
+        .where(
+            request.c.id == owner_value("request_id"),
+            request.c.generation == owner_value("generation"),
+            request.c.runtime_id == p_runtime,
+        )
+    )
     result_type = pg_type("record")
     result_type.setof = True
-    out.append(routine("read_pdf_producer_basis", (*fence_parameters, Parameter("p_runtime", column_type(runtime.c.runtime_id))), result_type, (
-        require_owner, require_operation("retain_pdf_original"), Perform(func.sem.require_runtime_binding(owner_value("release_id"), p_runtime)),
-        ReturnQuery(basis), If(not_(core_variable("found", Boolean())), (Raise("PDF producer runtime differs from current request fence", "P0004"),)),
-    ), (owner_local,), output=(
-        ("request_id", request.c.id), ("generation", request.c.generation), ("release_id", request.c.release_id),
-        ("operation", request.c.operation_id), ("definition", definition.c.definition_identity),
-        ("recipe", definition.c.recipe), ("implementation", definition.c.implementation_revision),
-        ("execution_profile", runtime.c.execution_profile), ("runtime_id", runtime.c.runtime_id),
-        ("runtime_manifest_digest", inputs.c.content_digest), ("pdf_domain_digest", inputs.c.content_digest),
-    )))
+    out.append(
+        routine(
+            "read_pdf_producer_basis",
+            (*fence_parameters, Parameter("p_runtime", column_type(runtime.c.runtime_id))),
+            result_type,
+            (
+                require_owner,
+                require_operation("retain_pdf_original"),
+                Perform(func.sem.require_runtime_binding(owner_value("release_id"), p_runtime)),
+                ReturnQuery(basis),
+                If(
+                    not_(core_variable("found", Boolean())),
+                    (Raise("PDF producer runtime differs from current request fence", "P0004"),),
+                ),
+            ),
+            (owner_local,),
+            output=(
+                ("request_id", request.c.id),
+                ("generation", request.c.generation),
+                ("release_id", request.c.release_id),
+                ("operation", request.c.operation_id),
+                ("definition", definition.c.definition_identity),
+                ("recipe", definition.c.recipe),
+                ("implementation", definition.c.implementation_revision),
+                ("execution_profile", runtime.c.execution_profile),
+                ("runtime_id", runtime.c.runtime_id),
+                ("runtime_manifest_digest", inputs.c.content_digest),
+                ("pdf_domain_digest", inputs.c.content_digest),
+            ),
+        )
+    )
 
     receipt_type = pg_type(receipt.schema, receipt.name)
     receipt_type.setof = True
-    out.append(routine("inspect_pdf_progress", build_parameters, receipt_type, (
-        require_build, require_operation("inspect_pdf_progress", from_build=True),
-        ReturnQuery(select(receipt).where(receipt.c.build_id == p_build).order_by(receipt.c.replay_key)),
-    ), (build_local,)))
-    out.append(routine("resume_pdf_build", build_parameters, pg_type("void"), (
-        require_owner, require_operation("resume_pdf_build"),
-        If(p_build.is_(None), (Raise("private PDF resume binding differs", "23514"),)),
-        SelectInto(select(build).where(build.c.build_id == p_build, build.c.task_id == p_task).with_for_update(), ("build",), True),
-        If(or_(build_value("release_id").is_distinct_from(owner_value("release_id")), build_value("state").not_in(("open", "frozen")),
-            build_value("attempt") > p_attempt, and_(build_value("state") == "frozen", ~exists(select(1).select_from(frozen).where(frozen.c.build_id == build_value("build_id"))))), (Raise("private PDF resume binding differs", "23514"),)),
-        Sql(update(build).values({build.c.attempt: p_attempt, build.c.holder: p_holder}).where(build.c.build_id == p_build)),
-    ), (owner_local, build_local)))
-    out.append(routine("abandon_pdf_build", build_parameters, pg_type("void"), (
-        require_build, require_operation("abandon_pdf_build", from_build=True),
-        Sql(update(build).values({build.c.state: "abandoned"}).where(build.c.build_id == p_build)),
-        Perform(func.ops.pdf_cleanup_pending_build(p_build)),
-    ), (build_local,)))
+    out.append(
+        routine(
+            "inspect_pdf_progress",
+            build_parameters,
+            receipt_type,
+            (
+                require_build,
+                require_operation("inspect_pdf_progress", from_build=True),
+                ReturnQuery(
+                    select(receipt)
+                    .where(receipt.c.build_id == p_build)
+                    .order_by(receipt.c.replay_key)
+                ),
+            ),
+            (build_local,),
+        )
+    )
+    out.append(
+        routine(
+            "resume_pdf_build",
+            build_parameters,
+            pg_type("void"),
+            (
+                require_owner,
+                require_operation("resume_pdf_build"),
+                If(p_build.is_(None), (Raise("private PDF resume binding differs", "23514"),)),
+                SelectInto(
+                    select(build)
+                    .where(build.c.build_id == p_build, build.c.task_id == p_task)
+                    .with_for_update(),
+                    ("build",),
+                    True,
+                ),
+                If(
+                    or_(
+                        build_value("release_id").is_distinct_from(owner_value("release_id")),
+                        build_value("state").not_in(("open", "frozen")),
+                        build_value("attempt") > p_attempt,
+                        and_(
+                            build_value("state") == "frozen",
+                            ~exists(
+                                select(1)
+                                .select_from(frozen)
+                                .where(frozen.c.build_id == build_value("build_id"))
+                            ),
+                        ),
+                    ),
+                    (Raise("private PDF resume binding differs", "23514"),),
+                ),
+                Sql(
+                    update(build)
+                    .values({build.c.attempt: p_attempt, build.c.holder: p_holder})
+                    .where(build.c.build_id == p_build)
+                ),
+            ),
+            (owner_local, build_local),
+        )
+    )
+    out.append(
+        routine(
+            "abandon_pdf_build",
+            build_parameters,
+            pg_type("void"),
+            (
+                require_build,
+                require_operation("abandon_pdf_build", from_build=True),
+                Sql(
+                    update(build)
+                    .values({build.c.state: "abandoned"})
+                    .where(build.c.build_id == p_build)
+                ),
+                Perform(func.ops.pdf_cleanup_pending_build(p_build)),
+            ),
+            (build_local,),
+        )
+    )
     return "\n".join(out)
 
 
@@ -547,64 +811,151 @@ def stage_scratch_authorization_sql():
     from .native_catalog import _catalog
     from .native_program import Block, If, Local, Parameter, Raise, core_variable, function, pg_type
 
-    relation = _catalog("pg_class", oid=OID, relowner=OID, relnamespace=OID, relkind=Text,
-                        relpersistence=Text, relrowsecurity=Boolean)
+    relation = _catalog(
+        "pg_class",
+        oid=OID,
+        relowner=OID,
+        relnamespace=OID,
+        relkind=Text,
+        relpersistence=Text,
+        relrowsecurity=Boolean,
+    )
     trigger = _catalog("pg_trigger", tgrelid=OID)
     rewrite = _catalog("pg_rewrite", ev_class=OID)
     inheritance = _catalog("pg_inherits", inhrelid=OID, inhparent=OID)
     defaults = _catalog("pg_attrdef", adrelid=OID)
     index = _catalog("pg_index", indrelid=OID)
-    constraint = _catalog("pg_constraint", oid=OID, conrelid=OID, contype=Text, convalidated=Boolean)
-    attribute = _catalog("pg_attribute", attrelid=OID, attnum=Integer, attname=Text, atttypid=OID,
-                         atttypmod=Integer, attnotnull=Boolean, attgenerated=Text,
-                         attidentity=Text, attisdropped=Boolean)
+    constraint = _catalog(
+        "pg_constraint", oid=OID, conrelid=OID, contype=Text, convalidated=Boolean
+    )
+    attribute = _catalog(
+        "pg_attribute",
+        attrelid=OID,
+        attnum=Integer,
+        attname=Text,
+        atttypid=OID,
+        atttypmod=Integer,
+        attnotnull=Boolean,
+        attgenerated=Text,
+        attidentity=Text,
+        attisdropped=Boolean,
+    )
     roles = _catalog("pg_roles", oid=OID, rolname=Text)
     scratch = core_variable("scratch", OID())
     expected = core_variable("p_relation", REGCLASS())
-    owned_role = select(roles.c.oid).where(roles.c.rolname == "corpus_sem_publisher").scalar_subquery()
-    safe_relation = exists(select(1).select_from(relation).where(
-        relation.c.oid == scratch, relation.c.relowner == owned_role,
-        relation.c.relnamespace == func.pg_my_temp_schema(), relation.c.relkind == "r",
-        relation.c.relpersistence == "t", not_(relation.c.relrowsecurity),
-    ))
+    owned_role = (
+        select(roles.c.oid).where(roles.c.rolname == "corpus_sem_publisher").scalar_subquery()
+    )
+    safe_relation = exists(
+        select(1)
+        .select_from(relation)
+        .where(
+            relation.c.oid == scratch,
+            relation.c.relowner == owned_role,
+            relation.c.relnamespace == func.pg_my_temp_schema(),
+            relation.c.relkind == "r",
+            relation.c.relpersistence == "t",
+            not_(relation.c.relrowsecurity),
+        )
+    )
     hostile = or_(
-        scratch.is_(None), not_(safe_relation),
+        scratch.is_(None),
+        not_(safe_relation),
         exists(select(1).select_from(trigger).where(trigger.c.tgrelid == scratch)),
         exists(select(1).select_from(rewrite).where(rewrite.c.ev_class == scratch)),
-        exists(select(1).select_from(inheritance).where(or_(inheritance.c.inhrelid == scratch, inheritance.c.inhparent == scratch))),
+        exists(
+            select(1)
+            .select_from(inheritance)
+            .where(or_(inheritance.c.inhrelid == scratch, inheritance.c.inhparent == scratch))
+        ),
         exists(select(1).select_from(defaults).where(defaults.c.adrelid == scratch)),
         exists(select(1).select_from(index).where(index.c.indrelid == scratch)),
-        exists(select(1).select_from(constraint).where(constraint.c.conrelid == scratch,
-            or_(constraint.c.contype.not_in(("c", "n")), not_(constraint.c.convalidated)))),
+        exists(
+            select(1)
+            .select_from(constraint)
+            .where(
+                constraint.c.conrelid == scratch,
+                or_(constraint.c.contype.not_in(("c", "n")), not_(constraint.c.convalidated)),
+            )
+        ),
     )
     empty = array([], type_=Text())
 
     def column_shape(identity):
-        fields = tuple_(attribute.c.attnum, attribute.c.attname, attribute.c.atttypid,
-                        attribute.c.atttypmod, attribute.c.attnotnull,
-                        attribute.c.attgenerated, attribute.c.attidentity)
-        return select(func.coalesce(func.array_agg(cast(fields, Text())).aggregate_order_by(attribute.c.attnum), empty)).where(
-            attribute.c.attrelid == identity, attribute.c.attnum > 0, not_(attribute.c.attisdropped)
-        ).scalar_subquery()
+        fields = tuple_(
+            attribute.c.attnum,
+            attribute.c.attname,
+            attribute.c.atttypid,
+            attribute.c.atttypmod,
+            attribute.c.attnotnull,
+            attribute.c.attgenerated,
+            attribute.c.attidentity,
+        )
+        return (
+            select(
+                func.coalesce(
+                    func.array_agg(cast(fields, Text())).aggregate_order_by(attribute.c.attnum),
+                    empty,
+                )
+            )
+            .where(
+                attribute.c.attrelid == identity,
+                attribute.c.attnum > 0,
+                not_(attribute.c.attisdropped),
+            )
+            .scalar_subquery()
+        )
 
     def check_shape(identity):
         definition = func.pg_get_constraintdef(constraint.c.oid, True)
-        return select(func.coalesce(func.array_agg(definition).aggregate_order_by(definition), empty)).where(
-            constraint.c.conrelid == identity, constraint.c.contype == "c"
-        ).scalar_subquery()
+        return (
+            select(func.coalesce(func.array_agg(definition).aggregate_order_by(definition), empty))
+            .where(constraint.c.conrelid == identity, constraint.c.contype == "c")
+            .scalar_subquery()
+        )
 
-    sql = function("ops", "require_pdf_stage_scratch", parameters=(
-        Parameter("p_name", pg_type("text")), Parameter("p_relation", pg_type("regclass")),
-    ), returns=pg_type("void"), search_path=("pg_catalog", "pg_temp"), body=Block((
-        If(hostile, (Raise("untrusted private PDF scratch", "23514"),)),
-        If(or_(column_shape(scratch).is_distinct_from(column_shape(expected)),
-               check_shape(scratch).is_distinct_from(check_shape(expected))),
-           (Raise("private PDF scratch schema differs", "23514"),)),
-    ), (Local("scratch", pg_type("oid"), func.to_regclass(literal("pg_temp.") + core_variable("p_name", Text()))),)))
-    revoke = ast.GrantStmt(is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(ast.ObjectWithArgs(
-            objname=(ast.String(sval="ops"), ast.String(sval="require_pdf_stage_scratch")),
-            objargs=(pg_type("text"), pg_type("regclass")), args_unspecified=False),),
+    sql = function(
+        "ops",
+        "require_pdf_stage_scratch",
+        parameters=(
+            Parameter("p_name", pg_type("text")),
+            Parameter("p_relation", pg_type("regclass")),
+        ),
+        returns=pg_type("void"),
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                If(hostile, (Raise("untrusted private PDF scratch", "23514"),)),
+                If(
+                    or_(
+                        column_shape(scratch).is_distinct_from(column_shape(expected)),
+                        check_shape(scratch).is_distinct_from(check_shape(expected)),
+                    ),
+                    (Raise("private PDF scratch schema differs", "23514"),),
+                ),
+            ),
+            (
+                Local(
+                    "scratch",
+                    pg_type("oid"),
+                    func.to_regclass(literal("pg_temp.") + core_variable("p_name", Text())),
+                ),
+            ),
+        ),
+    )
+    revoke = ast.GrantStmt(
+        is_grant=False,
+        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+        objtype=enums.ObjectType.OBJECT_FUNCTION,
+        objects=(
+            ast.ObjectWithArgs(
+                objname=(ast.String(sval="ops"), ast.String(sval="require_pdf_stage_scratch")),
+                objargs=(pg_type("text"), pg_type("regclass")),
+                args_unspecified=False,
+            ),
+        ),
         grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-        grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT)
+        grant_option=False,
+        behavior=enums.DropBehavior.DROP_RESTRICT,
+    )
     return sql + ";\n" + RawStream()(revoke) + ";\n"

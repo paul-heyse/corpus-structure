@@ -44,10 +44,14 @@ def compare_generated_default(
 ) -> PriorityDispatchResult:
     if inspected.computed is not None or declared.computed is not None:
         bound = _bound_column(autogen_context.migration_context, declared)
-        if (bound is not None and bound["generated"] and inspected.computed is not None
+        if (
+            bound is not None
+            and bound["generated"]
+            and inspected.computed is not None
             and declared.computed is not None
             and str(inspected.computed.sqltext).strip() == bound["default"]
-            and inspected.computed.persisted == declared.computed.persisted):
+            and inspected.computed.persisted == declared.computed.persisted
+        ):
             return PriorityDispatchResult.STOP
         return _compare_computed_default(
             autogen_context, alter_column_op, schema, tname, cname, inspected, declared

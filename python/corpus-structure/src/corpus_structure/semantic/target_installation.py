@@ -68,7 +68,10 @@ def capture_target_installation(
         extra_sources=(
             SourceArtifact("authoring/target_installation.py", Path(__file__).read_bytes()),
             SourceArtifact("authoring/closure-native.sql", closure_native_sql(selected).encode()),
-            SourceArtifact("authoring/closure-native.py", Path(__file__).with_name("closure_native.py").read_bytes()),
+            SourceArtifact(
+                "authoring/closure-native.py",
+                Path(__file__).with_name("closure_native.py").read_bytes(),
+            ),
             SourceArtifact(
                 "authoring/pdf-descriptor.sql",
                 Path(__file__).with_name("sql").joinpath("pdf_descriptor.sql").read_bytes(),
