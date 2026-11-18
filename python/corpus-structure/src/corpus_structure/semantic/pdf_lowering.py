@@ -78,6 +78,8 @@ LOWERING_FILES = (
     "semantic/pdf_ocr_contracts.py",
     "semantic/pdf_contracts.py",
     "semantic/pdf_integrated.py",
+    "semantic/pdf_integrated_native.py",
+    "semantic/pdf_observation_native.py",
     "semantic/identity.py",
     "semantic/value_codec.py",
     "semantic/arrow_transfer.py",

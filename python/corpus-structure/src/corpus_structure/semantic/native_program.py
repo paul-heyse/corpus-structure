@@ -148,8 +148,15 @@ class Sql:
 
 @dataclass(frozen=True)
 class Assign:
-    target: str
+    target: str | tuple[str, str]
     value: Expression
+
+
+@dataclass(frozen=True)
+class GetRowCount:
+    """Retain PostgreSQL's affected-row count after a native effect."""
+
+    target: str
 
 
 @dataclass(frozen=True)
@@ -256,6 +263,7 @@ type Statement = (
     | Exit
     | CatchCheckViolation
     | Assign
+    | GetRowCount
     | Perform
     | PerformQuery
     | SelectInto
@@ -295,7 +303,12 @@ def _step(statement: Statement, nested: str) -> str:
             # Native effects have no client to receive an implicitly returned identity.
             return _statement(sql.inline() if isinstance(sql, Insert) else sql)
         case Assign(target, value):
-            return f"{_identifier(target)} := {_render(value)}"
+            destination = (
+                _render(variable(*target)) if isinstance(target, tuple) else _identifier(target)
+            )
+            return f"{destination} := {_render(value)}"
+        case GetRowCount(target):
+            return f"GET DIAGNOSTICS {_identifier(target)} = ROW_COUNT"
         case Perform(value):
             return "PERFORM " + _render(value)
         case PerformQuery(query):
