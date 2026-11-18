@@ -10,17 +10,15 @@ import duckdb
 import pyarrow as pa
 
 from .analytical_kernels import (
-    DISAGREEMENTS_SQL,
-    FUSE_SQL,
     VIEW_ALTERNATIVES,
     VIEW_CLAIMS,
     VIEW_ENTITIES,
     VIEW_IDENTITY,
-    VIEWS_INPUTS,
-    VIEWS_MACRO_NAME,
-    VIEWS_MACRO_SQL,
     ViewSpec,
+    disagreements,
+    fuse,
     operation_view_tables,
+    operation_views,
 )
 
 RICH_MEANINGS = pa.schema(
@@ -38,7 +36,7 @@ RICH_FUSION_INPUT = pa.schema(
 
 
 class RichRelationKernel:
-    """Materialize each bounded result before unregistering its typed inputs.
+    """Materialize each bounded result before releasing its typed input relations.
 
     One real analytical connection belongs to this invocation. No relation or reader
     escapes its lifetime, and no old packet/spine is synthesized to acquire it.
@@ -79,7 +77,6 @@ class RichRelationKernel:
                     )
                 )
             )
-            connection.execute(VIEWS_MACRO_SQL)
             self._stack, self._connection = stack, connection
             return self
         except BaseException:
@@ -102,30 +99,21 @@ class RichRelationKernel:
                 raise ValueError("rich analytical relation has null in a required column")
         return table
 
-    def _query(self, inputs, sql):
+    def _query(self, inputs, build):
         self.check_active()
         connection = self._connection
         if connection is None:
             raise RuntimeError("rich analytical invocation is closed")
-        registered = []
-        try:
-            for name, value in inputs.items():
-                connection.register(name, value)
-                registered.append(name)
-            result = connection.sql(sql).to_arrow_table()
-            self.check_active()
-            return result
-        finally:
-            for name in reversed(registered):
-                connection.unregister(name)
+        relations = [connection.from_arrow(table) for table in inputs]
+        result = build(*relations).to_arrow_table()
+        self.check_active()
+        return result
 
     def disagreements(self, meanings: pa.Table) -> pa.Table:
-        return self._query({"meanings": self._checked(meanings, RICH_MEANINGS)}, DISAGREEMENTS_SQL)
+        return self._query((self._checked(meanings, RICH_MEANINGS),), disagreements)
 
     def fuse(self, candidates: pa.Table) -> pa.Table:
-        return self._query(
-            {"candidate_input": self._checked(candidates, RICH_FUSION_INPUT)}, FUSE_SQL
-        )
+        return self._query((self._checked(candidates, RICH_FUSION_INPUT),), fuse)
 
     def views(
         self,
@@ -137,19 +125,12 @@ class RichRelationKernel:
         specs: Sequence[ViewSpec],
     ) -> pa.Table:
         spec_rows, applies = operation_view_tables(specs, self.property_ids)
-        inputs = dict(
-            zip(
-                VIEWS_INPUTS,
-                (
-                    self._checked(claims, VIEW_CLAIMS),
-                    self._checked(entities, VIEW_ENTITIES),
-                    self._checked(identity, VIEW_IDENTITY),
-                    self._checked(alternatives, VIEW_ALTERNATIVES),
-                    spec_rows,
-                    applies,
-                ),
-                strict=True,
-            )
+        inputs = (
+            self._checked(claims, VIEW_CLAIMS),
+            self._checked(entities, VIEW_ENTITIES),
+            self._checked(identity, VIEW_IDENTITY),
+            self._checked(alternatives, VIEW_ALTERNATIVES),
+            spec_rows,
+            applies,
         )
-        arguments = ",".join("'" + name + "'" for name in VIEWS_INPUTS)
-        return self._query(inputs, f"SELECT * FROM {VIEWS_MACRO_NAME}({arguments})")
+        return self._query(inputs, operation_views)

@@ -58,7 +58,7 @@ def test_actual_set_kernels_keep_unknown_distinct_and_union_exact_supports_witho
                 "evidence": ["pin:1", "pin:2"],
             }
         ]
-    # Actual Arrow result remains usable after both connection and inputs unregister.
+    # Actual Arrow result remains usable after connection and input relations are released.
     assert output.num_rows == 1
     with pytest.raises(RuntimeError, match="closed"):
         scope.fuse(candidates)
@@ -163,7 +163,7 @@ def test_actual_views_preserve_null_statement_same_slot_and_explicit_alternative
             scope.disagreements(claims)
 
 
-def test_cancellation_cleans_registered_inputs_and_scope_reopens_cleanly():
+def test_cancellation_releases_input_relations_and_scope_reopens_cleanly():
     calls = []
 
     def check():
@@ -178,3 +178,23 @@ def test_cancellation_cleans_registered_inputs_and_scope_reopens_cleanly():
             scope.disagreements(values)
         assert scope.disagreements(values).num_rows == 0
     assert scope._connection is None
+
+
+def test_empty_inputs_and_empty_supports_keep_typed_results():
+    with kernel() as scope:
+        assert scope.fuse(pa.Table.from_pylist([], schema=RICH_FUSION_INPUT)).to_pylist() == []
+        assert scope.fuse(
+            pa.Table.from_pylist(
+                [{"fact_id": "f", "occurrence_id": None, "evidence": []}],
+                schema=RICH_FUSION_INPUT,
+            )
+        ).to_pylist() == [
+            {"fact_id": "f", "supports": [], "candidates": 1, "evidence": []}
+        ]
+        assert scope.views(
+            claims=pa.Table.from_pylist([], schema=VIEW_CLAIMS),
+            entities=pa.Table.from_pylist([], schema=VIEW_ENTITIES),
+            identity=pa.Table.from_pylist([], schema=VIEW_IDENTITY),
+            alternatives=pa.Table.from_pylist([], schema=VIEW_ALTERNATIVES),
+            specs=(),
+        ).to_pylist() == []
