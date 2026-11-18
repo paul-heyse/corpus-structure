@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from psycopg.errors import RaiseException
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.declared_candidate_products import candidate_member_values
@@ -194,7 +195,7 @@ def test_controlled_cell_mapping_and_unresolved_question_survive_current_native_
         assert resumed["product_id"] == product["product_id"]
         with (
             kernel.purpose("read").begin() as connection,
-            pytest.raises(DBAPIError, match="pins or current trust"),
+            pytest.raises(DBAPIError, match="read acquisition pins differ") as invalid_read,
             connection.begin_nested(),
         ):
             read_data_demand(
@@ -207,6 +208,8 @@ def test_controlled_cell_mapping_and_unresolved_question_survive_current_native_
                     view="products",
                 ),
             )
+        assert isinstance(invalid_read.value.orig, RaiseException)
+        assert invalid_read.value.orig.sqlstate == "P0001"
 
 
 def test_original_spelling_remains_inspectable_without_current_native_occurrence(
