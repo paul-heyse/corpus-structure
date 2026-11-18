@@ -1,10 +1,12 @@
 """Native CPU lifetime failures through the normal invocation close owner."""
 
+import multiprocessing
 import os
 import signal
 import threading
 import time
 from concurrent.futures.process import BrokenProcessPool
+from contextlib import suppress
 from typing import Any, cast
 
 import pytest
@@ -440,3 +442,137 @@ def test_close_bounds_abandoned_ipc_lock(prepared, monkeypatch, abandoned):
                 process.join(timeout=5)
         if not execution._close_finished:
             execution.close()
+
+
+_TERMINAL_GATE: Any = None
+_TERMINAL_READY: Any = None
+
+
+def _initialize_terminal_worker(initializer, args, gate, ready, active):
+    global _TERMINAL_GATE, _TERMINAL_READY, _TEST_EVENT
+    initializer(*args)
+    _TERMINAL_GATE, _TERMINAL_READY, _TEST_EVENT = gate, ready, active
+
+
+def _terminal_worker_ready():
+    state = {
+        "pid": os.getpid(),
+        "group": os.getpgrp(),
+        "ignores_sigint": signal.getsignal(signal.SIGINT) == signal.SIG_IGN,
+    }
+    _TERMINAL_READY.put(state)
+    if not _TERMINAL_GATE.wait(30):
+        raise TimeoutError("terminal control did not release worker preparation")
+    return state["pid"]
+
+
+def _terminal_group_coordinator(channel, capsule, content):
+    """Real isolated process group; no signal is sent to the pytest/operator group."""
+    os.setsid()
+    execution = None
+    ready = None
+    try:
+        cpu_execution._COOPERATIVE_CLOSE_SECONDS = _CLOSE_GRACE
+        cpu_execution._WORKER_EXIT_SECONDS = _EXIT_GRACE
+        context = multiprocessing.get_context("spawn")
+        gate, active, ready = context.Event(), context.Event(), context.Queue()
+        native_executor = cpu_execution.ProcessPoolExecutor
+
+        def executor(**kwargs):
+            kwargs.update(
+                initializer=_initialize_terminal_worker,
+                initargs=(kwargs["initializer"], kwargs["initargs"], gate, ready, active),
+            )
+            return native_executor(**kwargs)
+
+        cast(Any, cpu_execution).ProcessPoolExecutor = executor
+        execution = CPUExecutionScope(
+            cpu_execution.hydrate_capsule(capsule),
+            CharacterizationExecutionPolicy(workers=2, max_submissions=2),
+        )
+        pool = execution._executor()
+        probes = (pool.submit(_terminal_worker_ready), pool.submit(_terminal_worker_ready))
+        workers = [ready.get(timeout=30), ready.get(timeout=30)]
+        gate.set()
+        for probe in probes:
+            probe.result(timeout=30)
+        # Keep one worker active under the coordinator's cancellation owner while
+        # its sibling returns to the real ProcessPoolExecutor call queue.
+        submit = pool.submit
+        cast(Any, pool).submit = lambda *_args: submit(_cooperative_from_initializer)
+        handle = execution.submit_formal(execution.try_admit(), content)
+        if not active.wait(30):
+            raise TimeoutError("cooperative worker did not enter its request")
+        ownership = _ownership(execution)
+        channel.send({"ready": True, "workers": workers})
+        interrupted = False
+        try:
+            signal.pause()
+        except KeyboardInterrupt:
+            interrupted = True
+        before = time.monotonic()
+        execution.close()
+        elapsed = time.monotonic() - before
+        with pytest.raises(CPURequestCancelled):
+            handle.collect()
+        _assert_retired(execution, ownership)
+        channel.send(
+            {
+                "interrupted": interrupted,
+                "elapsed": elapsed,
+                "worker_exitcodes": [p.exitcode for p in ownership.processes],
+                "physically_retired": execution._physical_retired,
+            }
+        )
+    except BaseException as error:
+        channel.send({"error": repr(error)})
+        raise
+    finally:
+        if execution is not None:
+            with suppress(BaseException):
+                execution.close()
+        if ready is not None:
+            ready.close()
+            ready.join_thread()
+        channel.close()
+
+
+@pytest.mark.skipif(not hasattr(os, "setsid"), reason="POSIX process-group delivery is required")
+def test_terminal_group_sigint_keeps_worker_queue_and_coordinator_retirement_owned(prepared):
+    # killpg exercises the same group delivery used by terminal Ctrl-C. This
+    # control does not set up a controlling terminal or test shell job control.
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe()
+    process = context.Process(
+        target=_terminal_group_coordinator,
+        args=(child, cpu_execution.release_capsule(prepared), packet(prepared)),
+    )
+    process.start()
+    pid = process.pid
+    assert pid is not None
+    child.close()
+    try:
+        assert parent.poll(45), "isolated coordinator did not prepare its CPU workers"
+        started = parent.recv()
+        assert started.get("ready"), started
+        assert len({worker["pid"] for worker in started["workers"]}) == 2
+        assert all(worker["group"] == pid for worker in started["workers"])
+        os.killpg(pid, signal.SIGINT)
+        assert parent.poll(15), "interrupted coordinator did not establish CPU retirement"
+        result = parent.recv()
+        assert "error" not in result, result
+        assert result["interrupted"] and result["physically_retired"]
+        assert all(worker["ignores_sigint"] for worker in started["workers"])
+        assert result["worker_exitcodes"] == [0, 0]
+        assert result["elapsed"] < _CLOSE_GRACE + _EXIT_GRACE + _SCHEDULING_SLACK
+        process.join(15)
+        assert process.exitcode == 0
+    finally:
+        # A failed control cannot leave descendants outside the pytest owner.
+        with suppress(ProcessLookupError):
+            if os.getpgid(pid) == pid:
+                os.killpg(pid, signal.SIGKILL)
+        if process.is_alive():
+            process.kill()
+        process.join(15)
+        parent.close()

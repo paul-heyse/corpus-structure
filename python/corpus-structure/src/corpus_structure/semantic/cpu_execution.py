@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import multiprocessing
+import signal
 import sys
 import threading
 from collections.abc import Callable, Generator
@@ -264,6 +265,11 @@ def _apply_native_thread_limits() -> None:
 
 def _initialize(capsule: bytes | None, stop, cancellation=None, native_threads: int = 1) -> None:
     import os
+
+    # The coordinator owns terminal interruption and signals explicit cancellation.
+    # A group SIGINT must not independently interrupt a worker's IPC queue lock.
+    # SIGTERM and the parent's owned process kill escalation remain available.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     global _WORKER_STOP, _WORKER_CANCELLATION, _WORKER_NATIVE_THREADS
     _WORKER_NATIVE_THREADS = native_threads
