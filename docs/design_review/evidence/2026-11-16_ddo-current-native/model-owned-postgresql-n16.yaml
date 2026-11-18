@@ -1,0 +1,4 @@
+# Supply closed discovery populations to the whole-demand execution frontier.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n15
+native_revision: semantic_ddo_pe_n16

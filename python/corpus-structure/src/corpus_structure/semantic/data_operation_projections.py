@@ -2210,7 +2210,10 @@ def read_page(metadata):
             ),
             _visible(population_table),
             or_(
-                ~_public_read(),
+                # The whole-demand execution frontier supplies closed discovery
+                # populations before their consumers can bind them. A selected
+                # cut still discloses only populations in its support walk.
+                read_scope == _json({}),
                 exists(
                     select(1)
                     .select_from(public_nodes)
