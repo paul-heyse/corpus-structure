@@ -139,6 +139,7 @@ def capture_native_authoring_inputs(
                 "native_admission.py",
                 "native_authoring.py",
                 "alembic_checks.py",
+                "alembic_defaults.py",
                 "alembic_indexes.py",
                 "native_objects.py",
                 "native_catalog.py",
