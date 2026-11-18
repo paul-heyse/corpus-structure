@@ -1791,10 +1791,13 @@ class NativeDemandExecutor:
                         first = prepare(0)
                         ready = first.ready
                         context = self._ready_context(ready)
-                        batch = context.model.operation(ready.operation).capabilities.forms == (
-                            "batch",
+                        operation = context.model.operation(ready.operation)
+                        port = (
+                            self._port(ready.operation, context)
+                            if operation.external is None
+                            else None
                         )
-                        port = self._port(ready.operation, context)
+                        batch = port is not None and operation.capabilities.forms == ("batch",)
                         item_limit = getattr(port, "batch_max_items", None) if batch else None
                         if item_limit is not None and (
                             type(item_limit) is not int or item_limit < 1
