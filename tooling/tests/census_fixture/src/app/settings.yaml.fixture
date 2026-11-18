@@ -1,0 +1,4 @@
+plugins:
+  - alpha.plugins:Factory  # @yaml-plugin
+backend: alpha  # @yaml-backend
+alphabet: abc

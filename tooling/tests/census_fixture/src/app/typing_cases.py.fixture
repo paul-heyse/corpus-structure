@@ -1,0 +1,13 @@
+"""A generic class, same-line lambdas and string annotations."""
+from alpha import Container, Field, Model  # @typing-import
+
+
+class Box[T](Container[T]):  # @generic-base
+    pass
+
+
+direct = lambda Field: Field(); wrapped = lambda x: Field(x)  # @same-line-lambdas
+
+
+def convert(value: "Model") -> "list[Model]":  # @string-annotation
+    return [value]

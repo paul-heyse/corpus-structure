@@ -1,0 +1,18 @@
+"""Double bindings: `try`/`except ImportError` and `TYPE_CHECKING`."""
+from typing import TYPE_CHECKING
+
+try:
+    from alpha.fast import Parser  # @import-try
+except ImportError:
+    from alpha.slow import Parser  # @import-except
+
+if TYPE_CHECKING:
+    from alpha.types import Handle  # @import-type-checking
+else:
+    from alpha.runtime import Handle  # @import-else
+
+parser = Parser()  # @double-try
+
+
+def check(handle: Handle) -> bool:  # @double-annotation
+    return Handle.verify(handle)  # @double-type-checking

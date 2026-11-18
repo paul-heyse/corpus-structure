@@ -1,0 +1,7 @@
+"""Valid on Python 3.14, not on the target's 3.12: unparenthesized `except` (PEP 758)."""
+from alpha import Field
+
+try:
+    value = Field()
+except ValueError, TypeError:
+    value = None

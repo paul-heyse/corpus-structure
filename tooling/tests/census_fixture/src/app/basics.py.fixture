@@ -1,0 +1,43 @@
+"""Aliased, dotted and function-local imports; calls, decorators and references."""
+import importlib
+
+import alpha  # @import-plain
+import alpha.fields as af  # @import-dotted-alias
+from alpha import Field as F  # @import-from-alias
+from alpha.validators import check  # @import-from
+
+DEFAULT = alpha.DEFAULT  # @alias-assign
+size = F(1, *extra, default=DEFAULT, **options)  # @call-star
+names = af.ListField(min_length=2)  # @call-dotted
+
+
+@check  # @decorator-plain
+def plain() -> None: ...
+
+
+@alpha.validators.check("x", mode="strict")  # @decorator-call
+def strict() -> None: ...
+
+
+app = alpha.App(name="demo")  # @instance-assign
+
+
+@app.route("/")  # @instance-decorator
+def index() -> None: ...
+
+
+opt = alpha.Option  # @alias-assign-2
+flag = opt("--flag")  # @alias-use
+kind = isinstance(size, alpha.Kind)  # @reference
+hook = getattr(alpha, "hook")  # @getattr
+plugins = importlib.import_module("alpha.plugins")  # @dynamic-import
+loaded = importlib.import_module(plugin_name)  # @dynamic-import-unknown
+factory = "alpha.plugins:Factory"  # @string-reference
+prose = "alpha is not a dotted path here"
+café = alpha.make().run()  # @call-result-member
+
+
+def local_import() -> object:
+    from alpha.lazy import Loader  # @import-local
+
+    return Loader.open()  # @local-call

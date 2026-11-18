@@ -1,0 +1,13 @@
+"""Re-exports and a repository subclass."""
+from alpha import Field  # @models-import-field
+from alpha.base import Model as BaseModel  # @models-import-model
+from beta import core  # @models-import-beta
+
+__all__ = ["BaseModel", "Field", "Record"]
+
+
+class Record(BaseModel):  # @record-class
+    name: str = Field(default="", min_length=1)  # @record-field
+
+    def describe(self) -> str:
+        return core.render(self)  # @beta-call

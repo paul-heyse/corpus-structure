@@ -1,0 +1,8 @@
+"""Reaches alpha only through the repository's own modules."""
+from . import models
+from .models import Field  # @reexport-import
+from .relay import Field as Relayed  # @chain-import
+
+value = Field(default=0)  # @reexport-call
+other = models.Field()  # @reexport-module-call
+deep = Relayed()  # @chain-call

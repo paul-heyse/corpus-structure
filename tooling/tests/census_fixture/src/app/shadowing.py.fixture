@@ -1,0 +1,60 @@
+"""Shadowing by a parameter, a later assignment, a class body and a comprehension target;
+`global` and `nonlocal`."""
+from alpha import Field, Schema, item  # @shadowing-import
+
+
+def by_parameter(Field):
+    return Field()  # @shadow-parameter
+
+
+first = Schema()  # @before-rebind
+Schema = dict
+second = Schema()  # @after-rebind
+
+
+class Form:
+    Field = str
+    label = Field()  # @shadow-class-body
+
+    def method(self):
+        return Field()  # @class-scope-invisible
+
+
+def comprehension(items):
+    return [item.value for item in items]  # @shadow-comprehension
+
+
+def comprehension_beside_use(items):
+    default = item.default()  # @comprehension-outer-use
+    return [default, *[item.value for item in items]]  # @shadow-comprehension-beside-use
+
+
+class Table:
+    default = item.default()  # @class-comprehension-outer-use
+    values = [item.value for item in rows]  # @shadow-class-comprehension
+
+
+module_values = [item.value for item in rows]  # @shadow-module-comprehension
+
+
+def generator(items):
+    return list(item.value for item in items)  # @shadow-generator
+
+
+def install():
+    global registry
+    from alpha import registry  # @import-global
+
+
+def use_registry():
+    return registry.lookup("x")  # @global-use
+
+
+def outer():
+    from alpha import loader  # @import-nonlocal
+
+    def inner():
+        nonlocal loader
+        return loader.load()  # @nonlocal-use
+
+    return inner

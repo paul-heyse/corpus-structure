@@ -1,0 +1,4 @@
+"""Uses no root: `alpha` appears only in this docstring."""
+import json
+
+print(json.dumps({"alpha": 1}))

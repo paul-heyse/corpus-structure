@@ -1,0 +1,4 @@
+"""A file another uv project owns."""
+from alpha import Field  # @other-import
+
+value = Field()  # @other-call

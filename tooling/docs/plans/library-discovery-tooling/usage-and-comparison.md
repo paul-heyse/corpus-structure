@@ -75,6 +75,16 @@ oracle; neither engine is treated as ground truth.
 The chosen engine and the reason are recorded in this section when the slice completes, and the
 losing engine's code is removed.
 
+**Outcome, 2026-11-17: LibCST is kept.** Both engines ran through the same census logic on the
+hand-written fixture. `ast` with `symtable` attributed a comprehension variable to an imported
+name of the same spelling, with nothing marking the row as uncertain, whenever that name was
+also used outside the comprehension in the same function, class body or module (PEP 709; on
+Python 3.14.10 `symtable` reports the name as global with no comprehension flag). That is a
+silent wrong attribution and disqualifies it. LibCST produced or reported every expected
+attribution. The `ast` and `symtable` engine was removed; hit files run in worker processes.
+The engine uses LibCST's `ScopeProvider` referents, the layer `QualifiedNameProvider` is built
+on, because the alias, instance and subclass rows need the binding node.
+
 ### Behavior
 
 Items, each with path, line, UTF-8 byte offset and the uv project the file belongs to:

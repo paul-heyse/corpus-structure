@@ -1,0 +1,13 @@
+"""A repository subclass of a root class; an inherited method called on the subclass and on an
+instance."""
+import alpha  # @subclassing-import
+
+
+class Account(alpha.Model):  # @subclass
+    pass
+
+
+loaded = Account.validate({})  # @subclass-member
+account = Account()
+dumped = account.dump()  # @instance-member
+model = alpha.Model()  # @instantiation
