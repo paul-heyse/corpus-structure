@@ -761,6 +761,7 @@ def prepare_target_successor(
         verify_frozen_catalog,
     )
     from .native_objects import NativeAuthoringError, admit_native, prepare_native_authoring
+    from .native_products import current_admission_fields
 
     if not owned_authoring:
         raise NativeAuthoringError("target successor preparation requires owned authoring custody")
@@ -789,7 +790,9 @@ def prepare_target_successor(
     replacement_ids = frozenset(declared.identity for declared in replacements)
     if replacements and (
         descriptor["physical_checks_source_digest"]
-        != target_admission_descriptor(installation, ())["physical_checks_source_digest"]
+        != current_admission_fields(
+            installation.authoring_inputs, target_metadata=installation.metadata
+        )["physical_checks_source_digest"]
     ):
         raise NativeAuthoringError("prerequisite recreation requires the retained CHECK contract")
     before_checks, after_checks = (
