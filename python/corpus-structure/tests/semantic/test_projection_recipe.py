@@ -93,15 +93,29 @@ def test_four_families_share_resolved_core_native_and_arrow_contract(family, cou
         )
     )
     sql = family_sql(family)
+    from pglast.stream import RawStream
+    from pglast.visitors import Visitor
+    from corpus_structure.semantic.native_products import function_bodies
+
+    function_body = function_bodies(sql)[spec.function_name]
+    query = function_body.split("RETURN QUERY ", 1)[1].rsplit("END", 1)[0].strip().removesuffix(";")
     if family == "input":
-        assert (
-            "RETURN QUERY SELECT * FROM ops.read_published_input_batch_rows("
-            "p_project,p_demand,p_read,p_use,p_product,p_derivation,"
-            "published.build_id,published.release_id,published.task_id,published.product_key,published.logical_digest,selected_release);"
-        ) in sql
+        calls = []
+
+        class Calls(Visitor):
+            def visit_FuncCall(self, ancestors, node):
+                calls.append(node)
+
+        Calls()(parse_sql(query))
+        (helper,) = [call for call in calls if tuple(part.sval for part in call.funcname) == ("ops", "read_published_input_batch_rows")]
+        assert tuple(RawStream()(argument) for argument in helper.args) == (
+            "p_project", "p_demand", "p_read", "p_use", "p_product", "p_derivation",
+            "published.build_id", "published.release_id", "published.task_id", "published.product_key",
+            "published.logical_digest", "selected_release",
+        )
     else:
-        assert "RETURN QUERY " + body + ";" in sql
-    assert sql.index("published:=ops.require_published_companion_pin") < sql.index("RETURN QUERY")
+        assert parse_sql(query)[0].stmt == parse_sql(body)[0].stmt
+    assert function_body.index("published := ops.require_published_companion_pin") < function_body.index("RETURN QUERY")
     assert parse_sql(sql)
     assert "cp:sql" not in MODEL.read_text()
 
@@ -237,3 +251,82 @@ def test_unsupported_recipe_schema_version_refuses_without_installed_fallback():
 def test_static_column_surface_preserved():
     target = Path(__file__).parents[2] / "src/corpus_structure/semantic/_companion_columns.py"
     assert ast.dump(ast.parse(render_static_columns())) == ast.dump(ast.parse(target.read_text()))
+
+
+def test_native_companion_authoring_consumes_captured_recipe_without_installed_model(monkeypatch):
+    import yaml
+
+    from corpus_structure.semantic import companion_projection as owner
+    from corpus_structure.semantic.companion_projection import captured_projection
+    from corpus_structure.semantic.companion_projection_native import pin_guard_sql
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.pdf_domain import PdfDomainContract, pdf_domain_sources
+    from corpus_structure.semantic.types import SourceArtifact
+
+    contract, *sources = pdf_domain_sources()
+    original_domain = PdfDomainContract(contract.content, tuple(sources))
+    original = captured_projection("coverage", original_domain, target_metadata=metadata)
+    assert original.projection_id == projection("coverage").projection_id
+    logical_name = "pdf-domain/logical/companion_projections"
+    document = yaml.safe_load(next(source.content for source in sources if source.name == logical_name))
+    document["classes"]["PublishedCoverageRow"]["annotations"]["cp:function"] = "ops.read_captured_coverage_batch"
+    changed_sources = tuple(
+        SourceArtifact(source.name, yaml.safe_dump(document, sort_keys=False).encode())
+        if source.name == logical_name else source for source in sources
+    )
+    changed_contract = json.loads(contract.content)
+    changed_contract["inputs"] = [{"name": source.name, "sha256": source.digest} for source in changed_sources]
+    captured = PdfDomainContract(canonical_bytes(changed_contract), changed_sources)
+    monkeypatch.setattr(owner, "MODEL", Path("/unavailable-installed-companion-model.yaml"))
+    selected = captured_projection("coverage", captured, target_metadata=metadata)
+    assert selected.function_name == "ops.read_captured_coverage_batch"
+    assert selected.projection_id != original.projection_id
+    assert [(item.name, type(item.type)) for item in selected.columns] == [(item.name, type(item.type)) for item in original.columns]
+    assert parse_sql(family_sql("coverage", target_metadata=metadata, domain=captured))
+    assert parse_sql(pin_guard_sql(target_metadata=metadata, domain=captured))
+    assert "read_captured_coverage_batch" in family_sql("coverage", target_metadata=metadata, domain=captured)
+    assert render_static_columns(captured)
+
+
+def test_private_input_helper_is_sql_standard_and_retains_no_public_grants(monkeypatch):
+    from pglast import ast as pg_ast, enums
+    from pglast.stream import RawStream
+
+    from corpus_structure.semantic import companion_projection_native as owner
+    from corpus_structure.semantic.native_objects import NativeDefinition, NativeIdentity
+
+    def unresolved_definition(connection, sql, *, source, owner, grants):
+        statement = parse_sql(sql)[0].stmt
+        assert isinstance(statement, pg_ast.CreateFunctionStmt)
+        assert statement.parameters is not None
+        arguments = tuple(
+            RawStream()(parameter.argType)
+            for parameter in statement.parameters
+            if parameter.mode != enums.FunctionParameterMode.FUNC_PARAM_TABLE
+        )
+        return NativeDefinition(
+            NativeIdentity("function", "ops", "read_published_input_batch_rows", arguments),
+            sql, source, owner, grants,
+        )
+
+    monkeypatch.setattr(owner, "definition_from_sql", unresolved_definition)
+    definition = owner.input_body_definition(None)
+    statement = parse_sql(definition.sql)[0].stmt
+    assert isinstance(statement, pg_ast.CreateFunctionStmt)
+    assert statement.parameters is not None and statement.options is not None
+    assert definition.catalog_version == 2
+    assert definition.owner == "corpus_sem_publisher"
+    assert definition.grants == ()
+    assert statement.sql_body is not None
+    assert statement.returnType is not None and statement.returnType.setof
+    options = {option.defname: option.arg for option in statement.options}
+    assert options["language"].sval == "sql"
+    assert "security" not in options or not options["security"].boolval
+    assert tuple(parameter.name for parameter in statement.parameters if parameter.mode != enums.FunctionParameterMode.FUNC_PARAM_TABLE) == (
+        "p_project", "p_demand", "p_read", "p_use", "p_product", "p_derivation",
+        "p_build", "p_producer_release", "p_native_task", "p_native_product",
+        "p_native_digest", "p_selection_release",
+    )
+    assert tuple(parameter.name for parameter in statement.parameters if parameter.mode == enums.FunctionParameterMode.FUNC_PARAM_TABLE) == tuple(
+        field.name for field in projection("input").recipe.fields
+    )

@@ -558,20 +558,16 @@ def projection(family: str, *, target_metadata=None) -> CompanionProjection:
     )
 
 
-def render_static_columns(domain: PdfDomainContract | None = None) -> str:
-    from dataclasses import replace
-
+@lru_cache(maxsize=4)
+def _captured_projection_inputs(domain: PdfDomainContract, target_metadata=None):
     from linkml_runtime.linkml_model.meta import SchemaDefinition
     from linkml_runtime.loaders import yaml_loader
 
     from corpus_structure.schema.physical import compile_physical
 
-    from .native_call_sources import _PRIMITIVES, source_bindings
-    from .pdf_domain import PREFIX, PdfDomainContract, pdf_call_bindings, pdf_domain_sources
+    from .native_call_sources import source_bindings
+    from .pdf_domain import PREFIX, pdf_call_bindings
 
-    if domain is None:
-        contract, *captured = pdf_domain_sources()
-        domain = PdfDomainContract(contract.content, tuple(captured))
     sources = domain.sources
     logical = {
         source.name.removeprefix(PREFIX + "logical/"): source.content
@@ -593,12 +589,48 @@ def render_static_columns(domain: PdfDomainContract | None = None) -> str:
     if view.schema is None or not isinstance(declaration, SchemaDefinition):
         raise ValueError("captured companion recipe requires its declared schema")
     view.schema.annotations = declaration.annotations
+    if target_metadata is not None:
+        if (
+            target_metadata.info.get("physical_sources") != physical
+            or target_metadata.info.get("physical_linkml_types") != logical["linkml:types"]
+            or target_metadata.info.get("physical_model_id") != compiled_physical.info["physical_model_id"]
+        ):
+            raise ValueError("companion projection physical target differs from its captured domain")
+        compiled_physical = target_metadata
+    from corpus_structure.schema.physical import physical_source_closure, physical_sources_id
+
+    def captured_model(name):
+        logical_name = name.removesuffix(".yaml").replace("-", "_")
+        return logical[logical_name] if logical_name in logical else physical[name]
+
+    model_id = physical_sources_id(physical_source_closure("companion-projections.yaml", captured_model))
+    projection_id = RECIPE_VERSION + ":" + sha256((model_id + compiled_physical.info["physical_model_id"]).encode()).hexdigest()
+    return view, compiled_physical, projection_id, model_field, resolve
+
+
+@lru_cache(maxsize=8)
+def captured_projection(family: str, domain: PdfDomainContract, *, target_metadata=None) -> CompanionProjection:
+    """Resolve native authoring against its authenticated PDF-domain source cohort."""
+    view, physical, projection_id, _, _ = _captured_projection_inputs(domain, target_metadata)
+    return prepare_projection(view, family, projection_id=projection_id, physical=physical)
+
+
+def render_static_columns(domain: PdfDomainContract | None = None) -> str:
+    from dataclasses import replace
+
+    from .native_call_sources import _PRIMITIVES
+    from .pdf_domain import PdfDomainContract, pdf_domain_sources
+
+    if domain is None:
+        contract, *captured = pdf_domain_sources()
+        domain = PdfDomainContract(contract.content, tuple(captured))
+    view, compiled_physical, projection_id, model_field, resolve = _captured_projection_inputs(domain)
     declarations, imports = [], set()
     for family in FAMILIES:
         selected = prepare_projection(
             view,
             family,
-            projection_id=sha256(domain.content).hexdigest(),
+            projection_id=projection_id,
             physical=compiled_physical,
         )
         fields = {}

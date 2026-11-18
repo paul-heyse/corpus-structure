@@ -134,6 +134,9 @@ def capture_native_authoring_inputs(
             SourceArtifact("authoring/" + name, Path(__file__).with_name(name).read_bytes())
             for name in (
                 "native_products.py",
+                "companion_projection.py",
+                "companion_projection_native.py",
+                "projection_recipe.py",
                 "archive_projection_native.py",
                 "runtime_binding_native.py",
                 "data_operation_runtime.py",

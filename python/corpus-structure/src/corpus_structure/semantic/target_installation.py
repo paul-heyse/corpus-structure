@@ -220,7 +220,13 @@ def target_native_definitions(connection, installation: TargetInstallation):
     from .native_sql_body import published_revision_definition, published_validation_definition
     from .published_document import published_reader_definitions
 
+    from .pdf_domain import CONTRACT, PdfDomainContract
+
     selected = installation.metadata
+    domain = PdfDomainContract(
+        next(item.content for item in installation.pdf_sources if item.name == CONTRACT),
+        tuple(item for item in installation.pdf_sources if item.name != CONTRACT),
+    )
     definitions = []
     captured = {item.name: item.content for item in installation.authoring_inputs.sources}
     closure = captured["authoring/closure.sql"].decode()
@@ -301,7 +307,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
             *_pdf_payload_definitions(connection, payload, source="target-current:PDF publication"),
             *_publication_view_definitions(connection, payload, source="target-current:PDF views"),
             *published_reader_definitions(connection, target_metadata=selected),
-            *companion_projection_definitions(connection, target_metadata=selected),
+            *companion_projection_definitions(connection, target_metadata=selected, domain=domain),
         )
     )
     definitions = [

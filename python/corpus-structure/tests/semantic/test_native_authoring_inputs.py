@@ -24,6 +24,11 @@ def test_native_authoring_does_not_acquire_legacy_or_application_catalog(monkeyp
     assert all(operation.semantic_id.startswith("data.") for operation in inputs.model.operations)
     names = {source.name for source in inputs.sources}
     assert "authoring/native-fixed-calls.json" in names
+    assert {
+        "authoring/companion_projection.py",
+        "authoring/companion_projection_native.py",
+        "authoring/projection_recipe.py",
+    } <= names
     assert "native/source-admission-calls.json" in names
     assert "pdf-domain/contract.json" in names
     assert not any(name.startswith(("execution/", "provider/")) for name in names)
