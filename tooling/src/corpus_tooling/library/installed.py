@@ -111,7 +111,13 @@ def _record_names(distribution: Distribution) -> list[str]:
         if not parts:
             continue
         top = parts[0]
-        name = _importable_name(top) if len(parts) == 1 else top
+        if len(parts) == 1:
+            # A top-level file is a module only with a source or extension suffix (not LICENSE).
+            if not top.endswith((*_SOURCE_SUFFIXES, *_EXTENSION_SUFFIXES)):
+                continue
+            name = _importable_name(top)
+        else:
+            name = top
         if name is not None and name.isidentifier() and name != "__pycache__":
             names.add(name)
     return sorted(names)
@@ -262,7 +268,7 @@ class Installation:
             for folder in folders:
                 try:
                     installed = _read(PathDistribution(folder), site_packages, folder)
-                except (OSError, UnicodeDecodeError, ValueError) as error:
+                except Exception as error:  # any malformed metadata file skips only its folder
                     installed, detail = None, f"{type(error).__name__}: {error}"
                 else:
                     detail = "METADATA lacks Name or Version"
@@ -278,6 +284,11 @@ class Installation:
                 found.append(installed)
         found.sort(key=lambda dist: (dist.normalized_name, str(dist.metadata_path)))
         return tuple(found), tuple(skipped)
+
+    @property
+    def loaded(self) -> bool:
+        """Whether the environment's metadata has been read (by any accessor)."""
+        return "_loaded" in self.__dict__
 
     @property
     def distributions(self) -> tuple[InstalledDistribution, ...]:

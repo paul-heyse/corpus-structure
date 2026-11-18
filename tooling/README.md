@@ -16,20 +16,24 @@ section defines the target, the installation reader and the result envelope.
    `sort_fields: ClassVar = ("path", "line")` (override `sort_key()` if needed). Both renderings
    come from `columns`. A command with several views declares one item kind per view.
 3. **Unresolved kinds.** Subclass `envelope.Unresolved` with `kind: Literal["a", "b"]` (the
-   command's closed set) and any extra fields. Omit it when the command has none.
+   command's closed set) and any extra fields. Rows must all be that one subclass; the envelope
+   infers it from the rows (mixed or mismatched types raise `TypeError`).
 4. **Function.** Take `ctx: typer.Context`, `json: JsonOpt = False`, `limit: LimitOpt =
    DEFAULT_LIMIT`, `offset: OffsetOpt = 0`, `strict: StrictOpt = False` (all from `output`).
    `state = library_state(ctx)` gives `state.target` (a `Target`: `.project`, `.environment`,
-   `.display(path)`; call `.require_project()` in a selection-class command) and
+   `.display(path)`; a selection-class command calls `.require_project()`, which refuses a
+   target without a project or without a lock) and
    `state.installation` (`lookup(name)`, `distributions`, `import_map`, `import_owners(name)`,
    `skipped`). Resolution happens on first use, so its failures follow `--json`.
 5. **Envelope.** `emit(library_envelope(ctx, MyItem, items, limit=limit, offset=offset,
-   unresolved_type=MyUnresolved, authorities={"griffe": version}, scanned=n, no_hit_scopes=…,
-   excluded=…, skipped_inputs=[SkippedInput(input=…, reason="parse_error")], unresolved=[…],
-   unavailable_metadata=[…], notes=[…]), json=json, strict=strict)`. Sorting, paging,
-   `truncated`, the baseline block, target notes and the normalized command are filled in.
+   authorities={"griffe": version}, scanned=n, no_hit_scopes=…, excluded=…,
+   skipped_inputs=[SkippedInput(input=…, reason="parse_error")], unresolved=[…],
+   unavailable_metadata=[…], notes=[…]), json=json, strict=strict)`, exactly once. Sorting,
+   paging, `truncated`, the baseline block, target notes, the normalized command and (once
+   `state.installation` was read) its unreadable metadata are filled in.
 6. **Failure.** `raise ToolFailure("<kind>", "<what failed>", "<what to pass or fix>")`: exit 3
-   with the same envelope, `status: failed`. Progress and diagnostics: `output.progress()`,
+   with the same envelope, `status: failed`, keeping the baseline and notes once the target is
+   resolved. After `emit`, any failure exits 3 on stderr only. Progress and diagnostics: `output.progress()`,
    `output.diagnostic(text)` (stderr only).
 7. **Tests** under `tests/`, with `typer.testing.CliRunner().invoke(cli.app, ["library",
    "--project", str(path), "<name>", "--json"])`; assert `result.stdout` (one JSON envelope) and

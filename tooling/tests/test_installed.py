@@ -82,6 +82,14 @@ def test_unreadable_metadata_is_a_skipped_input(trees) -> None:
         "gamma",
         "local-tool",
     ]
-    (skipped,) = installation.skipped
-    assert skipped.reason == "unreadable_metadata"
-    assert Path(skipped.input).name == "broken-0.0.0.dist-info"
+    broken, delta = installation.skipped
+    assert (Path(broken.input).name, broken.reason) == (
+        "broken-0.0.0.dist-info",
+        "unreadable_metadata",
+    )
+    assert broken.detail == "METADATA lacks Name or Version"
+    assert (Path(delta.input).name, delta.reason) == (
+        "delta-1.0.0.dist-info",
+        "unreadable_metadata",
+    )
+    assert delta.detail.startswith("TypeError")

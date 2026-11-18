@@ -10,8 +10,10 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from corpus_tooling.output import ToolFailure
 
@@ -20,11 +22,15 @@ _VERSION = re.compile(r"^(\d+)\.(\d+)")
 
 @dataclass(frozen=True)
 class Project:
-    """A uv project directory: it holds `uv.lock` and/or `pyproject.toml`."""
+    """A uv project: the directory holding `uv.lock` (the workspace root for a member), or a
+    directory with only `pyproject.toml` (not locked)."""
 
     root: Path
     lock: Path | None
     pyproject: Path | None
+    member: Path | None = None
+    """The selected workspace member, when the selection named one (`--project tooling`) or the
+    working directory lies inside one."""
 
     @property
     def own_environment(self) -> Path:
@@ -39,6 +45,7 @@ class Environment:
     python_version: str
     implementation: str | None
     site_packages: tuple[Path, ...]
+    includes_system_site_packages: bool = False
 
 
 @dataclass(frozen=True)
@@ -50,12 +57,21 @@ class Target:
     notes: tuple[str, ...] = ()
 
     def require_project(self) -> Project:
-        """The project, for selection-class commands; refuses an environment-only target."""
+        """The locked project, for selection-class commands. Refuses an environment-only target
+        and an unlocked project, so a selection command never runs uv where it might write a
+        lock."""
         if self.project is None:
             raise ToolFailure(
                 "no_project",
                 f"the target environment {self.display(self.environment.root)} has no uv project",
                 "Pass --project naming a directory with pyproject.toml and uv.lock.",
+            )
+        if self.project.lock is None:
+            raise ToolFailure(
+                "no_lock",
+                f"the project {self.display(self.project.root)} has no uv.lock and is not a "
+                "member of a locked workspace",
+                "Run `uv lock` in the project, or pass --project naming a locked project.",
             )
         return self.project
 
@@ -74,22 +90,82 @@ def _absolute(path: Path) -> Path:
     return Path(os.path.abspath(path))
 
 
-def _project_at(directory: Path) -> Project | None:
-    lock = directory / "uv.lock"
-    pyproject = directory / "pyproject.toml"
-    if not lock.is_file() and not pyproject.is_file():
-        return None
+def _locked(root: Path, member: Path | None = None) -> Project:
+    pyproject = root / "pyproject.toml"
     return Project(
-        root=directory,
-        lock=lock if lock.is_file() else None,
+        root=root,
+        lock=root / "uv.lock",
         pyproject=pyproject if pyproject.is_file() else None,
+        member=member,
     )
+
+
+def _toml(path: Path) -> dict[str, Any]:
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except OSError, UnicodeDecodeError, tomllib.TOMLDecodeError:
+        return {}
+
+
+def is_workspace_member(root: Path, directory: Path) -> bool:
+    """Whether `root`'s `[tool.uv.workspace]` members (minus its excludes) include `directory`."""
+    workspace: Any = _toml(root / "pyproject.toml").get("tool", {})
+    for key in ("uv", "workspace"):
+        workspace = workspace.get(key, {}) if isinstance(workspace, dict) else {}
+    if not isinstance(workspace, dict):
+        return False
+
+    def matches(key: str) -> bool:
+        patterns = workspace.get(key, [])
+        if not isinstance(patterns, list):
+            return False
+        return any(
+            directory == candidate
+            for pattern in patterns
+            if isinstance(pattern, str)
+            for candidate in root.glob(pattern)
+        )
+
+    return matches("members") and not matches("exclude")
+
+
+def _enclosing_workspace(directory: Path) -> Path | None:
+    for ancestor in directory.parents:
+        if (ancestor / "uv.lock").is_file() and is_workspace_member(ancestor, directory):
+            return ancestor
+    return None
+
+
+def _project_at(directory: Path) -> Project | None:
+    """`--project P`: P itself when locked; the locked workspace root when P is one of its
+    members; P unlocked when it has only a pyproject.toml. No upward search for a directory
+    without pyproject.toml: an environment-only directory under `services/` must not inherit
+    the enclosing workspace."""
+    if (directory / "uv.lock").is_file():
+        return _locked(directory)
+    pyproject = directory / "pyproject.toml"
+    if not pyproject.is_file():
+        return None
+    workspace = _enclosing_workspace(directory)
+    if workspace is not None:
+        return _locked(workspace, member=directory)
+    return Project(root=directory, lock=None, pyproject=pyproject)
 
 
 def _nearest_locked(start: Path) -> Project | None:
     for directory in (start, *start.parents):
         if (directory / "uv.lock").is_file():
-            return _project_at(directory)
+            member = next(
+                (
+                    inner
+                    for inner in (start, *start.parents)
+                    if inner != directory
+                    and inner.is_relative_to(directory)
+                    and is_workspace_member(directory, inner)
+                ),
+                None,
+            )
+            return _locked(directory, member=member)
     return None
 
 
@@ -158,6 +234,9 @@ def read_environment(root: Path) -> Environment:
         python_version=version,
         implementation=config.get("implementation"),
         site_packages=tuple(site_packages),
+        includes_system_site_packages=(
+            config.get("include-system-site-packages", "").lower() == "true"
+        ),
     )
 
 
@@ -207,6 +286,17 @@ def resolve_target(*, cwd: Path, project: Path | None, python: Path | None) -> T
     notes: list[str] = []
     repository = git_toplevel(resolved_project.root if resolved_project else environment.root)
     target = Target(resolved_project, environment, repository)
+    if environment.includes_system_site_packages:
+        notes.append(
+            f"{target.display(environment.root)} sets include-system-site-packages = true; the "
+            "base interpreter's packages are not read"
+        )
+    if resolved_project is not None and resolved_project.member is not None:
+        notes.append(
+            f"workspace member {target.display(resolved_project.member)} of the workspace at "
+            f"{target.display(resolved_project.root)}; its lock and environment are the "
+            "workspace's"
+        )
     if resolved_project is None:
         notes.append(
             f"{target.display(environment.root)} has no uv project; installation facts only, "

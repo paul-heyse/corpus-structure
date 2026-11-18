@@ -32,7 +32,7 @@ from corpus_tooling.envelope import (
 )
 from corpus_tooling.library.installed import Installation
 from corpus_tooling.library.target import Target, resolve_target
-from corpus_tooling.output import normalized_command
+from corpus_tooling.output import FailureContext, normalized_command
 
 
 def _git(repository: Path, *args: str) -> str | None:
@@ -122,6 +122,27 @@ class LibraryState:
     def provenance(self) -> Provenance:
         return read_provenance(self.target)
 
+    def failure_context(self) -> FailureContext:
+        """What a failed envelope can still say: the target's notes and, once the target is
+        resolved, its baseline block (best effort: a failure here leaves it null)."""
+        if "target" not in self.__dict__:
+            return FailureContext()
+        target = self.target
+        try:
+            provenance = self.provenance
+        except Exception:
+            return FailureContext(notes=target.notes)
+        return FailureContext(
+            baseline=provenance.baseline, notes=target.notes, authorities=provenance.authorities
+        )
+
+    @property
+    def installation_skipped(self) -> tuple[SkippedInput, ...]:
+        """Unreadable metadata, once a command has read the installation; else nothing."""
+        if "installation" in self.__dict__ and self.installation.loaded:
+            return self.installation.skipped
+        return ()
+
 
 def library_state(ctx: typer.Context) -> LibraryState:
     state = ctx.find_object(LibraryState)
@@ -137,7 +158,7 @@ def library_envelope[I: Item, U: Unresolved](
     *,
     limit: int,
     offset: int,
-    unresolved_type: type[U] = Unresolved,
+    unresolved_type: type[U] | None = None,
     authorities: Mapping[str, str] | None = None,
     scanned: int = 0,
     no_hit_scopes: Iterable[str] = (),
@@ -148,7 +169,8 @@ def library_envelope[I: Item, U: Unresolved](
     notes: Iterable[str] = (),
 ) -> Envelope[I, U]:
     """A delivered envelope for the current command: baseline, target notes, normalized
-    command and tool versions filled in; items sorted and bounded."""
+    command, tool versions and (when the installation was read) its unreadable metadata filled
+    in; items sorted and bounded. `unresolved_type` is inferred from the rows when omitted."""
     state = library_state(ctx)
     provenance = state.provenance
     return build_envelope(
@@ -165,7 +187,7 @@ def library_envelope[I: Item, U: Unresolved](
         scanned=scanned,
         no_hit_scopes=no_hit_scopes,
         excluded=excluded,
-        skipped_inputs=skipped_inputs,
+        skipped_inputs=[*skipped_inputs, *state.installation_skipped],
         unresolved=unresolved,
         unavailable_metadata=unavailable_metadata,
         notes=[*state.target.notes, *notes],

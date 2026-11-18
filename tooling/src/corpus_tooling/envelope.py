@@ -206,11 +206,25 @@ def page[T](
     return shown, Truncation(list=name, shown=len(shown), total=len(values))
 
 
+def _inferred_type(rows: list[Any]) -> type[Any]:
+    types = {type(row) for row in rows}
+    if len(types) > 1:
+        names = sorted(kind.__name__ for kind in types)
+        raise TypeError(f"unresolved rows mix types {names}; declare one Unresolved subclass")
+    return types.pop() if types else Unresolved
+
+
+def _require_exact(what: str, rows: list[Any], expected: type[Any]) -> None:
+    wrong = sorted({type(row).__name__ for row in rows if type(row) is not expected})
+    if wrong:
+        raise TypeError(f"{what} must be exactly {expected.__name__}, not {wrong}")
+
+
 def build_envelope[I: Item, U: Unresolved](
     item_type: type[I],
     items: Iterable[I],
     *,
-    unresolved_type: type[U],
+    unresolved_type: type[U] | None = None,
     tool: ToolInfo,
     command: str,
     baseline: Baseline,
@@ -224,18 +238,30 @@ def build_envelope[I: Item, U: Unresolved](
     unavailable_metadata: Iterable[UnavailableMetadata] = (),
     notes: Iterable[str] = (),
 ) -> Envelope[I, U]:
-    """Sort, bound and assemble a delivered result. Coverage lists are sorted, not bounded."""
-    ordered = sorted(items, key=lambda item: item.sort_key())
+    """Sort, bound and assemble a delivered result. Coverage lists are sorted, not bounded;
+    identical skipped inputs are reported once.
+
+    Rows must be exactly the declared types: a pydantic list of a base type would serialize a
+    subclass row as the base and drop its extra fields. `unresolved_type` is inferred from the
+    rows when omitted (the base `Unresolved` when there are none)."""
+    item_rows = list(items)
+    _require_exact("items", item_rows, item_type)
+    unresolved_rows = list(unresolved)
+    row_type = unresolved_type or _inferred_type(unresolved_rows)
+    _require_exact("unresolved rows", unresolved_rows, row_type)
+    ordered = sorted(item_rows, key=lambda item: item.sort_key())
     shown, truncation = page(ordered, name="items", limit=limit, offset=offset)
-    coverage = Coverage[unresolved_type](
+    coverage = Coverage[row_type](
         scanned=scanned,
         no_hit_scopes=sorted(set(no_hit_scopes)),
         excluded=sorted(set(excluded)),
-        skipped_inputs=sorted(skipped_inputs, key=lambda row: (row.input, row.reason)),
-        unresolved=sorted(unresolved, key=lambda row: row.sort_key()),
+        skipped_inputs=sorted(
+            set(skipped_inputs), key=lambda row: (row.input, row.reason, row.detail)
+        ),
+        unresolved=sorted(unresolved_rows, key=lambda row: row.sort_key()),
         unavailable_metadata=sorted(unavailable_metadata, key=lambda row: (row.subject, row.field)),
     )
-    return Envelope[item_type, unresolved_type](
+    return Envelope[item_type, row_type](
         tool=tool,
         command=command,
         generated_at=datetime.now(UTC),

@@ -3,13 +3,23 @@ command module registers itself (`register(group)`)."""
 
 import hashlib
 import json
+import shlex
 from typing import Annotated, ClassVar, Literal
 
 import pytest
 import typer
 from typer.testing import CliRunner
 
-from corpus_tooling.envelope import Column, Item, SkippedInput, Unresolved
+from corpus_tooling.envelope import (
+    Baseline,
+    Column,
+    Item,
+    SkippedInput,
+    TargetPython,
+    ToolInfo,
+    Unresolved,
+    build_envelope,
+)
 from corpus_tooling.library.app import REGISTRATIONS, make_library_app
 from corpus_tooling.library.context import library_envelope, library_state
 from corpus_tooling.output import (
@@ -40,10 +50,12 @@ class ProbeSite(Item):
 
 class ProbeUnresolved(Unresolved):
     kind: Literal["assignment_alias", "instance_member"]
+    expression: str
 
 
 def probe(
     ctx: typer.Context,
+    names: Annotated[list[str] | None, typer.Argument()] = None,
     json: JsonOpt = False,
     limit: LimitOpt = DEFAULT_LIMIT,
     offset: OffsetOpt = 0,
@@ -51,39 +63,52 @@ def probe(
     unresolved: Annotated[bool, typer.Option("--unresolved")] = False,
     skipped: Annotated[bool, typer.Option("--skipped")] = False,
     fail: Annotated[bool, typer.Option("--fail")] = False,
+    fail_late: Annotated[bool, typer.Option("--fail-late")] = False,
     crash: Annotated[bool, typer.Option("--crash")] = False,
+    read_installation: Annotated[bool, typer.Option("--read-installation")] = False,
+    emit_twice: Annotated[bool, typer.Option("--emit-twice")] = False,
+    fail_after_emit: Annotated[bool, typer.Option("--fail-after-emit")] = False,
 ) -> None:
     diagnostic("probe: scanning \x1b[31mfive\x1b[0m sites")
     if fail:
         raise ToolFailure("probe_failed", "the probe could not run", "Pass fewer flags.")
     if crash:
         raise ValueError("unexpected")
-    target = library_state(ctx).target
+    state = library_state(ctx)
+    target = state.target
+    if fail_late:
+        raise ToolFailure("probe_failed", "the probe failed after resolving", "Pass less.")
+    if read_installation:
+        assert state.installation.distributions
     sites = [ProbeSite(path=f"pkg/m{n}.py", line=n) for n in (3, 1, 5, 2, 4)]
     sites.append(ProbeSite(path="pkg/z.py", line=9, note="\x1b]0;title\x07evil\ttab"))
-    emit(
-        library_envelope(
-            ctx,
-            ProbeSite,
-            sites,
-            limit=limit,
-            offset=offset,
-            unresolved_type=ProbeUnresolved,
-            authorities={"probe": "1.0"},
-            scanned=6,
-            unresolved=[
-                ProbeUnresolved(kind="instance_member", subject="m.dump", location="pkg/m1.py:4:1")
-            ]
-            if unresolved
-            else [],
-            skipped_inputs=[SkippedInput(input="pkg/bad.py", reason="parse_error")]
-            if skipped
-            else [],
-            notes=[f"target python {target.environment.python_version}"],
-        ),
-        json=json,
-        strict=strict,
+    envelope = library_envelope(
+        ctx,
+        ProbeSite,
+        sites,
+        limit=limit,
+        offset=offset,
+        authorities={"probe": "1.0"},
+        scanned=6,
+        # No unresolved_type: it is inferred from the rows.
+        unresolved=[
+            ProbeUnresolved(
+                kind="instance_member",
+                subject="m.dump",
+                location="pkg/m1.py:4:1",
+                expression="m.dump()",
+            )
+        ]
+        if unresolved
+        else [],
+        skipped_inputs=[SkippedInput(input="pkg/bad.py", reason="parse_error")] if skipped else [],
+        notes=[f"target python {target.environment.python_version}"],
     )
+    emit(envelope, json=json, strict=strict)
+    if emit_twice:
+        emit(envelope, json=json, strict=strict)
+    if fail_after_emit:
+        raise ToolFailure("probe_failed", "late failure", "Nothing.")
 
 
 def selection_probe(ctx: typer.Context, json: JsonOpt = False) -> None:
@@ -179,6 +204,7 @@ def test_unresolved_rows_exit_zero_and_skipped_inputs_fail_only_under_strict(cli
             "subject": "m.dump",
             "location": "pkg/m1.py:4:1",
             "detail": "",
+            "expression": "m.dump()",
         }
     ]
     assert _run(cli, *project, "probe", "--json", "--skipped").exit_code == 0
@@ -319,3 +345,169 @@ def test_next_page_keeps_options_before_the_argument_separator() -> None:
     assert next_page_command("tooling library census --json --offset 2 -- -x", 7) == (
         "tooling library census --offset 7 -- -x"
     )
+
+
+def test_failure_after_resolution_keeps_the_baseline_and_target_notes(cli, trees) -> None:
+    result = _run(
+        cli,
+        "--project",
+        str(trees.project),
+        "--python",
+        str(trees.elsewhere),
+        "probe",
+        "--json",
+        "--fail-late",
+    )
+    assert result.exit_code == 3
+    envelope = json.loads(result.stdout)
+    assert envelope["status"] == "failed"
+    assert envelope["baseline"]["python"]["version"] == "3.12.7"
+    assert envelope["baseline"]["project"] == "."
+    (note,) = envelope["notes"]
+    assert note.startswith(f"environment {trees.elsewhere.as_posix()} is not the project's own")
+
+
+def test_unreadable_installation_metadata_reaches_coverage_and_strict(cli, trees) -> None:
+    project = ("--project", str(trees.project))
+    result = _run(cli, *project, "probe", "--json", "--read-installation")
+    assert result.exit_code == 0, result.output
+    skipped = json.loads(result.stdout)["coverage"]["skipped_inputs"]
+    assert [(row["input"].rsplit("/", 1)[-1], row["reason"]) for row in skipped] == [
+        ("broken-0.0.0.dist-info", "unreadable_metadata"),
+        ("delta-1.0.0.dist-info", "unreadable_metadata"),
+    ]
+    assert _run(cli, *project, "probe", "--json", "--read-installation", "--strict").exit_code == 1
+    # A command that never reads the installation reports none of it.
+    assert _run(cli, *project, "probe", "--json", "--strict").exit_code == 0
+
+
+def test_a_second_emit_or_a_late_failure_never_adds_a_second_result(cli, trees) -> None:
+    for flag, message in (
+        ("--emit-twice", "emit called twice"),
+        ("--fail-after-emit", "late failure"),
+    ):
+        result = _run(cli, "--project", str(trees.project), "probe", "--json", flag)
+        assert result.exit_code == 3
+        assert json.loads(result.stdout)["status"] == "ok"  # exactly one document
+        assert "failed after the result was delivered" in result.stderr
+        assert message in result.stderr
+
+
+def test_terminal_rendering_strips_control_sequences(cli, trees) -> None:
+    result = CliRunner().invoke(
+        cli,
+        ["library", "--project", str(trees.project), "probe", "--offset", "5"],
+        env={"TTY_COMPATIBLE": "1", "COLUMNS": "200", "NO_COLOR": "1"},
+    )
+    assert result.exit_code == 0, result.output
+    assert "evil tab" in result.stdout
+    assert "\x1b]" not in result.stdout
+    assert "\x07" not in result.stdout
+    assert "title" not in result.stdout
+
+
+def test_next_page_command_with_positional_arguments_continues_the_list(cli, trees) -> None:
+    first = _run(cli, "--project", str(trees.project), "probe", "alpha", "beta", "--limit", "4")
+    last = first.stdout.splitlines()[-1]
+    prefix = "# truncated items: shown 4 of 6; next: "
+    assert last == (
+        f"{prefix}tooling library --project {trees.project} probe --limit 4 alpha beta --offset 4"
+    )
+    following = shlex.split(last.removeprefix(prefix))[1:]  # drop the program name
+    second = CliRunner().invoke(cli, following)
+    assert second.exit_code == 0, second.output
+    rows = [line for line in second.stdout.splitlines() if not line.startswith("#")]
+    assert rows == ["pkg/m5.py\t5\t-", "pkg/z.py\t9\tevil tab"]
+
+
+def _envelope_inputs() -> dict:
+    return {
+        "tool": ToolInfo(version="0"),
+        "command": "tooling library probe",
+        "baseline": Baseline(
+            revision=None,
+            dirty_paths=[],
+            project=None,
+            python=TargetPython(version="3.12.7", environment="/env"),
+            platform="linux-x86_64",
+            lock_digest=None,
+        ),
+        "limit": 0,
+        "offset": 0,
+    }
+
+
+class OtherUnresolved(Unresolved):
+    kind: Literal["other"]
+
+
+def test_rows_must_match_their_declared_types() -> None:
+    row = ProbeUnresolved(kind="assignment_alias", subject="s", location="l", expression="e")
+    other = OtherUnresolved(kind="other", subject="s", location="l")
+    with pytest.raises(TypeError, match="mix types"):
+        build_envelope(ProbeSite, [], unresolved=[row, other], **_envelope_inputs())
+    with pytest.raises(TypeError, match="exactly Unresolved"):
+        build_envelope(
+            ProbeSite, [], unresolved_type=Unresolved, unresolved=[row], **_envelope_inputs()
+        )
+    inferred = build_envelope(ProbeSite, [], unresolved=[row], **_envelope_inputs())
+    assert json.loads(inferred.model_dump_json())["coverage"]["unresolved"][0]["expression"] == "e"
+
+
+def test_workspace_member_selects_the_workspace_lock_and_environment(cli, trees) -> None:
+    result = _run(cli, "--project", str(trees.project / "packages" / "one"), "probe", "--json")
+    assert result.exit_code == 0, result.output
+    envelope = json.loads(result.stdout)
+    lock = hashlib.sha256((trees.project / "uv.lock").read_bytes()).hexdigest()
+    assert envelope["baseline"]["project"] == "."
+    assert envelope["baseline"]["lock_digest"] == f"sha256:{lock}"
+    assert envelope["baseline"]["python"]["environment"] == ".venv"
+    assert envelope["notes"] == [
+        "workspace member packages/one of the workspace at .; its lock and environment are "
+        "the workspace's",
+        "target python 3.12.7",
+    ]
+    selection = _run(
+        cli, "--project", str(trees.project / "packages" / "one"), "selection-probe", "--json"
+    )
+    assert selection.exit_code == 0, selection.output
+
+
+def test_working_directory_inside_a_member_records_the_member(cli, trees, monkeypatch) -> None:
+    monkeypatch.chdir(trees.project / "packages" / "two")
+    result = _run(cli, "probe", "--json")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["notes"][0].startswith("workspace member packages/two ")
+
+
+def test_unlocked_project_is_refused_by_selection_commands(cli, trees) -> None:
+    # Excluded from the workspace and without its own uv.lock: a project, but not a locked one.
+    excluded = trees.project / "packages" / "excluded"
+    result = _run(
+        cli,
+        "--project",
+        str(excluded),
+        "--python",
+        str(trees.project / ".venv"),
+        "selection-probe",
+        "--json",
+    )
+    assert result.exit_code == 3
+    assert json.loads(result.stdout)["error"]["kind"] == "no_lock"
+
+
+def test_system_site_packages_are_noted_as_not_read(cli, trees) -> None:
+    config = trees.elsewhere / "pyvenv.cfg"
+    config.write_text(
+        config.read_text().replace(
+            "include-system-site-packages = false", "include-system-site-packages = true"
+        )
+    )
+    result = _run(
+        cli, "--python", str(trees.elsewhere), "--project", str(trees.project), "probe", "--json"
+    )
+    assert result.exit_code == 0, result.output
+    assert (
+        f"{trees.elsewhere.as_posix()} sets include-system-site-packages = true; the base "
+        "interpreter's packages are not read"
+    ) in json.loads(result.stdout)["notes"]

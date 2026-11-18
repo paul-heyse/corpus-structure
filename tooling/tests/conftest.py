@@ -67,8 +67,11 @@ ENVIRONMENT: dict[str, str] = {
         "shared_ns/gamma_part.py,,\n"
         "_gamma_ext.cpython-312-x86_64-linux-gnu.so,,\n"
         "__pycache__/gamma.cpython-312.pyc,,\n"
+        "LICENSE,,\n"
         "gamma-0.3.0.dist-info/RECORD,,\n"
     ),
+    # A top-level file without a module suffix is not an import name.
+    f"{SITE}/LICENSE": "MIT\n",
     # An editable workspace package: RECORD lists only a .pth file.
     f"{SITE}/local_tool-0.1.0.dist-info/METADATA": (
         "Metadata-Version: 2.4\nName: local-tool\nVersion: 0.1.0\n"
@@ -80,6 +83,9 @@ ENVIRONMENT: dict[str, str] = {
         '{"url": "file://@ROOT@/workspace/tool", "dir_info": {"editable": true}}\n'
     ),
     f"{SITE}/local_tool.pth": "@ROOT@/workspace/tool/src\nimport _never_executed\n",
+    # A malformed entry_points.txt (no `=`): unreadable, reported as a skipped input.
+    f"{SITE}/delta-1.0.0.dist-info/METADATA": "Metadata-Version: 2.1\nName: delta\nVersion: 1.0.0\n",
+    f"{SITE}/delta-1.0.0.dist-info/entry_points.txt": "[g]\nnoequals\n",
     # Metadata without a Name: unreadable, reported as a skipped input.
     f"{SITE}/broken-0.0.0.dist-info/METADATA": "Metadata-Version: 2.1\nVersion: 0.0.0\n",
 }

@@ -19,9 +19,11 @@ import re
 import shlex
 import sys
 import traceback
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import suppress
-from typing import Annotated, Any, NoReturn
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from typing import Annotated, Any, NoReturn, Protocol, runtime_checkable
 
 import typer
 from rich.console import Console, Group, RenderableType
@@ -30,7 +32,7 @@ from rich.table import Table
 from rich.text import Text
 from typer.core import TyperCommand
 
-from corpus_tooling.envelope import Column, Envelope, ErrorInfo, failed_envelope
+from corpus_tooling.envelope import Baseline, Column, Envelope, ErrorInfo, failed_envelope
 
 JsonOpt = Annotated[
     bool, typer.Option("--json", help="Write exactly one result envelope as JSON to stdout.")
@@ -79,7 +81,7 @@ def _cell(value: object) -> str:
     if isinstance(value, list | tuple | set | frozenset):
         return ",".join(_cell(part) for part in value) or "-"
     if isinstance(value, dict):
-        return ",".join(f"{key}={_cell(part)}" for key, part in value.items()) or "-"
+        return ",".join(f"{_cell(key)}={_cell(part)}" for key, part in value.items()) or "-"
     # Cells are one line: tabs and newlines inside a value would break the plain format.
     return " ".join(safe_text(value).split()) if value != "" else "-"
 
@@ -356,8 +358,24 @@ def _failure_text(envelope: Envelope[Any, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+@dataclass
+class _Delivery:
+    delivered: bool = False
+
+
+# Set by `EnvelopeCommand` for the duration of one command invocation.
+_DELIVERY: ContextVar[_Delivery | None] = ContextVar("corpus_tooling_delivery", default=None)
+
+
 def emit(envelope: Envelope[Any, Any], *, json: bool, strict: bool = False) -> None:
-    """Deliver one envelope; under `--strict` exit 1 when inputs were skipped."""
+    """Deliver the command's one envelope; under `--strict` exit 1 when inputs were skipped.
+
+    A second `emit` in the same invocation raises `RuntimeError` (exit 3, no second result)."""
+    delivery = _DELIVERY.get()
+    if delivery is not None:
+        if delivery.delivered:
+            raise RuntimeError("emit called twice: a command delivers exactly one envelope")
+        delivery.delivered = True
     exit_code = EXIT_STRICT if strict and envelope.coverage.skipped_inputs else 0
     if json:
         write_stdout(envelope.model_dump_json() + "\n", exit_code=exit_code)
@@ -390,11 +408,38 @@ def _json_requested(command: TyperCommand, ctx: typer.Context) -> bool:
     return False
 
 
+@dataclass(frozen=True)
+class FailureContext:
+    """What a failed envelope can still carry from the group's state."""
+
+    baseline: Baseline | None = None
+    notes: tuple[str, ...] = ()
+    authorities: Mapping[str, str] = field(default_factory=dict)
+
+
+@runtime_checkable
+class ProvidesFailureContext(Protocol):
+    """Implemented by a group's `ctx.obj` (such as `LibraryState`) so a failure after target
+    resolution keeps the baseline block and the target's notes."""
+
+    def failure_context(self) -> FailureContext: ...
+
+
+def _failure_context(ctx: typer.Context) -> FailureContext:
+    if isinstance(ctx.obj, ProvidesFailureContext):
+        with suppress(Exception):
+            return ctx.obj.failure_context()
+    return FailureContext()
+
+
 class EnvelopeCommand(TyperCommand):
     """Turns a `ToolFailure` (or an unexpected exception, traceback on stderr) raised by the
-    command into exit 3 with a `status: failed` envelope."""
+    command into exit 3 with a `status: failed` envelope. After the envelope was delivered, a
+    later failure still exits 3, reported on stderr only: stdout never gets a second result."""
 
     def invoke(self, ctx: Any) -> Any:
+        delivery = _Delivery()
+        token = _DELIVERY.set(delivery)
         try:
             return super().invoke(ctx)
         except ToolFailure as failure:
@@ -410,7 +455,23 @@ class EnvelopeCommand(TyperCommand):
                 message=f"{type(unexpected).__name__}: {unexpected}",
                 remedy="This is a defect in the tool; the traceback is on stderr.",
             )
-        envelope = failed_envelope(command=normalized_command(ctx), error=error)
+        finally:
+            _DELIVERY.reset(token)
+        if delivery.delivered:
+            with suppress(OSError):
+                sys.stderr.write(
+                    f"tooling: failed after the result was delivered: {safe_text(error.message)}"
+                    f" [{error.kind}]\n"
+                )
+            raise typer.Exit(EXIT_FAILURE)
+        context = _failure_context(ctx)
+        envelope = failed_envelope(
+            command=normalized_command(ctx),
+            error=error,
+            baseline=context.baseline,
+            authorities=context.authorities,
+            notes=context.notes,
+        )
         emit_failure(envelope, json=_json_requested(self, ctx))
 
 
