@@ -46,9 +46,8 @@ def certify_controlled_pdf_stream(
     **options,
 ):
     """Send controlled Docling output through the real worker certification route."""
-    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply, PdfStreamRequest
-    from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
-    from corpus_structure.semantic.pdf_certification import certify_native_stream
+    from corpus_structure.ingest.pdf_stream_types import PdfStreamRequest
+    from corpus_structure.ingest.pdf_streaming import _atomic_bytes
 
     request = PdfStreamRequest(
         source=source,
@@ -69,28 +68,7 @@ def certify_controlled_pdf_stream(
             "native_preparation",
         )
     )
-    records = streamed.write_record_batches(
-        request.record_root,
-        build_id=request.build_id,
-        release_id=request.release_id,
-        source_digest=request.source.digest,
-        on_batch=on_replay,
-    )
-    on_replay(_ref(request.record_root / "completion.jsonl", "native_completion"))
-    certified_sets, certification, access_replay = certify_native_stream(
-        streamed, request, records, on_replay=on_replay
-    )
-    return PdfStreamReply(
-        streamed.conversion_status,
-        streamed.errors,
-        streamed.recipe,
-        tuple(streamed.spool.pages[number] for number in sorted(streamed.spool.pages)),
-        records,
-        streamed.effective_options,
-        certified_sets,
-        certification,
-        access_replay,
-    )
+    return streamed.certified_reply(request, on_replay=on_replay)
 
 
 def stage_pdf_document(

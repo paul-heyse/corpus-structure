@@ -102,34 +102,7 @@ def _native_child(
                     streamed = StreamingPdfProducer(recipe, assets=assets).run(
                         request.source, spool, page_range=request.page_range
                     )
-                    records = streamed.write_record_batches(
-                        request.record_root,
-                        build_id=request.build_id,
-                        release_id=request.release_id,
-                        source_digest=request.source.digest,
-                        on_batch=acknowledged,
-                    )
-                    from .pdf_streaming import _ref
-
-                    acknowledged(
-                        _ref(request.record_root / "completion.jsonl", "native_completion")
-                    )
-                    from corpus_structure.semantic.pdf_certification import certify_native_stream
-
-                    certified_sets, certification, access_replay = certify_native_stream(
-                        streamed, request, records, on_replay=acknowledged
-                    )
-                    result = PdfStreamReply(
-                        streamed.conversion_status,
-                        streamed.errors,
-                        streamed.recipe,
-                        tuple(spool.pages[n] for n in sorted(spool.pages)),
-                        records,
-                        streamed.effective_options,
-                        certified_sets,
-                        certification,
-                        access_replay,
-                    )
+                    result = streamed.certified_reply(request, on_replay=acknowledged)
                     del streamed
                 elif isinstance(request, PdfEnrichmentRequest):
                     result = compute_enrichment(request, converter)

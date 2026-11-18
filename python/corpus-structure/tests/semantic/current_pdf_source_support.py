@@ -197,9 +197,7 @@ class CurrentPdfSource:
 
 def _certified_controlled_reply(result, request, on_replay):
     """Exercise real encoding and certification over independently authored fixture content."""
-    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
-    from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
-    from corpus_structure.semantic.pdf_certification import certify_native_stream
+    from corpus_structure.ingest.pdf_streaming import _atomic_bytes
 
     on_replay(
         _atomic_bytes(
@@ -208,28 +206,7 @@ def _certified_controlled_reply(result, request, on_replay):
             "native_preparation",
         )
     )
-    records = result.write_record_batches(
-        request.record_root,
-        build_id=request.build_id,
-        release_id=request.release_id,
-        source_digest=request.source.digest,
-        on_batch=on_replay,
-    )
-    on_replay(_ref(request.record_root / "completion.jsonl", "native_completion"))
-    companions, certificate, access = certify_native_stream(
-        result, request, records, on_replay=on_replay
-    )
-    return PdfStreamReply(
-        result.conversion_status,
-        result.errors,
-        result.recipe,
-        (),
-        records,
-        result.effective_options,
-        companions,
-        certificate,
-        access,
-    )
+    return result.certified_reply(request, on_replay=on_replay)
 
 
 def _controlled_stream(

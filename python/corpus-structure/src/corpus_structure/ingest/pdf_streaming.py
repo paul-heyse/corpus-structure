@@ -15,7 +15,13 @@ from hashlib import file_digest, sha256
 from pathlib import Path
 from typing import Any
 
-from .pdf_stream_types import PdfPageRecovery, PdfReplayRef, PdfSourceRef
+from .pdf_stream_types import (
+    PdfPageRecovery,
+    PdfReplayRef,
+    PdfSourceRef,
+    PdfStreamReply,
+    PdfStreamRequest,
+)
 
 
 def _ref(path: Path, family: str, rows: int = 0) -> PdfReplayRef:
@@ -564,74 +570,37 @@ class StreamingPdfResult:
             flush(family)
         return tuple(files)
 
-    def write_native_occurrence_batches(
+    def certified_reply(
         self,
-        root: Path,
+        request: PdfStreamRequest,
         *,
-        build_id: str,
-        on_batch: Callable[[PdfReplayRef], None] | None = None,
-    ) -> tuple[PdfReplayRef, ...]:
-        """Emit the native occurrence index while the child still owns its graph."""
-        import pyarrow as pa
+        on_replay: Callable[[PdfReplayRef], None],
+    ) -> PdfStreamReply:
+        """Emit the exact certified record and access artifacts for native adoption."""
+        from corpus_structure.semantic.pdf_certification import certify_native_stream
 
-        from corpus_structure.semantic.pdf_record_model import record_arrow_schema
-        from corpus_structure.semantic.pdf_staging import MAX_BATCH_BYTES, MAX_BATCH_ROWS
-
-        from .pdf_record_product import native_occurrence_rows
-
-        schema = record_arrow_schema("ops.pdf_stage_companion")
-        root.mkdir(parents=True, exist_ok=False)
-        files: list[PdfReplayRef] = []
-        rows: list[dict[str, Any]] = []
-        size = 0
-
-        def flush() -> None:
-            nonlocal size
-            if not rows:
-                return
-            batch = pa.RecordBatch.from_pylist(rows, schema=schema)
-            if batch.nbytes > MAX_BATCH_BYTES:
-                raise ValueError("native occurrence batch exceeds its model profile")
-            path = root / f"{len(files):08d}-occurrence.arrow"
-            temporary = path.with_suffix(".tmp")
-            with (
-                pa.OSFile(str(temporary), "wb") as sink,
-                pa.ipc.new_file(sink, schema) as writer,
-            ):
-                writer.write_batch(batch)
-            with temporary.open("rb") as source:
-                os.fsync(source.fileno())
-            temporary.replace(path)
-            replay = _ref(path, "companion:occurrence", len(rows))
-            if on_batch is not None:
-                on_batch(replay)
-            files.append(replay)
-            rows.clear()
-            size = 0
-
-        for ordinal, occurrence in enumerate(native_occurrence_rows(self.document)):
-            self.spool.active()
-            body = json.dumps(
-                occurrence, ensure_ascii=False, allow_nan=False, separators=(",", ":")
-            )
-            if rows and (
-                size + len(body.encode()) + 256 > MAX_BATCH_BYTES // 2
-                or len(rows) >= MAX_BATCH_ROWS
-            ):
-                flush()
-            rows.append(
-                {
-                    "product_id": build_id,
-                    "revision_id": build_id,
-                    "family": "occurrence",
-                    "local_id": occurrence["occurrence_id"],
-                    "ordinal": ordinal,
-                    "body": body,
-                }
-            )
-            size += len(body.encode()) + 256
-        flush()
-        return tuple(files)
+        records = self.write_record_batches(
+            request.record_root,
+            build_id=request.build_id,
+            release_id=request.release_id,
+            source_digest=request.source.digest,
+            on_batch=on_replay,
+        )
+        on_replay(_ref(request.record_root / "completion.jsonl", "native_completion"))
+        companions, certification, access = certify_native_stream(
+            self, request, records, on_replay=on_replay
+        )
+        return PdfStreamReply(
+            self.conversion_status,
+            self.errors,
+            self.recipe,
+            tuple(self.spool.pages[number] for number in sorted(self.spool.pages)),
+            records,
+            self.effective_options,
+            companions,
+            certification,
+            access,
+        )
 
 
 class StreamingPdfProducer:
