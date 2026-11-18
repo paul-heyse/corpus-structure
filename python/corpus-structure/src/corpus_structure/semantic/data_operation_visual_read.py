@@ -13,7 +13,6 @@ from .visual_evidence import VisualEvidencePin, VisualEvidenceRow
 
 SOURCE = "native/data-operation-visual-read.schema.json"
 ARTIFACT_SOURCE = "native/data-operation-visual-artifact.schema.json"
-_SQL = Path(__file__).with_name("sql") / "data_operation_visual_read.sql"
 
 
 class _Record(BaseModel):
@@ -87,25 +86,37 @@ def visual_read_schema() -> bytes:
     return _schema(VisualReadReply)
 
 
-def visual_read_sources() -> tuple[SourceArtifact, ...]:
+def visual_read_sources(*, target_metadata=None) -> tuple[SourceArtifact, ...]:
     from .visual_evidence import VisualEvidenceArtifact
+    from .visual_read_native import visual_read_programs
 
+    if target_metadata is None:
+        from .metadata import metadata
+
+        target_metadata = metadata
+    artifact_schema = _schema(VisualEvidenceArtifact)
     return (
-        SourceArtifact(ARTIFACT_SOURCE, _schema(VisualEvidenceArtifact)),
+        SourceArtifact(ARTIFACT_SOURCE, artifact_schema),
         SourceArtifact(SOURCE, visual_read_schema()),
         SourceArtifact("native/data-operation-visual-read.py", Path(__file__).read_bytes()),
         SourceArtifact(
             "native/visual-evidence.py", Path(__file__).with_name("visual_evidence.py").read_bytes()
         ),
-        SourceArtifact("native/data-operation-visual-read.sql", _SQL.read_bytes()),
+        SourceArtifact(
+            "native/visual-read-native.py",
+            Path(__file__).with_name("visual_read_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-visual-read.sql",
+            visual_read_programs(target_metadata, artifact_schema).encode(),
+        ),
     )
 
 
 def visual_read_sql(sources=None) -> str:
     captured = visual_read_sources() if sources is None else sources
-    selected = {source.name: source.content for source in captured}
-    template = selected["native/data-operation-visual-read.sql"].decode()
-    if template.count("__VISUAL_ARTIFACT_SCHEMA__") != 1:
-        raise ValueError("captured visual SQL template differs")
-    schema = selected[ARTIFACT_SOURCE].decode().replace("'", "''")
-    return template.replace("__VISUAL_ARTIFACT_SCHEMA__", schema)
+    return next(
+        source.content.decode()
+        for source in captured
+        if source.name == "native/data-operation-visual-read.sql"
+    )

@@ -110,12 +110,16 @@ def test_visual_native_lowering_uses_captured_sql_and_artifact_schema(monkeypatc
     selected = {source.name: source for source in visual_read_sources()}
     schema = json.loads(selected[ARTIFACT_SOURCE].content)
     schema["description"] = "captured visual schema marker"
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.visual_read_native import visual_read_programs
+
+    program = visual_read_programs(metadata, json.dumps(schema).encode()).encode()
     changed = tuple(
         SourceArtifact(source.name, json.dumps(schema).encode())
         if source.name == ARTIFACT_SOURCE
         else SourceArtifact(
             source.name,
-            source.content.replace(b"ddo_visual_candidate_rows", b"captured_visual_candidate_rows"),
+            program.replace(b"ddo_visual_candidate_rows", b"captured_visual_candidate_rows"),
         )
         if source.name == "native/data-operation-visual-read.sql"
         else source
