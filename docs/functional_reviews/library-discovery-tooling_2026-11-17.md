@@ -2,6 +2,9 @@
 
 **Date:** 2026-11-17 · **Status:** all recommendations `Proposed`; nothing here is accepted scope.
 
+Planned by the [library-discovery tooling series](../../tooling/docs/plans/library-discovery-tooling_2026-11-17.md),
+which owns the scheduled disposition of O01–O10 and records where it departs from this review.
+
 ## Recommendation in brief
 
 Build a small Typer and Rich command-line tool under `tooling/` that gives an agent running
