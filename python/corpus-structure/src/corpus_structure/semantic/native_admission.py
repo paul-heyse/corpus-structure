@@ -62,6 +62,91 @@ def catalog_checks(body: str) -> str:
     return "\n".join(checks)
 
 
+def _normalized_function_checks(item, procedure, owner):
+    """Generate normalized function and complete ACL correspondence expressions."""
+    from sqlalchemy import Boolean, Text, and_, case, cast, func, literal, or_, select
+    from sqlalchemy.dialects.postgresql import JSONB, REAL, aggregate_order_by
+
+    from .native_catalog import _CatalogType, acl_rows
+
+    p = procedure.c
+    empty = cast(literal("[]", Text()), JSONB())
+    config = func.unnest(p.proconfig).table_valued("value").render_derived("configuration")
+    sorted_config = select(func.coalesce(
+        func.jsonb_agg(aggregate_order_by(config.c.value, config.c.value)), empty
+    )).select_from(config).correlate(procedure).scalar_subquery()
+    configuration = case(
+        (item.bool_op("?")("result_definition"), sorted_config),
+        else_=func.coalesce(func.to_jsonb(p.proconfig), empty),
+    )
+    rows = acl_rows(p.proacl, literal("f"), p.proowner).correlate(procedure).subquery("observed_acl")
+    observed_acl = select(func.coalesce(func.jsonb_agg(aggregate_order_by(
+        func.jsonb_build_array(*rows.c), *rows.c
+    )), empty)).select_from(rows).correlate(procedure).scalar_subquery()
+    entries = func.jsonb_array_elements(item["catalog_acl"]).table_valued(
+        "value"
+    ).render_derived("entry")
+    entry = cast(entries.c.value, JSONB())
+    grantee = case((entry[0].astext == "$migration_owner", cast(owner, Text())),
+                   else_=entry[0].astext)
+    privilege = entry[1].astext
+    bound_acl = select(
+        grantee.label("grantee"), privilege.label("privilege"),
+        func.bool_or(cast(entry[2].astext, Boolean())).label("grantable"),
+    ).select_from(entries).group_by(grantee, privilege).subquery("bound_acl")
+    expected_acl = select(func.coalesce(func.jsonb_agg(aggregate_order_by(
+        func.jsonb_build_array(*bound_acl.c), *bound_acl.c
+    )), empty)).select_from(bound_acl).scalar_subquery()
+    checks = (
+        ("result_definition", func.pg_get_function_result(p.oid)),
+        ("argument_definition", func.pg_get_function_arguments(p.oid)),
+        ("argument_defaults", func.pg_get_expr(p.proargdefaults, 0)),
+        ("support", cast(cast(p.prosupport, _CatalogType("regproc")), Text())),
+    )
+    return configuration, or_(
+        *(and_(item.bool_op("?")(name), observed.is_distinct_from(item[name].astext))
+          for name, observed in checks),
+        *(and_(item.bool_op("?")(name), observed.is_distinct_from(cast(item[name].astext, REAL())))
+          for name, observed in (("cost", p.procost), ("rows", p.prorows))),
+        and_(item.bool_op("?")("catalog_acl"), observed_acl.is_distinct_from(expected_acl)),
+    )
+
+
+def _normalized_function_sql():
+    from sqlalchemy import Text
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from .native_catalog import procedure, render
+    from .native_program import core_variable
+
+    configuration, predicate = _normalized_function_checks(
+        core_variable("item", JSONB(), "value"), procedure.alias("p"),
+        core_variable("owner_name", Text()),
+    )
+    return render(configuration), render(predicate)
+
+
+def _descriptor_sql(descriptor):
+    from pglast import ast, enums
+    from pglast.stream import RawStream
+    from sqlalchemy import Text, cast, literal, select
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from .identity import canonical_bytes
+    from .native_program import pg_type, sql_function
+
+    role = ast.VariableSetStmt(
+        kind=enums.VariableSetKind.VAR_SET_VALUE, name="role", is_local=True,
+        args=(ast.A_Const(val=ast.String(sval="corpus_sem_publisher")),),
+    )
+    definition = sql_function(
+        "data", "execution_contract_descriptor", parameters=(), returns=pg_type("jsonb"),
+        body=select(cast(literal(canonical_bytes(descriptor).decode(), Text()), JSONB())),
+        volatility="immutable", search_path=("pg_catalog", "pg_temp"),
+    )
+    return RawStream()(role) + ";\n" + definition + ";\n"
+
+
 def native_admission_sql(
     sql,
     inputs,
@@ -74,7 +159,6 @@ def native_admission_sql(
     from copy import deepcopy
     from hashlib import sha256
 
-    from .identity import canonical_bytes
     from .native_products import admission_kernel, current_admission_fields
 
     descriptor = deepcopy(base_descriptor)
@@ -301,44 +385,11 @@ def native_admission_sql(
         marker = " OR p.proretset IS DISTINCT FROM (item.value->>'setof')::boolean"
         if marker not in required:
             raise ValueError("missing function admission comparison boundary")
+        configuration, predicate = _normalized_function_sql()
         required = required.replace(
-            "COALESCE(to_jsonb(p.proconfig),'[]'::jsonb) IS DISTINCT FROM item.value->'config'",
-            "(CASE WHEN item.value ? 'result_definition' THEN COALESCE((SELECT "
-            "jsonb_agg(v ORDER BY v) FROM unnest(p.proconfig) v),'[]'::jsonb) ELSE "
-            "COALESCE(to_jsonb(p.proconfig),'[]'::jsonb) END) IS DISTINCT FROM "
-            "item.value->'config'",
+            "COALESCE(to_jsonb(p.proconfig),'[]'::jsonb)", configuration, 1,
         )
-        required = required.replace(
-            marker,
-            marker
-            + (
-                "\n OR (item.value ? 'result_definition' AND "
-                "pg_get_function_result(p.oid) IS DISTINCT FROM "
-                "item.value->>'result_definition')\n OR (item.value ? "
-                "'argument_definition' AND pg_get_function_arguments(p.oid) IS DISTINCT "
-                "FROM item.value->>'argument_definition')\n OR (item.value ? "
-                "'argument_defaults' AND pg_get_expr(p.proargdefaults,0) IS DISTINCT "
-                "FROM item.value->>'argument_defaults')\n OR (item.value ? 'cost' AND "
-                "p.procost IS DISTINCT FROM (item.value->>'cost')::real)\n OR "
-                "(item.value ? 'rows' AND p.prorows IS DISTINCT FROM "
-                "(item.value->>'rows')::real)\n OR (item.value ? 'support' AND "
-                "p.prosupport::regproc::text IS DISTINCT FROM item.value->>'support')\n "
-                "OR (item.value ? 'catalog_acl' AND COALESCE((SELECT "
-                "jsonb_agg(jsonb_build_array(\n CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE "
-                "pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)\n ORDER "
-                "BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) "
-                "END,a.privilege_type,a.is_grantable)\n FROM "
-                "aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) "
-                "a),'[]'::jsonb) IS DISTINCT FROM\n COALESCE((SELECT "
-                "jsonb_agg(jsonb_build_array(grantee,privilege,grantable) ORDER BY "
-                "grantee,privilege,grantable)\n FROM (SELECT CASE WHEN "
-                "entry->>0='$migration_owner' THEN owner_name::text ELSE entry->>0 END "
-                "AS grantee,\n entry->>1 AS privilege,bool_or((entry->>2)::boolean) AS "
-                "grantable\n FROM jsonb_array_elements(item.value->'catalog_acl') entry "
-                "GROUP BY 1,2) bound_acl),'[]'::jsonb))"
-            ),
-            1,
-        )
+        required = required.replace(marker, marker + "\n OR (" + predicate + ")", 1)
     from .native_products import function_bodies
 
     # Admission protects its own exact enforcing body too. The descriptor literal
@@ -346,15 +397,4 @@ def native_admission_sql(
     functions[required_signature]["body_sha256"] = sha256(
         function_bodies(required)["data.require_execution_release"].encode()
     ).hexdigest()
-    encoded = canonical_bytes(descriptor).decode().replace("'", "''")
-    admission = (
-        (
-            "SET LOCAL ROLE corpus_sem_publisher;\nCREATE OR REPLACE FUNCTION "
-            "data.execution_contract_descriptor() RETURNS jsonb LANGUAGE sql "
-            "IMMUTABLE SET search_path=pg_catalog,pg_temp AS $descriptor$\n SELECT '"
-        )
-        + encoded
-        + "'::jsonb\n$descriptor$;"
-        + required
-    )
-    return admission
+    return _descriptor_sql(descriptor) + required
