@@ -63,17 +63,17 @@ Confirmed by the operator on 2026-11-17:
 | Deferred opportunities | O07, O09, O10 as conditional packages; O08 routed, not built | Disposition table below |
 | O07 | One overwritten summary file per account; no history, no drift command | LDT-C1 |
 
-Proposed rule and document changes, each awaiting the operator's accept or reject before the
-dependent package starts:
+Rule and document changes proposed by this series. The operator accepted all six on
+2026-11-17; each is carried out by the package named in the last column.
 
-| Ref | Proposal | Consequence if rejected | Needed before |
+| Ref | Change | Consequence had it been rejected | Carried out in |
 |---|---|---|---|
-| RC1 | A new ADR records the tooling package and its CLI. ADR-0069 makes installed `ci` the routine interface; the new ADR scopes an explicit exception for repository tooling that inspects libraries and is not a product operation, and states that ADR-0069's managed-result custody does not apply to it. Whether this is a coexisting scoped decision or a supersession is settled with the `adr` skill. ADR-0072 stays in force; its revisit trigger is recorded as met. | The `tooling/` convention and the second CLI are undocumented and conflict with ADR-0069's wording | LDT-01 |
-| RC2 | AGENTS.md gains path-table rows for `tools/` and `tooling/` and says tooling plans live in `tooling/docs/plans/` | Agents keep routing tooling scope to `docs/plans/` | LDT-01 |
-| RC3 | Names: distribution `corpus-tooling`, import package `corpus_tooling`, console script `tooling`, discovery commands under `tooling library …` | Any other free name works; `ci`, `corpus-evidence`, `griffe`, `ty`, `pyrefly` and `ruff` are taken | LDT-01 |
+| RC1 | A new ADR records the tooling package and its CLI. ADR-0069 makes installed `ci` the routine interface; the new ADR scopes an explicit exception for repository tooling that inspects libraries and is not a product operation, and states that ADR-0069's managed-result custody does not apply to it. Whether this is a coexisting scoped decision or a supersession is settled with the `adr` skill. ADR-0072 stays in force; its revisit trigger is recorded as met. | The `tooling/` convention and the second CLI are undocumented and conflict with ADR-0069's wording | LDT-00, as [ADR-0132](../../../docs/adr/0132-tooling-package.md), a scoped decision beside ADR-0069 |
+| RC2 | AGENTS.md gains path-table rows for `tools/` and `tooling/` and says tooling plans live in `tooling/docs/plans/` | Agents keep routing tooling scope to `docs/plans/` | LDT-00 |
+| RC3 | Names: distribution `corpus-tooling`, import package `corpus_tooling`, console script `tooling`, discovery commands under `tooling library …` | Any other free name works; `ci`, `corpus-evidence`, `griffe`, `ty`, `pyrefly` and `ruff` are taken | LDT-00 (ADR), LDT-01 |
 | RC4 | The discovery guide's inline recipes are replaced by the commands, and the skill's "use prepared tools" names them | The tool exists but the workflow does not point to it | LDT-07 |
 | RC5 | The guide defines one interpretive coverage vocabulary (Used, Underuse candidate, Unused lead, Conditional, Unresolved); existing accounts adopt it at their next refresh | Three vocabularies continue | LDT-07 |
-| RC6 | `tooling/docs/**/*.md` joins the published "Work plans" collection, and the documentation workflow's path filter gains `tooling/**` | The series is linked from the site as a source file, not published | LDT-00 |
+| RC6 | `tooling/docs/**/*.md` joins the published "Work plans" collection, and the documentation workflow's path filter gains `tooling/docs/**` | The series is linked from the site as a source file, not published | LDT-00 |
 
 ## Design choices made in this series
 
@@ -277,7 +277,7 @@ the account.
 
 | Package | Delivers | Needs | Completion boundary |
 |---|---|---|---|
-| LDT-00 | RC1, RC2, RC3 and RC6 recorded; ADR accepted | Operator confirmation | ADR and AGENTS.md rows merged |
+| LDT-00 | RC1, RC2, RC3 and RC6 recorded; ADR accepted | Operator confirmation (given 2026-11-17) | ADR and AGENTS.md rows merged |
 | LDT-01 | Installed `tooling` command; target and installation reader; envelope, output and exit contract; `baseline` | LDT-00 | `tooling library baseline --json` returns a valid envelope; fixture target tests pass |
 | LDT-02 | `selection` and `metadata` | LDT-01 | The cli-and-logging baseline facts are reproduced, structlog reported as selected and installed |
 | LDT-03 | `inventory` | LDT-01 | Fixture package inventory equals the hand-written expectation; typer inventory lists `Typer` as public |

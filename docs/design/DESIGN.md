@@ -160,8 +160,12 @@ base guidance is manual. Plans retain execution disposition and existing review 
 Optional library-led discovery owns contextual usage briefings and proposed research priorities.
 It can start from a library family and repository objective before an opportunity is identified.
 Discovery and design-quality benefits remain Proposed.
+Discovery tooling — Proposed target: read-only library-inspection commands live in a separate
+non-product workspace package rooted at `tooling/`, with its own `tooling` command beside `ci`;
+the [plan series](../../tooling/docs/plans/library-discovery-tooling_2026-11-17.md) owns its
+implementation.
 
-> Decision: ADR-0072
+> Decision: ADR-0072, ADR-0132
 
 **Evidence records — Implemented and Tested** (ADR-0010; `tests/evidence`, 2026-10-28). A finalized result of an investigation gets one
 typed record in its evidence folder (`records/<id>.json`: question, informed items, method,

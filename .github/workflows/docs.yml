@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths: &docs-paths
       - 'docs/**'
+      - 'tooling/docs/**'
       - '*.md'
       - '.agents/roles/**'
       - '.claude/skills/**'

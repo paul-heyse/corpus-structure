@@ -33,7 +33,7 @@ Records the coordinator's RC1, RC2, RC3 and RC6 once the operator confirms them.
 - **AGENTS.md**: path-table rows for `tools/` and `tooling/`, and one sentence that tooling plans
   live in `tooling/docs/plans/`.
 - **Publication (RC6)**: add `"tooling/docs/**/*.md"` to the "Work plans" collection in
-  `docs/site.toml` and `tooling/**` to the path filter in `.github/workflows/docs.yml`. The
+  `docs/site.toml` and `tooling/docs/**` to the path filter in `.github/workflows/docs.yml`. The
   publisher rejects a glob that matches nothing, so this follows the series' first commit.
 
 Completion: the ADR is accepted and indexed (`just turn-end`), `uv run ci adr lint` and

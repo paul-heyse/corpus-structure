@@ -83,6 +83,8 @@ permission, concurrent-work and testing constraints, and follow discovered depen
 | `docs/design_review/evidence/` | Probes, spikes and investigations behind decisions, one `YYYY-MM-DD_<topic>/` folder each with a README; raw outputs and binaries through Git LFS; never venvs or `target/`. Put probes here, not in a session scratchpad |
 | `docs/pins.md` | Holds: pins that should not be bumped casually, with reason and revisit trigger |
 | `crates/` | The Rust workspace; `crates/corpus-structure` is the starter crate |
+| `tools/` | Non-product workspace packages used by repository process: `tools/evidence` holds the evidence-record tooling (ADR-0010) |
+| `tooling/` | The `corpus-tooling` workspace package and its `tooling` command: read-only library-inspection commands for discovery, separate from the product and from `ci` (ADR-0132). Its plans live in `tooling/docs/plans/`, not `docs/plans/` |
 | `scripts/` | `adr.py`, `design_sections.py` and `docs.py` (documentation), `check_agents.py`, `check_pins.py` |
 | `tests/scripts/` | Tests for the process scripts |
 | `rules/`, `rule-tests/` | ast-grep rules. They grow only from design-review findings |

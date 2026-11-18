@@ -85,7 +85,7 @@ include = ["docs/adr/*.md"]
 scope = "Reference"
 [[collections]]
 title = "Work plans"
-include = ["docs/plans/**/*.md"]
+include = ["docs/plans/**/*.md", "tooling/docs/**/*.md"]
 scope = "Reference"
 [[collections]]
 title = "Design standard"
