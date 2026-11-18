@@ -96,6 +96,90 @@ def test_target_nominal_member_and_original_occurrence_cannot_be_relabelled(prof
         )
 
 
+def test_constructed_separator_and_epsilon_extents_preserve_projection_authority(profiles):
+    from copy import deepcopy
+
+    from corpus_structure.semantic.characterization import occurrence_id
+    from corpus_structure.semantic.construction_products import (
+        interpreted_member_contracts,
+        interpreted_product_value,
+    )
+    from corpus_structure.semantic.constructions.layers import ConstructionLayer, ConstructionSource
+
+    formal, construction = profiles
+    source = selected(
+        formal,
+        "First\nSecond",
+        pieces=[
+            dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=5),
+            dict(kind="synthetic_separator", start=5, end=6),
+            dict(kind="native_text", item_ref="#/texts/1", source_field="text", start=6, end=12),
+        ],
+        items=[
+            dict(self_ref="#/texts/0", label="text", text="First", orig="First"),
+            dict(self_ref="#/texts/1", label="text", text="Second", orig="Second"),
+        ],
+        selectors=[dict(projection="pending", start=0, end=12)],
+    )
+    value = source.value
+    layer = ConstructionLayer(
+        value["source"], value, {"key": "controlled"}, families=("construction.predication",)
+    )
+    layer.record(
+        "construction.predication", value["selectors"][0], "unknown", "only occurrences authored"
+    )
+    view = ConstructionSource.from_native(source)
+    full = layer.occurrence(view, 0, 12)
+    anchors = [layer.occurrence(view, boundary, boundary) for boundary in (0, 5, 6, 12)]
+    extents = layer.occurrences[full]["extents"]
+    assert [
+        (row["start"], row["end"], row["native_pointer"], row["synthetic"]) for row in extents
+    ] == [
+        (0, 5, "#/texts/0", False),
+        (5, 6, "#/texts/0", True),
+        (6, 12, "#/texts/1", False),
+    ]
+    assert source.view.containing_piece("#/texts/0", 5, 6) is None
+    body = interpreted_product_value(
+        source,
+        layer.facts(),
+        interpreted_member_contracts(construction.prepared, construction.model),
+        (),
+    )
+    checked = validate_construction_product(
+        construction.prepared,
+        construction.model,
+        body,
+        source,
+        (),
+        subject_context=publication_context(source),
+    )
+    assert len(checked.inventory()["occurrences"]) == 5
+    for occurrence_id_to_forge, index, change in (
+        (full, 1, {"synthetic": False}),
+        (full, 1, {"native_pointer": "#/texts/1"}),
+        (full, 0, {"synthetic": True}),
+        (anchors[1], 0, {"synthetic": False}),
+        (anchors[2], 0, {"native_pointer": "#/texts/0"}),
+    ):
+        forged = deepcopy(body)
+        occurrence = next(
+            packet for packet in forged["members"] if packet["member_id"] == occurrence_id_to_forge
+        )
+        occurrence["body"]["extents"][index].update(change)
+        key = occurrence_id(value["source"], occurrence["body"]["extents"])
+        occurrence["member_id"] = occurrence["body"]["local_id"] = key
+        with pytest.raises(ValueError, match="original positioned source"):
+            validate_construction_product(
+                construction.prepared,
+                construction.model,
+                forged,
+                source,
+                (),
+                subject_context=publication_context(source),
+            )
+
+
 def test_contextual_evaluation_consumes_real_products_and_retains_governed_premises(profiles):
     from corpus_structure.semantic.construction_products import PreparedContextualProfile
 

@@ -653,10 +653,7 @@ def validate_interpreted_product(
             if (
                 not source_extent_selected(selected, extent, selector_index=selector_index)
                 or extent["text"] != selected["text"][extent["start"] : extent["end"]]
-                or source.view.containing_piece(
-                    extent["native_pointer"], extent["start"], extent["end"]
-                )
-                is None
+                or not source.view.matches_occurrence_extent(extent)
             ):
                 raise ValueError("construction occurrence changes original positioned source")
     dependencies = {product_id: json.loads(content) for product_id, content in selected_products}

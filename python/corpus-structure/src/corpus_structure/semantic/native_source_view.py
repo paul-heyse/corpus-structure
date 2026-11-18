@@ -194,6 +194,25 @@ class NativeSourceView:
             return pieces[index]
         return None
 
+    def matches_occurrence_extent(self, extent: Mapping[str, Any]) -> bool:
+        """Match construction coordinates to one retained projection piece."""
+        start, end = extent["start"], extent["end"]
+        index = bisect_left(self.ends, end)
+        if index == len(self.pieces):
+            return False
+        piece = self.pieces[index]
+        if not piece["start"] <= start <= end <= piece["end"]:
+            return False
+        pointer = piece.get("item_ref")
+        if pointer is None:
+            nearest = bisect_left(self.native_ends, start)
+            if nearest == len(self.native_pieces):
+                return False
+            pointer = self.native_pieces[nearest]["item_ref"]
+        return extent["native_pointer"] == pointer and extent["synthetic"] == (
+            start == end or piece["kind"] != "native_text"
+        )
+
     def native_gap(self, start: int, end: int) -> bool:
         """Whether an open interval contains no native text, by its ordered end index."""
         index = bisect_right(self.native_ends, start)
