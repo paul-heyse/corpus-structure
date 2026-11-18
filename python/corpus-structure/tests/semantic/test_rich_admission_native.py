@@ -629,6 +629,7 @@ def test_generated_rich_producer_authority_binds_actual_native_model(native_roll
         "ops.ddo_rich_family_contract(text,text)",
         "ops.ddo_rich_require_proposal_context(jsonb,jsonb)",
         "ops.ddo_rich_require_preparation_producer(ops.data_request,jsonb)",
+        "ops.ddo_require_rich_preparation_completion(ops.data_request,jsonb)",
         "ops.ddo_rich_require_admission_producer(ops.data_request,jsonb)",
         "ops.ddo_rich_admission_dependencies_valid(text)",
     )

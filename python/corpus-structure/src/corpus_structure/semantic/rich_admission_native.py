@@ -18,9 +18,11 @@ from .native_program import (
     Assign,
     Block,
     CatchDependencyInvalidity,
+    ForQuery,
     If,
     Local,
     Parameter,
+    Perform,
     Raise,
     Return,
     SelectInto,
@@ -223,25 +225,31 @@ def _rich_producer_programs(p):
     ), (p.local("r", "ops.data_request"), p.local("producing", "ops.data_derivation"), p.local("intent", "ops.data_completion_intent")), returns="boolean")
 
 
+def _rich_preparation_programs(p):
+    operation = p.row("r", "ops.data_request", "operation_id")
+    request, completion = p.row("r", "ops.data_request"), _value("completion")
+    p.add("ddo_require_rich_preparation_completion", (("r", "ops.data_request"), ("completion", "jsonb")), (
+        If(operation.not_in(("prepare.external_extraction", "locate.external_extraction", "rich.consolidate")), (Return(),)),
+        Perform(func.ops.ddo_rich_require_preparation_producer(request, completion)),
+        _reject(func.ops.ddo_cpu_reply_output(request, completion).is_distinct_from(func.data.ddo_normalize(completion["outputs"][0]["product"]["body"])), "rich preparation differs from actual original CPU reply and input basis"),
+        If(operation == "rich.consolidate", (Perform(func.ops.ddo_rich_require_proposal_inputs(p.row("r", "ops.data_request", "project_id"), func.ops.ddo_cpu_input_basis(request))),)),
+    ))
+
+
 def rich_admission_native_sql(*, target_metadata=None) -> str:
     programs = _RichPrograms(target_metadata)
     _rich_input_programs(programs)
     _rich_producer_programs(programs)
+    _rich_preparation_programs(programs)
     return native_sql_script((*programs.output, _rich_completion_sql()))
 
 
 def _rich_completion_sql() -> str:
     """Remaining exact completion traversals; input and producer authority is model-owned."""
     return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_require_rich_preparation_completion(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-BEGIN
- IF r.operation_id NOT IN ('prepare.external_extraction','locate.external_extraction','rich.consolidate') THEN RETURN; END IF;
- PERFORM ops.ddo_rich_require_preparation_producer(r,completion);
- IF ops.ddo_cpu_reply_output(r,completion) IS DISTINCT FROM data.ddo_normalize(completion->'outputs'->0->'product'->'body') THEN
- RAISE EXCEPTION 'rich preparation differs from actual original CPU reply and input basis' USING ERRCODE='23514'; END IF;
- IF r.operation_id='rich.consolidate' THEN PERFORM ops.ddo_rich_require_proposal_inputs(r.project_id,ops.ddo_cpu_input_basis(r)); END IF;
-END $rich$;
+
+
+
 
 CREATE OR REPLACE FUNCTION ops.ddo_rich_require_proposal_inputs(project text,basis jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
@@ -504,5 +512,5 @@ BEGIN
  RAISE EXCEPTION 'rich selected readings differ from actual retained assertion packets' USING ERRCODE='23514'; END IF;
 END $rich$;
 
-REVOKE ALL ON FUNCTION ops.ddo_require_rich_preparation_completion(ops.data_request,jsonb),ops.ddo_rich_require_proposal_inputs(text,jsonb),ops.ddo_require_rich_admission_completion(ops.data_request,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.ddo_rich_require_proposal_inputs(text,jsonb),ops.ddo_require_rich_admission_completion(ops.data_request,jsonb) FROM PUBLIC;
 """
