@@ -638,9 +638,8 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         pdf_native_record_shape_sql,
     )
     from .pdf_contracts import _context_from_domain, trusted_pdf_context
-    from .pdf_payloads import FAMILY, PROFILE
-    from .pdf_validation_read_native import pdf_validation_native_programs
     from .pdf_domain import pdf_call_bindings
+    from .pdf_payloads import FAMILY, PROFILE
     from .pdf_publication_read_native import (
         pdf_publication_projection_sql,
         pdf_record_scope_health_sql,
@@ -652,6 +651,7 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         pdf_record_context_sql,
         pdf_record_reader_sql,
     )
+    from .pdf_validation_read_native import pdf_validation_native_programs
 
     stage = {
         **STAGE_FAMILIES,
@@ -671,7 +671,9 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         + pdf_companion_field_read_sql(metadata)
         + pdf_freeze_native_sql(metadata, stage, pdf_domain=pdf_domain)
     )
-    context = trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
+    context = (
+        trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
+    )
     sql += _companion_adoption_sql(context, metadata) + pdf_reference_bytes_equal_sql(metadata)
     (prepare_binding,) = (
         binding
@@ -819,9 +821,8 @@ uator;
 corpus_sem_reader,corpus_sem_evaluator;\n"
     sql += "GRANT EXECUTE ON FUNCTION ops.read_pdf_published_validation(bigint,text,text) TO \
 corpus_sem_reader,corpus_sem_evaluator;\n"
-    return (
-        sql.replace("'{pdf_payload_profile}'", _quote(PROFILE))
-        .replace("'{pdf_payload_family}'", _quote(FAMILY))
+    return sql.replace("'{pdf_payload_profile}'", _quote(PROFILE)).replace(
+        "'{pdf_payload_family}'", _quote(FAMILY)
     )
 
 
@@ -1286,7 +1287,9 @@ def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
     return "\n".join(out)
 
 
-def _publication_control_routine(name, parameters, returns, statements, locals_, *, writer=True, security_definer=True):
+def _publication_control_routine(
+    name, parameters, returns, statements, locals_, *, writer=True, security_definer=True
+):
     from pglast import ast, enums, parse_sql
     from pglast.stream import RawStream
 
@@ -1633,18 +1636,12 @@ def pdf_publication_controls_sql(model):
 
 
 def _projection_write_levels(model, pdf_domain):
-    import yaml
-
-    from .pdf_contracts import _context_from_domain, trusted_pdf_context
+    from .pdf_contracts import _context_from_domain, projection_write_levels, trusted_pdf_context
 
     context = (
         trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
     )
-    policy_source = yaml.safe_load(model.info["physical_sources"]["pdf-staging.yaml"])[
-        "annotations"
-    ]["pds:projection_write_profile"]
-    policy = context.boundary.validate_json("PdfProjectionWriteProfile", policy_source)
-    return sorted(set(policy.model_dump(mode="json")["allowed_isolation"]))
+    return projection_write_levels(context, model.info["physical_sources"]["pdf-staging.yaml"])
 
 
 def pdf_validation_and_seal_native_sql(model, *, pdf_domain=None):
@@ -2091,117 +2088,645 @@ def pdf_inventory_native_sql(model):
         return and_(relation.c.product_id == p_build, relation.c.revision_id == p_build)
 
     def fields(relation):
-        return func.jsonb_each(relation.c.structure_json["fields"]).table_valued(
-            column("key", Text()), column("value", JSONB())
-        ).lateral("fields")
+        return (
+            func.jsonb_each(relation.c.structure_json["fields"])
+            .table_valued(column("key", Text()), column("value", JSONB()))
+            .lateral("fields")
+        )
 
     def reject(query, message, state="23514"):
         return If(exists(query), (Raise(message, state),))
 
     f = fields(native)
-    scalar_keys = func.jsonb_object_keys(native.c.scalars_json).table_valued(column("key", Text())).render_derived()
+    scalar_keys = (
+        func.jsonb_object_keys(native.c.scalars_json)
+        .table_valued(column("key", Text()))
+        .render_derived()
+    )
     statements: list[Statement] = [
-        reject(select(1).select_from(native).where(scope(native), func.ops.pdf_native_record_shape(native.c.native_type, native.c.scalars_json, native.c.structure_json["fields"]).is_not(True)), "native schema field/required/primitive constraint differs"),
-        reject(select(1).select_from(native).where(scope(native), or_(
-            func.jsonb_typeof(native.c.structure_json["fields"]).is_distinct_from("object"),
-            exists(select(1).select_from(f).where(f.c.value["kind"].astext.not_in(("object", "array", "map", "parts")))),
-            exists(select(1).select_from(scalar_keys).where(native.c.structure_json["fields"].has_key(scalar_keys.c.key))),
-        )), "invalid native field decomposition"),
-        reject(select(1).select_from(membership.outerjoin(native, and_(scope(native), native.c.record_id == membership.c.parent_id))).where(scope(membership),
-            or_(native.c.record_id.is_(None), native.c.structure_json["fields"][membership.c.field_name]["kind"].astext.not_in(("array", "map")))), "membership outside declared collection"),
-        reject(select(1).select_from(native).where(scope(native), native.c.scalars_json.has_key("self_ref")).group_by(native.c.scalars_json["self_ref"].astext).having(func.count() != 1), "native self-reference is not unique"),
+        reject(
+            select(1)
+            .select_from(native)
+            .where(
+                scope(native),
+                func.ops.pdf_native_record_shape(
+                    native.c.native_type, native.c.scalars_json, native.c.structure_json["fields"]
+                ).is_not(True),
+            ),
+            "native schema field/required/primitive constraint differs",
+        ),
+        reject(
+            select(1)
+            .select_from(native)
+            .where(
+                scope(native),
+                or_(
+                    func.jsonb_typeof(native.c.structure_json["fields"]).is_distinct_from("object"),
+                    exists(
+                        select(1)
+                        .select_from(f)
+                        .where(f.c.value["kind"].astext.not_in(("object", "array", "map", "parts")))
+                    ),
+                    exists(
+                        select(1)
+                        .select_from(scalar_keys)
+                        .where(native.c.structure_json["fields"].has_key(scalar_keys.c.key))
+                    ),
+                ),
+            ),
+            "invalid native field decomposition",
+        ),
+        reject(
+            select(1)
+            .select_from(
+                membership.outerjoin(
+                    native, and_(scope(native), native.c.record_id == membership.c.parent_id)
+                )
+            )
+            .where(
+                scope(membership),
+                or_(
+                    native.c.record_id.is_(None),
+                    native.c.structure_json["fields"][membership.c.field_name][
+                        "kind"
+                    ].astext.not_in(("array", "map")),
+                ),
+            ),
+            "membership outside declared collection",
+        ),
+        reject(
+            select(1)
+            .select_from(native)
+            .where(scope(native), native.c.scalars_json.has_key("self_ref"))
+            .group_by(native.c.scalars_json["self_ref"].astext)
+            .having(func.count() != 1),
+            "native self-reference is not unique",
+        ),
     ]
-    ref_index = select(reference.c.reference_id, reference.c.source_id, reference.c.native_pointer, reference.c.native_pointer_stream_id).where(
-        scope(reference), reference.c.field_name == "$ref"
-    ).cte("ref_index").prefix_with("MATERIALIZED", dialect="postgresql")
-    reference_spelling = case((and_(ref_index.c.native_pointer_stream_id.is_(None), native.c.structure_json["fields"]["$ref"]["stream_id"].astext.is_(None)),
-        (ref_index.c.native_pointer.collate("C") == native.c.scalars_json["$ref"].astext.collate("C")).is_not(True)),
-        else_=not_(func.ops.pdf_reference_bytes_equal(p_build, p_build, ref_index.c.native_pointer, ref_index.c.native_pointer_stream_id, native.c.scalars_json["$ref"].astext, native.c.structure_json["fields"]["$ref"]["stream_id"].astext)))
-    statements.append(reject(select(1).select_from(native.outerjoin(ref_index, ref_index.c.source_id == native.c.record_id)).where(
-        scope(native), native.c.native_type.in_(("RefItem", "FineRef")), or_(ref_index.c.reference_id.is_(None), reference_spelling)),
-        "native reference index does not correspond to supplied spelling"))
+    ref_index = (
+        select(
+            reference.c.reference_id,
+            reference.c.source_id,
+            reference.c.native_pointer,
+            reference.c.native_pointer_stream_id,
+        )
+        .where(scope(reference), reference.c.field_name == "$ref")
+        .cte("ref_index")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    reference_spelling = case(
+        (
+            and_(
+                ref_index.c.native_pointer_stream_id.is_(None),
+                native.c.structure_json["fields"]["$ref"]["stream_id"].astext.is_(None),
+            ),
+            (
+                ref_index.c.native_pointer.collate("C")
+                == native.c.scalars_json["$ref"].astext.collate("C")
+            ).is_not(True),
+        ),
+        else_=not_(
+            func.ops.pdf_reference_bytes_equal(
+                p_build,
+                p_build,
+                ref_index.c.native_pointer,
+                ref_index.c.native_pointer_stream_id,
+                native.c.scalars_json["$ref"].astext,
+                native.c.structure_json["fields"]["$ref"]["stream_id"].astext,
+            )
+        ),
+    )
+    statements.append(
+        reject(
+            select(1)
+            .select_from(native.outerjoin(ref_index, ref_index.c.source_id == native.c.record_id))
+            .where(
+                scope(native),
+                native.c.native_type.in_(("RefItem", "FineRef")),
+                or_(ref_index.c.reference_id.is_(None), reference_spelling),
+            ),
+            "native reference index does not correspond to supplied spelling",
+        )
+    )
 
-    owner_edges = union_all(
-        select(native.c.record_id.label("parent_id"), f.c.value["target"].astext.label("child_id")).select_from(native.join(f, true())).where(scope(native), f.c.value["kind"].astext == "object"),
-        select(membership.c.parent_id, membership.c.record_id).where(scope(membership), membership.c.value_kind == "record"),
-    ).cte("owner_edges").prefix_with("MATERIALIZED", dialect="postgresql")
-    owner_counts = select(owner_edges.c.child_id, func.count(owner_edges.c.parent_id).label("owners")).group_by(owner_edges.c.child_id).cte("owner_counts")
+    owner_edges = (
+        union_all(
+            select(
+                native.c.record_id.label("parent_id"), f.c.value["target"].astext.label("child_id")
+            )
+            .select_from(native.join(f, true()))
+            .where(scope(native), f.c.value["kind"].astext == "object"),
+            select(membership.c.parent_id, membership.c.record_id).where(
+                scope(membership), membership.c.value_kind == "record"
+            ),
+        )
+        .cte("owner_edges")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    owner_counts = (
+        select(owner_edges.c.child_id, func.count(owner_edges.c.parent_id).label("owners"))
+        .group_by(owner_edges.c.child_id)
+        .cte("owner_counts")
+    )
     root_id = select(document.c.root_id).where(scope(document))
     reachable = root_id.cte("reachable", recursive=True)
-    reachable = reachable.union(select(owner_edges.c.child_id).select_from(reachable.join(owner_edges, owner_edges.c.parent_id == reachable.c.root_id)))
-    statements.extend((
-        SelectInto(select(
-            func.coalesce(func.bool_or(func.coalesce(owner_counts.c.owners, 0) != case((native.c.record_id == root_id.scalar_subquery(), 0), else_=1)), True),
-            func.coalesce(func.bool_or(reachable.c.root_id.is_(None)), True),
-        ).select_from(native.outerjoin(owner_counts, owner_counts.c.child_id == native.c.record_id).outerjoin(reachable, reachable.c.root_id == native.c.record_id)).where(scope(native)), ("bad_owner_", "unreachable_")),
-        If(core_variable("bad_owner_", Boolean()), (Raise("native orphan or repeated containment owner", "23514"),)),
-        If(core_variable("unreachable_", Boolean()), (Raise("native containment cycle or unreachable record", "23514"),)),
-    ))
+    reachable = reachable.union(
+        select(owner_edges.c.child_id).select_from(
+            reachable.join(owner_edges, owner_edges.c.parent_id == reachable.c.root_id)
+        )
+    )
+    statements.extend(
+        (
+            SelectInto(
+                select(
+                    func.coalesce(
+                        func.bool_or(
+                            func.coalesce(owner_counts.c.owners, 0)
+                            != case((native.c.record_id == root_id.scalar_subquery(), 0), else_=1)
+                        ),
+                        True,
+                    ),
+                    func.coalesce(func.bool_or(reachable.c.root_id.is_(None)), True),
+                )
+                .select_from(
+                    native.outerjoin(
+                        owner_counts, owner_counts.c.child_id == native.c.record_id
+                    ).outerjoin(reachable, reachable.c.root_id == native.c.record_id)
+                )
+                .where(scope(native)),
+                ("bad_owner_", "unreachable_"),
+            ),
+            If(
+                core_variable("bad_owner_", Boolean()),
+                (Raise("native orphan or repeated containment owner", "23514"),),
+            ),
+            If(
+                core_variable("unreachable_", Boolean()),
+                (Raise("native containment cycle or unreachable record", "23514"),),
+            ),
+        )
+    )
     parent, child = access.alias("parent"), access.alias("child")
-    children = func.jsonb_array_elements(func.coalesce(parent.c.native_json["children"], empty)).table_valued(column("value", JSONB())).lateral("children")
-    missing_child = exists(select(1).select_from(parent.join(child, and_(child.c.product_id == parent.c.product_id, child.c.revision_id == parent.c.revision_id, child.c.parent_pointer == parent.c.pointer))).where(scope(parent),
-        ~exists(select(1).select_from(children).where(children.c.value["$ref"].astext == child.c.pointer).correlate(parent, child))))
-    wrong_parent = exists(select(1).select_from(parent.join(children, true()).outerjoin(child, and_(scope(child), child.c.pointer == children.c.value["$ref"].astext))).where(scope(parent),
-        or_(child.c.pointer.is_(None), child.c.parent_pointer.is_distinct_from(parent.c.pointer))))
-    statements.append(If(or_(missing_child, wrong_parent), (Raise("native parent/child backpointer differs", "23514"),)))
+    children = (
+        func.jsonb_array_elements(func.coalesce(parent.c.native_json["children"], empty))
+        .table_valued(column("value", JSONB()))
+        .lateral("children")
+    )
+    missing_child = exists(
+        select(1)
+        .select_from(
+            parent.join(
+                child,
+                and_(
+                    child.c.product_id == parent.c.product_id,
+                    child.c.revision_id == parent.c.revision_id,
+                    child.c.parent_pointer == parent.c.pointer,
+                ),
+            )
+        )
+        .where(
+            scope(parent),
+            ~exists(
+                select(1)
+                .select_from(children)
+                .where(children.c.value["$ref"].astext == child.c.pointer)
+                .correlate(parent, child)
+            ),
+        )
+    )
+    wrong_parent = exists(
+        select(1)
+        .select_from(
+            parent.join(children, true()).outerjoin(
+                child, and_(scope(child), child.c.pointer == children.c.value["$ref"].astext)
+            )
+        )
+        .where(
+            scope(parent),
+            or_(
+                child.c.pointer.is_(None), child.c.parent_pointer.is_distinct_from(parent.c.pointer)
+            ),
+        )
+    )
+    statements.append(
+        If(
+            or_(missing_child, wrong_parent),
+            (Raise("native parent/child backpointer differs", "23514"),),
+        )
+    )
     target = model.tables["kb.pdf_record_native"].alias("target")
-    statements.append(reject(select(1).select_from(native.join(f, true()).outerjoin(target, and_(scope(target), target.c.record_id == f.c.value["target"].astext))).where(scope(native), f.c.value["kind"].astext == "object", target.c.record_id.is_(None)), "missing native object target"))
-    counts = select(membership.c.parent_id, membership.c.field_name, func.count().label("count_"), func.min(membership.c.ordinal).label("min_"), func.max(membership.c.ordinal).label("max_")).where(scope(membership)).group_by(membership.c.parent_id, membership.c.field_name).cte("member_counts")
-    statements.append(reject(select(1).select_from(native.join(f, true()).outerjoin(counts, and_(counts.c.parent_id == native.c.record_id, counts.c.field_name == f.c.key))).where(
-        scope(native), f.c.value["kind"].astext.in_(("array", "map")), or_(
-            func.coalesce(counts.c.count_, 0) != cast(f.c.value["length"].astext, BigInteger()),
-            and_(counts.c.count_ > 0, or_(counts.c.min_ != 0, counts.c.max_ != counts.c.count_ - 1)))), "native ordered membership incomplete"))
+    statements.append(
+        reject(
+            select(1)
+            .select_from(
+                native.join(f, true()).outerjoin(
+                    target, and_(scope(target), target.c.record_id == f.c.value["target"].astext)
+                )
+            )
+            .where(
+                scope(native), f.c.value["kind"].astext == "object", target.c.record_id.is_(None)
+            ),
+            "missing native object target",
+        )
+    )
+    counts = (
+        select(
+            membership.c.parent_id,
+            membership.c.field_name,
+            func.count().label("count_"),
+            func.min(membership.c.ordinal).label("min_"),
+            func.max(membership.c.ordinal).label("max_"),
+        )
+        .where(scope(membership))
+        .group_by(membership.c.parent_id, membership.c.field_name)
+        .cte("member_counts")
+    )
+    statements.append(
+        reject(
+            select(1)
+            .select_from(
+                native.join(f, true()).outerjoin(
+                    counts,
+                    and_(counts.c.parent_id == native.c.record_id, counts.c.field_name == f.c.key),
+                )
+            )
+            .where(
+                scope(native),
+                f.c.value["kind"].astext.in_(("array", "map")),
+                or_(
+                    func.coalesce(counts.c.count_, 0)
+                    != cast(f.c.value["length"].astext, BigInteger()),
+                    and_(
+                        counts.c.count_ > 0,
+                        or_(counts.c.min_ != 0, counts.c.max_ != counts.c.count_ - 1),
+                    ),
+                ),
+            ),
+            "native ordered membership incomplete",
+        )
+    )
 
     def byte_identity(inline, overflow):
         encoded = func.convert_to(inline, "UTF8")
-        return (func.coalesce(overflow.c.byte_length, func.octet_length(encoded)),
-                func.coalesce(overflow.c.byte_root, func.encode(func.ops.pdf_identity_byte_root(encoded), "hex")))
+        return (
+            func.coalesce(overflow.c.byte_length, func.octet_length(encoded)),
+            func.coalesce(
+                overflow.c.byte_root, func.encode(func.ops.pdf_identity_byte_root(encoded), "hex")
+            ),
+        )
 
     native_stream, member_stream = stream.alias("address_stream"), stream.alias("member_stream")
-    statements.append(reject(select(1).select_from(native.outerjoin(native_stream, and_(scope(native_stream), native_stream.c.stream_id == native.c.native_address_stream_id))).where(scope(native)).group_by(
-        *byte_identity(native.c.native_address, native_stream)).having(func.count() > 1), "duplicate native address including overflow representation"))
-    statements.append(reject(select(1).select_from(membership.outerjoin(member_stream, and_(scope(member_stream), member_stream.c.stream_id == membership.c.member_key_stream_id))).where(scope(membership),
-        or_(membership.c.member_key.is_not(None), membership.c.member_key_stream_id.is_not(None))).group_by(membership.c.parent_id, membership.c.field_name,
-        *byte_identity(membership.c.member_key, member_stream)).having(func.count() > 1), "duplicate native map key including overflow representation"))
-    statements.append(reject(select(1).select_from(reference.outerjoin(native, and_(scope(native), native.c.record_id == reference.c.target_id))).where(scope(reference), or_(
-        native.c.record_id.is_(None), and_(reference.c.native_pointer.is_not(None), reference.c.field_name.not_in(("source_cell_id", "target_cell_id")),
-            not_(func.ops.pdf_reference_bytes_equal(p_build, p_build, native.c.native_address, native.c.native_address_stream_id, reference.c.native_pointer, reference.c.native_pointer_stream_id))))), "native reference/address target differs"))
+    statements.append(
+        reject(
+            select(1)
+            .select_from(
+                native.outerjoin(
+                    native_stream,
+                    and_(
+                        scope(native_stream),
+                        native_stream.c.stream_id == native.c.native_address_stream_id,
+                    ),
+                )
+            )
+            .where(scope(native))
+            .group_by(*byte_identity(native.c.native_address, native_stream))
+            .having(func.count() > 1),
+            "duplicate native address including overflow representation",
+        )
+    )
+    statements.append(
+        reject(
+            select(1)
+            .select_from(
+                membership.outerjoin(
+                    member_stream,
+                    and_(
+                        scope(member_stream),
+                        member_stream.c.stream_id == membership.c.member_key_stream_id,
+                    ),
+                )
+            )
+            .where(
+                scope(membership),
+                or_(
+                    membership.c.member_key.is_not(None),
+                    membership.c.member_key_stream_id.is_not(None),
+                ),
+            )
+            .group_by(
+                membership.c.parent_id,
+                membership.c.field_name,
+                *byte_identity(membership.c.member_key, member_stream),
+            )
+            .having(func.count() > 1),
+            "duplicate native map key including overflow representation",
+        )
+    )
+    statements.append(
+        reject(
+            select(1)
+            .select_from(
+                reference.outerjoin(
+                    native, and_(scope(native), native.c.record_id == reference.c.target_id)
+                )
+            )
+            .where(
+                scope(reference),
+                or_(
+                    native.c.record_id.is_(None),
+                    and_(
+                        reference.c.native_pointer.is_not(None),
+                        reference.c.field_name.not_in(("source_cell_id", "target_cell_id")),
+                        not_(
+                            func.ops.pdf_reference_bytes_equal(
+                                p_build,
+                                p_build,
+                                native.c.native_address,
+                                native.c.native_address_stream_id,
+                                reference.c.native_pointer,
+                                reference.c.native_pointer_stream_id,
+                            )
+                        ),
+                    ),
+                ),
+            ),
+            "native reference/address target differs",
+        )
+    )
     c, input_pin = companion.alias("c"), product.alias("input_pin")
-    input_context = func.ops.pdf_task_context(input_pin.c.task_id).table_valued(column("project_id", model.tables["ops.data_request"].c.project_id.type)).lateral("input_context")
-    input_join = c.outerjoin(input_pin, and_(input_pin.c.task_id == cast(c.c.body["task_id"].astext, input_pin.c.task_id.type), input_pin.c.product_key == c.c.body["product_key"].astext, input_pin.c.content_digest == c.c.body["content_digest"].astext)).outerjoin(input_context, true())
-    statements.append(reject(select(1).select_from(input_join).where(scope(c), c.c.family == "input", or_(input_pin.c.task_id.is_(None), input_pin.c.artifact_digest.is_distinct_from(p_source), input_context.c.project_id.is_distinct_from(p_project))), "PDF input outside exact admitted source/project custody"))
+    input_context = (
+        func.ops.pdf_task_context(input_pin.c.task_id)
+        .table_valued(column("project_id", model.tables["ops.data_request"].c.project_id.type))
+        .lateral("input_context")
+    )
+    input_join = c.outerjoin(
+        input_pin,
+        and_(
+            input_pin.c.task_id == cast(c.c.body["task_id"].astext, input_pin.c.task_id.type),
+            input_pin.c.product_key == c.c.body["product_key"].astext,
+            input_pin.c.content_digest == c.c.body["content_digest"].astext,
+        ),
+    ).outerjoin(input_context, true())
+    statements.append(
+        reject(
+            select(1)
+            .select_from(input_join)
+            .where(
+                scope(c),
+                c.c.family == "input",
+                or_(
+                    input_pin.c.task_id.is_(None),
+                    input_pin.c.artifact_digest.is_distinct_from(p_source),
+                    input_context.c.project_id.is_distinct_from(p_project),
+                ),
+            ),
+            "PDF input outside exact admitted source/project custody",
+        )
+    )
     observation = product_body.alias("observation")
-    statements.append(reject(select(1).select_from(c.join(observation, and_(observation.c.task_id == cast(c.c.body["task_id"].astext, observation.c.task_id.type), observation.c.product_key == c.c.body["product_key"].astext))).where(scope(c), c.c.family == "input", observation.c.descriptor["observation"]["pass_role"].astext.in_(("chandra_page", "chandra_crop"))), "visual observation cannot be an input to selected PDF publication"))
-    statements.append(reject(_coverage_support_violation_statement(target_metadata=model), "coverage support differs from exact input coverage scope/family/outcome"))
+    statements.append(
+        reject(
+            select(1)
+            .select_from(
+                c.join(
+                    observation,
+                    and_(
+                        observation.c.task_id
+                        == cast(c.c.body["task_id"].astext, observation.c.task_id.type),
+                        observation.c.product_key == c.c.body["product_key"].astext,
+                    ),
+                )
+            )
+            .where(
+                scope(c),
+                c.c.family == "input",
+                observation.c.descriptor["observation"]["pass_role"].astext.in_(
+                    ("chandra_page", "chandra_crop")
+                ),
+            ),
+            "visual observation cannot be an input to selected PDF publication",
+        )
+    )
+    statements.append(
+        reject(
+            _coverage_support_violation_statement(target_metadata=model),
+            "coverage support differs from exact input coverage scope/family/outcome",
+        )
+    )
     occurrence, item = companion.alias("occurrence"), access.alias("item")
-    statements.append(reject(select(1).select_from(occurrence.outerjoin(item, and_(scope(item), item.c.pointer == occurrence.c.body["pointer"].astext))).where(scope(occurrence), occurrence.c.family == "occurrence", occurrence.c.body["address_space"].astext.in_(("native_item", "selected_item", "native_cell")), or_(item.c.pointer.is_(None),
-        and_(occurrence.c.body.has_key("cell_index"), cast(occurrence.c.body["cell_index"].astext, BigInteger()) >= func.greatest(
-            func.jsonb_array_length(func.coalesce(item.c.native_json["data"]["table_cells"], empty)),
-            func.jsonb_array_length(func.coalesce(item.c.native_json["meta"]["tabular_chart"]["chart_data"]["table_cells"], empty)),
-        )))), "companion occurrence outside native item/cell inventory"))
-    e, own, p, old, pr, external = endpoint.alias("e"), companion.alias("own"), product.alias("p"), legacy_occurrence.alias("old"), published.alias("pr"), companion.alias("external")
-    self_occurrence = exists(select(1).select_from(own).where(scope(own), own.c.family == "occurrence", own.c.local_id == e.c.occurrence_id).correlate(e))
-    retained_occurrence = exists(select(1).select_from(old).where(old.c.task_id == p.c.task_id, old.c.product_key == p.c.product_key, old.c.occurrence_id == e.c.occurrence_id).correlate(p, e))
-    published_occurrence = exists(select(1).select_from(pr.join(external, and_(external.c.product_id == pr.c.build_id, external.c.revision_id == pr.c.build_id))).where(
-        pr.c.task_id == p.c.task_id, pr.c.product_key == p.c.product_key, pr.c.logical_digest == p.c.content_digest,
-        external.c.family == "occurrence", external.c.local_id == e.c.occurrence_id).correlate(p, e))
-    external_occurrence = exists(select(1).select_from(p).where(p.c.task_id == e.c.target_task_id, p.c.product_key == e.c.target_product_key, p.c.content_digest == e.c.target_content_digest,
-        or_(retained_occurrence, published_occurrence)).correlate(e))
-    statements.append(reject(select(1).select_from(e).where(scope(e), or_(and_(e.c.target_task_id == 0, not_(self_occurrence)), and_(e.c.target_task_id != 0, not_(external_occurrence)))), "companion endpoint outside admitted occurrence inventory"))
+    statements.append(
+        reject(
+            select(1)
+            .select_from(
+                occurrence.outerjoin(
+                    item, and_(scope(item), item.c.pointer == occurrence.c.body["pointer"].astext)
+                )
+            )
+            .where(
+                scope(occurrence),
+                occurrence.c.family == "occurrence",
+                occurrence.c.body["address_space"].astext.in_(
+                    ("native_item", "selected_item", "native_cell")
+                ),
+                or_(
+                    item.c.pointer.is_(None),
+                    and_(
+                        occurrence.c.body.has_key("cell_index"),
+                        cast(occurrence.c.body["cell_index"].astext, BigInteger())
+                        >= func.greatest(
+                            func.jsonb_array_length(
+                                func.coalesce(item.c.native_json["data"]["table_cells"], empty)
+                            ),
+                            func.jsonb_array_length(
+                                func.coalesce(
+                                    item.c.native_json["meta"]["tabular_chart"]["chart_data"][
+                                        "table_cells"
+                                    ],
+                                    empty,
+                                )
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            "companion occurrence outside native item/cell inventory",
+        )
+    )
+    e, own, p, old, pr, external = (
+        endpoint.alias("e"),
+        companion.alias("own"),
+        product.alias("p"),
+        legacy_occurrence.alias("old"),
+        published.alias("pr"),
+        companion.alias("external"),
+    )
+    self_occurrence = exists(
+        select(1)
+        .select_from(own)
+        .where(scope(own), own.c.family == "occurrence", own.c.local_id == e.c.occurrence_id)
+        .correlate(e)
+    )
+    retained_occurrence = exists(
+        select(1)
+        .select_from(old)
+        .where(
+            old.c.task_id == p.c.task_id,
+            old.c.product_key == p.c.product_key,
+            old.c.occurrence_id == e.c.occurrence_id,
+        )
+        .correlate(p, e)
+    )
+    published_occurrence = exists(
+        select(1)
+        .select_from(
+            pr.join(
+                external,
+                and_(
+                    external.c.product_id == pr.c.build_id, external.c.revision_id == pr.c.build_id
+                ),
+            )
+        )
+        .where(
+            pr.c.task_id == p.c.task_id,
+            pr.c.product_key == p.c.product_key,
+            pr.c.logical_digest == p.c.content_digest,
+            external.c.family == "occurrence",
+            external.c.local_id == e.c.occurrence_id,
+        )
+        .correlate(p, e)
+    )
+    external_occurrence = exists(
+        select(1)
+        .select_from(p)
+        .where(
+            p.c.task_id == e.c.target_task_id,
+            p.c.product_key == e.c.target_product_key,
+            p.c.content_digest == e.c.target_content_digest,
+            or_(retained_occurrence, published_occurrence),
+        )
+        .correlate(e)
+    )
+    statements.append(
+        reject(
+            select(1)
+            .select_from(e)
+            .where(
+                scope(e),
+                or_(
+                    and_(e.c.target_task_id == 0, not_(self_occurrence)),
+                    and_(e.c.target_task_id != 0, not_(external_occurrence)),
+                ),
+            ),
+            "companion endpoint outside admitted occurrence inventory",
+        )
+    )
     metadata_value = companion_field.alias("metadata_value")
-    statements.append(reject(select(1).select_from(c).where(scope(c), c.c.family == "native_metadata", or_(c.c.body.has_key("value"),
-        ~exists(select(1).select_from(metadata_value).where(metadata_value.c.product_id == c.c.product_id, metadata_value.c.revision_id == c.c.revision_id,
-            metadata_value.c.family == c.c.family, metadata_value.c.local_id == c.c.local_id, metadata_value.c.field_name == "value").correlate(c)))), "metadata value has no governed byte field", "P0001"))
+    statements.append(
+        reject(
+            select(1)
+            .select_from(c)
+            .where(
+                scope(c),
+                c.c.family == "native_metadata",
+                or_(
+                    c.c.body.has_key("value"),
+                    ~exists(
+                        select(1)
+                        .select_from(metadata_value)
+                        .where(
+                            metadata_value.c.product_id == c.c.product_id,
+                            metadata_value.c.revision_id == c.c.revision_id,
+                            metadata_value.c.family == c.c.family,
+                            metadata_value.c.local_id == c.c.local_id,
+                            metadata_value.c.field_name == "value",
+                        )
+                        .correlate(c)
+                    ),
+                ),
+            ),
+            "metadata value has no governed byte field",
+            "P0001",
+        )
+    )
     field, field_stream = companion_field.alias("field"), stream.alias("field_stream")
-    field_join = field.join(c, and_(*(field.c[name] == c.c[name] for name in ("product_id", "revision_id", "family", "local_id")))).join(field_stream, and_(
-        field_stream.c.product_id == field.c.product_id, field_stream.c.revision_id == field.c.revision_id, field_stream.c.stream_id == field.c.stream_id))
-    encoding = case((and_(field.c.field_name == "value", c.c.body["kind"].astext == FAMILY), PROFILE),
-        (field.c.field_name.in_(("value", "endpoints")), "pdf-companion-json-field-v1"), else_="pdf-record-scalar-v1:s")
-    statements.append(reject(select(1).select_from(field_join).where(scope(field), or_(c.c.body.has_key(field.c.field_name), field_stream.c.encoding_profile.is_distinct_from(encoding))), "invalid final companion field", "P0001"))
-    statements.append(reject(select(1).select_from(native).where(scope(native), native.c.native_type.in_(("TextItem", "ListItem", "SectionHeaderItem", "FormulaItem", "CodeItem", "GroupItem", "ListGroup", "PictureItem", "TableItem")),
-        native.c.scalars_json.has_key("self_ref"), ~exists(select(1).select_from(access).where(scope(access), access.c.pointer == native.c.scalars_json["self_ref"].astext).correlate(native))), "native access inventory incomplete"))
-    return _publication_control_routine("pdf_check_build_inventory", (
-        Parameter("p_build", column_type(model.tables["kb.pdf_record_native"].c.product_id)),
-        Parameter("p_source", column_type(model.tables["ops.pdf_stage_build"].c.source_digest)),
-        Parameter("p_project", column_type(model.tables["ops.data_request"].c.project_id)),
-    ), pg_type("void"), statements, (Local("bad_owner_", pg_type("boolean")), Local("unreachable_", pg_type("boolean"))), writer=False, security_definer=False)
+    field_join = field.join(
+        c,
+        and_(
+            *(
+                field.c[name] == c.c[name]
+                for name in ("product_id", "revision_id", "family", "local_id")
+            )
+        ),
+    ).join(
+        field_stream,
+        and_(
+            field_stream.c.product_id == field.c.product_id,
+            field_stream.c.revision_id == field.c.revision_id,
+            field_stream.c.stream_id == field.c.stream_id,
+        ),
+    )
+    encoding = case(
+        (and_(field.c.field_name == "value", c.c.body["kind"].astext == FAMILY), PROFILE),
+        (field.c.field_name.in_(("value", "endpoints")), "pdf-companion-json-field-v1"),
+        else_="pdf-record-scalar-v1:s",
+    )
+    statements.append(
+        reject(
+            select(1)
+            .select_from(field_join)
+            .where(
+                scope(field),
+                or_(
+                    c.c.body.has_key(field.c.field_name),
+                    field_stream.c.encoding_profile.is_distinct_from(encoding),
+                ),
+            ),
+            "invalid final companion field",
+            "P0001",
+        )
+    )
+    statements.append(
+        reject(
+            select(1)
+            .select_from(native)
+            .where(
+                scope(native),
+                native.c.native_type.in_(
+                    (
+                        "TextItem",
+                        "ListItem",
+                        "SectionHeaderItem",
+                        "FormulaItem",
+                        "CodeItem",
+                        "GroupItem",
+                        "ListGroup",
+                        "PictureItem",
+                        "TableItem",
+                    )
+                ),
+                native.c.scalars_json.has_key("self_ref"),
+                ~exists(
+                    select(1)
+                    .select_from(access)
+                    .where(
+                        scope(access), access.c.pointer == native.c.scalars_json["self_ref"].astext
+                    )
+                    .correlate(native)
+                ),
+            ),
+            "native access inventory incomplete",
+        )
+    )
+    return _publication_control_routine(
+        "pdf_check_build_inventory",
+        (
+            Parameter("p_build", column_type(model.tables["kb.pdf_record_native"].c.product_id)),
+            Parameter("p_source", column_type(model.tables["ops.pdf_stage_build"].c.source_digest)),
+            Parameter("p_project", column_type(model.tables["ops.data_request"].c.project_id)),
+        ),
+        pg_type("void"),
+        statements,
+        (Local("bad_owner_", pg_type("boolean")), Local("unreachable_", pg_type("boolean"))),
+        writer=False,
+        security_definer=False,
+    )

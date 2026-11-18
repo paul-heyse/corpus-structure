@@ -102,6 +102,17 @@ def integrated_metadata_policy(
     )
 
 
+def projection_write_levels(context: PreparedPdfContext, staging: bytes) -> list[str]:
+    """Validate and normalize the captured PDF projection write policy."""
+    import yaml
+
+    annotations = yaml.safe_load(staging)["annotations"]
+    policy = context.boundary.validate_json(
+        "PdfProjectionWriteProfile", annotations["pds:projection_write_profile"]
+    )
+    return sorted(set(policy.model_dump(mode="json")["allowed_isolation"]))
+
+
 def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
     from .releases import open_release
 

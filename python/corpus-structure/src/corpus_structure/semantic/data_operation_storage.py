@@ -444,7 +444,11 @@ def native_protocol_sources(
         *binding_native_sources(),
         *wire_native_sources(logical["data-operation-wire-types.yaml"]),
         *search_projection_sources(target_metadata=target_metadata, pdf_domain=pdf_domain),
-        *source_native_sources(physical_sources=physical_sources, linkml_types=linkml_types, target_metadata=target_metadata),
+        *source_native_sources(
+            physical_sources=physical_sources,
+            linkml_types=linkml_types,
+            target_metadata=target_metadata,
+        ),
     )
 
 

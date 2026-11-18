@@ -33,8 +33,16 @@ from corpus_structure.semantic.pdf_records import iter_native_records
         ("disconnected-cycle", "native containment cycle or unreachable record", "23514"),
         ("scalar-gap", "native ordered membership incomplete", "23514"),
         ("access-parent", "native parent/child backpointer differs", "23514"),
-        ("duplicate-address", "duplicate native address including overflow representation", "23514"),
-        ("reference-spelling", "native reference index does not correspond to supplied spelling", "23514"),
+        (
+            "duplicate-address",
+            "duplicate native address including overflow representation",
+            "23514",
+        ),
+        (
+            "reference-spelling",
+            "native reference index does not correspond to supplied spelling",
+            "23514",
+        ),
         ("missing-access", "native access inventory incomplete", "23514"),
     ],
 )
@@ -67,17 +75,24 @@ def test_generated_inventory_retains_independent_containment_expectations(
         record_id_for=lambda address, kind: sha256((address + "\0" + kind).encode()).hexdigest(),
         write_scalar=no_parts,
     ):
-        rows.setdefault(row.kind, []).append({
-            key: json.loads(value) if key.endswith("_json") and isinstance(value, str) else value
-            for key, value in row.values.items()
-        })
+        rows.setdefault(row.kind, []).append(
+            {
+                key: json.loads(value)
+                if key.endswith("_json") and isinstance(value, str)
+                else value
+                for key, value in row.values.items()
+            }
+        )
     addresses = {row["native_address"]: row["record_id"] for row in rows["native"]}
     for reference in rows["reference"]:
         reference["target_id"] = addresses[reference["native_pointer"]]
     projection = tmp_path / "projection.jsonl"
-    write_pdf_access_projection(document.model_dump(mode="json", by_alias=True, exclude_none=True), projection)
+    write_pdf_access_projection(
+        document.model_dump(mode="json", by_alias=True, exclude_none=True), projection
+    )
     rows["access"] = [
-        json.loads(line)["body"] | dict(product_id="inventory-control", revision_id="inventory-control")
+        json.loads(line)["body"]
+        | dict(product_id="inventory-control", revision_id="inventory-control")
         for line in projection.read_text().splitlines()
         if json.loads(line)["family"] == "access"
     ]
@@ -88,24 +103,45 @@ def test_generated_inventory_retains_independent_containment_expectations(
     elif defect == "repeated-owner":
         members.append(owned | {"ordinal": owned["ordinal"] + 1})
     elif defect == "scalar-gap":
-        next(row for row in members if row["field_name"] == "charspan" and row["ordinal"] == 1)["ordinal"] = 2
+        next(row for row in members if row["field_name"] == "charspan" and row["ordinal"] == 1)[
+            "ordinal"
+        ] = 2
     elif defect == "access-parent":
-        next(row for row in rows["access"] if row["pointer"] == "#/texts/0")["parent_pointer"] = "#/furniture"
+        next(row for row in rows["access"] if row["pointer"] == "#/texts/0")["parent_pointer"] = (
+            "#/furniture"
+        )
     elif defect == "duplicate-address":
         rows["native"][1]["native_address"] = rows["native"][0]["native_address"]
     elif defect == "reference-spelling":
-        next(row for row in rows["reference"] if row["field_name"] == "$ref")["native_pointer"] = "#/wrong"
+        next(row for row in rows["reference"] if row["field_name"] == "$ref")["native_pointer"] = (
+            "#/wrong"
+        )
     elif defect == "missing-access":
         rows["access"].clear()
     elif defect == "disconnected-cycle":
         template = next(row for row in rows["native"] if row["native_type"] == "GroupItem")
         for index, (record, child) in enumerate((("cycle-a", "cycle-b"), ("cycle-b", "cycle-a"))):
-            rows["native"].append(template | dict(
-                record_id=record,
-                native_address=f"#/groups/{1000000 + index}",
-                scalars_json={**{key: value for key, value in template["scalars_json"].items() if key != "parent"}, "self_ref": f"#/groups/{1000000 + index}"},
-                structure_json={"fields": {"children": {"kind": "array", "length": 0}, "parent": {"kind": "object", "target": child}}},
-            ))
+            rows["native"].append(
+                template
+                | dict(
+                    record_id=record,
+                    native_address=f"#/groups/{1000000 + index}",
+                    scalars_json={
+                        **{
+                            key: value
+                            for key, value in template["scalars_json"].items()
+                            if key != "parent"
+                        },
+                        "self_ref": f"#/groups/{1000000 + index}",
+                    },
+                    structure_json={
+                        "fields": {
+                            "children": {"kind": "array", "length": 0},
+                            "parent": {"kind": "object", "target": child},
+                        }
+                    },
+                )
+            )
     relations = {
         "document": "ops.pdf_record_document",
         "native": "kb.pdf_record_native",
@@ -115,8 +151,12 @@ def test_generated_inventory_retains_independent_containment_expectations(
     }
     tables = {
         key: Table(
-            "inventory_" + family, MetaData(),
-            *(Column(field.name, field.type, nullable=field.nullable) for field in metadata.tables[key].c),
+            "inventory_" + family,
+            MetaData(),
+            *(
+                Column(field.name, field.type, nullable=field.nullable)
+                for field in metadata.tables[key].c
+            ),
             schema="pg_temp",
         )
         for family, key in relations.items()
@@ -129,7 +169,9 @@ def test_generated_inventory_retains_independent_containment_expectations(
             for row in rows.get(family, ()):
                 connection.execute(tables[key].insert(), row)
         execute_native_sql(connection, pdf_inventory_native_sql(model))
-        call = text("SELECT ops.pdf_check_build_inventory('inventory-control',:source,'inventory-project')")
+        call = text(
+            "SELECT ops.pdf_check_build_inventory('inventory-control',:source,'inventory-project')"
+        )
         if expected is None:
             connection.execute(call, {"source": "a" * 64})
         else:

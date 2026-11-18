@@ -30,8 +30,14 @@ def source_native_sources(
 
             target_metadata = compile_physical(physical_sources, linkml_types=linkml_types)
     return (
-        SourceArtifact("native/data-operation-source-capture.sql", source_capture_native_sql(target_metadata).encode()),
-        SourceArtifact("native/source-capture-native.py", Path(__file__).with_name("source_capture_native.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-source-capture.sql",
+            source_capture_native_sql(target_metadata).encode(),
+        ),
+        SourceArtifact(
+            "native/source-capture-native.py",
+            Path(__file__).with_name("source_capture_native.py").read_bytes(),
+        ),
         *source_admission_sources(physical_sources=physical_sources, linkml_types=linkml_types),
         *visual_read_sources(),
         SourceArtifact("native/data-operation-source-admission.sql", _SQL.read_bytes()),
