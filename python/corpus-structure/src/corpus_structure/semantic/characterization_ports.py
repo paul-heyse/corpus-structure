@@ -407,10 +407,7 @@ def execute_contextual_profile(receiver, source, formal, constructions, supporti
     )
 
 
-def execute_view_profile(receiver, sources, products, active, profile, *, canonical_order=False):
-    if canonical_order:
-        sources, products = ordered_captured_composition_inputs(sources, products)
-        _, active = ordered_captured_composition_inputs((), active)
+def execute_view_profile(receiver, sources, products, active, profile):
     return compose_enriched_document(
         receiver.profile.prepared,
         receiver.profile.model,

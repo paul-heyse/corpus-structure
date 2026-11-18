@@ -7,6 +7,7 @@ from corpus_structure.semantic.characterization_ports import execute_view_profil
 from corpus_structure.semantic.enriched_document_products import (
     EnrichedDocumentProduct,
     RetainedCharacterizationProduct,
+    ordered_captured_composition_inputs,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource
 
@@ -698,9 +699,8 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
             *declaration_syntax,
             *contextual,
         )
-        return execute_view_profile(
-            self, sources, products, products, profile, canonical_order=True
-        )
+        sources, products = ordered_captured_composition_inputs(sources, products)
+        return execute_view_profile(self, sources, products, products, profile)
 
 
 class ComposeCapturedDocumentOperation(ComposeCapturedDocumentFamily):

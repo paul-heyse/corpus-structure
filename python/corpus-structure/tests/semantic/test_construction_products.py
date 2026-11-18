@@ -262,7 +262,9 @@ def test_multi_source_view_keeps_each_projection_local_coordinate(profiles):
 
 def test_captured_composition_canonicalizes_sets_without_reordering_explicit_sequences(profiles):
     from types import SimpleNamespace
+    from typing import cast
 
+    from corpus_structure.methods.captured_document_composition import ComposeCapturedDocumentFamily
     from corpus_structure.semantic.characterization_ports import execute_view_profile
     from corpus_structure.semantic.source_products import FrozenNativeSource
 
@@ -275,18 +277,14 @@ def test_captured_composition_canonicalizes_sets_without_reordering_explicit_seq
         formal.run(source, FormalEvidenceOptions(), subject_context=publication_context(source))
         for source in (left, right)
     )
-    receiver = SimpleNamespace(profile=construction)
-    first = execute_view_profile(
-        receiver, (left, right), products, products, "selected_layers", canonical_order=True
+    receiver = cast(ComposeCapturedDocumentFamily, SimpleNamespace(profile=construction))
+    first = ComposeCapturedDocumentFamily.run(
+        receiver, (left, right), (), (), (), products, (), (), (), "selected_layers"
     )
-    second = execute_view_profile(
-        receiver,
-        (right, left),
-        products[::-1],
-        products[::-1],
-        "selected_layers",
-        canonical_order=True,
+    second = ComposeCapturedDocumentFamily.run(
+        receiver, (right, left), (), (), (), products[::-1], (), (), (), "selected_layers"
     )
+    assert first is not None and second is not None
     assert first.content == second.content
     value = first.value.model_dump(mode="json")
     assert {row["source"]["projection"] for row in value["sources"]} == {
