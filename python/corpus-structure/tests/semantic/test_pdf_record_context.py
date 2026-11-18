@@ -1,7 +1,6 @@
 """Python and PostgreSQL frames consume one published source-context definition."""
 
 import json
-from pathlib import Path
 
 import pytest
 from sqlalchemy import text
@@ -9,6 +8,10 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.pdf_companion_read_native import pdf_companion_field_read_sql
+from corpus_structure.semantic.pdf_record_context_native import (
+    pdf_record_context_page_sql,
+    pdf_record_context_sql,
+)
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -142,13 +145,8 @@ def context_database(semantic_bare_engine):
         conn.exec_driver_sql(
             pdf_companion_field_read_sql(metadata), execution_options={"no_parameters": True}
         )
-        helper = (
-            Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/pdf_record_context.sql"
-        )
-        conn.exec_driver_sql(helper.read_text(), execution_options={"no_parameters": True})
-        from corpus_structure.semantic.pdf_record_reader_native import pdf_record_context_sql
-
-        conn.exec_driver_sql(pdf_record_context_sql(), execution_options={"no_parameters": True})
+        for sql in (pdf_record_context_sql(metadata), pdf_record_context_page_sql(metadata)):
+            conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
     yield semantic_bare_engine
 
 
@@ -330,3 +328,62 @@ def test_metadata_page_selector_filters_before_artifact_replay(context_database)
                 "encoding_profile": PROFILE,
             }
         ]
+
+
+def test_empty_context_keeps_empty_family_arrays_and_page_refuses_invalid_limit(context_database):
+    with context_database.connect() as conn:
+        result = conn.execute(
+            text(
+                "SELECT ops.record_integrated_source_context("
+                "42,'chosen',repeat('f',64),ARRAY[]::text[],'#/unknown','direct')"
+            )
+        ).scalar_one()
+        assert {
+            name: result[name]
+            for name in ("inputs", "occurrences", "relations", "coverage", "mapping_reports")
+        } == {
+            name: []
+            for name in ("inputs", "occurrences", "relations", "coverage", "mapping_reports")
+        }
+        with pytest.raises(DBAPIError) as refusal, conn.begin_nested():
+            conn.execute(
+                text(
+                    "SELECT ops.read_pdf_record_context_rows("
+                    "42,'chosen',repeat('f',64),ARRAY[]::text[],'#/body','coverage',NULL,0)"
+                )
+            )
+        assert getattr(refusal.value.orig, "sqlstate", None) == "22023"
+
+
+def test_generated_context_preserves_private_selector_and_purpose_grants(context_database):
+    with context_database.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT p.provolatile,p.prosecdef,p.pronargdefaults,"
+                "has_function_privilege('corpus_sem_reader',p.oid,'EXECUTE'),"
+                "has_function_privilege('corpus_sem_writer',p.oid,'EXECUTE'),"
+                "has_function_privilege('corpus_sem_evaluator',p.oid,'EXECUTE') "
+                "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+                "WHERE n.nspname='ops' AND p.proname='record_integrated_source_context'"
+            )
+        ).one()
+        assert tuple(row) == ("s", True, 1, True, True, True)
+        conn.exec_driver_sql("GRANT USAGE ON SCHEMA ops TO corpus_sem_reader")
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_reader")
+        with pytest.raises(DBAPIError) as refusal, conn.begin_nested():
+            conn.execute(
+                text(
+                    "SELECT * FROM ops.pdf_record_context_rows("
+                    "42,'chosen',repeat('f',64),ARRAY['#/texts/0'],'#/body')"
+                )
+            )
+        assert getattr(refusal.value.orig, "sqlstate", None) == "42501"
+        assert (
+            conn.execute(
+                text(
+                    "SELECT count(*) FROM ops.read_pdf_record_context_rows("
+                    "42,'chosen',repeat('f',64),ARRAY['#/texts/0'],'#/body','coverage',NULL,10)"
+                )
+            ).scalar_one()
+            == 1
+        )
