@@ -787,6 +787,11 @@ def prepare_target_successor(
             )
         prerequisites.append(frozen)
     replacement_ids = frozenset(declared.identity for declared in replacements)
+    if replacements and (
+        descriptor["physical_checks_source_digest"]
+        != target_admission_descriptor(installation, ())["physical_checks_source_digest"]
+    ):
+        raise NativeAuthoringError("prerequisite recreation requires the retained CHECK contract")
     before_checks, after_checks = (
         _prerequisite_check_transitions(installation, replacement_ids) if replacements else ([], [])
     )
@@ -815,10 +820,6 @@ def prepare_target_successor(
         if replacements:
             authoring = replace(authoring, recreate=recreate)
         physical_contract = _physical_check_contract(connection, installation.metadata, authoring)
-        if replacements and physical_contract is not None:
-            raise NativeAuthoringError(
-                "prerequisite recreation requires the retained CHECK contract"
-            )
     candidate, authored = compare_declared_candidate(
         connection,
         target_metadata=installation.metadata,
