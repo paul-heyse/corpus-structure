@@ -74,6 +74,7 @@ def native_protocol_sources(
     from .data_claim_native import claim_native_sql
     from .data_completion_settlement_native import completion_settlement_native_sql
     from .data_operation_binding_native import binding_native_sources
+    from .data_operation_compiler_native import compiler_native_sql
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_protocol import recordable_fate_sql
@@ -307,7 +308,7 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-record-policy-completion.sql",
-            record_policy_completion_native_sql().encode(),
+            record_policy_completion_native_sql(target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-record-policy-completion.py",
@@ -343,8 +344,22 @@ def native_protocol_sources(
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
-        SourceArtifact("native/data-completion-settlement.sql", completion_settlement_native_sql(target_metadata).encode()),
-        SourceArtifact("native/data-completion-settlement-native.py", Path(__file__).with_name("data_completion_settlement_native.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-compiler.sql",
+            compiler_native_sql(target_metadata, subject_scopes=subject_scope_values()).encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-compiler.py",
+            Path(__file__).with_name("data_operation_compiler_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-completion-settlement.sql",
+            completion_settlement_native_sql(target_metadata).encode(),
+        ),
+        SourceArtifact(
+            "native/data-completion-settlement-native.py",
+            Path(__file__).with_name("data_completion_settlement_native.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-claim-batch.sql", claim_batch_native_sql(target_metadata).encode()
         ),
@@ -488,6 +503,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/pdf-source-search.sql",
         "native/pdf-source-search-contract.json",
         "native/data-operations.sql",
+        "native/data-operation-compiler.sql",
+        "native/data-operation-compiler.py",
         "native/data-operation-support-scopes.sql",
         "native/contextual-neighborhood.sql",
         "native/data-operation-storage.py",
@@ -689,12 +706,15 @@ def native_sql(sources=None) -> str:
     from .pdf_source_search import search_projection_sql
 
     sql += "\n" + search_projection_sql(captured)
-    sql = sql.replace("__DDO_COMPLETION_SETTLEMENT_PROGRAMS__", bodies["native/data-completion-settlement.sql"].decode())
+    sql = sql.replace(
+        "__DDO_COMPLETION_SETTLEMENT_PROGRAMS__",
+        bodies["native/data-completion-settlement.sql"].decode(),
+    )
     # Every private completion guard attests the same captured native kernel.
     sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     sql = sql.replace(
         "__DDO_LOWERING_DIGEST__",
-        sha256(bodies["native/data-operations.sql"]).hexdigest(),
+        sha256(bodies["native/data-operation-compiler.sql"]).hexdigest(),
     )
     if "__DDO_SUBJECT_SCOPES__" in sql:
         sql = sql.replace(
@@ -783,7 +803,7 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
 
     source_owner, source_asset = operation_asset(sources)
     admission_sources = [
-        source for source in sources if source.name == "native/data-operations.sql"
+        source for source in sources if source.name == "native/data-operation-compiler.sql"
     ]
     if len(admission_sources) != 1:
         raise ValueError(
