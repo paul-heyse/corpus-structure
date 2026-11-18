@@ -21,7 +21,7 @@ from corpus_structure.core.process_lifetime import _live_group, physical_retirem
 from corpus_structure.core.work import PhysicalRetirementUncertain
 from corpus_structure.ingest.pdf_capacity import suspend_resident_nemotron
 
-from .native_profiles import NativeSelection
+from .native_profiles import NativeSelection, startup_profile_mismatches
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused, _finite_float, _json_object
 
 
@@ -182,7 +182,12 @@ class NativeHost:
             if not isinstance(metadata, dict) or set(metadata) != set(expected):
                 raise Pm2WorkerError("native host changed its declared resident population")
             for identity, observation in metadata.items():
-                self._validate_startup(expected[identity], observation)
+                mismatches = startup_profile_mismatches(expected[identity], observation)
+                if mismatches:
+                    raise Pm2WorkerError(
+                        "native host executed a different frozen provider profile: "
+                        + ", ".join(mismatches)
+                    )
             self.startup = metadata
         except BaseException as error:
             try:
@@ -192,25 +197,6 @@ class NativeHost:
                     "native host startup cleanup remains unproven"
                 ) from BaseExceptionGroup("native startup and retirement failed", [error, cleanup])
             raise
-
-    @staticmethod
-    def _validate_startup(selection, observation):
-        profile = selection.native
-        if (
-            not isinstance(observation, dict)
-            or observation.get("provider") != profile.provider
-            or observation.get("profile") != profile.fingerprint
-            or observation.get("runtime_identity") != profile.runtime_identity
-            or observation.get("assets") != profile.artifacts
-            or str(observation.get("device", "")).split(":")[0] != profile.device
-            or observation.get("dtype") != "torch." + profile.dtype
-            or observation.get("backend") != profile.backend
-            or observation.get("matmul_precision") != profile.matmul_precision
-            or observation.get("cudnn_allow_tf32") is not profile.cudnn_allow_tf32
-            or observation.get("native_threads", {}).get("intra_op") != profile.threads
-            or observation.get("native_threads", {}).get("inter_op") != profile.interop_threads
-        ):
-            raise Pm2WorkerError("native host executed a different frozen provider profile")
 
     @property
     def closed(self):

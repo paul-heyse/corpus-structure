@@ -36,6 +36,9 @@ def main():
             cudnn_allow_tf32=profile["cudnn_allow_tf32"],
             native_threads=dict(intra_op=profile["threads"], inter_op=profile["interop_threads"]),
         )
+    if sys.argv[1:] == ["startup-mismatch"]:
+        for observation in metadata.values():
+            observation["backend"] = "wrong-backend"
     send(dict(kind="ready", generation=generation, residents=metadata))
 
     def infer(request, cancelled):

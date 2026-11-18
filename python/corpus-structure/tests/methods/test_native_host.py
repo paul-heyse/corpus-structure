@@ -474,12 +474,12 @@ def physical_host():
             policy,
             check_active=lambda: None,
             startup_timeout=5,
-            command=[
+            command=changes.pop("command", [
                 sys.executable,
                 "-I",
                 "-u",
                 str(Path(__file__).with_name("native_host_cases.py")),
-            ],
+            ]),
             **changes,
         )
         peers.append(host)
@@ -599,85 +599,86 @@ def test_real_host_close_kills_descendant_even_after_leader_was_reaped(physical_
     assert not host._reader.is_alive()
 
 
-@pytest.mark.parametrize(
-    "changed",
-    [
-        "head",
-        "runtime_identity",
-        "assets",
-        "device",
-        "dtype",
-        "backend",
-        "native_threads",
-        "profile",
-        "new_semantic_field",
-    ],
+@pytest.fixture
+def matching_startup():
+    return {
+        "provider": "d1",
+        "profile": "35e4a2e5f24e73483dc1bb5ae181589e1ee739ecc27f0979649a38f9b4ad1ed1",
+        "runtime_identity": {},
+        "assets": {},
+        "device": "cuda:0",
+        "dtype": "torch.bfloat16",
+        "backend": "fixture",
+        "matmul_precision": "highest",
+        "cudnn_allow_tf32": False,
+        "native_threads": {"intra_op": 4, "inter_op": 1},
+    }
+
+
+STARTUP_FIELDS = (
+    "provider", "profile", "runtime_identity", "assets", "device", "dtype", "backend",
+    "matmul_precision", "cudnn_allow_tf32", "native_threads.intra_op", "native_threads.inter_op",
 )
-def test_parser_startup_comparison_excludes_only_process_local_stream(changed):
-    from corpus_structure.methods.native_profiles import admitted_startup_matches
 
-    admitted: dict[str, Any] = dict(
-        provider="hanlp",
-        head="mtl",
-        runtime_identity={"python": "3.14.10"},
-        assets={"checkpoint": "exact"},
-        device="cuda:0",
-        dtype="torch.float32",
-        backend="sdpa",
-        native_threads={"intra_op": 4, "inter_op": 1},
-        profile="frozen",
-        host_stream=123,
+
+@pytest.mark.parametrize("field", STARTUP_FIELDS)
+@pytest.mark.parametrize("missing", [False, True])
+def test_startup_profile_comparison_names_changed_or_absent_field(matching_startup, field, missing):
+    from corpus_structure.methods.native_profiles import startup_profile_mismatches
+
+    keys = field.split(".")
+    target = matching_startup
+    for key in keys[:-1]:
+        target = target[key]
+    if missing:
+        target.pop(keys[-1])
+    else:
+        target[keys[-1]] = "different"
+    assert startup_profile_mismatches(selection(), matching_startup) == (field,)
+
+
+def test_startup_comparison_declares_complete_field_contract(matching_startup):
+    from corpus_structure.methods.native_profiles import (
+        STARTUP_PROFILE_FIELDS,
+        startup_profile_mismatches,
     )
-    observed: dict[str, Any] = {**admitted, "host_stream": 987}
-    assert admitted_startup_matches(observed, admitted)
-    assert admitted_startup_matches(
-        {key: value for key, value in observed.items() if key != "host_stream"}, admitted
+
+    assert {".".join(field.path) for field in STARTUP_PROFILE_FIELDS} == set(STARTUP_FIELDS)
+    assert startup_profile_mismatches(selection(), matching_startup) == ()
+    matching_startup["device"] = "cuda:1"
+    assert startup_profile_mismatches(selection(), matching_startup) == ()
+    matching_startup["cudnn_allow_tf32"] = 0
+    assert startup_profile_mismatches(selection(), matching_startup) == ("cudnn_allow_tf32",)
+
+
+@pytest.mark.parametrize("threads", [None, [], 1, "bad"])
+def test_startup_comparison_handles_malformed_nested_threads(matching_startup, threads):
+    from corpus_structure.methods.native_profiles import startup_profile_mismatches
+
+    matching_startup["native_threads"] = threads
+    assert startup_profile_mismatches(selection(), matching_startup) == (
+        "native_threads.intra_op", "native_threads.inter_op",
     )
-    observed[changed] = "different"
-    assert not admitted_startup_matches(observed, admitted)
-    # Ignoring the handle at admission cannot rewrite historical receipt identity.
-    assert admitted["host_stream"] == 123
 
 
-def test_parser_startup_pool_roster_is_observation_but_thread_count_is_a_contract():
-    from copy import deepcopy
+def test_startup_comparison_refuses_nonobject_observation():
+    from corpus_structure.methods.native_profiles import startup_profile_mismatches
 
-    from corpus_structure.methods.native_profiles import admitted_startup_matches
+    assert startup_profile_mismatches(selection(), None) == STARTUP_FIELDS
 
-    admitted: dict[str, Any] = dict(
-        provider="hanlp",
-        native_threads=dict(
-            intra_op=4,
-            inter_op=1,
-            supported_pools=[dict(filepath="/first/blas.so", user_api="blas", num_threads=4)],
-        ),
-    )
-    observed: dict[str, Any] = dict(
-        provider="hanlp",
-        native_threads=dict(
-            intra_op=4,
-            inter_op=1,
-            supported_pools=[
-                dict(filepath="/other/openmp.so", user_api="openmp", num_threads=4),
-                dict(filepath="/other/blas.so", user_api="blas", num_threads=4),
-            ],
-        ),
-    )
-    original = deepcopy(admitted)
-    assert admitted_startup_matches(observed, admitted)
-    observed["native_threads"]["supported_pools"].reverse()
-    assert admitted_startup_matches(observed, admitted)
-    assert admitted == original
-    for count in (1, 0, -1, None, "4", True):
-        changed = deepcopy(observed)
-        changed["native_threads"]["supported_pools"][0]["num_threads"] = count
-        assert not admitted_startup_matches(changed, admitted)
-    missing = deepcopy(observed)
-    missing["native_threads"]["supported_pools"][0].pop("num_threads")
-    assert not admitted_startup_matches(missing, admitted)
-    unknown = deepcopy(observed)
-    unknown["native_threads"]["new_semantic_thread_field"] = 4
-    assert not admitted_startup_matches(unknown, admitted)
+
+def test_real_host_refuses_reported_profile_mismatch_and_retires_peer(physical_host):
+    import sys
+
+    adopted = []
+    with pytest.raises(Pm2WorkerError, match="frozen provider profile: backend"):
+        physical_host(
+            selection(), adopt=adopted.append,
+            command=[sys.executable, "-I", "-u", str(Path(__file__).with_name("native_host_cases.py")), "startup-mismatch"],
+        )
+    assert len(adopted) == 1
+    assert adopted[0].startup == {}
+    assert not native_host._live_group(adopted[0]._process.pid)
 
 
 def test_real_host_result_retains_matched_physical_execution_identity(physical_host):
@@ -713,10 +714,18 @@ def test_host_receipt_hashes_written_frame_even_if_caller_changes_payload(physic
     assert result.receipt.input_digest == native_host.payload_digest({"value": "original"})
 
 
-def test_residency_hands_off_actual_gpu_capacity_and_restarts_real_host(physical_host):
-    import time
+def test_residency_retires_for_external_borrower_and_restarts_real_host(physical_host, monkeypatch):
+    from contextlib import nullcontext
 
-    from corpus_structure.ingest.pdf_capacity import pdf_gpu_slot
+    from corpus_structure.ingest import pdf_capacity
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("residency retirement requested the accelerator slot")
+
+    monkeypatch.setattr(pdf_capacity, "pdf_gpu_slot", unexpected)
+    monkeypatch.setattr(pdf_capacity, "_locked_gpu_slot", unexpected)
+    # The peer has no model assets or accelerator use. Keep its external service boundary controlled.
+    monkeypatch.setattr(native_host, "suspend_resident_nemotron", lambda *args, **kwargs: nullcontext())
 
     policy = CharacterizationExecutionPolicy()
     selected = selection()
@@ -736,13 +745,6 @@ def test_residency_hands_off_actual_gpu_capacity_and_restarts_real_host(physical
         first = residency.infer_result(selected, {"value": 1}, lambda: None)
         with residency.external_gpu(lambda: None):
             assert not native_host._live_group(hosts[0]._process.pid)
-            deadline = time.monotonic() + 2
-
-            def bounded():
-                assert time.monotonic() < deadline, "previous NLP group retained PDF GPU capacity"
-
-            with pdf_gpu_slot(bounded):
-                pass
         second = residency.infer_result(selected, {"value": 2}, lambda: None)
         assert first.payload == {"value": 1} and second.payload == {"value": 2}
         assert first.receipt.host_generation != second.receipt.host_generation

@@ -127,3 +127,70 @@ def test_uncertain_group_retirement_keeps_gpu_descriptor_quarantined(monkeypatch
         pdf_capacity.pdf_gpu_slot(),
     ):
         pytest.fail("uncertain group retirement advertised free GPU capacity")
+
+
+def test_gpu_slot_borrows_resident_hosts_before_locking(monkeypatch):
+    from contextlib import contextmanager
+
+    from corpus_structure.ingest import pdf_capacity
+    from corpus_structure.orchestrate import execution_host
+
+    events = []
+
+    @contextmanager
+    def borrow(active):
+        events.append("borrow")
+        yield
+        events.append("release")
+
+    def locked(active):
+        events.append("lock")
+        yield
+        events.append("unlock")
+
+    monkeypatch.setattr(execution_host, "external_execution_gpu", borrow)
+    monkeypatch.setattr(pdf_capacity, "_locked_gpu_slot", locked)
+    with pdf_capacity.pdf_gpu_slot():
+        assert events == ["borrow", "lock"]
+    assert events == ["borrow", "lock", "unlock", "release"]
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+def test_gpu_slot_waits_on_private_lock_and_checks_cancellation(tmp_path, monkeypatch, cancel):
+    import fcntl
+    import os
+    from concurrent.futures import CancelledError
+    from contextlib import nullcontext
+
+    from corpus_structure.ingest import pdf_capacity
+    from corpus_structure.orchestrate import execution_host
+
+    monkeypatch.setattr(pdf_capacity, "Path", lambda _: tmp_path)
+    monkeypatch.setattr(pdf_capacity, "sleep", lambda _: None)
+    monkeypatch.setattr(execution_host, "external_execution_gpu", lambda _: nullcontext())
+    path = tmp_path / f"corpus-structure-pdf-gpu-{os.getuid()}.lock"
+    holder = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    checks = []
+
+    def active():
+        checks.append(True)
+        if cancel and len(checks) == 2:
+            raise CancelledError("cancelled while waiting")
+        if len(checks) == 3:
+            fcntl.flock(holder, fcntl.LOCK_UN)
+        assert len(checks) <= 3
+
+    try:
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        if cancel:
+            with pytest.raises(CancelledError, match="while waiting"), pdf_capacity.pdf_gpu_slot(active):
+                pytest.fail("cancelled waiter acquired the lock")
+            assert len(checks) == 2
+        else:
+            with pdf_capacity.pdf_gpu_slot(active):
+                assert len(checks) == 3
+                with pytest.raises(BlockingIOError):
+                    fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    finally:
+        os.close(holder)

@@ -162,42 +162,45 @@ def _observation_policy(profile: NativeProfile, policy: Mapping[str, Any]) -> di
     return {**expected, "provider": dict(provider)}
 
 
-def admitted_startup_matches(observed: Mapping[str, Any], admitted: Mapping[str, Any]) -> bool:
-    """Compare declared execution meaning while retaining runtime observations.
+@dataclass(frozen=True)
+class StartupProfileField:
+    path: tuple[str, ...]
+    profile_attribute: str
+    comparison: Literal["equal", "device", "dtype", "boolean"] = "equal"
 
-    Stream handles and the supported-pool roster (paths, order and loaded-library
-    population) are process observations. Every reported pool must still satisfy
-    the admitted native thread count. All other fields, including future fields,
-    remain exact. Original config/receipt dictionaries and hashes are untouched.
-    """
-    threads = admitted.get("native_threads", {})
-    limit = threads.get("intra_op") if isinstance(threads, Mapping) else None
 
-    def semantic(startup):
-        value = {key: item for key, item in startup.items() if key != "host_stream"}
-        native = value.get("native_threads")
-        if isinstance(native, Mapping):
-            if "supported_pools" in native:
-                pools = native["supported_pools"]
-                if (
-                    type(limit) is not int
-                    or limit < 1
-                    or not isinstance(pools, list)
-                    or any(
-                        not isinstance(pool, Mapping)
-                        or type(pool.get("num_threads")) is not int
-                        or pool["num_threads"] != limit
-                        for pool in pools
-                    )
-                ):
-                    return None
-            value["native_threads"] = {
-                key: item for key, item in native.items() if key != "supported_pools"
-            }
-        return value
+STARTUP_PROFILE_FIELDS = (
+    StartupProfileField(("provider",), "provider"),
+    StartupProfileField(("profile",), "fingerprint"),
+    StartupProfileField(("runtime_identity",), "runtime_identity"),
+    StartupProfileField(("assets",), "artifacts"),
+    StartupProfileField(("device",), "device", "device"),
+    StartupProfileField(("dtype",), "dtype", "dtype"),
+    StartupProfileField(("backend",), "backend"),
+    StartupProfileField(("matmul_precision",), "matmul_precision"),
+    StartupProfileField(("cudnn_allow_tf32",), "cudnn_allow_tf32", "boolean"),
+    StartupProfileField(("native_threads", "intra_op"), "threads"),
+    StartupProfileField(("native_threads", "inter_op"), "interop_threads"),
+)
 
-    actual, expected = semantic(observed), semantic(admitted)
-    return actual is not None and expected is not None and actual == expected
+
+def startup_profile_mismatches(selection: NativeSelection, observation: object) -> tuple[str, ...]:
+    """Compare the actual ready report with the selected frozen provider profile."""
+    missing = object()
+    mismatches = []
+    for field in STARTUP_PROFILE_FIELDS:
+        actual: Any = observation
+        for key in field.path:
+            actual = actual.get(key, missing) if isinstance(actual, dict) else missing
+        expected = getattr(selection.native, field.profile_attribute)
+        if field.comparison == "device":
+            actual = str(actual).split(":")[0]
+        elif field.comparison == "dtype":
+            expected = "torch." + expected
+        matches = actual is expected if field.comparison == "boolean" else actual == expected
+        if not matches:
+            mismatches.append(".".join(field.path))
+    return tuple(mismatches)
 
 
 @dataclass(frozen=True, init=False)

@@ -57,8 +57,6 @@ def runtime(monkeypatch):
                 self._selections[selected.native.fingerprint] = selected
 
         def startup(self, selected, active):
-            if selected.native.artifacts != {"artifact": 1}:
-                raise resources.Pm2WorkerRefused("native artifacts differ from frozen selection")
             self._serving = True
             if selected.native.fingerprint not in self.workers:
                 worker = Worker(active, selected.device)
@@ -238,18 +236,6 @@ def test_stale_first_borrower_does_not_stop_useful_batch_member(runtime):
     request = resources.PM2Work(selection(), b"{}", "shared", (stale, lambda: None))
     assert result(execution.try_submit(request)) == {}
     assert len(opened) == 1
-
-
-def test_frozen_artifact_mismatch_refuses_before_starting(runtime):
-    execution, opened, _ = runtime
-    changed = selection(artifacts={"artifact": 2})
-    handle = execution.try_submit(work("wrong", {}, selected=changed))
-    handle.flush()
-    handle.future.result(timeout=5)
-    with pytest.raises(resources.Pm2WorkerRefused, match="frozen selection"):
-        _ = handle.collect().payload
-    handle.retire()
-    assert not opened
 
 
 def test_close_attempts_every_native_lane_when_one_closer_fails(runtime):
