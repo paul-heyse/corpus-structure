@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from .composed import data_operation_dependencies
 from .python_operation_sources import PythonSource, PythonSourceCollection
@@ -288,17 +288,24 @@ def _acquire_primary_profile(
 ) -> dict[str, Any]:
     """Reconstitute explicit frozen selections; never acquire a default provider."""
     from corpus_structure.ingest.sentences import SentenceConfig
-    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+    from corpus_structure.methods.native_profiles import (
+        NativeProfile,
+        NativeSelection,
+        native_asset_files,
+    )
 
+    from .file_custody import verified_file
     from .identity import canonical_bytes
 
     def location(name: str) -> Path:
         path = Path(name)
         return (path if path.is_absolute() else root / path).resolve()
 
+    receipts_type = TypeAdapter(tuple[tuple[str, str, tuple[int, int, int, int, int], bool], ...])
+
     def selection(name: str, provider: str):
         value = json.loads(read(name))
-        if not isinstance(value, dict) or set(value) != {"profile", "fingerprint", "assets"}:
+        if not isinstance(value, dict) or set(value) != {"profile", "fingerprint", "assets", "asset_custody"}:
             raise ValueError("native selection must use the complete NativeSelection declaration")
         native = NativeProfile.from_content(canonical_bytes(value["profile"]))
         if native.provider != provider or native.fingerprint != value["fingerprint"]:
@@ -306,6 +313,16 @@ def _acquire_primary_profile(
         assets = location(value["assets"])
         if not assets.is_dir():
             raise ValueError("explicit native selection assets are unavailable")
+        receipts = receipts_type.validate_json(canonical_bytes(value["asset_custody"]), strict=True)
+        expected_files = native_asset_files(native.wire, assets)
+        if {(receipt[0], receipt[1]) for receipt in receipts} != {
+            (str(path), digest) for path, digest in expected_files
+        } or len(receipts) != len(expected_files):
+            raise ValueError("native selection custody differs from declared file population")
+        # Configuration files are not the private parent/child handoff. Establish
+        # local content custody instead of trusting persisted metadata as proof.
+        for path, digest in expected_files:
+            verified_file(path, digest)
         return NativeSelection(native, assets)
 
     configuration = SentenceConfig.model_validate(
@@ -373,8 +390,6 @@ def _acquire_primary_profile(
             yaml.safe_load(read(profile.contextual_retrieval_options))
         )
     if profile.contextual_encoder is not None:
-        from pydantic import TypeAdapter
-
         from corpus_structure.methods.contextual_embeddings import EncoderProfile
 
         from .contextual_encoder import ContextualEncoderSelection
@@ -387,8 +402,6 @@ def _acquire_primary_profile(
         )
     if profile.external_protocol is not None:
         from dataclasses import fields
-
-        from pydantic import TypeAdapter
 
         from .data_operation_model import ExternalExecutorContract
 
@@ -438,8 +451,6 @@ def _acquire_primary_profile(
             require_nemotron_handoff=capture.require_nemotron_handoff,
         )
         if capture.organization_policy is not None:
-            from pydantic import TypeAdapter
-
             from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
 
             from .pdf_transforms import pdf_transform_operation_sources
