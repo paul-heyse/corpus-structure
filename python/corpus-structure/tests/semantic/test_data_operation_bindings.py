@@ -807,6 +807,101 @@ def test_optional_role_filter_never_suppresses_required_peer(storage):
     assert result.roles[1].state == "present" and result.roles[1].members == ()
 
 
+@pytest.mark.parametrize("change", ["complete", "null", "empty", "global-refusal"])
+def test_independent_optional_bundles_keep_selection_coverage_and_null_meaning(storage, change):
+    connection, relation, projection = storage
+    names = ("left", "right", "empty")
+    filters = tuple(
+        BindingExpression(
+            "optional",
+            roles=(name,),
+            children=(
+                BindingExpression(
+                    "membership",
+                    operands=(field(role=name), BindingOperand("parameter", "integer", name=name)),
+                ),
+            ),
+        )
+        for name in names
+    )
+    expression = BindingExpression(
+        "all",
+        children=(
+            *filters,
+            *(BindingExpression("collection", roles=(name,), collection="set") for name in names),
+            BindingExpression(
+                "covers",
+                operands=(field(role="left"), BindingOperand("parameter", "integer", name="left")),
+            ),
+            BindingExpression(
+                "membership",
+                operands=(
+                    BindingOperand("parameter", "string", name="profile"),
+                    BindingOperand("literal", "string", value=b'["sequence",[["string","complete"]]]'),
+                ),
+            ),
+        ),
+    )
+    product = model(expression, names=names, minimum=0, presence="optional")
+    parameters = dict(left=[1, 2], right=[2, 3], empty=[99], profile="complete")
+    if change == "null":
+        connection.execute(relation.update().where(relation.c.value == 1).values(value=None))
+    elif change == "empty":
+        connection.execute(relation.delete())
+    elif change == "global-refusal":
+        parameters["profile"] = "other"
+
+    compiled = compile_binding(product, "urn:op", (projection,), subject="doc", parameters=parameters)
+    # An extra conjunction preserves the predicate but selects the general
+    # relational lowering, providing a bounded comparison of the two SQL paths.
+    relational_model = replace(
+        product,
+        bindings=(replace(product.bindings[0], expression=BindingExpression("all", children=(expression,))),),
+    )
+    relational = compile_binding(
+        relational_model, "urn:op", (projection,), subject="doc", parameters=parameters
+    )
+    result = execute_binding(connection, compiled)
+    assert result == execute_binding(connection, relational)
+    assert result.status == {
+        "complete": "ready", "null": "unknown", "empty": "not-applicable", "global-refusal": "not-applicable"
+    }[change]
+    selected = {role.role: {member.product for member in role.members} for role in result.roles}
+    if change == "complete":
+        assert selected == {"left": {"p1", "p2"}, "right": {"p2", "p3"}, "empty": set()}
+    elif change == "null":
+        assert selected == {"left": {"p2"}, "right": {"p2", "p3"}, "empty": set()}
+        assert any(reason.code == "unknown-comparison" for reason in result.reasons)
+    else:
+        assert selected == {name: set() for name in names}
+    for name, query in compiled.queries:
+        rendered = str(query)
+        assert "role_" + name in rendered
+        assert all("role_" + peer not in rendered for peer in names if peer != name)
+    assert all(all("role_" + peer in str(query) for peer in names) for _, query in relational.queries)
+
+
+def test_required_role_keeps_relational_selection_for_independent_optional_filters(storage):
+    connection, _, projection = storage
+    expression = BindingExpression(
+        "all",
+        children=tuple(
+            BindingExpression(
+                "optional",
+                roles=(name,),
+                children=(BindingExpression("literal", fields=(BindingField(name, "urn:item", "value"),), value=b'["integer","2"]'),),
+            )
+            for name in ("left", "right")
+        ),
+    )
+    product = model(expression, names=("left", "right"))
+    compiled = compile_binding(product, "urn:op", (projection,), subject="doc")
+    result = execute_binding(connection, compiled)
+    assert result.sufficient
+    assert all({member.product for member in role.members} == {"p2"} for role in result.roles)
+    assert all("role_left" in str(query) and "role_right" in str(query) for _, query in compiled.queries)
+
+
 def test_scoped_absence_retains_required_positive_sibling(storage):
     connection, _, projection = storage
     expression = BindingExpression(

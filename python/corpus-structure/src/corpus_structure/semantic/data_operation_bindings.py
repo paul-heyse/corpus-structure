@@ -631,12 +631,16 @@ def compile_binding(
     def nullable(role):
         return role.presence == "optional" or (role.presence == "alternative" and role.minimum == 0)
 
-    def joined_relation(filters):
+    def joined_relation(filters, names=None):
         relation = anchor
         # Optional predicates may refer to required peers, which must already be
         # in scope in their ON clause. Candidate text never controls join targets.
         ordered = sorted(
-            (name for name in aliases if name not in negative_roles),
+            (
+                name
+                for name in aliases
+                if name not in negative_roles and (names is None or name in names)
+            ),
             key=lambda name: nullable(roles[name]),
         )
         for name in ordered:
@@ -706,8 +710,6 @@ def compile_binding(
                 else relation.join(alias, condition)
             )
         return relation
-
-    unfiltered_relation = joined_relation({})
 
     def field_value(field):
         if field.role not in aliases:
@@ -993,7 +995,7 @@ def compile_binding(
                     raise ValueError("optional predicate cannot depend on another nullable role")
                 optional_join_filters.setdefault(name, []).append(nested)
                 optional_unknowns.append(
-                    and_(aliases[name].c.product.is_not(None), nested.is_(None))
+                    (name, and_(aliases[name].c.product.is_not(None), nested.is_(None)))
                 )
                 return true()
             return nested
@@ -1001,7 +1003,32 @@ def compile_binding(
 
     positive_condition = predicate(expression)
     condition = and_(positive_condition, *(predicate for _, predicate in absence_predicates))
-    relation = joined_relation(optional_join_filters)
+
+    def independent_optional_term(node):
+        def row_term(child):
+            return child.operator in {
+                "all", "scan", "equal", "join", "literal", "range", "membership"
+            } and all(row_term(descendant) for descendant in selected_children(child))
+
+        if node.operator in {"cardinality", "collection", "covers"}:
+            return not node.children
+        names = referenced_roles(node)
+        if not names:
+            return row_term(node)
+        if node.operator != "optional" or len(names) != 1:
+            return False
+        return all(row_term(child) for child in selected_children(node))
+
+    independent_optional = (
+        expression.operator == "all"
+        and not negative_roles
+        and all(nullable(roles[name]) for name in aliases)
+        and all(independent_optional_term(child) for child in selected_children(expression))
+    )
+    # Independent optional bundles always admit the anchor's empty row. Their
+    # role-local filters can select each population directly, without forming
+    # every combination merely to project DISTINCT members afterward.
+    relation = anchor if independent_optional else joined_relation(optional_join_filters)
     queries = []
     selected_relations = {}
     for name, alias in aliases.items():
@@ -1021,9 +1048,14 @@ def compile_binding(
                 .distinct()
             )
         else:
+            selected_relation = (
+                joined_relation(optional_join_filters, (name,))
+                if independent_optional
+                else relation
+            )
             query = (
                 select(*query_columns)
-                .select_from(relation)
+                .select_from(selected_relation)
                 .where(condition.is_(True), alias.c.product.is_not(None))
                 .distinct()
             )
@@ -1034,12 +1066,23 @@ def compile_binding(
             query = query.order_by(selected.c.position)
         queries.append((name, query))
     checks = []
-    null_query = select(
-        select(literal(1))
-        .select_from(unfiltered_relation)
-        .where(or_(condition.is_(None), *optional_unknowns))
-        .exists()
-    )
+    if independent_optional:
+        null_comparisons = [condition.is_(None)]
+        null_comparisons.extend(
+            select(literal(1))
+            .select_from(joined_relation({}, (name,)))
+            .where(unknown)
+            .exists()
+            for name, unknown in optional_unknowns
+        )
+        null_query = select(or_(*null_comparisons))
+    else:
+        null_query = select(
+            select(literal(1))
+            .select_from(joined_relation({}))
+            .where(or_(condition.is_(None), *(value for _, value in optional_unknowns)))
+            .exists()
+        )
     checks.append(
         BindingCheck(
             BindingReason(
