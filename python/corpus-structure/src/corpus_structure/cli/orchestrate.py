@@ -60,12 +60,16 @@ def _table(title: str, result: BaseModel) -> Table:
 @project_app.command("init")
 def project_init(
     ctx: typer.Context,
-    domain: Annotated[str, typer.Option(help="The pack under domains/.")],
-    corpus: Annotated[Path, typer.Option(exists=True, file_okay=False)],
     semantic_release: Annotated[str, typer.Option(help="Already admitted semantic release.")],
+    domain: Annotated[str | None, typer.Option(help="The pack under domains/.")] = None,
+    corpus: Annotated[Path | None, typer.Option(exists=True, file_okay=False)] = None,
     name: Annotated[str | None, typer.Option()] = None,
     original_reference: Annotated[
         list[Path] | None, typer.Option(exists=True, dir_okay=False)
+    ] = None,
+    original_descriptors: Annotated[
+        Path | None,
+        typer.Option(exists=True, dir_okay=False, help="Exact original descriptor inventory JSON."),
     ] = None,
     json: JsonOpt = False,
 ) -> None:
@@ -73,6 +77,21 @@ def project_init(
     from corpus_structure.orchestrate import project
     from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
 
+    if original_descriptors is not None:
+        if any(value is not None for value in (domain, corpus, name)) or original_reference:
+            raise typer.BadParameter("descriptor inventory owns its project and source identities")
+        inventory = project.OriginalDescriptorInventory.model_validate_json(
+            original_descriptors.read_bytes()
+        )
+        settings = state(ctx).settings()
+        with _refusals(json), ENGINE(settings) as engine, engine.begin() as connection:
+            report = project.init_described_projects(
+                connection, inventory=inventory, release_id=semantic_release
+            )
+        emit(report, json=json, render=lambda value: _table("projects", value))
+        return
+    if domain is None or corpus is None:
+        raise typer.BadParameter("configured originals require --domain and --corpus")
     settings = state(ctx).settings()
     with _refusals(json), ENGINE(settings) as engine, engine.begin() as connection:
         report = project.init_bound_project(
