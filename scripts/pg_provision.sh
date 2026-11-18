@@ -14,6 +14,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+render() { uv run --project "$ROOT" --no-sync python -m corpus_structure.core.db.host_bootstrap "$@"; }
 VER=18
 NAME=corpus
 CONF_SRC="$ROOT/ops/postgresql/corpus.conf"
@@ -26,7 +27,8 @@ TEMPLATE=cs_template
 DATABASES=(corpus "$TEMPLATE")
 
 # The record as `name version` lines, comments and blank lines dropped.
-expected() { sed -E 's/#.*//' "$EXT_RECORD" | awk 'NF == 2 {print $1, $2} NF != 0 && NF != 2 {exit 1}'; }
+EXPECTED=$(render expected --record "$EXT_RECORD")
+expected() { printf '%s\n' "$EXPECTED"; }
 
 psql_pg() { sudo -u postgres psql -p "$PORT" -X -q -v ON_ERROR_STOP=1 -tA "$@"; }
 
@@ -36,12 +38,26 @@ exists() { pg_lsclusters -h | awk -v v="$VER" -v n="$NAME" '$1==v && $2==n {foun
 installed() {
   local db=$1 name version got
   while read -r name version; do
-    got=$(psql_db "$db" -c "SELECT extversion FROM pg_extension WHERE extname = '$name'" 2>/dev/null) || got=
+    got=$(query_db "$db" extension-version "$name" 2>/dev/null) || got=
     echo "$name ${got:--}"
   done < <(expected)
 }
 
 psql_db() { psql "postgresql:///$1?host=/var/run/postgresql&port=$PORT&connect_timeout=5" -X -w -q -v ON_ERROR_STOP=1 -tA "${@:2}"; }
+
+# Generation must finish successfully before psql receives any statement.
+query_db() {
+  local db=$1 statement
+  shift
+  statement=$(render "$@") || return
+  psql_db "$db" -c "$statement"
+}
+admin_db() {
+  local db=$1 statement
+  shift
+  statement=$(render "$@") || return
+  psql_pg -d "$db" -c "$statement"
+}
 
 # Fail (status 1) when database $1's record extensions differ from the record.
 verify() {
@@ -56,15 +72,14 @@ verify() {
 status() {
   exists || { echo "18/$NAME: not created (run ci host provision)"; return 1; }
   pg_lsclusters "$VER" "$NAME" 2>/dev/null || { echo "18/$NAME: not created (run ci host provision)"; return 1; }
-  if ! psql_db corpus -c "select 'version ' || current_setting('server_version')" 2>/dev/null; then
+  if ! query_db corpus server-version 2>/dev/null; then
     echo "18/$NAME: not reachable as $(id -un) (run ci host up or ci host provision)"
     return 1
   fi
   echo "expected extensions $(expected | paste -sd, - | sed 's/,/, /g') ($EXT_RECORD)"
   local db extensions preload checksums failed=0
   for db in "${DATABASES[@]}"; do
-    if ! extensions=$(psql_db "$db" -c \
-      "select string_agg(extname || ' ' || extversion, ', ' order by extname) from pg_extension" 2>/dev/null); then
+    if ! extensions=$(query_db "$db" extension-list 2>/dev/null); then
       echo "$db: extension health unavailable (run ci host provision)"
       failed=1
       continue
@@ -77,8 +92,8 @@ status() {
       failed=1
     fi
   done
-  if preload=$(psql_db corpus -c 'show shared_preload_libraries' 2>/dev/null) &&
-     checksums=$(psql_db corpus -c 'show data_checksums' 2>/dev/null); then
+  if preload=$(query_db corpus setting shared_preload_libraries 2>/dev/null) &&
+     checksums=$(query_db corpus setting data_checksums 2>/dev/null); then
     printf 'preload %s\nchecksums %s\n' "$preload" "$checksums"
   else
     echo "18/$NAME: server settings unavailable to this principal"
@@ -105,36 +120,21 @@ provision() {
     sudo pg_ctlcluster "$VER" "$NAME" restart
   fi
 
-  psql_pg -d postgres <<SQL
-DO \$\$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$OWNER') THEN
-    CREATE ROLE "$OWNER" LOGIN SUPERUSER CREATEDB CREATEROLE;
-  ELSE
-    ALTER ROLE "$OWNER" LOGIN SUPERUSER CREATEDB CREATEROLE;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'corpus_ro') THEN
-    CREATE ROLE corpus_ro NOLOGIN;
-  END IF;
-END \$\$;
-GRANT pg_read_all_data TO corpus_ro;
-GRANT corpus_ro TO "$OWNER";
-SQL
-  if [ -z "$(psql_pg -d postgres -c "SELECT 1 FROM pg_database WHERE datname = 'corpus'")" ]; then
-    psql_pg -d postgres -c "CREATE DATABASE corpus OWNER \"$OWNER\""
-  fi
-  if [ -z "$(psql_pg -d postgres -c "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE'")" ]; then
-    psql_pg -d postgres -c "CREATE DATABASE $TEMPLATE OWNER \"$OWNER\""
-  fi
+  admin_db postgres base-sql "$OWNER"
+  local db
+  for db in "${DATABASES[@]}"; do
+    if [ -z "$(admin_db postgres database-exists "$db")" ]; then
+      admin_db postgres database-create "$db" "$OWNER"
+    fi
+  done
   expected >/dev/null || { echo "pg_provision: $EXT_RECORD: expected '<extension> <version>' lines" >&2; exit 1; }
-  local db name version
+  local name version
   for db in "${DATABASES[@]}"; do
     while read -r name version; do
-      psql_pg -d "$db" -c "SET client_min_messages = warning" \
-        -c "CREATE EXTENSION IF NOT EXISTS $name VERSION '$version'" \
-        -c "ALTER EXTENSION $name UPDATE TO '$version'"
+      admin_db "$db" extension-install "$name" "$version"
     done < <(expected)
   done
-  psql_pg -d postgres -c "ALTER DATABASE $TEMPLATE IS_TEMPLATE true"
+  admin_db postgres template "$TEMPLATE"
   local failed=0
   for db in "${DATABASES[@]}"; do verify "$db" || failed=1; done
   status
