@@ -10,6 +10,7 @@ excluded, the files that failed to parse and the uses that could not be attribut
 from __future__ import annotations
 
 import platform
+from collections.abc import Sequence
 from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated
@@ -25,15 +26,38 @@ from corpus_tooling.library.census_rows import (
 )
 from corpus_tooling.library.census_scan import resolve_scope, run_census
 from corpus_tooling.library.context import library_envelope, library_state
+from corpus_tooling.library.target import Target
 from corpus_tooling.output import (
     DEFAULT_LIMIT,
     JsonOpt,
     LimitOpt,
     OffsetOpt,
     StrictOpt,
-    ToolFailure,
     emit,
 )
+
+
+def check_roots(roots: Sequence[str]) -> None:
+    """Refuse a ROOT that is not a dotted import name: a usage error (exit 2)."""
+    invalid = [root for root in roots if not all(part.isidentifier() for part in root.split("."))]
+    if invalid:
+        raise typer.BadParameter(
+            f"not an import root: {', '.join(invalid)}; pass top-level import names such as "
+            "`pydantic`, not distribution names",
+            param_hint="'ROOTS...'",
+        )
+
+
+def check_scopes(target: Target, scopes: Sequence[Path]) -> None:
+    """Refuse a `--scope` that does not exist: a usage error (exit 2), as for every path the
+    caller names (`--project`, `--python`, `overview FILE`)."""
+    missing = [path for path in scopes if not resolve_scope(target, path).exists()]
+    if missing:
+        shown = ", ".join(target.display(resolve_scope(target, path)) for path in missing)
+        raise typer.BadParameter(
+            f"no such scope: {shown} (relative scopes resolve against the project)",
+            param_hint="'--scope'",
+        )
 
 
 def census(
@@ -73,24 +97,10 @@ def census(
     instantiations, decorators, references and mentions, with what could not be attributed."""
     state = library_state(ctx)
     target = state.target
-    invalid = [root for root in roots if not all(part.isidentifier() for part in root.split("."))]
-    if invalid:
-        raise ToolFailure(
-            "invalid_root",
-            f"not an import root: {', '.join(invalid)}",
-            "Pass top-level import names such as `pydantic`, not distribution names.",
-        )
-    missing = [path for path in scope if not resolve_scope(target, path).exists()]
-    if missing:
-        shown = ", ".join(target.display(resolve_scope(target, path)) for path in missing)
-        raise ToolFailure(
-            "scope_not_found",
-            f"no such scope: {shown}",
-            "Pass --scope naming an existing directory or file, relative to the project.",
-        )
-    result = run_census(
-        target, roots, scope, installation=state.installation, excludes=exclude or ()
-    )
+    check_roots(roots)
+    check_scopes(target, scope)
+    installation = state.installation if target.environment is not None else None
+    result = run_census(target, roots, scope, installation=installation, excludes=exclude or ())
     scanned = [
         f"scanned {group.scope}: {group.files} files of project {group.project or '(none)'}"
         for group in result.scanned_groups

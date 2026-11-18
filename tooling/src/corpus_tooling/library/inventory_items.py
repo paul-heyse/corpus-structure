@@ -591,17 +591,30 @@ def _first_file(module: Member) -> Path | None:
 def build_inventory(
     root: str, target: Target, installation: Installation, selection: InventorySelection
 ) -> InventoryResult:
-    surface = load_offered_surface([root], target.environment.site_packages)
-    result = InventoryResult(authorities=griffe_authorities())
-    result.skipped_inputs += surface.skipped_inputs
+    environment = target.require_environment()
+    surface = load_offered_surface([root], environment.site_packages)
     if root in surface.not_found:
         raise ToolFailure(
             "package_not_found",
-            f"no import package {root!r} in {target.display(target.environment.root)}",
+            f"no import package {root!r} in {target.display(environment.root)}",
             "Name a top-level import package installed in the target "
             "(`tooling library metadata DIST` lists a distribution's import names), "
             "or pass --python naming another environment.",
         )
+    result = surface_inventory(surface, root, installation, selection)
+    result.skipped_inputs[:0] = surface.skipped_inputs
+    return result
+
+
+def surface_inventory(
+    surface: OfferedSurface,
+    root: str,
+    installation: Installation,
+    selection: InventorySelection,
+) -> InventoryResult:
+    """The inventory of one root already loaded into `surface` (several roots may share one
+    collection, as `compare` loads them). The surface's own skipped inputs are not repeated."""
+    result = InventoryResult(authorities=griffe_authorities())
     owners = _Owners(installation.import_owners(root))
     if not owners.distributions:
         result.unavailable_metadata.append(UnavailableMetadata(subject=root, field="distribution"))
@@ -622,7 +635,10 @@ def build_inventory(
             unresolved[row.member.path] = _unresolved_alias(surface, row.member)
         else:
             resolved.append((row, declared))
-    for path in sorted(surface.unresolved_aliases - unresolved.keys()):
+    own = {
+        path for path in surface.unresolved_aliases if path == root or path.startswith(f"{root}.")
+    }
+    for path in sorted(own - unresolved.keys()):
         try:
             alias = surface.collection.get_member(path)
         except KeyError, griffe.AliasResolutionError, griffe.CyclicAliasError:

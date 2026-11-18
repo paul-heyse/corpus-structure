@@ -51,7 +51,10 @@ class Environment:
 @dataclass(frozen=True)
 class Target:
     project: Project | None
-    environment: Environment
+    environment: Environment | None
+    """`None` only for a project whose own environment does not exist (not created yet):
+    selection-class commands still work; installation-class commands call
+    `require_environment()`."""
     repository: Path | None
     """The git work tree holding the project (or the environment), when there is one."""
     notes: tuple[str, ...] = ()
@@ -61,9 +64,10 @@ class Target:
         and an unlocked project, so a selection command never runs uv where it might write a
         lock."""
         if self.project is None:
+            shown = self.display(self.environment.root) if self.environment else "(none)"
             raise ToolFailure(
                 "no_project",
-                f"the target environment {self.display(self.environment.root)} has no uv project",
+                f"the target environment {shown} has no uv project",
                 "Pass --project naming a directory with pyproject.toml and uv.lock.",
             )
         if self.project.lock is None:
@@ -74,6 +78,20 @@ class Target:
                 "Run `uv lock` in the project, or pass --project naming a locked project.",
             )
         return self.project
+
+    def require_environment(self) -> Environment:
+        """The environment, for installation-class commands. Refuses a project whose own
+        environment does not exist."""
+        if self.environment is not None:
+            return self.environment
+        expected = self.project.own_environment if self.project else None
+        shown = self.display(expected) if expected is not None else "(none)"
+        raise ToolFailure(
+            "environment_not_found",
+            f"no virtual environment at {shown} (pyvenv.cfg missing); this command reads the "
+            "installed distributions",
+            "Create it with `uv sync` in the project, or pass --python naming an environment.",
+        )
 
     def display(self, path: Path) -> str:
         """A path as results show it: relative to the repository, else to the project, else
@@ -262,7 +280,8 @@ def resolve_target(*, cwd: Path, project: Path | None, python: Path | None) -> T
     `--project P` names the project directory itself (no upward search: an environment-only
     directory under `services/` must not inherit the enclosing workspace). Without it, the
     project is the nearest ancestor of `cwd` holding `uv.lock`. `--python` defaults to the
-    project's own environment.
+    project's own environment; when that does not exist the target has no environment (a note
+    says so) and only `require_environment()` refuses it.
     """
     if project is not None:
         resolved_project = _project_at(_absolute(project))
@@ -270,22 +289,35 @@ def resolve_target(*, cwd: Path, project: Path | None, python: Path | None) -> T
     else:
         resolved_project = _nearest_locked(_absolute(cwd))
         search_root = resolved_project.root if resolved_project else _absolute(cwd)
+    environment: Environment | None
     if python is not None:
-        environment_root = _environment_root(python)
+        environment = read_environment(_environment_root(python))
     elif resolved_project is not None:
-        environment_root = _absolute(resolved_project.own_environment)
+        own = _absolute(resolved_project.own_environment)
+        # A project without its environment stays a target: selection needs only the lock.
+        environment = read_environment(own) if (own / "pyvenv.cfg").is_file() else None
     elif project is not None:
-        environment_root = search_root / ".venv"
+        environment = read_environment(search_root / ".venv")
     else:
         raise ToolFailure(
             "target_not_found",
             f"no uv.lock in {_absolute(cwd).as_posix()} or its ancestors",
             "Pass --project naming a uv project, or --python naming an environment.",
         )
-    environment = read_environment(environment_root)
     notes: list[str] = []
-    repository = git_toplevel(resolved_project.root if resolved_project else environment.root)
+    if resolved_project is not None:
+        repository = git_toplevel(resolved_project.root)
+    else:
+        assert environment is not None  # read above, or a failure was raised
+        repository = git_toplevel(environment.root)
     target = Target(resolved_project, environment, repository)
+    if environment is None:
+        assert resolved_project is not None
+        notes.append(
+            f"no environment at {target.display(resolved_project.own_environment)}: selection "
+            "facts only; installation-class commands refuse this target"
+        )
+        return Target(resolved_project, None, repository, tuple(notes))
     if environment.includes_system_site_packages:
         notes.append(
             f"{target.display(environment.root)} sets include-system-site-packages = true; the "

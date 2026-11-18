@@ -117,7 +117,7 @@ def test_default_distribution_is_the_stem_and_its_absence_is_reported(cli, trees
     )
     assert main["stated_version"] == "2.1.0"
     assert envelope["coverage"]["unavailable_metadata"] == [
-        {"subject": "widget", "field": "installed distribution"}
+        {"subject": "widget", "field": "installed distribution", "detail": ""}
     ]
     assert any(note.startswith("widget: no installed distribution") for note in envelope["notes"])
 

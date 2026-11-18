@@ -16,8 +16,8 @@ Typing presence is a check of the distribution's `RECORD`: `py.typed`, `.pyi` fi
 separate installed distribution shipping a `<import name>-stubs` directory (PEP 561). An editable
 install records only its `.pth` file, so its typing is reported unavailable, not absent.
 
-A requested name with no installed distribution is an `unavailable_metadata` row, with the
-closest installed names in `notes`.
+A requested name with no installed distribution is an `unavailable_metadata` row whose `detail`
+names the closest installed names.
 """
 
 from __future__ import annotations
@@ -363,25 +363,26 @@ def metadata_rows(
     target: Target,
     requested: Sequence[str],
     graph: selection_module.SelectionGraph | None,
-) -> tuple[list[DistributionMetadata], list[UnavailableMetadata], list[str]]:
+) -> tuple[list[DistributionMetadata], list[UnavailableMetadata]]:
     items: list[DistributionMetadata] = []
     unavailable: list[UnavailableMetadata] = []
-    notes: list[str] = []
     for name in dict.fromkeys(requested):
         lookup = installation.lookup(name)
         if not lookup.matches:
-            unavailable.append(UnavailableMetadata(subject=name, field="installed distribution"))
             close = ", ".join(lookup.close_matches)
-            notes.append(
-                f"{name}: no installed distribution in the target environment"
-                + (f"; close matches: {close}" if close else "")
+            unavailable.append(
+                UnavailableMetadata(
+                    subject=name,
+                    field="installed distribution",
+                    detail=f"close matches: {close}" if close else "no close matches",
+                )
             )
             continue
         for distribution in lookup.matches:
             item = metadata_item(installation, distribution, target, graph)
             items.append(item)
             unavailable += unavailable_fields(item)
-    return items, unavailable, notes
+    return items, unavailable
 
 
 def metadata(
@@ -400,7 +401,8 @@ def metadata(
     target = state.target
     installation = state.installation
     view = read_selection(target)
-    items, unavailable, notes = metadata_rows(installation, target, distributions, view.graph)
+    items, unavailable = metadata_rows(installation, target, distributions, view.graph)
+    notes: list[str] = []
     if items:
         notes.append(
             "companions: required_by and entry_point_peers cover installed distributions only; "

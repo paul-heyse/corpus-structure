@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Annotated, ClassVar, Literal
 
 from pydantic import AfterValidator, Field
@@ -174,6 +175,17 @@ def location(path: str, line: int, column: int) -> str:
 
 
 @dataclass(frozen=True)
+class ScopeFile:
+    """A file in a census scope: its path, how results show it, the scope root it was found
+    under and the uv project owning it (the nearest directory holding `uv.lock`)."""
+
+    path: Path
+    display: str
+    scope: str
+    project: str | None
+
+
+@dataclass(frozen=True)
 class ScannedGroup:
     """Files read under one scope root that one uv project owns."""
 
@@ -195,6 +207,13 @@ class CensusResult:
     excluded: list[str] = field(default_factory=list)
     skipped_inputs: list[SkippedInput] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    python_files: tuple[ScopeFile, ...] = ()
+    """The Python files in scope; empty for a census read back with `load_census`."""
+    scopes: tuple[str, ...] = ()
+    """The `--scope` values as given; for a saved census, read from its command."""
+    excludes: tuple[str, ...] = ()
+    baseline_revision: str | None = None
+    """For a saved census: the revision it was taken at."""
 
 
 CensusSitesEnvelope = Envelope[CensusSite, CensusUnresolved]
@@ -213,9 +232,13 @@ def load_census(text: str) -> CensusResult:
     if envelope.truncated:
         raise ValueError("the saved census is truncated; save it with --sites --limit 0")
     roots = _roots_from_command(envelope.command)
+    options = _options_from_command(envelope.command)
     coverage = envelope.coverage
     return CensusResult(
         roots=roots,
+        scopes=tuple(options.get("--scope", ())),
+        excludes=tuple(options.get("--exclude", ())),
+        baseline_revision=envelope.baseline.revision if envelope.baseline else None,
         sites=list(envelope.items),
         unresolved=list(coverage.unresolved),
         scanned=coverage.scanned,
@@ -242,6 +265,23 @@ def _roots_from_command(command: str) -> tuple[str, ...]:
             continue
         roots.append(token)
     return tuple(roots)
+
+
+def _options_from_command(command: str) -> dict[str, list[str]]:
+    """The values of the census's repeatable value options in a normalized command."""
+    import shlex
+
+    tokens = shlex.split(command)
+    if "census" not in tokens:
+        return {}
+    found: dict[str, list[str]] = {}
+    rest = iter(tokens[tokens.index("census") + 1 :])
+    for token in rest:
+        if token in _VALUE_OPTIONS:
+            value = next(rest, None)
+            if value is not None:
+                found.setdefault(token, []).append(value)
+    return found
 
 
 _VALUE_OPTIONS = {"--scope", "--exclude", "--limit", "--offset"}

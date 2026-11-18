@@ -47,6 +47,7 @@ from corpus_tooling.library.census_rows import (
     CensusUnresolved,
     ImportContext,
     ScannedGroup,
+    ScopeFile,
     location,
 )
 from corpus_tooling.library.installed import Installation, normalize_name
@@ -75,14 +76,6 @@ _IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]*"
 
 
 # --- files in scope ------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class ScopeFile:
-    path: Path
-    display: str
-    scope: str
-    project: str | None
 
 
 @dataclass
@@ -154,6 +147,11 @@ class _Projects:
             owner = self.owner(directory.parent)
         self._cache[directory] = owner
         return owner
+
+
+def project_of(display: Callable[[Path], str]) -> Callable[[Path], str | None]:
+    """The function from a directory to the uv project owning it, shown with `display`."""
+    return _Projects(display).owner
 
 
 def _list_scope_files(
@@ -767,6 +765,18 @@ def resolve_scope(target: Target, scope: Path) -> Path:
     return Path(os.path.abspath(base / scope))
 
 
+def list_python_files(
+    target: Target, scopes: Sequence[Path], *, excludes: Sequence[str] = ()
+) -> list[ScopeFile]:
+    """The Python files a census over `scopes` reads (relative scopes against the project),
+    each with the uv project owning it."""
+    resolved = [resolve_scope(target, scope) for scope in scopes]
+    listing = _list_scope_files(
+        resolved, display=target.display, repository=target.repository, excludes=excludes
+    )
+    return listing.python
+
+
 def run_census(
     target: Target,
     roots: Sequence[str],
@@ -782,7 +792,16 @@ def run_census(
     distributions whose names count as mentions; without it only the root's own name does.
     `workers` bounds the attributed pass's processes (1 runs it in this process)."""
     resolved = [resolve_scope(target, scope) for scope in scopes]
-    feature_version, notes = _feature_version(target.environment.python_version)
+    if target.environment is not None:
+        feature_version, notes = _feature_version(target.environment.python_version)
+    else:
+        feature_version, notes = (
+            None,
+            [
+                "no target environment: validity judged by the tool's Python "
+                f"{sys.version_info[0]}.{sys.version_info[1]}"
+            ],
+        )
     listing = _list_scope_files(
         resolved, display=target.display, repository=target.repository, excludes=excludes
     )
@@ -820,6 +839,9 @@ def run_census(
     sites = _label_instantiations(sites)
     return CensusResult(
         roots=tuple(roots),
+        python_files=tuple(listing.python),
+        scopes=tuple(str(scope) for scope in scopes),
+        excludes=tuple(excludes),
         sites=sites,
         unresolved=unresolved,
         scanned=len(listing.python) + len(listing.pyprojects) + len(listing.yaml),

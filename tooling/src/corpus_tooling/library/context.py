@@ -95,7 +95,9 @@ def read_provenance(target: Target) -> Provenance:
             version=environment.python_version,
             implementation=environment.implementation,
             environment=target.display(environment.root),
-        ),
+        )
+        if environment is not None
+        else None,
         platform=sysconfig.get_platform(),
         lock_digest=lock_digest,
     )
@@ -116,7 +118,8 @@ class LibraryState:
 
     @cached_property
     def installation(self) -> Installation:
-        return Installation(self.target.environment)
+        """The installation reader; refuses a target without an environment."""
+        return Installation(self.target.require_environment())
 
     @cached_property
     def provenance(self) -> Provenance:

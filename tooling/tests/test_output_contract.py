@@ -68,8 +68,17 @@ def probe(
     read_installation: Annotated[bool, typer.Option("--read-installation")] = False,
     emit_twice: Annotated[bool, typer.Option("--emit-twice")] = False,
     fail_after_emit: Annotated[bool, typer.Option("--fail-after-emit")] = False,
+    bad_parameter: Annotated[bool, typer.Option("--bad-parameter")] = False,
+    click_usage: Annotated[bool, typer.Option("--click-usage")] = False,
+    many_unresolved: Annotated[int, typer.Option("--many-unresolved")] = 0,
 ) -> None:
     diagnostic("probe: scanning \x1b[31mfive\x1b[0m sites")
+    if bad_parameter:
+        raise typer.BadParameter("no such scope: nowhere", param_hint="'--scope'")
+    if click_usage:
+        import click  # the standalone package, installed beside Typer's vendored copy
+
+        raise click.BadParameter("not a root", param_hint="'ROOTS...'")
     if fail:
         raise ToolFailure("probe_failed", "the probe could not run", "Pass fewer flags.")
     if crash:
@@ -100,9 +109,17 @@ def probe(
             )
         ]
         if unresolved
-        else [],
+        else [
+            ProbeUnresolved(
+                kind="instance_member" if n % 3 else "assignment_alias",
+                subject=f"m{n}.dump",
+                location=f"pkg/m{n:02d}.py:4:1",
+                expression="m.dump()",
+            )
+            for n in range(many_unresolved)
+        ],
         skipped_inputs=[SkippedInput(input="pkg/bad.py", reason="parse_error")] if skipped else [],
-        notes=[f"target python {target.environment.python_version}"],
+        notes=[f"target python {target.require_environment().python_version}"],
     )
     emit(envelope, json=json, strict=strict)
     if emit_twice:
@@ -511,3 +528,67 @@ def test_system_site_packages_are_noted_as_not_read(cli, trees) -> None:
         f"{trees.elsewhere.as_posix()} sets include-system-site-packages = true; the base "
         "interpreter's packages are not read"
     ) in json.loads(result.stdout)["notes"]
+
+
+def test_usage_error_in_a_command_body_is_exit_2_without_an_envelope(cli, trees) -> None:
+    project = ("--project", str(trees.project))
+    typer_error = _run(cli, *project, "probe", "--json", "--bad-parameter")
+    assert (typer_error.exit_code, typer_error.stdout) == (2, "")
+    assert "no such scope: nowhere" in typer_error.stderr
+    click = pytest.importorskip("click")
+    assert click.BadParameter is not typer.BadParameter  # Typer vendors its own Click
+    click_error = _run(cli, *project, "probe", "--json", "--click-usage")
+    assert (click_error.exit_code, click_error.stdout) == (2, "")
+    assert "Invalid value for 'ROOTS...': not a root" in click_error.stderr
+    assert "internal_error" not in click_error.stderr
+
+
+def test_project_without_environment_serves_selection_and_baseline_only(cli, trees) -> None:
+    (trees.project / ".venv" / "pyvenv.cfg").unlink()
+    selection = _run(cli, "--project", str(trees.project), "selection-probe", "--json")
+    assert selection.exit_code == 0, selection.output
+    envelope = json.loads(selection.stdout)
+    assert envelope["baseline"]["project"] == "."
+    assert envelope["baseline"]["python"] is None
+    assert envelope["notes"] == [
+        "no environment at .venv: selection facts only; installation-class commands refuse "
+        "this target"
+    ]
+    baseline = _run(cli, "--project", str(trees.project), "baseline", "--json")
+    assert baseline.exit_code == 0, baseline.output
+    assert json.loads(baseline.stdout)["items"][0]["name"] == "fixture-root"
+    installation = _run(cli, "--project", str(trees.project), "probe", "--json")
+    assert installation.exit_code == 3
+    failure = json.loads(installation.stdout)
+    assert failure["error"]["kind"] == "environment_not_found"
+    assert "uv sync" in failure["error"]["remedy"]
+    assert failure["baseline"]["python"] is None  # the target resolved; its baseline is kept
+    rendered = _run(cli, "--project", str(trees.project), "selection-probe")
+    assert "python=- environment=-" in rendered.stdout
+
+
+def test_rendered_coverage_lists_are_grouped_and_bounded(cli, trees) -> None:
+    project = ("--project", str(trees.project))
+    result = _run(cli, *project, "probe", "--many-unresolved", "10")
+    assert result.exit_code == 0, result.output
+    lines = result.stdout.splitlines()
+    rows = [line for line in lines if line.startswith("# unresolved\t")]
+    # 10 rows: n = 0, 3, 6, 9 are assignment_alias (4), the other 6 instance_member.
+    assert [row.split("\t")[1] for row in rows] == ["instance_member"] * 3 + [
+        "assignment_alias"
+    ] * 3
+    assert (
+        "# unresolved by kind: instance_member=6 assignment_alias=4; showing up to 3 of each "
+        "(--json lists every row)"
+    ) in lines
+    complete = _run(cli, *project, "probe", "--many-unresolved", "10", "--json")
+    assert len(json.loads(complete.stdout)["coverage"]["unresolved"]) == 10
+    rich = CliRunner().invoke(
+        cli,
+        ["library", *project, "probe", "--many-unresolved", "10"],
+        env={"TTY_COMPATIBLE": "1", "COLUMNS": "200", "NO_COLOR": "1"},
+    )
+    assert "unresolved (6 of 10)" in rich.stdout
+    assert "unresolved by kind: instance_member=6 assignment_alias=4" in rich.stdout
+    few = _run(cli, *project, "probe", "--unresolved")
+    assert not any(line.startswith("# unresolved by") for line in few.stdout.splitlines())

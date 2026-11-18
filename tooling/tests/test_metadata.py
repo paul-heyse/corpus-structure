@@ -182,6 +182,7 @@ def test_alpha_metadata_extras_entry_points_typing_and_companions(cli, trees, si
         {
             "subject": "alpha-pkg 1.2.0",
             "field": "license (License-Expression, License, classifier)",
+            "detail": "",
         }
     ]
     assert any(
@@ -217,13 +218,12 @@ def test_multi_owner_import_name_conditional_dependent_and_unselected(cli, trees
 def test_unmatched_name_is_unavailable_with_close_matches(cli, trees, site, uv_selects):
     envelope = _run(cli, trees, "alpah-pkg")
     assert envelope["items"] == []
-    assert {"subject": "alpah-pkg", "field": "installed distribution"} in envelope["coverage"][
-        "unavailable_metadata"
+    (missing,) = [
+        row for row in envelope["coverage"]["unavailable_metadata"] if row["subject"] == "alpah-pkg"
     ]
-    assert any(
-        note.startswith("alpah-pkg: no installed distribution") and "alpha-pkg" in note
-        for note in envelope["notes"]
-    )
+    assert missing["field"] == "installed distribution"
+    assert missing["detail"].startswith("close matches: ") and "alpha-pkg" in missing["detail"]
+    assert not any(note.startswith("alpah-pkg") for note in envelope["notes"])
     # The two unreadable fixture folders (delta, broken) are skipped inputs of the read.
     assert len(envelope["coverage"]["skipped_inputs"]) == 2
 

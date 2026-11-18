@@ -6,7 +6,11 @@
   are derived from the `columns` the item kind declares, so a command writes no rendering code.
 - Diagnostics and progress go to stderr. Consoles are created per call, so a test runner's
   stream swap and `COLUMNS` reach them.
-- Exit codes: 0 delivered (zero hits and unresolved rows included); 2 usage (Typer's own);
+- Coverage row lists (skipped inputs, unresolved rows, unavailable metadata) are rendered grouped
+  by reason, kind or field, with counts and the first few rows of each group; `--json` always
+  carries every row.
+- Exit codes: 0 delivered (zero hits and unresolved rows included); 2 usage (Typer's own, and
+  a usage error raised in a command body; no envelope);
   3 `ToolFailure` (or an unexpected error), delivered as the same envelope with
   `status: failed`; 1 under `--strict` when `coverage.skipped_inputs` is not empty.
 - Text from outside the tool is rendered literally with terminal control sequences removed.
@@ -258,8 +262,8 @@ def _baseline_fields(envelope: Envelope[Any, Any]) -> list[tuple[str, str]]:
         python = baseline.python
         fields += [
             ("project", _cell(baseline.project)),
-            ("python", _cell(python.version)),
-            ("environment", _cell(python.environment)),
+            ("python", _cell(python.version if python else None)),
+            ("environment", _cell(python.environment if python else None)),
             ("platform", _cell(baseline.platform)),
             ("revision", _cell(baseline.revision)),
             ("dirty", str(len(baseline.dirty_paths))),
@@ -284,6 +288,47 @@ def _row_cells(row: Any) -> list[str]:
     return [_cell(getattr(row, name)) for name in type(row).model_fields]
 
 
+RENDERED_PER_GROUP = 3
+"""Coverage rows a rendering shows per group (kind, reason or field); `--json` shows all."""
+
+
+@dataclass(frozen=True)
+class _CoverageList:
+    label: str
+    """The plain-format line tag and the Rich table title."""
+    group_field: str
+    rows: Sequence[Any]
+
+    def groups(self) -> list[tuple[str, list[Any]]]:
+        grouped: dict[str, list[Any]] = {}
+        for row in self.rows:
+            grouped.setdefault(_cell(getattr(row, self.group_field)), []).append(row)
+        return sorted(grouped.items(), key=lambda entry: (-len(entry[1]), entry[0]))
+
+    def shown(self) -> list[Any]:
+        return [row for _, rows in self.groups() for row in rows[:RENDERED_PER_GROUP]]
+
+    def summary(self) -> str | None:
+        """One line of counts per group, and how to get every row, when rows are hidden."""
+        groups = self.groups()
+        if not any(len(rows) > RENDERED_PER_GROUP for _, rows in groups):
+            return None
+        counts = " ".join(f"{name}={len(rows)}" for name, rows in groups)
+        return (
+            f"{self.label} by {self.group_field}: {counts}; showing up to {RENDERED_PER_GROUP} "
+            "of each (--json lists every row)"
+        )
+
+
+def _coverage_lists(envelope: Envelope[Any, Any]) -> list[_CoverageList]:
+    coverage = envelope.coverage
+    return [
+        _CoverageList("skipped", "reason", coverage.skipped_inputs),
+        _CoverageList("unresolved", "kind", coverage.unresolved),
+        _CoverageList("unavailable", "field", coverage.unavailable_metadata),
+    ]
+
+
 def render_plain(envelope: Envelope[Any, Any]) -> str:
     """Dense lines for a pipe: tab-separated items; context lines start with `# `."""
     columns = _columns(envelope)
@@ -291,12 +336,11 @@ def render_plain(envelope: Envelope[Any, Any]) -> str:
     lines.append("# columns\t" + "\t".join(column.title for column in columns))
     lines += ["\t".join(_cell(getattr(item, c.field)) for c in columns) for item in envelope.items]
     lines.append("# coverage " + " ".join(f"{k}={v}" for k, v in _coverage_fields(envelope)))
-    coverage = envelope.coverage
-    lines += ["# skipped\t" + "\t".join(_row_cells(row)) for row in coverage.skipped_inputs]
-    lines += ["# unresolved\t" + "\t".join(_row_cells(row)) for row in coverage.unresolved]
-    lines += [
-        "# unavailable\t" + "\t".join(_row_cells(row)) for row in coverage.unavailable_metadata
-    ]
+    for listing in _coverage_lists(envelope):
+        summary = listing.summary()
+        if summary is not None:
+            lines.append(f"# {summary}")
+        lines += [f"# {listing.label}\t" + "\t".join(_row_cells(row)) for row in listing.shown()]
     lines += [f"# note\t{_cell(note)}" for note in envelope.notes]
     lines += [f"# {line}" for line in _truncation_lines(envelope)]
     return "\n".join(lines) + "\n"
@@ -331,15 +375,15 @@ def render_rich(envelope: Envelope[Any, Any]) -> RenderableType:
         )
     )
     parts.append(_fields_grid(_coverage_fields(envelope)))
-    coverage = envelope.coverage
-    for title, rows in (
-        ("skipped inputs", coverage.skipped_inputs),
-        ("unresolved", coverage.unresolved),
-        ("unavailable metadata", coverage.unavailable_metadata),
-    ):
+    for listing in _coverage_lists(envelope):
+        rows = listing.shown()
         if rows:
             headers = list(type(rows[0]).model_fields)
+            title = f"{listing.label} ({len(rows)} of {len(listing.rows)})"
             parts.append(_rows_table(title, headers, [_row_cells(row) for row in rows]))
+        summary = listing.summary()
+        if summary is not None:
+            parts.append(Text(summary))
     parts += [Text(f"note: {_cell(note)}") for note in envelope.notes]
     # The next-page command stays on one line so it can be copied whole.
     parts += [Text(line, no_wrap=True, overflow="ignore") for line in _truncation_lines(envelope)]
@@ -432,10 +476,35 @@ def _failure_context(ctx: typer.Context) -> FailureContext:
     return FailureContext()
 
 
+EXIT_USAGE = 2
+
+
+def _is_foreign_usage_error(error: Exception) -> bool:
+    """A usage error from the standalone `click` package (installed beside Typer, which vendors
+    its own copy): a `UsageError` subclass such as `BadParameter`."""
+    return any(
+        kind.__name__ == "UsageError" and kind.__module__.split(".", 1)[0] == "click"
+        for kind in type(error).__mro__
+    )
+
+
+def _report_usage_error(error: Exception) -> NoReturn:
+    """Report a usage error raised inside a command body as Typer reports its own: a message on
+    stderr, exit 2, no envelope."""
+    format_message = getattr(error, "format_message", None)
+    message = format_message() if callable(format_message) else str(error)
+    with suppress(OSError):
+        sys.stderr.write(f"Error: {safe_text(message)}\n")
+        sys.stderr.flush()
+    raise typer.Exit(EXIT_USAGE)
+
+
 class EnvelopeCommand(TyperCommand):
     """Turns a `ToolFailure` (or an unexpected exception, traceback on stderr) raised by the
-    command into exit 3 with a `status: failed` envelope. After the envelope was delivered, a
-    later failure still exits 3, reported on stderr only: stdout never gets a second result."""
+    command into exit 3 with a `status: failed` envelope. A usage error raised in the body
+    (`typer.BadParameter`, or a `click` usage error) exits 2 with no envelope, as one raised
+    while parsing does. After the envelope was delivered, a later failure still exits 3,
+    reported on stderr only: stdout never gets a second result."""
 
     def invoke(self, ctx: Any) -> Any:
         delivery = _Delivery()
@@ -445,10 +514,12 @@ class EnvelopeCommand(TyperCommand):
         except ToolFailure as failure:
             error = failure.error
         except typer.Exit, typer.Abort, typer.TyperException, KeyboardInterrupt:
-            raise
+            raise  # usage and parameter errors (Typer's vendored Click) keep Typer's handling
         except Exception as unexpected:
             if type(unexpected).__module__.startswith("typer"):
-                raise  # usage and parameter errors keep Typer's own handling
+                raise
+            if _is_foreign_usage_error(unexpected):
+                _report_usage_error(unexpected)  # exit 2, never an envelope
             traceback.print_exc(file=sys.stderr)
             error = ErrorInfo(
                 kind="internal_error",

@@ -369,11 +369,13 @@ def test_two_roots(cli, repo) -> None:
 
 def test_scope_is_required_and_must_exist(cli, repo) -> None:
     assert _run(cli, repo, "alpha", "--json").exit_code == 2
+    # A path the caller names that does not exist is a usage error, as for --project.
     missing = _run(cli, repo, "alpha", "--scope", "nowhere", "--json")
-    assert missing.exit_code == 3
-    assert json.loads(missing.stdout)["error"]["kind"] == "scope_not_found"
+    assert (missing.exit_code, missing.stdout) == (2, "")
+    assert "no such scope: nowhere" in missing.stderr
     invalid = _run(cli, repo, "alpha-pkg", "--scope", "src", "--json")
-    assert json.loads(invalid.stdout)["error"]["kind"] == "invalid_root"
+    assert (invalid.exit_code, invalid.stdout) == (2, "")
+    assert "not an import root: alpha-pkg" in invalid.stderr
 
 
 def test_exclude_glob(cli, repo) -> None:

@@ -117,10 +117,12 @@ class SkippedInput(_Frozen):
 
 
 class UnavailableMetadata(_Frozen):
-    """A metadata field the authority does not provide for a subject."""
+    """A metadata field the authority does not provide for a subject. `detail` says what is
+    known instead, such as the closest installed names for an unmatched distribution."""
 
     subject: str
     field: str
+    detail: str = ""
 
 
 class Coverage[U: Unresolved](_Frozen):
@@ -159,7 +161,9 @@ class Baseline(_Frozen):
     revision: str | None
     dirty_paths: list[str]
     project: str | None
-    python: TargetPython
+    python: TargetPython | None = Field(
+        description="Null only for a project whose own environment does not exist."
+    )
     platform: str
     lock_digest: str | None
 

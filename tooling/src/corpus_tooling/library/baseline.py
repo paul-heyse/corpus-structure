@@ -2,8 +2,9 @@
 
 Items (`baseline_entry`): the project itself, its workspace members, the dependency groups each
 declares, and the other uv projects (directories holding a `uv.lock`) in the repository, each
-with its Python requirement. An installation-class command: an environment with no project is
-accepted and yields no items.
+with its Python requirement. It accepts any target: an environment with no project yields no
+items, and a project whose own environment does not exist yields its items with a null
+`baseline.python` and a note saying no environment was found.
 """
 
 from __future__ import annotations

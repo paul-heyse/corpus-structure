@@ -13,7 +13,15 @@ from typing import Annotated
 
 import typer
 
-from corpus_tooling.library import baseline, census, inventory, metadata, overview, selection
+from corpus_tooling.library import (
+    baseline,
+    census,
+    compare,
+    inventory,
+    metadata,
+    overview,
+    selection,
+)
 from corpus_tooling.library.context import LibraryState
 from corpus_tooling.output import envelope_commands
 
@@ -26,6 +34,7 @@ REGISTRATIONS: Sequence[Registration] = [
     metadata.register,
     inventory.register,
     census.register,
+    compare.register,
     overview.register,
 ]
 
