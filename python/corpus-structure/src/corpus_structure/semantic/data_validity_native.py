@@ -39,6 +39,9 @@ from .native_program import (
     function,
     pg_type,
 )
+from .native_program import (
+    literal as pg_literal,
+)
 
 
 def _json(value):
@@ -613,7 +616,7 @@ def data_validity_sql(model: MetaData) -> str:
     kind, identity = (core_variable(name, Text()) for name in ("p_kind", "p_id"))
     array_type = pg_type("text")
     array_type.arrayBounds = (ast.Integer(ival=-1),)
-    empty = ast.TypeCast(arg=ast.A_ArrayExpr(), typeName=array_type)
+    empty = ast.TypeCast(arg=pg_literal("{}"), typeName=array_type)
 
     def selected(name):
         return case((kind == name, array([identity])), else_=array((), type_=Text()))
