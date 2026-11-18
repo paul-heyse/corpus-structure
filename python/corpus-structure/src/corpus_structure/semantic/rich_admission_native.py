@@ -225,6 +225,19 @@ def _rich_producer_programs(p):
     ), (p.local("r", "ops.data_request"), p.local("producing", "ops.data_derivation"), p.local("intent", "ops.data_completion_intent")), returns="boolean")
 
 
+def _retained_completion(p, request_name, reference):
+    episodes, intents = p.table("ops.data_derivation"), p.table("ops.data_completion_intent")
+    support = _items(reference["support_references"], "support")
+    return SelectInto(select(intents.c.payload).select_from(episodes.join(intents, intents.c.id == episodes.c.intent_id)).where(
+        episodes.c.request_id == p.row(request_name, "ops.data_request", "id"),
+        select(1).select_from(support).where(support.c.value["derivation_id"].astext == episodes.c.id).exists(),
+    ), ("item",), strict=True)
+
+
+def _selected_reference(selected):
+    return func.jsonb_build_object("product_id", selected["product_id"].astext, "member_id", literal(None), "kind_contract", selected["kind_contract"].astext, "support_references", selected["support"], type_=JSONB())
+
+
 def _rich_preparation_programs(p):
     operation = p.row("r", "ops.data_request", "operation_id")
     request, completion = p.row("r", "ops.data_request"), _value("completion")
@@ -233,6 +246,27 @@ def _rich_preparation_programs(p):
         Perform(func.ops.ddo_rich_require_preparation_producer(request, completion)),
         _reject(func.ops.ddo_cpu_reply_output(request, completion).is_distinct_from(func.data.ddo_normalize(completion["outputs"][0]["product"]["body"])), "rich preparation differs from actual original CPU reply and input basis"),
         If(operation == "rich.consolidate", (Perform(func.ops.ddo_rich_require_proposal_inputs(p.row("r", "ops.data_request", "project_id"), func.ops.ddo_cpu_input_basis(request))),)),
+    ))
+    selected, reference, item = (_value(name) for name in ("selected", "reference", "item"))
+    basis, project = _value("basis"), _value("project", Text())
+    headers = func.ops.ddo_rich_role_headers(basis).table_valued(column("value", JSONB())).render_derived(name="header")
+    loops = []
+    for role, request_name, operation_name, factory, message in (
+        ("proposals", "located_request", "locate.external_extraction", "corpus_structure.methods.external_extraction.RichExtractionPlacementOperation.acquire_port", "rich proposal differs from actual located CPU output"),
+        ("proposal_contexts", "packet_request", "prepare.external_extraction", "corpus_structure.methods.external_extraction.RichExtractionInputOperation.acquire_port", "rich proposal context differs from actual prepared CPU packet"),
+    ):
+        body = (
+            Assign("reference", _selected_reference(selected)),
+            Assign(request_name, func.ops.ddo_rich_producing_request(project, reference, operation_name, factory, "result", True)),
+            _retained_completion(p, request_name, reference),
+            Perform(func.ops.ddo_require_rich_preparation_completion(p.row(request_name, "ops.data_request"), item)),
+            _reject(item["outputs"][0]["product"]["body"].is_distinct_from(func.ops.ddo_rich_selected_value(project, basis, role, reference)), message),
+        )
+        if role == "proposals":
+            body += (Perform(func.ops.ddo_rich_require_proposal_context(basis, func.ops.ddo_cpu_input_basis(p.row(request_name, "ops.data_request")))),)
+        loops.append(ForQuery(("selected",), select(headers.c.value).where(headers.c.value["role"].astext == role), body))
+    p.add("ddo_rich_require_proposal_inputs", (("project", "text"), ("basis", "jsonb")), tuple(loops), (
+        *(p.local(name) for name in ("selected", "reference", "item")), p.local("located_request", "ops.data_request"), p.local("packet_request", "ops.data_request"),
     ))
 
 
@@ -250,39 +284,6 @@ def _rich_completion_sql() -> str:
 
 
 
-
-CREATE OR REPLACE FUNCTION ops.ddo_rich_require_proposal_inputs(project text,basis jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE selected jsonb; reference jsonb; item jsonb; located_request ops.data_request; packet_request ops.data_request;
-BEGIN
- -- Located extraction drops macros; authenticate its actual immutable packet
- -- input rather than equating two packets that merely share source coordinates.
- FOR selected IN SELECT value FROM ops.ddo_rich_role_headers(basis) header(value) WHERE value->>'role'='proposals' LOOP
- reference:=jsonb_build_object('product_id',selected->>'product_id','member_id',NULL,'kind_contract',selected->>'kind_contract','support_references',selected->'support');
- located_request:=ops.ddo_rich_producing_request(project,reference,'locate.external_extraction',
- 'corpus_structure.methods.external_extraction.RichExtractionPlacementOperation.acquire_port','result',true);
- SELECT intent.payload INTO STRICT item FROM ops.data_derivation producer
- JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
- WHERE producer.request_id=located_request.id AND EXISTS(SELECT FROM jsonb_array_elements(reference->'support_references') support WHERE support->>'derivation_id'=producer.id);
- PERFORM ops.ddo_require_rich_preparation_completion(located_request,item);
- IF item->'outputs'->0->'product'->'body' IS DISTINCT FROM
- ops.ddo_rich_selected_value(project,basis,'proposals',reference) THEN
- RAISE EXCEPTION 'rich proposal differs from actual located CPU output' USING ERRCODE='23514'; END IF;
- PERFORM ops.ddo_rich_require_proposal_context(basis,ops.ddo_cpu_input_basis(located_request));
- END LOOP;
- FOR selected IN SELECT value FROM ops.ddo_rich_role_headers(basis) header(value) WHERE value->>'role'='proposal_contexts' LOOP
- reference:=jsonb_build_object('product_id',selected->>'product_id','member_id',NULL,'kind_contract',selected->>'kind_contract','support_references',selected->'support');
- packet_request:=ops.ddo_rich_producing_request(project,reference,'prepare.external_extraction',
- 'corpus_structure.methods.external_extraction.RichExtractionInputOperation.acquire_port','result',true);
- SELECT intent.payload INTO STRICT item FROM ops.data_derivation producer
- JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
- WHERE producer.request_id=packet_request.id AND EXISTS(SELECT FROM jsonb_array_elements(reference->'support_references') support WHERE support->>'derivation_id'=producer.id);
- PERFORM ops.ddo_require_rich_preparation_completion(packet_request,item);
- IF item->'outputs'->0->'product'->'body' IS DISTINCT FROM
- ops.ddo_rich_selected_value(project,basis,'proposal_contexts',reference) THEN
- RAISE EXCEPTION 'rich proposal context differs from actual prepared CPU packet' USING ERRCODE='23514'; END IF;
- END LOOP;
-END $rich$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_require_rich_admission_completion(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
@@ -512,5 +513,5 @@ BEGIN
  RAISE EXCEPTION 'rich selected readings differ from actual retained assertion packets' USING ERRCODE='23514'; END IF;
 END $rich$;
 
-REVOKE ALL ON FUNCTION ops.ddo_rich_require_proposal_inputs(text,jsonb),ops.ddo_require_rich_admission_completion(ops.data_request,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.ddo_require_rich_admission_completion(ops.data_request,jsonb) FROM PUBLIC;
 """
