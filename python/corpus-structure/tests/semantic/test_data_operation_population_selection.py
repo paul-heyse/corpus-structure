@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 import pglast
@@ -17,6 +16,7 @@ from semantic.data_operation_binding_support import (
     binding_native_connection as binding_native_connection,
 )
 from semantic.data_operation_binding_support import (
+    binding_source_recipe,
     context,
     evaluate,
     field,
@@ -26,11 +26,7 @@ from semantic.data_operation_binding_support import (
 
 @pytest.fixture
 def selection_connection(binding_native_connection):
-    source = (
-        Path(__file__).resolve().parents[2]
-        / "src/corpus_structure/semantic/sql/data_operations.sql"
-    )
-    prepared = prepare_sql(source.read_text(), source="population-filter")
+    prepared = prepare_sql(binding_source_recipe().codecs.decode(), source="population-filter")
     for index, raw in enumerate(prepared.statements):
         if (
             isinstance(raw.stmt, ast.CreateFunctionStmt)
@@ -177,6 +173,7 @@ def test_population_scope_uses_selected_context_without_relabelling_source_episo
     selected_context = {
         "operation_id": "urn:consumer",
         "subject": "comparison:one",
+        "subject_definition": "comparison",
         "original_source": "source:analysis",
         "analyzed_scope": {"pair": 1},
     }

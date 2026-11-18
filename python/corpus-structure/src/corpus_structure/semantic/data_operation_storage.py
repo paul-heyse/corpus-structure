@@ -95,6 +95,7 @@ def native_protocol_sources(
     from .operation_event_native import operation_event_native_sources
     from .pdf_completion_native import pdf_completion_native_sql
     from .pdf_source_search import search_projection_sources
+    from .population_acquisition_native import population_acquisition_native_sql
     from .record_grade_native import record_grade_native_sql
     from .record_policy_completion_native import record_policy_completion_native_sql
     from .record_policy_native import (
@@ -365,6 +366,14 @@ def native_protocol_sources(
             "native/data-read-boundary.sql", read_boundary_native_sql(target_metadata).encode()
         ),
         SourceArtifact(
+            "native/population-acquisition.sql",
+            population_acquisition_native_sql(target_metadata).encode(),
+        ),
+        SourceArtifact(
+            "native/population-acquisition.py",
+            Path(__file__).with_name("population_acquisition_native.py").read_bytes(),
+        ),
+        SourceArtifact(
             "native/data-read-boundary.py",
             Path(__file__).with_name("data_read_boundary_native.py").read_bytes(),
         ),
@@ -624,6 +633,7 @@ def native_sql(sources=None) -> str:
             # SQL-language structural helpers resolve the tagged-value functions
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
+            "native/population-acquisition.sql",
             "native/data-claim.sql",
             "native/data-claim-batch.sql",
             "native/data-operation-renewal.sql",
