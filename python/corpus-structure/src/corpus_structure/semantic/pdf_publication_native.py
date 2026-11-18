@@ -5,13 +5,22 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from sqlalchemy import MetaData, Table, case, func, select, union_all
-from sqlalchemy.dialects.postgresql import Insert, dialect, insert
+from pglast import ast, enums
+from pglast.stream import RawStream
+from sqlalchemy import MetaData, Table, Text, case, cast, func, null, select, union_all
+from sqlalchemy.dialects.postgresql import JSONB, Insert, array, dialect, insert
 
 from .metadata import metadata as default_metadata
 from .native_call_contracts import OperationCallBinding
-from .native_program import core_variable
+from .native_objects import (
+    NativeIdentity,
+    native_owner_sql,
+    native_privilege_sql,
+    native_sql_script,
+)
+from .native_program import Parameter, column_type, core_variable, pg_type, sql_function
 from .pdf_staging import STAGE_FAMILIES
+from .prepared_sql import prepare_sql
 
 _FINAL = {
     "header": "ops.pdf_record_document",
@@ -204,10 +213,6 @@ def _prepare_pdf_build_sql(
     )
 
 
-def _quote(value: str) -> str:
-    return "'" + value.replace("'", "''") + "'"
-
-
 def _schema_json(schema: dict) -> str:
     """Emit the released metadata schema's exact integral numeric bounds."""
     from decimal import Decimal
@@ -382,21 +387,252 @@ def _coverage_support_violation_statement(*, target_metadata=None):
     return invalid
 
 
+def _published_pin_parameters(model):
+    published = model.tables["ops.pdf_published_revision"]
+    return tuple(
+        Parameter(name, column_type(published.c[field]))
+        for name, field in (
+            ("p_task", "task_id"),
+            ("p_key", "product_key"),
+            ("p_digest", "logical_digest"),
+        )
+    )
+
+
+def _published_revision_sql(model) -> str:
+    from .native_sql_body import published_revision_statement
+
+    returns = pg_type("ops", "pdf_published_revision")
+    returns.setof = True
+    return (
+        native_sql_script(
+            (
+                sql_function(
+                    "ops",
+                    "read_pdf_published_revision",
+                    parameters=_published_pin_parameters(model),
+                    returns=returns,
+                    body=published_revision_statement(target_metadata=model),
+                    security_definer=True,
+                    search_path=("pg_catalog", "pg_temp"),
+                    volatility="stable",
+                ),
+            )
+        )
+        + "\n"
+    )
+
+
 def _published_validation_sql(*, target_metadata=None) -> str:
     from .native_sql_body import published_validation_statement
 
-    body = str(
-        published_validation_statement(target_metadata=target_metadata).compile(
-            dialect=dialect(), compile_kwargs={"literal_binds": True}
-        )
-    )
+    model = default_metadata if target_metadata is None else target_metadata
+    returns = pg_type("ops", "pdf_build_validation")
+    returns.setof = True
     return (
-        "CREATE OR REPLACE FUNCTION ops.read_pdf_published_validation("
-        "p_task bigint,p_key text,p_digest text) RETURNS SETOF ops.pdf_build_validation "
-        "LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$\n"
-        + body
-        + "\n$$;\n"
+        native_sql_script(
+            (
+                sql_function(
+                    "ops",
+                    "read_pdf_published_validation",
+                    parameters=_published_pin_parameters(model),
+                    returns=returns,
+                    body=published_validation_statement(target_metadata=model),
+                    security_definer=True,
+                    search_path=("pg_catalog", "pg_temp"),
+                    volatility="stable",
+                ),
+            )
+        )
+        + "\n"
     )
+
+
+def _published_views_sql(model, domain) -> str:
+    """Expose model-owned record fields and the captured PDF schema dependency."""
+    published = model.tables["ops.pdf_published_revision"]
+    companion = model.tables["kb.pdf_record_companion"]
+    validation = model.tables["ops.pdf_build_validation"]
+    contract_input = model.tables["sem.input"].alias("contract_input")
+    from corpus_structure.schema.physical import compile_physical
+
+    # Read shapes are a separate LinkML authority, never stored-table metadata.
+    selected = compile_physical(
+        {
+            **model.info["physical_sources"],
+            "read-projections.yaml": domain.source("logical/read_projections").content,
+        },
+        root="read-projections.yaml",
+        target="semantic-read",
+        linkml_types=model.info["physical_linkml_types"],
+    ).tables["ops.pdf_selected_product"]
+    statements = []
+
+    def view(name, query, *, admitter=False):
+        # Core owns the query; pglast owns PostgreSQL's replace-view DDL envelope.
+        projection = (
+            prepare_sql(
+                str(query.compile(dialect=dialect(), compile_kwargs={"literal_binds": True})),
+                source="published PDF view " + name,
+            )
+            .statements[0]
+            .stmt
+        )
+        if not isinstance(projection, ast.SelectStmt):
+            raise ValueError("published PDF view requires a structured SELECT")
+        identity = NativeIdentity("view", "ops", name)
+        statements.extend(
+            (
+                RawStream()(
+                    ast.ViewStmt(
+                        view=ast.RangeVar(schemaname="ops", relname=name, inh=True),
+                        query=projection,
+                        replace=True,
+                        withCheckOption=enums.ViewCheckOption.NO_CHECK_OPTION,
+                    )
+                ),
+                native_owner_sql(identity, "corpus_sem_publisher"),
+                *(
+                    native_privilege_sql(identity, role, "select")
+                    for role in (
+                        "corpus_sem_writer",
+                        "corpus_sem_reader",
+                        "corpus_sem_evaluator",
+                        *(("corpus_sem_admitter",) if admitter else ()),
+                    )
+                ),
+            )
+        )
+
+    for family, name in (("access", "pdf_published_item"), ("region", "pdf_published_region")):
+        records = model.tables["kb.pdf_record_" + family]
+        view(
+            name,
+            select(
+                published.c.task_id,
+                published.c.product_key,
+                *(
+                    field
+                    for field in records.columns
+                    if field.key not in ("product_id", "revision_id")
+                ),
+            ).select_from(records.join(published, records.c.product_id == published.c.build_id)),
+        )
+
+    health = (
+        select(
+            companion.c.body.op("-", return_type=JSONB())(
+                array(
+                    ["source_scope", "page_start", "page_end"],
+                    type_=Text(),
+                )
+            )
+        )
+        .where(
+            companion.c.product_id == published.c.build_id,
+            companion.c.revision_id == published.c.build_id,
+            companion.c.family == "health",
+            companion.c.body.has_key("source_scope"),
+        )
+        .order_by(companion.c.ordinal, companion.c.local_id)
+        .limit(1)
+        .correlate(published)
+        .scalar_subquery()
+    )
+    view(
+        "pdf_selected_product",
+        select(
+            published.c.task_id,
+            published.c.product_key,
+            published.c.logical_digest.label("content_digest"),
+            published.c.release_id,
+            contract_input.c.content_digest.label("contract_digest"),
+            published.c.schema_digest,
+            published.c.recipe_digest,
+            cast(null(), selected.c.parent_task_id.type).label("parent_task_id"),
+            cast(null(), selected.c.parent_product_key.type).label("parent_product_key"),
+            cast(null(), selected.c.parent_digest.type).label("parent_digest"),
+            cast(null(), selected.c.native_json.type).label("native_json"),
+            health.label("health"),
+            cast(null(), selected.c.payload.type).label("payload"),
+        ).select_from(
+            published.join(validation, validation.c.build_id == published.c.build_id).join(
+                contract_input,
+                (contract_input.c.release_id == published.c.release_id)
+                & (contract_input.c.input_kind == "dependency")
+                & (contract_input.c.input_name == domain.source("schema/pdf_products").name),
+            )
+        ),
+        admitter=True,
+    )
+
+    value = func.ops.pdf_companion_body(
+        companion.c.product_id,
+        companion.c.revision_id,
+        companion.c.family,
+        companion.c.local_id,
+        companion.c.body,
+        type_=JSONB(),
+    )["value"]
+    coverage = (
+        select(published.c.task_id, published.c.product_key, value.label("value"))
+        .select_from(companion.join(published, published.c.build_id == companion.c.product_id))
+        .where(
+            companion.c.family == "native_metadata",
+            companion.c.body["kind"].astext == "recognition_coverage",
+        )
+        .cte("coverage_")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    view(
+        "pdf_published_coverage",
+        select(
+            coverage.c.task_id,
+            coverage.c.product_key,
+            *(
+                coverage.c.value[field].astext.label(field)
+                for field in (
+                    "section_pointer",
+                    "membership",
+                    "universe",
+                    "outcome",
+                    "policy",
+                )
+            ),
+        ),
+    )
+    return native_sql_script(statements) + "\n"
+
+
+def _publication_privileges_sql() -> str:
+    signatures = (
+        ("check_pdf_build", ("text", "bigint", "bigint", "text", "text", "text")),
+        ("pdf_validation_contract", ("text",)),
+        ("pdf_projection_contract", ("text", "text")),
+        ("prepare_pdf_companions", ()),
+        ("adopt_pdf_companions", ("text", "bigint", "bigint", "text", "text")),
+        ("prepare_pdf_build", ("text", "bigint", "bigint", "text", "text")),
+        ("read_pdf_published_revision", ("bigint", "text", "text")),
+        ("read_pdf_published_validation", ("bigint", "text", "text")),
+    )
+    statements = []
+    for name, arguments in signatures:
+        identity = NativeIdentity("function", "ops", name, arguments)
+        statements.extend(
+            (
+                native_privilege_sql(identity, "PUBLIC", grant=False),
+                native_privilege_sql(identity, "corpus_sem_writer", "execute"),
+            )
+        )
+        if name in {"read_pdf_published_revision", "read_pdf_published_validation"}:
+            statements.extend(
+                native_privilege_sql(identity, role, "execute")
+                for role in (
+                    "corpus_sem_reader",
+                    "corpus_sem_evaluator",
+                )
+            )
+    return native_sql_script(statements) + "\n"
 
 
 def _companion_adoption_sql(context, metadata) -> str:
@@ -413,7 +649,6 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
     )
     from .pdf_contracts import _context_from_domain, trusted_pdf_context
     from .pdf_domain import pdf_call_bindings
-    from .pdf_payloads import FAMILY, PROFILE
     from .pdf_publication_read_native import (
         pdf_publication_projection_sql,
         pdf_record_scope_health_sql,
@@ -456,15 +691,7 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         if action == "prepare_pdf_build" and binding.id == "prepare_pdf_build"
     )
     sql += _prepare_pdf_build_sql(metadata, stage, prepare_binding) + ";\n"
-    sql += """
-CREATE OR REPLACE FUNCTION ops.read_pdf_published_revision(p_task bigint,p_key text,p_digest text)
-RETURNS SETOF ops.pdf_published_revision LANGUAGE sql STABLE SECURITY DEFINER SET \
-search_path=pg_catalog,pg_temp AS $$
- SELECT p.* FROM ops.pdf_published_revision p JOIN ops.pdf_stage_build b USING(build_id)
- WHERE p.task_id=p_task AND p.product_key=p_key AND p.logical_digest=p_digest AND \
-b.state='published'
-$$;
-"""
+    sql += _published_revision_sql(metadata)
     reader = (
         pdf_record_reader_sql(target_metadata=metadata)
         + pdf_record_context_page_sql(metadata)
@@ -481,58 +708,7 @@ $$;
     )
 
     sql += reader + "\n" + pdf_record_context_sql(metadata) + "\n"
-    # Published views expose the current record product; preparation stays private.
-    for suffix in ("access", "region"):
-        fields = [
-            column.key
-            for column in metadata.tables["kb.pdf_record_" + suffix].columns
-            if column.key not in ("product_id", "revision_id")
-        ]
-        view = "ops.pdf_published_" + ("item" if suffix == "access" else "region")
-        sql += (
-            f"CREATE OR REPLACE VIEW\
- {view} AS SELECT p.task_id,p.product_key,"
-            + ",".join("r." + c for c in fields)
-            + f" FROM kb.pdf_record\
-_{suffix} r JOIN ops.pdf_published_revision p ON r.product_id=p.build_id;\n"
-        )
-        sql += f"ALTER VIEW\
- {view} OWNER TO corpus_sem_publisher; GRANT SELECT \
-ON {view} TO corpus_sem_writer,corpus_sem_reader,corpus_sem_evaluator;\n"
-    sql += """CREATE OR REPLACE VIEW ops.pdf_selected_product AS
- SELECT p.task_id,p.product_key,p.logical_digest AS content_digest,p.release_id,
- contract_input.content_digest AS contract_digest,p.schema_digest,p.recipe_digest,
- NULL::bigint AS parent_task_id,NULL::text AS parent_product_key,NULL::text AS parent_digest,
- NULL::jsonb AS native_json,(SELECT \
-c.body-ARRAY['source_scope','page_start','page_end'] FROM kb.pdf_record_companion c WHERE \
-c.product_id=p.build_id AND c.revision_id=p.build_id AND c.family='health' AND \
-c.body ? 'source_scope' ORDER BY \
-c.ordinal,c.local_id LIMIT 1) AS health,NULL::bytea AS payload
- FROM ops.pdf_published_revision p JOIN ops.pdf_build_validation v ON v.build_id=p.build_id
- JOIN sem.input contract_input ON contract_input.release_id=p.release_id
- AND contract_input.input_kind='dependency'
- AND contract_input.input_name IN ('execution/schema/pdf_products',
- 'pdf-domain/schema/pdf_products');
-ALTER VIEW ops.pdf_selected_product OWNER TO corpus_sem_publisher;
-GRANT SELECT ON ops.pdf_selected_product TO corpus_sem_writer,corpus_sem_reader,corpus_sem_evalua\
-tor,corpus_sem_admitter;
-"""
-    sql += """
-"""
-    sql += """
-CREATE OR REPLACE VIEW ops.pdf_published_coverage AS
- WITH coverage_ AS MATERIALIZED (
- SELECT p.task_id,p.product_key,(ops.pdf_companion_body(c.product_id,c.revision_id,c.family,c.loc\
-al_id,c.body))->'value' value
- FROM kb.pdf_record_companion c JOIN ops.pdf_published_revision p ON p.build_id=c.product_id
- WHERE c.family='native_metadata' AND c.body->>'kind'='recognition_coverage')
- SELECT task_id,product_key,value->>'section_pointer' AS section_pointer,
- value->>'membership' AS membership,value->>'universe' AS universe,
- value->>'outcome' AS outcome,value->>'policy' AS policy FROM coverage_;
-ALTER VIEW ops.pdf_published_coverage OWNER TO corpus_sem_publisher;
-GRANT SELECT ON ops.pdf_published_coverage TO corpus_sem_writer,corpus_sem_reader,corpus_sem_eval\
-uator;
-"""
+    sql += _published_views_sql(metadata, context.domain)
     sql += pdf_record_scope_health_sql(metadata)
     sql += pdf_publication_projection_sql(metadata)
     from .pdf_certification_native import pdf_certification_native_sql
@@ -541,27 +717,8 @@ uator;
     sql += pdf_publication_controls_sql(metadata)
     sql += pdf_certification_native_sql(target_metadata=metadata)
     sql += _published_validation_sql(target_metadata=metadata)
-    signatures = [
-        "check_pdf_build(text,bigint,bigint,text,text,text)",
-        "pdf_validation_contract(text)",
-        "pdf_projection_contract(text,text)",
-        "prepare_pdf_companions()",
-        "adopt_pdf_companions(text,bigint,bigint,text,text)",
-        "prepare_pdf_build(text,bigint,bigint,text,text)",
-        "read_pdf_published_revision(bigint,text,text)",
-        "read_pdf_published_validation(bigint,text,text)",
-    ]
-    for signature in signatures:
-        sql += f"REVOKE ALL ON FUNCTION ops.{signature} FROM PUBLIC;\n"
-        if not signature.startswith("require_"):
-            sql += f"GRANT EXECUTE ON FUNCTION ops.{signature} TO corpus_sem_writer;\n"
-    sql += "GRANT EXECUTE ON FUNCTION ops.read_pdf_published_revision(bigint,text,text) TO \
-corpus_sem_reader,corpus_sem_evaluator;\n"
-    sql += "GRANT EXECUTE ON FUNCTION ops.read_pdf_published_validation(bigint,text,text) TO \
-corpus_sem_reader,corpus_sem_evaluator;\n"
-    return sql.replace("'{pdf_payload_profile}'", _quote(PROFILE)).replace(
-        "'{pdf_payload_family}'", _quote(FAMILY)
-    )
+    sql += _publication_privileges_sql()
+    return sql
 
 
 def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):

@@ -53,7 +53,7 @@ def sql_standard_definition(definition, statement):
     )
 
 
-def published_revision_definition(definition, *, target_metadata=None):
+def published_revision_statement(*, target_metadata=None):
     """The exact published product pin, with private build state independently checked."""
     from sqlalchemy import literal_column, select
 
@@ -62,7 +62,7 @@ def published_revision_definition(definition, *, target_metadata=None):
     table = default_table if target_metadata is None else target_metadata.tables.__getitem__
 
     published, build = table("ops.pdf_published_revision"), table("ops.pdf_stage_build")
-    statement = (
+    return (
         select(published)
         .select_from(published.join(build, published.c.build_id == build.c.build_id))
         .where(
@@ -73,7 +73,12 @@ def published_revision_definition(definition, *, target_metadata=None):
             build.c.state == "published",
         )
     )
-    return sql_standard_definition(definition, statement)
+
+
+def published_revision_definition(definition, *, target_metadata=None):
+    return sql_standard_definition(
+        definition, published_revision_statement(target_metadata=target_metadata)
+    )
 
 
 def published_validation_statement(*, target_metadata=None):
