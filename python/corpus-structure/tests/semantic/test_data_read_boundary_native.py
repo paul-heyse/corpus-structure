@@ -60,6 +60,7 @@ def read_boundary_control(infrastructure_rollback):
         owner_xid=xid,
         kernel_digest="kernel:control",
         access_universes=["accepted"],
+        public_disclosure=False,
         grade_census_eligible=False,
         fit_census_eligible=True,
     )
@@ -97,6 +98,7 @@ def test_read_acquisition_requires_current_complete_facts_and_retained_scope(rea
         ("id", None),
         ("kernel_digest", "old"),
         ("access_universes", None),
+        ("public_disclosure", None),
         ("grade_census_eligible", None),
         ("fit_census_eligible", None),
     ):
@@ -135,6 +137,9 @@ def test_read_current_reauthorizes_each_use_and_checks_epochs_first(read_boundar
     connection, boundary, _, _ = read_boundary_control
     assert _call(connection, "ddo_require_read_current", boundary) == {"a": 2, "b": 3}
     boundary["access_universes"] = ["accepted", "forbidden"]
+    # Authenticated internal custody/currentness does not disclose the protected
+    # data. Presentation still requires live caller authority for every universe.
+    assert _call(connection, "ddo_require_read_epochs", boundary) == {"a": 2, "b": 3}
     with pytest.raises(DBAPIError) as refusal, connection.begin_nested():
         _call(connection, "ddo_require_read_current", boundary)
     assert getattr(refusal.value.orig, "sqlstate", None) == "42501"

@@ -1284,8 +1284,16 @@ def _fit_selected_grade(p):
                 reads.c.id == _text(selection, "read_id"),
                 reads.c.demand_id == _text(selection, "demand_id"),
             ),
+            If(
+                ~core_variable("authenticate_output", Boolean()),
+                (
+                    # Dependency validity authenticates exact retained custody above
+                    # and needs only current ordinary epochs, never protected values.
+                    Perform(func.ops.ddo_require_read_epochs(boundary(), r("project_id"), True)),
+                    Return(literal(None)),
+                ),
+            ),
             Perform(func.ops.ddo_require_read_current(boundary(), r("project_id"), True)),
-            If(~core_variable("authenticate_output", Boolean()), (Return(literal(None)),)),
             p.lookup(
                 "d",
                 "ops.data_demand",

@@ -592,12 +592,6 @@ def _structural_report_support(model):
                                     ),
                                     False,
                                 ),
-                                ~func.coalesce(
-                                    func.ops.ddo_node_valid(
-                                        "use", chosen("id"), boundary, type_=Boolean()
-                                    ),
-                                    False,
-                                ),
                                 select(1)
                                 .select_from(newer)
                                 .where(
@@ -651,6 +645,14 @@ def _structural_report_support(model):
                                     ),
                                     False,
                                 ),
+                            )
+                        ),
+                        unavailable(
+                            ~func.coalesce(
+                                func.ops.ddo_node_valid(
+                                    "use", chosen("id"), boundary, type_=Boolean()
+                                ),
+                                False,
                             )
                         ),
                         selected(

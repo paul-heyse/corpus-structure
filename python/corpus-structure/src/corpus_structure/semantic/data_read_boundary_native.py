@@ -111,6 +111,9 @@ def read_boundary_native_sql(target) -> str:
             )
         ),
     )
+    # Native custody verifiers use this proof after authenticating their exact
+    # retained domain selection. It checks acquisition and sorted trust epochs;
+    # caller authorization belongs to the separate presentation/current port.
     epochs = procedure(
         "ddo_require_read_epochs",
         guarded_parameters,

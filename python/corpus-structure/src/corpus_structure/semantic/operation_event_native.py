@@ -1402,8 +1402,11 @@ def _dependencies(p):
                                         boundary.table.c.id == _text(selected, "read_id"),
                                         boundary.table.c.demand_id == _text(selected, "demand_id"),
                                     ),
+                                    # The exact retained fit cut was authenticated above.
+                                    # This proves its current dependencies without presenting
+                                    # the protected frame or borrowing the reader's purpose.
                                     Perform(
-                                        func.ops.ddo_require_read_current(
+                                        func.ops.ddo_require_read_epochs(
                                             boundary(), r("project_id"), True
                                         )
                                     ),
