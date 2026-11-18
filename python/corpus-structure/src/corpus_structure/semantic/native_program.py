@@ -13,7 +13,6 @@ from pglast import ast, enums
 from pglast.stream import RawStream, maybe_double_quote_name
 from sqlalchemy import Column, Table, cast, literal_column, null, select
 from sqlalchemy.dialects.postgresql import dialect
-from sqlalchemy.sql import visitors
 from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import BindParameter, ClauseElement, ColumnClause, TextClause
 from sqlalchemy.types import TypeEngine
@@ -93,11 +92,20 @@ def literal(value: str | int | bool | None) -> ast.A_Const:
 def _render(expression: Expression) -> str:
     if isinstance(expression, ast.Node):
         return RawStream()(expression)
-    for child in visitors.iterate(expression):
+    # Shared and recursive CTE references revisit the same Core graph nodes.
+    # Validate each node once before asking the dialect to render the query.
+    pending = [expression]
+    checked: set[int] = set()
+    while pending:
+        child = pending.pop()
+        if id(child) in checked:
+            continue
+        checked.add(id(child))
         if isinstance(child, TextClause):
             raise ValueError("native programs require structured Core or PostgreSQL nodes")
         if isinstance(child, BindParameter) and (child.required or child.callable is not None):
             raise ValueError(f"native definition has an unresolved SQL parameter: {child.key}")
+        pending.extend(child.get_children())
     return str(
         expression.compile(
             dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
