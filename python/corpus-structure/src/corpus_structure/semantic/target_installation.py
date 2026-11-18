@@ -832,15 +832,16 @@ def prepare_target_successor(
 
 def require_empty_target(connection) -> None:
     """Refuse unregistered application state or migration history for an explicit root."""
-    from sqlalchemy import text
+    from sqlalchemy import or_, select
 
+    from .native_catalog import namespace, pg
     from .native_objects import NativeAuthoringError
 
     present = tuple(
         connection.scalars(
-            text(
-                "SELECT nspname FROM pg_namespace WHERE nspname IN ('meta','sem','data','ops','kb','eval') ORDER BY nspname"
-            )
+            select(namespace.c.nspname)
+            .where(namespace.c.nspname.in_(("meta", "sem", "data", "ops", "kb", "eval")))
+            .order_by(namespace.c.nspname)
         )
     )
     if present:
@@ -848,9 +849,11 @@ def require_empty_target(connection) -> None:
             "fresh target preparation refuses existing application namespaces: " + ",".join(present)
         )
     if connection.scalar(
-        text(
-            "SELECT to_regclass('public.alembic_version') IS NOT NULL OR "
-            "to_regclass('public.semantic_alembic_version') IS NOT NULL"
+        select(
+            or_(
+                pg.to_regclass("public.alembic_version").is_not(None),
+                pg.to_regclass("public.semantic_alembic_version").is_not(None),
+            )
         )
     ):
         raise NativeAuthoringError("fresh target preparation refuses existing migration history")
@@ -866,9 +869,16 @@ def prepare_target_candidate(
     from sqlalchemy.schema import CreateSchema
 
     from .alembic_native import NativeTransitionOp
-    from .alembic_privileges import table_policy
+    from .alembic_privileges import PUBLISHER, table_policy
     from .native_authoring import _physical_check_contract, compare_declared_candidate
-    from .native_objects import NativeAuthoringError, prepare_native_authoring
+    from .native_objects import (
+        NativeAuthoringError,
+        NativeIdentity,
+        execute_native_sql,
+        native_owner_sql,
+        native_privilege_sql,
+        prepare_native_authoring,
+    )
 
     if not owned_authoring:
         raise NativeAuthoringError("fresh target preparation requires owned authoring custody")
@@ -877,19 +887,19 @@ def prepare_target_candidate(
     if None in declared_schemas:
         raise NativeAuthoringError("fresh target tables require explicit schemas")
     schemas = sorted(schema for schema in declared_schemas if schema is not None)
-    quote = connection.dialect.identifier_preparer.quote
     schema_sql = [
         statement
         for schema in schemas
         for statement in (
             str(CreateSchema(schema).compile(dialect=connection.dialect)),
-            "GRANT USAGE,CREATE ON SCHEMA " + quote(schema) + " TO corpus_sem_publisher",
+            native_privilege_sql(NativeIdentity("schema", schema, schema), PUBLISHER, "USAGE"),
+            native_privilege_sql(NativeIdentity("schema", schema, schema), PUBLISHER, "CREATE"),
         )
     ]
     scaffolding = connection.begin_nested()
     try:
         for statement in schema_sql:
-            connection.exec_driver_sql(statement)
+            execute_native_sql(connection, statement)
         prerequisites = target_physical_prerequisites(connection, installation)
         prerequisite_authoring = prepare_native_authoring(
             connection,
@@ -903,12 +913,11 @@ def prepare_target_candidate(
             operations.invoke(NativeTransitionOp(None, item))
         installation.metadata.create_all(connection, checkfirst=False)
         for relation in installation.metadata.tables.values():
-            connection.exec_driver_sql(
-                "ALTER TABLE "
-                + connection.dialect.identifier_preparer.format_table(relation)
-                + " OWNER TO "
-                + quote(table_policy(relation)["owner"])
-            )
+            owner = table_policy(relation)["owner"]
+            if owner is None:
+                raise NativeAuthoringError("declared physical table requires its owner")
+            identity = NativeIdentity("table", str(relation.schema), relation.name)
+            execute_native_sql(connection, native_owner_sql(identity, owner))
         authoring = prepare_target_authoring(
             connection,
             installation,

@@ -1,6 +1,7 @@
 """Native private guard compilation/refusals, separate from full grade journeys."""
 
 import json
+from hashlib import sha256
 
 import pytest
 from pglast import ast
@@ -74,6 +75,58 @@ def test_program_grade_scope_refuses_missing_project_or_retained_cut(grade_guard
             text("SELECT * FROM ops.ddo_record_grade_cut_scopes('actual-project',:cut)"),
             {"cut": '{"project_id":"foreign-project","demand_id":"missing","read_id":"missing"}'},
         )
+
+
+def test_native_class_contract_requires_one_complete_owner_in_the_finalized_archive(
+    grade_guard_connection,
+):
+    connection = grade_guard_connection
+    archive = table("sem.artifact")
+    finalized = table("sem.release_finalization")
+    release = "release:class-contract-fixture"
+    kind = {
+        "semantic_id": "urn:fixture:reading",
+        "name": "Reading",
+        "category": "class",
+        "complete": True,
+    }
+    identity = {"owner": kind["semantic_id"], "key": "kind:reading", "domain": "kind"}
+    body = {"kinds": [kind], "identities": [identity]}
+
+    def encoded(value):
+        content = json.dumps(value).encode()
+        return {"content": content, "content_digest": sha256(content).hexdigest()}
+
+    query = text("SELECT sem.ddo_model_class_contract(:release,:contract,:name)")
+
+    def matches(name=None, contract="kind:reading"):
+        return connection.scalar(query, {"release": release, "contract": contract, "name": name})
+
+    connection.execute(
+        archive.insert().values(
+            release_id=release,
+            artifact_name="data_operations.json",
+            media_type="application/json",
+            **encoded(body),
+        )
+    )
+    assert matches() is False
+    connection.execute(finalized.insert().values(release_id=release, content_digest="a" * 64))
+    assert matches() is True
+    assert matches("Reading") is True
+    assert matches("Other") is False
+    assert matches(contract="kind:other") is False
+    for invalid in (
+        body | {"kinds": [kind, kind]},
+        body | {"kinds": [kind | {"complete": False}]},
+        body | {"kinds": [kind | {"category": "slot"}]},
+        body | {"identities": [identity, identity]},
+        body | {"identities": [identity | {"owner": "urn:fixture:other"}]},
+    ):
+        connection.execute(
+            archive.update().where(archive.c.release_id == release).values(**encoded(invalid))
+        )
+        assert matches() is False
 
 
 def test_program_grade_function_population_has_independent_expected_signatures():

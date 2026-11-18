@@ -147,12 +147,36 @@ def _grade(name, args, returns, **body):
 def _class_contract(model):
     archive = model.tables["sem.artifact"]
     finalized = model.tables["sem.release_finalization"]
-    content = cast(func.convert_from(archive.c.content, "UTF8"), JSONB())
-    kinds = _items(content["kinds"], "owned").lateral()
-    identities = _items(content["identities"], "identity_").lateral()
-    owner, identity = kinds.c.value, identities.c.value
     release, contract, class_ = (
         core_variable(name, Text()) for name in ("p_release", "p_contract", "p_class")
+    )
+    document = (
+        select(cast(func.convert_from(archive.c.content, "UTF8"), JSONB()).label("body"))
+        .select_from(archive.join(finalized, finalized.c.release_id == archive.c.release_id))
+        .where(archive.c.release_id == release, archive.c.artifact_name == "data_operations.json")
+        .cte("bound_model")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    kinds = _items(document.c.body["kinds"], "owned").lateral()
+    identities = _items(document.c.body["identities"], "identity_").lateral()
+    owner, identity = kinds.c.value, identities.c.value
+    classes = (
+        select(owner["semantic_id"].astext.label("semantic_id"))
+        .select_from(document.join(kinds, true()))
+        .where(
+            or_(class_.is_(None), owner["name"].astext == class_),
+            owner["category"].astext == "class",
+            cast(owner["complete"].astext, Boolean()),
+        )
+        .cte("complete_classes")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    keys = (
+        select(identity["owner"].astext.label("semantic_id"))
+        .select_from(document.join(identities, true()))
+        .where(identity["domain"].astext == "kind", identity["key"].astext == contract)
+        .cte("class_contract_owners")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
     )
     return _defined(
         "sem",
@@ -163,21 +187,8 @@ def _class_contract(model):
             ("p_class", "text", ast.A_Const(isnull=True)),
         ),
         "bool",
-        query=select(func.count() == 1)
-        .select_from(
-            archive.join(finalized, finalized.c.release_id == archive.c.release_id)
-            .join(kinds, true())
-            .join(identities, true())
-        )
-        .where(
-            archive.c.release_id == release,
-            archive.c.artifact_name == "data_operations.json",
-            or_(class_.is_(None), owner["name"].astext == class_),
-            owner["category"].astext == "class",
-            cast(owner["complete"].astext, Boolean()),
-            identity["domain"].astext == "kind",
-            identity["owner"].astext == owner["semantic_id"].astext,
-            identity["key"].astext == contract,
+        query=select(func.count() == 1).select_from(
+            classes.join(keys, keys.c.semantic_id == classes.c.semantic_id)
         ),
     )
 
