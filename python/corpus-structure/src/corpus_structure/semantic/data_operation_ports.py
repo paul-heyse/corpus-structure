@@ -980,7 +980,9 @@ class ResolvedPythonPort:
         if output.collection == "sequence":
             container, item_annotation = _eager_sequence_annotation(return_annotation)
             if type(result) is not container or type(checked) is not container:
-                raise PortRefusal("sequence output validation requires its finite ordered container")
+                raise PortRefusal(
+                    "sequence output validation requires its finite ordered container"
+                )
             if len(result) != len(checked):
                 raise PortRefusal("sequence output validation changed admitted multiplicity")
             if len(checked) < output.minimum or (
@@ -1003,9 +1005,13 @@ class ResolvedPythonPort:
                         project_product_members(self.model, output.kind, semantic),
                     )
                 )
-            return PortCompletion(self.operation.semantic_id, tuple(encoded_outputs), outcome=outcome)
+            return PortCompletion(
+                self.operation.semantic_id, tuple(encoded_outputs), outcome=outcome
+            )
         if output.collection != "scalar":
-            raise PortRefusal("direct function result requires a declared scalar or ordered sequence")
+            raise PortRefusal(
+                "direct function result requires a declared scalar or ordered sequence"
+            )
         adapter = self.adapters.get(return_annotation)
         encoded = adapter.dump_json(checked)
         semantic = adapter.dump_python(checked, mode="python")

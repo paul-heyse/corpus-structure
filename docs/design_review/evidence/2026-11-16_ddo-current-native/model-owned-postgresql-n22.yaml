@@ -1,0 +1,4 @@
+# Capture declared completion-state resolution and the formatted generator sources.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n21
+native_revision: semantic_ddo_pe_n22

@@ -63,7 +63,9 @@ def fitted(profile):
     )
 
 
-def test_current_frame_fit_and_issuer_compile_with_existing_component_and_parameter_kinds(monkeypatch):
+def test_current_frame_fit_and_issuer_compile_with_existing_component_and_parameter_kinds(
+    monkeypatch,
+):
     from semantic.operation_event_feature_fixture import operation_sources as feature_sources
 
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
@@ -174,14 +176,17 @@ def test_finite_parameter_value_keeps_real_algorithm_provenance_and_shared_scori
         event_version=actual.event_version,
         producer_version=actual.producer_version,
     )
-    assert OperationEventScore().run(
-        parameters,
-        actual.observations[0].features,
-        corpus_id=actual.corpus_id,
-        event=actual.event,
-        event_version=actual.event_version,
-        producer_version=actual.producer_version,
-    ) == first
+    assert (
+        OperationEventScore().run(
+            parameters,
+            actual.observations[0].features,
+            corpus_id=actual.corpus_id,
+            event=actual.event,
+            event_version=actual.event_version,
+            producer_version=actual.producer_version,
+        )
+        == first
+    )
     assert 0 <= first <= 1
     assert first == pytest.approx(fit.result.predictions[0].fitted_probability)
     assert "judgments" not in parameters.model_dump_json()

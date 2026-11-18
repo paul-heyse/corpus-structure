@@ -1295,7 +1295,9 @@ def _completion(p):
             ),
             _reject(
                 or_(
-                    _text(completion, "outcome").is_distinct_from("success"),
+                    func.ops.ddo_completion_state(
+                        definition(), _text(completion, "outcome")
+                    ).is_distinct_from("success"),
                     func.jsonb_array_length(completion["outputs"]) != 1,
                     completion["inputs"].is_distinct_from(r("binding")["inputs"]),
                     completion["support"].is_distinct_from(r("binding")["support"]),

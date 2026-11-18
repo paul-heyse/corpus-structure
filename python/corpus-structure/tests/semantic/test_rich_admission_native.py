@@ -582,22 +582,34 @@ def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance
       SELECT FROM jsonb_array_elements(reference->'support_references') support
       WHERE support->>'derivation_id'=producer.id)"""
     assert parse_sql(query)[0].stmt == parse_sql(expected)[0].stmt
-    guard = body[body.index("IF ops.ddo_policy_authority_leaf", end):].split("END IF;", 1)[0]
+    guard = body[body.index("IF ops.ddo_policy_authority_leaf", end) :].split("END IF;", 1)[0]
     condition = guard.split("IF ", 1)[1].split(" THEN", 1)[0]
-    assert parse_sql("SELECT " + condition)[0].stmt == parse_sql(
-        "SELECT ops.ddo_policy_authority_leaf(authorization_episode) IS NOT TRUE"
-    )[0].stmt
+    assert (
+        parse_sql("SELECT " + condition)[0].stmt
+        == parse_sql("SELECT ops.ddo_policy_authority_leaf(authorization_episode) IS NOT TRUE")[
+            0
+        ].stmt
+    )
     assert "'rich policy lacks its authentic issued public authorization'" in guard
     assert "ERRCODE='23514'" in guard
     assert "ddo_require_policy_authorization_completion" not in body
     # The consumer still selects its exact bound public body and native issuer
     # before authenticating the sealed output. It receives no issuer capability.
-    assert body.index("policy_meaning:=ops.ddo_rich_selected_value") < body.index(
-        "authorization_request:=ops.ddo_rich_producing_request"
-    ) < start < body.index("IF ops.ddo_policy_authority_leaf", end)
+    assert (
+        body.index("policy_meaning:=ops.ddo_rich_selected_value")
+        < body.index("authorization_request:=ops.ddo_rich_producing_request")
+        < start
+        < body.index("IF ops.ddo_policy_authority_leaf", end)
+    )
     assert "'record_policy.authorize'" in body
-    assert "'corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port','authorization',false" in body
-    assert "kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization' AND kind.universe='ordinary'" in body
+    assert (
+        "'corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port','authorization',false"
+        in body
+    )
+    assert (
+        "kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization' AND kind.universe='ordinary'"
+        in body
+    )
     issuer = function_bodies(record_policy_completion_native_sql(metadata))[
         "ops.ddo_require_policy_authorization_completion"
     ]

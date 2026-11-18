@@ -328,24 +328,41 @@ def _published_read_guards(name, selectors, access, published) -> tuple[If, ...]
     elif name == "section_nodes":
         section, membership = value["p_section"], value["p_membership"]
         selected = access.alias("a")
-        valid = select(1).select_from(selected).where(
-            selected.c.product_id == published["build_id"],
-            selected.c.revision_id == published["build_id"],
-            selected.c.pointer == section,
-            or_(
-                selected.c.label.in_(("section", "chapter")),
-                and_(
-                    section == "#/body", membership == "direct",
-                    selected.c.parent_pointer.is_(None), selected.c.content_layer == "body",
-                    selected.c.native_json["self_ref"].astext == "#/body",
+        valid = (
+            select(1)
+            .select_from(selected)
+            .where(
+                selected.c.product_id == published["build_id"],
+                selected.c.revision_id == published["build_id"],
+                selected.c.pointer == section,
+                or_(
+                    selected.c.label.in_(("section", "chapter")),
+                    and_(
+                        section == "#/body",
+                        membership == "direct",
+                        selected.c.parent_pointer.is_(None),
+                        selected.c.content_layer == "body",
+                        selected.c.native_json["self_ref"].astext == "#/body",
+                    ),
                 ),
-            ),
-        ).exists()
-        condition = or_(section.is_(None), membership.is_(None), membership.not_in(("direct", "descendants")), ~valid)
+            )
+            .exists()
+        )
+        condition = or_(
+            section.is_(None),
+            membership.is_(None),
+            membership.not_in(("direct", "descendants")),
+            ~valid,
+        )
         message = "invalid published section selection"
     elif name == "section_reports":
         pointers, sections = value["p_pointers"], value["p_sections"]
-        condition = or_(pointers.is_(None), sections.is_(None), func.array_position(pointers, None).is_not(None), func.array_position(sections, None).is_not(None))
+        condition = or_(
+            pointers.is_(None),
+            sections.is_(None),
+            func.array_position(pointers, None).is_not(None),
+            func.array_position(sections, None).is_not(None),
+        )
         message = "published report pointers/sections are required"
     elif name == "region":
         pointer, region = value["p_pointer"], value["p_region_index"]
@@ -353,7 +370,15 @@ def _published_read_guards(name, selectors, access, published) -> tuple[If, ...]
         message = "invalid published region selector"
     elif name == "item_page":
         membership, after, limit = value["p_membership"], value["p_after"], value["p_limit"]
-        condition = or_(membership.is_(None), membership.not_in(("direct", "descendants")), after.is_(None), after < -1, limit.is_(None), limit < 1, limit > 1000)
+        condition = or_(
+            membership.is_(None),
+            membership.not_in(("direct", "descendants")),
+            after.is_(None),
+            after < -1,
+            limit.is_(None),
+            limit < 1,
+            limit > 1000,
+        )
         message = "invalid published item page selector"
     elif name in {"regions", "item_ancestors"}:
         condition = value["p_pointer"].is_(None)
@@ -379,7 +404,9 @@ def _published_read_native(statement, selectors):
 
 
 def _reader_identity(name, parameters):
-    return NativeIdentity("function", "ops", name, tuple(RawStream()(item.type_) for item in parameters))
+    return NativeIdentity(
+        "function", "ops", name, tuple(RawStream()(item.type_) for item in parameters)
+    )
 
 
 def published_readers_sql(*, target_metadata=None) -> str:
@@ -387,23 +414,34 @@ def published_readers_sql(*, target_metadata=None) -> str:
     selected_table = table if target_metadata is None else target_metadata.tables.__getitem__
     publication = selected_table("ops.pdf_published_revision")
     access = selected_table("kb.pdf_record_access")
-    published = {field.name: core_variable("published", field.type, field.name) for field in publication.c}
+    published = {
+        field.name: core_variable("published", field.type, field.name) for field in publication.c
+    }
     producer_parameters = tuple(
-        Parameter(key, column_type(field)) for key, field in (
-            ("p_task", publication.c.task_id), ("p_product", publication.c.product_key),
+        Parameter(key, column_type(field))
+        for key, field in (
+            ("p_task", publication.c.task_id),
+            ("p_product", publication.c.product_key),
             ("p_digest", publication.c.logical_digest),
         )
     )
     placement_parameters = tuple(
-        Parameter(key, column_type(field)) for key, field in (
-            ("p_build", access.c.product_id), ("p_revision", access.c.revision_id),
+        Parameter(key, column_type(field))
+        for key, field in (
+            ("p_build", access.c.product_id),
+            ("p_revision", access.c.revision_id),
         )
     )
     result = []
     for name, statement in published_read_statements(target_metadata=target_metadata).items():
         selectors = _published_read_selectors(name, statement)
-        selector_parameters = tuple(Parameter(key, column_type(Column(key, kind))) for key, kind in selectors)
-        columns = tuple((field.name, column_type(Column(field.name, field.type))) for field in statement.selected_columns)
+        selector_parameters = tuple(
+            Parameter(key, column_type(Column(key, kind))) for key, kind in selectors
+        )
+        columns = tuple(
+            (field.name, column_type(Column(field.name, field.type)))
+            for field in statement.selected_columns
+        )
         returns = pg_type("record")
         returns.setof = True
         public_name = "read_pdf_published_" + name
@@ -417,41 +455,74 @@ def published_readers_sql(*, target_metadata=None) -> str:
             NativeDefinition(
                 private_identity,
                 sql_function(
-                    "ops", private_name, parameters=private_parameters, returns=returns,
-                    table_columns=columns, body=native, volatility="stable",
+                    "ops",
+                    private_name,
+                    parameters=private_parameters,
+                    returns=returns,
+                    table_columns=columns,
+                    body=native,
+                    volatility="stable",
                     search_path=("pg_catalog", "pg_temp"),
                 ),
-                "published-document:private-body", owner="corpus_sem_publisher",
+                "published-document:private-body",
+                owner="corpus_sem_publisher",
             ),
             native,
         )
-        revision = func.ops.read_pdf_published_revision(*(
-            core_variable(parameter.name, field.type) for parameter, field in zip(
-                producer_parameters, (publication.c.task_id, publication.c.product_key, publication.c.logical_digest), strict=True,
+        revision = func.ops.read_pdf_published_revision(
+            *(
+                core_variable(parameter.name, field.type)
+                for parameter, field in zip(
+                    producer_parameters,
+                    (
+                        publication.c.task_id,
+                        publication.c.product_key,
+                        publication.c.logical_digest,
+                    ),
+                    strict=True,
+                )
             )
-        )).table_valued(*(column(field.name, field.type) for field in publication.c))
+        ).table_valued(*(column(field.name, field.type) for field in publication.c))
         rows = getattr(func.ops, private_name)(
-            published["build_id"], published["build_id"],
+            published["build_id"],
+            published["build_id"],
             *(core_variable(key, kind) for key, kind in selectors),
         ).table_valued(*(column(field.name, field.type) for field in statement.selected_columns))
         public = function(
-            "ops", public_name, parameters=public_parameters, returns=returns,
-            table_columns=columns, volatility="stable", security_definer=True,
+            "ops",
+            public_name,
+            parameters=public_parameters,
+            returns=returns,
+            table_columns=columns,
+            volatility="stable",
+            security_definer=True,
             search_path=("pg_catalog", "pg_temp"),
-            body=Block((
-                SelectInto(select(*revision.c), ("published",), strict=True),
-                Perform(func.ops.require_pdf_operation(published["release_id"], "read_native_source")),
-                *_published_read_guards(name, selectors, access, published),
-                ReturnQuery(select(*rows.c)),
-            ), (Local("published", publication),)),
+            body=Block(
+                (
+                    SelectInto(select(*revision.c), ("published",), strict=True),
+                    Perform(
+                        func.ops.require_pdf_operation(
+                            published["release_id"], "read_native_source"
+                        )
+                    ),
+                    *_published_read_guards(name, selectors, access, published),
+                    ReturnQuery(select(*rows.c)),
+                ),
+                (Local("published", publication),),
+            ),
         )
-        result.extend((
-            private.sql,
-            native_privilege_sql(private_identity, "PUBLIC", grant=False),
-            public,
-            native_privilege_sql(public_identity, "PUBLIC", grant=False),
-            *(native_privilege_sql(public_identity, role, "EXECUTE") for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")),
-        ))
+        result.extend(
+            (
+                private.sql,
+                native_privilege_sql(private_identity, "PUBLIC", grant=False),
+                public,
+                native_privilege_sql(public_identity, "PUBLIC", grant=False),
+                *(
+                    native_privilege_sql(public_identity, role, "EXECUTE")
+                    for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+                ),
+            )
+        )
     return ";\n".join(result) + ";\n"
 
 

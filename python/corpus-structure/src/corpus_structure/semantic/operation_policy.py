@@ -284,10 +284,20 @@ class OperationEventScore:
             "result_owners": [{"kind": "implementation", "reference": "self"}],
             "description": "one-score-for-complete-feature-vector",
         },
-        "outcomes": ["scored", "invalid-applicability", "invalid-feature-shape", "numerical-failure"],
+        "outcomes": [
+            "scored",
+            "invalid-applicability",
+            "invalid-feature-shape",
+            "numerical-failure",
+        ],
         "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],
         "transitions": [
-            {"dimension": "completion", "before": "pending", "after": "success", "outcome": "scored"},
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": "success",
+                "outcome": "scored",
+            },
             {
                 "dimension": "completion",
                 "before": "pending",
@@ -358,7 +368,11 @@ class OperationEventScore:
                 "contract": "pydantic2-operation-event-ingress-v1",
                 "role": "typed-validation",
             },
-            {"reference": "typing", "contract": "python-3.14-typing-v1", "role": "type-interpretation"},
+            {
+                "reference": "typing",
+                "contract": "python-3.14-typing-v1",
+                "role": "type-interpretation",
+            },
         ],
         "bound_inputs": ["parameters"],
     }
@@ -387,11 +401,16 @@ class OperationEventScore:
             parameters.event_version,
             parameters.producer_version,
         ):
-            raise ValueError("operation score applicability differs from fitted corpus/event/producer")
+            raise ValueError(
+                "operation score applicability differs from fitted corpus/event/producer"
+            )
         if len(features) != len(parameters.feature_names) or not np.isfinite(features).all():
             raise ValueError("operation feature shape or finite values differ")
         with np.errstate(
-            over=policy.overflow, invalid=policy.invalid, divide=policy.divide, under=policy.underflow
+            over=policy.overflow,
+            invalid=policy.invalid,
+            divide=policy.divide,
+            under=policy.underflow,
         ):
             x = (np.asarray(features, dtype=policy.dtype) - parameters.means) / parameters.scales
             linear = np.dot(x, parameters.coefficients) + parameters.intercept

@@ -16,7 +16,12 @@ def test_body_direct_page_includes_unsectioned_body_and_preserves_section_bounda
     infrastructure_rollback,
 ):
     selected = MetaData()
-    for name in ("kb.pdf_record_access", "kb.pdf_record_region", "kb.pdf_record_companion", "ops.pdf_published_revision"):
+    for name in (
+        "kb.pdf_record_access",
+        "kb.pdf_record_region",
+        "kb.pdf_record_companion",
+        "ops.pdf_published_revision",
+    ):
         source = metadata.tables[name]
         Table(
             source.name,

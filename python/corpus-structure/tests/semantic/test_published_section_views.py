@@ -319,15 +319,25 @@ def test_finite_readers_resolve_both_placement_coordinates_and_guard_before_proj
         name = declaration.funcname[-1].sval
         private = name.endswith("_rows")
         family = name.removeprefix("read_pdf_published_").removesuffix("_rows")
-        arguments = tuple(parameter.name for parameter in declaration.parameters if parameter.mode != enums.FunctionParameterMode.FUNC_PARAM_TABLE)
+        arguments = tuple(
+            parameter.name
+            for parameter in declaration.parameters
+            if parameter.mode != enums.FunctionParameterMode.FUNC_PARAM_TABLE
+        )
         expected = ("p_build", "p_revision") if private else ("p_task", "p_product", "p_digest")
         assert arguments == (*expected, *selectors[family])
         assert declaration.returnType.setof
-        assert tuple(parameter.name for parameter in declaration.parameters if parameter.mode == enums.FunctionParameterMode.FUNC_PARAM_TABLE) == tuple(statements[family].selected_columns.keys())
+        assert tuple(
+            parameter.name
+            for parameter in declaration.parameters
+            if parameter.mode == enums.FunctionParameterMode.FUNC_PARAM_TABLE
+        ) == tuple(statements[family].selected_columns.keys())
         options = {option.defname: option.arg for option in declaration.options or ()}
         assert options["volatility"].sval == "stable"
         allowed = {
-            role.rolename for grant in grants if grant.is_grant
+            role.rolename
+            for grant in grants
+            if grant.is_grant
             and any(target.objname[-1].sval == name for target in grant.objects or ())
             for role in grant.grantees or ()
         }
@@ -342,7 +352,11 @@ def test_finite_readers_resolve_both_placement_coordinates_and_guard_before_proj
             assert allowed == {"corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator"}
             assert parse_plpgsql(RawStream()(declaration))
             body = options["as"][0].sval
-            assert body.index("INTO STRICT published") < body.index("PERFORM ops.require_pdf_operation") < body.index("RETURN QUERY")
+            assert (
+                body.index("INTO STRICT published")
+                < body.index("PERFORM ops.require_pdf_operation")
+                < body.index("RETURN QUERY")
+            )
             assert "'read_native_source'" in body
             if family != "sections":
                 assert body.index("ERRCODE = '22023'") < body.index("RETURN QUERY")
@@ -482,16 +496,25 @@ def test_explicit_native_section_scope_does_not_expand_to_root_body():
     [
         ("items", "p_pointers IS NULL OR array_position(p_pointers,NULL) IS NOT NULL"),
         ("region_batch", "p_pointers IS NULL OR array_position(p_pointers,NULL) IS NOT NULL"),
-        ("section_reports", "p_pointers IS NULL OR p_sections IS NULL OR array_position(p_pointers,NULL) IS NOT NULL OR array_position(p_sections,NULL) IS NOT NULL"),
+        (
+            "section_reports",
+            "p_pointers IS NULL OR p_sections IS NULL OR array_position(p_pointers,NULL) IS NOT NULL OR array_position(p_sections,NULL) IS NOT NULL",
+        ),
         ("region", "p_pointer IS NULL OR p_region_index IS NULL OR p_region_index<0"),
-        ("item_page", "p_membership IS NULL OR p_membership NOT IN ('direct','descendants') OR p_after IS NULL OR p_after< -1 OR p_limit IS NULL OR p_limit<1 OR p_limit>1000"),
+        (
+            "item_page",
+            "p_membership IS NULL OR p_membership NOT IN ('direct','descendants') OR p_after IS NULL OR p_after< -1 OR p_limit IS NULL OR p_limit<1 OR p_limit>1000",
+        ),
         ("regions", "p_pointer IS NULL"),
         ("item_ancestors", "p_pointer IS NULL"),
-        ("section_nodes", """p_section IS NULL OR p_membership IS NULL OR p_membership NOT IN ('direct','descendants')
+        (
+            "section_nodes",
+            """p_section IS NULL OR p_membership IS NULL OR p_membership NOT IN ('direct','descendants')
         OR NOT EXISTS(SELECT 1 FROM kb.pdf_record_access a
         WHERE a.product_id=published.build_id AND a.revision_id=published.build_id AND a.pointer=p_section
         AND (a.label IN ('section','chapter') OR (p_section='#/body' AND p_membership='direct'
-        AND a.parent_pointer IS NULL AND a.content_layer='body' AND a.native_json->>'self_ref'='#/body')))"""),
+        AND a.parent_pointer IS NULL AND a.content_layer='body' AND a.native_json->>'self_ref'='#/body')))""",
+        ),
     ],
 )
 def test_published_reader_selector_refusals_preserve_independent_predicates(family, expected):
@@ -508,8 +531,15 @@ def test_published_reader_selector_refusals_preserve_independent_predicates(fami
 
     statement = published_read_statements()[family]
     publication = metadata.tables["ops.pdf_published_revision"]
-    published = {field.name: core_variable("published", field.type, field.name) for field in publication.c}
-    (guard,) = _published_read_guards(family, _published_read_selectors(family, statement), metadata.tables["kb.pdf_record_access"], published)
+    published = {
+        field.name: core_variable("published", field.type, field.name) for field in publication.c
+    }
+    (guard,) = _published_read_guards(
+        family,
+        _published_read_selectors(family, statement),
+        metadata.tables["kb.pdf_record_access"],
+        published,
+    )
     assert isinstance(guard.condition, ClauseElement)
     actual = str(guard.condition.compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
     assert parse_sql("SELECT " + actual)[0].stmt == parse_sql("SELECT " + expected)[0].stmt

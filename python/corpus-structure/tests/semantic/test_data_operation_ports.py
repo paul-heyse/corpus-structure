@@ -1519,7 +1519,9 @@ def test_eager_sequence_outputs_keep_order_duplicates_and_nominal_item_meaning(
     model, sources = fixture_source(
         tmp_path, monkeypatch, "index: int", body, returns=annotation, metadata=declaration
     )
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id, authorize=lambda _: None)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     result = port.invoke_python((PythonRoleValue("index", kind(model, "index"), 7),))
     assert [item.value() for item in result.outputs] == [7, 8, 7]
     assert [item.role for item in result.outputs] == ["address"] * 3
@@ -1530,14 +1532,20 @@ def test_eager_sequence_outputs_keep_order_duplicates_and_nominal_item_meaning(
     assert result.outcome == "addressed"
 
 
-@pytest.mark.parametrize("body", ["return ()", "return (index,)", "return (index, index, index, index)"])
-def test_eager_sequence_output_cardinality_refuses_before_any_completion(tmp_path, monkeypatch, body):
+@pytest.mark.parametrize(
+    "body", ["return ()", "return (index,)", "return (index, index, index, index)"]
+)
+def test_eager_sequence_output_cardinality_refuses_before_any_completion(
+    tmp_path, monkeypatch, body
+):
     declaration = controlled_port_declaration()
     declaration["roles"][-1].update(kind="integer", collection="sequence", minimum=2, maximum=3)
     model, sources = fixture_source(
         tmp_path, monkeypatch, "index: int", body, returns="tuple[int, ...]", metadata=declaration
     )
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id, authorize=lambda _: None)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     with pytest.raises(PortRefusal, match="item count differs"):
         port.invoke_python((PythonRoleValue("index", kind(model, "index"), 7),))
 
@@ -1553,7 +1561,9 @@ def test_eager_sequence_validates_every_item_before_encoding_completion(tmp_path
         returns="tuple[int, ...]",
         metadata=declaration,
     )
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id, authorize=lambda _: None)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     with pytest.raises(ValidationError):
         port.invoke_python((PythonRoleValue("index", kind(model, "index"), 7),))
     from typing import Annotated
@@ -1561,7 +1571,9 @@ def test_eager_sequence_validates_every_item_before_encoding_completion(tmp_path
     from pydantic import AfterValidator
 
     with pytest.raises(PortRefusal, match="changed admitted multiplicity"):
-        port._complete((7, 8), Annotated[tuple[int, ...], AfterValidator(lambda values: values[:1])])
+        port._complete(
+            (7, 8), Annotated[tuple[int, ...], AfterValidator(lambda values: values[:1])]
+        )
     with pytest.raises(PortRefusal, match="finite ordered container"):
         port._complete((7, 8), Annotated[tuple[int, ...], AfterValidator(iter)])
 
@@ -1628,7 +1640,10 @@ def test_native_scalar_model_hydration_does_not_serialize_invalid_fields_into_va
             return {"items": [1]}
 
     adapters = PortAdapters()
-    assert _validated_hydrated_model_input(Input, {"items": [2, 3]}, adapters=adapters).items == (2, 3)
+    assert _validated_hydrated_model_input(Input, {"items": [2, 3]}, adapters=adapters).items == (
+        2,
+        3,
+    )
     for invalid in ({"items": [True]}, Input.model_construct(items=(True,))):
         with pytest.raises(ValidationError):
             _validated_hydrated_model_input(Input, invalid, adapters=adapters)

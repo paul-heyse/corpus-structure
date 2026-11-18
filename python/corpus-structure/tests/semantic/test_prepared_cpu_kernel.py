@@ -128,7 +128,9 @@ def test_prepared_eager_sequence_preserves_one_actual_whole_cpu_reply_and_receip
         returns="tuple[float, ...]",
         metadata=declaration,
     )
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id, authorize=lambda _: None)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     acquired = AcquiredPort()
     acquired.operation = port.operation
     acquired._port = port
