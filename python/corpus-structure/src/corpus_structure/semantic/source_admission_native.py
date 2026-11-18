@@ -21,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, array
 from sqlalchemy.types import TypeEngine
 
+from .data_read_boundary_native import read_presentation_check
 from .native_objects import native_sql_script
 from .native_program import (
     Assign,
@@ -913,6 +914,10 @@ def _selected_read(target, *, observations):
                 reads,
                 reads.c.id == payload["read_id"].astext,
                 reads.c.demand_id == demand("id"),
+            ),
+            read_presentation_check(
+                _field("boundary", reads, "scope"),
+                _field("boundary", reads, "public_disclosure"),
             ),
             Assign(
                 "receipt",

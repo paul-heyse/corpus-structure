@@ -1,0 +1,4 @@
+# Preserve nominal kind identity, pin read disclosure, and project exact batch outputs.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n14
+native_revision: semantic_ddo_pe_n15

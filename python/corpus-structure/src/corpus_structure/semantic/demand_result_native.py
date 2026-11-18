@@ -24,6 +24,7 @@ from .data_operation_projections import (
     read_scope_rows,
     read_selection,
 )
+from .data_read_boundary_native import read_presentation_check
 from .demand_registration_native import (
     _authorize_selection,
     _clock,
@@ -112,6 +113,7 @@ def _read_demand_result(model, kernel_digest):
         "trust_snapshot",
         "scope",
         "access_universes",
+        "public_disclosure",
         "kernel_digest",
         "grade_census_eligible",
         "fit_census_eligible",
@@ -130,10 +132,6 @@ def _read_demand_result(model, kernel_digest):
             ),
             _refusal(
                 or_(
-                    and_(
-                        payload.has_key("selection"),
-                        payload["selection"].is_distinct_from(read_selection(scope)),
-                    ),
                     and_(
                         or_(
                             *(
@@ -201,6 +199,18 @@ def _read_demand_result(model, kernel_digest):
                     Assign(("boundary", "frontier_at"), _clock()),
                     Assign(("boundary", "owner_xid"), _xid()),
                     Assign(("boundary", "scope"), scope),
+                    Assign(
+                        ("boundary", "public_disclosure"),
+                        ~func.pg_has_role(
+                            func.coalesce(
+                                func.nullif(func.current_setting("role"), "none"),
+                                func.session_user(),
+                            ),
+                            "corpus_sem_evaluator",
+                            "MEMBER",
+                            type_=Boolean(),
+                        ),
+                    ),
                     SelectInto(
                         select(
                             func.coalesce(
@@ -264,6 +274,14 @@ def _read_demand_result(model, kernel_digest):
                         )
                     ),
                 ),
+            ),
+            read_presentation_check(scope, pinned("public_disclosure")),
+            _refusal(
+                and_(
+                    payload.has_key("selection"),
+                    payload["selection"].is_distinct_from(read_selection()),
+                ),
+                "demand read selection/snapshot pins are incomplete or differ",
             ),
             _refusal(
                 and_(

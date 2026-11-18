@@ -20,6 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import BYTEA, JSON, JSONB, aggregate_order_by
 from sqlalchemy.sql import quoted_name
 
+from .data_read_boundary_native import read_presentation_check
 from .native_objects import native_sql_script
 from .native_program import (
     Assign,
@@ -269,6 +270,7 @@ def visual_candidate_program() -> str:
 
 def _selected_visual_program(model: MetaData, artifact_schema: bytes) -> str:
     products = model.tables["kb.data_product"]
+    reads = model.tables["ops.data_demand_read"]
     episodes = model.tables["ops.data_derivation"]
     intents = model.tables["ops.data_completion_intent"]
     kinds = model.tables["sem.data_kind_contract"]
@@ -538,6 +540,17 @@ def _selected_visual_program(model: MetaData, artifact_schema: bytes) -> str:
             (Raise("visual evidence differs from selected source cut", "23514"),),
         ),
         SelectInto(
+            select(core_relation_row(reads)).where(
+                reads.c.id == request["source"]["read_id"].astext,
+                reads.c.demand_id == request["source"]["demand_id"].astext,
+            ),
+            ("boundary",),
+            strict=True,
+        ),
+        read_presentation_check(
+            row("boundary", reads, "scope"), row("boundary", reads, "public_disclosure")
+        ),
+        SelectInto(
             select(core_relation_row(products)).where(
                 products.c.id == request["evidence"]["product_id"].astext,
                 products.c.project_id == request["source"]["project_id"].astext,
@@ -652,6 +665,7 @@ def _selected_visual_program(model: MetaData, artifact_schema: bytes) -> str:
                 *(Local(name, pg_type("integer")) for name in integers),
                 *(Local(name, pg_type("text")) for name in ("kind", "digest", "media")),
                 Local("product", products),
+                Local("boundary", reads),
                 Local("raw_product", products),
                 Local("episode", episodes),
                 Local("raw_episode", episodes),

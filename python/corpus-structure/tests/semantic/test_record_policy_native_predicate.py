@@ -134,7 +134,8 @@ def policy_visibility_connection(infrastructure_rollback):
             frontier_at=now,
             owner_xid=xid,
             trust_snapshot={},
-            scope={},
+            scope={"product_ids": ["product:one"]},
+            public_disclosure=True,
         ),
     )
     connection.execute(

@@ -626,6 +626,7 @@ classes:
       owner_xid: {range: string, required: true}
       trust_snapshot: {range: json_payload, required: true}
       access_universes: {range: json_payload, required: false}
+      public_disclosure: {range: boolean, required: true, annotations: {ph:server_default_value: false}}
       grade_census_eligible: {range: boolean, required: false}
       fit_census_eligible: {range: boolean, required: false}
       kernel_digest: {range: string, required: false}

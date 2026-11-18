@@ -94,6 +94,42 @@ def operation_event_journey(published_pdf_source_factory, tmp_path):
                     )
                 },
             )
+        public_request = dict(
+            demand_id=retained["demand_id"],
+            read_id=page.cut.record["read_id"],
+            scope=page.cut.record["scope"],
+            view="products",
+        )
+        with kernel.purpose("evaluate").begin() as connection:
+            reopened = read_demand_result(
+                connection,
+                retained["demand_id"],
+                project_id=PROJECT,
+                continuation=public_request,
+                cut=page.cut,
+                limit=1000,
+            )
+            full = read_demand_result(
+                connection,
+                retained["demand_id"],
+                project_id=PROJECT,
+                scope=page.cut.record["scope"],
+                limit=1000,
+            )
+        assert reopened.cut.content == page.cut.content
+        assert full.record["selection"] != page.record["selection"]
+        with (
+            pytest.raises(DBAPIError, match="evaluator data requires evaluator purpose"),
+            kernel.purpose("read").begin() as connection,
+        ):
+            read_demand_result(
+                connection,
+                retained["demand_id"],
+                project_id=PROJECT,
+                continuation={**public_request, "read_id": full.cut.record["read_id"]},
+                cut=full.cut,
+                limit=1000,
+            )
         selection = cut_selection(page.cut)
         definition = next(
             item
@@ -230,15 +266,21 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
 ):
     case = operation_event_journey
     kernel, fit = case["kernel"], case["fit"]
-    _page, (public,) = selected(
+    _page, (issued,) = selected(
         kernel,
         case["fitted"]["demand_id"],
         "urn:corpus:kind:operation-event:parameters",
         purpose="evaluate",
     )
-    # The issuer demand includes protected fitting inputs. Acquire its exact
-    # issued selector under evaluator authority; ordinary disclosure is checked
-    # through the genuine downstream scoring demand below.
+    _page, (public,) = selected(
+        kernel,
+        case["fitted"]["demand_id"],
+        "urn:corpus:kind:operation-event:parameters",
+        purpose="read",
+        scope={"product_ids": [issued.row["product_id"]]},
+    )
+    # The ordinary selected parameter cut carries its authenticated authority leaf
+    # into the scoring demand, while the fitted frame retains evaluator custody.
     parameters = OperationEventParameters.model_validate_json(json_bytes(public.body))
     assert fit.result.status == "fitted" and parameters == fit.result.parameters
     assert parameters.frame_digest == case["frame"].frame_digest

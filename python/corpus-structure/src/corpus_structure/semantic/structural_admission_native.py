@@ -572,6 +572,7 @@ def _structural_report_support(model):
             (
                 CatchStrictLookup(
                     (
+                        unavailable(~b("public_disclosure")),
                         unavailable(func.jsonb_typeof(requested).is_distinct_from("array")),
                         selected(demand, demand.c.id == b("demand_id"), "demand"),
                         selected(

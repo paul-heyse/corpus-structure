@@ -78,6 +78,28 @@ def _requested_read_scope():
     return func.coalesce(_var("p", JSONB)["scope"], _json({}))
 
 
+def _public_read():
+    """Disclosure is immutable acquisition custody, independent of the reopening role."""
+    return _var("boundary.public_disclosure", Boolean)
+
+
+def _public_authority_leaf(identity):
+    return and_(_public_read(), func.ops.ddo_policy_authority_leaf(identity))
+
+
+def _disclosed_kind_access(metadata, kind):
+    kinds = metadata.tables["sem.data_kind_contract"]
+    disclosed = exists(
+        select(1)
+        .select_from(kinds)
+        .where(
+            kinds.c.kind_contract == kind,
+            kinds.c.universe.in_(("ordinary", "source")),
+        )
+    )
+    return and_(func.ops.ddo_kind_access(kind), or_(~_public_read(), disclosed))
+
+
 def _visible(table):
     return func.ops.ddo_read_visible(
         table.c.created_at, table.c.created_xid, literal_column("boundary")
@@ -152,20 +174,18 @@ def _support_walk(metadata, seed, *, public=False, name="support_closure"):
     def episode_kind(identity):
         return (
             case(
-                (func.ops.ddo_policy_authority_leaf(identity), literal("authority")),
+                (_public_authority_leaf(identity), literal("authority")),
                 else_=literal("episode"),
             )
             if public
             else literal("episode")
         )
 
-    use_inputs_visible = (
-        ~func.ops.ddo_policy_authority_leaf(uses.c.derivation_id) if public else literal(True)
-    )
+    use_inputs_visible = ~_public_authority_leaf(uses.c.derivation_id) if public else literal(True)
     if public:
         reference_kind = case(
             (
-                and_(reference_kind == "episode", func.ops.ddo_policy_authority_leaf(reference_id)),
+                and_(reference_kind == "episode", _public_authority_leaf(reference_id)),
                 literal("authority"),
             ),
             else_=reference_kind,
@@ -225,7 +245,7 @@ def _support_walk(metadata, seed, *, public=False, name="support_closure"):
             _node("use", structural_report["use_id"].astext).where(
                 closure.c.kind == "use",
                 uses.c.id == closure.c.id,
-                func.ops.ddo_policy_authority_leaf(uses.c.derivation_id),
+                _public_authority_leaf(uses.c.derivation_id),
             ),
         )
     edges = union_all(*(query.correlate(closure) for query in edge_queries)).lateral("support_edge")
@@ -455,7 +475,7 @@ def read_access_universes(metadata):
         .where(
             selected_uses.c.obligation_id == obligations.c.id,
             selected_uses.c.fate == "fulfilled",
-            func.ops.ddo_policy_authority_leaf(selected_uses.c.derivation_id),
+            _public_authority_leaf(selected_uses.c.derivation_id),
         )
         .correlate(obligations)
     )
@@ -1185,9 +1205,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     fields = dict(
         uses=records(
             uses,
-            and_(
-                reached("use", uses.c.id), ~func.ops.ddo_policy_authority_leaf(uses.c.derivation_id)
-            ),
+            and_(reached("use", uses.c.id), ~_public_authority_leaf(uses.c.derivation_id)),
             uses.c.id,
         ),
         episodes=records(episodes, episodes.c.id.in_(episode_ids), episodes.c.id),
@@ -1214,7 +1232,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             products,
             and_(
                 products.c.id.in_(select(product_ids.c.product_id)),
-                func.ops.ddo_kind_access(products.c.kind_contract),
+                _disclosed_kind_access(metadata, products.c.kind_contract),
             ),
             products.c.id,
         ),
@@ -1222,7 +1240,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             members,
             and_(
                 members.c.product_id.in_(select(product_ids.c.product_id)),
-                func.ops.ddo_kind_access(members.c.kind_contract),
+                _disclosed_kind_access(metadata, members.c.kind_contract),
             ),
             members.c.product_id,
             members.c.member_id,
@@ -1504,24 +1522,19 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     return value, body_access
 
 
-def read_selection(scope=None):
-    """Disclose a typed intent digest when an ordinary reader selects a scope."""
+def read_selection():
+    """Keep the acquired intent disclosure unchanged across authorized purposes."""
     selection = _var("d.selection", JSONB)
-    principal = func.coalesce(
-        func.nullif(func.current_setting("role"), "none"), func.session_user()
-    )
-    evaluator = func.pg_has_role(principal, "corpus_sem_evaluator", "MEMBER", type_=Boolean())
-    bounded = and_(
-        (_var("boundary.scope", JSONB) if scope is None else scope) != _json({}),
-        ~evaluator,
-    )
     public = _obj(
         version=literal("data-demand-public-selection-v1"),
         model=selection["model"],
         intent_digest=func.ops.ddo_digest(selection),
         **{name: selection[name] for name in ("roots", "targets", "root_operations", "discovery")},
     )
-    return case((bounded, public), else_=selection)
+    return case(
+        (and_(_public_read(), _var("boundary.scope", JSONB) != _json({})), public),
+        else_=selection,
+    )
 
 
 def _cut_fields():
@@ -1658,7 +1671,7 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
     products = metadata.tables["kb.data_product"]
     if purpose == "read":
         access = (
-            func.ops.ddo_kind_access(products.c.kind_contract),
+            _disclosed_kind_access(metadata, products.c.kind_contract),
             func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
         )
     elif purpose == "feature-fit":
@@ -1744,6 +1757,37 @@ def record_grade_selected_outputs(metadata):
     return _selected_support_output_rows(metadata, one_use=False)
 
 
+def _watermark_role_matches(role, header, projected_kind, projected_scope, bounded):
+    """Use binding's immutable role, source and qualified-context association."""
+    return case(
+        (
+            and_(
+                role["accepted_kind_contracts"].bool_op("?")(projected_kind),
+                func.coalesce(role["support"]["origins"], _json(["computation"])).bool_op("?")(
+                    literal("computation")
+                ),
+                or_(
+                    role["subject_field"].astext.is_not(None),
+                    role["subject_target"].astext == "source-set",
+                    projected_scope.is_not_distinct_from(bounded.c.analyzed_scope),
+                ),
+            ),
+            and_(
+                func.ops.ddo_binding_subject(
+                    role, header, bounded.c.subject, bounded.c.original_source
+                ),
+                func.ops.ddo_binding_source(
+                    role,
+                    header,
+                    bounded.c.original_source,
+                    func.coalesce(_var("d.selection", JSONB)["source_sets"], _json({})),
+                ),
+            ),
+        ),
+        else_=literal(False),
+    )
+
+
 def _pinned_watermark_uses(metadata, bounded):
     """Visible exact-pin uses under the obligation's actual role/context policy."""
     selection = _var("d.selection", JSONB)
@@ -1789,32 +1833,8 @@ def _pinned_watermark_uses(metadata, bounded):
     # The same immutable subject/source/proof predicates own binding eligibility.
     # This records raw visible identities; live validity/authority remain with the
     # read acquisition and binding boundary rather than becoming a validity cache.
-    role_matches = case(
-        (
-            and_(
-                roles.c.value["accepted_kind_contracts"].op("?")(projected_kind),
-                func.coalesce(roles.c.value["support"]["origins"], _json(["computation"])).op("?")(
-                    literal("computation")
-                ),
-                or_(
-                    roles.c.value["subject_field"].astext.is_not(None),
-                    roles.c.value["subject_target"].astext == "source-set",
-                    projected_scope.is_not_distinct_from(bounded.c.analyzed_scope),
-                ),
-            ),
-            and_(
-                func.ops.ddo_binding_subject(
-                    roles.c.value, header, bounded.c.subject, bounded.c.original_source
-                ),
-                func.ops.ddo_binding_source(
-                    roles.c.value,
-                    header,
-                    bounded.c.original_source,
-                    func.coalesce(selection["source_sets"], _json({})),
-                ),
-            ),
-        ),
-        else_=literal(False),
+    role_matches = _watermark_role_matches(
+        roles.c.value, header, projected_kind, projected_scope, bounded
     )
     return (
         select(
@@ -1870,6 +1890,140 @@ def _pinned_watermark_uses(metadata, bounded):
                 episodes.c.id,
                 uses.c.id,
                 emitting,
+            ),
+        )
+    )
+
+
+def _unconstrained_watermark_uses(metadata, bounded):
+    """Wake dependency-free consumers only for eligible same-demand role outputs."""
+    selection = _var("d.selection", JSONB)
+    selected = _items(selection["operations"], "watermark_unconstrained_operation")
+    definitions = metadata.tables["sem.data_operation_definition"].alias(
+        "watermark_local_definition"
+    )
+    roles = _items(definitions.c.input_roles, "watermark_local_role")
+    uses = metadata.tables["ops.demand_use"].alias("watermark_local_use")
+    later = metadata.tables["ops.demand_use"].alias("watermark_local_later")
+    episodes = metadata.tables["ops.data_derivation"].alias("watermark_local_episode")
+    outputs = metadata.tables["ops.data_derivation_output"].alias("watermark_local_output")
+    products = metadata.tables["kb.data_product"].alias("watermark_local_product")
+    members = metadata.tables["kb.data_product_member"].alias("watermark_local_member")
+    projected = union_all(
+        select(
+            cast(null(), Text).label("member_id"),
+            products.c.kind_contract.label("kind_contract"),
+            products.c.subject.label("subject"),
+            products.c.subject_definition.label("subject_definition"),
+            products.c.original_source.label("original_source"),
+            products.c.analyzed_scope.label("analyzed_scope"),
+            products.c.canonical_body.label("meaning_body"),
+        )
+        .where(outputs.c.member_id.is_(None))
+        .correlate(products, outputs),
+        select(
+            members.c.member_id,
+            members.c.kind_contract,
+            members.c.subject,
+            members.c.subject_definition,
+            members.c.original_source,
+            members.c.analyzed_scope,
+            members.c.body,
+        )
+        .where(
+            members.c.product_id == products.c.id,
+            or_(outputs.c.member_id.is_(None), members.c.member_id == outputs.c.member_id),
+        )
+        .correlate(products, outputs),
+    ).lateral("watermark_local_projection")
+    emitting = _obj(
+        member_id=outputs.c.member_id,
+        role=outputs.c.role,
+        position=outputs.c.position,
+        multiplicity=outputs.c.multiplicity,
+    )
+    header = _obj(
+        product=products.c.id,
+        member=projected.c.member_id,
+        subject=projected.c.subject,
+        subject_definition=projected.c.subject_definition,
+        original_source=projected.c.original_source,
+        analyzed_scope=projected.c.analyzed_scope,
+        meaning_body=projected.c.meaning_body,
+        support_references=func.jsonb_build_array(
+            _obj(
+                kind=literal("computation"),
+                derivation_id=episodes.c.id,
+                admission_use_id=uses.c.id,
+            )
+        ),
+        support_evidence=_obj(producer_output=emitting),
+    )
+    return (
+        select(
+            bounded.c.id.label("obligation_id"),
+            literal("use").label("kind"),
+            uses.c.id.label("identity"),
+            uses.c.created_at,
+        )
+        .select_from(
+            bounded.join(
+                selected,
+                and_(
+                    selected.c.value["operation"].astext == bounded.c.operation_id,
+                    func.jsonb_array_length(selected.c.value["dependencies"]) == 0,
+                ),
+            )
+            .join(
+                definitions,
+                and_(
+                    definitions.c.release_id == _var("d.release_id", Text),
+                    definitions.c.operation_id == bounded.c.operation_id,
+                ),
+            )
+            .join(roles, literal(True))
+            .join(uses, uses.c.demand_id == _var("d.id", Text))
+            .join(episodes, episodes.c.id == uses.c.derivation_id)
+            .join(outputs, outputs.c.derivation_id == episodes.c.id)
+            .join(products, products.c.id == outputs.c.product_id)
+            .join(projected, literal(True))
+        )
+        .where(
+            roles.c.value["support"]["source_set"].astext.is_(None),
+            products.c.project_id == _var("d.project_id", Text),
+            uses.c.fate == "fulfilled",
+            _visible(uses),
+            ~exists(
+                select(1)
+                .select_from(later)
+                .where(
+                    later.c.obligation_id == uses.c.obligation_id,
+                    or_(
+                        later.c.created_at > uses.c.created_at,
+                        and_(later.c.created_at == uses.c.created_at, later.c.id > uses.c.id),
+                    ),
+                    _visible(later),
+                )
+            ),
+            # Access checks raise on refusal, so unrelated kinds or qualified
+            # contexts must be filtered before either authorization executes.
+            case(
+                (
+                    _watermark_role_matches(
+                        roles.c.value,
+                        header,
+                        projected.c.kind_contract,
+                        projected.c.analyzed_scope,
+                        bounded,
+                    ),
+                    and_(
+                        func.ops.ddo_kind_access(products.c.kind_contract),
+                        func.ops.ddo_body_access(
+                            projected.c.kind_contract, projected.c.meaning_body
+                        ),
+                    ),
+                ),
+                else_=literal(False),
             ),
         )
     )
@@ -1972,7 +2126,11 @@ def _inputs_watermarks(metadata, bounded):
     # several selected outputs. Hash its actual identity once, independent of
     # output multiplicity and timestamp ties.
     visible = union(
-        fulfilled, _pinned_watermark_uses(metadata, bounded), population_rows, original_rows
+        fulfilled,
+        _pinned_watermark_uses(metadata, bounded),
+        _unconstrained_watermark_uses(metadata, bounded),
+        population_rows,
+        original_rows,
     ).cte("watermark_visible")
     identities = (
         select(
@@ -2052,7 +2210,7 @@ def read_page(metadata):
             ),
             _visible(population_table),
             or_(
-                read_scope == _json({}),
+                ~_public_read(),
                 exists(
                     select(1)
                     .select_from(public_nodes)
@@ -2206,11 +2364,11 @@ def read_page(metadata):
                 semantic_outcome=semantic_outcome,
                 completion_state=completion_state,
                 request_id=case(
-                    (func.ops.ddo_policy_authority_leaf(selected_uses.c.derivation_id), null()),
+                    (_public_authority_leaf(selected_uses.c.derivation_id), null()),
                     else_=selected_uses.c.request_id,
                 ),
                 generation=case(
-                    (func.ops.ddo_policy_authority_leaf(selected_uses.c.derivation_id), null()),
+                    (_public_authority_leaf(selected_uses.c.derivation_id), null()),
                     else_=selected_uses.c.generation,
                 ),
                 derivation_id=selected_uses.c.derivation_id,
@@ -2228,7 +2386,7 @@ def read_page(metadata):
                 ),
                 selection=case(
                     (
-                        func.ops.ddo_policy_authority_leaf(selected_uses.c.derivation_id),
+                        _public_authority_leaf(selected_uses.c.derivation_id),
                         _obj(
                             kind=literal("native-authority"),
                             protected_dependencies=literal("undisclosed"),
@@ -2332,7 +2490,7 @@ def read_page(metadata):
         .where(
             *_read_original_predicates(admissions, in_page),
             func.ops.ddo_original_admission_valid(admissions.table_valued(), boundary),
-            func.ops.ddo_kind_access(products.c.kind_contract),
+            _disclosed_kind_access(metadata, products.c.kind_contract),
         )
         .scalar_subquery()
     )
@@ -2354,8 +2512,8 @@ def read_page(metadata):
         )
         .where(
             requests.c.id == failures.c.request_id,
-            ~func.ops.ddo_kind_access(
-                func.coalesce(failure_members.c.kind_contract, products.c.kind_contract)
+            ~_disclosed_kind_access(
+                metadata, func.coalesce(failure_members.c.kind_contract, products.c.kind_contract)
             ),
         )
     )

@@ -130,8 +130,20 @@ def test_native_current_source_only_then_selected_composition_preserves_actual_d
 
     selections = {}
     for operation in (FORMAL, CONSTRUCTION):
-        selected = source.query(analytical_demand, operation_id=operation, containers_only=True)
+        product = operation_product(primary, operation)
+        (manifest,) = [
+            packet
+            for packet in decode_semantic_value(product["body"])["members"]
+            if packet["body"].get("record_type") == "manifest"
+        ]
+        selected = source.query(
+            analytical_demand,
+            operation_id=operation,
+            product_id=product["product_id"],
+            member_id=manifest["member_id"],
+        )
         (header,) = selected["items"]
+        assert header["kind_contract"] == manifest["kind_contract"]
         selections[operation] = SelectedSourceSetEntry.from_selected_header(
             header, CutSelection(json_bytes(selected["cut"]))
         )

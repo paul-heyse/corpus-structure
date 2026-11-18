@@ -93,12 +93,12 @@ def execute(
     return retained, execution
 
 
-def selected(kernel, demand, kind, *, purpose="evaluate"):
+def selected(kernel, demand, kind, *, purpose="evaluate", scope=None):
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.selected_support import SelectedReadReference
 
     with kernel.purpose(purpose).begin() as connection:
-        page = read_demand_result(connection, demand, project_id=PROJECT, limit=1000)
+        page = read_demand_result(connection, demand, project_id=PROJECT, limit=1000, scope=scope)
     read = SelectedReadReference.from_cut(page.cut)
     return page, tuple(
         Product(row, row["body"], read)

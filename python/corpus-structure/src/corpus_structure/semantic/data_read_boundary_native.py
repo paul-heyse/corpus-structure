@@ -28,6 +28,14 @@ from .native_program import (
 from .native_program import literal as pg_literal
 
 
+def read_presentation_check(scope, public_disclosure):
+    """Full scoped intent presentation retains its evaluator capability requirement."""
+    return If(
+        and_(~public_disclosure, scope != cast(literal("{}"), JSONB())),
+        (Perform(func.ops.ddo_authorize("evaluator")),),
+    )
+
+
 def read_boundary_native_sql(target) -> str:
     reads = target.tables["ops.data_demand_read"]
     retained = target.tables["ops.data_demand_read_scope"]
@@ -90,7 +98,12 @@ def read_boundary_native_sql(target) -> str:
                 read_field("kernel_digest") == "__DDO_SOURCE_DIGEST__",
                 *(
                     read_field(name).is_not(None)
-                    for name in ("access_universes", "grade_census_eligible", "fit_census_eligible")
+                    for name in (
+                        "access_universes",
+                        "public_disclosure",
+                        "grade_census_eligible",
+                        "fit_census_eligible",
+                    )
                 ),
                 exists(
                     select(1).select_from(retained).where(retained.c.read_id == read_field("id"))

@@ -278,9 +278,6 @@ def record_policy_native_sql(*, target_metadata=None):
     native_product = products.alias("native_product")
     native_kind = kinds.alias("native_kind")
     other_output = outputs.alias("other_output")
-    principal = func.coalesce(
-        func.nullif(func.current_setting("role"), "none"), func.session_user()
-    )
     only_one_output = (
         select(func.count())
         .where(other_output.c.derivation_id == native_episode.c.id)
@@ -341,12 +338,7 @@ def record_policy_native_sql(*, target_metadata=None):
     leaf = sql(
         "ddo_policy_authority_leaf",
         (Parameter("episode", pg_type("text")),),
-        select(
-            and_(
-                ~func.pg_has_role(principal, "corpus_sem_evaluator", "MEMBER", type_=Boolean()),
-                authority,
-            )
-        ),
+        select(authority),
         definer=True,
     )
     selected_use, read_id, standing = (
@@ -386,6 +378,11 @@ def record_policy_native_sql(*, target_metadata=None):
                         "23514",
                     ),
                     selected(boundaries, boundaries.c.id == read_id, "boundary"),
+                    _check(
+                        ~boundary("public_disclosure"),
+                        "policy authority summary requires its public acquisition",
+                        "23514",
+                    ),
                     selected(episodes, episodes.c.id == episode, "d"),
                     _check(
                         or_(d("completed_at") > boundary("frontier_at"), ~visible_publication),

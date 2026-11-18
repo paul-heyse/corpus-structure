@@ -100,7 +100,9 @@ def protocol_example():
                 recipe="recipe",
                 output_roles=[dict(name="result", kind_contract="kind", collection="scalar")],
                 support_contract=dict(
-                    effects=[], result_fields={}, capabilities=dict(forms=["batch"], preparation="resource")
+                    effects=[],
+                    result_fields={},
+                    capabilities=dict(forms=["batch"], preparation="resource"),
                 ),
             )
         },
@@ -200,7 +202,10 @@ def test_projection_does_not_accept_raw_intent_or_additional_sibling_body():
 def test_two_role_execution_projections_keep_complete_detached_output_custody():
     from decimal import Decimal
 
-    from corpus_structure.semantic.data_operation_identity import body_identity, contextual_product_identity
+    from corpus_structure.semantic.data_operation_identity import (
+        body_identity,
+        contextual_product_identity,
+    )
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.demand_results import verify_detached_result
@@ -208,48 +213,105 @@ def test_two_role_execution_projections_keep_complete_detached_output_custody():
 
     native, records = _detached_closure()
     product = next(row["record"] for row in records if row["relation"] == "kb.data_product")
-    definition = next(row["record"] for row in records if row["relation"] == "sem.data_operation_definition")
+    definition = next(
+        row["record"] for row in records if row["relation"] == "sem.data_operation_definition"
+    )
     definition.update(
-        profile="derivation", input_roles=[],
-        output_roles=[dict(name=role, kind_contract=product["kind_contract"], collection="scalar") for role in ("result", "vector")],
+        profile="derivation",
+        input_roles=[],
+        output_roles=[
+            dict(name=role, kind_contract=product["kind_contract"], collection="scalar")
+            for role in ("result", "vector")
+        ],
     )
     definition["support_contract"].update(
-        effects=[], result_fields={"result": "query", "vector": "vector"},
+        effects=[],
+        result_fields={"result": "query", "vector": "vector"},
         capabilities=dict(forms=["batch"], preparation="resource"),
     )
     sibling = deepcopy(product)
     sibling["canonical_body"] = semantic_value({"amount": Decimal("17.50")})
     sibling["body_digest"] = body_identity({"amount": Decimal("17.50")}).key
     sibling["id"] = contextual_product_identity(
-        kind=product["kind_contract"], body=sibling["body_digest"],
-        context=SubjectContext(product["project_id"], product["subject"], product["original_source"], json_bytes(product["analyzed_scope"]), subject_definition=product["subject_definition"]),
+        kind=product["kind_contract"],
+        body=sibling["body_digest"],
+        context=SubjectContext(
+            product["project_id"],
+            product["subject"],
+            product["original_source"],
+            json_bytes(product["analyzed_scope"]),
+            subject_definition=product["subject_definition"],
+        ),
     ).key
     records = [row for row in records if row["relation"] != "ops.data_completion_intent"]
-    records.extend((
-        dict(relation="kb.data_product", key="second-product", record=sibling),
-        dict(relation="ops.data_derivation_output", key="second-output", record=dict(
-            derivation_id="episode:A", role="vector", position=0, multiplicity=1, member_id=None, product_id=sibling["id"],
-        )),
-    ))
-    native["uses"][0]["products"].append(dict(
-        product_id=sibling["id"], member_id=None, role="vector", position=0, multiplicity=1, body=sibling["canonical_body"],
-    ))
+    records.extend(
+        (
+            dict(relation="kb.data_product", key="second-product", record=sibling),
+            dict(
+                relation="ops.data_derivation_output",
+                key="second-output",
+                record=dict(
+                    derivation_id="episode:A",
+                    role="vector",
+                    position=0,
+                    multiplicity=1,
+                    member_id=None,
+                    product_id=sibling["id"],
+                ),
+            ),
+        )
+    )
+    native["uses"][0]["products"].append(
+        dict(
+            product_id=sibling["id"],
+            member_id=None,
+            role="vector",
+            position=0,
+            multiplicity=1,
+            body=sibling["canonical_body"],
+        )
+    )
     leaves: list[dict[str, Any]] = []
     for role, selected_product in (("result", product), ("vector", sibling)):
         value, _ = protocol_example()
-        producer = dict(request_id="request:A", generation=1, task_id=1, attempt=1, holder="original-holder")
-        value.update(
-            derivation_id="episode:A", use_id=None, issuer_operation="op:A", release_id="release:A", runtime_id="runtime:A",
-            recipe="recipe:A", producer=producer, intent_id="intent:A", publication_receipt_id="receipt:A",
-            product_id=selected_product["id"], kind_contract=product["kind_contract"], output_role=role,
-            member_output_digest=sha256(canonical_bytes(selected_product["canonical_body"])).hexdigest(),
+        producer = dict(
+            request_id="request:A", generation=1, task_id=1, attempt=1, holder="original-holder"
         )
-        value["selected_completion"]["outputs"] = [dict(
-            role=role, position=0, multiplicity=1,
-            product=dict(kind_contract=product["kind_contract"], body=selected_product["canonical_body"], members=[]),
-        )]
-        value["selected_completion"]["execution_evidence"].update(**producer, runtime_id="runtime:A")
-        leaves.append(dict(relation="ops.data_execution_evidence_leaf", key="leaf:" + role, record=value))
+        value.update(
+            derivation_id="episode:A",
+            use_id=None,
+            issuer_operation="op:A",
+            release_id="release:A",
+            runtime_id="runtime:A",
+            recipe="recipe:A",
+            producer=producer,
+            intent_id="intent:A",
+            publication_receipt_id="receipt:A",
+            product_id=selected_product["id"],
+            kind_contract=product["kind_contract"],
+            output_role=role,
+            member_output_digest=sha256(
+                canonical_bytes(selected_product["canonical_body"])
+            ).hexdigest(),
+        )
+        value["selected_completion"]["outputs"] = [
+            dict(
+                role=role,
+                position=0,
+                multiplicity=1,
+                product=dict(
+                    kind_contract=product["kind_contract"],
+                    body=selected_product["canonical_body"],
+                    members=[],
+                ),
+            )
+        ]
+        value["selected_completion"]["execution_evidence"].update(
+            **producer, runtime_id="runtime:A"
+        )
+        leaves.append(
+            dict(relation="ops.data_execution_evidence_leaf", key="leaf:" + role, record=value)
+        )
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.native_definition_projection import NativeOperationProjection
 
@@ -259,7 +321,8 @@ def test_two_role_execution_projections_keep_complete_detached_output_custody():
     definition.clear()
     definition.update({name: complete_definition[name] for name in exported_fields})
     options = dict(
-        wire_schema={}, runtimes={("release:A", "runtime:A")},
+        wire_schema={},
+        runtimes={("release:A", "runtime:A")},
         definitions={("release:A", "op:A"): complete_definition},
     )
     assert verify_detached_result(native, records=[*records, *leaves], **options)
@@ -289,8 +352,12 @@ def test_execution_leaf_program_uses_explicit_target_metadata_and_archived_resul
     from corpus_structure.semantic.execution_evidence_leaf import execution_evidence_leaf_native_sql
     from corpus_structure.semantic.metadata import metadata
 
-    proposed_output = metadata.tables["ops.data_derivation_output"].to_metadata(MetaData(), name="captured_output")
-    target = SimpleNamespace(tables={**metadata.tables, "ops.data_derivation_output": proposed_output})
+    proposed_output = metadata.tables["ops.data_derivation_output"].to_metadata(
+        MetaData(), name="captured_output"
+    )
+    target = SimpleNamespace(
+        tables={**metadata.tables, "ops.data_derivation_output": proposed_output}
+    )
     source = execution_evidence_leaf_native_sql(target)
     assert parse_sql(source)
     assert "ops.captured_output" in source and "FROM ops.data_derivation_output" not in source

@@ -914,6 +914,11 @@ def test_actual_writer_rejects_independently_authored_binding_substitutions(ddo_
         (
             "support-episode-substitution",
             "23514",
+            "semantic binding has no exact native manifest member for role source",
+        ),
+        (
+            "unrequested-original-source-identity",
+            "23514",
             "unrequested support identity cannot salt semantic input",
         ),
         (
@@ -988,6 +993,8 @@ def test_actual_writer_rejects_independently_authored_binding_substitutions(ddo_
                 payload["binding"]["inputs"][0]["member_id"] = "not-a-member"
             elif name == "support-episode-substitution":
                 member["support_episodes"] = ("unselected-episode",)
+            elif name == "unrequested-original-source-identity":
+                member["original_sources"] = ("unrequested-original",)
             elif name == "position-substitution":
                 payload["binding"]["inputs"][0]["position"] = 1
                 payload["binding"]["support"][0]["position"] = 1

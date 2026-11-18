@@ -42,6 +42,102 @@ def test_core_builders_own_return_shape_and_keep_scoped_native_parameters():
     assert "ops.ddo_episode_provider_identity" in computed
 
 
+def test_dependency_free_waiting_watermark_filters_local_publications_by_actual_role():
+    from pglast import ast
+    from pglast.visitors import Visitor
+
+    from corpus_structure.semantic.data_operation_projections import _unconstrained_watermark_uses
+
+    query = _compile(
+        _unconstrained_watermark_uses(
+            metadata, metadata.tables["ops.data_obligation"].alias("waiting_obligation")
+        )
+    )
+    parsed = pglast.parse_sql(query)
+    assert parsed and isinstance(parsed[0].stmt, ast.SelectStmt)
+    assert "watermark_local_use.demand_id = d.id" in query
+    assert "watermark_local_product.project_id = d.project_id" in query
+    assert (
+        "jsonb_array_length(watermark_unconstrained_operation.value['dependencies']) = 0" in query
+    )
+    assert "accepted_kind_contracts" in query and "source_set" in query
+    assert "IS NULL" in query and "waiting_obligation.analyzed_scope" in query
+    assert "watermark_local_later.obligation_id = watermark_local_use.obligation_id" in query
+    # Authorization routines refuse, rather than returning false. Their actual
+    # evaluation must stay behind immutable role/context eligibility.
+    conditions = parsed[0].stmt.whereClause
+    assert isinstance(conditions, ast.BoolExpr) and conditions.args
+    authorization = conditions.args[-1]
+    assert isinstance(authorization, ast.CaseExpr)
+    assert authorization.args
+    assert isinstance(authorization.args[0].expr, ast.CaseExpr)
+    assert isinstance(authorization.args[0].result, ast.BoolExpr)
+    calls = set()
+
+    class Calls(Visitor):
+        def visit_FuncCall(self, ancestors, node):
+            calls.add(tuple(part.sval for part in node.funcname))
+
+    Calls()(parsed[0])
+    assert {
+        ("ops", "ddo_binding_subject"),
+        ("ops", "ddo_binding_source"),
+        ("ops", "ddo_kind_access"),
+        ("ops", "ddo_body_access"),
+    } <= calls
+    page = _compile(read_page(metadata))
+    assert "watermark_local_use" in page and "watermark_prerequisites" in page
+
+
+def test_selected_cut_disclosure_is_pinned_before_any_role_reacquisition():
+    from sqlalchemy import select
+    from sqlalchemy.schema import CreateTable
+
+    from corpus_structure.semantic.data_operation_projections import (
+        cut_selection_projection,
+        read_access_universes,
+        read_selection,
+    )
+
+    receipt = metadata.tables["ops.data_demand_read"]
+    assert not receipt.c.public_disclosure.nullable
+    assert receipt.c.public_disclosure.server_default is not None
+    assert "public_disclosure BOOLEAN DEFAULT false NOT NULL" in _compile(CreateTable(receipt))
+    for query in (
+        select(read_selection()),
+        cut_selection_projection(),
+        read_access_universes(metadata),
+        read_page(metadata),
+    ):
+        compiled = _compile(query)
+        assert pglast.parse_sql(compiled)
+        assert "boundary.public_disclosure" in compiled
+        assert "pg_has_role" not in compiled
+        assert "SESSION_USER" not in compiled
+
+
+def test_native_authority_classification_has_no_reopening_principal_dependency():
+    from pglast import ast
+
+    from corpus_structure.semantic.native_sql_body import body_source
+    from corpus_structure.semantic.prepared_sql import prepare_sql
+    from corpus_structure.semantic.record_policy_native import record_policy_native_sql
+
+    statements = prepare_sql(record_policy_native_sql(), source="pinned-authority-disclosure")
+    leaf = next(
+        statement.stmt
+        for statement in statements.statements
+        if isinstance(statement.stmt, ast.CreateFunctionStmt)
+        and statement.stmt.funcname
+        and statement.stmt.funcname[-1].sval == "ddo_policy_authority_leaf"
+    )
+    classifier = body_source(leaf)
+    assert pglast.parse_sql(classifier)
+    assert "pg_has_role" not in classifier
+    assert "SESSION_USER" not in classifier
+    assert "native_receipt" in classifier and "native_output" in classifier
+
+
 def test_native_sql_uses_frozen_core_products_without_ambient_builder(monkeypatch):
     captured = native_protocol_sources()
     first = native_sql(captured)
