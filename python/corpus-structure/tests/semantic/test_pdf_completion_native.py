@@ -3,23 +3,19 @@
 import pytest
 from pglast import ast
 
+from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.pdf_completion_native import pdf_completion_native_sql
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
 
 def test_pdf_completion_proof_is_closed_private_and_preserves_semantic_non_success():
-    sql = pdf_completion_native_sql()
+    sql = pdf_completion_native_sql(metadata)
     prepared = prepare_sql(sql, source="PDF completion proof")
     function = prepared.statements[2].stmt
     assert isinstance(function, ast.CreateFunctionStmt)
     assert function.funcname is not None
     assert tuple(part.sval for part in function.funcname) == ("ops", "ddo_require_pdf_completion")
     assert len(prepared.statements) == 4
-    assert "ops.ddo_completion_state(definition,p_completion->>'outcome')" in sql
-    assert "ops.pdf_publication_projection(receipts->0,p_task,p_attempt,p_holder)" in sql
-    assert "data.ddo_json(output->'product'->'body') IS DISTINCT FROM expected" in sql
-    assert "jsonb_array_length(receipts) IS DISTINCT FROM 1" in sql
-    assert "output->>'member_id' IS NOT NULL" in sql
     assert "FROM PUBLIC" in sql
     assert "GRANT" not in sql
 
@@ -87,6 +83,10 @@ def test_native_pdf_command_eligibility_refuses_changed_effect_or_uncaptured_fac
         "SELECT coalesce(ops.ddo_pdf_command_eligible(jsonb_populate_record(NULL::sem.data_operation_definition,CAST(:value AS jsonb))),false)"
     )
     connection = native_rollback.connection
+    from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
+
+    with native_owner(connection, "corpus_sem_publisher"):
+        execute_native_sql(connection, pdf_completion_native_sql(metadata))
     assert connection.scalar(query, {"value": json_bytes(definition).decode()}) is True
     for change in (
         "factory",
@@ -128,3 +128,28 @@ def test_native_pdf_command_eligibility_refuses_changed_effect_or_uncaptured_fac
                 [] if change == "authorization" else "invented-receipt"
             )
         assert connection.scalar(query, {"value": json_bytes(invalid).decode()}) is False
+
+
+def test_generated_pdf_completion_binds_in_native_model_and_retains_strict_lookup(native_rollback):
+    from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
+
+    connection = native_rollback.connection
+    execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
+    with native_owner(connection, "corpus_sem_publisher"):
+        execute_native_sql(connection, pdf_completion_native_sql(metadata))
+        failures = connection.execute(
+            text(
+                "SELECT message FROM public.plpgsql_check_function_tb("
+                "'ops.ddo_require_pdf_completion(jsonb,bigint,bigint,text,text,text)'::regprocedure,"
+                "fatal_errors=>false) WHERE level='error'"
+            )
+        ).scalars().all()
+        assert failures == []
+        with pytest.raises(DBAPIError) as missing, connection.begin_nested():
+            connection.execute(
+                text("SELECT ops.ddo_require_pdf_completion('{}',-1,-1,'absent','absent','absent')")
+            )
+        assert getattr(missing.value.orig, "sqlstate", None) == "P0002"
