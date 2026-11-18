@@ -217,46 +217,103 @@ def observation_meaning_program(specification: bytes):
     observations = func.jsonb_each(observed).table_valued(
         column("key", Text()), column("value", JSONB())
     )
-    coverages = func.jsonb_array_elements(value["coverage"]).table_valued(
-        column("value", JSONB()), with_ordinality="ordinal"
-    ).render_derived()
+    coverages = (
+        func.jsonb_array_elements(value["coverage"])
+        .table_valued(column("value", JSONB()), with_ordinality="ordinal")
+        .render_derived()
+    )
     selected_decoding = decoding
     for field in spec["decoding_provenance_fields"]:
         selected_decoding = selected_decoding - field
     empty = cast(literal("[]"), JSONB())
-    return Block((
-        If(or_(
-            value["kind"].astext.is_distinct_from("recognition_observation"),
-            observed["pass_role"].astext.not_in(spec["pass_roles"]),
-            observed.has_key("mapped_evidence_digest"),
-            func.coalesce(value["relations"], empty) != empty,
-            func.coalesce(value["mapping_reports"], empty) != empty,
-        ), (Raise("recognition meaning requires the finite raw observation producer", "23514"),)),
-        Assign("binding", func.jsonb_build_object(*fields(spec["binding_fields"], observed["binding"]))),
-        Assign("decoding", cast(binding["decoding_json"].astext, JSONB())),
-        If(func.jsonb_typeof(decoding).is_distinct_from("object"), (
-            Raise("recognition decoding must be a declared object", "23514"),
-        )),
-        Assign("binding", func.jsonb_set(binding, array(["decoding_json"], type_=Text()), selected_decoding)),
-        SelectInto(select(func.jsonb_object_agg(observations.c.key, observations.c.value)).where(
-            observations.c.key.in_(spec["observation_fields"])
-        ), ("observation",)),
-        Assign("observation", observation.op("||")(func.jsonb_build_object("binding", binding))),
-        If(exists(select(1).select_from(coverages).where(
-            coverages.c.value["supports"].is_distinct_from(empty)
-        )), (Raise("raw recognition coverage cannot inherit a source assessment", "23514"),)),
-        SelectInto(select(func.coalesce(func.jsonb_agg(
-            func.jsonb_build_object(*fields(spec["coverage_fields"], coverages.c.value))
-        ).aggregate_order_by(coverages.c.ordinal), empty)), ("coverage",)),
-        Return(func.jsonb_build_object(
-            "version", spec["version"],
-            *(argument for name, source in spec["fields"].items() for argument in (name, value[source])),
-            "observation", observation, "occurrences", value["occurrences"], "coverage", coverage,
-            *fields(spec["health_fields"], value["health"]),
-        )),
-    ), (
-        Local("value", pg_type("jsonb"), cast(func.convert_from(core_variable("p_payload", LargeBinary()), "UTF8"), JSONB())),
-        Local("observed", pg_type("jsonb"), value["observation"]),
-        Local("binding", pg_type("jsonb"), observed["binding"]),
-        Local("decoding", pg_type("jsonb")), Local("observation", pg_type("jsonb")), Local("coverage", pg_type("jsonb")),
-    ))
+    return Block(
+        (
+            If(
+                or_(
+                    value["kind"].astext.is_distinct_from("recognition_observation"),
+                    observed["pass_role"].astext.not_in(spec["pass_roles"]),
+                    observed.has_key("mapped_evidence_digest"),
+                    func.coalesce(value["relations"], empty) != empty,
+                    func.coalesce(value["mapping_reports"], empty) != empty,
+                ),
+                (
+                    Raise(
+                        "recognition meaning requires the finite raw observation producer", "23514"
+                    ),
+                ),
+            ),
+            Assign(
+                "binding",
+                func.jsonb_build_object(*fields(spec["binding_fields"], observed["binding"])),
+            ),
+            Assign("decoding", cast(binding["decoding_json"].astext, JSONB())),
+            If(
+                func.jsonb_typeof(decoding).is_distinct_from("object"),
+                (Raise("recognition decoding must be a declared object", "23514"),),
+            ),
+            Assign(
+                "binding",
+                func.jsonb_set(binding, array(["decoding_json"], type_=Text()), selected_decoding),
+            ),
+            SelectInto(
+                select(func.jsonb_object_agg(observations.c.key, observations.c.value)).where(
+                    observations.c.key.in_(spec["observation_fields"])
+                ),
+                ("observation",),
+            ),
+            Assign(
+                "observation", observation.op("||")(func.jsonb_build_object("binding", binding))
+            ),
+            If(
+                exists(
+                    select(1)
+                    .select_from(coverages)
+                    .where(coverages.c.value["supports"].is_distinct_from(empty))
+                ),
+                (Raise("raw recognition coverage cannot inherit a source assessment", "23514"),),
+            ),
+            SelectInto(
+                select(
+                    func.coalesce(
+                        func.jsonb_agg(
+                            func.jsonb_build_object(
+                                *fields(spec["coverage_fields"], coverages.c.value)
+                            )
+                        ).aggregate_order_by(coverages.c.ordinal),
+                        empty,
+                    )
+                ),
+                ("coverage",),
+            ),
+            Return(
+                func.jsonb_build_object(
+                    "version",
+                    spec["version"],
+                    *(
+                        argument
+                        for name, source in spec["fields"].items()
+                        for argument in (name, value[source])
+                    ),
+                    "observation",
+                    observation,
+                    "occurrences",
+                    value["occurrences"],
+                    "coverage",
+                    coverage,
+                    *fields(spec["health_fields"], value["health"]),
+                )
+            ),
+        ),
+        (
+            Local(
+                "value",
+                pg_type("jsonb"),
+                cast(func.convert_from(core_variable("p_payload", LargeBinary()), "UTF8"), JSONB()),
+            ),
+            Local("observed", pg_type("jsonb"), value["observation"]),
+            Local("binding", pg_type("jsonb"), observed["binding"]),
+            Local("decoding", pg_type("jsonb")),
+            Local("observation", pg_type("jsonb")),
+            Local("coverage", pg_type("jsonb")),
+        ),
+    )

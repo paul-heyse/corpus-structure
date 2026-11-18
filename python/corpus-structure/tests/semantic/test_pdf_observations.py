@@ -101,7 +101,9 @@ def test_native_observation_meaning_keeps_numeric_settings_and_separates_custody
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
     from corpus_structure.semantic.pdf_integrated_native import observation_value_declarations
 
-    declaration = observation_value_declarations(trusted_pdf_context())["ops", "pdf_observation_meaning"]
+    declaration = observation_value_declarations(trusted_pdf_context())[
+        "ops", "pdf_observation_meaning"
+    ]
     with native_owner(native_rollback.connection, "corpus_sem_publisher"):
         execute_native_sql(native_rollback.connection, RawStream()(declaration))
 

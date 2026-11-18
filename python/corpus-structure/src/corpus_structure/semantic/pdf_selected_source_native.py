@@ -18,23 +18,38 @@ def selected_membership_relations(metadata: MetaData, *, section=None):
     source = metadata.tables["kb.pdf_record_access"].alias("a")
     published = table("published", column("build_id", source.c.product_id.type))
     root = core_variable("p_section", Text()) if section is None else section
-    access = select(source).join(
-        published,
-        (source.c.product_id == published.c.build_id)
-        & (source.c.revision_id == published.c.build_id),
-    ).cte("access").prefix_with("MATERIALIZED")
-    subtree = select(access.c.pointer).where(access.c.pointer == root).cte("subtree", recursive=True)
+    access = (
+        select(source)
+        .join(
+            published,
+            (source.c.product_id == published.c.build_id)
+            & (source.c.revision_id == published.c.build_id),
+        )
+        .cte("access")
+        .prefix_with("MATERIALIZED")
+    )
+    subtree = (
+        select(access.c.pointer).where(access.c.pointer == root).cte("subtree", recursive=True)
+    )
     child = access.alias("child")
     subtree = subtree.union_all(
         select(child.c.pointer).join(subtree, child.c.parent_pointer == subtree.c.pointer)
     )
-    selected = select(access).where(access.c.pointer.in_(select(subtree.c.pointer))).cte("selected").prefix_with("MATERIALIZED")
-    ancestors = select(access.c.parent_pointer.label("pointer")).where(
-        access.c.pointer == root, access.c.parent_pointer.is_not(None)
-    ).cte("ancestors", recursive=True)
+    selected = (
+        select(access)
+        .where(access.c.pointer.in_(select(subtree.c.pointer)))
+        .cte("selected")
+        .prefix_with("MATERIALIZED")
+    )
+    ancestors = (
+        select(access.c.parent_pointer.label("pointer"))
+        .where(access.c.pointer == root, access.c.parent_pointer.is_not(None))
+        .cte("ancestors", recursive=True)
+    )
     parent = access.alias("ancestor_access")
     ancestors = ancestors.union(
-        select(parent.c.parent_pointer).join(ancestors, parent.c.pointer == ancestors.c.pointer)
+        select(parent.c.parent_pointer)
+        .join(ancestors, parent.c.pointer == ancestors.c.pointer)
         .where(parent.c.parent_pointer.is_not(None))
     )
     return access, subtree, selected, ancestors
@@ -42,14 +57,27 @@ def selected_membership_relations(metadata: MetaData, *, section=None):
 
 def _selected_membership_sql(metadata: MetaData):
     access, subtree, selected, ancestors = selected_membership_relations(metadata)
-    nodes = table("nodes", column("record_id", metadata.tables["kb.pdf_record_native"].c.record_id.type),
-                  column("native_address", access.c.pointer.type)).alias("n")
-    statement = select(nodes.c.record_id, array([selected.c.ordinal]).label("path")).join(
-        selected, nodes.c.native_address == selected.c.pointer
-    ).add_cte(access, subtree, selected, ancestors)
-    rendered = str(statement.compile(dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}))
+    nodes = table(
+        "nodes",
+        column("record_id", metadata.tables["kb.pdf_record_native"].c.record_id.type),
+        column("native_address", access.c.pointer.type),
+    ).alias("n")
+    statement = (
+        select(nodes.c.record_id, array([selected.c.ordinal]).label("path"))
+        .join(selected, nodes.c.native_address == selected.c.pointer)
+        .add_cte(access, subtree, selected, ancestors)
+    )
+    rendered = str(
+        statement.compile(
+            dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
+        )
+    )
     (parsed,) = parse_sql(rendered)
-    if not isinstance(parsed.stmt, ast.SelectStmt) or parsed.stmt.withClause is None or parsed.stmt.withClause.ctes is None:
+    if (
+        not isinstance(parsed.stmt, ast.SelectStmt)
+        or parsed.stmt.withClause is None
+        or parsed.stmt.withClause.ctes is None
+    ):
         raise ValueError("selected membership requires a recursive query")
     ctes = ",".join(RawStream()(item) for item in parsed.stmt.withClause.ctes)
     parsed.stmt.withClause = None
@@ -57,7 +85,15 @@ def _selected_membership_sql(metadata: MetaData):
     # The containment relation is supplied by the native event composition below.
     contained = table("contained", column("record_id", nodes.c.record_id.type))
     predicate = nodes.c.record_id.in_(select(contained.c.record_id))
-    return ctes, roots, str(predicate.compile(dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}))
+    return (
+        ctes,
+        roots,
+        str(
+            predicate.compile(
+                dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
+            )
+        ),
+    )
 
 
 def selected_source_reader_sql(*, target_metadata: MetaData | None = None) -> str:
@@ -69,7 +105,8 @@ def selected_source_reader_sql(*, target_metadata: MetaData | None = None) -> st
     ctes = pdf_native_event_ctes(
         published_sql="SELECT * FROM ops.read_pdf_published_revision(p_task,p_native_product,p_digest)",
         roots_sql=roots,
-        additional_ctes=membership_ctes + """, contained(record_id) AS (
+        additional_ctes=membership_ctes
+        + """, contained(record_id) AS (
  SELECT n.record_id FROM kb.pdf_record_native n JOIN published p
  ON n.product_id=p.build_id AND n.revision_id=p.build_id
  JOIN selected a ON a.pointer=n.native_address

@@ -8,21 +8,51 @@ from corpus_structure.semantic.pdf_selected_source_native import selected_member
 
 def test_membership_traversals_are_pinned_and_keep_ancestor_scope(semantic_bare_engine):
     access_table = Table(
-        "pdf_record_access", MetaData(),
-        Column("product_id", Text), Column("revision_id", Text), Column("pointer", Text),
-        Column("parent_pointer", Text), Column("ordinal", BigInteger), schema="kb",
+        "pdf_record_access",
+        MetaData(),
+        Column("product_id", Text),
+        Column("revision_id", Text),
+        Column("pointer", Text),
+        Column("parent_pointer", Text),
+        Column("ordinal", BigInteger),
+        schema="kb",
     )
     records = [
-        ("#/", None), ("#/book", "#/"), ("#/section", "#/book"),
-        ("#/child", "#/section"), ("#/leaf", "#/child"), ("#/sibling", "#/book"),
+        ("#/", None),
+        ("#/book", "#/"),
+        ("#/section", "#/book"),
+        ("#/child", "#/section"),
+        ("#/leaf", "#/child"),
+        ("#/sibling", "#/book"),
     ]
-    rows = [{"product_id": "build", "revision_id": "build", "pointer": pointer,
-             "parent_pointer": parent, "ordinal": position}
-            for position, (pointer, parent) in enumerate(records)]
-    rows.extend([
-        {"product_id": "other", "revision_id": "other", "pointer": "#/foreign", "parent_pointer": "#/section", "ordinal": 8},
-        {"product_id": "build", "revision_id": "other", "pointer": "#/stale", "parent_pointer": "#/section", "ordinal": 9},
-    ])
+    rows = [
+        {
+            "product_id": "build",
+            "revision_id": "build",
+            "pointer": pointer,
+            "parent_pointer": parent,
+            "ordinal": position,
+        }
+        for position, (pointer, parent) in enumerate(records)
+    ]
+    rows.extend(
+        [
+            {
+                "product_id": "other",
+                "revision_id": "other",
+                "pointer": "#/foreign",
+                "parent_pointer": "#/section",
+                "ordinal": 8,
+            },
+            {
+                "product_id": "build",
+                "revision_id": "other",
+                "pointer": "#/stale",
+                "parent_pointer": "#/section",
+                "ordinal": 9,
+            },
+        ]
+    )
     with semantic_bare_engine.begin() as connection:
         connection.execute(CreateSchema("kb"))
         access_table.create(connection)
@@ -36,6 +66,9 @@ def test_membership_traversals_are_pinned_and_keep_ancestor_scope(semantic_bare_
             select(literal("ancestor").label("kind"), ancestors.c.pointer),
         ).add_cte(published)
         assert set(connection.execute(query).all()) == {
-            ("selected", "#/section"), ("selected", "#/child"), ("selected", "#/leaf"),
-            ("ancestor", "#/book"), ("ancestor", "#/"),
+            ("selected", "#/section"),
+            ("selected", "#/child"),
+            ("selected", "#/leaf"),
+            ("ancestor", "#/book"),
+            ("ancestor", "#/"),
         }

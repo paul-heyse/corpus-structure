@@ -151,14 +151,14 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
             pdf_record_logical_identity_sql(),
             sql.joinpath("pdf_record_proof_reader.sql").read_text(),
             sql.joinpath("pdf_record_access_correspondence.sql").read_text(),
-            observation_publication_sql(context),
+            observation_publication_sql(context, target_metadata=installation.metadata),
             next(
                 source.content.decode()
                 for source in installation.authoring_inputs.sources
                 if source.name == "authoring/pdf-captured-recognition.sql"
             ),
             pdf_completion_native_sql(),
-            selected_source_reader_sql(),
+            selected_source_reader_sql(target_metadata=installation.metadata),
         )
     )
 
@@ -668,6 +668,8 @@ def prepare_target_successor(
     The caller authenticates registration custody before supplying its frozen
     objects. This checks their actual installed state and never adopts live bodies.
     """
+    from pglast import parse_sql
+
     from .native_authoring import (
         _physical_check_contract,
         compare_declared_candidate,
@@ -685,9 +687,15 @@ def prepare_target_successor(
     prerequisites = []
     for declared in target_physical_prerequisites(connection, installation):
         frozen = previous.get(declared.identity)
-        if frozen is None or frozen.statements != declared.install_sql:
+        desired = declared.install_sql
+        if (
+            frozen is None
+            or frozen.statements[:1] != desired[:1]
+            or tuple(map(parse_sql, frozen.statements[1:])) != tuple(map(parse_sql, desired[1:]))
+        ):
             raise NativeAuthoringError(
-                "CHECK-bound target prerequisite change requires an explicit physical transition"
+                f"CHECK-bound target prerequisite {declared.identity.qualified} "
+                "change requires an explicit physical transition"
             )
         prerequisites.append(frozen)
     with physical_row_type_context(connection, installation.metadata):

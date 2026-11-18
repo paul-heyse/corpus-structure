@@ -47,10 +47,16 @@ def test_host_renderers_quote_values_and_keep_exact_extension_versions():
     template = parse_sql(host.sql_command("template", ["cs_template"]))[0].stmt
     assert isinstance(template, ast.AlterDatabaseStmt)
     assert template.options[0].defname == "is_template" and template.options[0].arg.sval == "true"
-    for script in (host.semantic_roles("paul"), host.base_roles("paul"), host.sql_command("auth-check", [])):
+    for script in (
+        host.semantic_roles("paul"),
+        host.base_roles("paul"),
+        host.sql_command("auth-check", []),
+    ):
         assert isinstance(parse_sql(script)[0].stmt, ast.DoStmt)
         assert parse_plpgsql(script)
-    assert parse_sql(host.sql_command("setting", ["data_checksums"]))[0].stmt.name == "data_checksums"
+    assert (
+        parse_sql(host.sql_command("setting", ["data_checksums"]))[0].stmt.name == "data_checksums"
+    )
 
 
 def test_generated_purpose_provisioning_is_idempotent_and_fitter_refuses_widened_rights(
@@ -67,22 +73,38 @@ def test_generated_purpose_provisioning_is_idempotent_and_fitter_refuses_widened
             script = host.semantic_roles(operator)
             execute_native_sql(connection, script)
             execute_native_sql(connection, script)
-            records = connection.execute(select(host.ROLES).where(
-                host.ROLES.c.rolname.in_(tuple(role.name for role in principals))
-            )).mappings().all()
+            records = (
+                connection.execute(
+                    select(host.ROLES).where(
+                        host.ROLES.c.rolname.in_(tuple(role.name for role in principals))
+                    )
+                )
+                .mappings()
+                .all()
+            )
             by_name = {row["rolname"]: row for row in records}
             assert len(by_name) == 6
             for principal in principals:
                 observed = by_name[principal.name]
                 assert observed["rolcanlogin"] == principal.login
-                assert not any(observed[name] for name in (
-                    "rolsuper", "rolcreatedb", "rolcreaterole", "rolreplication", "rolbypassrls",
-                ))
-            membership = connection.execute(text(
-                "SELECT m.inherit_option,m.set_option FROM pg_auth_members m "
-                "JOIN pg_roles r ON r.oid=m.roleid JOIN pg_roles u ON u.oid=m.member "
-                "WHERE r.rolname=:publisher AND u.rolname=:operator"
-            ), {"publisher": principals[0].name, "operator": operator}).one()
+                assert not any(
+                    observed[name]
+                    for name in (
+                        "rolsuper",
+                        "rolcreatedb",
+                        "rolcreaterole",
+                        "rolreplication",
+                        "rolbypassrls",
+                    )
+                )
+            membership = connection.execute(
+                text(
+                    "SELECT m.inherit_option,m.set_option FROM pg_auth_members m "
+                    "JOIN pg_roles r ON r.oid=m.roleid JOIN pg_roles u ON u.oid=m.member "
+                    "WHERE r.rolname=:publisher AND u.rolname=:operator"
+                ),
+                {"publisher": principals[0].name, "operator": operator},
+            ).one()
             assert tuple(membership) == (False, True)
             fitter = next(role for role in principals if role.purpose == "fit")
             assert not by_name[fitter.name]["rolinherit"]
@@ -90,12 +112,21 @@ def test_generated_purpose_provisioning_is_idempotent_and_fitter_refuses_widened
             # An existing fitter with widened inheritance must refuse, then recover
             # through the full normalizer inside this same rollback-only transaction.
             role = ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=fitter.name)
-            execute_native_sql(connection, RawStream()(ast.AlterRoleStmt(
-                role=role, options=(ast.DefElem(defname="inherit", arg=ast.Boolean(boolval=True)),), action=1,
-            )))
+            execute_native_sql(
+                connection,
+                RawStream()(
+                    ast.AlterRoleStmt(
+                        role=role,
+                        options=(ast.DefElem(defname="inherit", arg=ast.Boolean(boolval=True)),),
+                        action=1,
+                    )
+                ),
+            )
             with pytest.raises(DBAPIError, match="fitting role"), connection.begin_nested():
                 execute_native_sql(connection, host.semantic_roles(operator, fitter_only=True))
             execute_native_sql(connection, script)
-            assert not connection.execute(select(host.ROLES.c.rolinherit).where(host.ROLES.c.rolname == fitter.name)).scalar_one()
+            assert not connection.execute(
+                select(host.ROLES.c.rolinherit).where(host.ROLES.c.rolname == fitter.name)
+            ).scalar_one()
         finally:
             transaction.rollback()
