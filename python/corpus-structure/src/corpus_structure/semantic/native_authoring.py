@@ -11,10 +11,13 @@ from pathlib import Path
 from alembic.autogenerate import produce_migrations
 from alembic.migration import MigrationContext
 from alembic.operations.ops import MigrateOperation, MigrationScript, UpgradeOps
-from pglast import ast
-from sqlalchemy import text
+from pglast import ast, enums
+from pglast.stream import RawStream
+from sqlalchemy import cast, func, literal, select
+from sqlalchemy.dialects.postgresql import JSONB, dialect
 from sqlalchemy.exc import DBAPIError
 
+from . import native_catalog as catalog
 from .alembic_checks import plugin as checks_plugin
 from .alembic_defaults import compare_default, compare_type
 from .alembic_defaults import plugin as defaults_plugin
@@ -26,6 +29,9 @@ from .native_objects import (
     NativeIdentity,
     NativeObject,
     definition_from_sql,
+    execute_native_sql,
+    native_owner_sql,
+    native_role_sql,
     native_sql_script,
 )
 from .prepared_sql import prepare_sql
@@ -263,11 +269,10 @@ def current_admission_definitions(connection, sql, *, source, require_descriptor
 
 def _declared_physical_catalog(connection, target_metadata):
     """Normalize declarations on empty temporary relations, independent of installed indexes."""
-    from sqlalchemy.dialects.postgresql import dialect
     from sqlalchemy.schema import CreateIndex, CreateTable
 
     from .native_admission import PhysicalCatalogExpectations
-    from .native_objects import execute_native_sql
+    from .native_program import literal as pg_literal
 
     postgres = dialect(paramstyle="named")
     preparer = postgres.identifier_preparer
@@ -276,10 +281,21 @@ def _declared_physical_catalog(connection, target_metadata):
     indexes = []
     generated = {}
     defaults = {}
+    attribute, default = catalog.attribute.c, catalog.attribute_default.c
     savepoint = connection.begin_nested()
     try:
         # Match the protecting guard's deparser search path.
-        execute_native_sql(connection, "SET LOCAL search_path = pg_catalog, pg_temp")
+        execute_native_sql(
+            connection,
+            RawStream()(
+                ast.VariableSetStmt(
+                    kind=enums.VariableSetKind.VAR_SET_VALUE,
+                    name="search_path",
+                    args=(pg_literal("pg_catalog"), pg_literal("pg_temp")),
+                    is_local=True,
+                )
+            ),
+        )
         for relation in sorted(target_metadata.tables.values(), key=lambda item: item.fullname):
             if not relation.indexes and not any(
                 c.computed is not None or (c.identity is None and c.server_default is not None)
@@ -287,34 +303,37 @@ def _declared_physical_catalog(connection, target_metadata):
             ):
                 continue
             target = preparer.format_table(relation)
-            definition = str(
+            declaration = str(
                 CreateTable(relation, include_foreign_key_constraints=[]).compile(dialect=postgres)
-            ).strip()
-            if not definition.startswith("CREATE TABLE " + target + " "):
-                raise NativeAuthoringError(f"unexpected physical declaration header for {target}")
-            execute_native_sql(
-                connection,
-                definition.replace(
-                    "CREATE TABLE " + target + " ", "CREATE TEMP TABLE " + scratch_relation + " ", 1
-                ),
             )
+            (table_statement,) = prepare_sql(declaration, source=relation.fullname).statements
+            if not isinstance(table_statement.stmt, ast.CreateStmt):
+                raise NativeAuthoringError(f"unexpected physical declaration for {target}")
+            table_statement.stmt.relation = ast.RangeVar(
+                schemaname="pg_temp", relname=scratch, inh=True, relpersistence="t"
+            )
+            execute_native_sql(connection, RawStream()(table_statement.stmt))
             # The scratch table's keys are absent from this selection. Only
             # model-declared standalone indexes enter the descriptor.
             for index in sorted(relation.indexes, key=lambda item: str(item.name)):
                 ddl = str(CreateIndex(index).compile(dialect=postgres))
-                marker = " ON " + target + " "
-                if marker not in ddl:
+                (index_statement,) = prepare_sql(ddl, source=str(index.name)).statements
+                if not isinstance(index_statement.stmt, ast.IndexStmt):
                     raise NativeAuthoringError(
                         f"unexpected index declaration target for {index.name}"
                     )
-                execute_native_sql(
-                    connection, ddl.replace(marker, " ON " + scratch_relation + " ", 1)
+                index_statement.stmt.relation = ast.RangeVar(
+                    schemaname="pg_temp", relname=scratch, inh=True
                 )
+                execute_native_sql(connection, RawStream()(index_statement.stmt))
                 rendered_name = preparer.format_index(index)
-                definition = connection.execute(
-                    text("SELECT pg_get_indexdef(to_regclass(:name))"),
-                    {"name": "pg_temp." + rendered_name},
-                ).scalar_one()
+                definition = connection.scalar(
+                    select(
+                        catalog.pg.pg_get_indexdef(
+                            catalog.pg.to_regclass("pg_temp." + rendered_name)
+                        )
+                    )
+                )
                 if definition is None:
                     raise NativeAuthoringError(f"declared index was not created: {index.name}")
                 header, separator, body = definition.partition(" USING ")
@@ -334,27 +353,48 @@ def _declared_physical_catalog(connection, target_metadata):
                         definition=prefix + " ON " + target + separator + body,
                     )
                 )
-            expressions = connection.execute(
-                text("""
-                    SELECT a.attname, pg_get_expr(d.adbin,d.adrelid), a.attgenerated
-                    FROM pg_attribute a
-                    JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
-                    WHERE a.attrelid=to_regclass(:relation) AND a.attidentity = ''
-                """),
-                {"relation": scratch_relation},
-            )
-            normalized = expressions.all()
+            normalized = connection.execute(
+                select(
+                    attribute.attname,
+                    catalog.pg.pg_get_expr(default.adbin, default.adrelid),
+                    attribute.attgenerated,
+                )
+                .select_from(
+                    catalog.attribute.join(
+                        catalog.attribute_default,
+                        (default.adrelid == attribute.attrelid)
+                        & (default.adnum == attribute.attnum),
+                    )
+                )
+                .where(
+                    attribute.attrelid == catalog.pg.to_regclass(scratch_relation),
+                    attribute.attidentity == "",
+                )
+            ).all()
             generated[relation.fullname] = {
                 name: expression for name, expression, kind in normalized if kind
             }
             defaults[relation.fullname] = {
                 name: expression for name, expression, kind in normalized if not kind
             }
-            execute_native_sql(connection, "DROP TABLE " + scratch_relation)
+            _drop_authoring_scratch(connection, scratch)
     finally:
         savepoint.rollback()
     return PhysicalCatalogExpectations(
         tuple(sorted(indexes, key=lambda item: item["index"])), generated, defaults
+    )
+
+
+def _drop_authoring_scratch(connection, name):
+    execute_native_sql(
+        connection,
+        RawStream()(
+            ast.DropStmt(
+                objects=((ast.String(sval="pg_temp"), ast.String(sval=name)),),
+                removeType=enums.ObjectType.OBJECT_TABLE,
+                behavior=enums.DropBehavior.DROP_RESTRICT,
+            )
+        ),
     )
 
 
@@ -538,14 +578,15 @@ def _physical_check_contract(connection, target_metadata, authoring):
     from corpus_structure.schema.relational import physical_expression_sql
 
     from .native_admission import _admission_descriptor
+    from .native_program import column_type
 
     descriptor = next(
         item for item in authoring.desired if item.identity.name == "execution_contract_descriptor"
     )
     expected = _admission_descriptor(native_sql_script(descriptor.statements))
+    contract = target_metadata.tables["sem.physical_contract"]
     present = connection.scalar(
-        text("SELECT source_digest FROM sem.physical_contract WHERE physical_id=:physical"),
-        {"physical": expected["physical_id"]},
+        select(contract.c.source_digest).where(contract.c.physical_id == expected["physical_id"])
     )
     if present is not None:
         if present != expected["physical_checks_source_digest"]:
@@ -553,7 +594,8 @@ def _physical_check_contract(connection, target_metadata, authoring):
                 "physical CHECK identity already has another source contract"
             )
         return None
-    preparer = connection.dialect.identifier_preparer
+    scratch = "semantic_candidate_check"
+    constraint = catalog.constraint.c
     checks = []
     for relation in sorted(target_metadata.tables.values(), key=lambda item: item.fullname):
         constraints = sorted(
@@ -562,51 +604,71 @@ def _physical_check_contract(connection, target_metadata, authoring):
         )
         if not constraints:
             continue
-        columns = [
-            preparer.quote(item.name) + " " + item.type.compile(dialect=connection.dialect)
-            for item in relation.columns
+        table_items: list[ast.Node] = [
+            ast.ColumnDef(colname=column.name, typeName=column_type(column))
+            for column in relation.columns
         ]
-        columns.extend(
-            "CONSTRAINT "
-            + preparer.format_constraint(item)
-            + " CHECK ("
-            + physical_expression_sql(item.sqltext)
-            + ")"
-            for item in constraints
+        for item in constraints:
+            (parsed,) = prepare_sql(
+                "SELECT " + physical_expression_sql(item.sqltext), source=relation.fullname
+            ).statements
+            if not isinstance(parsed.stmt, ast.SelectStmt) or not parsed.stmt.targetList:
+                raise NativeAuthoringError(f"invalid CHECK declaration for {relation.fullname}")
+            (expression,) = parsed.stmt.targetList
+            name = connection.dialect.identifier_preparer.format_constraint(
+                item, _alembic_quote=False
+            )
+            if name is None:
+                raise NativeAuthoringError(f"unnamed CHECK declaration for {relation.fullname}")
+            table_items.append(
+                ast.Constraint(
+                    contype=enums.ConstrType.CONSTR_CHECK, conname=name, raw_expr=expression.val
+                )
+            )
+        execute_native_sql(
+            connection,
+            RawStream()(
+                ast.CreateStmt(
+                    relation=ast.RangeVar(
+                        schemaname="pg_temp", relname=scratch, inh=True, relpersistence="t"
+                    ),
+                    tableElts=tuple(table_items),
+                    oncommit=enums.OnCommitAction.ONCOMMIT_DROP,
+                )
+            ),
         )
-        connection.exec_driver_sql(
-            "CREATE TEMP TABLE semantic_candidate_check (" + ",".join(columns) + ") ON COMMIT DROP",
-            execution_options={"no_parameters": True},
-        )
-        for name, expression in connection.exec_driver_sql(
-            "SELECT conname,pg_get_expr(conbin,conrelid) FROM pg_constraint "
-            "WHERE conrelid='pg_temp.semantic_candidate_check'::regclass AND co"
-            "ntype='c' ORDER BY conname"
+        for name, expression in connection.execute(
+            select(
+                constraint.conname, catalog.pg.pg_get_expr(constraint.conbin, constraint.conrelid)
+            )
+            .where(
+                constraint.conrelid == catalog.pg.to_regclass("pg_temp." + scratch),
+                constraint.contype == "c",
+            )
+            .order_by(constraint.conname)
         ):
             checks.append(dict(relation=relation.fullname, name=name, expression=expression))
-        connection.exec_driver_sql("DROP TABLE pg_temp.semantic_candidate_check")
+        _drop_authoring_scratch(connection, scratch)
 
-    def literal(value):
-        return "'" + value.replace("'", "''") + "'"
-
-    return (
-        "INSERT INTO sem.physical_contract(physical_id,checks,source_digest) VALUES ("
-        + literal(expected["physical_id"])
-        + ","
-        + literal(json.dumps(checks, sort_keys=True))
-        + "::jsonb,"
-        + literal(expected["physical_checks_source_digest"])
-        + ")"
+    return str(
+        contract.insert()
+        .inline()
+        .values(
+            physical_id=expected["physical_id"],
+            checks=cast(literal(json.dumps(checks, sort_keys=True)), JSONB),
+            source_digest=expected["physical_checks_source_digest"],
+        )
+        .compile(dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True})
     )
 
 
 def physical_relations(connection) -> set[str]:
+    relation, namespace = catalog.relation, catalog.namespace
     return set(
         connection.scalars(
-            text(
-                "SELECT n.nspname || '.' || c.relname FROM pg_class c "
-                "JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p')"
-            )
+            select(namespace.c.nspname + "." + relation.c.relname)
+            .select_from(relation.join(namespace, namespace.c.oid == relation.c.relnamespace))
+            .where(relation.c.relkind.in_(("r", "p")))
         )
     )
 
@@ -618,15 +680,15 @@ def physical_row_type_context(connection, target_metadata, *, existing=None):
     This supplies row types, never a data backfill or authorization to accept
     installed drift. Each caller authenticates its own predecessor before entry.
     """
+    from sqlalchemy import inspect
+
+    from .native_program import column_type
+
     existing = physical_relations(connection) if existing is None else existing
     new_tables = [item for item in target_metadata.sorted_tables if item.fullname not in existing]
     scaffolding = connection.begin_nested()
     try:
-        previous = connection.exec_driver_sql("SELECT current_user").scalar_one()
-        previous_sql = "SET LOCAL ROLE " + connection.dialect.identifier_preparer.quote(previous)
-        from sqlalchemy import inspect
-        from sqlalchemy.schema import CreateColumn
-
+        previous = connection.execute(select(func.current_user())).scalar_one()
         inspector = inspect(connection)
         for relation in target_metadata.sorted_tables:
             if relation.fullname not in existing:
@@ -638,28 +700,36 @@ def physical_row_type_context(connection, target_metadata, *, existing=None):
             for column in relation.columns:
                 if column.name not in names:
                     # Row-type resolution only: actual defaults/constraints remain migration effects.
-                    from sqlalchemy import Column
-
-                    temporary = Column(column.name, column.type, nullable=True)
-                    connection.exec_driver_sql(
-                        "ALTER TABLE "
-                        + connection.dialect.identifier_preparer.format_table(relation)
-                        + " ADD COLUMN "
-                        + str(CreateColumn(temporary).compile(dialect=connection.dialect))
+                    execute_native_sql(
+                        connection,
+                        RawStream()(
+                            ast.AlterTableStmt(
+                                relation=ast.RangeVar(
+                                    schemaname=relation.schema, relname=relation.name, inh=True
+                                ),
+                                objtype=enums.ObjectType.OBJECT_TABLE,
+                                cmds=(
+                                    ast.AlterTableCmd(
+                                        subtype=enums.AlterTableType.AT_AddColumn,
+                                        def_=ast.ColumnDef(
+                                            colname=column.name, typeName=column_type(column)
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
                     )
         # Alembic comparison happens after rollback. Create the collection
         # together so SQLAlchemy retains its native FK/cycle ordering.
-        connection.exec_driver_sql(previous_sql)
+        execute_native_sql(connection, native_role_sql(previous))
         target_metadata.create_all(connection, tables=new_tables, checkfirst=False)
         for relation in new_tables:
             owner = table_policy(relation)["owner"]
             if owner is None:
                 raise NativeAuthoringError("declared physical table requires its owner")
-            connection.exec_driver_sql(
-                "ALTER TABLE "
-                + connection.dialect.identifier_preparer.format_table(relation)
-                + " OWNER TO "
-                + connection.dialect.identifier_preparer.quote(owner)
+            schema = relation.schema or connection.dialect.default_schema_name
+            execute_native_sql(
+                connection, native_owner_sql(NativeIdentity("table", schema, relation.name), owner)
             )
         yield
     finally:
@@ -850,7 +920,7 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
     from .alembic_privileges import admit_privileges
     from .native_objects import admit_native
 
-    role = connection.exec_driver_sql("SELECT current_user").scalar_one()
+    role = connection.execute(select(func.current_user())).scalar_one()
     savepoint = connection.begin_nested()
     phase = "rendered_upgrade"
     try:
@@ -858,7 +928,7 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
         exec(compile(python_source, "native_candidate.py", "exec"), namespace)
         with Operations.context(MigrationContext.configure(connection)):
             namespace["upgrade"]()
-        if connection.exec_driver_sql("SELECT current_user").scalar_one() != role:
+        if connection.execute(select(func.current_user())).scalar_one() != role:
             raise NativeAuthoringError("candidate upgrade did not restore its migration caller")
         phase = "native_after_admission"
         admit_native(connection, authoring.desired)

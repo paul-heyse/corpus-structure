@@ -498,23 +498,21 @@ def target_authoring_scratch(connection, installation: TargetInstallation):
     """Supply the declared empty archive/PDF row layouts for static authoring only."""
     from pglast import ast
     from pglast.stream import RawStream
-    from sqlalchemy import text
+    from sqlalchemy import Text, bindparam, func, select
 
-    from .archive_transport import archive_tables, scratch_name
+    from .archive_native import archive_scratch_specs
     from .native_objects import NativeAuthoringError
     from .pdf_shared_streams import pdf_scratch_specs
 
-    relations = [
-        (scratch_name(relation), relation) for relation in archive_tables(installation.metadata)
-    ]
-    preparer = connection.dialect.identifier_preparer
+    specs = (
+        *pdf_scratch_specs(installation.metadata),
+        *archive_scratch_specs(installation.metadata),
+    )
+    present = select(func.to_regclass(bindparam("name", type_=Text())))
     savepoint = connection.begin_nested()
     try:
-        for spec in pdf_scratch_specs(installation.metadata):
-            if (
-                connection.scalar(text("SELECT to_regclass(:name)"), {"name": spec.qualified_name})
-                is not None
-            ):
+        for spec in specs:
+            if connection.scalar(present, {"name": spec.qualified_name}) is not None:
                 raise NativeAuthoringError(
                     "target static authoring requires unused scratch context: " + spec.name
                 )
@@ -524,25 +522,6 @@ def target_authoring_scratch(connection, installation: TargetInstallation):
             else:
                 connection.execute(statement)
             connection.exec_driver_sql(RawStream()(spec.owner_statement()))
-        for name, relation in relations:
-            quoted = preparer.quote(name)
-            if (
-                connection.scalar(text("SELECT to_regclass(:name)"), {"name": "pg_temp." + quoted})
-                is not None
-            ):
-                raise NativeAuthoringError(
-                    "target static authoring requires unused scratch context: " + name
-                )
-            connection.exec_driver_sql(
-                "CREATE TEMP TABLE "
-                + quoted
-                + " (LIKE "
-                + preparer.format_table(relation)
-                + " INCLUDING CONSTRAINTS) ON COMMIT DROP"
-            )
-            connection.exec_driver_sql(
-                "ALTER TABLE pg_temp." + quoted + " OWNER TO corpus_sem_publisher"
-            )
         yield
     finally:
         savepoint.rollback()

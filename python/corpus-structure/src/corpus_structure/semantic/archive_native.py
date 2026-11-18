@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from pglast import ast, enums
 from pglast.stream import RawStream
 from pydantic import TypeAdapter
@@ -204,52 +206,91 @@ def _scratch_guard():
     )
 
 
-def _scratch_table(relation):
-    return Table(
-        scratch_name(relation),
-        MetaData(),
-        *(Column(field.name, field.type, nullable=field.nullable) for field in relation.c),
-        schema="pg_temp",
-    )
+@dataclass(frozen=True)
+class ArchiveScratchSpec:
+    """One captured archive row layout shared by publication and static authoring."""
 
+    source: Table
 
-def _create_scratch(relation, scratch):
-    return ast.CreateStmt(
-        relation=ast.RangeVar(relname=scratch.name, relpersistence="t", inh=True),
-        tableElts=(
-            ast.TableLikeClause(
-                relation=ast.RangeVar(schemaname=relation.schema, relname=relation.name, inh=True),
-                options=enums.TableLikeOption.CREATE_TABLE_LIKE_CONSTRAINTS,
+    @property
+    def name(self) -> str:
+        return scratch_name(self.source)
+
+    @property
+    def qualified_name(self) -> str:
+        return RawStream()(self.relation())
+
+    def relation(self) -> ast.RangeVar:
+        return ast.RangeVar(schemaname="pg_temp", relname=self.name, inh=True)
+
+    def row_table(self) -> Table:
+        return Table(
+            self.name,
+            MetaData(),
+            *(Column(field.name, field.type, nullable=field.nullable) for field in self.source.c),
+            schema="pg_temp",
+        )
+
+    def create_statement(self) -> ast.CreateStmt:
+        return ast.CreateStmt(
+            relation=ast.RangeVar(relname=self.name, relpersistence="t", inh=True),
+            tableElts=(
+                ast.TableLikeClause(
+                    relation=ast.RangeVar(
+                        schemaname=self.source.schema, relname=self.source.name, inh=True
+                    ),
+                    options=enums.TableLikeOption.CREATE_TABLE_LIKE_CONSTRAINTS,
+                ),
             ),
-        ),
-        oncommit=enums.OnCommitAction.ONCOMMIT_DROP,
-    )
+            oncommit=enums.OnCommitAction.ONCOMMIT_DROP,
+        )
 
-
-def _scratch_privilege(scratch, grant):
-    return ast.GrantStmt(
-        is_grant=grant,
-        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=enums.ObjectType.OBJECT_TABLE,
-        objects=(ast.RangeVar(schemaname="pg_temp", relname=scratch.name, inh=True),),
-        privileges=tuple(ast.AccessPriv(priv_name=name) for name in ("select", "insert"))
-        if grant
-        else None,
-        grantees=(
-            ast.RoleSpec(
-                roletype=enums.RoleSpecType.ROLESPEC_CSTRING
-                if grant
-                else enums.RoleSpecType.ROLESPEC_PUBLIC,
-                rolename="corpus_sem_admitter" if grant else None,
+    def owner_statement(self) -> ast.AlterTableStmt:
+        return ast.AlterTableStmt(
+            relation=self.relation(),
+            objtype=enums.ObjectType.OBJECT_TABLE,
+            cmds=(
+                ast.AlterTableCmd(
+                    subtype=enums.AlterTableType.AT_ChangeOwner,
+                    newowner=ast.RoleSpec(
+                        roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
+                        rolename="corpus_sem_publisher",
+                    ),
+                ),
             ),
-        ),
-        grant_option=False,
-        behavior=enums.DropBehavior.DROP_RESTRICT,
-    )
+        )
+
+    def privilege_statement(self, grant: bool) -> ast.GrantStmt:
+        return ast.GrantStmt(
+            is_grant=grant,
+            targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+            objtype=enums.ObjectType.OBJECT_TABLE,
+            objects=(self.relation(),),
+            privileges=tuple(ast.AccessPriv(priv_name=name) for name in ("select", "insert"))
+            if grant
+            else None,
+            grantees=(
+                ast.RoleSpec(
+                    roletype=enums.RoleSpecType.ROLESPEC_CSTRING
+                    if grant
+                    else enums.RoleSpecType.ROLESPEC_PUBLIC,
+                    rolename="corpus_sem_admitter" if grant else None,
+                ),
+            ),
+            grant_option=False,
+            behavior=enums.DropBehavior.DROP_RESTRICT,
+        )
+
+
+def archive_scratch_specs(
+    target_metadata: MetaData | None = None,
+) -> tuple[ArchiveScratchSpec, ...]:
+    return tuple(ArchiveScratchSpec(relation) for relation in archive_tables(target_metadata))
 
 
 def archive_native_sql(*, target_metadata=None) -> str:
-    tables = archive_tables(target_metadata)
+    specs = archive_scratch_specs(target_metadata)
+    tables = tuple(spec.source for spec in specs)
     model = tables[0].metadata
     roles = {
         relation.info["archive_role"]: relation
@@ -292,8 +333,8 @@ def archive_native_sql(*, target_metadata=None) -> str:
     )
     prepare: list[Statement] = list(preconditions)
     publish: list[Statement] = [*preconditions, inventory]
-    for relation in tables:
-        scratch = _scratch_table(relation)
+    for spec in specs:
+        relation, scratch = spec.source, spec.row_table()
         guard = Perform(
             func.sem.require_archive_scratch(
                 literal(scratch.name, Text()), cast(literal(_qualified(relation)), REGCLASS())
@@ -309,9 +350,9 @@ def archive_native_sql(*, target_metadata=None) -> str:
             If(
                 func.to_regclass(_qualified(scratch)).is_(None),
                 (
-                    Sql(_create_scratch(relation, scratch)),
-                    Sql(_scratch_privilege(scratch, False)),
-                    Sql(_scratch_privilege(scratch, True)),
+                    Sql(spec.create_statement()),
+                    Sql(spec.privilege_statement(False)),
+                    Sql(spec.privilege_statement(True)),
                 ),
                 (guard, truncate),
             )

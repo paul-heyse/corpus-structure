@@ -1,0 +1,4 @@
+# Capture typed authoring scratch, catalog observations and rollback row declarations.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n24
+native_revision: semantic_ddo_pe_n25
