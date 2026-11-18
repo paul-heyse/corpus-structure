@@ -342,7 +342,7 @@ def native_protocol_sources(
             "native/data-operation-record-grade-native.py",
             Path(__file__).with_name("record_grade_native.py").read_bytes(),
         ),
-        *operation_event_native_sources(),
+        *operation_event_native_sources(target_metadata=target_metadata),
         SourceArtifact(
             "native/data-operation-record-policy.sql", record_policy_native_sql().encode()
         ),
