@@ -1,85 +1,269 @@
-"""Native PDF-only correspondence over actual frozen domain inputs/actions."""
+"""Native PDF correspondence over frozen domain actions and input custody."""
 
-from .pdf_domain import CONTRACT, PREFIX, pdf_domain_sources
+from sqlalchemy import Boolean, Text, cast, column, func, literal, select
+from sqlalchemy.dialects.postgresql import JSONB, insert
+
+from .metadata import metadata
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Block,
+    ForQuery,
+    If,
+    Local,
+    Parameter,
+    Perform,
+    Raise,
+    Return,
+    SelectInto,
+    Sql,
+    column_type,
+    core_variable,
+    function,
+    pg_type,
+)
+from .pdf_domain import CONTRACT, HELPER_CONTRACT, PREFIX, pdf_domain_sources
 
 
-def pdf_domain_native_sql(*, sources=None) -> str:
+def pdf_domain_native_sql(*, sources=None, target_metadata=None) -> str:
+    model = metadata if target_metadata is None else target_metadata
     captured = pdf_domain_sources() if sources is None else sources
     digest = next(source.digest for source in captured if source.name == CONTRACT)
+    inputs = model.tables["sem.input"]
+    definitions = model.tables["sem.data_operation_definition"]
+    contracts = model.tables["sem.pdf_operation_contract"]
+    finalization = model.tables["sem.release_finalization"]
+
+    release = core_variable("p_release", inputs.c.release_id.type)
+    name = core_variable("p_name", inputs.c.input_name.type)
+    operation = core_variable("p_operation", contracts.c.operation_id.type)
+    fresh = core_variable("p_new_release", Boolean())
+    content = core_variable("content_", inputs.c.content.type)
+    facet_digest = core_variable("facet_digest", inputs.c.content_digest.type)
+    expected, facet, input_spec, action = (
+        core_variable(name, JSONB()) for name in ("expected_", "facet", "input_", "action_value")
+    )
+    action_id = core_variable("action_id", Text())
+
+    def items(value):
+        return func.jsonb_array_elements(value).table_valued(column("value", JSONB()))
+
+    expected_items = items(expected)
+    retained_inputs = items(facet["inputs"])
+    actions = func.jsonb_each(facet["actions"]).table_valued(
+        column("key", Text()), column("value", JSONB())
+    )
+    support = definitions.c.support_contract
+    asset = items(support["assets"]).c.value
+
+    scope = (inputs.c.release_id == release, inputs.c.input_kind == "dependency")
+    contract_scope = (*scope, inputs.c.input_name == CONTRACT)
+    authenticated = func.encode(func.sha256(inputs.c.content), "hex") == inputs.c.content_digest
+    document = cast(func.convert_from(inputs.c.content, "UTF8"), JSONB())
+    contract_available = select(inputs.c.input_name).where(*contract_scope).exists()
+    refusal = Raise("PDF domain contract differs", "23514")
+    capability_refusal = Raise("PDF action/capability correspondence differs", "23514")
+    release_parameter = Parameter("p_release", column_type(inputs.c.release_id))
+    policy = ("pg_catalog", "pg_temp")
+
+    read = function(
+        "ops",
+        "pdf_contract_input",
+        parameters=(release_parameter, Parameter("p_name", column_type(inputs.c.input_name))),
+        returns=column_type(inputs.c.content),
+        volatility="stable",
+        security_definer=True,
+        search_path=policy,
+        body=Block(
+            (
+                If(
+                    ~contract_available,
+                    (Raise("current PDF domain contract is required", "23514"),),
+                ),
+                SelectInto(
+                    select(document.op("->", return_type=JSONB())("inputs")).where(
+                        *contract_scope, inputs.c.content_digest == digest, authenticated
+                    ),
+                    ("expected_",),
+                ),
+                If(expected.is_(None), (refusal,)),
+                SelectInto(
+                    select(inputs.c.content).where(
+                        *scope,
+                        inputs.c.input_name == (literal(PREFIX) + name),
+                        select(expected_items.c.value)
+                        .where(
+                            expected_items.c.value["name"].astext == inputs.c.input_name,
+                            expected_items.c.value["sha256"].astext == inputs.c.content_digest,
+                        )
+                        .correlate(inputs)
+                        .exists(),
+                        authenticated,
+                    ),
+                    ("content_",),
+                    strict=True,
+                ),
+                Return(content),
+            ),
+            (
+                Local("content_", column_type(inputs.c.content)),
+                Local("expected_", pg_type("jsonb")),
+            ),
+        ),
+    )
+
+    action_scope = (
+        contracts.c.release_id == release,
+        contracts.c.operation_id == action_id,
+        contracts.c.contract_id == action_id,
+        contracts.c.contract_digest == facet_digest,
+    )
+    supported = (
+        select(definitions.c.release_id)
+        .where(
+            definitions.c.release_id == release,
+            support["capabilities"]["preparation"].astext == "pdf-native",
+            select(asset)
+            .where(
+                asset["reference"].astext == CONTRACT,
+                asset["contract"].astext == HELPER_CONTRACT,
+                asset["role"].astext == "native-pdf-helper-bindings",
+                asset["content_digest"].astext == facet_digest,
+            )
+            .correlate(definitions)
+            .exists(),
+        )
+        .exists()
+    )
+    admit = function(
+        "sem",
+        "admit_pdf_operation_contracts",
+        parameters=(release_parameter, Parameter("p_new_release", pg_type("bool"))),
+        returns=pg_type("void"),
+        security_definer=True,
+        search_path=policy,
+        body=Block(
+            (
+                SelectInto(
+                    select(document, inputs.c.content_digest).where(*contract_scope, authenticated),
+                    ("facet", "facet_digest"),
+                ),
+                If(
+                    ~core_variable("found", Boolean()),
+                    (If(contract_available, (refusal,)), Return()),
+                ),
+                If(fresh & (facet_digest != digest), (refusal,)),
+                If(~supported, (capability_refusal,)),
+                # Forward DATA authenticates retained facts under their own
+                # manifest. Runtime reads require the current contract.
+                ForQuery(
+                    ("input_",),
+                    select(retained_inputs.c.value),
+                    (
+                        If(
+                            ~select(inputs.c.input_name)
+                            .where(
+                                *scope,
+                                inputs.c.input_name == input_spec["name"].astext,
+                                inputs.c.content_digest == input_spec["sha256"].astext,
+                                authenticated,
+                            )
+                            .exists(),
+                            (Raise("PDF domain input differs from retained contract", "23514"),),
+                        ),
+                    ),
+                ),
+                ForQuery(
+                    ("action_id", "action_value"),
+                    select(actions.c.key, actions.c.value),
+                    (
+                        If(
+                            action["contract"]["id"].astext.is_distinct_from(action_id),
+                            (Raise("PDF action contract identity differs", "23514"),),
+                        ),
+                        Sql(
+                            insert(contracts)
+                            .values(
+                                {
+                                    contracts.c.release_id: release,
+                                    contracts.c.operation_id: action_id,
+                                    contracts.c.contract_id: action_id,
+                                    contracts.c.contract_digest: facet_digest,
+                                }
+                            )
+                            .on_conflict_do_nothing()
+                        ),
+                        If(
+                            ~select(contracts.c.contract_digest).where(*action_scope).exists(),
+                            (Raise("PDF action changed under admitted release", "23514"),),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                Local("facet", pg_type("jsonb")),
+                Local("facet_digest", column_type(inputs.c.content_digest)),
+                Local("input_", pg_type("jsonb")),
+                Local("action_id", pg_type("text")),
+                Local("action_value", pg_type("jsonb")),
+            ),
+        ),
+    )
+
+    require = function(
+        "ops",
+        "require_pdf_operation",
+        parameters=(
+            release_parameter,
+            Parameter("p_operation", column_type(contracts.c.operation_id)),
+        ),
+        returns=pg_type("void"),
+        volatility="stable",
+        security_definer=True,
+        search_path=policy,
+        body=Block(
+            (
+                Perform(func.ops.ddo_require_release_facts(release)),
+                If(
+                    ~select(finalization.c.release_id)
+                    .where(finalization.c.release_id == release)
+                    .exists()
+                    | ~select(contracts.c.operation_id)
+                    .where(
+                        contracts.c.release_id == release,
+                        contracts.c.operation_id == operation,
+                        contracts.c.contract_id == operation,
+                        contracts.c.contract_digest == digest,
+                    )
+                    .exists(),
+                    (capability_refusal,),
+                ),
+            ),
+        ),
+    )
+    read_id = NativeIdentity("function", "ops", "pdf_contract_input", ("text", "text"))
+    admit_id = NativeIdentity(
+        "function", "sem", "admit_pdf_operation_contracts", ("text", "boolean")
+    )
+    require_id = NativeIdentity("function", "ops", "require_pdf_operation", ("text", "text"))
     return (
-        """
-CREATE OR REPLACE FUNCTION ops.pdf_contract_input(p_release text,p_name text) RETURNS bytea
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $pdf$
-DECLARE content_ bytea; expected_ jsonb;
-BEGIN
- IF EXISTS(SELECT FROM sem.input WHERE release_id=p_release AND input_kind='dependency'
- AND input_name='PDF_CONTRACT') THEN
- SELECT convert_from(content,'UTF8')::jsonb->'inputs' INTO expected_
- FROM sem.input WHERE release_id=p_release AND input_kind='dependency'
- AND input_name='PDF_CONTRACT' AND content_digest='PDF_DIGEST'
- AND encode(sha256(content),'hex')='PDF_DIGEST';
- IF expected_ IS NULL THEN
- RAISE EXCEPTION 'PDF domain contract differs' USING ERRCODE='23514'; END IF;
- SELECT i.content INTO STRICT content_ FROM sem.input i
- WHERE i.release_id=p_release AND i.input_kind='dependency' AND i.input_name='PDF_PREFIX'||p_name
- AND EXISTS(SELECT FROM jsonb_array_elements(expected_) declared
- WHERE declared->>'name'=i.input_name AND declared->>'sha256'=i.content_digest)
- AND encode(sha256(i.content),'hex')=i.content_digest;
- ELSE RAISE EXCEPTION 'current PDF domain contract is required' USING ERRCODE='23514'; END IF;
- RETURN content_;
-END $pdf$;
-REVOKE ALL ON FUNCTION ops.pdf_contract_input(text,text) FROM PUBLIC;
-CREATE OR REPLACE FUNCTION sem.admit_pdf_operation_contracts(p_release text,p_new_release boolean) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $pdf$
-DECLARE facet jsonb; facet_digest text; action record; input_ jsonb;
-BEGIN
- SELECT convert_from(content,'UTF8')::jsonb,content_digest INTO facet,facet_digest FROM sem.input
- WHERE release_id=p_release AND input_kind='dependency' AND input_name='PDF_CONTRACT'
- AND encode(sha256(content),'hex')=content_digest;
- IF NOT FOUND THEN
- IF EXISTS(SELECT FROM sem.input WHERE release_id=p_release AND input_kind='dependency' AND input_name='PDF_CONTRACT') THEN
- RAISE EXCEPTION 'PDF domain contract differs' USING ERRCODE='23514'; END IF;
- RETURN;
- END IF;
- IF p_new_release AND facet_digest<>'PDF_DIGEST' THEN
- RAISE EXCEPTION 'PDF domain contract differs' USING ERRCODE='23514'; END IF;
- IF NOT EXISTS(SELECT FROM sem.data_operation_definition definition WHERE definition.release_id=p_release
- AND definition.support_contract->'capabilities'->>'preparation'='pdf-native'
- AND EXISTS(SELECT FROM jsonb_array_elements(definition.support_contract->'assets') asset
- WHERE asset->>'reference'='PDF_CONTRACT' AND asset->>'contract'='pdf-native/helper-bindings'
- AND asset->>'role'='native-pdf-helper-bindings' AND asset->>'content_digest'=facet_digest)) THEN
- RAISE EXCEPTION 'PDF action/capability correspondence differs' USING ERRCODE='23514'; END IF;
- -- A forward DATA step authenticates the finalized release's own manifest.
- -- Runtime reads still require the current contract; old facts are not relabelled.
- FOR input_ IN SELECT value FROM jsonb_array_elements(facet->'inputs') LOOP
- IF NOT EXISTS(SELECT FROM sem.input i WHERE i.release_id=p_release
- AND i.input_kind='dependency' AND i.input_name=input_->>'name'
- AND i.content_digest=input_->>'sha256' AND encode(sha256(i.content),'hex')=i.content_digest) THEN
- RAISE EXCEPTION 'PDF domain input differs from retained contract' USING ERRCODE='23514'; END IF;
- END LOOP;
- FOR action IN SELECT key,value FROM jsonb_each(facet->'actions') LOOP
- IF action.value->'contract'->>'id' IS DISTINCT FROM action.key THEN
- RAISE EXCEPTION 'PDF action contract identity differs' USING ERRCODE='23514'; END IF;
- INSERT INTO sem.pdf_operation_contract VALUES(p_release,action.key,action.key,facet_digest) ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM sem.pdf_operation_contract WHERE release_id=p_release
- AND operation_id=action.key AND contract_id=action.key AND contract_digest=facet_digest) THEN
- RAISE EXCEPTION 'PDF action changed under admitted release' USING ERRCODE='23514'; END IF;
- END LOOP;
-END $pdf$;
-REVOKE ALL ON FUNCTION sem.admit_pdf_operation_contracts(text,boolean) FROM PUBLIC;
-CREATE OR REPLACE FUNCTION ops.require_pdf_operation(p_release text,p_operation text) RETURNS void
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $pdf$
-BEGIN
- PERFORM ops.ddo_require_release_facts(p_release);
- IF NOT EXISTS(SELECT FROM sem.release_finalization WHERE release_id=p_release)
- OR NOT EXISTS(SELECT FROM sem.pdf_operation_contract WHERE release_id=p_release
- AND operation_id=p_operation AND contract_id=p_operation AND contract_digest='PDF_DIGEST') THEN
- RAISE EXCEPTION 'PDF action/capability correspondence differs' USING ERRCODE='23514'; END IF;
-END $pdf$;
-REVOKE ALL ON FUNCTION ops.require_pdf_operation(text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.require_pdf_operation(text,text)
-TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;
-""".replace("PDF_CONTRACT", CONTRACT)
-        .replace("PDF_PREFIX", PREFIX)
-        .replace("PDF_DIGEST", digest)
+        native_sql_script(
+            (
+                read,
+                native_privilege_sql(read_id, "PUBLIC", grant=False),
+                admit,
+                native_privilege_sql(admit_id, "PUBLIC", grant=False),
+                require,
+                native_privilege_sql(require_id, "PUBLIC", grant=False),
+                *(
+                    native_privilege_sql(require_id, role, "execute")
+                    for role in (
+                        "corpus_sem_writer",
+                        "corpus_sem_reader",
+                        "corpus_sem_admitter",
+                        "corpus_sem_evaluator",
+                    )
+                ),
+            )
+        )
+        + "\n"
     )

@@ -63,8 +63,8 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
             physical_sources=target_metadata.info["physical_sources"],
             linkml_types=target_metadata.info["physical_linkml_types"],
         )
-    sql = pdf_domain_native_sql(sources=pdf_sources)
     selected = metadata if target_metadata is None else target_metadata
+    sql = pdf_domain_native_sql(sources=pdf_sources, target_metadata=selected)
     from .native_program import (
         Assign,
         Block,

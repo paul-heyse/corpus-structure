@@ -13,7 +13,7 @@ from corpus_structure.semantic.pdf_domain_native import pdf_domain_native_sql
 from corpus_structure.semantic.types import SourceArtifact
 
 
-def _fixture(conn, *, changed_input=False):
+def _fixture(conn, *, changed_input=False, current_contract=False):
     conn.exec_driver_sql("CREATE SCHEMA sem; CREATE SCHEMA ops")
     conn.exec_driver_sql("""
 CREATE TABLE sem.input(release_id text,input_kind text,input_name text,
@@ -56,7 +56,9 @@ CREATE TABLE sem.pdf_operation_contract(release_id text,operation_id text,
         text("INSERT INTO sem.data_operation_definition VALUES ('retained',CAST(:body AS jsonb))"),
         {"body": canonical_bytes(support).decode()},
     )
-    current = SourceArtifact(CONTRACT, canonical_bytes({"current": "different contract"}))
+    current = SourceArtifact(
+        CONTRACT, facet if current_contract else canonical_bytes({"current": "different contract"})
+    )
     execute_native_sql(conn, pdf_domain_native_sql(sources=(current,)))
     return old_digest
 
@@ -80,3 +82,20 @@ def test_forward_relower_refuses_changed_retained_input_atomically(semantic_bare
         with pytest.raises(DBAPIError, match="PDF domain input differs"), conn.begin_nested():
             conn.execute(text("SELECT sem.admit_pdf_operation_contracts('retained',false)"))
         assert conn.scalar(text("SELECT count(*) FROM sem.pdf_operation_contract")) == 0
+
+
+def test_current_contract_reads_only_its_authenticated_named_input(semantic_bare_engine):
+    read = text("SELECT ops.pdf_contract_input('retained', 'schema/pdf_products')")
+    with semantic_bare_engine.begin() as conn:
+        _fixture(conn, current_contract=True)
+        conn.execute(text("SELECT sem.admit_pdf_operation_contracts('retained',true)"))
+        assert conn.scalar(read) == b"authenticated retained input"
+        conn.execute(
+            text(
+                "UPDATE sem.input SET content_digest = repeat('0', 64) "
+                "WHERE input_name = 'pdf-domain/schema/pdf_products'"
+            )
+        )
+        with pytest.raises(DBAPIError) as refusal, conn.begin_nested():
+            conn.scalar(read)
+        assert getattr(refusal.value.orig, "sqlstate", None) == "P0002"
