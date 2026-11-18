@@ -673,6 +673,11 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         pdf_native_record_shape_sql,
     )
     from .pdf_domain import pdf_call_bindings
+    from .pdf_publication_read_native import (
+        pdf_publication_projection_sql,
+        pdf_record_scope_health_sql,
+        pdf_reference_bytes_equal_sql,
+    )
     from .pdf_record_reader_native import (
         pdf_companion_export_sql,
         pdf_native_export_sql,
@@ -698,26 +703,7 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         + pdf_companion_field_read_sql(metadata)
         + pdf_freeze_native_sql(metadata, stage, pdf_domain=pdf_domain)
     )
-    sql += """
-__PDF_COMPANION_ADOPTION__
-CREATE OR REPLACE FUNCTION ops.pdf_reference_bytes_equal(p_product text,p_revision text,p_left \
-text,p_left_stream text,p_right text,p_right_stream text)
-RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
- SELECT COALESCE(CASE WHEN p_left_stream IS NULL THEN octet_length(convert_to(p_left,'UTF8')) \
-ELSE l.byte_length END
- = CASE WHEN p_right_stream IS NULL THEN octet_length(convert_to(p_right,'UTF8')) ELSE \
-r.byte_length END
- AND CASE WHEN p_left_stream IS NULL THEN encode(ops.pdf_identity_byte_root(convert_to(p_left,'UT\
-F8')),'hex') ELSE l.byte_root END
- = CASE WHEN p_right_stream IS NULL THEN encode(ops.pdf_identity_byte_root(convert_to(p_right,'UT\
-F8')),'hex') ELSE r.byte_root END,false)
- FROM (SELECT 1) one_ LEFT JOIN ops.pdf_artifact_stream l ON l.product_id=p_product AND \
-l.revision_id=p_revision AND l.stream_id=p_left_stream
- LEFT JOIN ops.pdf_artifact_stream r ON r.product_id=p_product AND r.revision_id=p_revision AND \
-r.stream_id=p_right_stream
-$$;
-REVOKE ALL ON FUNCTION ops.pdf_reference_bytes_equal(text,text,text,text,text,text) FROM PUBLIC;
-"""
+    sql += "__PDF_COMPANION_ADOPTION__\n" + pdf_reference_bytes_equal_sql(metadata)
     (prepare_binding,) = (
         binding
         for action, binding in pdf_call_bindings(pdf_domain)
@@ -1176,75 +1162,9 @@ al_id,c.body))->'value' value
 ALTER VIEW ops.pdf_published_coverage OWNER TO corpus_sem_publisher;
 GRANT SELECT ON ops.pdf_published_coverage TO corpus_sem_writer,corpus_sem_reader,corpus_sem_eval\
 uator;
-CREATE OR REPLACE FUNCTION ops.pdf_record_scope_health(p_task bigint,p_key text,p_digest \
-text,p_pointers text[])
-RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT (h.body-ARRAY['source_scope','page_start','page_end','formula_outcomes'])||jsonb_build_ob\
-ject('formula_outcomes',
- COALESCE((SELECT jsonb_agg(jsonb_build_object('pointer',c.body->'pointer','outcome',c.body->'out\
-come')||CASE WHEN c.body->'has_diagnostic'='true'::jsonb THEN \
-jsonb_build_object('diagnostic_ref',jsonb_build_object('task_id',p.task_id,'product_key',p.produc\
-t_key,'content_digest',p.logical_digest,'family','native_metadata','local_id',c.local_id)) ELSE \
-'{}'::jsonb END ORDER BY c.ordinal,c.local_id) FROM kb.pdf_record_companion c WHERE \
-c.product_id=p.build_id AND c.revision_id=p.build_id
- AND c.family='native_metadata' AND c.body->>'kind'='formula_outcomes' AND \
-c.body->>'pointer'=ANY(p_pointers)),'[]'::jsonb))
- FROM ops.pdf_published_revision p JOIN kb.pdf_record_companion h ON h.product_id=p.build_id AND \
-h.revision_id=p.build_id AND h.family='health'
- AND h.body ? 'source_scope' WHERE p.task_id=p_task AND p.product_key=p_key AND \
-p.logical_digest=p_digest
-$$;
-REVOKE ALL ON FUNCTION ops.pdf_record_scope_health(bigint,text,text,text[]) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.pdf_record_scope_health(bigint,text,text,text[]) TO \
-corpus_sem_writer,corpus_sem_reader;
 """
-    sql += """
-CREATE OR REPLACE FUNCTION ops.pdf_publication_projection(p_receipt jsonb,p_task bigint,
- p_attempt bigint,p_holder text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE publication ops.pdf_published_revision; build ops.pdf_stage_build; context record;
- health jsonb;
-BEGIN
- SELECT * INTO STRICT publication FROM ops.pdf_published_revision
- WHERE build_id=p_receipt->'publication'->>'build_id';
- SELECT * INTO STRICT build FROM ops.pdf_stage_build WHERE build_id=publication.build_id;
- SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);
- IF p_attempt IS NULL OR p_attempt<1 OR nullif(p_holder,'') IS NULL
- OR to_jsonb(publication) IS DISTINCT FROM p_receipt->'publication'
- OR publication.task_id IS DISTINCT FROM p_task OR build.task_id IS DISTINCT FROM p_task
- OR build.attempt IS DISTINCT FROM (p_receipt->>'publisher_attempt')::bigint
- OR build.holder IS DISTINCT FROM p_receipt->>'publisher_holder'
- OR build.attempt>p_attempt OR (build.attempt=p_attempt AND build.holder IS DISTINCT FROM p_holder)
- OR p_receipt->'contributors' IS DISTINCT FROM ops.pdf_spool_contributors(publication.build_id)
- OR NOT EXISTS(SELECT FROM ops.pdf_build_validation certification WHERE certification.build_id=publication.build_id
- AND p_receipt->'certification'=jsonb_build_object('basis',certification.certification_basis,
- 'lowering_identity',certification.lowering_identity,'attested_logical_digest',certification.attested_logical_digest,
- 'native_document_digest',certification.native_document_digest,'oracle_receipt_id',certification.oracle_receipt_id))
- OR build.state<>'published' OR (build.release_id,build.source_digest,build.schema_digest,
- build.recipe_digest) IS DISTINCT FROM (publication.release_id,publication.source_digest,
- publication.schema_digest,publication.recipe_digest)
- OR (publication.release_id,publication.source_digest) IS DISTINCT FROM
- (context.release_id,context.source_digest)
- OR NOT EXISTS(SELECT FROM ops.pdf_frozen_build frozen JOIN ops.pdf_build_validation valid
- ON valid.build_id=frozen.build_id AND valid.frozen_digest=frozen.frozen_digest
- WHERE frozen.build_id=publication.build_id AND frozen.kind=publication.kind
- AND frozen.frozen_digest=publication.frozen_digest AND valid.native_callbacks
- AND valid.logical_digest=publication.logical_digest
- AND valid.native_contract_digest=ops.pdf_validation_contract(publication.release_id)) THEN
- RAISE EXCEPTION 'PDF execution receipt differs from actual sealed publisher' USING ERRCODE='23514';
- END IF;
- SELECT companion.body INTO STRICT health FROM kb.pdf_record_companion companion
- WHERE companion.product_id=publication.build_id AND companion.revision_id=publication.build_id
- AND companion.family='health' AND companion.body ? 'conversion';
- RETURN jsonb_build_object('document',(SELECT key FROM kb.document WHERE id=context.document_id),
- 'source_digest',publication.source_digest,
- 'logical_digest',publication.logical_digest,'schema_digest',publication.schema_digest,
- 'recipe_digest',publication.recipe_digest,'kind',publication.kind,'health',jsonb_build_object(
- 'conversion',health->'conversion','display_coverage',health->'display_coverage',
- 'inline_coverage',health->'inline_coverage','cell_coverage',health->'cell_coverage'));
-END $$;
-REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) FROM PUBLIC;
-"""
+    sql += pdf_record_scope_health_sql(metadata)
+    sql += pdf_publication_projection_sql(metadata)
     from .pdf_certification_native import pdf_certification_native_sql
 
     sql += pdf_validation_and_seal_native_sql(metadata, pdf_domain=pdf_domain)

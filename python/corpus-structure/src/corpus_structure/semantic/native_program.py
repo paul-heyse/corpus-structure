@@ -62,6 +62,12 @@ def core_variable(name: str, type_: TypeEngine[Any], field: str | None = None) -
     return literal_column(RawStream()(variable(name, field)), type_=type_)
 
 
+def core_relation_row(relation: Table) -> ColumnClause[Any]:
+    """Select a composite in the server's row-type order."""
+    names = (relation.name,) if relation.schema is None else (relation.schema, relation.name)
+    return literal_column(RawStream()(ast.ColumnRef(fields=(*_names(*names), ast.A_Star()))))
+
+
 def core_parameter(position: int, type_: TypeEngine[Any]) -> ColumnClause[Any]:
     if position < 1:
         raise ValueError("native parameter numbering starts at one")
