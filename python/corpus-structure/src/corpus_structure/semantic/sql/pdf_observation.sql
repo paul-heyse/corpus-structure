@@ -1,33 +1,3 @@
--- Current declared recognition observation publication over exact PDF support.
-CREATE OR REPLACE FUNCTION ops.pdf_observation_meaning(p_payload bytea) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $meaning$
-DECLARE value jsonb:=convert_from(p_payload,'UTF8')::jsonb;
- observed jsonb:=value->'observation'; binding jsonb:=observed->'binding'; decoding jsonb;
- observation jsonb; coverage jsonb;
-BEGIN
- -- {observation_meaning_projection}
-END $meaning$;
-
-CREATE OR REPLACE FUNCTION ops.pdf_recognition_profile(p_release text,p_definition sem.data_operation_definition)
-RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $profile$
-DECLARE asset jsonb; profile jsonb;
-BEGIN
- IF p_definition.release_id IS DISTINCT FROM p_release THEN
- RAISE EXCEPTION 'recognition policy belongs to another release' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT asset FROM jsonb_array_elements(p_definition.support_contract->'assets')
- WHERE value->>'reference'='frozen-native-recognition-policy'
- AND value->>'contract'='pdf-recognition/policy-v1'
- AND value->>'role'='recognition-models-and-recovery-policy';
- SELECT convert_from(content,'UTF8')::jsonb INTO STRICT profile FROM sem.input
- WHERE release_id=p_release AND input_kind='dependency'
- AND input_name='data-operations/contracts/'||(asset->>'contract')
- AND content_digest=asset->>'content_digest' AND encode(sha256(content),'hex')=content_digest;
- PERFORM ops.ddo_fields(profile,ARRAY['version','base_recipe_digest','recipes','recovery_policy','source_recovery']);
- IF profile->>'version' IS DISTINCT FROM 'pdf-recognition-profile-1' THEN
- RAISE EXCEPTION 'unsupported recognition policy' USING ERRCODE='23514'; END IF;
- RETURN profile;
-END $profile$;
-
 CREATE OR REPLACE FUNCTION ops.pdf_observation_projection_for_request(p_receipt jsonb,p_task bigint,p_attempt bigint,p_holder text,p_request ops.data_request)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $projection$
 DECLARE job ops.task; request ops.data_request; definition sem.data_operation_definition;
@@ -164,18 +134,6 @@ BEGIN
  IF page_groups IS DISTINCT FROM requested THEN
  RAISE EXCEPTION 'observation reports do not cover the exact requested page inventory' USING ERRCODE='23514'; END IF;
  RETURN jsonb_build_object('document',request.original_source,'source_digest',context.source_digest,'recipe_digest',p_receipt->'recipe_digest','pages',pages);
-END $projection$;
-
-CREATE OR REPLACE FUNCTION ops.pdf_observation_projection(p_receipt jsonb,p_task bigint,p_attempt bigint,p_holder text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $projection$
-DECLARE job ops.task; request ops.data_request;
-BEGIN
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
- SELECT * INTO STRICT request FROM ops.data_request WHERE id=job.data_request_id;
- IF request.live_task_id IS DISTINCT FROM p_task OR request.generation IS DISTINCT FROM job.data_generation
- OR request.release_id IS DISTINCT FROM job.release_id THEN
- RAISE EXCEPTION 'active observation projection requires its current task request basis' USING ERRCODE='23514'; END IF;
- RETURN ops.pdf_observation_projection_for_request(p_receipt,p_task,p_attempt,p_holder,request);
 END $projection$;
 
 CREATE OR REPLACE FUNCTION ops.publish_pdf_observation(p_task bigint,p_attempt bigint,p_holder text,p_runtime text,p_contract text,p_payload bytea,p_artifacts bytea[]) RETURNS text

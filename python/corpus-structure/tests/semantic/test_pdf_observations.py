@@ -93,9 +93,17 @@ def test_native_observation_meaning_keeps_numeric_settings_and_separates_custody
     meaning_spec,
 ):
     """Actual installed projection; native retention/ordinary read use other controls."""
+    from pglast.stream import RawStream
     from sqlalchemy import text
 
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from corpus_structure.semantic.pdf_integrated_native import observation_value_declarations
+
+    declaration = observation_value_declarations(trusted_pdf_context())["ops", "pdf_observation_meaning"]
+    with native_owner(native_rollback.connection, "corpus_sem_publisher"):
+        execute_native_sql(native_rollback.connection, RawStream()(declaration))
 
     supplied = observation(native_source)
     supplied["observation"]["binding"]["decoding_json"] = (
@@ -227,8 +235,8 @@ def test_python_and_native_projection_consume_one_captured_selection(native_sour
         observation_publication_sql(context),
         observation_publication_sql(replace(context, domain=domain)),
     )
-    assert "'seed',observed->'binding'->'seed'" in original
-    assert "'seed',observed->'binding'->'seed'" not in altered
+    assert "'seed', observed['binding']['seed']" in original
+    assert "'seed', observed['binding']['seed']" not in altered
 
 
 def test_observation_projection_sql_and_first_write_stamp_are_current_native_inputs():
