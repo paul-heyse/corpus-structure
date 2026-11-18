@@ -305,7 +305,12 @@ def _acquire_primary_profile(
 
     def selection(name: str, provider: str):
         value = json.loads(read(name))
-        if not isinstance(value, dict) or set(value) != {"profile", "fingerprint", "assets", "asset_custody"}:
+        if not isinstance(value, dict) or set(value) != {
+            "profile",
+            "fingerprint",
+            "assets",
+            "asset_custody",
+        }:
             raise ValueError("native selection must use the complete NativeSelection declaration")
         native = NativeProfile.from_content(canonical_bytes(value["profile"]))
         if native.provider != provider or native.fingerprint != value["fingerprint"]:

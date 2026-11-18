@@ -461,7 +461,18 @@ def test_recognition_acquisition_preserves_configured_interpreter_symlink(tmp_pa
     assert resources.receipts == str((root / "receipts").resolve())
 
 
-@pytest.mark.parametrize("damage", [None, "missing-custody", "foreign", "duplicate", "malformed", "changed-bytes", "forged-digest"])
+@pytest.mark.parametrize(
+    "damage",
+    [
+        None,
+        "missing-custody",
+        "foreign",
+        "duplicate",
+        "malformed",
+        "changed-bytes",
+        "forged-digest",
+    ],
+)
 def test_primary_selection_authenticates_current_asset_population(tmp_path, monkeypatch, damage):
     import yaml
 
@@ -476,9 +487,14 @@ def test_primary_selection_authenticates_current_asset_population(tmp_path, monk
     asset = root / "assets/model.bin"
     asset.write_bytes(b"actual selected model bytes")
     existing = json.loads((root / "spacy.json").read_bytes())
-    native = NativeProfile.from_content(canonical_bytes({
-        **existing["profile"], "artifacts": {"files": {"model.bin": sha256(asset.read_bytes()).hexdigest()}},
-    }))
+    native = NativeProfile.from_content(
+        canonical_bytes(
+            {
+                **existing["profile"],
+                "artifacts": {"files": {"model.bin": sha256(asset.read_bytes()).hexdigest()}},
+            }
+        )
+    )
     declaration = json.loads(canonical_bytes(NativeSelection(native, asset.parent).declaration()))
     if damage == "missing-custody":
         del declaration["asset_custody"]
@@ -488,11 +504,15 @@ def test_primary_selection_authenticates_current_asset_population(tmp_path, monk
     elif damage == "duplicate":
         declaration["asset_custody"] *= 2
     elif damage == "malformed":
-        declaration["asset_custody"] = ((str(asset), native.artifacts["files"]["model.bin"], (0,), False),)
+        declaration["asset_custody"] = (
+            (str(asset), native.artifacts["files"]["model.bin"], (0,), False),
+        )
     elif damage == "changed-bytes":
         asset.write_bytes(b"changed selected model bytes")
     elif damage == "forged-digest":
-        forged = NativeProfile.from_content(canonical_bytes({**native.wire, "artifacts": {"files": {"model.bin": "0" * 64}}}))
+        forged = NativeProfile.from_content(
+            canonical_bytes({**native.wire, "artifacts": {"files": {"model.bin": "0" * 64}}})
+        )
         declaration.update(profile=forged.wire, fingerprint=forged.fingerprint)
         receipt = declaration["asset_custody"][0]
         declaration["asset_custody"] = ((receipt[0], "0" * 64, receipt[2], False),)
@@ -500,11 +520,16 @@ def test_primary_selection_authenticates_current_asset_population(tmp_path, monk
     # Simulate an independent acquisition process: a receipt persisted in JSON
     # cannot inherit the producer process's authenticated byte observation.
     monkeypatch.setattr(file_custody, "_records", {})
-    profile = PrimaryProfileInputs.model_validate(yaml.safe_load((root / "target.yaml").read_bytes())["primary_profile"])
+    profile = PrimaryProfileInputs.model_validate(
+        yaml.safe_load((root / "target.yaml").read_bytes())["primary_profile"]
+    )
     if damage is not None:
         with pytest.raises(ValueError):
             _acquire_primary_profile(profile, lambda name: (root / name).read_bytes(), root)
     else:
         acquired = _acquire_primary_profile(profile, lambda name: (root / name).read_bytes(), root)
         assert acquired["sentence_selection"].native == native
-        assert acquired["sentence_selection"].declaration()["asset_custody"][0][1] == sha256(asset.read_bytes()).hexdigest()
+        assert (
+            acquired["sentence_selection"].declaration()["asset_custody"][0][1]
+            == sha256(asset.read_bytes()).hexdigest()
+        )
