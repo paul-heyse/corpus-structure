@@ -5,6 +5,13 @@
 and no disposition ledger; dispositions are in [dispositions.md](dispositions.md) and the
 overall judgment is in the principal review.
 
+**Revision note, 2026-11-18.** An independent recommendation audit from input revision
+`b4eb74f67` reviewed this design for the operator's concern about intentional flexibility and
+found the cache design untouched by it. Two clarifications follow from the revised review: a
+served query that declares no reuse basis uses `cut` (§4 T4), and the compiled model's
+declaration validator also yields the list of unclassified declarations (§4 T1, review R16). See the
+[audit companion](../audits/design_review_unified-domain-model-and-execution_2026-11-18_audit.md).
+
 **Baseline.** Source facts are from the frozen snapshot of commit `d78c98765`, Interface-checked
 by source inspection on 2026-11-18. Paths omit `python/corpus-structure/src/corpus_structure/`.
 Every design statement is **Proposed**. No speedup is claimed anywhere; where a tier removes
@@ -138,7 +145,8 @@ derived lazily on the immutable object: physical `MetaData` and read `MetaData`
 `semantic/data_operation_wire.py:46–485`), expanded value sets (through the project's one
 `expand_enum`; LinkML's `induced_enum` does not expand `inherits`, `include` or `minus`,
 [data-model library report](../../evidence/2026-11-18_production-review-inputs/library-data-model.md) F6), the field-kind type map, Arrow schemas for model relations and views, the
-role and grant matrix, the support-edge traversal table, the operation-declaration validator,
+role and grant matrix, the support-edge traversal table, the operation-declaration validator
+(with its warnings and list of unclassified declarations, review R16),
 and the scientific policy recipe (review R14).
 
 **Key.** The model-sources identity: a framed SHA-256 over the sorted `(name, bytes)` of the
@@ -270,7 +278,7 @@ comparison rebuilt for every page (`semantic/change_impact.py:687–777`).
   the hand lists of DA-076);
 - the authorization scope: the principal or purpose role under which native authority was
   acquired, unless the query is shown to be authority-independent;
-- the reuse basis, declared per served query: `cut` (the cut identity, as today, sound now) or
+- the reuse basis, declared per served query and `cut` when undeclared: `cut` (the cut identity, as today, sound now) or
   `content` (frontier content stamp, release and runtime, without the read instance), which a
   query may declare only after the native owner has established that its derived rows are a
   function of frontier content (DA-075's open premise). Until then every query except the

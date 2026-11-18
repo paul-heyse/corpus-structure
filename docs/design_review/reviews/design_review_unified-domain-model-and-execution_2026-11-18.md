@@ -4,6 +4,16 @@ Formal design/target review, 2026-11-18. Supporting documents:
 [cache-design.md](unified-domain-model-and-execution/cache-design.md) (the cache system, recommendation R09) and
 [dispositions.md](unified-domain-model-and-execution/dispositions.md) (one disposition per consumed audit finding). Audit publication consumed: `90467bde0`.
 
+**Revised recommendations · 2026-11-18.** The recommendations of this review were revised by an
+independent recommendation audit on 2026-11-18, from input revision `b4eb74f67`, on the
+operator's concern that the target should represent the pipeline's intentional flexibility and
+optionality rather than govern it away. The revised judgments (chiefly R02, §3.2, R03, R05, R07,
+R13, the new R15 and R16, finding F05 and rule impacts RC01, RC04, RC05, RC12 and RC14) are the
+auditor's; the first reviewer did not author or endorse them. The companion
+[audits/design_review_unified-domain-model-and-execution_2026-11-18_audit.md](audits/design_review_unified-domain-model-and-execution_2026-11-18_audit.md)
+explains every change and its evidence; the original text is recoverable from Git at
+`b4eb74f67`.
+
 ## 1. Scope, outcome and coverage
 
 | Field | Value |
@@ -12,13 +22,13 @@ Formal design/target review, 2026-11-18. Supporting documents:
 | Standard | Core principles, template and efficient-architecture heuristics 3.3 / 1.0; code-intelligence profile 1.4; corpus-structure binding (from `docs/design_review/design_principles/standard.toml`) |
 | Tier and purpose | Design; target |
 | Focus (operator, 2026-11-18) | Combined. Principles: a unified domain data model with scoped semantic authority (FP-04, A2); execution fit, meaning efficient and fast execution (FP-07, A4); application code kept away from writing or managing SQL text. Libraries as hypotheses: the data-model family (LinkML and relatives, SQLAlchemy, Alembic, pydantic, pyarrow, jsonschema, pglast, SQLGlot, valuesets) on equal footing, with unification allowed to come from connecting existing declarations; DuckDB 2.0 case by case; cachetools 8.0 given prioritized treatment as a cache *design* |
-| Reviewer and date | Independent design reviewer (wrote neither the audit, the code nor earlier reviews), 2026-11-18 |
+| Reviewer and date | Independent design reviewer (wrote neither the audit, the code nor earlier reviews), 2026-11-18. Recommendations revised by an independent recommendation auditor, 2026-11-18, on the operator's flexibility concern (see the attribution above) |
 | Maturity and outcome | Design stage. The review should let the operator plan a separate series: which facts each authority owns and how consumers obtain them, an identity and cache design, the remaining-SQL conversion order, and the place of DuckDB |
 | Supported scope and workload | Book-scale document processing through declared data operations, many operations per run; repeated focused reads from a long-lived MCP server (one process, tool calls on worker threads) and from the `ci` command line (one process per command and per page); model changes previewed, replayed and deployed; one operator, several coding agents, one host |
 | Baseline | `d78c98765`. Audit revision consumed: the broad audit as refreshed on 2026-11-18 at that source (publication `90467bde0`), with the independent challenger's corrections of the same date ([independent challenge](../evidence/2026-11-18_production-review-inputs/challenge.md)) folded in. The coordinator records the publication commit |
 | Excluded | Test code (owned by the test review of 2026-11-17; seams this design touches are named in one line each); the declared-data-operations plan's PE findings (read as current design, not re-owned); Chandra OCR (operator direction) |
 | Method and coverage | Static reading. Read in full: the brief, the audit pages, the seven contributor reports, ADR-0131, DESIGN §2 and §B4/§B5 heads, ADR-0124 and ADR-0125 decisions. Inspected in source at the decisive lines: the native capture and its digest (`semantic/data_operation_storage.py:40–140, 695–815, 1095–1135, 1535–1562`), `semantic/metadata.py`, `schema/physical.py:130–200`, `semantic/prepare.py:340–375, 585–625, 950–990, 1015–1035`, `semantic/data_operation_admission.py:270–360`, `semantic/data_operation_identity.py:340–420`, `semantic/python_operation_sources.py` (outline and the slicer), `semantic/python_module_projection.py`, `semantic/file_custody.py`, `_query_custody.py`, `semantic/data_operation_wire.py:40–70`, `semantic/data_operation_read_index.py`, the DuckDB connection sites, `semantic/analytical_kernels.py:15–65`, `semantic/alembic_privileges.py:20–40`, `semantic/target_installation.py:345–356`, `semantic/support_trust_native.py:85–95`. Three bounded read-only helpers mapped (a) the hand-written PL/pgSQL residue, (b) whether validity families are derivable from compiled fields, (c) the cache and holder inventory; their results were checked at the lines this review relies on. Not read: generator bodies for equivalence; `schema/rulelang.py`; `semantic/ontology.py` beyond its use; `schema/stage_b.py`; migration revision bodies; `cli/` beyond the paging entry; `domains/` (not in the snapshot) |
-| Evidence labels | Source facts: **Interface-checked by source inspection, 2026-11-18**. Every remedy: **Proposed**. Library facts: **documented**, **observed in installed source**, or **probed on synthetic data** (each says which). Nothing is Tested or Measured; no speedup is claimed |
+| Evidence labels | Source facts: **Interface-checked by source inspection, 2026-11-18**. Every remedy: **Proposed**. Library facts: **documented**, **observed in installed source**, or **probed on synthetic data** (each says which). Nothing is Tested or Measured; no speedup is claimed. The audit's additions carry the same labels; its LinkML facts are observed in installed linkml and linkml-runtime 1.12.1 source, and the `domains/` packs it cites were read from commit `d78c98765` with `git show` |
 
 ## 2. The assessment in brief
 
@@ -36,6 +46,19 @@ columns from compiled metadata and refuse raw SQL text (`semantic/native_program
 Generated bytes are kept in custody and deployment imports no generator. File and query custody
 make a process refuse instead of silently mixing code.
 
+The pipeline is also deliberately exploratory. Its objective is progressive grounded structure,
+with complete records as a stronger outcome (`docs/design/DESIGN.md:62–66`, ADR-0070); useful
+partial contributions, competing alternatives, unknowns and unsupported proposals are kept and
+represented explicitly (ADR-0062, ADR-0024, ADR-0077; for example `MissingReason`,
+`CoverageOutcome` and `UnresolvedBinding` in `model/semantic/core.yaml`, private and alternative
+proposals in `model/semantic/data-operation-rich-proposals.yaml`). The target design must keep
+that latitude and represent it, in the declared space of behaviours as well as in content. The
+constraints this review proposes act on two layers only: the internal consistency of the declared
+space of behaviours (a name must have a definition, a dispatch must have a handler) and system
+integrity (authorization, guards, provenance, custody). They do not constrain the knowledge the
+pipeline discovers, and where a behavioural declaration is not yet known the target says so
+explicitly instead of forcing a classification.
+
 Four structural causes explain the problems, and they are connected rather than one:
 
 1. **Governing facts have no declared home.** Which validity family an operation belongs to,
@@ -43,8 +66,13 @@ Four structural causes explain the problems, and they are connected rather than 
    execute what are hand lists in Python and SQL, and an omission fails open
    ([DA-070](../audit/semantic-model-and-authority.md#da-070),
    [DA-071](../audit/semantic-model-and-authority.md#da-071),
-   [DA-074](../audit/native-integrity.md#da-074)). Several facts that *are* declared are
-   not read ([DA-086](../audit/semantic-model-and-authority.md#da-086)).
+   [DA-074](../audit/native-integrity.md#da-074)). Not every absence is an omission: some
+   operations deliberately belong to no family. The defect is that the model cannot tell the
+   designed state from the forgotten one, and that the forgotten one is treated permissively.
+   Several facts that *are* declared are not read
+   ([DA-086](../audit/semantic-model-and-authority.md#da-086)), and one intended distinction,
+   whether a vocabulary may be extended by packs, is declared only in the earlier model that is
+   due to retire (F05).
 2. **There is no single compiled model object to read from.** Each consumer composes its own
    LinkML view; physical constraints sit in JSON strings; the effective operation model and the
    LinkML views are not one object generators read together
@@ -66,11 +94,12 @@ Four structural causes explain the problems, and they are connected rather than 
 Because the conversion to model-owned PostgreSQL is still open (ADR-0131 `:40–41, :51`; the DDO
 coordinator lists native admission, privileges and scientific routines as remaining work), the
 most consequential near-term point is an **ordering**: the remaining hand-written PostgreSQL holds
-exactly the family and role lists of cause 1, so converting it before those facts are declared
-would transcribe the lists a second time.
+exactly the family and role lists of cause 1, so converting it before those facts have a declared
+home would transcribe the lists a second time.
 
-**Decision: Revise.** A2 is violated for supported behavior (an undeclared operation's family
-premises are silently skipped), A4 is violated (generation on the execution path, invalidation
+**Decision: Revise.** A2 is violated for supported behavior (an unlisted operation's family
+premises are silently skipped, and the model cannot distinguish "no family check applies" from
+"not yet classified"), A4 is violated (generation on the execution path, invalidation
 far broader than its premise, no cross-process reuse for the command line), and gates G1, G2,
 G3, G6, G7 and G8 fail in supported scope. The enclosing architecture needs revision around a
 preserved core: the request identity, the typed program compiler, custody, and PostgreSQL's
@@ -85,14 +114,17 @@ library mechanisms behind each part.
 
 The target has five kinds of authority and nothing else that is authored:
 
-1. **The LinkML released model** for domain shapes, closed vocabularies (domain and operational),
-   physical declarations under a typed annotation profile, projections, and the schema of
-   operation declarations and of the custom catalogs.
+1. **The LinkML released model** for domain shapes, vocabularies (domain and operational), each
+   declaring whether it is closed, pack-extensible or open with known members (R15), physical
+   declarations under a typed annotation profile, projections, and the schema of operation
+   declarations and of the custom catalogs.
 2. **Operation declarations as instance data**, through the two routes ADR-0092 accepts:
    implementation-owned `__data_operation__` literals beside their callables (about 62 modules)
    and declaration-owned model protocols. The Python literals stay where they are; what changes is
    that their grammar and vocabularies are declared in LinkML and checked against that
-   declaration, instead of by a hand validator.
+   declaration, instead of by a hand validator. Declarations that may not be known when an
+   operation is first written (its validity family above all) are optional, with a declared
+   meaning for their absence (R16).
 3. **The native protocol** (JSON Schema draft-7) as a peer authority for wire encodings LinkML
    cannot express, the task lifecycle and the native operation ABI and purposes. It already feeds
    physical value sets through `ph:values_from`, a working cross-formalism derivation.
@@ -119,32 +151,57 @@ its inputs:
 The second, older model (`model/core.yaml`, `system.yaml`, `revisions.yaml` and what is generated
 from them) retires after its live consumers move to released-model types.
 
-### 3.2 Fail-closed classification
+### 3.2 Declared homes, explicit openness and safe defaults
 
-Every governing membership becomes a **required total classification** checked when the model
-is compiled, and every dispatch over it is generated from the declared members with no open
-default:
+Every governing fact has **one declared home**, and every dispatch over it is generated from the
+declared members with no hidden default. What the declaration must say depends on the layer it
+governs:
 
-- each operation declares `validity_family`, from a LinkML enum `ValidityFamily` that includes an
-  explicit `none`; an absent value refuses at compile; the lowered column is a non-null
-  enum-checked column; family dispatch is generated from the enum, each member naming its validator
-  program, and generation refuses a member without one; completion dispatches on the lowered family
-  instead of every guard selecting itself by an id list;
-- each relation in a guarded schema declares a frontier-guard classification (`guarded` or
-  `exempt`) in the physical profile; shared-stream triggers are selected by the already declared
-  `ph:immutability: pending-content`;
-- roles and purposes are LinkML vocabularies (`Role` with membership and login properties as
-  member annotations; `Purpose` with its roles); table read roles are declared explicitly with a
-  model-declared default; execute grants come from each program declaration's purposes;
-- task states are read from the protocol lifecycle by every program that tests them.
+- **Integrity memberships are closed and complete.** Roles and purposes are LinkML vocabularies
+  (`Role` with membership and login properties as member annotations; `Purpose` with its roles);
+  table read roles and frontier-guard classification (`guarded` or `exempt`) are declared in the
+  physical profile, each with a declared default per schema and per-relation overrides, so a new
+  relation is safe without extra ceremony and no default lives in code; execute grants come from
+  each program declaration's purposes; shared-stream triggers are selected by the already declared
+  `ph:immutability: pending-content`; support-edge kinds form a closed set and an unrecognised
+  support reference refuses; task states are read from the protocol lifecycle by every program
+  that tests them.
+- **Internal consistency is checked.** A named validity family must name its validator program
+  unless the family is declared provisional; generation refuses a dangling name; completion
+  dispatches on the lowered family instead of every guard selecting itself by an id list; a
+  program's callees must be declared programs (R04).
+- **Operation classifications are three-state, not total.** An operation's `validity_family` is
+  optional and may name several families. Named families mean their validators run, in
+  conjunction. An explicit `none` is a positive claim that only generic validity applies (outcome,
+  revocation, support propagation). Absence, or an explicit `undetermined`, means "not yet
+  classified": the operation compiles and runs, preparation reports a non-refusing diagnostic, and
+  validity applies a **conservative premise check** that over-invalidates rather than
+  under-invalidates (R16). The lowered column is an enum-checked set whose empty and undetermined
+  states are distinct.
+- **Vocabularies declare their openness** (R15): closed (programs may dispatch on it), pack-extensible
+  (members are added per release by packs), or open with known members (any value is accepted;
+  only known members carry meaning that consumers may test). Members may be marked provisional.
+  `Profile`, `KindUniverse`, `Form`, `SupportEdgeKind`, `Purpose`, `Role` and the task lifecycle are
+  closed, as they are today in code; the operation `ownership` description is open with known
+  members (today it is free text with sixteen values, and consumers test only `immutable`); the
+  free-text `preparation` and `cancellation` descriptions stay unconstrained.
+- **Refusal is reserved** for internal inconsistency and omissions in the integrity layer. Where a
+  behavioural declaration is undetermined, the stated consequence applies, and the operator decides
+  whether some promotion boundary (default-release activation, knowledge publication) should
+  refuse it (RC14).
+
+None of these constraints acts on the knowledge content the pipeline discovers. Content keeps its
+explicit states for partial, missing, unknown, competing and unsupported results, and a constraint
+on selected values never prevents recording what a source says (ADR-0024).
 
 ### 3.3 Identity layered by purpose
 
 - **Program identity**: the digest of one program's rendered bytes. **Kernel identity**: the digest
   over the sorted program names and identities that are installed. Generator source and library
   versions are *provenance*, recorded in custody, and key only the generation cache.
-- **Validator identity** per validity family: the digest over the identities of that family's
-  validator programs and the programs they call. Receipts record it; replay is gated on it and its
+- **Validator identity** per validity family, and for the conservative validator that unclassified
+  operations receive (R16): the digest over the identities of that family's validator programs and the
+  programs they call. An operation in several families carries each family's identity. Receipts record it; replay is gated on it and its
   success is recorded.
 - **Read-closure identity** for native reads; a native operation's declared behavior is its own
   program closure's identity, not the whole kernel.
@@ -214,7 +271,9 @@ become accessors.
 
 **Alternatives.** Keeping per-consumer composition loses: every new consumer adds a closure and
 cross-view facts have no shared object, which is one reason membership facts fell back to Python
-lists. A single eager module global (today's `metadata.py`) loses: every command pays for it,
+lists. (The value-set expansion kept is the released model's `semantic/ontology.py:328`; the
+earlier model's `schema/model.py:333` carries the pack-extensibility rule and retires with R13
+once R15 has carried that rule forward.) A single eager module global (today's `metadata.py`) loses: every command pays for it,
 candidate and running models cannot coexist, and a model edit needs a restart. A materialized
 derived schema file (`SchemaView.materialize_derived_schema`) as the one artifact is a useful disk
 form later but leaves each consumer composing projections. The challenger notes that separate
@@ -237,7 +296,7 @@ A model edit that leaves bytes identical produces no new entry.
 
 <a id="r02"></a>
 
-### R02 — Declare the governing vocabularies and required classifications (Q1, Q3; DA-070, DA-073, DA-074, DA-086)
+### R02 — Declare the governing vocabularies and classifications, with their openness (Q1, Q3; DA-070, DA-073, DA-074, DA-086)
 
 **Diagnosis.** The validity family of 27 operations in seven families is a Python tuple rendered
 as a `CASE` with no `ELSE` (`semantic/data_operation_compiler_native.py:468–520`); dispatch is a
@@ -246,20 +305,47 @@ optional string (`model/semantic/data-operation-physical.yaml:88`). Both lists a
 the deleted SQL; the conversion transcribed both. The helper's extraction of all 27 literals found
 no compiled field that identifies a family: `profile` is `derivation` for 25 of them, `ownership`
 does not separate families, and several operations with family-like ids are deliberately outside
-every family. **Family is an authored choice**, so a new declared field is required; connecting an
-existing declaration is not available here.
+every family. **Family is an authored choice**, so a declared field is needed; connecting an
+existing declaration is not available here. The plan defines the lowered column as null "when no
+per-kind validator applies" (`docs/plans/declared-data-operations/products-and-support.md:422–423`),
+so "outside every family" is a designed state; the defect is that it shares its representation with
+a forgotten entry, and that the forgotten entry is treated permissively.
+
+**What is intentionally open here, and what is not.** The declared space of operations is meant to
+grow by trying things: an operation may be written before anyone knows which native premises its
+results depend on, may later turn out to need two families' checks, and may sit in a release that
+includes only some groups. The current grammar already closes its field names, profile, forms and
+kind universe (`semantic/data_operation_compilation.py:85, 104–140, 341–348, 1068–1073, 1491–1493`)
+and leaves `ownership`, `preparation` and `cancellation` as free text (`:1559–1566`). The target
+keeps those closures, keeps those descriptions open, and represents the not-yet-known family
+explicitly instead of either refusing it or treating it permissively.
 
 **Target behavior.** A LinkML schema for the Python authoring route's declaration grammar
-(`DataOperationDeclaration`) and its vocabularies: `Profile`, `KindUniverse`, `Ownership`, `Form`,
-`ValidityFamily` (with `none`), `SupportEdgeKind`, `Purpose`, `Role`. Operation literals stay in
-Python (ADR-0092's route); the compiler validates each literal against the declaration class with
-closed-world validation, then applies the totality checks of §3.2. `_PROFILES`, `_KIND_UNIVERSES`
-and the hand grammar validator (`semantic/data_operation_compilation.py:85–188, 330–345`) retire.
-The compiled dataclasses keep their `Literal` fields but check them against the enum members at
-import, the closed-set pattern `semantic/source_value_native.py:55–66` already uses. Release
-composition takes an `acquired_by` source-family field on each operation, so composition becomes
-"the closure of requested operations, mapped to source families" (DA-073), which static operation
-extraction can supply before compilation (`semantic/python_operation_sources.py`).
+(`DataOperationDeclaration`) and its vocabularies, each declaring its openness (R15): `Profile`,
+`KindUniverse`, `Form`, `ValidityFamily`, `SupportEdgeKind`, `Purpose`, `Role` closed; `Ownership`
+open with known members (the members consumers test, today `immutable`, carry declared meaning;
+other values remain descriptive and are reported, not refused). Operation literals stay in Python
+(ADR-0092's route); the compiler validates each literal against the declaration class with
+closed-world validation of field names (as today), and records a warning for recommended but
+absent declarations. `_PROFILES`, `_KIND_UNIVERSES` and the hand grammar validator
+(`semantic/data_operation_compilation.py:85–188, 330–345`) retire. The compiled dataclasses keep
+`Literal` fields for the closed vocabularies and check them against the enum members at import, the
+closed-set pattern `semantic/source_value_native.py:55–66` already uses; the open `ownership` stays
+a string.
+
+The validity family follows R16: `validity_family` is an optional set of `ValidityFamily` members;
+`none` is an explicit claim that only generic validity applies; absence (or `undetermined`) means
+"not yet classified", compiles with a non-refusing diagnostic, and receives conservative validity.
+Each `ValidityFamily` member names its validator program in a structured annotation, or carries
+`status: provisional` while its validator is unwritten (its members are then treated as
+undetermined). Dispatch, completion guards and the contextual and completion id lists are generated
+from these declarations; a non-provisional member without a validator refuses at generation.
+
+Release composition becomes "the closure of requested operations, mapped to source collections"
+(DA-073). The source collection of an operation is derived by static extraction from the captured
+collection that includes its literal (`semantic/python_operation_sources.py`), and an
+`acquired_by` field is declared only to override that derivation. The manifest names requested
+operations or families, so a release that includes only some operations remains the ordinary case.
 
 **Where connecting existing declarations is the lighter route** (no new specification): shared-stream
 trigger membership from `ph:immutability: pending-content` (`model/semantic/physical.yaml:1757,
@@ -280,28 +366,42 @@ only as a pin between distinct inputs: generated from the declaration captured w
 authored, compared with the admitted release's definition. If kernel and release are generated from
 the same input the comparison is circular and retires.
 
-**Alternatives.** Deriving the family from existing fields is refuted by the extraction. Annotations
-on schema elements are wrong for operations, which are instances, not schema elements
+**Alternatives.** Deriving the family from existing fields is refuted by the extraction; whether it
+is derivable from declared input roles (an operation that consumes a trust-bearing cut or a
+linguistic premise) was not examined and would make the field an override. Annotations on schema
+elements are wrong for operations, which are instances, not schema elements
 ([data-model library report](../evidence/2026-11-18_production-review-inputs/library-data-model.md) A.2). A pydantic-authored metamodel is lighter for the structural grammar alone
 and is an acceptable variant if the operator prefers it; it loses on the vocabularies, which SQL
-reads through families and edge kinds, so those should be LinkML enums either way. Positive-only
-`in_subset` membership is not a decision and does not fail closed.
+reads through families and edge kinds, so those should be LinkML enums either way. A **required
+total classification** with an explicit `none` and refusal of absence (this review's first round)
+removes the fail-open state but makes every new operation decide its validity semantics before it
+can compile, conflates "not applicable" with "not yet decided" in the other direction, and forbids
+an operation in two families; it is not selected. Positive-only `in_subset` membership was rejected
+in the first round because it does not fail closed; with the conservative default it becomes safe
+where it is convenient.
 
 **Library mechanisms.** LinkML enums with `permissible_values`, whose annotations take structured
 values (annotation values are `AnyValue` and load as Python lists or dicts through `SchemaView`,
 observed in installed linkml-runtime 1.12.1 by the library contributor, [data-model library report](../evidence/2026-11-18_production-review-inputs/library-data-model.md) F1);
+permissible values also carry `status` and `deprecated` through `common_metadata`, so a provisional
+member needs no custom annotation (observed in the installed 1.12.1 metamodel,
+`linkml_runtime/linkml_model/model/schema/meta.yaml`, `permissible_value` and `common_metadata`);
 validation of instance data with `linkml.validator.Validator(schema,
-validation_plugins=[JsonschemaValidationPlugin(closed=True)])`, compiled once per schema and held in
-T1 (documented and observed, [data-model library report](../evidence/2026-11-18_production-review-inputs/library-data-model.md) §D); the JSON Schema plugin also enforces LinkML
-`rules` while the Pydantic plugin does not (probed, F8). Limits: annotations are untyped by default
-and `instantiates` validation is not enforced in 1.12.1 (F5); cross-record totality ("every
-operation declares a family") is a compiler pass, not a stock plugin.
+validation_plugins=[JsonschemaValidationPlugin(closed=True), RecommendedSlotsPlugin()])`, compiled once per schema and held in
+T1 (documented and observed, [data-model library report](../evidence/2026-11-18_production-review-inputs/library-data-model.md) §D); `recommended: true` slots are reported by
+`RecommendedSlotsPlugin` with `Severity.WARN`, not as errors (observed in installed source,
+`linkml/validator/plugins/recommended_slots_plugin.py`); the JSON Schema plugin also enforces LinkML
+`rules` while the Pydantic plugin does not (probed, F8). An open vocabulary uses a slot range of
+`any_of` the enum and `string`, since the 1.12.1 metamodel has no openness flag on enums (observed).
+Limits: annotations are untyped by default and `instantiates` validation is not enforced in 1.12.1
+(F5); cross-record checks are a compiler pass, not a stock plugin.
 
 **Challenge cases.** An operation that genuinely has no family validator declares `none`; it is no
-longer indistinguishable from a forgotten one. An operation that needs two families is not
-supported today (one column) and is not introduced; if it arises, the field becomes multivalued by
-an explicit change. A renamed family member refuses at generation until its validator program is
-named.
+longer indistinguishable from a forgotten one. A new operation whose validity semantics nobody has
+worked out yet declares nothing: it compiles, runs and produces results, its derivations are
+re-validated conservatively, and preparation lists it as unclassified. An operation that needs two
+families' checks lists both. A renamed family member refuses at generation until its validator
+program is named or the member is marked provisional.
 
 <a id="r03"></a>
 
@@ -311,11 +411,20 @@ named.
 (`ph:foreign_keys`, `ph:checks`, `ph:indexes`; decoded today at `schema/relational.py:297,
 548–563`), typed by profile classes (`PhysicalRelation`, `PhysicalColumn`, `ForeignKey`, `Check`,
 `Index`) written as ordinary LinkML classes, and checked once per compiled model by validating each
-element's annotation dictionary as an instance of its profile class. Required classifications
-(frontier guard; read roles) are required slots of the profile class, so absence refuses.
+element's annotation dictionary as an instance of its profile class. The integrity
+classifications (frontier guard; read roles) are declared for every relation in a guarded schema
+through a **declared schema-level default** (guarded schemas default to `guarded`; each schema
+declares its default read roles) with per-relation overrides (`exempt`; explicit read roles). A
+relation therefore always has a declared classification, absence at the relation level means the
+schema's declared default rather than a code default, and a forgotten exemption fails safe (an
+over-guarded write refuses visibly). These are system relations: domain packs add classes and
+properties as registry rows without physical DDL (`docs/design/DESIGN.md:1208–1222`), so trying a
+new record, product or relation kind in a pack touches none of this profile.
 
 **Alternatives.** Keeping JSON strings works but keeps the constraints invisible to LinkML tooling
-and checkable only by custom code. `in_subset` for guard membership does not fail closed.
+and checkable only by custom code. `in_subset` for guard membership has no declared default and
+leaves an unlisted relation unguarded. A required per-relation slot (the first-round proposal) is
+equally safe but adds ceremony to every new native relation for no further protection.
 
 **Library mechanisms and limits.** Structured annotation values (F1); validation through
 `Validator` with a closed JSON Schema plugin; class annotations are not inherited and `slot_usage`
@@ -389,7 +498,8 @@ module meaning projection ignores formatting (`semantic/python_module_projection
 **Target behavior.** The identity layering of §3.3. Concretely:
 
 - the descriptor check, release admission and the read pin compare kernel identity (program bytes);
-- the completion seal and receipts carry the family's validator identity; the replay gate compares
+- the completion seal and receipts carry the validator identity of each of the operation's families, or of the
+  conservative validator for an unclassified operation; the replay gate compares
   it, and a successful replay is recorded per receipt and validator identity by a routine that can
   write, outside the stable validity function (R11);
 - each native operation's declared behavior names its own program closure's identity, so its
@@ -423,7 +533,11 @@ program identity; there is no semantic change without a byte change in what is i
 pglast or SQLAlchemy patch that changes rendering changes bytes and so identity; one that does not
 changes nothing downstream. A served-read helper importing a module through `importlib` by string
 would escape the static closure: such imports are refused by code custody's finder for covered
-packages, and the closure computation fails on a dynamic import it cannot resolve. A docstring edit
+packages. Where the closure computation meets a dynamic import it cannot resolve, the served read
+still runs but its identity is incomplete, so its result is neither cached nor offered as a
+resumable continuation; this is ADR-0092's rule that unknown determinants withhold reusable
+identity, and it keeps an exploratory served helper usable without letting it be reused on a
+guessed identity. A docstring edit
 in a closure module still changes the module's syntax projection (docstrings are syntax); stripping
 docstrings is a possible refinement, not required.
 
@@ -465,8 +579,8 @@ it should produce. Per category, with the helper's classification:
 
 | Category | Today | Target | Order |
 |---|---|---|---|
-| Product logic as PL/pgSQL strings in the eleven `*_native.py` modules without the program compiler (about 1,830 lines; about 2,090 with `pdf_publication_native.py`, `data_operation_cpu_basis.py:463–543`, `execution_evidence_leaf.py`): rich, structural, contextual, contextual witness, definition admission, PDF spool, archive (product part) | Name relations and columns as free text; hold operation-id lists, family names, role names, factory paths and kind URNs as literals | Typed programs that read lowered family, roles and per-operation facts from declarations; relations and columns from compiled metadata | **After R02 and R03** (the facts they hold must be declared first), and after R04's trigger and view forms |
-| Loaded `.sql` files that are product logic: `identity.sql`, `data_operation_source_admission.sql`, `data_operation_visual_read.sql`, `source_originals.sql`, `source_record_recognition.sql`, `pdf_descriptor.sql`, `data_operation_task_checks.sql` | Hand bodies, some with token replacement | Typed programs; the task checks fragment becomes part of the typed task-guard trigger function reading the lifecycle | After R02 for the lists they hold; task checks can proceed now |
+| Product logic as PL/pgSQL strings in the eleven `*_native.py` modules without the program compiler (about 1,830 lines; about 2,090 with `pdf_publication_native.py`, `data_operation_cpu_basis.py:463–543`, `execution_evidence_leaf.py`): rich, structural, contextual, contextual witness, definition admission, PDF spool, archive (product part) | Name relations and columns as free text; hold operation-id lists, family names, role names, factory paths and kind URNs as literals | Typed programs that read the lowered three-state family, roles and per-operation facts from declarations; relations and columns from compiled metadata | **After the facts each module holds have a declared home** (its families' membership and validator programs, the roles it grants, its guard classification), and after R04's trigger and view forms. The rest of R02 (ownership vocabulary, grammar migration, derived source collections) does not gate it |
+| Loaded `.sql` files that are product logic: `identity.sql`, `data_operation_source_admission.sql`, `data_operation_visual_read.sql`, `source_originals.sql`, `source_record_recognition.sql`, `pdf_descriptor.sql`, `data_operation_task_checks.sql` | Hand bodies, some with token replacement | Typed programs; the task checks fragment becomes part of the typed task-guard trigger function reading the lifecycle | After the lists they hold have a declared home; task checks can proceed now |
 | `contextual_neighborhood.sql` | Hand SQL function; a pure function of its JSON arguments using pgvector | A typed `sql_function` using a Core custom operator for `<=>`; stays in PostgreSQL because its numerical backend is pinned and checked (`semantic/contextual_numerics.py`) | Independent |
 | Independent controls: `closure.sql` (runtime principal gate), the catalog comparison of `admission.sql`, `alembic_privileges.admission_comparison_sql`, the catalog part of `archive_native.py` (`:46–73`), `semantic/execution_admission.py:102–140`, `schema/model_deployment.py:921, 963` | Hand-written by design; generated fragments spliced at text markers (`semantic/native_admission.py:415–444`; `semantic/alembic_privileges.py:567–589`); role names as literals | Keep hand-written (their independence from generators is their purpose) but take the generated expectation and the declared role and schema names as **data arguments**, never spliced text | After R02 (role vocabulary); the splice removal can proceed now |
 | String templates (eleven splice sites in seven modules) | Tokens and markers | Retire with the two rows above | With them |
@@ -480,7 +594,9 @@ it should produce. Per category, with the helper's classification:
 
 **The ordering is the point.** Converting the residue first, as record grade was converted, would
 put the family and role lists into typed programs as Python tuples, a third transcription. Declaring
-the facts first makes the conversion a consumer of them.
+the facts first makes the conversion a consumer of them. The gate is deliberately narrow: only the
+facts a module reads must have their home first, so the declaration step does not hold the
+conversion hostage to vocabulary questions it does not need settled.
 
 **Alternatives.** Classifying the residue as a fourth permanent exception (cheapest; leaves
 ADR-0131's consequence untrue for it and the lists hand-kept). Encoding PL/pgSQL in LinkML
@@ -498,7 +614,16 @@ Change impact stops re-encoding the walk: revocation causes come from an explana
 validity closure program (per reached node, valid or the revoking edge and selector), produced in the
 acquisition transaction, and the operation-level "which operations changed" comes from the compiled
 `selected-dependencies` projection instead of `semantic/change_impact.py:157–193`. The trust-scope key
-has one definition, `ops.ddo_scope`. `_revocation_causes` and its two private mappings retire.
+has one definition, `ops.ddo_scope`. `_revocation_causes` and its two private mappings retire. The
+reference-to-node mapping covers every declared reference kind and refuses an unrecognised one,
+replacing today's open default that classifies any reference that is neither an original nor a use
+as an episode (`semantic/data_operation_projections.py:117–129`).
+
+**What this closes and what it leaves open.** Support edges are provenance among native rows (uses,
+episodes, populations, originals); validity, revocation and lock scope must know every kind, so the
+set is closed by purpose and a new kind is a native schema change in any case. Knowledge relations,
+pack predicates, proposed links and alternatives are not support edges; they stay open in the packs
+and in the content model and are untouched by this recommendation.
 
 **Alternatives.** Moving change impact's walk to DuckDB over exported edges re-hosts the third
 encoding rather than removing it (the DuckDB tie-breaker of [DuckDB report](../evidence/2026-11-18_production-review-inputs/library-duckdb.md) §G prefers removal).
@@ -526,7 +651,9 @@ the execution host keep their lifecycles (ADR-0125). About 55 cheap `functools` 
 
 ### R10 — Served-read reuse basis and the watermark premise (DA-075, DA-078)
 
-**Target behavior.** Each served query declares its reuse basis, `cut` or `content`. Continuation pages
+**Target behavior.** Each served query may declare its reuse basis, `cut` or `content`; a query that
+declares nothing uses `cut`, the basis that is sound today, so a new or exploratory served query
+needs no declaration. Continuation pages
 reuse across CLI processes now (cut-keyed, sound because the cut pins frontier, trust snapshot and
 visibility, and authority is re-acquired per call). A query may declare `content` (frontier content
 stamp, release, runtime, selection, implementation, authorization scope, without the read instance)
@@ -558,7 +685,7 @@ keys only: the command line never hits.
   identity changes.
 - Established product validity: keyed by the validator asset's content identity rather than the release
   (the audit's row; the PE item is owned by the DDO plan and is affected, not re-owned).
-- Model validation (profile and totality checks, declaration validation) runs once per compiled model and is
+- Model validation (profile and consistency checks, declaration validation, the list of unclassified declarations) runs once per compiled model and is
   carried by the compiled-model object.
 
 **Challenge case.** A superuser alters archive bytes despite immutability triggers: per-acquisition
@@ -581,8 +708,9 @@ through `MetaData` and `semantic/arrow_types.sql_arrow_type`, for non-physical L
 slot-range mapping the companion projection already uses (`semantic/companion_projection.py:88–140, 165–216`).
 DuckDB scans Arrow with its type mapping; outputs are finished with `table.cast(model_schema, safe=True)`.
 Traps to handle (probed by the library contributor on synthetic data, [DuckDB report](../evidence/2026-11-18_production-review-inputs/library-duckdb.md) §D): dictionary
-columns arrive as `VARCHAR` (cast to an `ENUM(...)` type string derived from the model where membership
-matters); `TIMESTAMPTZ` takes the session time zone; JSON typing ends at the boundary; a union can widen
+columns arrive as `VARCHAR` (cast to an `ENUM(...)` type string derived from the model only for
+vocabularies declared closed, R15; open and pack-extensible vocabularies stay `VARCHAR`, so an analysis
+over data that uses a term not yet settled does not refuse); `TIMESTAMPTZ` takes the session time zone; JSON typing ends at the boundary; a union can widen
 silently.
 
 **Keeping "no SQL text".** The relational API accepts strings in filters, conditions and `sql_expr`. The
@@ -620,6 +748,13 @@ no production importer (`evaluate/equivalence.py`, `affine.py`, `artifact_pilot.
 `split_decisions.py`, `split.py`, `sets.py`) unless the operator names a consumer; and, by operator decision,
 `semantic_alembic/` and `alembic/`. Unread `AnalyticsSettings` fields are wired (R12), not removed.
 
+One prerequisite protects an intentional flexibility. The earlier model is the only place that
+declares whether a vocabulary may be extended by packs (`Lifecycle`: `static` or `schema_version`,
+`model/core.yaml:1034–1040`, enforced by `schema/pack.py`). Before `core.yaml`, `schema/model.py` and
+`schema/pack.py` retire, that distinction moves to the released model (R15), and the released route
+for pack extension (pack schemas imported by the release, `domains/statistics/operations.yaml`) is
+confirmed to cover what the earlier pack loader allowed.
+
 <a id="r14"></a>
 
 ### R14 — The scientific policy derives from its declaration (DA-077)
@@ -629,6 +764,96 @@ comparison kernel reads its parameters (for example the sampling bounds now writ
 at `semantic/scientific_evidence.py:1301`) from that declaration; the archived recipe is the canonical
 serialization of the same declaration, computed once per compiled model. A kernel edit then changes the recipe
 or nothing, and a wording edit cannot refuse every release.
+
+<a id="r15"></a>
+
+### R15 — Declared openness of vocabularies (F05; added by the recommendation audit)
+
+**Diagnosis.** The earlier model declares, per enum, whether a set changes only with code
+(`static`, enforced by a digest-named check) or may be extended by packs (`schema_version`, enforced
+by per-version member rows) (`model/core.yaml:1034–1040`, applied at `:895, 913`); its pack loader
+refuses pack members for a static set and accepts them for an extensible one (`schema/pack.py:1–22`).
+The released model has no successor: `semantic/ontology.py:328–410` composes `inherits`, `include`,
+`minus`, `concepts` and ontology `reachable_from` members without any openness property, and every
+released enum is closed in validation. R13 would retire the earlier model and with it the only
+representation of this intended distinction.
+
+**Target behavior.** Each released vocabulary declares one of three kinds of openness, with stated
+consequences:
+
+- **closed**: changes with code; programs may dispatch on it; checked at import (`Literal` copies),
+  in physical checks through `ph:values_from`, and in analysis casts (R12);
+- **pack-extensible**: a pack may add members through `inherits` or `include` in its own schema;
+  members become per-release vocabulary rows; a program that dispatches on such a set names its
+  handling of members it does not know;
+- **open with known members**: any value is accepted; known members carry declared meaning that
+  consumers may test; an unknown value carries none and is reported through the existing
+  non-refusing `unchecked` diagnostic (`semantic/prepare.py:485–530`, category `unassessed`,
+  `semantic/operation_reporting.py:372–410`), never refused.
+
+Individual members may be marked provisional with the `status` slot permissible values already carry
+in LinkML; a provisional member is accepted and reported. Ontology-derived vocabularies keep their
+`reachable_from` membership and their `unchecked` reporting. Knowledge content is not governed by
+this declaration: a source term outside a vocabulary is still recorded with its explicit state
+(candidate, `missing_candidate`, unsupported proposal, validation error retained under ADR-0077).
+
+**Library mechanisms.** No openness flag exists on LinkML 1.12.1 enums (observed in the installed
+metamodel's `enum_expression` slots), so the declaration is a released-model annotation succeeding
+`ci:lifecycle`, admitted deliberately by the preparation profile, which refuses unsupported
+annotations (`semantic/prepare.py:259`). Open slots use a range of `any_of` the enum and `string`.
+Provisional members use the native `status` slot of `common_metadata`.
+
+**Challenge cases.** A pack tries a new measurement-role term: if the vocabulary is pack-extensible it
+adds the member in its own schema and no core edit is needed; if it is closed, the refusal is the
+declared intent and says so. An extraction yields an ownership-like label nobody has defined: for an
+open vocabulary it is kept and reported. A program that dispatches on a vocabulary can only do so for a
+closed one or with a declared handling for members it does not know, so a new pack member can
+never reach a dispatch without a handler.
+
+<a id="r16"></a>
+
+### R16 — Graded consequences for undetermined declarations (DA-070; added by the recommendation audit)
+
+**Diagnosis.** Today an operation outside the classification list gets the most permissive
+treatment: its family premises are never evaluated (DA-070). The first-round remedy went to the
+other extreme, refusing any operation that has not classified itself. The project already has a
+middle course in two places: identity, where unknown required determinants withhold reusable
+identity without forbidding execution (ADR-0092; `semantic/data_operation_identity.py:378–387`), and
+preparation, where unchecked vocabulary terms are reported as `unassessed` without refusing.
+
+**Target behavior.** An undetermined declaration is permitted and carries a stated conservative
+consequence. For the validity family:
+
+- *named families*: each family's validator runs; validity is their conjunction;
+- *`none`*: a positive claim that only generic validity applies (outcome, revocation, support
+  propagation); derivations survive later changes of trust and kernel;
+- *absent or `undetermined`*: the operation compiles and runs; preparation reports it as
+  unclassified; validity adds a **conservative premise check**, under which a derivation is valid
+  only while the trust snapshot and the validator identity it was produced under are unchanged. This
+  over-invalidates and never under-invalidates. The conservative check is one generated program with
+  its own validator identity (R05, R11);
+- *a provisional family*: its members are treated as undetermined until its validator exists.
+
+A **promotion boundary**, at which undetermined declarations refuse, is the operator's choice
+(RC14): none; activation of the default release; or knowledge publication. Because the conservative
+check already removes the integrity risk, the recommendation is none, with the diagnostic as the
+pressure to classify. The same graded pattern is available, not imposed, for other declarations
+that may be unknown when an operation is first written.
+
+**Feasibility and limits.** The store already records some of the premises the conservative check
+needs: publication receipts hold `trust_snapshot` and an optional `validating_kernel_digest`
+(`model/semantic/data-operation-physical.yaml:475–484`), support rows record the trust scope and
+epoch they relied on (`:458–466`), and demand reads record a trust snapshot and kernel digest
+(`:619–631`). Whether every episode can be tied to the trust snapshot it consumed is for the native
+owner to confirm (Proposed). The default cannot cover a family-specific premise outside trust and
+kernel, such as the contextual linguistic premise (DA-070); that residual risk is why family
+bindings exist, and under this design it is visible as an unclassified diagnostic rather than silent.
+
+**Challenge cases.** An exploratory operation is added and run on a book: no declaration is needed; its
+results are kept; a trust revocation elsewhere invalidates them conservatively and they are recomputed
+on demand. Once its semantics are understood it declares `none` or a family and stops paying for the
+conservative check. A family is designed before its validator is written: it is declared provisional,
+and its members behave as unclassified until the validator lands.
 
 ## 5. DuckDB judgment over the analytical inventory
 
@@ -678,21 +903,21 @@ extension, 2.0.0 binary unconfirmed, SQL text).
 | Record and product shape | LinkML released model | Compiled model: merged view, `MetaData`, Arrow bridge, generated facades | Earlier-model copies; hand Arrow schemas for model relations |
 | Field type and constraint | LinkML range, pattern, bounds; physical checks as structured annotations under the profile | Compiled `MetaData` checks | JSON strings in annotations; the universe check literal beside `_KIND_UNIVERSES` |
 | Field kind to database and Python type | LinkML type `uri` and `ph:sql_type` (declared today, `model/semantic/physical.yaml:33–36`) | The physical compiler's type resolution (`schema/relational.py:79–89, 437–440`), exposed once on the compiled model | Four maps (`semantic/native_call_contracts.py:16–25`; `semantic/native_call_sources.py:28–37, 133–136`; `semantic/pdf_search_native.py:98–104`; `semantic/native_program.py:621–622`) |
-| Domain value sets | LinkML enums, expanded once by `expand_enum` | Compiled value sets; closed-set checks for Python `Literal`s; physical checks through `ph:values_from` | Duplicates in the earlier core; one of the PDF outcome pair |
-| Operational vocabularies (profile, kind universe, ownership, forms, validity family, support edge kind, purpose, role) | LinkML enums in a declaration schema | Compiler, generated dispatch, closed-set checks | `_PROFILES`, `_KIND_UNIVERSES`, hand tuples |
+| Domain value sets | LinkML enums, expanded once by the released `expand_enum`, each declaring its openness (closed, pack-extensible, open with known members; R15) and optionally provisional members | Compiled value sets; closed-set checks for Python `Literal` copies of closed sets; physical checks through `ph:values_from`; unknown values of open sets reported, not refused | Duplicates in the earlier core; one of the PDF outcome pair |
+| Operational vocabularies (profile, kind universe, ownership, forms, validity family, support edge kind, purpose, role) | LinkML enums in a declaration schema with declared openness: profile, kind universe, forms, validity family, support edge kind, purpose and role closed; ownership open with known members; preparation and cancellation descriptions unconstrained | Compiler, generated dispatch, closed-set checks for closed sets | `_PROFILES`, `_KIND_UNIVERSES`, hand tuples |
 | Operation (existence, roles, dependencies, capabilities) | Instance data through ADR-0092's two routes; Python literals validated against the LinkML declaration class | Effective operation model | Hand grammar validator |
-| Validity family membership | Required field on each operation declaration (enum with `none`) | Lowered definition column; generated dispatch | Two tuples, guard id lists, completion chain, contextual id lists |
-| Family contract (validator program, premises) | Enum member annotation naming the validator program | Program registry | Dispatch tuple |
+| Validity family membership | Optional, set-valued field on each operation declaration: named families, explicit `none`, or absent/`undetermined` with conservative validity and a non-refusing diagnostic (R02, R16) | Lowered definition column distinguishing the three states; generated dispatch | Two tuples, guard id lists, completion chain, contextual id lists |
+| Family contract (validator program, premises) | Enum member annotation naming the validator program, or `status: provisional` while it is unwritten | Program registry | Dispatch tuple |
 | Per-operation contract facts (entry point, profile, forms, preparation, effects) | Effective operation model (exists) | Lowered definition rows; the contextual pin only between distinct inputs | Contextual `CASE` literals when circular |
-| Support-edge meaning, reference-to-node map, scope key | Declared `SupportEdgeKind` with a traversal table per purpose | Generated validity and support walks; change impact through the validity explanation | `_support_walk`'s private map; `_revocation_causes`; change impact's scope formula |
+| Support-edge meaning, reference-to-node map, scope key | Declared closed `SupportEdgeKind` with a traversal table per purpose (provenance edges only; knowledge relations stay in packs) | Generated validity and support walks; change impact through the validity explanation; unrecognised references refuse | `_support_walk`'s private map and its open `episode` default; `_revocation_causes`; change impact's scope formula |
 | Operation dependency graph | Compiled `selected-dependencies` and `potential-producers` | Change impact, planner | `changed_operations` hand graph |
-| Release composition | `acquired_by` on operations plus a manifest of requested operations or families | Closure over compiled dependencies mapped to families | Flag logic in `semantic/primary_operations.py:118–392` |
+| Release composition | Source collection derived from the captured collection that includes each literal (an `acquired_by` field only to override), plus a manifest of requested operations or families; partial releases are ordinary | Closure over compiled dependencies mapped to source collections | Flag logic in `semantic/primary_operations.py:118–392` |
 | Relation physical layout (keys, foreign keys, checks, indexes, immutability, archive role, search configuration) | LinkML physical declarations under the typed profile | `MetaData` and its `info` | JSON-string encodings |
-| Frontier-guard membership | Required profile classification on relations in guarded schemas | `MetaData.info`; generated trigger | Twelve-name tuple |
+| Frontier-guard membership | Declared schema-level default (`guarded`) with per-relation `exempt` overrides in the physical profile | `MetaData.info`; generated trigger | Twelve-name tuple |
 | Shared-stream trigger membership | Existing `ph:immutability: pending-content` | `MetaData.info` | Name set |
 | Roles (names, login, memberships, prohibitions) | LinkML `Role` vocabulary | Host bootstrap, grants, control expectations as data | Constants in `semantic/alembic_privileges.py:25–35`; 176 role-name occurrences in 39 modules; role JSON in `admission.sql` |
 | Purpose to role | `Purpose` vocabulary member annotations | Protocol function grants; program grants | Literal dictionary in `semantic/data_operation_storage.py:1887–1893` |
-| Table read grants | Explicit `ph:read_roles` with a model-declared default | Alembic privilege operations | `DEFAULT_READ_ROLES` as a code default; restatement in `admission.sql` |
+| Table read grants | Declared default read roles per schema, explicit `ph:read_roles` where a relation differs | Alembic privilege operations | `DEFAULT_READ_ROLES` as a code default; restatement in `admission.sql` |
 | Execute grants for native functions | Program declarations' purposes | Generated `GRANT` nodes; control expectations | Name-matching chain; installation tuples; default grants in helpers |
 | Task states and transitions | Protocol lifecycle (retained) | Compiled lifecycle projection | State string literals in generators |
 | Wire shape and native operation ABI | Protocol (retained peer) | Generated wire module; validators held in the compiled model | — |
@@ -701,10 +926,12 @@ extension, 2.0.0 binary unconfirmed, SQL text).
 | Generated outputs (facades) | Self-checking generated-output registry | Preview renders every registered output | `_NATIVE_OUTPUTS` zip and `__main__` paths |
 | Code that determines an artifact | Derived code identity plus program identities | Identity computation | `LOWERING_FILES`, query custody lists, capture module enumeration, port generator list, opaque asset lists |
 | Scientific policy parameters | Policy declaration validated by a LinkML class | Kernel reads it; recipe is its serialization | Hand recipe description; kernel literals |
-| Custom catalogs (PDF actions, analysis policy, metrics, characterization questions) | Instance documents, each with a LinkML class | Validated once per compiled model | Ad-hoc parsing (consumers not traced) |
+| Custom catalogs (PDF actions, analysis policy, metrics, characterization questions) | Instance documents, each with a LinkML class; closed-world where fields drive behaviour; the explicit open states inside them (for example `insufficient_evidence`, `missing_candidate`) kept | Validated once per compiled model | Ad-hoc parsing (consumers not traced) |
 | Operation-local analytical shapes | Local `pa.schema` beside the kernel; model slot names from the model | — | Hand restatement of model slot names |
 | Companion grouping and provenance columns | `cp:` annotations | Companion projection | Literals in `serve/companion_export.py:419–424, 557–589` |
-| Identity determinants | Compiled (sound) | — | — |
+| Identity determinants | Compiled (sound); unknown determinants withhold reusable identity (ADR-0092), also for served reads whose code closure is unresolved (R05) | — | — |
+| Vocabulary openness and member status | Released-model openness declaration succeeding `ci:lifecycle`; LinkML `status` on members (R15) | Preparation, closed-set checks, pack loading, analysis casts | `ci:lifecycle` in the earlier model |
+| Undetermined declarations and their consequences | The declaration's own optional field with a declared meaning for absence; promotion boundary chosen by the operator (R16, RC14) | Preparation diagnostics (`unassessed`); conservative validator program | Permissive `else` defaults |
 | Pack rule language | `schema/rulelang.py` (not examined) | — | Open; returned to the audit |
 
 **Formalisms after the change:** LinkML (primary); the protocol as a peer for wire, lifecycle and native ABI;
@@ -716,17 +943,18 @@ retires.
 `MetaData` to Arrow (`semantic/arrow_types.sql_arrow_type`); LinkML classes to Arrow (companion projection's slot
 mapping, generalized); Arrow to DuckDB relation types (DuckDB scan mapping); protocol to physical value sets
 (`ph:values_from`); protocol to wire module and validators (project generator); `MetaData` and the program registry
-to typed programs (Core and pglast); LinkML enums to Python `Literal` checks (closed-set check); LinkML declaration
-class to validation of operation literals (`linkml.validator` with the closed JSON Schema plugin).
+to typed programs (Core and pglast); closed LinkML enums to Python `Literal` checks (closed-set check); LinkML declaration
+class to validation of operation literals (`linkml.validator` with the closed JSON Schema plugin for field names and
+the recommended-slots plugin for warnings).
 
 ## 7. Change and failure scenarios
 
 | Scenario and kind | Today | Target |
 |---|---|---|
 | Add a modeled field (domain concept) | LinkML slot; typed programs pick it up through compiled columns; hand bodies and hand Arrow schemas do not; the kernel digest and release id change; PDF certification refuses if a listed model file changed | LinkML slot; new model identity; only programs whose bytes change get new identities; Arrow schemas derived |
-| Add a value-set member (instance) | Edit once, or twice where the set is duplicated in the earlier core; the value codec tuple may be missed silently | One enum; closed-set checks refuse drift at import |
-| Add a data operation (instance) | Literal, plus family tuples, guard lists, the contextual `CASE`, release flags and program lists as applicable; an omission fails open | Literal with required `validity_family` and `acquired_by`; compile refuses an omission |
-| Add a validity family or a guard (policy) | New tuples, validator, dispatch entry, guard tuple | Enum member naming its validator program; generation refuses a member without one; guard classification required on relations |
+| Add a value-set member (instance) | Edit once, or twice where the set is duplicated in the earlier core; the value codec tuple may be missed silently | One enum; for a closed set, checks of code copies refuse drift at import; for a pack-extensible set, the pack adds the member; for an open set, nothing is required |
+| Add a data operation (instance) | Literal, plus family tuples, guard lists, the contextual `CASE`, release flags and program lists as applicable; an omission fails open | Literal; its source collection is derived; its family is declared when known. An operation left unclassified compiles with a non-refusing diagnostic and conservative validity |
+| Add a validity family or a guard (policy) | New tuples, validator, dispatch entry, guard tuple | Enum member naming its validator program, or provisional until it exists; generation refuses a non-provisional member without one; new relations in guarded schemas are guarded by the declared schema default unless exempted |
 | Add a role or change a grant (policy) | Edits across 39 modules and SQL | Vocabulary member and purpose annotation; generated grants; controls receive expectations as data |
 | Change one generator module (mechanism) | Kernel digest changes: every acquisition refuses until a new kernel is deployed; release id changes; receipts replay; reads reacquire; watermarks advance; PDF work may refuse | Program set regenerates; if no bytes change nothing else changes; otherwise only the changed programs, the kernel identity and families whose validator closure includes them |
 | Bump a library the generators use (mechanism substitution) | As above, even if every byte is identical | Generation cache key changes; regeneration; identical bytes change nothing downstream |
@@ -736,17 +964,23 @@ class to validation of operation literals (`linkml.validator` with the closed JS
 | Two concurrent identical cold reads | Both derive | Both re-acquire authority; one derives; the other shares the value or the failure |
 | Model change published while caches are warm | Import-time model kept until restart | New model identity; new entries; old entries remain valid for pinned reads; memory freed by event |
 | Interrupted run resumed | Request identity reuse (sound) | Unchanged; disk tiers write-once with atomic replace; replay reconfirmation records are idempotent |
+| Try an operation whose validity semantics are not yet known (exploration) | Indistinguishable from a forgotten family entry; its derivations are never re-validated against changed premises | No declaration needed; conservative validity; listed as unclassified until it declares `none` or a family |
+| Try a relation or product kind in one pack (domain extension) | A pack class inheriting from a core class; registry rows, no DDL | Unchanged; none of the physical, guard or support-edge closures applies |
+| Use a vocabulary term before it is settled (exploration) | Refused by a closed enum, or reported `unchecked` for ontology-derived sets | Accepted and reported for an open or pack-extensible vocabulary, or as a provisional member; refused only by a vocabulary declared closed |
+| Keep competing structures side by side (content) | Alternatives, private proposals and disagreements retained (ADR-0024, ADR-0062, ADR-0077) | Unchanged; no recommendation constrains content |
+| A release that includes only some operations (composition) | Profile flags in code; omissions refused at compile | A manifest of requested operations or families; closure over declared dependencies |
 
 The domain extension (a new family) and the mechanism substitution (a library bump; a generator rewrite) both stay
-local in the target; today both propagate across unrelated consumers.
+local in the target; today both propagate across unrelated consumers. The exploratory scenarios stay as cheap as they are today or become cheaper; none of
+them acquires a new mandatory declaration.
 
 ## 8. Correctness and fidelity gates
 
 | Gate | Verdict | Evidence | Required action |
 |---|---|---|---|
-| G1 Authority | Fail | Family, edge meaning, guard and role facts held as independent lists with no reconciliation (DA-070, DA-071, DA-074); earlier and released value sets (DA-072) | R02, R03, R08, R13 |
-| G2 Semantic fidelity | Fail | A `NULL` validity family means both "no validator applies" and "forgotten" (DA-070) | R02 (explicit `none`) |
-| G3 Validity | Fail | An unlisted operation reaches validity with its family premises skipped (DA-070) | R02 |
+| G1 Authority | Fail | Family, edge meaning, guard and role facts held as independent lists with no reconciliation (DA-070, DA-071, DA-074); earlier and released value sets (DA-072); vocabulary openness declared only in the earlier model (F05) | R02, R03, R08, R13, R15 |
+| G2 Semantic fidelity | Fail | A `NULL` validity family means both "no validator applies" and "forgotten" (DA-070) | R02, R16 (explicit `none`; explicit undetermined state with its own consequence) |
+| G3 Validity | Fail | An unlisted operation reaches validity with its family premises skipped (DA-070) | R02, R16 (conservative validity for unclassified operations; no permissive default) |
 | G4 Hidden behavior | Pass, with one concern | No undeclared effects found; a capture can pair generated SQL with module bytes from different code in a long-lived process (DA-083) | R05 code custody |
 | G5 Consistency and recovery | Pass | Refusals are fail-closed; unrecorded replay is cost, not inconsistency | — |
 | G6 Transformation and reuse | Fail | Narrow identities let resumed pages and lowering certification survive edits to code they omit (DA-076, DA-082) | R05 |
@@ -767,11 +1001,15 @@ Consumed audit findings keep their identities and live in the audit; their dispo
 | F02 | Process-global memos reached from MCP tool threads are mutated without a lock, and several caches in long-lived processes are unbounded (parsers, a spaCy pipeline, a grammar resource) | DP-20; A4; G5 (likely, not observed) | `methods/math/grammar.py:309–327, 966–993`; `ingest/sentences.py:58`; `semantic/constructions/forest.py:36`; tool threads per `intervene/mcp_observations.py:11` | R09 tiers T5, T6 | Inspection of the migrated holders | Deferred to plan creation |
 | F03 | DuckDB connections at four sites take library defaults: machine time zone, 80 percent of memory, all threads, a working-directory-relative spill path; the settings meant to govern them are unread | DP-11, DP-20 | `serve/companion_export.py:410, 552`; `semantic/artifact_identity.py:481, 579`; library defaults probed by the library contributor ([DuckDB report](../evidence/2026-11-18_production-review-inputs/library-duckdb.md) §E) | R12 | Inspection of connection configuration | Deferred to plan creation |
 | F04 | Application code writes SQLite SQL by concatenation, including field names in JSON paths, in five modules, outside any decision about SQL text | FP-02; operator concern | `semantic/data_operation_read_index.py:20–27, 66–74` and four further modules (audit fact under DA-084) | R07 | Inspection of the converted stores | Deferred to plan creation; rule impact RC02 |
+| F05 | The released model cannot say whether a vocabulary is closed, pack-extensible or open. The earlier model declares it per enum (`Lifecycle`: `static` or `schema_version`) and its pack loader enforces it; the released vocabulary expansion and preparation carry no such property, so every released enum is closed in validation and pack extension of a shared set is neither declared nor refused. R13 would retire the only representation of this intended distinction (added by the recommendation audit) | FP-04/A2 (model adequacy) | `model/core.yaml:1034–1040, 895, 913`; `schema/pack.py:1–22`; `semantic/ontology.py:328–410`; `semantic/prepare.py:480–530` | R15, R13 | Each released enum declares its openness and preparation enforces it; no openness rule remains only in the earlier model | Deferred to plan creation |
 
 ## 10. Library fit, verdicts and probes
 
 **Selected mechanisms** (each also named in its recommendation): LinkML `SchemaView` composition, enums with
 structured annotations, `linkml.validator.Validator` with the closed JSON Schema plugin (R01, R02, R03);
+LinkML `recommended` slots with `RecommendedSlotsPlugin` warnings, `status` on permissible values, and `any_of` an
+enum and `string` for open vocabularies (R02, R15; observed in installed 1.12.1 source by the recommendation
+auditor, 2026-11-18);
 SQLAlchemy `MetaData`, Core, `CreateTable`, `Table.to_metadata` (R04, R07); pglast AST nodes including
 `CreateTrigStmt` and `ViewStmt` (R04); pyarrow schemas and safe casts (R12); DuckDB relational and expression API
 (R12); cachetools 8.0.1 `LRUCache`, `cached` with `condition`, `cachetools.func.lru_cache`, `keys.hashkey`
@@ -818,11 +1056,14 @@ Other library facts come from the contributor reports, labelled there.
 | Current baseline | Multi-site edits for families, roles, guards, programs; unrelated edits invalidate kernel, release and receipts | Hand lists beside a sound compiled operation model | No new machinery; fail-open omissions; repeated generation on the execution path | Not retained |
 | Proposed design | Local: one declaration per governing fact; identity changes follow bytes and declared dependencies | Five authority kinds with supported derivations; one composer | New: declaration schema, profile check, program registry, derived code identity, cache owner and store (each small); removes more than it adds | Selected |
 | Library-maximal variant (LinkML for operations and programs too; LinkML SQL generators) | Similar for domain facts | Pushes procedural and code facts into a schema language (ADR-0131's rejected option 2) | Larger and lossier; generators lack PostgreSQL features | Rejected |
-| Simplest viable variant (transcribe nothing new; add completeness tests to the hand lists; hold the capture) | Still multi-site | Lists stay authorities | Least new code; tests mirror the lists and cannot fail closed at compile | Rejected for A2; acceptable only as an interim guard |
+| Simplest viable variant (transcribe nothing new; add completeness tests to the hand lists; hold the capture) | Still multi-site | Lists stay authorities | Least new code; tests mirror the lists and cannot refuse an inconsistency at compile | Rejected for A2; acceptable only as an interim guard |
+| Required total classification (this review's first round: every operation declares a family with explicit `none`; closed vocabularies throughout; absence refuses) | Local | Removes the fail-open state but conflates "not applicable" and "not yet decided" by forcing a choice; closes descriptive fields that are open today | Small, but every new operation must decide its validity semantics before compiling, and an operation in two families needs a schema change | Not selected (recommendation audit, 2026-11-18) |
+| Declared homes with explicit openness and safe defaults (selected) | Local | Integrity memberships closed; operation classifications three-state; vocabularies declare openness | Adds one conservative validator program and an openness declaration; removes two would-be mandatory fields | Selected |
 
-What becomes easier: adding operations, families, roles and fields; library bumps; previews; CLI paging. What
-becomes harder: the first conversion step (declarations before programs), and every operation literal must name a
-family and source family explicitly.
+What becomes easier: adding operations, families, roles and fields; trying operations and vocabulary terms before
+they are settled; library bumps; previews; CLI paging. What becomes harder: the first conversion step (the facts each
+module reads get their declared home before its programs), and unclassified operations pay for conservative
+re-validation until they are classified.
 
 ## 12. Verification and uncertainty
 
@@ -837,9 +1078,13 @@ family and source family explicitly.
 | Role-granular watermark | Open premise (DA-078) | Native owner's soundness argument |
 | Carrying release-content proof | Open trust decision (DA-033) | Operator decision |
 | Materiality of each removed repetition | Unmeasured by design | Measure only if a plan step depends on the size |
+| A conservative premise check can be realized for unclassified operations from recorded trust snapshots and validator identities | Proposed (recommendation audit; premises partly recorded, `data-operation-physical.yaml:458–484, 619–631`) | Native owner's confirmation that each episode can be tied to the trust snapshot it consumed |
+| LinkML 1.12.1 has no openness flag on enums; `recommended` slots warn through `RecommendedSlotsPlugin`; permissible values carry `status` | Observed in installed source, 2026-11-18 (recommendation audit) | — |
 
-**What would change the judgment.** A consumer that genuinely needs per-operation family logic beyond one family
-(changes R02's field shape). Evidence that generated bytes depend on ambient state not captured in the generation
+**What would change the judgment.** If the conservative premise check proves unrealizable, unclassified operations
+must at least lose reuse across premise changes, or classification becomes required for operations that consume
+trust-bearing cuts. If family membership proves derivable from declared input roles, it is derived and the field
+becomes an override. If no operation ever needs two families, the set-valued field can be simplified. Evidence that generated bytes depend on ambient state not captured in the generation
 key (would require adding it to T2's key). A finding that the effective-model archive's SQL readers depend on field
 names that LinkML generation would change (would slow the declaration-schema step, not reverse it).
 
@@ -852,19 +1097,20 @@ The review does not change these rules; plan creation presents them for confirma
 
 | ID | Rule and where recorded | Proposed change | Depends on it | If the rule is kept |
 |---|---|---|---|---|
-| review#RC01 | ADR-0131 and §B4/§B5: typed programs compose procedural forms; three exceptions | Add: membership and governance facts that programs use come from declarations and generation refuses an undeclared member; independent controls take expectations as data, never spliced text; the remaining conversion follows the declaration step | R02, R07 | The remaining conversion transcribes the family and role lists again |
+| review#RC01 | ADR-0131 and §B4/§B5: typed programs compose procedural forms; three exceptions | Add: facts that programs dispatch on have one declared home and programs read it instead of restating it; an undecided membership is declared as undetermined and programs apply its stated conservative consequence; generation refuses only internal inconsistency (a name without a definition, a dispatch without a handler) and omissions in the integrity layer (roles, grants, guards, support-edge kinds); independent controls take expectations as data, never spliced text; each module's conversion follows the declarations it reads (revised by the recommendation audit) | R02, R07, R16 | The remaining conversion transcribes the family and role lists again |
 | review#RC02 | ADR-0131's scope is PostgreSQL only | Extend "no maintained SQL text in application code" to SQLite scratch stores and DuckDB use | R07, F04 | SQLite text remains an accepted, low-risk exception |
 | review#RC03 | §B5 "one captured LinkML closure" with per-artifact closures | One composer and one compiled model per model-sources identity; per-artifact sub-identities kept | R01 | Per-consumer composition continues |
-| review#RC04 | ADR-0092: two operation authoring routes compiled into one model | Keep both routes; add that the Python route's grammar and vocabularies are declared in LinkML and literals are validated against them | R02 | Hand grammar validator remains; vocabularies stay Python literals |
-| review#RC05 | DDO plan, products and support: `validity_family` null when no per-kind validator applies (`products-and-support.md:422–423`) | Required enum with explicit `none` | R02 | Fail-open remains; A2 MUST gap stays |
+| review#RC04 | ADR-0092: two operation authoring routes compiled into one model | Keep both routes; add that the Python route's grammar and vocabularies are declared in LinkML, that each vocabulary declares its openness, that descriptive fields stay open, and that literals are validated against the declaration with closed field names | R02, R15 | Hand grammar validator remains; vocabularies stay Python literals |
+| review#RC05 | DDO plan, products and support: `validity_family` null when no per-kind validator applies (`products-and-support.md:422–423, 451`) | Null stops meaning "no per-kind validator applies"; that meaning is declared as `none`; absence means undetermined and receives conservative validity; the field may hold several families (revised by the recommendation audit; replaces "required enum with explicit `none`") | R02, R16 | Forgotten and not-applicable stay indistinguishable and permissive; A2 MUST gap stays |
 | review#RC06 | DDO plan: completion seal and receipts keyed by the kernel digest; full battery on mismatch (`products-and-support.md:428, 528, 534`) | Validator identity per family; recorded reconfirmation | R05, R11 | Replay amplification after any captured edit remains |
 | review#RC07 | DDO plan: watermark over prerequisite operations and exact pins (`products-and-support.md:574–575`) | Drop the kernel component now; role granularity after the soundness argument | R10 | Waiting-obligation skip stays largely unrealized for the one-source workload |
 | review#RC08 | Admission re-proves release content per acquisition (current native admission design; DA-029 trust premise) | Carry finalization and deployment-admission receipts; explicit verification command | R11 | Per-acquisition re-hashing of immutable content remains |
 | review#RC09 | ADR-0124 and file custody: drift refuses and requires restart | Keep for Python code; for model declarations, a changed source yields a new compiled model | R01, R09 | Model edits require restarting the MCP server |
 | review#RC10 | ADR-0124: serving identity names the listed running code | Derived import closure under the same custody mechanism | R05 | DA-076 stays |
 | review#RC11 | Release id hashes generator sources and the whole native capture (`semantic/prepare.py:956–985`; native capture as dependencies) | Generated artifacts and model capture in the id; generator provenance recorded beside | R05 | Generator edits force new releases |
-| review#RC12 | Role constants and default read roles in code (`semantic/alembic_privileges.py:25–35`); host bootstrap reads them | Role and purpose vocabularies in the model; explicit read roles | R02, R03 | Privilege policy keeps no model owner |
+| review#RC12 | Role constants and default read roles in code (`semantic/alembic_privileges.py:25–35`); host bootstrap reads them | Role and purpose vocabularies in the model; read roles declared per schema with per-relation overrides, no code default | R02, R03 | Privilege policy keeps no model owner |
 | review#RC13 | Production-efficiency realization of the query cache (process-local, keyed by cut; PE-F17, owned by the DDO plan) | Declared reuse basis; disk tier for CLI continuation | R09, R10 | CLI paging never reuses |
+| review#RC14 | ADR-0024 and the D2 preparation contract: unsupported required semantics refuse; preparation diagnostics are refusing except unchecked terms | Add: preparation distinguishes refusing diagnostics (unsupported or inconsistent semantics, integrity omissions) from non-refusing `unassessed` diagnostics for undetermined declarations, and records the promotion boundary, if any, at which undetermined declarations refuse (none, default-release activation or knowledge publication; the operator chooses) (added by the recommendation audit) | R15, R16 | R16 still works through the existing `unchecked` route, but the promotion boundary stays undecided |
 
 Not a rule change: moving cachetools from 7.2.7 to 8.0.1 is ordinary dependency judgment (it changes the served
 identity once). Deleting `semantic_alembic/` and `alembic/` needs the operator's decision; the rule protecting plans
@@ -879,30 +1125,32 @@ Prerequisite order by the capability each step supplies:
 
 1. **Compiled model holder and cache owner (R01, part of R09).** Supplies the one object that every later
    derivation reads. Includes the cachetools 8.0.1 move.
-2. **Declarations and totality checks (R02, R03).** Supplies declared families, edge kinds, roles, purposes and
-   guard classifications. Needs step 1.
+2. **Declared homes and openness (R02, R03, R15, R16).** Supplies the three-state family declaration with its
+   conservative validator, edge kinds, roles, purposes, guard and read-role defaults, and vocabulary openness. Needs
+   step 1. The ownership vocabulary, the grammar migration and derived source collections belong here but do not
+   gate step 5.
 3. **Program registry and typed trigger and view forms (R04).** Supplies program objects with identities. Needs step
    1; independent of step 2.
 4. **Identity layering and code custody (R05).** Needs step 3 for program identities.
-5. **Remaining PostgreSQL conversion (R07) and the single support walk (R08).** Needs steps 2 and 3; this is the
-   ordering the open conversion must respect.
+5. **Remaining PostgreSQL conversion (R07) and the single support walk (R08).** Each module needs the step-2 facts it
+   reads and step 3; this is the ordering the open conversion must respect.
 6. **Carried assurance (R11).** Needs step 4 for validator identity and the operator's trust decision.
 7. **Disk tiers and served reuse basis (R09, R10).** The content basis needs the native owner's premise.
 
 Can proceed independently now: R06 (the execution path stops generating; small and high value); continuation-page
 reuse for the CLI (cut-keyed); bounding and locking the unbounded and unlocked holders (F02); DuckDB connection
-settings (F03); the retirements of R13 that need no decision; R14.
+settings (F03); the retirements of R13 that need no decision and do not touch the earlier model's openness rule; R14.
 
 **Test seams (one line each).** Tests importing the `semantic.metadata` globals move to the accessor; native
-authoring fixtures move to the program registry; family totality and dispatch need independent tests, which the
-test review owns; deployment-key tests change if release dependencies change (R05).
+authoring fixtures move to the program registry; family dispatch, the three family states and the conservative
+validator need independent tests, which the test review owns; deployment-key tests change if release dependencies change (R05).
 
 ## 15. Architectural judgment and decision
 
 | Judgment | Verdict | Scenario evidence | Action |
 |---|---|---|---|
 | A1 Localize change | Violated | Adding an operation, a family, a role, or editing a generator propagates across unrelated owners (§7) | R02, R04, R05 |
-| A2 Encode domain meaning explicitly | Violated | Governing facts without model authority; an undeclared member fails open; the earlier model duplicates value sets | R02, R03, R08, R13 |
+| A2 Encode domain meaning explicitly | Violated | Governing facts without model authority; an unlisted member fails open; "not applicable" and "not yet classified" share one representation; vocabulary openness is declared only in the retiring model; the earlier model duplicates value sets | R02, R03, R08, R13, R15, R16 |
 | A3 Extend through composition | Violated | A new program or family needs three to five registry edits; each consumer composes its own model | R01, R04 |
 | A4 Fit execution to the workload | Violated | Generation on the execution path; invalidation far broader than premise; no CLI reuse; no coalescing of identical misses | R05, R06, R09, R10 |
 
@@ -910,8 +1158,9 @@ test review owns; deployment-key tests change if release dependencies change (R0
 Evidence strength: Interface-checked by source inspection, 2026-11-18; remedies Proposed. Review acceptance is
 distinct from release qualification.
 
-**Next decision and owner.** The operator confirms or rejects RC01 to RC13 in plan creation; the first plan step is
-R06 alongside R01, with R02's declaration schema as the decision that gates the remaining conversion.
+**Next decision and owner.** The operator confirms or rejects RC01 to RC14 in plan creation, including the promotion
+boundary of RC14 and whether `Ownership` stays open; the first plan step is R06 alongside R01, with the declared
+homes of the facts each conversion module reads (R02, R16) as the decision that gates the remaining conversion.
 
 ## 16. Returned to the audit (out of focus)
 

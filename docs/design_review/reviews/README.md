@@ -43,8 +43,12 @@ DuckDB 2.0 are weighed as hypotheses and cachetools 8.0 receives a full cache de
 a fact-authority table, an identity design, the order of the remaining PostgreSQL conversion,
 a DuckDB judgment over the analytical inventory and, in its
 [cache design](unified-domain-model-and-execution/cache-design.md), six in-process tiers and
-two on-disk tiers. It adds findings `F01`–`F04` and proposes rule impacts `RC01`–`RC13` for
-operator confirmation. Its [dispositions](unified-domain-model-and-execution/dispositions.md)
+two on-disk tiers. It adds findings `F01`–`F05` and proposes rule impacts `RC01`–`RC14` for operator
+confirmation. Its recommendations were revised on 2026-11-18 by a
+[recommendation audit](audits/design_review_unified-domain-model-and-execution_2026-11-18_audit.md)
+(input revision `b4eb74f67`) on the operator's concern that the target represent the pipeline's
+intentional flexibility and optionality: required classifications became optional with distinct
+named, explicit-none and undetermined states, and recommendations `R15` and `R16` were added. Its [dispositions](unified-domain-model-and-execution/dispositions.md)
 cover DA-068 to DA-086, DA-033 and DA-058. It is separate from the declared-data-operations
 plan and the production-efficiency review and re-owns nothing from them. Decision: Revise;
 every remedy is Proposed and every disposition Deferred until a plan selects it.
