@@ -197,7 +197,7 @@ class PreparedPredicateInputs:
             "retained-primary-source-readings-v1",
             "exact bound original source",
             max_chars=len(frame.text),
-            max_pieces=1,
+            max_pieces=max(1, len(frame.pieces)),
             max_sources=1,
             version=2,
             preparation=PreparedNativeSources((frame,), max_sources=1),
