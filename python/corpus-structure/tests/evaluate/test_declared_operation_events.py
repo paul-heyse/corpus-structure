@@ -155,6 +155,17 @@ def test_finite_parameter_value_keeps_real_algorithm_provenance_and_shared_scori
     assert parameters.frame_digest == actual.fit_digest
     assert parameters.reference_digest == actual.question.digest
     assert parameters.producer_version == actual.producer_version
+    from corpus_structure.semantic.data_operation_ports import (
+        PortAdapters,
+        _validated_hydrated_model_input,
+    )
+
+    # Native JSON arrays describe this captured DTO's tuple fields. This is
+    # hydration of the admitted body, distinct from strict direct Python input.
+    hydrated = _validated_hydrated_model_input(
+        type(parameters), parameters.model_dump(mode="json"), adapters=PortAdapters()
+    )
+    assert hydrated == parameters
     first = score_operation_event(
         parameters,
         actual.observations[0].features,

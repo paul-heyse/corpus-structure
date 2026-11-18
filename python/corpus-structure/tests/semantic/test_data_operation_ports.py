@@ -1572,3 +1572,63 @@ def test_eager_sequence_annotation_does_not_guess_unordered_or_heterogeneous_fie
 
     with pytest.raises(PortRefusal, match="sequence output requires"):
         _eager_sequence_annotation(annotation)
+
+
+def test_native_scalar_model_json_hydration_restores_tuples_and_exact_primitive_codecs():
+    from datetime import date
+    from decimal import Decimal
+
+    from pydantic import BaseModel, ConfigDict
+
+    from corpus_structure.semantic.data_operation_ports import (
+        PortAdapters,
+        _validated_hydrated_model_input,
+        _validated_python_input,
+    )
+
+    class Input(BaseModel):
+        model_config = ConfigDict(
+            strict=True, extra="forbid", ser_json_bytes="base64", val_json_bytes="base64"
+        )
+        items: tuple[int, ...]
+        amount: Decimal
+        day: date
+        content: bytes
+
+    amount = Decimal("0.1234567890123456789")
+    original = dict(items=[2, 1, 2], amount=amount, day=date(2026, 11, 18), content=b"\xff\x00")
+    adapters = PortAdapters()
+    hydrated = _validated_hydrated_model_input(Input, original, adapters=adapters)
+    assert hydrated.items == (2, 1, 2)
+    assert hydrated.amount.as_tuple() == amount.as_tuple()
+    assert hydrated.day == date(2026, 11, 18)
+    assert hydrated.content == b"\xff\x00"
+    assert original["items"] == [2, 1, 2]
+    with pytest.raises(ValidationError):
+        _validated_python_input(Input, original, adapters=adapters)
+    for changed in ({**original, "items": [True]}, {**original, "extra": "not-declared"}):
+        with pytest.raises(ValidationError):
+            _validated_hydrated_model_input(Input, changed, adapters=adapters)
+
+
+def test_native_scalar_model_hydration_does_not_serialize_invalid_fields_into_valid_values():
+    from pydantic import BaseModel, ConfigDict, model_serializer
+
+    from corpus_structure.semantic.data_operation_ports import (
+        PortAdapters,
+        _validated_hydrated_model_input,
+    )
+
+    class Input(BaseModel):
+        model_config = ConfigDict(strict=True, extra="forbid")
+        items: tuple[int, ...]
+
+        @model_serializer(mode="plain")
+        def wire(self):
+            return {"items": [1]}
+
+    adapters = PortAdapters()
+    assert _validated_hydrated_model_input(Input, {"items": [2, 3]}, adapters=adapters).items == (2, 3)
+    for invalid in ({"items": [True]}, Input.model_construct(items=(True,))):
+        with pytest.raises(ValidationError):
+            _validated_hydrated_model_input(Input, invalid, adapters=adapters)

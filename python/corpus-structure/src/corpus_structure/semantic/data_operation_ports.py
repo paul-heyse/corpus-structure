@@ -165,7 +165,8 @@ class HydratedRoleValue(PythonRoleValue):
     """Selected native bodies; collection tuples still need callable assembly.
 
     This internal ingress distinguishes an admitted population from caller-typed
-    Python values. It grants no execution or publication authority.
+    Python values. Scalar model DTOs use their strict JSON wire interpretation.
+    It grants no execution or publication authority.
     """
 
 
@@ -209,6 +210,18 @@ def _eager_sequence_annotation(annotation):
     if item is Any:
         raise PortRefusal("sequence output requires one explicit item annotation")
     return container, item
+
+
+def _validated_hydrated_model_input(annotation, value, *, adapters):
+    """Interpret an admitted scalar body through its acquired model's JSON contract."""
+    adapter = adapters.get(annotation)
+    # The selected semantic body is data, not an already constructed model.
+    # Duck-typed serialization preserves native Decimal/date/bytes codecs while
+    # bypassing model serializers that could transform unvalidated input fields.
+    content = adapter.dump_json(
+        _untrusted_value(value), round_trip=True, serialize_as_any=True, warnings=False
+    )
+    return adapter.validate_json(content, strict=True)
 
 
 def _validated_hydrated_collection(
@@ -788,6 +801,14 @@ class ResolvedPythonPort:
                             collection=role.collection,
                             role=name,
                             adapters=self.adapters,
+                        )
+                    elif (
+                        isinstance(value, HydratedRoleValue)
+                        and isinstance(annotation, type)
+                        and issubclass(annotation, BaseModel)
+                    ):
+                        checked = _validated_hydrated_model_input(
+                            annotation, value.value, adapters=self.adapters
                         )
                     else:
                         checked = _validated_python_input(

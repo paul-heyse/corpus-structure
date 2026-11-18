@@ -1,0 +1,4 @@
+# Capture the typed prepared JSON input boundary and its port generator witness.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n20
+native_revision: semantic_ddo_pe_n21
