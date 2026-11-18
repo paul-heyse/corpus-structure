@@ -103,6 +103,10 @@ def test_captured_sql_scope_projection_follows_its_domain_function_providers():
     Calls()(prepare_sql(body_source(discovery), source="captured-discovery-body").private_tree())
     assert visibility in calls
     assert declarations[visibility][0] < index
+    assert (
+        declarations[("ops", "ddo_scope")][0]
+        < declarations[("ops", "ddo_original_admission_valid")][0]
+    )
 
 
 def test_core_projection_capture_consumes_explicit_counterfactual_metadata_without_ambient_fallback(
