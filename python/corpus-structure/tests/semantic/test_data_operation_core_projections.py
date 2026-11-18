@@ -1,39 +1,45 @@
 """One captured Core projection supplies native SQL and decoder row shape."""
 
-import json
-
 import pglast
 import pytest
+from sqlalchemy.dialects.postgresql import JSONB, dialect
 
 from corpus_structure.semantic.data_operation_projections import (
+    binding_branches,
     binding_columns,
+    cancellation_scopes,
     capture_projection_sources,
     member_columns,
+    read_page,
+    read_scope_rows,
 )
 from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+from corpus_structure.semantic.metadata import metadata
 
 
-def test_captured_core_products_own_return_shape_and_keep_scoped_native_parameters():
-    sources = {source.name: source.content for source in capture_projection_sources()}
-    products = json.loads(sources["native/data-operation-projections.json"])
+def _compile(query):
+    return str(
+        query.compile(dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True})
+    )
+
+
+def test_core_builders_own_return_shape_and_keep_scoped_native_parameters():
+    computed, original = map(_compile, binding_branches(metadata))
+    scopes = _compile(read_scope_rows(metadata))
+    page = _compile(read_page(metadata))
     assert {column.name for column in binding_columns()} == {
         column.name for column in binding_columns(decoder=True)
     }
     assert "provider_identity" in member_columns()
-    assert '"analyzed_scope" JSONB' in products["binding_returns"]
-    for name in (
-        "read_scope_rows",
-        "cancellation_scopes",
-        "binding_computed",
-        "binding_original",
-        "read_page",
-    ):
-        assert pglast.parse_sql(products[name])
-    assert "support_closure" in products["read_scope_rows"]
-    assert "data_derivation_original_support" in products["read_scope_rows"]
-    assert "p_operation" in products["binding_computed"]
-    assert "after_key" in products["read_page"] and "LIMIT lim" in products["read_page"]
-    assert "ops.ddo_episode_provider_identity" in products["binding_computed"]
+    columns = {column.name: column.type for column in binding_columns()}
+    assert isinstance(columns["analyzed_scope"], JSONB)
+    for source in (scopes, _compile(cancellation_scopes(metadata)), computed, original, page):
+        assert pglast.parse_sql(source)
+    assert "support_closure" in scopes
+    assert "data_derivation_original_support" in scopes
+    assert "p_operation" in computed
+    assert "after_key" in page and "LIMIT lim" in page
+    assert "ops.ddo_episode_provider_identity" in computed
 
 
 def test_native_sql_uses_frozen_core_products_without_ambient_builder(monkeypatch):
@@ -47,7 +53,7 @@ def test_native_sql_uses_frozen_core_products_without_ambient_builder(monkeypatc
         lambda: (_ for _ in ()).throw(AssertionError("ambient builder")),
     )
     assert native_sql(captured) == first
-    assert "__DDO_CORE_" not in first
+    assert "__DDO_" not in first
     assert pglast.parse_sql(first)
 
 
@@ -99,7 +105,6 @@ def test_core_projection_capture_consumes_explicit_counterfactual_metadata_witho
     import yaml
 
     import corpus_structure.schema.physical as physical
-    from corpus_structure.semantic.metadata import metadata
 
     sources = dict(metadata.info["physical_sources"])
     types = metadata.info["physical_linkml_types"]
@@ -120,14 +125,7 @@ def test_core_projection_capture_consumes_explicit_counterfactual_metadata_witho
         physical_sources=proposed.info["physical_sources"],
         linkml_types=proposed.info["physical_linkml_types"],
     )
-    products = json.loads(
-        next(
-            source.content
-            for source in captured
-            if source.name == "native/data-operation-projections.json"
-        )
-    )
-    assert "data_obligation.counterfactual_marker" in products["read_page"]
+    assert "data_obligation.counterfactual_marker" in _compile(read_page(proposed))
     assert (
         next(
             source.content

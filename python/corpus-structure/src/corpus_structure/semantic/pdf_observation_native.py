@@ -44,6 +44,7 @@ from .native_program import (
     SelectInto,
     Sql,
     column_type,
+    core_relation_row,
     core_variable,
     function,
     pg_type,
@@ -110,7 +111,7 @@ def _exists(relation, *conditions):
 
 
 def _select_row(table, name, *conditions, strict=False, lock=False):
-    query = select(table).where(*conditions)
+    query = select(core_relation_row(table)).select_from(table).where(*conditions)
     return SelectInto(query.with_for_update() if lock else query, (name,), strict)
 
 
@@ -1223,7 +1224,7 @@ def observation_publisher_declaration(context, model):
             endpoint.has_key("input_index"),
             (
                 SelectInto(
-                    select(product_table)
+                    select(core_relation_row(product_table))
                     .select_from(endpoint_pin)
                     .where(
                         edge.c.task_id == p_task,
@@ -1447,7 +1448,7 @@ def observation_publisher_declaration(context, model):
         _select_row(task, "job", task.c.id == p_task, strict=True),
         SelectInto(context_query("pdf_task_context"), ("context",), True),
         SelectInto(
-            select(definition)
+            select(core_relation_row(definition))
             .select_from(
                 definition.join(
                     request,

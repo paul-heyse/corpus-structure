@@ -39,6 +39,7 @@ from .native_program import (
     Return,
     SelectInto,
     Sql,
+    core_relation_row,
     core_variable,
     function,
     pg_type,
@@ -297,7 +298,9 @@ def _provider_programs(model):
         ),
         (
             SelectInto(
-                select(definitions).where(
+                select(core_relation_row(definitions))
+                .select_from(definitions)
+                .where(
                     definitions.c.release_id == release, definitions.c.operation_id == operation_id
                 ),
                 ("definition",),
@@ -348,10 +351,18 @@ def _provider_programs(model):
         (Parameter("episode_", pg_type("text")),),
         (
             SelectInto(
-                select(derivations).where(derivations.c.id == episode_id), ("episode",), True
+                select(core_relation_row(derivations))
+                .select_from(derivations)
+                .where(derivations.c.id == episode_id),
+                ("episode",),
+                True,
             ),
             SelectInto(
-                select(intents).where(intents.c.id == episode["intent_id"]), ("intent",), True
+                select(core_relation_row(intents))
+                .select_from(intents)
+                .where(intents.c.id == episode["intent_id"]),
+                ("intent",),
+                True,
             ),
             _refuse(
                 or_(
@@ -709,7 +720,11 @@ def _lowering_program(model, subject_scopes):
             .on_conflict_do_nothing()
         ),
         SelectInto(
-            select(kinds).where(kinds.c.kind_contract == k["kind_contract"].astext), ("old",), True
+            select(core_relation_row(kinds))
+            .select_from(kinds)
+            .where(kinds.c.kind_contract == k["kind_contract"].astext),
+            ("old",),
+            True,
         ),
         _refuse(
             or_(
@@ -1066,7 +1081,9 @@ def _lowering_program(model, subject_scopes):
             ),
         ),
         SelectInto(
-            select(releases).where(releases.c.release_id == p["release_id"].astext),
+            select(core_relation_row(releases))
+            .select_from(releases)
+            .where(releases.c.release_id == p["release_id"].astext),
             ("header",),
             True,
         ),

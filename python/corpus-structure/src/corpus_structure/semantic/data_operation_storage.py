@@ -36,7 +36,6 @@ if TYPE_CHECKING:
     from .types import PreparedRelease
 
 _ROOT = Path(__file__).resolve().parents[1] / "model" / "semantic"
-_SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 
 
 NATIVE_LOGICAL_FILES = ("observations.yaml", "pdf-actions.yaml", "data-operation-wire-types.yaml")
@@ -78,6 +77,7 @@ def native_protocol_sources(
     from .data_operation_compiler_native import compiler_native_sql
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
+    from .data_operation_read_native import read_native_sql
     from .data_operation_renewal import renewal_native_sql
     from .data_operation_source_native import source_native_sources
     from .data_operation_subjects import subject_scope_values
@@ -406,7 +406,11 @@ def native_protocol_sources(
             Path(__file__).with_name("data_operation_execution_evidence.py").read_bytes(),
         ),
         SourceArtifact("native/data-operation-protocol.yaml", protocol),
-        SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
+        SourceArtifact("native/data-operation-read.sql", read_native_sql(target_metadata).encode()),
+        SourceArtifact(
+            "native/data-operation-read.py",
+            Path(__file__).with_name("data_operation_read_native.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-product-admission.sql",
             product_admission_native_sql(target_metadata).encode(),
@@ -491,7 +495,7 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/contextual-neighborhood.sql",
-            _SQL.with_name("contextual_neighborhood.sql").read_bytes(),
+            Path(__file__).with_name("sql").joinpath("contextual_neighborhood.sql").read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-external.sql",
@@ -585,7 +589,10 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-definition-projection.py",
         "native/pdf-source-search.sql",
         "native/pdf-source-search-contract.json",
-        "native/data-operations.sql",
+        "native/data-operation-read.sql",
+        "native/data-operation-read.py",
+        "native/data-product-admission.sql",
+        "native/data-product-admission-native.py",
         "native/data-operation-compiler.sql",
         "native/data-operation-compiler.py",
         "native/data-operation-support-scopes.sql",
@@ -664,7 +671,6 @@ def _captured(sources) -> dict[str, bytes]:
             "native/data-operation-original-support-reference.json",
             "native/data-operation-json.py",
             "native/data-operation-projections.py",
-            "native/data-operation-projections.json",
             "native/data-operation-provider-profiles.py",
             "native/data-operation-external.sql",
             "native/external-execution-native.py",
@@ -751,6 +757,7 @@ def native_sql(sources=None) -> str:
         for name in (
             "native/data-operation-source-values.sql",
             "native/data-operation-cpu-basis.sql",
+            "native/data-operation-compiler.sql",
             "native/data-operation-record-grade-native.sql",
             "native/demand-values.sql",
             "native/demand-validity.sql",
@@ -761,9 +768,8 @@ def native_sql(sources=None) -> str:
             "native/demand-derivation.sql",
             "native/data-read-boundary.sql",
             "native/data-completion-settlement.sql",
-            # SQL-language structural helpers resolve the tagged-value functions
-            # when created. Install the shared kernel before these dependents.
-            "native/data-operations.sql",
+            "native/data-operation-read.sql",
+            "native/data-product-admission.sql",
             "native/request-attachment.sql",
             "native/population-acquisition.sql",
             "native/data-claim.sql",
@@ -794,28 +800,12 @@ def native_sql(sources=None) -> str:
     from .pdf_source_search import search_projection_sql
 
     sql += "\n" + search_projection_sql(captured)
-    sql = sql.replace(
-        "__DDO_PRODUCT_ADMISSION_PROGRAMS__", bodies["native/data-product-admission.sql"].decode()
-    )
     # Every private completion guard attests the same captured native kernel.
     sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     sql = sql.replace(
         "__DDO_LOWERING_DIGEST__",
         sha256(bodies["native/data-operation-compiler.sql"]).hexdigest(),
     )
-    if "__DDO_SUBJECT_SCOPES__" in sql:
-        sql = sql.replace(
-            "__DDO_SUBJECT_SCOPES__",
-            _captured(captured)["native/data-operation-subject-scopes.json"]
-            .decode()
-            .replace("'", "''"),
-        )
-    if "__DDO_CORE_" in sql:
-        products = json.loads(_captured(captured)["native/data-operation-projections.json"])
-        for name, body in products.items():
-            sql = sql.replace("__DDO_CORE_" + name.upper() + "__", body)
-        if "__DDO_CORE_" in sql:
-            raise ValueError("captured Core projection is incomplete")
     operations = _protocol(captured)
     sql = _rename_native_entrypoints(sql, {item["name"] for item in operations})
     return sql + _wire_wrapper_sql(captured, operations)

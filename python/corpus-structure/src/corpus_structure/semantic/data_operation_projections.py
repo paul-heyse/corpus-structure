@@ -27,7 +27,7 @@ from sqlalchemy import (
     union,
     union_all,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, dialect
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by
 from sqlalchemy.sql.elements import ColumnClause
 from sqlalchemy.sql.type_api import TypeEngine
 
@@ -510,22 +510,6 @@ def binding_columns(*, decoder=False):
 def member_columns():
     return tuple(
         item.name for item in binding_columns() if item.name not in {"body", "meaning_body"}
-    )
-
-
-def compiled(statement):
-    return str(
-        statement.compile(
-            dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
-        )
-    )
-
-
-def native_return_shape():
-    pg = dialect()
-    return ",".join(
-        pg.identifier_preparer.quote_identifier(item.name) + " " + item.type.compile(dialect=pg)
-        for item in binding_columns()
     )
 
 
@@ -2448,7 +2432,7 @@ def read_page(metadata):
 
 
 def capture_projection_sources(*, physical_sources=None, linkml_types=None, target_metadata=None):
-    """Acquire explicit physical bytes and the generated native products together."""
+    """Capture the physical and logical inputs consumed by the native read builders."""
     from pathlib import Path
 
     from corpus_structure.schema.physical import (
@@ -2457,7 +2441,6 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None, targ
         physical_source_closure,
     )
 
-    from .identity import canonical_bytes
     from .types import SourceArtifact
 
     if physical_sources is None:
@@ -2471,37 +2454,14 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None, targ
                 "explicit Core projection inputs require physical closure and captured LinkML types"
             )
         types = linkml_types
-    metadata = target_metadata
-    if metadata is None:
-        metadata = compile_physical(sources, linkml_types=types)
-    elif sources != metadata.info.get("physical_sources") or types != metadata.info.get(
-        "physical_linkml_types"
-    ):
+    if target_metadata is None:
+        compile_physical(sources, linkml_types=types)
+    elif sources != target_metadata.info.get(
+        "physical_sources"
+    ) or types != target_metadata.info.get("physical_linkml_types"):
         raise ValueError("Core projection metadata differs from captured physical inputs")
-    branches = binding_branches(metadata)
-    products = {
-        "access_universes": compiled(read_access_universes(metadata)),
-        "read_scope_rows": compiled(read_scope_rows(metadata)),
-        "cancellation_scopes": compiled(cancellation_scopes(metadata)),
-        "record_grade_census_nodes": compiled(record_grade_census_nodes(metadata)),
-        "record_grade_selected_outputs": compiled(record_grade_selected_outputs(metadata)),
-        "lock_support_scopes": compiled(lock_support_scopes(metadata)),
-        "binding_returns": native_return_shape(),
-        "binding_computed": compiled(branches[0]),
-        "binding_original": compiled(branches[1]),
-        "read_page": compiled(read_page(metadata)),
-        "selected_support_output": compiled(selected_support_output(metadata)),
-        "selected_source_output_occurrences": compiled(
-            selected_source_output_occurrences(metadata)
-        ),
-        "selected_feature_fit_output": compiled(
-            selected_support_output(metadata, purpose="feature-fit")
-        ),
-        "cut_selection": compiled(cut_selection_projection()),
-    }
     return (
         SourceArtifact("native/data-operation-projections.py", Path(__file__).read_bytes()),
-        SourceArtifact("native/data-operation-projections.json", canonical_bytes(products)),
         SourceArtifact("native/projection-linkml-types.yaml", types),
         *(
             SourceArtifact("native/projection-physical/" + name, content)
