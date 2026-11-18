@@ -47,12 +47,16 @@ adds no attestation registry; the three encoder operations select the authentic-
 
 > Decision: [ADR-0129](../adr/0129-contextual-encoder-batch-policy.md)
 
-**Implemented; bounded pure controls Tested · 2026-11-16; native qualification remains open.**
-Cross-release coalescing executes the stored generation's immutable release, runtime and exact
-binding/read. Authenticated attach metadata supplies that basis before capacity admission; claim
-requires the expected generation and refuses a replaced basis. Cancelling the creating demand
-does not erase a still-useful shared request. Target-demand authorization remains distinct from
-the original execution, input/support hydration, retained reply and reconciliation custody.
+**Implemented in source and Tested with bounded executor controls · 2026-11-18.** A coalesced generation
+keeps its immutable release, runtime and exact binding/read. Authenticated attachment identifies
+that basis before capacity admission, and claim requires the expected generation. Cancelling the
+creating demand preserves still-useful shared work. A demand on the project's active release can
+create a successor generation for equivalent unfinished work without an active producer lease or
+a valid retained intent. Native attachment serializes this decision with project activation.
+Completed derivations retain their provenance and require current trust for reuse. A valid
+retained intent is adopted and published through native claim and completion fences, with no
+archived Python acquisition or input hydration. Target-demand authorization remains distinct from
+the original execution and retained reply custody. The DDO coordinator owns matching native tests.
 
 The existing invocation-wide CPU owner retains each execution-basis capsule in authenticated
 shared memory. Capsule creation charges serialized and shared bytes together; submissions carry a

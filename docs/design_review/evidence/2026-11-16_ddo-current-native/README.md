@@ -852,6 +852,23 @@ capture request and published section organization and organized-source discover
 keeps the same owned-state limit. The application, source identities, and retained failed and
 interrupted results are recorded in the coordinator.
 
+Canonical N23 adopted the matching release on the same OID, activated generation 4, and passed
+another normal-reader comparison of all 29 original descriptors and bytes. Authenticated N21 and
+N23 archives show that capture, organization and organized-source discovery have new recipes.
+Native regeneration therefore proceeds under N23. The [initial policy](whole-book-current-execution-policy.json)
+refused combined preparation and request capacity at 2 GiB. The [3 GiB retry policy](whole-book-prepared-execution-policy.json)
+was superseded after an established interruption. The [workstation book policy](whole-book-host-execution-policy.json)
+permits 16 GiB for this invocation. The independent limits on input rows, packet and reply bytes
+remain explicit. The certified 518-page capture passed the five native frozen-build checks, published
+on canonical development and appeared as fulfilled in the pinned public demand read.
+The 16 GiB invocation later settled failed after a cooperative interruption of its stalled
+composition binding. It retained the original capture, organization, the 29-region inventory
+and the completed sentence, formal and other regional products. An independent process check
+found the owned workers retired, and the remaining native leases expired. The N29 archive
+comparison established a changed capture recipe for regeneration and the same sentence and
+formal-evidence recipe identities for exact eligible reuse.
+[Managed runs](../../../plans/declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
+
 The [construction comparison](compare_retained_book_construction.py) consumes an exact retained
 whole-book demand id. It requires the complete admitted source population and matching native
 formal, sentence and construction products. It authenticates the captured preparation source

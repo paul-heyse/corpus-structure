@@ -154,6 +154,13 @@ change, which is real in a tree that agents edit concurrently. A long-lived proc
 code it imported and refuses, with a restart instruction, once a custody source changes. It
 never re-imports silently.
 
+The whole-book path exposed one request-local mutable premise in the reusable CPU worker.
+Dispatch now binds cancellation to the exact slot and generation for each invocation. Runtime
+capture still authenticates the code and shared worker owners. Focused cases on a real spawned
+worker exercised repeated submissions, cancellation, reuse and streamed replies. The
+[coordinator](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
+owns the book and native receipts.
+
 ### Mechanism 3 — the prepared immutable source view
 
 PE-F01 and PE-F02 share one owner, factored out of the existing `PreparedNativeSource`
@@ -386,6 +393,15 @@ Keep the same population and attribution checks for PE-S29, S31 and S32 producti
 PE-S08 source removes repeated dependency identity and member inventory work. The real two-region
 PM2 journey passed within the existing per-test timeout at N14. The whole-book PE-S33 comparison
 remains open.
+
+**PDF inventory correspondence · 2026-11-18.** The current whole-book publication processed
+10,545 access rows, with one parent array containing 6,141 child references. The previous
+inventory guard expanded the full parent array for each child while checking its stored
+backpointer. The revised typed guard materializes the scoped parent/child relation once for
+both existence checks. It retains the product/revision scope, duplicate existence semantics,
+and native malformed and missing-reference refusals. Sixteen actual PostgreSQL controls
+passed in the isolated source (`ebb58af26c0b4b6d9e2ef84e3101ca1e`). The current book published
+under its frozen N23 guard. The coordinator tracks the new guard's capture and publication.
 
 Each companion states the evidence for its slices. The common rules:
 

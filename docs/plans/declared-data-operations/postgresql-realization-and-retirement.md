@@ -429,14 +429,40 @@ archive scratch/publication routines. It uses captured physical and PDF domain s
 exact dependency selection and access effects. The old execution-namespace selection is gone.
 Current typed recognition observations retain their own live occurrence and relation storage.
 Captured CPU basis and reply authority, artifact, definition and contextual admission, install
-triggers and observation privileges now use typed programs. N23 native replay and matching
-application acceptance follow the source integration.
+triggers and observation privileges now use typed programs. N23 native replay and both matching
+applications passed on stage and canonical development. The genuine protected event fitting,
+issuance and ordinary scoring journey passed, along with spool producer and contributor checks.
 
-The rich and structural admission owners and remaining authoring-maintenance statements still
-contain inline SQL. Convert their maintained paths at coherent owner boundaries. Preserve
-frozen migrations, independent test controls and explicitly submitted read-only SQL.
-Qualification covers each deployed native/application pair. The final DDO-12 union has its own
-assembled acceptance boundary. [Deployment and verification](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
+N24 generates rich input correspondence, producer guards, preparation, proposals and full
+admission from captured types and native programs. Structural statements, dossier admission and
+evaluator issuance share captured types and generated native programs. The written routine
+bodies they supersede are removed. Stage native and matching application admission passed.
+The actual structural author-to-dossier and detached export passed. The rich mutation checks
+are being narrowed to the necessary native work after a test timeout.
+
+N25 shares archive scratch definition and custody between static authoring and native runtime.
+Physical table, index, CHECK, defaults and row-type authoring use typed metadata and catalog
+observations. The exact archive and ACL guard SQL are preserved. Fresh target installation and
+successor controls passed. The remaining inline statements are in replay framing, installation
+and runtime adapters. Preserve frozen migrations, independent test controls and operator-submitted
+read-only SQL.
+
+N26 uses a materialized, filtered archived-class projection for exact contract lookup and a
+materialized PDF access-edge relation for the two inventory completeness directions. N27
+shares the validated completion payload digest with the generated seal projection. Draft
+settlement and historical publication still validate their respective exact evidence. N27
+stage native and application deployment, activation, and five stored-seal and historical
+corruption controls passed. DDO-12 owns assembled qualification.
+
+N28 attaches unfinished equivalent work to the active project capture at the native generation
+boundary. The transaction shares the project lock with selection of the active release. Native
+leases and retained intents preserve their original attempt and source custody. N29 shares typed
+catalog verification framing between rollback-only authoring and deployed checks. Both reuse the
+original frozen predicates. Function fingerprint lookup uses the catalog query model, preserving
+requested order and missing identities. The actual fresh target, frozen replay and ACL journey
+passed. Remaining authoring includes the fresh-root current-database TEMP grant framing and
+the typed replay and installation boundaries already identified above.
+[Deployment and verification](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
 ### Broader conversion mechanisms · 2026-11-17
 

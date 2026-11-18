@@ -1,6 +1,6 @@
 # Target-native adoption and qualification
 
-**Accepted target amendment · 2026-11-15. N18 development cutover verified 2026-11-18. Qualification open.** DDO-00 preparation receipts
+**Accepted target amendment · 2026-11-15. N23 canonical original custody verified 2026-11-18. Qualification open.** DDO-00 preparation receipts
 remain dated evidence; DDO-11 owns adoption/retirement and DDO-12 assembled qualification.
 The coordinator owns state and source-qualified Domain-model I09 disposition. This file retains its
 path; it no longer requires preserving obsolete readers or completing all historical conversion.
@@ -38,8 +38,9 @@ identity. The book project activated the development capture at generation 1. Th
 chain moved the same OID from N13 to N18 after stage replay and application admission. The matching
 development application passed database and release admission, activated the book project at
 generation 2, and a fresh reader verified all 29 descriptors and retained byte hashes again.
-The same OID later advanced to N21, the matching application passed admission, and the book
-project advanced to generation 3 after another exact 29-original reader verification.
+The same OID later advanced to N21 and N23. Both matching applications passed admission.
+The book project advanced to generation 3 under N21 and generation 4 under N23. An independent
+reader verified all 29 original descriptors and hashes after each advance.
 Regeneration and reassessment of derived data are open. [Cutover receipts](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
 The whole-book qualification uses project `nce-grinstead-snell-full-book`, document
@@ -61,8 +62,22 @@ for the N21 successor demand
 That demand reused the already-published capture under its original request and published section
 organization and organized-source discovery. The invocation drained after some formal-evidence
 regions exceeded the 64 MiB reply limit. The same demand resumed with a 128 MiB reply allowance,
-the ordinary 256 MiB packet limit and the same 2 GiB owned-state limit. The declared family
-coverage and no-work repeat remain open.
+the ordinary 256 MiB packet limit and the same 2 GiB owned-state limit. N23 changes the capture,
+organization and organized-source discovery recipes. Its demand therefore starts with current
+recognition and retains prior products under their actual provenance. The first N23 run refused
+CPU preparation at 2 GiB. The 3 GiB retry was interrupted with established cleanup before the
+operator-directed budget increase. Retry `1dd5d45ded4b4ea38399fb121a44d28c` uses the same release,
+runtime and source with a 16 GiB book-specific owned-state limit. Its certified capture published
+all 518 pages through the normal demand on canonical development. It also published organization,
+discovery and regional results. A cooperative stop followed a stalled whole-view binding. The
+direct process check and lease expiry established the old invocation's retirement. Retained
+products and the failed receipt stay in native custody.
+
+The N29 stage application has a different PDF capture recipe. Its whole-book demand uses the
+original bytes under the current native basis. Sentence and formal-evidence recipe identities
+still agree with N23. Reuse depends on exact resolved input and product identity under current
+trust. Whole-view composition, the same-demand no-work repeat and PE-S33 still require
+complete regional coverage.
 [Managed receipts](../declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18)
 
 The operator now requires complete freedom from legacy code and prefers faithful target-native data

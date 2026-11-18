@@ -22,10 +22,10 @@ contract design participates in producer/native publication packages rather than
 
 ## One read projection
 
-**Audit repair boundary · 2026-11-15.** Current source-free rich contexts survive impact
-population acquisition. Graph and before/target impact continuation requests reject conflicting
-explicit read/cut pins before acquisition; matching/omitted pins preserve their selected snapshot.
-The coordinator owns CA-11/12 evidence and remaining native journey qualification.
+**Audit repairs · native Tested 2026-11-18.** Actual protected impact reads acquire project-owned
+subjects with explicit null originals. Native graph and impact continuations accept matching and
+omitted pins and refuse each conflicting read or cut pin. The coordinator owns CA-11/12 evidence
+and the remaining rich currentness and public qualification.
 
 **Domain PG I01/I02/I06/I07 extension · accepted 2026-11-14.** Build the selected read contract
 early with DDO-04/09 and consume useful typed native records from DDO-03. The
@@ -73,10 +73,10 @@ result/support export is authoritative and retains native cut/authority-leaf lim
 `interpretations review` / `inspect_private_proposals` read actual captured `DdoRichProposalValue`
 member descendants, preserving nominal kinds, original occurrence coordinates and `private_proposed`
 standing. Terminology lookup, portable schema export and explicit native authored inputs remain.
-These generic member rows do **not** implement grouped measurement interpretation. DDO-09/10 retain
-that query/grouping obligation: define the genuine selected interpretation kind and source population,
-then implement grouping against those contracts; never relabel private proposals as accepted knowledge.
-Computational provenance likewise does not establish scientific support/opposition.
+Grouped measurement interpretation has its own selected candidate populations and finite interpretation
+products. Its reader requires exact cut, scope, roots, authored products and installed implementation.
+It preserves private proposal standing. Computational provenance alone supplies no scientific
+support or opposition.
 
 The obsolete named `find` source/entity multiplexer and `FindAnswer` are deleted: its source
 branch imported the retired run-shaped search reader, while its entity fallback duplicated the
@@ -106,20 +106,14 @@ constraints as unassessed. `cli/query.py` and its `retained-query` transport are
 exclusion comparison and serving facade are also deleted. Current transport, continuation and
 implementation custody remain enforced by their shared owners.
 
-Remaining domain-query integration is explicit: the old compiled registry, `serve.journey` and
-historical SQLReader/domain query implementations still require consumer disposition and retirement.
-Source-decision journeys, contextual navigation and genuine mutual-neighborhood products, structural
-gaps, immutable dossier membership/display and grouped SourceRecord measurement interpretations
-remain DDO-09/10 work. Grouping must retain each interpretation's actual fields, alternatives, units,
-basis, reading events and evidence without Cartesian joins or a scientific-truth upgrade. A list of
-retrieval candidates does not establish mutual neighbors. Candidate-inspection and finite-interpretation
-facets without a current decoder remain explicitly unavailable; generic selected rows do not supply
-these domain semantics or permission to fabricate pins.
-
-The lower-level historical `semantic.record_queries` / terminology selection controls remain only
-while protected `evaluate.record_references` consumes that owner; its current protected successor
-must remove that last consumer and obsolete query code together. Native tests still using old
-`register_document` fixture chains are unqualified; do not repair them with fake run/task/view aliases.
+**Current selected queries · 2026-11-18.** Source-decision, mutual-neighborhood, structural gap,
+dossier and grouped SourceRecord reads now have dedicated typed owners under `serve/`. The grouped
+reader preserves each source occurrence's alternatives, units, basis, reading events and evidence.
+The neighborhood reader requires the selected mutual-neighborhood product. The retired
+`serve.journey`, `semantic.record_queries` and `evaluate.record_references` routes have no live
+imports. Protected record references use selected snapshots and their current authoring owners.
+DDO-09/10 retain final qualification of these consumers and their cut, withdrawal and pagination
+semantics. Native tests with superseded fixture chains need current admitted inputs.
 
 Requests pin semantic selection revision, contracts, source and support/trust assessment snapshot.
 Cursors, continuation tokens, resource handles and cache keys bind those same identities for their

@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-18. The owned stage runs native N22 with its application active. Canonical development runs N21, and all 29 originals were verified after cutover. The budget-enabled whole-book successor reused the complete capture and published section organization. Remaining consumers, inline SQL authoring and DDO-12 qualification stay open.**
+**Status · 2026-11-18. Stage runs N29 at generation 26. Canonical development migrated to N29 native and the matching application is in preparation. The 16 GiB N23 book invocation retained its 518-page capture and 3,411 sentence occurrences across 20 of 29 regions. Whole-view composition and DDO-12 qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -814,7 +814,13 @@ uses a 128 MiB reply allowance, restores the ordinary 256 MiB packet limit and k
 owned-state limit. Resume `b187751f40684ab89a5ed36b3a67d3ee` reacquired the same demand and capture.
 Several additional native products published. Retained failed attempts exposed larger formal
 CPU and completion replies, a native product-publication statement timeout, and a captured spaCy
-profile mismatch. The downstream family fates, no-work repeat and PE-S33 remain open.
+profile mismatch. The captured model assets and tokenizer configuration match the installed
+selection. The archived lock and full distribution inventory identities differ from the installed
+runtime. The exact same-demand continuation requires the captured environment. The invocation
+recorded a failed physical retirement after a terminal interruption. Its remaining process was
+terminated after confirming the worker processes and application DB connections had gone. Three
+recorded worker claims expired under their existing lease fence. No completed products or prior
+attempt receipts were removed. The downstream family fates, no-work repeat and PE-S33 remain open.
 
 The exact N21 retry (`6d414accdd724b48800cef504934d4d8`) passed ordinary rich admission and
 its native negative controls. Real event scoring reached PostgreSQL settlement. The scorer
@@ -877,8 +883,247 @@ read the full canonical member list per member and normalized and decoded indivi
 repeatedly. The generated N23 guard traverses each exact array in ordinal order and reuses one
 normalized and decoded body for the same nominal, container and projection checks. Five focused
 controls passed (`6105cfb03d1d40328156b4999a2dd68c`), including missing and reordered members and
-atomic refusal. The original N23 preview preceded the change. The revised source requires
-fresh preview, candidate replay and actual publication verification.
+atomic refusal. N23 preview (`959eeba992524f5180fd6ddefb4450c7`), apply
+(`27c98615b52a4b9bb4599b6efd4e3cb6`), rollback candidate
+(`0669a7ba8b554316940292013ae0a2a4`), registration (`2fd518f983ca4f659a7102f2f00ea701`) and
+stage deployment (`acffe088a16d45f9b5e09fd30c8d26e1`) passed. The exact candidate replayed 42 native
+transitions and no ordinary effects. The original preview preceding the guard change is held
+(`182d4a05fbd44330b67c32b2918ffc66`). The true event fitter, parameter issuer, protected disclosure
+and ordinary scorer passed in `265e8eb86bbc4706ba8fb6a599a3514d`. The spool test in that mixed
+result initially read a private request table in setup. The corrected fixture takes the runtime
+from the selected build inputs and passed genuine producer/contributor admission, idempotent replay
+and wrong-membership refusals (`1413be94aada4812b3199a07a2a186f4`). `ci test review` covered seven
+of seven selected identities and recorded source-context differences between attempts.
+
+The six provider declarations now use observed lock and installed-distribution identities and
+complete authenticated asset receipts. Their original model, configuration and 97 artifact file
+digests matched. The wider preparation and contextual numerical selection passed 30 cases
+(`bfcacc47baad42caa534e273b36ca92d`). The refreshed stage application's preview
+(`98a67efeb81d46258819a8baf4134543`), apply (`804a7ef6725d4c90a5bdbe6f30fbde10`),
+candidate (`595c773eec0e4c91ab3b862db4eed8da`) and deployment
+(`f80467a6320e4f148f812e67fd72cb02`) passed, followed by database and release checks.
+Matching release `release:dafb0177a8e7359fe01e16f419376e92e6fe4bc30a392384824f385d93b55101`
+and runtime `runtime:724eb64c8d0b61a8bcdaa72ae90baf292dcfde179e97d6c18a24e0f158f7562a`
+are active at stage generation 22. The canonical native migration applied N22 and N23 through
+the normal exact-predecessor route on OID 131763263. Database-specific application preview
+(`df5e321879e345139605f65eb9145637`), apply (`fe4daa9bcbf14d52bb0fcebf833fe526`), candidate
+(`c59a25b3977e4090b01a5aff9b49459d`) and deployment (`0a0f642ce11b4a899ea68b81d6e5455f`)
+passed, followed by database and release checks. The book project's canonical activation reached
+generation 4, and a reader verified all 29 original descriptors and hashes against the same inventory.
+
+Authenticated archived N21 and N23 release models show changed definition and recipe identities
+for capture, organization and organized-source discovery. Those products need regeneration.
+The sentence and formal-evidence definition, recipe and eligibility identities match. Their
+future reuse still depends on the exact selected source inputs. Prior products remain retained.
+The [initial N23 book policy](../design_review/evidence/2026-11-16_ddo-current-native/whole-book-current-execution-policy.json)
+kept a 576 MiB input allowance, a 192 MiB reply allowance and one million source rows. Its run
+(`e6a9527714774bf4bca6364a5095b30f`) registered the demand and refused CPU preparation before
+recognition with cleanup established. One complete request reserves 1,811,939,328 bytes under
+those bounds. Simultaneous prepared schema custody exceeded the remainder of the 2 GiB budget.
+The [prepared book policy](../design_review/evidence/2026-11-16_ddo-current-native/whole-book-prepared-execution-policy.json)
+set a 3 GiB owned-state limit in retry `d6827b9d208f44ddb511466dda7c3a12`. That invocation
+interrupted with cleanup established. The operator confirmed the workstation can support a higher
+limit. The [16 GiB book policy](../design_review/evidence/2026-11-16_ddo-current-native/whole-book-host-execution-policy.json)
+applies to retry `1dd5d45ded4b4ea38399fb121a44d28c` for the same captured source and providers.
+It reacquired demand `demand:c2dc2750c6917f015cb8e6c712098f7c38a9f5306379bd961f0fd974758b1085`.
+The eight declared claims can reserve about 13.5 GiB at their maximum input and reply sizes,
+leaving the balance for prepared state. The current spool recorded all 518 unique page, candidate
+and raster records and a completed native reply and producer certification. All five protective
+checks committed for the exact frozen build. The pinned public demand read reports `fulfilled`
+for capture request `semantic-request:3dc8215e0904e6963b94d8e6fa3d963faf79b53970dffd00b3461a5198f13c57`.
+Section organization then reached `fulfilled`, and organized-source discovery attached. The
+owned recognition service exited and released its GPU residency after capture publication.
+
+N24 integrates typed rich preparation, proposal and admission correspondence, structural
+dossier and evaluator custody, and a CPU worker signal fix. The worker initializer leaves
+terminal interruption to the coordinator. Nine scoped lifecycle controls including a real
+POSIX process group passed (`a616d29f6b694464a7967513fdbf68bc`). The integrated source reports
+observed reply and draft sizes with their existing capacity bounds. Native/application replay
+continues on the owned stage. The [N24 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n24.yaml)
+passed preview `26b07e7eccc246f4b100d4456649270d`, apply `b7e3c2e99844472bb46716790ef3c6fb`,
+rollback candidate `d3c99480165f499ebb7731d5d9af662f`, registration `8e2a9944e1374888ac3eb5c816677c87`
+and deployment `28b786e68085419887cc5d3de5031027`. The candidate replayed 35 native transitions
+with zero ordinary or standalone privilege transitions. The exact frozen native admission SQL
+SHA256 is `33fd3b9e3fdbf8dd708ad35f899fc2d32dc55453a3ea00cb6db4331d214284e7`. Canonical
+development remains on the matching N23 application while the admitted book demand runs.
+
+The N24 stage application preview `73ef1e5066e44987b91777fd64f5e64a`, apply
+`be14d35fa1c04f9380e32bb89b60f432`, candidate `d24834dc65b347b88edf518500c87d1b` and deploy
+`90192578ebce4d38b72df8e21ee63479` passed. Independent `ci db check` and `ci release check`
+passed, and `ci release activate` advanced the bounded stage project to generation 23. Current
+stage tuple is `release:1b8c1952c68d69d7793f090d0ebc7bb8640d783a16d465a8cebf2b3682019bcd` and
+`runtime:66f15a04ff2eb23f9e7b428aadfcbfe3f7e638c155907fe0c30538930098fba6`.
+An independent archived-model read confirmed identical definition, recipe and eligibility
+identities between N23 and N24 for capture, organization, organized-source discovery, sentence
+and formal evidence. Any later reuse still requires exact selected inputs and retained support.
+
+The actual structural author, issuer, dossier, selected gap and detached export case passed in
+`0ce87619744e4ae1bd7c84ab21f0fa5d`. The same held run timed out the rich case at its first
+repeated rich mutation path, after positive publication and reading. The `--process-diagnostic`
+view on `ci test failures` exposes the bounded test timeout stack. Preserve all refusal
+expectations while checking independent mutations against the same active native claim and
+authentic completion. This avoids two repeats of the otherwise identical rich producer pipeline.
+
+**N25 source integration · 2026-11-18.** Shared archive scratch uses the captured archive
+table shape and typed creation, ownership and access effects in static authoring and runtime.
+Catalog normalization queries use the existing typed PostgreSQL catalog. Temporary CHECK,
+index and row type work follows the same captured table metadata via SQLAlchemy Core and
+pglast. The archive SQL bytes are identical. Typed NULL in ACL query projections removes a
+misleading compiler warning with identical generated guard bytes. Archive transport and shape
+controls passed 11 cases (`69bcd752d65a47139c754c2eeef62db3`). The actual fresh-target retry
+(`2a0f162ad8b54d52844884218bf852f4`) and actual row-type and successor controls
+(`593290386b204d87b88dd43f155bc61f`) passed. The first fresh-target run
+(`a67318bea612472898a380cf6782fe1c`) overlapped the conversion and is held with its import failure.
+The [N25 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n25.yaml)
+replayed exactly one native provenance descriptor transition and no ordinary or privilege
+transitions. Refreshed preview `903e572dc5a74a51a8c461720a247b4f`, apply
+`c59499e29c45412fbd05a88da64ae567`, rollback candidate `bac39be9e14f443bb337680e5e75ca8a`,
+registration `a09745dd5eb245c99a9df35ed0867f66` and stage deployment
+`965720a1f3ec4e2d9cfdb36ccc5dfdb0` passed. The prior preview `d369275fd2324589a5076d987b307b0e`
+preceded the typed NULL cleanup and is held. The 17 ACL and release guard controls passed
+(`3f3d5c3cecde4d95be9e046593725e60`). The exact NCE native list-host retry also passed on an
+isolated PostgreSQL host (`86f5803c2f21453298ac163c857744b1`). It used controlled recognition
+and preserved real native consumer scope and the clipped membership oracle.
+
+N25 application preview `5b76e3a959f34a15a96b19a44d65f0f0`, apply
+`b880282d125c4607a8f422ceb20d5b1b`, candidate `a86c06d712944f3e8e99c11ba92f5ac2` and deploy
+`dc15f12a608d4b05b82d4b4c7aae81ac` passed. The release, runtime and archive identities are identical
+to N24. `ci db check` refused the old native admission after the provenance transition. Normal
+deployment renewed the native admission and the separate database check then passed. The existing
+project activation remains bound to the same release.
+
+**N26 source integration · 2026-11-18.** The actual rich retry
+`2af372e9b4b049b989069e04eb6400bd` passed the grade-label refusal and reached policy authorization
+before failing its 120-second PostgreSQL statement bound in `sem.ddo_model_class_contract`.
+The archive lookup now parses one finalized artifact once and filters class owners and contract
+identities before joining. It preserves the exact one complete matching owner requirement. Four
+native grade guard controls passed (`bd2c96d7b3d94b279b0ed2146b77fadb`), including named and unnamed
+matches and independent missing finalization, wrong, incomplete and duplicate owner cases.
+Both live rich mutations are still due in the actual rich and support journeys. Their negative
+checks operate on borrowed active completions inside rollback savepoints instead of replaying
+three additional demand executions. The separate resolution-authority test remains.
+
+The same [N26 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n26.yaml)
+captures a typed fresh-root bootstrap and a set-wise PDF inventory guard. Root namespaces,
+history observations, purpose grants and table ownership use typed catalog and statement
+builders. The actual fresh-root installation and ACL case passed (`42864c93a281430da1c11b42f5019222`).
+The PDF guard expands scoped parent/child edges once for both backpointer existence checks.
+Sixteen actual PostgreSQL controls passed in the integrated worktree patch
+(`ebb58af26c0b4b6d9e2ef84e3101ca1e`). This source changes the captured PDF lowering inventory.
+The active N23 book retains its own release and runtime custody while N26 is verified separately.
+N26 preview `8c738876f51546b384bcd519cdca56dd`, apply `8f62dfb6073845bd84f3d94267bdc671`,
+rollback candidate `c789e611f11a45e4bd013669dd736616`, registration `14e7e99cc39e46b4b2e195e0c08cfff1`
+and stage deployment `807d9b5e7cbc43c3851a379856694465` passed on stage OID 130661481. The exact
+candidate replayed 12 native transitions and zero ordinary or standalone privilege transitions.
+
+The N26 application preview `dfb8ff00911147bc9ace86a3847a2df0`, apply
+`eb485a1096f54907a5ebca3e2a179b78`, candidate `2223591cdaf744cf94be21e5ea675930` and deployment
+`17d653eb8f7e43bb9f4a485dfea58b24` passed. Separate `ci db check` and `ci release check` passed.
+Activation advanced to generation 24 using the exact N26 source after a mixed-checkout activation
+attempt correctly refused the newer compiler's native digest.
+The exact release is `release:fcaf7d427d87302cc2f0ecec73285197ae016d4e52ec6b9f1055e272f4350e05`
+with runtime `runtime:74ad766e8ee9b70d3a0ef0a92f9caf3510522c0d92ef80a179601275ffcf76e4`.
+Actual PDF freeze, validation, seal and retry and the logical family contract without a port-body
+projection passed (`b4f36707ab3c4ae59241e9361de8ae42`). The actual rich journey passed with scoped
+grade-label, rich-decision, missing-CPU and substituted-resolution controls in the held mixed
+result `8787de119c5f43b39420b80edb256aef`. The support test in that result tried to open the
+unscoped protected fitting frontier through an ordinary purpose. Its retry
+`f4e3a32a873f4ce4932c5ed08f0f469e` uses the exact scope-pinned authorization product and its typed
+selected entry, with the original support and revocation assertions intact. That attempt refused
+mixed N26/N27 fixture admission during setup. The matching N27 retry
+`f8fa72d4cc324e6fb13b3d5529f30ea2` reached native revocation after publishing and reading both
+actual reading supports. The old continuation was refused at `ddo_require_read_epochs` with
+SQLSTATE `23514`. The test expected the later query-level error text. A private native retry
+`3ac6b20e39ae45eba61e9e27edb2a731` passed with the early demand-read refusal and SQLSTATE asserted.
+The attempted same-source mount retry `e85d2ddb6de5461bb1611822c21a4a4a` refused private host
+bootstrap before collecting the test because the namespace could not create the PostgreSQL socket.
+
+**N27 settlement integration · 2026-11-18.** The N23 book expanded a real downstream population.
+Sentence-region attempts hit the existing 120-second PostgreSQL settlement limit inside
+recursive canonical JSON. The retained-intent write calculated the same payload digest for
+its stored digest and validation seal. The [N27 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n27.yaml)
+computes it once and shares the generated seal projection with the independent historical check.
+Intent identity, the digest algorithm and publication revalidation keep their existing authority.
+Rollback-only candidate `9d07de54d89d4cd6815ee98a71a0559a` replayed eight native effects.
+Registration `3f797a74fc4a46c79df689f276600322`, stage deployment
+`29580fefed314891937ffa5c4462047b` and the five stored-seal and historical-corruption controls
+`215ea070fec44bb0bdc2950a210eea5c` passed. Matching application deployment
+`547a2b79e3c94536a45bb215799046ef`, separate database and release checks, and stage activation
+at generation 25 passed for `release:6dcca141884257e781056e8b5ecb9cbda0f4431d43fb0e1269598d8d8c1e9227`
+and `runtime:39b1ad54f97d3d7471a9f613e7bf9a55a8988f5f1818a606bf3d2393f2f737fd`.
+
+**N23 book frontier · 2026-11-18.** The expanded population has 29 organized regions. The final
+read after the invocation ended counted 3,411 persisted native sentence occurrences across the 20
+completed source-native regions, with 1 to 1,035 sentences per region. It also retained 20 canonical
+projections, nine reused N21 formal derivations, six math extractions, five normalizations, four HanLP products
+and one construction product. Nine sentence attempts timed out in settlement. Twenty unfinished
+formal requests attached to the earlier native capture. The observed older subset held one
+unresolved completion intent and no active leases. Whole-view composition refused `sequence-ordinal`
+for source members without population positions and `binding-covers` for missing families.
+Its final binding query was still running after six minutes with no new derivation. The exact
+coordinator received a cooperative interrupt. Held result `1dd5d45ded4b4ea38399fb121a44d28c`
+settled failed with a nested physical-join uncertainty. The outer account described cleanup as
+established. An independent process check verified that the coordinator, PostgreSQL query, two
+CPU workers, resource tracker and HanLP worker had exited. The two remaining N23 leases expired.
+
+**N28 attachment and captured composition · 2026-11-18.** The active project release may admit a
+successor generation for equivalent unfinished work without an active lease or valid retained
+intent. A shared project lock orders capture selection with activation. The older generation,
+fences and original-use evidence remain intact. Completed products retain their provenance and
+standing. Retained intents use the native claim, adoption and publication path with no resolution
+of the archived executable basis. An action change at claim time releases the acquired attempt
+before any unprepared work starts.
+
+Captured composition treats all eight independent regional inputs as sets. The composition entry
+points order authenticated source coordinates and product identities for deterministic presentation.
+Declared sequence inputs still require population positions. The binding compiler lowers independent
+nullable selections role by role, preserving comparison unknowns and keeping the relational path
+for required or interdependent roles. The 82 binding and statement controls passed in
+`1a87bdc6851a4e7e92fd7e11c02a7e0e`. The five executor and permutation cases passed in
+`4445da8d7116429d82c90a9fbe9e8556`.
+
+The [N28 native request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n28.yaml)
+produced nine native effects. Candidate `a5e194488fdf4de885a158c959edcf6e` replayed in rollback-only
+custody. Registration `6f6d282c38d1428ba83ae104c2de0749` and stage deployment
+`0b6fbe63cf04470bb568caf1b33bbca7` passed. All eight native cross-release cases passed in
+`2f72731ae5c443fa9b619838c936ccdb`, including actual publication of the retained intent without
+resolving the archived executable basis. The separate composition case reached a missing source
+closure dependency. The ordering helper now belongs to the captured view source and its existing
+view-assets contract. Static capture and presentation passed (`e4a41c0a621f435596e96646f557af85`).
+The bounded actual published-source fan-in retry `0c9a6b78093e48ab94dec7b5ccc88d2b` is running.
+Earlier setup refusals `b835d7a52d3f48959a017522781fe584` and `95d2f8d225964d30aecd1bcecefbe933`
+retain their unmatched installed capture context.
+
+**N29 catalog framing and book execution repairs · 2026-11-18.** Fresh installation and
+deployment verification share the generated native catalog harness. Frozen predicates retain their
+original bytes. The function fingerprint lookup uses the catalog query model and preserves requested
+order and missing entries. Focused controls `bd6613641a81488f95b767abbc4e95ec` and the actual
+fresh-target installation and ACL journey `a6c08b4e7a40477dabd3ce8d420a99dd` passed.
+The [N29 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n29.yaml)
+replayed nine native effects (`dd5d4bce80e64f8092df1be3f2403752`), registered the frozen revision
+(`3a05dc597db246a78fdad6c7c2ccaa53`) and deployed stage (`16e5153df53e4fdb8c3b15a8674b0ee5`).
+The matching application `02e840dccf3440f5b56678712773aa88`, `ci db check` and `ci release check`
+passed on stage. Activation advanced the bounded project from generation 25 to 26
+for `release:39b654165bfeec988e53c9d96871e59038eed3281dd8b08713ff05d48cacff3f` and
+`runtime:e639e1aaf3f7ae23c30bedf90839f3a4c3d72676aa1891f9afefd4a33f940fec`.
+Canonical `ci db migrate --expected-predecessor semantic_ddo_pe_n23` advanced the same canonical
+database OID 131763263 to N29 after confirming the previous book workers had exited and the
+remaining leases expired. Application admission and original readback are pending on that target.
+
+Positioned construction validation now checks authenticated native and synthetic projection pieces,
+including zero-width anchors and the exact contextual pointer. The focused actual producer and
+forgery control passed (`f974ee4895954253b5e10b588050b4d7`). CPU dispatch binds the exact
+cancellation slot and generation to each invocation. The former rebinding of a watched module
+global reproduced the book's runtime-slice refusal (`9269b3ddd9494a6d9885e7965b61afdd`). The nine
+repeated-worker, cancellation, stream and coroutine controls passed (`59123cb5b90a4e4288ffdcb3d6966922`,
+`6a911059dc674f6d81adde33f2f16a06`). Managed operations classify uncertainty nested in execution
+error groups and preserve unresolved custody (`cd8f6700b3ef4c0ab6c4ba55071fc839`, 15 controls).
+
+Authenticated N23 and N29 archives show changed PDF capture, organization, discovery and
+construction recipes. Sentence and formal-evidence definition, eligibility and recipe identities
+agree. Regeneration uses the original 518-page PDF and the 16 GiB policy. Equivalent completed
+products and retained intents still require exact binding and current trust for reuse. The
+full downstream coverage, unchanged repeat and PE-S33 comparison remain open.
 
 ## Production-efficiency integration · 2026-11-17
 
@@ -3138,13 +3383,13 @@ coherent integrated native source; prior previews establish only their recorded 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |
 |---|---|---|
 | DDO-00 | ADR-0109 accepted; DESIGN B4/B5 and affected owners reconciled | Complete operation-by-operation disposition with migrated callers; previous census is evidence, not mandatory historical recovery scope. |
-| DDO-01/02 | Current-only v8 codec; checked subject definitions/discovery relations; descriptive slice prose excluded from recipe determinants. Targeted controls below | Mandatory subject-definition references, checked enforcement and scoring/encoder numerical policies integrated; complete coverage/remaining numerical contracts and one operation authority remain; CA-10 repair is integrated with scoped controls; native capture/qualification remains. No closed CA finding is automatically reopened. |
-| DDO-03/04 | Typed native/binding/support/replay foundation and CA-08/09 scoped native repairs Tested2026-11-14 | I03 generated fate/transition consumption and explicit terminal mappings; I04 shared prepared capability integration; new contracts reach native/generated callers. |
-| DDO-05/06 | Frozen demands/discovery/claims and bounded native execution; family/provider qualification incomplete | I01 subject relation discovery; I03 typed status conversion, preserve physical attempt/lease/recovery. No name-dependent fan-in or unmapped outcome fallback; CA-13 repair has scoped physical controls; native/family qualification remains. |
+| DDO-01/02 | Current-only v9 codec, checked subject definitions and discovery relations, scoped enforcement and numerical contracts, and the CA-10 repair. | Complete remaining coverage, numerical contracts and operation authority. Qualify affected native consumers against the current capture. |
+| DDO-03/04 | Typed native binding, support and replay. Generated fates and explicit terminal transitions. Shared prepared capability foundation. | Qualify the current native and generated consumers, including linked CA and family conditions. |
+| DDO-05/06 | Frozen demand and discovery, typed claim state, bounded native execution and scoped CA-13 repair. N28 qualifies cross-release state and retained reconciliation. | Complete family, provider and recovery qualification at the active capture. Verify complete coverage at the book and ordinary consumer entry points. |
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
 | DDO-09 | Source currentness/impact and graph foundations have bounded receipts. The copied-task writer path is retired. CA-11/12 Python repairs have scoped controls. | I03 deliberate fate partition and I05 rich currentness/reuse qualification, including stale-cut refusals and source-free populations. |
 | DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection have focused receipts. Structural withdrawal/detached export and ordinary rich admission passed. Retained runtime readers require explicit release/runtime pins. | I06 remaining artifact/variant and public/native continuation qualification, including rich named queries, references and grading. Keep target-model difference distinct from source drift and currentness. |
-| DDO-11 | Canonical development runs N21 and its book project is active at generation 3. The owned stage runs N22. All 29 originals were verified across nine projects, and the former database is fenced. | Settle whole-book regeneration, verify remaining consumers and retire superseded routes. Regenerate changed-basis results and retain inert historical custody where useful. |
+| DDO-11 | Stage runs N29 at generation 26. Canonical development migrated to N29 native. All 29 originals were verified across nine projects after the N23 cutover. The former database is fenced. | Admit the N29 application and recheck original custody, finish book regeneration, and verify remaining consumer and retirement scope. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
 The [current execution](#scoped-acquisition-and-native-authoring-integration--2026-11-18) owns
@@ -3405,8 +3650,8 @@ new work without rewriting previous failed/passed receipts.
 | DDO-CA-08 (F02/F10/F11) | **Closed at DDO-03/04 boundary; scoped Tested, 2026-11-14.** Native selected provider identity comes from authenticated producing episode/release/recipe and captured profile attestations; candidate/request/admission use the same contract projection. Historical missing profiles remain unavailable. | Native provider-identity3 passed exact retry `c584d326d3ae46f59962b0fc5b9ba396`, including positive attachment, forged identity refusal and missing-producing-profile refusal. Runtime artifact controls passed in the initial31 cohort. `semantic_ddo_found_v1` is registered, not deployed; actual provider inference/family qualification remains separate. |
 | DDO-CA-09 (F07/F11/F13) | **Closed at DDO-04 boundary; scoped Tested, 2026-11-14.** One finite recursive support walk covers original/computational and selected replacement-use scopes for acquisition, continuation and sorted publication locks. Complete-support containment is retained. | Three-source/two-hop and rebound cases passed `20359b7ebaae4d09af4d18390bd97157`: unchanged continuation, old-pin revocation refusal, upstream nonzero epoch, C-scope locks and authentic retained-intent publication refusal with unchanged derivation counts. Earlier no-work-only variants are not the publication evidence. Remaining source discovery failure is separately open. |
 | DDO-CA-10 (I01; F04/F12) | **Repair integrated; scoped Tested2026-11-15; native acceptance pending.** Original source-established diagnosis: `data_operation_compilation.py:1724–1745,2132–2218` accepts a resolved subject identifier kind but definition/recipe issuance fingerprints only its name unless also a role/parameter kind. A changed standalone identifier kind can retain the recipe; incomplete kind closure need not withhold it. Maintained subjects inspected use primitive:string; no current-family collision was demonstrated. | DDO-01/02, DDO-03 native correspondence: bind the complete subject identifier-kind contract into definition/recipe identity and withhold reusable identity for incomplete closure. Independently check changed, incomplete and unrelated kinds, then reconcile native admission/projection. This is not CA-01's captured-builtin issue. |
-| DDO-CA-11 (I05; F08/F09) | **Repair integrated; scoped Tested2026-11-15; native acceptance pending.** Original source-established diagnosis: `change_impact.py:28,568–574` requires non-null `PopulationMember.original_source`, while actual rich invocation requires source-free project context (`rich_invocations.py:207–211`). Acquiring valid rich obligations raises validation errors instead of giving an impact/currentness result. | DDO-09 with rich I05: consume nullable current contexts throughout population acquisition/key/comparison; independently check source-free before/target populations and appropriate current/unknown results. |
-| DDO-CA-12 (F09; NetworkX I05) | **Repair integrated; scoped Tested2026-11-15; native acceptance pending.** Original source-established diagnosis: `graph_inspection.py:449–456` and `change_impact.py:659–685` exclude read/cut pins from request identity then overwrite explicit pins from a cursor without equality checks. A valid prior cursor plus conflicting explicit snapshot silently selects the cursor snapshot. | DDO-09/10: refuse conflicting explicit graph and before/target impact read/cut pins before restoring omitted pins, as current rich/composite readers already do. Independently check wrong-read/wrong-cut for every side and valid matching/omitted-pin continuation. |
+| DDO-CA-11 (I05; F08/F09) | **Repair integrated; native acquisition Tested 2026-11-18.** Actual protected reads acquired two project-owned subjects with explicit null originals in before and target populations, preserved their scope and reported the correct awaiting state (`011c37441f84406fbd53c9ef3b002101`). | DDO-09 with rich I05 owns the remaining real rich reuse and currentness journeys, including fulfilled and withdrawn products. |
+| DDO-CA-12 (F09; NetworkX I05) | **Closed for the pin-conflict regression, native Tested 2026-11-18.** The actual graph and before/target impact cursors preserve matching and omitted pins. All six individual read/cut conflicts refuse (`011c37441f84406fbd53c9ef3b002101`). | DDO-09/10 retain broader selection and transport qualification in the final union. |
 | DDO-CA-13 (I04; F13) | **Repair integrated; scoped Tested2026-11-15; native acceptance pending.** Original source-established diagnosis: `orchestrate/data_operations.py:1062–1063` sizes admission using total bytes although `cpu_execution.py:586–588` already charges the retained capsule. With capsule S, reservation R, 0<S<R, budget=2R and max_claims>=2, two ready schema-prepared scalar requests over-admit; the second raises at `data_operations.py:851` before its try block, aborting the invocation. | DDO-06/shared prepared execution: make the existing budget and admission window account for retained preparation or defer reservations safely. Check a genuine nonempty capsule at the boundary, sibling progress, deferred work and complete retirement; no new estimator or accounting system is required. |
 
 ### Domain-model review disposition · accepted 2026-11-15
@@ -4676,9 +4921,12 @@ before subsequent worker merges. Reassess affected checks after integration.
 
 Full provider/book/series qualification remains **not_run**, with functional scope still open.
 
-### Remaining functional scope and next execution
+<a id="remaining-functional-scope-and-next-execution"></a>
+### Functional obligations at the 2026-11-13 resume
 
-These are concrete unfinished obligations, not merely a request to run a final test suite:
+This section records the scope at that resume. Current package standing and next work are in
+the [execution queue](#execution-queue-and-readiness) and the
+[current native integration](#scoped-acquisition-and-native-authoring-integration--2026-11-18).
 
 **Execution resumed · 2026-11-13.** The operator approved execution of all remaining scope,
 including DDO-12. Preserve the persistent database until coordinated DDO-11 cutover; native
