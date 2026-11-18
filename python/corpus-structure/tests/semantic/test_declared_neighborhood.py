@@ -107,6 +107,7 @@ def test_neighborhood_kernel_is_generated_with_complete_typed_cte_and_parameter_
     body_option = next(option for option in routine.options if option.defname == "as")
     assert isinstance(body_option.arg, tuple) and isinstance(body_option.arg[0], ast.String)
     body = body_option.arg[0].sval
+    assert body is not None
     (statement,) = parse_sql(body)
     assert isinstance(statement.stmt, ast.SelectStmt)
     assert statement.stmt.withClause is not None and statement.stmt.withClause.ctes is not None

@@ -119,7 +119,7 @@ def contextual_neighborhood_sql() -> str:
                     arg=call(
                         "pg_catalog",
                         "jsonb_extract_path",
-                        variable(str(vector_rows.name), "value"),
+                        variable(vector_rows.name, "value"),
                         native_literal("values"),
                     ),
                     typeName=pg_type("text"),
