@@ -12,7 +12,7 @@ from sqlalchemy import Connection
 
 from .native_objects import NativeDefinition, definition_from_sql
 from .prepared_sql import prepare_sql
-from .source_set_native import source_set_native_sql
+from .source_set_native import binding_source_native_sql, source_set_native_sql
 from .types import SourceArtifact
 
 _SQL = Path(__file__).with_name("sql") / "data_operation_bindings.sql"
@@ -29,7 +29,7 @@ def binding_native_sources() -> tuple[SourceArtifact, ...]:
 
 
 def binding_native_sql() -> str:
-    return source_set_native_sql() + "\n" + _SQL.read_text()
+    return source_set_native_sql() + "\n" + binding_source_native_sql() + "\n" + _SQL.read_text()
 
 
 def binding_native_definitions(

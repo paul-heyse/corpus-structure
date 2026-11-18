@@ -16,6 +16,7 @@ from sqlalchemy import (
     or_,
     select,
     true,
+    tuple_,
 )
 from sqlalchemy.dialects.postgresql import JSONB, array
 from sqlalchemy.sql.elements import Grouping
@@ -157,3 +158,77 @@ def source_set_native_sql() -> str:
         )),
     ), locals_=(Local("named", pg_type("record")), Local("entry", pg_type("jsonb")), Local("acquired", pg_type("jsonb")), Local("proof", pg_type("jsonb")), Local("mode_", pg_type("text")), Local("entries_by_address", pg_type("jsonb")), Local("proof_addresses", pg_type("jsonb"))))
     return ";\n".join((reference_check, meaning, proof_match, validation)) + ";\n"
+
+
+
+def binding_source_native_sql() -> str:
+    role = core_variable("roledef", JSONB())
+    row = core_variable("row_value", JSONB())
+    source_sets = core_variable("source_sets", JSONB())
+    consumer_source = core_variable("consumer_source", Text())
+    consumer_subject = core_variable("consumer_subject", Text())
+    population = core_variable("population", JSONB())
+    name = core_variable("name", Text())
+    scope = core_variable("scope", JSONB())
+    target = core_variable("target", Text())
+    path = core_variable("path", Text())
+    part = core_variable("part", Text())
+    association = core_variable("association", JSONB())
+    empty_object = cast(literal("{}", Text()), JSONB())
+    empty_array = cast(literal("[]", Text()), JSONB())
+    common = (("roledef", "jsonb"), ("row_value", "jsonb"), ("consumer_source", "text"), ("source_sets", "jsonb"))
+
+    def routine(name_, params, steps, *, locals_=(), strict=False):
+        return function("ops", name_, parameters=tuple(Parameter(key, pg_type(type_)) for key, type_ in params),
+            returns=pg_type("bool"), body=Block(steps, locals_), strict=strict, volatility="immutable", search_path=("pg_catalog", "pg_temp"))
+
+    named_locals = (Local("name", pg_type("text"), role["support"]["source_set"].astext), Local("scope", pg_type("jsonb")))
+    entries = func.pg_catalog.jsonb_array_elements(scope["entries"]).table_valued(column("value", JSONB())).render_derived(name="source_entry")
+    entry = entries.c.value
+    fields_ = ("product", "member", "subject", "subject_definition", "original_source")
+    source_address = routine("ddo_binding_source_address", common, (
+        If(name.is_(None), (Return(row["original_source"].astext.is_not_distinct_from(consumer_source)),)),
+        Assign("scope", source_sets[name]),
+        If(func.jsonb_typeof(scope["entries"]).is_distinct_from("array"), (Return(literal(False)),)),
+        Return(exists(select(1).select_from(entries).where(
+            tuple_(*(entry[key].astext for key in fields_)).is_not_distinct_from(tuple_(*(row[key].astext for key in fields_))),
+            entry["analyzed_scope"] == row["analyzed_scope"], func.ops.ddo_semantic_source_reference(entry["reference"], type_=Boolean()),
+        ))),
+    ), locals_=named_locals)
+    references = func.pg_catalog.jsonb_array_elements(func.coalesce(row["support_references"], empty_array)).table_valued(column("value", JSONB())).render_derived(name="producing_reference")
+    reference = references.c.value
+    source = routine("ddo_binding_source", common, (
+        If(~func.coalesce(func.ops.ddo_binding_source_address(role, row, consumer_source, source_sets, type_=Boolean()), False), (Return(literal(False)),)),
+        If(name.is_(None), (Return(literal(True)),)),
+        Assign("scope", source_sets[name]),
+        Return(or_(scope["acquisition"]["kind"].astext == AllAdmissibleAcquisition.model_fields["kind"].default,
+            exists(select(1).select_from(references).where(reference["kind"].astext == "computation", func.ops.ddo_source_set_proof_matches(
+                scope, row["product"].astext, row["member"].astext, reference["derivation_id"].astext,
+                reference["admission_use_id"].astext, row["support_evidence"]["producer_output"], type_=Boolean(),
+            ))),
+        )),
+    ), locals_=named_locals)
+    product = population["evidence"]["product_id"].astext
+    population_product = routine("ddo_binding_population_product", (("population", "jsonb"), ("row_value", "jsonb")), (
+        If(population["projection"].astext == "qualified-context", (Return(literal(True)),)),
+        If(~func.coalesce(population["evidence"], empty_object).has_key("product_id"), (Return(literal(True)),)),
+        Return(and_(func.jsonb_typeof(population["evidence"]["product_id"]) == "string", func.nullif(product, "").is_not(None), product == row["product"].astext)),
+    ), strict=True)
+    source_target = func.coalesce(role["subject_target"].astext, "subject")
+    parts = func.unnest(func.string_to_array(func.substr(path, 2), "/")).table_valued(column("value", Text())).render_derived(name="subject_path")
+    subject = routine("ddo_binding_subject", (("roledef", "jsonb"), ("row_value", "jsonb"), ("consumer_subject", "text"), ("consumer_source", "text")), (
+        If(role["subject_target"].astext == "source-set", (
+            If(or_(role["support"]["source_set"].astext.is_(None), role["subject_field"].astext.is_not(None)), (Raise("source-set association lacks exact declared scope", "P0001"),)),
+            Return(literal(True)),
+        ), (If(source_target == "original-source", (
+            If(or_(role["subject_field"].astext.is_(None), consumer_source.is_(None)), (Raise("original-source association lacks exact context", "P0001"),)),
+            Assign("target", consumer_source),
+        ), (If(source_target == "subject", (Assign("target", consumer_subject),), (Raise("unsupported role subject association target", "P0001"),)),)),)),
+        If(role["subject_field"].astext.is_(None), (Return(row["subject"].astext == target),)),
+        Assign("path", role["subject_field"].astext), Assign("association", row["meaning_body"]),
+        If(func.left(path, 1) == "/", (ForQuery(("part",), select(parts.c.value), (
+            Assign("association", func.data.ddo_field(association, func.replace(func.replace(part, "~1", "/"), "~0", "~"))),
+        )),), (Assign("association", func.data.ddo_field(association, path)),)),
+        Return(and_(association[0].astext == "string", association[1].astext == target)),
+    ), locals_=(Local("association", pg_type("jsonb")), Local("path", pg_type("text")), Local("part", pg_type("text")), Local("target", pg_type("text"))))
+    return ";\n".join((source_address, source, population_product, subject)) + ";\n"
