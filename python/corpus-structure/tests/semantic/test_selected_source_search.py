@@ -78,13 +78,12 @@ def test_search_continuation_carries_exact_score_and_population_identity():
 
 @pytest.mark.parametrize("surface", ["main", "retained"])
 def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(
-    monkeypatch, surface
+    monkeypatch, semantic_bare_engine, surface
 ):
     from contextlib import nullcontext
 
     import anyio
     from fastmcp import Client
-    from sqlalchemy import create_engine
 
     from corpus_structure.intervene.semantic_server import build_retained_reader_server
     from corpus_structure.serve.native_source import NativeSourceRequest
@@ -124,16 +123,14 @@ def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(
         )
 
     monkeypatch.setattr("corpus_structure.serve.source_search.search_source", search)
-    engine = create_engine("sqlite://")
-
     from corpus_structure.intervene.server import build_server
     from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.demand_results import CutSelection
 
     server = (
-        build_server(project="p", demand=pin.demand_id, read_engine=engine)
+        build_server(project="p", demand=pin.demand_id, read_engine=semantic_bare_engine)
         if surface == "main"
-        else build_retained_reader_server(project="p", read_engine=engine)
+        else build_retained_reader_server(project="p", read_engine=semantic_bare_engine)
     )
 
     async def journey():
@@ -160,7 +157,4 @@ def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(
             )
             assert refused.is_error
 
-    try:
-        anyio.run(journey)
-    finally:
-        engine.dispose()
+    anyio.run(journey)

@@ -141,11 +141,17 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
             assert schema_load(kwargs["payload_schema"]) == payload_family.json_schema
             if failure is not None:
                 raise failure("native stopped")
-            from corpus_structure.ingest.pdf_streaming import _ref
+            from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
             from corpus_structure.semantic.pdf_certification import PdfProducerCertification
 
             certificate = kwargs["record_root"].parent / "controlled-certificate.json"
             access = kwargs["record_root"].parent / "controlled-access.jsonl"
+            options = b'{"fixture":"prepared-native"}'
+            for filename, content, family in (
+                ("controlled-preparation.json", options, "native_preparation"),
+                ("controlled-completion.jsonl", b"{}\n", "native_completion"),
+            ):
+                kwargs["on_replay"](_atomic_bytes(certificate.parent / filename, content, family))
             certificate.write_bytes(
                 PdfProducerCertification(
                     "d" * 64,
@@ -164,10 +170,10 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
             return pdf_stream_types.PdfStreamReply(
                 "success",
                 (),
-                b"{}",
+                recipe.to_bytes(),
                 (),
                 (),
-                effective_options=b'{"fixture":"prepared-native"}',
+                effective_options=options,
                 certification=_ref(certificate, "producer_certification"),
                 access_replay=_ref(access, "producer_access"),
             )
@@ -257,7 +263,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
         "read_pdf_producer_basis",
         lambda *a, **k: SimpleNamespace(model_dump=lambda **options: basis),
     )
-    monkeypatch.setattr(calls, "register_pdf_spool_producer", lambda *a, **k: "controlled-producer")
+    monkeypatch.setattr(calls, "register_pdf_spool_producer", lambda *a, **k: "7" * 64)
     monkeypatch.setattr(calls, "register_pdf_spool_contributor", lambda *a, **k: None)
     from corpus_structure.ingest.pdf import PdfRecipe
 
