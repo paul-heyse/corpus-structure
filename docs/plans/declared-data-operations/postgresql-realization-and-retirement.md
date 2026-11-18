@@ -378,15 +378,16 @@ description and export snapshot commands use structured statements. The database
 ownership helpers generate creation, status, catalog and ownership commands. The coordinator
 owns verification and stage results.
 
-Continue by owner through shared-stream mutation, reclaim and verification, remaining PDF
-adoption and publication, DDO kernels and SourceValue consumers, catalog admission and privileges,
-selected and public reads, scientific routines, and bootstrap and maintenance. Migrate the
-remaining free-form physical check and index expressions to their model owners. Native preview
-should render the matching Python call and column facades from the snapshot used for SQL and
-retain them as exact file effects. Remove each superseded SQL source and fallback with its callers.
-Preserve frozen migrations, independent
-test controls and explicitly submitted read-only SQL. N3 native qualification, remaining owner
-conversion, and the final DDO-12 union are separate completion boundaries.
+Shared-stream mutation, reclaim and verification, physical checks and indexes, host bootstrap,
+PDF staging, freeze and access projection, release receipt guards and source-set binding now use
+model-owned programs. Native preview renders the matching Python call and column facades from
+the snapshot used for SQL and retains them as exact file effects. Continue by owner through the
+remaining PDF companion adoption, publication inventory and record proof/read routines, DDO
+acquisition and completion kernels and event paths, and the remaining catalog, scientific,
+public-read and maintenance routines. Remove each superseded SQL source and fallback with its
+callers. Preserve frozen migrations, independent test controls and explicitly submitted read-only
+SQL. Qualification covers each deployed native/application pair and the final DDO-12 union has
+its own assembled acceptance boundary.
 
 ### Broader conversion mechanisms · 2026-11-17
 

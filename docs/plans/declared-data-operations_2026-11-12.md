@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N7 with its matching application active at generation 8. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N8 with its matching application active at generation 9. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -217,7 +217,8 @@ candidate `b5d204f197f543b18a5605dbb3d0e329`, registration `ed76e277b310434ea385
 and native deployment `2505f822f86c49cda439333ed695c030` passed. Replay covered 29 native
 transitions and emitted no ordinary DDL. Integrated claim, release, staging, scoring and published
 page checks passed all 17 in `67082fbd60194f009ecd652aca646320`. Both exact search-hit journeys
-passed with N7 in `a556e7fbb6314933b01a7d8c2226b2b4`. The positive claim, renewal and retired
+passed with N7 in `a556e7fbb6314933b01a7d8c2226b2b4`. All 17 shared-stream and source-search tests
+passed in `a599f5a4a6af49bfa72bf09b5c89e629`. The positive claim, renewal and retired
 attempt selection passed all four in `f063b540786b45818d61dcd98a0d78e2`. N7 source Pyrefly
 `4ad8c5fc909e45ea8395c075d060faaa`, Ruff `ecd3c02dc6b4495a8c4ef33c144bd05e` and documentation
 `ccb40a01281b485abaf9f1ad333314a7` passed.
@@ -230,6 +231,41 @@ and deployment `4322ccef591046ee940efb4dd45640ec` passed for
 Explicit `ci db check` and `ci release check` passed. Activation from generation 7 to 8 passed
 on the owned project. A separate read confirmed the exact release, 15 PDF products, 361 verified
 streams and 376 parts.
+
+### PDF publication controls, source binding and N8 · 2026-11-17
+
+N8 generates PDF freeze recipe, owner and inventory checks, stage projection adoption and lookup,
+source-set references and proof validation, and the release receipt guards from the physical and
+captured model. Binding scalar conversion uses the same primitive names as the Python evaluator.
+PostgreSQL comparison treats surrounding whitespace symmetrically for generated expressions,
+including multiline visual locators. Prepared companion adoption is the sole current Python route.
+Its two replay wrappers, unused cache and factory, and mechanism-specific mock tests were removed.
+Controlled replay and hostile admission tests exercise the production prepare/adopt functions.
+
+The [N8 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n8.yaml)
+preview `956b3463d2544917bfc09973600417b8`, apply `4428425836b043b681f4637fe59b35f5`, candidate
+`e06e4048434f4c1e96abbfaa20f8da88`, registration `84569f2d27b84573bcd55c2d6fec34d1` and native
+deployment `94724ef3024249eea00ade9c1bd3f403` passed. Replay covered 32 native transitions
+and emitted no ordinary or privilege operations. The assembled N8 native program selection passed
+22 cases in `b18da2abe9994d1f9250dc1d5c03dc7f`.
+
+The matching application preview `f4059e56c77341cd9dd815f391ef96b2`, apply
+`14049e2346ea42d49d807952c42c39b9`, candidate `c757a43c9112429788a6fdee0306cee3` and deployment
+`df3ec8392c6e4ac199a70318f4f53d9f` passed for
+`release:7ff08724edcd2ef75c83657ac298c7876e3759bc2fd0c9f47ff5a60d02007ea2` and
+`runtime:ca456979ddb38b86dcf7de0a3d9957796e9595d0b0612583852655cf00f89a72`.
+Separate `ci db check` and `ci release check` passed. Compare-and-swap activation reached
+generation 9 from 8. A subsequent read confirmed the active release, 15 PDF products, 361 verified
+streams and 376 parts on the same owned stage.
+
+The first PDF consumer retry `08895732e2ea42e4a110ea4efa5460b0` reached runtime behavior and
+exposed fixture assumptions. The acceptance helper now uses the production IPC digest and batch
+ordinal for replay, candidate provenance uses the current declared literals, and the protected
+table read-back uses the maintenance connection. Fifteen of sixteen passed in the corrected
+selection `620154b496144b378ec12417752b7a58`, including freeze through seal and compatible
+predecessor reuse. The remaining projection replay control passed in
+`1f2871a72dc649f8af1647f5bda85ac8` after routing replay and changed membership inputs through the
+generated call. The refusal assertions still exercise PostgreSQL.
 
 ## Production-efficiency integration · 2026-11-17
 
