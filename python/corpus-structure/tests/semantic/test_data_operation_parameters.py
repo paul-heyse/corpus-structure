@@ -134,6 +134,34 @@ def test_nominal_parameter_defaults_missing_null_and_nested_tags(parameter_model
     }
 
 
+def test_kind_body_schemas_compile_nested_generated_definitions_to_closed_draft7(parameter_model):
+    from jsonschema import Draft7Validator
+
+    from corpus_structure.semantic.data_operation_storage import _kind_schema
+    from corpus_structure.semantic.data_operation_wire import checked_json_schema
+
+    prepared, model = parameter_model
+    kinds = {kind.name: kind for kind in model.kinds}
+    envelope = _kind_schema(prepared, kinds["Envelope"])
+    checked_json_schema(envelope)
+    assert "definitions" in envelope
+    assert "$defs" not in envelope
+    validator = Draft7Validator(envelope)
+    assert validator.is_valid({"selected": {"kind": "count", "value": 2}})
+    assert validator.is_valid({"selected": {"kind": "label", "value": "actual"}})
+    for value in (
+        {"selected": {"kind": "count", "value": "2"}},
+        {"selected": {"kind": "count", "value": True}},
+        {"selected": {"kind": "unknown", "value": 2}},
+        {"selected": None},
+        {},
+    ):
+        assert not validator.is_valid(value)
+    span = Draft7Validator(_kind_schema(prepared, kinds["Span"]))
+    assert span.is_valid({"first": 0, "last": 2})
+    assert not span.is_valid({"first": -1, "last": 2})
+
+
 @pytest.mark.parametrize("valid", [True, False])
 def test_native_nominal_parameters_enforce_the_same_captured_nested_shape(
     parameter_model, binding_native_connection, valid

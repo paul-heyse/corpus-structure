@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -146,7 +147,7 @@ class FormalEvidenceProduct:
     def value(self) -> BaseModel:
         return self.prepared.validate_json("DdoFormalProduct", self.content)
 
-    @property
+    @cached_property
     def semantic_id(self) -> str:
         """Use the same body/kind/subject identity as native publication."""
         from .data_operation_identity import body_identity, contextual_product_identity

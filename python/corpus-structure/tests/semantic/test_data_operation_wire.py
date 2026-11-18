@@ -1249,3 +1249,24 @@ def test_controlled_read_page_has_required_native_fields():
     del page["obligations"][0]["inputs_watermark"]
     with pytest.raises(ValueError, match="inputs_watermark"):
         validate_native_wire("read_demand_result", "output", page)
+
+
+def test_scoped_read_selection_has_explicit_private_intent_digest_contract():
+    selection = dict(
+        version="data-demand-public-selection-v1",
+        model="a" * 64,
+        intent_digest="native-intent:exact-digest",
+        roots=[],
+        targets=["structure.admit"],
+        root_operations=["structure.admit"],
+        discovery=[],
+    )
+    request = dict(
+        demand_id="demand:actual", scope={"product_ids": ["product:actual"]}, selection=selection
+    )
+    assert validate_native_wire("read_demand_result", "input", request) == request
+    for field in ("original_sources", "source_sets", "operations"):
+        with pytest.raises(ValueError, match="schema"):
+            validate_native_wire(
+                "read_demand_result", "input", {**request, "selection": {**selection, field: {}}}
+            )

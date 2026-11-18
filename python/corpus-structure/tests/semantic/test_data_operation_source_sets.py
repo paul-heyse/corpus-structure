@@ -211,3 +211,40 @@ def test_request_identity_keeps_selected_episode_and_excludes_acquisition_cut():
         first.identity.key
         != request(selected_entry(episode="episode:other", use="use:other")).identity.key
     )
+
+
+def test_retained_characterization_selection_requires_explicit_supported_active_subset():
+    from corpus_structure.semantic.enriched_document_products import (
+        freeze_characterization_selection,
+    )
+
+    first = selected_entry()
+    second = selected_entry(product="projection:two", member="member:two")
+    selected, active = freeze_characterization_selection(
+        profile="selected_layers", products=(first, second), active=(second,)
+    )
+    assert selected.entries == (first.entry, second.entry)
+    assert active.entries == (second.entry,)
+    assert isinstance(selected.acquisition, SelectedSupportAcquisition)
+    assert isinstance(active.acquisition, SelectedSupportAcquisition)
+    assert selected.acquisition.reads[0].proofs == (first.proof, second.proof)
+    assert active.acquisition.reads[0].proofs == (second.proof,)
+    for profile in ("source_only", "selected_layers"):
+        empty = freeze_characterization_selection(profile=profile)
+        for scope in empty:
+            assert isinstance(scope.acquisition, SelectedSupportAcquisition)
+            assert scope.entries == () and scope.acquisition.reads == ()
+    with pytest.raises(ValueError, match="subset"):
+        freeze_characterization_selection(
+            profile="selected_layers", products=(first,), active=(second,)
+        )
+    with pytest.raises(ValueError, match="source-only"):
+        freeze_characterization_selection(profile="source_only", products=(first,))
+    with pytest.raises(ValueError, match="unknown"):
+        freeze_characterization_selection(profile="full_characterization")
+    with pytest.raises(ValueError, match="subset"):
+        freeze_characterization_selection(
+            profile="selected_layers",
+            products=(first,),
+            active=(replace(first, entry=replace(first.entry, subject="other")),),
+        )

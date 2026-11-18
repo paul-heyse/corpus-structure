@@ -242,6 +242,8 @@ def test_finite_authority_validator_rejects_copied_kind_factory_effect_and_runti
 
 def test_actual_current_cpu_kernels_bind_frame_fit_and_ordered_score_values(nominal_profile):
     """Unadmitted child-value exercise; original source/issuer authenticity is native-only."""
+    import inspect
+
     from corpus_structure.evaluate.declared_operation_events import (
         execute_fit_kernel,
         execute_frame_kernel,
@@ -259,6 +261,9 @@ def test_actual_current_cpu_kernels_bind_frame_fit_and_ordered_score_values(nomi
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.identity import canonical_bytes
+
+    for kernel in (execute_frame_kernel, execute_fit_kernel, execute_score_kernel):
+        assert inspect.signature(kernel, eval_str=True).return_annotation is dict
 
     values = [
         event_value(nominal_profile, 1),

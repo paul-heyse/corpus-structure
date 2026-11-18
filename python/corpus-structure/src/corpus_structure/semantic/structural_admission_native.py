@@ -189,7 +189,7 @@ ops.ddo_structural_citations(jsonb,jsonb),ops.ddo_structural_clause_field(jsonb,
 """
 
 
-def structural_admission_native_sql():
+def structural_admission_native_sql(model):
     import json
     from dataclasses import asdict
 
@@ -417,66 +417,7 @@ EXCEPTION WHEN no_data_found OR too_many_rows THEN
 END $structural$;
 REVOKE ALL ON FUNCTION ops.ddo_require_structural_dossier_completion(ops.data_request,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.ddo_structural_report_support(selected_use text,read_id text,requested_products jsonb) RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $structural$
-DECLARE boundary ops.data_demand_read; demand ops.data_demand; chosen ops.demand_use; episode ops.data_derivation;
- issuer sem.data_operation_definition; conclusion kb.data_product; report kb.data_product;
- input ops.data_derivation_input; report_use ops.demand_use; support ops.data_derivation_support;
- value jsonb; role_name text; nominal text;
-BEGIN
- -- This is one selectively disclosed ordinary edge, not traversal of an issuer's
- -- protected request, frame, actors or original A/B/C inputs.
- IF jsonb_typeof(requested_products) IS DISTINCT FROM 'array' THEN RETURN NULL; END IF;
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=read_id;
- SELECT * INTO STRICT demand FROM ops.data_demand WHERE id=boundary.demand_id;
- SELECT * INTO STRICT chosen FROM ops.demand_use WHERE id=selected_use AND demand_id=boundary.demand_id;
- IF chosen.fate IS DISTINCT FROM 'fulfilled' OR NOT coalesce(ops.ddo_read_visible(chosen.created_at,chosen.created_xid,boundary),false)
- OR NOT coalesce(ops.ddo_node_valid('use',chosen.id,boundary),false) OR EXISTS(SELECT FROM ops.demand_use newer
- WHERE newer.obligation_id=chosen.obligation_id AND ops.ddo_read_visible(newer.created_at,newer.created_xid,boundary)
- AND (newer.created_at,newer.id)>(chosen.created_at,chosen.id)) THEN RETURN NULL; END IF;
- SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=chosen.derivation_id AND outcome='success';
- SELECT definition.* INTO STRICT issuer FROM sem.data_operation_definition definition
- JOIN ops.data_request request ON request.operation_id=definition.operation_id AND definition.release_id=episode.release_id
- WHERE request.id=episode.request_id AND request.project_id=demand.project_id;
- IF NOT coalesce((issuer.command_class='structural'),false)
- OR NOT coalesce(ops.ddo_policy_authority_leaf(episode.id),false) THEN RETURN NULL; END IF;
- SELECT product.* INTO STRICT conclusion FROM ops.data_derivation_output output
- JOIN kb.data_product product ON product.id=output.product_id
- JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
- WHERE output.derivation_id=episode.id AND output.role='admission' AND output.position=0
- AND output.multiplicity=1 AND output.member_id IS NULL AND product.project_id=demand.project_id
- AND kind.kind='__KIND__' AND kind.universe='ordinary' AND requested_products ? product.id;
- value:=data.ddo_json(conclusion.canonical_body);
- CASE value->>'policy_id'
- WHEN 'independent-structural-comparison-1' THEN role_name:='comparison'; nominal:='urn:corpus:structural:DeclaredComparisonReport';
- WHEN 'independent-condition-qualification-1' THEN role_name:='condition'; nominal:='urn:corpus:structural:DeclaredConditionReport';
- WHEN 'independent-definition-component-1' THEN role_name:='definition'; nominal:='urn:corpus:structural:DeclaredDefinitionComponentsReport';
- ELSE RETURN NULL; END CASE;
- SELECT * INTO STRICT input FROM ops.data_derivation_input WHERE derivation_id=episode.id AND role=role_name
- AND position=0 AND multiplicity=1 AND member_id IS NULL;
- SELECT product.* INTO STRICT report FROM kb.data_product product
- JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
- WHERE product.id=input.product_id AND product.project_id=demand.project_id
- AND kind.kind=nominal AND kind.universe='ordinary' AND requested_products ? product.id
- AND ops.ddo_body_access(product.kind_contract,product.canonical_body);
- IF jsonb_strip_nulls(value->'report') IS DISTINCT FROM jsonb_strip_nulls(ops.ddo_structural_product_reference(report)) THEN RETURN NULL; END IF;
- -- The consumed original support row fixes the report's actual prior use and
- -- episode; a same-shaped product or an arbitrary historical use is insufficient.
- SELECT original.* INTO STRICT support FROM ops.data_derivation_support original
- WHERE original.derivation_id=episode.id AND original.role=role_name AND original.position=0;
- SELECT used.* INTO STRICT report_use FROM ops.demand_use used
- JOIN ops.data_derivation producer ON producer.id=used.derivation_id
- JOIN ops.data_request request ON request.id=producer.request_id
- JOIN ops.data_derivation_output output ON output.derivation_id=producer.id
- WHERE used.id=support.admission_use_id AND used.derivation_id=support.support_derivation_id
- AND used.fate='fulfilled' AND producer.outcome='success' AND producer.completed_at<=boundary.frontier_at
- AND request.project_id=demand.project_id AND output.product_id=report.id AND output.member_id IS NULL
- AND output.role='result' AND output.position=0 AND output.multiplicity=1
- AND ops.ddo_read_visible(used.created_at,used.created_xid,boundary) AND ops.ddo_node_valid('use',used.id,boundary);
- RETURN jsonb_build_object('product_id',report.id,'derivation_id',report_use.derivation_id,'use_id',report_use.id);
-EXCEPTION WHEN no_data_found OR too_many_rows THEN RETURN NULL;
-END $structural$;
-REVOKE ALL ON FUNCTION ops.ddo_structural_report_support(text,text,jsonb) FROM PUBLIC;
+
 """
     sql = (
         sql.replace("__OPERATION__", ADMISSION_OPERATION)
@@ -493,4 +434,373 @@ REVOKE ALL ON FUNCTION ops.ddo_structural_report_support(text,text,jsonb) FROM P
         )
         .replace("__EFFECTS__", json.dumps([asdict(ADMISSION_EFFECT)], separators=(",", ":")))
     )
-    return structural_statement_native_sql() + sql
+    from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+
+    report_identity = NativeIdentity(
+        "function",
+        "ops",
+        "ddo_structural_report_support",
+        ("text", "ops.data_demand_read", "jsonb"),
+    )
+    return (
+        structural_statement_native_sql()
+        + sql
+        + native_sql_script(
+            (
+                _structural_report_support(model),
+                native_privilege_sql(report_identity, "PUBLIC", grant=False),
+            )
+        )
+    )
+
+
+def _structural_report_support(model):
+    """Authenticate the selectively disclosed report using the actual local cut."""
+    from sqlalchemy import Boolean, Text, and_, case, cast, func, literal, or_, select
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.types import NullType
+
+    from .declared_structural_admission import ADMISSION_KIND
+    from .native_program import (
+        Assign,
+        Block,
+        CatchStrictLookup,
+        If,
+        Local,
+        Parameter,
+        Return,
+        SelectInto,
+        core_relation_row,
+        core_variable,
+        function,
+        pg_type,
+    )
+
+    demand, uses, episodes, requests, definitions, outputs, products, kinds, inputs, supports = (
+        model.tables[name]
+        for name in (
+            "ops.data_demand",
+            "ops.demand_use",
+            "ops.data_derivation",
+            "ops.data_request",
+            "sem.data_operation_definition",
+            "ops.data_derivation_output",
+            "kb.data_product",
+            "sem.data_kind_contract",
+            "ops.data_derivation_input",
+            "ops.data_derivation_support",
+        )
+    )
+    reads = model.tables["ops.data_demand_read"]
+    boundary = core_variable("boundary", NullType())
+    requested = core_variable("requested_products", JSONB())
+    selected_use = core_variable("selected_use", Text())
+    value = core_variable("value", JSONB())
+    role_name = core_variable("role_name", Text())
+    nominal = core_variable("nominal", Text())
+
+    def row(name, table, field):
+        return core_variable(name, table.c[field].type, field)
+
+    def b(field):
+        return row("boundary", reads, field)
+
+    def d(field):
+        return row("demand", demand, field)
+
+    def chosen(field):
+        return row("chosen", uses, field)
+
+    def episode(field):
+        return row("episode", episodes, field)
+
+    def input_(field):
+        return row("input", inputs, field)
+
+    def report(field):
+        return row("report", products, field)
+
+    def support(field):
+        return row("support", supports, field)
+
+    def selected(table, where, name, relation=None):
+        return SelectInto(
+            select(core_relation_row(table))
+            .select_from(table if relation is None else relation)
+            .where(where),
+            (name,),
+            strict=True,
+        )
+
+    def unavailable(condition):
+        return If(condition, (Return(literal(None)),))
+
+    newer = uses.alias("newer")
+    report_use = uses.alias("used")
+    producer = episodes.alias("producer")
+    variants = (
+        (
+            "independent-structural-comparison-1",
+            "comparison",
+            "urn:corpus:structural:DeclaredComparisonReport",
+        ),
+        (
+            "independent-condition-qualification-1",
+            "condition",
+            "urn:corpus:structural:DeclaredConditionReport",
+        ),
+        (
+            "independent-definition-component-1",
+            "definition",
+            "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+        ),
+    )
+    policies = tuple(policy for policy, _, _ in variants)
+    return function(
+        "ops",
+        "ddo_structural_report_support",
+        parameters=(
+            Parameter("selected_use", pg_type("text")),
+            Parameter("boundary", pg_type("ops", "data_demand_read")),
+            Parameter("requested_products", pg_type("jsonb")),
+        ),
+        returns=pg_type("jsonb"),
+        volatility="stable",
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                CatchStrictLookup(
+                    (
+                        unavailable(func.jsonb_typeof(requested).is_distinct_from("array")),
+                        selected(demand, demand.c.id == b("demand_id"), "demand"),
+                        selected(
+                            uses,
+                            and_(uses.c.id == selected_use, uses.c.demand_id == b("demand_id")),
+                            "chosen",
+                        ),
+                        unavailable(
+                            or_(
+                                chosen("fate").is_distinct_from("fulfilled"),
+                                ~func.coalesce(
+                                    func.ops.ddo_read_visible(
+                                        chosen("created_at"),
+                                        chosen("created_xid"),
+                                        boundary,
+                                        type_=Boolean(),
+                                    ),
+                                    False,
+                                ),
+                                ~func.coalesce(
+                                    func.ops.ddo_node_valid(
+                                        "use", chosen("id"), boundary, type_=Boolean()
+                                    ),
+                                    False,
+                                ),
+                                select(1)
+                                .select_from(newer)
+                                .where(
+                                    newer.c.obligation_id == chosen("obligation_id"),
+                                    func.ops.ddo_read_visible(
+                                        newer.c.created_at, newer.c.created_xid, boundary
+                                    ),
+                                    or_(
+                                        newer.c.created_at > chosen("created_at"),
+                                        and_(
+                                            newer.c.created_at == chosen("created_at"),
+                                            newer.c.id > chosen("id"),
+                                        ),
+                                    ),
+                                )
+                                .exists(),
+                            )
+                        ),
+                        selected(
+                            episodes,
+                            and_(
+                                episodes.c.id == chosen("derivation_id"),
+                                episodes.c.outcome == "success",
+                            ),
+                            "episode",
+                        ),
+                        selected(
+                            definitions,
+                            and_(
+                                requests.c.id == episode("request_id"),
+                                requests.c.project_id == d("project_id"),
+                            ),
+                            "issuer",
+                            definitions.join(
+                                requests,
+                                and_(
+                                    requests.c.operation_id == definitions.c.operation_id,
+                                    definitions.c.release_id == episode("release_id"),
+                                ),
+                            ),
+                        ),
+                        unavailable(
+                            or_(
+                                ~func.coalesce(
+                                    row("issuer", definitions, "command_class") == "structural",
+                                    False,
+                                ),
+                                ~func.coalesce(
+                                    func.ops.ddo_policy_authority_leaf(
+                                        episode("id"), type_=Boolean()
+                                    ),
+                                    False,
+                                ),
+                            )
+                        ),
+                        selected(
+                            products,
+                            and_(
+                                outputs.c.derivation_id == episode("id"),
+                                outputs.c.role == "admission",
+                                outputs.c.position == 0,
+                                outputs.c.multiplicity == 1,
+                                outputs.c.member_id.is_(None),
+                                products.c.project_id == d("project_id"),
+                                kinds.c.kind == ADMISSION_KIND,
+                                kinds.c.universe == "ordinary",
+                                requested.has_key(products.c.id),
+                            ),
+                            "conclusion",
+                            products.join(outputs, outputs.c.product_id == products.c.id).join(
+                                kinds, kinds.c.kind_contract == products.c.kind_contract
+                            ),
+                        ),
+                        Assign(
+                            "value",
+                            cast(
+                                func.data.ddo_json(row("conclusion", products, "canonical_body")),
+                                JSONB(),
+                            ),
+                        ),
+                        unavailable(value["policy_id"].astext.not_in(policies)),
+                        Assign(
+                            "role_name",
+                            case(
+                                *(
+                                    (value["policy_id"].astext == policy, literal(role))
+                                    for policy, role, _ in variants
+                                )
+                            ),
+                        ),
+                        Assign(
+                            "nominal",
+                            case(
+                                *(
+                                    (value["policy_id"].astext == policy, literal(kind))
+                                    for policy, _, kind in variants
+                                )
+                            ),
+                        ),
+                        selected(
+                            inputs,
+                            and_(
+                                inputs.c.derivation_id == episode("id"),
+                                inputs.c.role == role_name,
+                                inputs.c.position == 0,
+                                inputs.c.multiplicity == 1,
+                                inputs.c.member_id.is_(None),
+                            ),
+                            "input",
+                        ),
+                        selected(
+                            products,
+                            and_(
+                                products.c.id == input_("product_id"),
+                                products.c.project_id == d("project_id"),
+                                kinds.c.kind == nominal,
+                                kinds.c.universe == "ordinary",
+                                requested.has_key(products.c.id),
+                                func.ops.ddo_body_access(
+                                    products.c.kind_contract, products.c.canonical_body
+                                ),
+                            ),
+                            "report",
+                            products.join(kinds, kinds.c.kind_contract == products.c.kind_contract),
+                        ),
+                        unavailable(
+                            func.jsonb_strip_nulls(value["report"]).is_distinct_from(
+                                func.jsonb_strip_nulls(
+                                    func.ops.ddo_structural_product_reference(
+                                        core_variable("report", NullType())
+                                    )
+                                )
+                            )
+                        ),
+                        selected(
+                            supports,
+                            and_(
+                                supports.c.derivation_id == episode("id"),
+                                supports.c.role == role_name,
+                                supports.c.position == 0,
+                            ),
+                            "support",
+                        ),
+                        SelectInto(
+                            select(*report_use.c)
+                            .select_from(
+                                report_use.join(
+                                    producer, producer.c.id == report_use.c.derivation_id
+                                )
+                                .join(requests, requests.c.id == producer.c.request_id)
+                                .join(outputs, outputs.c.derivation_id == producer.c.id)
+                            )
+                            .where(
+                                report_use.c.id == support("admission_use_id"),
+                                report_use.c.derivation_id == support("support_derivation_id"),
+                                report_use.c.fate == "fulfilled",
+                                producer.c.outcome == "success",
+                                producer.c.completed_at <= b("frontier_at"),
+                                requests.c.project_id == d("project_id"),
+                                outputs.c.product_id == report("id"),
+                                outputs.c.member_id.is_(None),
+                                outputs.c.role == "result",
+                                outputs.c.position == 0,
+                                outputs.c.multiplicity == 1,
+                                func.ops.ddo_read_visible(
+                                    report_use.c.created_at, report_use.c.created_xid, boundary
+                                ),
+                                func.ops.ddo_node_valid("use", report_use.c.id, boundary),
+                            ),
+                            ("report_use",),
+                            strict=True,
+                        ),
+                        Return(
+                            func.jsonb_build_object(
+                                "product_id",
+                                report("id"),
+                                "derivation_id",
+                                row("report_use", uses, "derivation_id"),
+                                "use_id",
+                                row("report_use", uses, "id"),
+                            )
+                        ),
+                    ),
+                    (Return(literal(None)),),
+                ),
+            ),
+            (
+                *(
+                    Local(name, table)
+                    for name, table in (
+                        ("demand", demand),
+                        ("chosen", uses),
+                        ("episode", episodes),
+                        ("issuer", definitions),
+                        ("conclusion", products),
+                        ("report", products),
+                        ("input", inputs),
+                        ("report_use", uses),
+                        ("support", supports),
+                    )
+                ),
+                Local("value", pg_type("jsonb")),
+                Local("role_name", pg_type("text")),
+                Local("nominal", pg_type("text")),
+            ),
+        ),
+    )

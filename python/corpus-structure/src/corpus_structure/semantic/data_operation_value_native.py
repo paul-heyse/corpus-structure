@@ -5,6 +5,7 @@ from typing import get_args, get_type_hints
 from pglast import ast
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     Integer,
@@ -58,6 +59,116 @@ def _members(value, *, ordinality=False):
     if ordinality:
         return fn.table_valued(field, with_ordinality="ordinal").render_derived()
     return fn.table_valued(field)
+
+
+def canonical_identity_sql() -> str:
+    """Generate the canonical JSON traversal and finite decimal lexical projection."""
+    value = core_variable("p", JSONB())
+    elements = _members(value, ordinality=True)
+    fields = func.jsonb_each(value).table_valued(column("key", Text()), column("value", JSONB()))
+
+    def enclosed(start, entries, order, relation, end):
+        joined = select(func.string_agg(entries, aggregate_order_by(literal(","), order)))
+        body = func.coalesce(joined.select_from(relation).scalar_subquery(), "")
+        return literal(start).concat(body).concat(end)
+
+    array_json = enclosed(
+        "[", func.data.canonical_json(elements.c.value), elements.c.ordinal, elements, "]"
+    )
+    object_json = enclosed(
+        "{",
+        cast(func.to_json(fields.c.key), Text())
+        .concat(":")
+        .concat(func.data.canonical_json(fields.c.value)),
+        fields.c.key.collate("C"),
+        fields,
+        "}",
+    )
+    canonical_json = sql_function(
+        "data",
+        "canonical_json",
+        parameters=(Parameter("p", pg_type("jsonb")),),
+        returns=pg_type("text"),
+        body=select(
+            case(
+                (func.jsonb_typeof(value) == "array", array_json),
+                (func.jsonb_typeof(value) == "object", object_json),
+                else_=cast(value, Text()),
+            )
+        ),
+        search_path=("pg_catalog", "pg_temp"),
+        volatility="immutable",
+        strict=True,
+    )
+    raw, whole, fraction, digits, fixed = (
+        core_variable(name, Text()) for name in ("raw", "whole", "fraction", "digits", "fixed")
+    )
+    parts = core_variable("parts", ARRAY(Text()))
+    point, exponent = (core_variable(name, BigInteger()) for name in ("point", "exponent"))
+    negative = core_variable("negative", Boolean())
+    text_type = pg_type("text")
+    parts_type = pg_type("text")
+    parts_type.arrayBounds = (ast.Integer(ival=-1),)
+    leading_zeroes = literal("0.").concat(func.repeat("0", cast(-point, Integer()))).concat(digits)
+    trailing_zeroes = digits.concat(func.repeat("0", cast(point - func.length(digits), Integer())))
+    split_digits = (
+        cast(func.left(digits, cast(point, Integer())), Text())
+        .concat(".")
+        .concat(func.substr(digits, cast(point + 1, Integer())))
+    )
+    decimal = _value(
+        "decimal_canonical",
+        (Parameter("raw", text_type),),
+        "text",
+        (
+            If(
+                raw.op("!~")("^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$"),
+                (Raise("invalid finite decimal lexical", "23514"),),
+            ),
+            Assign("negative", func.left(raw, 1) == "-"),
+            Assign("parts", func.regexp_split_to_array(func.ltrim(raw, "+-"), "[eE]")),
+            Assign(
+                "exponent",
+                case((func.array_length(parts, 1) == 2, cast(parts[2], BigInteger())), else_=0),
+            ),
+            Assign("whole", func.split_part(parts[1], ".", 1)),
+            Assign("fraction", func.split_part(parts[1], ".", 2)),
+            Assign("digits", whole.concat(fraction)),
+            If(func.ltrim(digits, "0") == "", (Return(literal("0")),)),
+            Assign("point", func.length(whole) + exponent),
+            If(
+                point <= 0,
+                (Assign("fixed", leading_zeroes),),
+                (
+                    If(
+                        point >= func.length(digits),
+                        (Assign("fixed", trailing_zeroes),),
+                        (Assign("fixed", split_digits),),
+                    ),
+                ),
+            ),
+            Assign(
+                "whole",
+                func.coalesce(
+                    func.nullif(func.ltrim(func.split_part(fixed, ".", 1), "0"), ""), "0"
+                ),
+            ),
+            Assign("fraction", func.rtrim(func.split_part(fixed, ".", 2), "0")),
+            Return(
+                case((negative, "-"), else_="")
+                .concat(whole)
+                .concat(case((fraction != "", literal(".").concat(fraction)), else_=""))
+            ),
+        ),
+        (
+            Local("parts", parts_type),
+            *(Local(name, text_type) for name in ("whole", "fraction", "digits", "fixed")),
+            Local("point", pg_type("int8")),
+            Local("exponent", pg_type("int8")),
+            Local("negative", pg_type("bool")),
+        ),
+    )
+    return native_sql_script((canonical_json, decimal))
 
 
 def _lexical_timestamp(lexical):

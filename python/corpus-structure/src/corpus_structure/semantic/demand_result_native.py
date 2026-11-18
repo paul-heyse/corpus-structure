@@ -18,7 +18,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.types import NullType
 
-from .data_operation_projections import read_access_universes, read_page, read_scope_rows
+from .data_operation_projections import (
+    read_access_universes,
+    read_page,
+    read_scope_rows,
+    read_selection,
+)
 from .demand_registration_native import (
     _authorize_selection,
     _clock,
@@ -119,12 +124,15 @@ def _read_demand_result(model, kernel_digest):
             SelectInto(
                 _exact_row(demand, demand.c.id == payload["demand_id"].astext), ("d",), strict=True
             ),
-            If(~acquisition, (_authorize_selection(model, demand_selection, release),)),
+            If(
+                and_(~acquisition, scope == _json("{}")),
+                (_authorize_selection(model, demand_selection, release),),
+            ),
             _refusal(
                 or_(
                     and_(
                         payload.has_key("selection"),
-                        payload["selection"].is_distinct_from(demand_selection),
+                        payload["selection"].is_distinct_from(read_selection(scope)),
                     ),
                     and_(
                         or_(
@@ -202,19 +210,7 @@ def _read_demand_result(model, kernel_digest):
                         ).select_from(scope_rows),
                         ("acquired_scopes",),
                     ),
-                    Assign(
-                        ("boundary", "access_universes"),
-                        read_access_universes(model).scalar_subquery(),
-                    ),
                     Assign(("boundary", "kernel_digest"), literal(kernel_digest)),
-                    Assign(
-                        ("boundary", "grade_census_eligible"),
-                        func.ops.ddo_read_census_eligible(pinned_demand, boundary, "grade"),
-                    ),
-                    Assign(
-                        ("boundary", "fit_census_eligible"),
-                        func.ops.ddo_read_census_eligible(pinned_demand, boundary, "fit"),
-                    ),
                     ForQuery(
                         ("scope_key",),
                         select(fact["scope"].astext).order_by(fact["scope"].astext),
@@ -235,6 +231,19 @@ def _read_demand_result(model, kernel_digest):
                                 snapshot.op("||")(func.jsonb_build_object(scope_key, epoch)),
                             ),
                         ),
+                    ),
+                    Assign(("boundary", "trust_snapshot"), snapshot),
+                    Assign(
+                        ("boundary", "access_universes"),
+                        read_access_universes(model).scalar_subquery(),
+                    ),
+                    Assign(
+                        ("boundary", "grade_census_eligible"),
+                        func.ops.ddo_read_census_eligible(pinned_demand, boundary, "grade"),
+                    ),
+                    Assign(
+                        ("boundary", "fit_census_eligible"),
+                        func.ops.ddo_read_census_eligible(pinned_demand, boundary, "fit"),
                     ),
                     SelectInto(
                         insert(read).values(capture_row).returning(core_relation_row(read)),

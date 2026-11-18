@@ -588,7 +588,10 @@ def test_waiting_watermark_tracks_new_exact_pinned_use_from_another_demand(ddo_k
     after, ready = _ready(ddo_kernel, demand)
     changed = next(row for row in after["obligations"] if row["operation_id"] == CONSUMER)
     assert changed["inputs_watermark"] != watermark
-    assert after["selection"]["source_sets"] == before["selection"]["source_sets"]
+    after_intent, before_intent = after["selection"], before["selection"]
+    assert after_intent["version"] == "data-demand-intent-v2"
+    assert before_intent["version"] == "data-demand-intent-v2"
+    assert after_intent["source_sets"] == before_intent["source_sets"]
     assert after["trust_snapshot"] == before["trust_snapshot"]
     with ddo_kernel["engine"].connect() as connection:
         assert (

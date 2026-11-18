@@ -1999,8 +1999,13 @@ class NativeDemandExecutor:
                                                 # universal/absence binding without new obligations.
                                                 progress = True
                                                 populations.add(witness)
+                            intent = page["selection"]
+                            if intent["version"] != "data-demand-intent-v2":
+                                raise ValueError(
+                                    "demand execution requires its complete native intent"
+                                )
                             physical.select_operations(
-                                item["operation"] for item in page["selection"]["operations"]
+                                item["operation"] for item in intent["operations"]
                             )
                             yield page
                             continuation = page.get("continuation")

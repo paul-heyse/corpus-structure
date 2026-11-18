@@ -49,6 +49,7 @@ def test_current_rich_recipe_preserves_actual_producers_and_complete_reading_fie
     } == {"id", "label", "aliases", "value", "location"}
     consolidation = model.operation("rich.consolidate")
     admission = model.operation("rich.admit")
+    assert admission.dependencies == ("rich.consolidate",)
     for operation in (consolidation, admission):
         roles = {role.name: role for role in operation.roles}
         assert roles["records"].collection == roles["readings"].collection == "set"

@@ -15,8 +15,6 @@ OPERATION = "data.initialize_source_project"
 ASSET = "native/source-admission-calls.json"
 CONTRACT = "source-admission/helper-bindings"
 ROLE = "native-original-document-custody"
-_ROOT = Path(__file__).resolve().parents[1]
-_SQL = Path(__file__).with_name("sql") / "source_originals.sql"
 
 
 def source_call_bindings(*, target_metadata=None):
@@ -103,6 +101,7 @@ def source_call_bindings(*, target_metadata=None):
 
 def source_admission_asset(*, target_metadata=None) -> SourceArtifact:
     from .metadata import metadata
+    from .original_document_native import ASSET_DIGEST_BASIS, source_original_programs
 
     selected = metadata if target_metadata is None else target_metadata
 
@@ -123,33 +122,38 @@ def source_admission_asset(*, target_metadata=None) -> SourceArtifact:
                     "original_documents.py": sha256(
                         Path(__file__).with_name("original_documents.py").read_bytes()
                     ).hexdigest(),
-                    "source_originals.sql": sha256(_SQL.read_bytes()).hexdigest(),
+                    "original_document_native.py": sha256(
+                        Path(__file__).with_name("original_document_native.py").read_bytes()
+                    ).hexdigest(),
+                    "source-originals.generated.sql": sha256(
+                        source_original_programs(selected, ASSET_DIGEST_BASIS).encode()
+                    ).hexdigest(),
                 },
             }
         ),
     )
 
 
-def source_admission_sources(
-    *, physical_sources=None, linkml_types=None
-) -> tuple[SourceArtifact, ...]:
-    from corpus_structure.schema.physical import compile_physical
+def source_admission_sources(*, target_metadata=None) -> tuple[SourceArtifact, ...]:
+    from .metadata import metadata
+    from .original_document_native import source_original_programs
 
-    if physical_sources is not None and not isinstance(linkml_types, bytes):
-        raise ValueError("explicit source helper capture requires LinkML types")
-    selected = (
-        None
-        if physical_sources is None
-        else compile_physical(physical_sources, linkml_types=linkml_types)
-    )
+    selected = metadata if target_metadata is None else target_metadata
+    asset = source_admission_asset(target_metadata=selected)
     return (
-        source_admission_asset(target_metadata=selected),
+        asset,
         SourceArtifact("native/original-document-contracts.py", Path(__file__).read_bytes()),
         SourceArtifact(
             "native/original-documents.py",
             Path(__file__).with_name("original_documents.py").read_bytes(),
         ),
-        SourceArtifact("native/source-originals.sql", _SQL.read_bytes()),
+        SourceArtifact(
+            "native/original-document-native.py",
+            Path(__file__).with_name("original_document_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/source-originals.sql", source_original_programs(selected, asset.digest).encode()
+        ),
     )
 
 
@@ -210,12 +214,12 @@ def require_source_database_context(connection, prepared) -> None:
 
 
 def source_original_sql(sources=None) -> str:
-    if sources is None:
-        asset, sql = source_admission_asset(), _SQL.read_bytes()
-    else:
-        selected = {source.name: source for source in sources}
-        asset, sql = selected[ASSET], selected["native/source-originals.sql"].content
-    return sql.decode().replace("__SOURCE_ADMISSION_ASSET__", asset.digest)
+    selected = source_admission_sources() if sources is None else sources
+    return next(
+        source.content.decode()
+        for source in selected
+        if source.name == "native/source-originals.sql"
+    )
 
 
 def generated_source_calls(*, target_metadata=None) -> str:

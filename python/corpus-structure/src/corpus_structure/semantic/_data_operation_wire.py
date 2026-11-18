@@ -626,6 +626,11 @@ class WireAuthoredFactSelection(TypedDict):
     selectors: Required[list[WireAuthoredFactSelector]]
 
 
+class WireAuthoritySelection(TypedDict):
+    kind: Required[Literal["native-authority"]]
+    protected_dependencies: Required[Literal["undisclosed"]]
+
+
 class WireBindingReason(TypedDict):
     code: Required[WireIdentifier]
     detail: Required[WireText]
@@ -919,6 +924,16 @@ class WireDemandIntent(TypedDict):
     version: Required[Literal["data-demand-intent-v2"]]
 
 
+class WirePublicDemandSelection(TypedDict):
+    discovery: Required[list[WireDiscoverySelection]]
+    intent_digest: Required[WireIdentifier]
+    model: Required[str]
+    root_operations: Required[list[WireIdentifier]]
+    roots: Required[list[WireRootSubject]]
+    targets: Required[list[WireIdentifier]]
+    version: Required[Literal["data-demand-public-selection-v1"]]
+
+
 class WireContinuation(TypedDict):
     after: Required[WireObligationId]
     demand_id: Required[WireDemandId]
@@ -928,7 +943,7 @@ class WireContinuation(TypedDict):
     read_id: Required[WireReadIdentity]
     read_snapshot: Required[WireReadSnapshot]
     scope: NotRequired[WireDemandReadScope]
-    selection: Required[WireDemandIntent]
+    selection: Required[WireReadDemandSelection]
     support_after: NotRequired[WireIdentifier]
     trust_snapshot: Required[WireTrustSnapshot]
     view: Required[Literal["frontier", "products", "support"]]
@@ -943,7 +958,7 @@ class WireCutSelection(TypedDict):
     release_id: Required[ReleaseId]
     runtime_id: Required[RuntimeId]
     scope: Required[WireDemandReadScope]
-    selection: Required[WireDemandIntent]
+    selection: Required[WireReadDemandSelection]
     trust_snapshot: Required[WireTrustSnapshot]
 
 
@@ -1336,7 +1351,7 @@ class WireReadDemandResultRequest(TypedDict):
     read_snapshot: NotRequired[WireReadSnapshot]
     recheck_bodies: NotRequired[bool]
     scope: NotRequired[WireDemandReadScope]
-    selection: NotRequired[WireDemandIntent]
+    selection: NotRequired[WireReadDemandSelection]
     support_after: NotRequired[WireIdentifier]
     support_scope: NotRequired[Literal["page", "read"]]
     trust_snapshot: NotRequired[WireTrustSnapshot]
@@ -1414,7 +1429,9 @@ class WireResultUse(TypedDict):
     products: Required[list[WireResultProduct]]
     rebind_derivation: NotRequired[WireIdentifier | None]
     request_id: Required[WireRequestId | None]
-    selection: Required[WireBinding | WireResultBinding | WireReasonSelection]
+    selection: Required[
+        WireBinding | WireResultBinding | WireReasonSelection | WireAuthoritySelection
+    ]
     semantic_outcome: Required[WireIdentifier | None]
     trust_snapshot: Required[WireTrustSnapshot]
     use_id: Required[WireUseIdentity]
@@ -1425,7 +1442,7 @@ class WireReadDemandResultResult(TypedDict):
     continuation: Required[WireContinuation | None]
     demand_id: Required[WireDemandId]
     frontier_at: Required[WireFrontierAt]
-    intent: Required[WireDemandIntent]
+    intent: Required[WireReadDemandSelection]
     obligations: Required[list[WireResultObligation]]
     original_source_admissions: NotRequired[list[WireOriginalSourceAdmissionResult]]
     populations: Required[list[WirePopulation]]
@@ -1436,7 +1453,7 @@ class WireReadDemandResultResult(TypedDict):
     root: Required[list[WireRootSubject]]
     runtime_id: Required[RuntimeId]
     scope: Required[WireDemandReadScope]
-    selection: Required[WireDemandIntent]
+    selection: Required[WireReadDemandSelection]
     state: NotRequired[Literal["active", "cancelled"]]
     support_page: NotRequired[WireSelectedSupportPage | None]
     trust_snapshot: Required[WireTrustSnapshot]
@@ -2020,6 +2037,8 @@ type WireReadSnapshot = WireReadSnapshotIdentity
 type WireOriginalSourceSelection = WireOriginalDocumentSelection | WireAuthoredFactSelection
 
 type WireSourceSetAcquisition = WireSourceSetAcquisitionVariant1 | WireSourceSetAcquisitionVariant2
+
+type WireReadDemandSelection = WireDemandIntent | WirePublicDemandSelection
 
 type WireDataTaskState = Literal["pending", "running", "done", "empty", "failed", "cancelled"]
 

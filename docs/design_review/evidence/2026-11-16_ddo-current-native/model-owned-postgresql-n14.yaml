@@ -1,0 +1,9 @@
+# Capture scoped DDO reading, external contracts, and typed native program replacements.
+baseline: HEAD
+native_predecessor: semantic_tdm_pdf_stream_protocol
+native_revision: semantic_ddo_pe_n14
+retire:
+  - kind: function
+    schema: ops
+    name: ddo_structural_report_support
+    arguments: [text, text, jsonb]

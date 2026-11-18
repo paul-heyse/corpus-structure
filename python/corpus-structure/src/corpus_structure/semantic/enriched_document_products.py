@@ -9,6 +9,7 @@ from typing import ClassVar
 from .characterization import characterization_profiles
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
+from .data_operation_source_sets import FrozenSourceSet, SelectedSourceSetEntry
 from .data_product_reference import DataProductMemberReference, DataProductReference
 from .identity import canonical_bytes
 from .source_products import FrozenNativeSource
@@ -110,6 +111,28 @@ class EnrichedDocumentProduct:
     @property
     def reference(self):
         return DataProductReference(self.semantic_id)
+
+
+def freeze_characterization_selection(
+    *,
+    profile: str,
+    products: tuple[SelectedSourceSetEntry, ...] = (),
+    active: tuple[SelectedSourceSetEntry, ...] = (),
+) -> tuple[FrozenSourceSet, ...]:
+    """Freeze retained analytical inputs with their exact selected-read support.
+
+    These pins select existing evidence. Native acquisition checks every read,
+    producer output and qualified context before a role can consume the product.
+    """
+    if profile not in {"source_only", "selected_layers"}:
+        raise ValueError("unknown retained characterization profile")
+    selected = FrozenSourceSet.from_selected("selected-characterization-products", products)
+    active_set = FrozenSourceSet.from_selected("active-characterization-products", active)
+    if profile == "source_only" and (selected.entries or active_set.entries):
+        raise ValueError("source-only view cannot select analytical products")
+    if not set(active_set.entries) <= set(selected.entries):
+        raise ValueError("active characterization must be an exact subset of selected products")
+    return selected, active_set
 
 
 def _covers(source, examined, requested):

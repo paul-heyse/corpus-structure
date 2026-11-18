@@ -12,15 +12,13 @@ EVENT_FRAME_FACTORY = "corpus_structure.methods.operation_events.OperationEventF
 def _fit_frame_schema(model, prefix):
     from pydantic import TypeAdapter
 
-    from .data_operation_parameters import _draft7
-    from .data_operation_wire import checked_json_schema
+    from .data_operation_wire import generated_json_schema
     from .identity import canonical_bytes
-    from .nominal_schema_kinds import _tuples
 
     schema = TypeAdapter(model).json_schema(ref_template="#/definitions/" + prefix + "_{model}")
     definitions = schema.pop("$defs", {})
     schema["definitions"] = {prefix + "_" + name: value for name, value in definitions.items()}
-    return canonical_bytes(checked_json_schema(_draft7(_tuples(schema))))
+    return canonical_bytes(generated_json_schema(schema))
 
 
 def record_policy_grade_schema() -> bytes:

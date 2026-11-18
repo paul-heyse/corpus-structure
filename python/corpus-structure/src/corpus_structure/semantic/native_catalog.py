@@ -85,7 +85,16 @@ trigger = _catalog(
     tgisinternal=Boolean,
     tgenabled=Text,
 )
-roles = _catalog("pg_roles", oid=OID, rolname=Text)
+roles = _catalog(
+    "pg_roles",
+    oid=OID,
+    rolname=Text,
+    rolsuper=Boolean,
+    rolcreaterole=Boolean,
+    rolcreatedb=Boolean,
+    rolbypassrls=Boolean,
+    rolreplication=Boolean,
+)
 depend = _catalog(
     "pg_depend",
     classid=OID,

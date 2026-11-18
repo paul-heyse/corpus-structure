@@ -32,6 +32,7 @@ from .identity import canonical_bytes
 from .types import (
     BOUNDARY_ABI_VERSION,
     SEMANTIC_COMPILER_VERSION,
+    SEMANTIC_PROFILE_VERSIONS,
     ClassDefinition,
     ClassPreview,
     Diagnostic,
@@ -574,7 +575,7 @@ def prepare_release(
 ) -> PreparedRelease:
     """Prepare a complete interpretation; cache only immutable pure inputs, never database state."""
     if (
-        profile.version not in {"semantic-1", "semantic-2"}
+        profile.version not in SEMANTIC_PROFILE_VERSIONS
         or profile.compiler_version != SEMANTIC_COMPILER_VERSION
     ):
         _fail("profile", "profile", "unsupported profile", "unsupported")

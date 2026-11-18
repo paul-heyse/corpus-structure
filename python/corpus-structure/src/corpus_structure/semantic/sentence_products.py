@@ -13,6 +13,7 @@ import json
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field, replace
+from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType
@@ -96,7 +97,7 @@ class SourceAnnotations:
             )
         return self.subject_context
 
-    @property
+    @cached_property
     def semantic_id(self) -> str:
         from .data_operation_identity import body_identity, contextual_product_identity
 

@@ -145,18 +145,22 @@ def test_task_guard_uses_captured_protocol_states_and_transitions():
             ["running", "cancelled"],
         ],
     }
-    rendered = target_task_guard_sql(content)
+    from pglast import parse_plpgsql, parse_sql
+
+    target = compile_physical(sources)
+    rendered = target_task_guard_sql(content, target_metadata=target)
+    assert parse_sql(rendered) and parse_plpgsql(rendered)
     assert "__DDO_TASK_" not in rendered
-    assert "NEW.attempt<>OLD.attempt+1" in rendered
-    assert "NEW.claimed_by IS DISTINCT FROM OLD.claimed_by" in rendered
-    assert "('running','failed')" in rendered
+    assert "new.attempt != old.attempt + 1" in rendered
+    assert "new.claimed_by IS DISTINCT FROM old.claimed_by" in rendered
+    assert "('running', 'failed')" in rendered
     changed = yaml.safe_load(content)
     changed["definitions"]["data_task_state"]["x-ddo-lifecycle"]["same_attempt"].remove(
         ["running", "pending"]
     )
-    modified = target_task_guard_sql(yaml.safe_dump(changed).encode())
-    assert "('running','pending')" not in modified
-    assert "('running','failed')" in modified
+    modified = target_task_guard_sql(yaml.safe_dump(changed).encode(), target_metadata=target)
+    assert "('running', 'pending')" not in modified
+    assert "('running', 'failed')" in modified
 
 
 def test_task_protocol_rejects_unclassified_state():

@@ -378,12 +378,59 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         admission.body["statement_meaning_json"]
         == canonical_bytes(semantic_value(case["expected"])).decode()
     )
+    from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.serve.structural_products import (
         SelectedStructuralAdmissionBinding,
         inspect_selected_structures,
     )
     from semantic.structural_production_native_support import read_statement
 
+    with kernel.purpose("read").begin() as connection:
+        public = read_demand_result(
+            connection,
+            retained["demand_id"],
+            project_id=PROJECT,
+            scope={"product_ids": [admission.row["product_id"]]},
+            view="frontier",
+        ).record
+        assert public["selection"]["version"] == "data-demand-public-selection-v1"
+        assert public["intent"] == public["selection"]
+        assert public["selection"]["intent_digest"]
+        assert (
+            "original_sources" not in public["selection"]
+            and "source_sets" not in public["selection"]
+        )
+        assert public["original_source_admissions"] == []
+        (public_use,) = public["uses"]
+        assert public_use["selection"] == {
+            "kind": "native-authority",
+            "protected_dependencies": "undisclosed",
+        }
+        assert public_use["request_id"] is None and public_use["generation"] is None
+        assert b"protected-structural-author:" not in json_bytes(public)
+        with pytest.raises(DBAPIError, match="evaluator"), connection.begin_nested():
+            read_demand_result(
+                connection, retained["demand_id"], project_id=PROJECT, view="frontier"
+            )
+        private_product = retained["authored_admissions"][0]["product_id"]
+        with pytest.raises(DBAPIError, match="evaluator"), connection.begin_nested():
+            read_demand_result(
+                connection,
+                retained["demand_id"],
+                project_id=PROJECT,
+                scope={"product_ids": [private_product]},
+                view="products",
+            )
+    with kernel.purpose("evaluate").begin() as connection:
+        private = read_demand_result(
+            connection,
+            retained["demand_id"],
+            project_id=PROJECT,
+            scope={"product_ids": [admission.row["product_id"]]},
+            view="frontier",
+        ).record
+        assert private["selection"]["version"] == "data-demand-intent-v2"
+        assert "original_sources" in private["selection"]
     support_request, support_page = read_statement(
         kernel, retained["demand_id"], comparison, admission
     )

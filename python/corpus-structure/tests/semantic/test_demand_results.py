@@ -742,7 +742,7 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
         **asdict(AUTHORIZATION_EFFECT),
         "authorization": list(AUTHORIZATION_EFFECT.authorization),
     }
-    issuer = dict(
+    issuer: dict[str, Any] = dict(
         release_id="release:issuer",
         operation_id="record_policy.authorize",
         recipe="recipe:issuer",
@@ -756,6 +756,7 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
             ),
         ),
     )
+    issuer["output_roles"] = [dict(name="authorization", kind_contract="kind:policy")]
     leaf = dict(
         format="ddo-native-authority-leaf-v1",
         derivation_id="episode:issuer",
@@ -807,8 +808,10 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
     }
     # Supply exact native row fields for independent captured-definition comparison.
     from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.native_definition_projection import NativeOperationProjection
 
     fields = table("sem.data_operation_definition").c.keys()
+    exported_fields = set(fields) & {"release_id", *NativeOperationProjection.__required_keys__}
     definitions = {}
     for row in records:
         if row["relation"] == "sem.data_operation_definition":
@@ -819,6 +822,7 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
                 if definition[field] is None:
                     definition[field] = []
             definitions[definition["release_id"], definition["operation_id"]] = definition
+            row["record"] = {name: definition[name] for name in exported_fields}
     options = dict(
         wire_schema={},
         kinds=kinds,
@@ -829,6 +833,68 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
         verify_detached_result(native, records=records, **options).cut.identity
         == CutSelection.from_native(native).identity
     )
+    # An explicitly selected public issuer uses its native leaf as the custody
+    # authority. Its hidden episode/use cannot be reconstructed from the archive.
+    public = deepcopy(native)
+    public["selection"] = dict(
+        version="data-demand-public-selection-v1",
+        model="a" * 64,
+        intent_digest="demand-intent:actual-native-digest",
+        roots=[],
+        targets=["record_policy.authorize"],
+        root_operations=["record_policy.authorize"],
+        discovery=[],
+    )
+    public["intent"] = public["selection"]
+    public["uses"].append(
+        dict(
+            use_id=leaf["use_id"],
+            obligation_id="obligation:issuer",
+            fate="fulfilled",
+            historical_fate="fulfilled",
+            request_id=None,
+            generation=None,
+            derivation_id=leaf["derivation_id"],
+            rebind_derivation=None,
+            selection=dict(kind="native-authority", protected_dependencies="undisclosed"),
+            trust_snapshot={},
+            semantic_outcome="success",
+            completion_state="success",
+            products=[
+                dict(
+                    product_id=product_id,
+                    kind_contract="kind:policy",
+                    role="authorization",
+                    position=0,
+                    member_id=None,
+                    multiplicity=1,
+                    body=product["canonical_body"],
+                    **{
+                        name: product[name]
+                        for name in (
+                            "subject",
+                            "subject_definition",
+                            "original_source",
+                            "analyzed_scope",
+                        )
+                    },
+                )
+            ],
+        )
+    )
+    assert verify_detached_result(
+        public, records=records, **options
+    ).cut == CutSelection.from_native(public)
+    for change in ("leaf", "binding", "output"):
+        wrong_public = deepcopy(public)
+        if change == "leaf":
+            wrong_public["uses"][-1]["derivation_id"] = "episode:unissued-copy"
+        elif change == "binding":
+            wrong_public["uses"][-1]["request_id"] = "hidden:request"
+        else:
+            wrong_public["uses"][-1]["products"][0]["product_id"] = "product:unissued-copy"
+        with pytest.raises(ValueError, match="public issuer"):
+            verify_detached_result(wrong_public, records=records, **options)
     with pytest.raises(ValueError, match=r"support episode|support closure"):
         verify_detached_result(
             native,

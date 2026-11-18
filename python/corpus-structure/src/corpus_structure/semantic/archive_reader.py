@@ -19,6 +19,8 @@ from pydantic import AwareDatetime
 
 from .types import (
     BOUNDARY_ABI_VERSION,
+    SEMANTIC_ARCHIVE_FORMAT,
+    SEMANTIC_PROFILE_VERSIONS,
     PreparationProfile,
     PreparedArtifact,
     PreparedRelease,
@@ -229,7 +231,7 @@ def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artif
         if release_id != "release:" + _digest(manifest_bytes):
             raise ReleaseConflict("archive or manifest identity differs")
         archive, manifest = json.loads(archive_bytes), json.loads(manifest_bytes)
-        if archive["format"] != "semantic-release-archive-3":
+        if archive["format"] != SEMANTIC_ARCHIVE_FORMAT:
             raise ReleaseConflict("unsupported archive format")
         if not boundary_compatible(
             manifest["libraries"], str(manifest["profile"]["compiler_version"])
@@ -259,7 +261,7 @@ def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artif
         if len(source) != len(bundle.sources) + len(dependencies) + 3:
             raise ReleaseConflict("unexpected archived inputs")
         profile = PreparationProfile(**json.loads(source["profile", "profile"]))
-        if profile.version not in {"semantic-1", "semantic-2"} or row["profile"] != profile.version:
+        if profile.version not in SEMANTIC_PROFILE_VERSIONS or row["profile"] != profile.version:
             raise ReleaseConflict("unsupported archived profile")
         expected: dict[str, Any] = {
             "root": bundle.root,

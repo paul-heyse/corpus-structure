@@ -25,7 +25,17 @@ def test_current_characterization_package_owns_actual_producers_without_model_pr
         "text.formal_evidence/source-native",
         "segment.sentences/source-native",
     )
-    assert not acquired.model.operation("text.compose_view/source-native").dependencies
+    composition = acquired.model.operation("text.compose_view/source-native")
+    assert composition.dependencies == ("source.selected_views/discovery",)
+    roles = {role.name: role for role in composition.roles}
+    for name, source_set in (
+        ("products", "selected-characterization-products"),
+        ("active", "active-characterization-products"),
+    ):
+        support = roles[name].support
+        assert support is not None
+        assert support.source == "frozen-source-set" and support.source_set == source_set
+        assert support.provenance == "exact" and support.identity_requirements == ("episode",)
     assert not any(
         operation.semantic_id == "text.hanlp_native/source-native"
         for operation in acquired.model.operations

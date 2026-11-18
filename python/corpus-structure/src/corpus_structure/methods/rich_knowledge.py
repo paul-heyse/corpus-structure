@@ -399,7 +399,7 @@ class RichKnowledgeAdmission:
         },
         "outcomes": ["success"],
         "precision_description": "typed-domain-and-source-reading-meaning-with-captured-scientific-policies",
-        "dependencies": [],
+        "dependencies": ["rich.consolidate"],
         "effects": [
             {
                 "name": "native-rich-knowledge-admission",

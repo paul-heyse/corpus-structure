@@ -997,6 +997,54 @@ def verify_detached_result(
             if expected != request["request_key"]:
                 raise ValueError("detached request differs from its exact selected meaning")
     for use in record["uses"]:
+        authority = authorities.get((use["derivation_id"], use["use_id"]))
+        if use["selection"].get("kind") == "native-authority":
+            if (
+                authority is None
+                or use["selection"]
+                != {"kind": "native-authority", "protected_dependencies": "undisclosed"}
+                or use["request_id"] is not None
+                or use["generation"] is not None
+                or use["historical_fate"] != "fulfilled"
+                or use["fate"] != ("fulfilled" if authority.standing == "valid" else "unavailable")
+                or use["completion_state"] != "success"
+                or use.get("rebind_derivation") is not None
+                or len(use["products"]) != 1
+            ):
+                raise ValueError("detached public issuer differs from its native authority leaf")
+            product = use["products"][0]
+            actual = products.get(authority.product_id)
+            definition = target_definitions.get((authority.release_id, authority.issuer_operation))
+            declared_roles = () if definition is None else definition["output_roles"]
+            if (
+                actual is None
+                or product["product_id"] != authority.product_id
+                or product["kind_contract"] != authority.kind_contract
+                or product["member_id"] is not None
+                or product["position"] != 0
+                or product["multiplicity"] != 1
+                or not any(
+                    role["name"] == product["role"]
+                    and role["kind_contract"] == authority.kind_contract
+                    for role in declared_roles
+                )
+                or any(
+                    product[name] != actual[name]
+                    for name in (
+                        "subject",
+                        "subject_definition",
+                        "original_source",
+                        "analyzed_scope",
+                    )
+                )
+                or ("body" in product and product["body"] != actual["canonical_body"])
+            ):
+                raise ValueError(
+                    "detached public issuer output differs from its authenticated conclusion"
+                )
+            continue
+        if authority is not None:
+            raise ValueError("detached public issuer discloses an unauthenticated full binding")
         retained = uses.get(use["use_id"])
         if retained is None or any(
             retained[key] != use[key]
@@ -1096,7 +1144,12 @@ def verify_detached_result(
                 admission_use_id=edge["admission_use_id"],
             )
         )
-        if edge["derivation_id"] not in episodes or (
+        # The earlier independent structural check authenticates the sole
+        # selectively disclosed report edge originating at a hidden issuer.
+        disclosed_issuer = any(
+            leaf.derivation_id == edge["derivation_id"] for leaf in authorities.values()
+        )
+        if (edge["derivation_id"] not in episodes and not disclosed_issuer) or (
             authority is None
             and (
                 edge["support_derivation_id"] not in episodes

@@ -122,18 +122,35 @@ def test_native_current_source_only_then_selected_composition_preserves_actual_d
     weak = decode_semantic_value(operation_product(snapshot, COMPOSITION)["body"])
     assert weak["profile"] == "source_only" and weak["products"] == weak["active"] == []
     assert weak["sources"][0]["source"]["document"] == source.factory.key
-    _, _, primary = source.run(CONSTRUCTION)
+    analytical_demand, _, primary = source.run(CONSTRUCTION)
     formal = operation_product(primary, FORMAL)
     construction = operation_product(primary, CONSTRUCTION)
-    _, _, combined = source.run(COMPOSITION, profile="selected_layers")
+    from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
+    from corpus_structure.semantic.demand_results import CutSelection
+
+    selections = {}
+    for operation in (FORMAL, CONSTRUCTION):
+        selected = source.query(analytical_demand, operation_id=operation, containers_only=True)
+        (header,) = selected["items"]
+        selections[operation] = SelectedSourceSetEntry.from_selected_header(
+            header, CutSelection(json_bytes(selected["cut"]))
+        )
+    # Published analytical products stay outside a request that selects empty sets.
+    _, _, unselected = source.run(COMPOSITION, profile="selected_layers")
+    empty = decode_semantic_value(operation_product(unselected, COMPOSITION)["body"])
+    assert empty["products"] == empty["active"] == []
+    _, _, combined = source.run(
+        COMPOSITION,
+        profile="selected_layers",
+        products=tuple(selections.values()),
+        active=(selections[CONSTRUCTION],),
+    )
     view = decode_semantic_value(operation_product(combined, COMPOSITION)["body"])
     assert {row["product_id"] for row in view["products"]} == {
         formal["product_id"],
         construction["product_id"],
     }
-    assert {row["product_id"] for row in view["active"]} <= {
-        row["product_id"] for row in view["products"]
-    }
+    assert {row["product_id"] for row in view["active"]} == {construction["product_id"]}
     assert view["original_document"] == source.factory.key
     assert all(row["outcome"] in {"complete", "empty", "unknown"} for row in view["coverage"])
     # A prior exact cut is immutable when later analytical work becomes available.

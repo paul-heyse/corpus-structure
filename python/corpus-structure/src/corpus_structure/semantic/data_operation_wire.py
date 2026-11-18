@@ -8,6 +8,7 @@ https://github.com/supabase/pg_jsonschema for the shared validation realization.
 
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -380,6 +381,80 @@ def checked_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(definitions, dict) or not _references(schema) <= definitions.keys():
         raise ValueError("unresolved local native wire schema reference")
     return schema
+
+
+def _generated_schema_node(schema):
+    """Retain Pydantic fixed-tuple constraints in the selected native Draft7 dialect."""
+    if isinstance(schema, list):
+        return [_generated_schema_node(value) for value in schema]
+    if not isinstance(schema, dict):
+        return schema
+    result = dict(schema)
+    for key in ("properties", "patternProperties", "definitions", "$defs"):
+        if key in result:
+            result[key] = {
+                name: _generated_schema_node(value) for name, value in result[key].items()
+            }
+    for key in (
+        "allOf",
+        "anyOf",
+        "oneOf",
+        "items",
+        "prefixItems",
+        "additionalItems",
+        "additionalProperties",
+        "contains",
+        "propertyNames",
+        "not",
+        "if",
+        "then",
+        "else",
+    ):
+        if key in result:
+            result[key] = _generated_schema_node(result[key])
+    if "dependencies" in result:
+        result["dependencies"] = {
+            name: value if isinstance(value, list) else _generated_schema_node(value)
+            for name, value in result["dependencies"].items()
+        }
+    if "$defs" in result and "definitions" in result:
+        raise ValueError("schema mixes definition dialects")
+    if "$defs" in result:
+        result["definitions"] = result.pop("$defs")
+    if "$ref" in result:
+        reference = result["$ref"]
+        if isinstance(reference, str) and reference.startswith("#/$defs/"):
+            result["$ref"] = "#/definitions/" + reference.removeprefix("#/$defs/")
+    if "prefixItems" in result:
+        if "additionalItems" in result:
+            raise ValueError("schema mixes tuple dialect constraints")
+        result["additionalItems"] = result.pop("items", True)
+        result["items"] = result.pop("prefixItems")
+    if any(
+        key in result
+        for key in (
+            "$dynamicRef",
+            "$dynamicAnchor",
+            "unevaluatedItems",
+            "unevaluatedProperties",
+            "dependentSchemas",
+            "dependentRequired",
+        )
+    ):
+        raise ValueError("nominal schema contains unsupported non-Draft7 constraints")
+    return result
+
+
+def generated_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Compile generated local definitions and tuples to the native Draft7 contract.
+
+    Only schema positions are traversed, preserving literal default/const values.
+    Caller-authored external contracts continue through checked_json_schema directly.
+    """
+    normalized = _generated_schema_node(copy.deepcopy(schema))
+    if not isinstance(normalized, dict):
+        raise ValueError("native wire kind requires an object schema")
+    return checked_json_schema(normalized)
 
 
 def schema_closure(root: dict[str, Any], definitions: dict[str, Any]) -> dict[str, Any]:

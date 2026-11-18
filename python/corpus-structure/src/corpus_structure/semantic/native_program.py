@@ -215,6 +215,7 @@ class Raise:
     message: str | Expression
     sqlstate: str
     detail: Expression | None = None
+    constraint: str | None = None
 
 
 @dataclass(frozen=True)
@@ -297,8 +298,17 @@ class CatchDependencyInvalidity:
     handler: tuple[Statement, ...]
 
 
+@dataclass(frozen=True)
+class CatchStrictLookup:
+    """Translate only missing or nonunique SELECT INTO STRICT results."""
+
+    body: tuple[Statement, ...]
+    handler: tuple[Statement, ...]
+
+
 type Statement = (
-    CatchDataConversion
+    CatchStrictLookup
+    | CatchDataConversion
     | CatchDependencyInvalidity
     | Sql
     | Continue
@@ -368,7 +378,7 @@ def _step(statement: Statement, nested: str) -> str:
             # PL/pgSQL allows INTO after the query clauses. This leaves Core
             # in charge of projection, correlation, and precedence.
             return _statement(query) + " INTO " + ("STRICT " if strict else "") + _targets(targets)
-        case Raise(message, state, detail):
+        case Raise(message, state, detail, constraint):
             if (
                 len(state) != 5
                 or not state.isascii()
@@ -378,7 +388,11 @@ def _step(statement: Statement, nested: str) -> str:
                 raise ValueError("procedural refusal requires an explicit SQLSTATE")
             expression = literal(message) if isinstance(message, str) else message
             rendered = f"RAISE EXCEPTION USING MESSAGE = {_render(expression)}, ERRCODE = '{state}'"
-            return rendered if detail is None else rendered + ", DETAIL = " + _render(detail)
+            if detail is not None:
+                rendered += ", DETAIL = " + _render(detail)
+            if constraint is not None:
+                rendered += ", CONSTRAINT = " + _render(literal(constraint))
+            return rendered
         case If(condition, then, otherwise):
             body = _statements(then, nested)
             if otherwise:
@@ -423,6 +437,12 @@ def _step(statement: Statement, nested: str) -> str:
             return (
                 f"BEGIN\n{_statements(body, nested)}\n"
                 f"{nested[:-1]}EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN\n"
+                f"{_statements(handler, nested)}\n{nested[:-1]}END"
+            )
+        case CatchStrictLookup(body, handler):
+            return (
+                f"BEGIN\n{_statements(body, nested)}\n"
+                f"{nested[:-1]}EXCEPTION WHEN no_data_found OR too_many_rows THEN\n"
                 f"{_statements(handler, nested)}\n{nested[:-1]}END"
             )
         case CatchCheckViolation(body, handler):

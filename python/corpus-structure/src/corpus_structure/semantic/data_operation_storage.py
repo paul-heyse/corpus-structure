@@ -66,6 +66,7 @@ def native_protocol_sources(
     from .contextual_admission_native import contextual_admission_native_sql
     from .contextual_definition_native import contextual_definition_native_sql
     from .contextual_linguistics_native import contextual_linguistics_native_sql
+    from .contextual_neighborhood import contextual_neighborhood_sql
     from .contextual_scoring_native import contextual_scoring_native_sql
     from .contextual_witness_native import contextual_witness_native_sql
     from .data_attempt_release_native import attempt_release_native_sql
@@ -349,7 +350,7 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-structural-admission.sql",
-            structural_admission_native_sql().encode(),
+            structural_admission_native_sql(target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-structural-admission-native.py",
@@ -495,7 +496,11 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/contextual-neighborhood.sql",
-            Path(__file__).with_name("sql").joinpath("contextual_neighborhood.sql").read_bytes(),
+            contextual_neighborhood_sql().encode(),
+        ),
+        SourceArtifact(
+            "native/contextual-neighborhood.py",
+            Path(__file__).with_name("contextual_neighborhood.py").read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-external.sql",
@@ -597,6 +602,7 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-compiler.py",
         "native/data-operation-support-scopes.sql",
         "native/contextual-neighborhood.sql",
+        "native/contextual-neighborhood.py",
         "native/data-operation-storage.py",
         "native/data-operation-product-validation.sql",
         "native/data-operation-product-validation.py",
@@ -1132,11 +1138,13 @@ def require_data_operation_native(connection: Connection, prepared: PreparedRele
 
 
 def _kind_schema(prepared: PreparedRelease, kind) -> dict[str, Any]:
+    from .data_operation_wire import checked_json_schema, generated_json_schema
+
     facts = json.loads(kind.facts)
     if "json_schema" in facts:
-        return facts["json_schema"]
+        return checked_json_schema(facts["json_schema"])
     if kind.category == "class" and kind.name in prepared.index.definitions:
-        return prepared.json_schema(kind.name)
+        return generated_json_schema(prepared.json_schema(kind.name))
     if kind.category == "enum":
         return {"type": "string", "enum": sorted(prepared.enum_members(kind.name))}
     primitive = facts.get("primitive", facts.get("effective_primitive", kind.name))

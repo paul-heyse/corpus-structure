@@ -25,31 +25,39 @@ class FoundationPrograms:
     closure: str
 
 
-def foundation_programs() -> FoundationPrograms:
-    """Return the maintained primitive programs used by current target installation."""
-    root = Path(__file__).with_name("sql")
+def foundation_programs(target: MetaData | None = None) -> FoundationPrograms:
+    """Generate the primitive programs used by current target installation."""
+    from .closure_native import closure_foundation_sql
+    from .data_operation_value_native import canonical_identity_sql
+    from .metadata import metadata
+
     return FoundationPrograms(
-        identity=root.joinpath("identity.sql").read_text(),
-        closure=root.joinpath("closure.sql").read_text(),
+        identity=canonical_identity_sql(),
+        closure=closure_foundation_sql(metadata if target is None else target),
     )
 
 
-def target_task_guard_sql(protocol: bytes, checks: str | None = None) -> str:
-    """Share the existing request/lease/receipt checks, with no legacy task branch."""
+def target_task_guard_sql(protocol: bytes, *, target_metadata: MetaData) -> str:
+    """Compile the current request/lease/receipt checks from captured physical input."""
     from .data_operation_protocol import render_data_task_guard
 
-    return render_data_task_guard(
-        protocol,
-        """
-CREATE OR REPLACE FUNCTION ops.guard_execution_task() RETURNS trigger
-LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $task$
-BEGIN
- IF NEW.data_request_id IS NULL OR NEW.data_generation IS NULL THEN
- RAISE EXCEPTION 'physical task requires declared request generation' USING ERRCODE='23514'; END IF;
--- {data_request_task_checks}
-END $task$;
-""",
-        checks=checks,
+    return render_data_task_guard(protocol, target_metadata=target_metadata)
+
+
+def _task_guard_trigger_sql(target: MetaData) -> str:
+    from pglast import ast
+    from pglast.stream import RawStream
+
+    task = target.tables["ops.task"]
+    return RawStream()(
+        ast.CreateTrigStmt(
+            trigname="zz_execution_task",
+            relation=ast.RangeVar(schemaname=task.schema, relname=task.name, inh=True),
+            funcname=(ast.String(sval="ops"), ast.String(sval="guard_execution_task")),
+            row=True,
+            timing=2,  # PostgreSQL TRIGGER_TYPE_BEFORE.
+            events=4 | 16,  # PostgreSQL TRIGGER_TYPE_INSERT | TRIGGER_TYPE_UPDATE.
+        )
     )
 
 
@@ -69,7 +77,9 @@ def capture_target_installation(
     from .data_operation_storage import native_logical_sources
     from .native_products import capture_native_authoring_inputs
     from .pdf_binary_identity_native import pdf_artifact_identity_sql, pdf_binary_identity_sql
+    from .pdf_descriptor_native import pdf_descriptor_sql
     from .pdf_domain import PREFIX, pdf_domain_sources
+    from .source_record_recognition_native import source_record_recognition_sql
 
     logical = native_logical_sources() if logical_sources is None else logical_sources
     pdf_sources = pdf_domain_sources(
@@ -77,12 +87,15 @@ def capture_target_installation(
         linkml_types=selected.info["physical_linkml_types"],
         actions_source=SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"]),
     )
+    foundation = foundation_programs(selected)
     inputs = capture_native_authoring_inputs(
         target_metadata=selected,
         pdf_sources=pdf_sources,
         logical_sources=logical,
         extra_sources=(
             SourceArtifact("authoring/target_installation.py", Path(__file__).read_bytes()),
+            SourceArtifact("authoring/identity.sql", foundation.identity.encode()),
+            SourceArtifact("authoring/closure.sql", foundation.closure.encode()),
             SourceArtifact("authoring/closure-native.sql", closure_native_sql(selected).encode()),
             SourceArtifact(
                 "authoring/closure-native.py",
@@ -90,7 +103,11 @@ def capture_target_installation(
             ),
             SourceArtifact(
                 "authoring/pdf-descriptor.sql",
-                Path(__file__).with_name("sql").joinpath("pdf_descriptor.sql").read_bytes(),
+                pdf_descriptor_sql().encode(),
+            ),
+            SourceArtifact(
+                "authoring/pdf-descriptor.py",
+                Path(__file__).with_name("pdf_descriptor_native.py").read_bytes(),
             ),
             SourceArtifact(
                 "authoring/pdf-record-identity.sql",
@@ -102,10 +119,11 @@ def capture_target_installation(
             ),
             SourceArtifact(
                 "authoring/pdf-captured-recognition.sql",
-                Path(__file__)
-                .with_name("sql")
-                .joinpath("source_record_recognition.sql")
-                .read_bytes(),
+                source_record_recognition_sql(selected).encode(),
+            ),
+            SourceArtifact(
+                "authoring/pdf-captured-recognition.py",
+                Path(__file__).with_name("source_record_recognition_native.py").read_bytes(),
             ),
         ),
     )
@@ -203,9 +221,9 @@ def target_native_definitions(connection, installation: TargetInstallation):
     from .published_document import published_reader_definitions
 
     selected = installation.metadata
-    foundation = foundation_programs()
     definitions = []
     captured = {item.name: item.content for item in installation.authoring_inputs.sources}
+    closure = captured["authoring/closure.sql"].decode()
     for filename, schema, name, roles in (
         ("identity.sql", "data", "canonical_json", ()),
         ("identity.sql", "data", "decimal_canonical", ()),
@@ -236,9 +254,9 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 if filename == "scientific_layout.sql"
                 else captured["authoring/closure-native.sql"].decode()
                 if filename == "closure-native.sql"
-                else foundation.identity
+                else captured["authoring/identity.sql"].decode()
                 if filename == "identity.sql"
-                else foundation.closure,
+                else closure,
                 name=name,
                 schema=schema,
                 source="target-current:" + filename,
@@ -256,9 +274,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
     definitions.extend(
         _release_guard_definitions(
             connection,
-            foundation.closure
-            + "\n"
-            + captured["authoring/execution-projection-check.sql"].decode(),
+            closure + "\n" + captured["authoring/execution-projection-check.sql"].decode(),
             source="target-current:release archive guards",
         )
     )
@@ -311,11 +327,15 @@ def target_native_definitions(connection, installation: TargetInstallation):
         *(item for name in providers for item in definitions if item.identity.name == name),
         *(item for item in definitions if item.identity.name not in providers),
     ]
-    protocol = selected.info["physical_sources"]["data-operation-native.yaml"]
+    task_guard = next(
+        source.content.decode()
+        for source in installation.authoring_inputs.sources
+        if source.name == "authoring/data-operation-task-guard.sql"
+    )
     definitions.append(
         definition_from_sql(
             connection,
-            target_task_guard_sql(protocol),
+            task_guard,
             source="target-current:request task fence",
             owner="corpus_sem_publisher",
         )
@@ -323,8 +343,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
     definitions.append(
         definition_from_sql(
             connection,
-            "CREATE TRIGGER zz_execution_task BEFORE INSERT OR UPDATE ON ops.task "
-            "FOR EACH ROW EXECUTE FUNCTION ops.guard_execution_task()",
+            _task_guard_trigger_sql(selected),
             source="target-current:request task fence",
             owner="corpus_sem_publisher",
         )

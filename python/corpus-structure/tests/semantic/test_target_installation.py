@@ -112,9 +112,11 @@ def test_target_native_capture_and_shared_task_checks_have_no_legacy_task_branch
     assert "data.selected_fact" not in fields["physical_relations"]
     assert fields["physical_id"] == capture.metadata.info["physical_model_id"]
     captured = {source.name: source.content for source in capture.authoring_inputs.sources}
-    checks = captured["authoring/data-operation-task-checks.sql"].decode()
-    guard = target_task_guard_sql(
-        capture.metadata.info["physical_sources"]["data-operation-native.yaml"], checks
+    assert "authoring/data-operation-task-checks.sql" not in captured
+    guard = captured["authoring/data-operation-task-guard.sql"].decode()
+    assert guard == target_task_guard_sql(
+        capture.metadata.info["physical_sources"]["data-operation-native.yaml"],
+        target_metadata=capture.metadata,
     )
     assert parse_sql(guard) and parse_plpgsql(guard)
     assert all(

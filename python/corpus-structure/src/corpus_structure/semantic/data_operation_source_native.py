@@ -38,7 +38,7 @@ def source_native_sources(
             "native/source-capture-native.py",
             Path(__file__).with_name("source_capture_native.py").read_bytes(),
         ),
-        *source_admission_sources(physical_sources=physical_sources, linkml_types=linkml_types),
+        *source_admission_sources(target_metadata=target_metadata),
         *visual_read_sources(),
         SourceArtifact("native/data-operation-source-admission.sql", _SQL.read_bytes()),
         SourceArtifact("native/data-operation-source-native.py", Path(__file__).read_bytes()),

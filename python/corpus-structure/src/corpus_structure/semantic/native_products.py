@@ -70,6 +70,7 @@ def capture_native_authoring_inputs(
     from .archive_projection_native import execution_projection_check_sql, scientific_layout_sql
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_compilation import compile_data_operations
+    from .data_operation_protocol import render_data_task_guard
     from .data_operation_storage import (
         native_logical_sources,
         native_operation_calls,
@@ -182,8 +183,10 @@ def capture_native_authoring_inputs(
             Path(__file__).with_name("sql").joinpath("admission.sql").read_bytes(),
         ),
         SourceArtifact(
-            "authoring/data-operation-task-checks.sql",
-            Path(__file__).with_name("sql").joinpath("data_operation_task_checks.sql").read_bytes(),
+            "authoring/data-operation-task-guard.sql",
+            render_data_task_guard(
+                physical["data-operation-native.yaml"], target_metadata=selected
+            ).encode(),
         ),
     )
     sources = (*sources, *extra_sources)

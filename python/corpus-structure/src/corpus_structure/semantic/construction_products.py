@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -198,7 +199,7 @@ class InterpretedProduct:
     def value(self):
         return self.prepared.validate_json(self.kind_name, self.content)
 
-    @property
+    @cached_property
     def semantic_id(self):
         kind = next(
             item.key
@@ -595,8 +596,9 @@ def validate_interpreted_product(
     selected = source.value
     if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
         raise ValueError("construction product changes its exact original source/scope")
+    selected_products = tuple((product.semantic_id, product.content) for product in formal)
     expected_dependencies = [
-        DataProductReference(product.semantic_id).values() for product in formal
+        DataProductReference(product_id).values() for product_id, _ in selected_products
     ]
     if checked.get("dependencies", []) != expected_dependencies:
         raise ValueError("construction product changes selected primary dependencies")
@@ -657,12 +659,15 @@ def validate_interpreted_product(
                 is None
             ):
                 raise ValueError("construction occurrence changes original positioned source")
+    dependencies = {product_id: json.loads(content) for product_id, content in selected_products}
     external = {
-        (product.semantic_id, packet["member_id"]): packet["body"]["record_type"]
-        for product in formal
-        for packet in json.loads(product.content)["members"]
+        (product_id, packet["member_id"]): packet["body"]
+        for product_id, dependency in dependencies.items()
+        for packet in dependency["members"]
     }
-    external_choices = {key for key, kind in external.items() if kind == "choice_member"}
+    external_choices = {
+        key for key, body in external.items() if body["record_type"] == "choice_member"
+    }
     for node in all_nodes.values():
         basis = node.get("basis", {})
         for ref in (
@@ -677,7 +682,6 @@ def validate_interpreted_product(
         ):
             if (ref["product_id"], ref["member_id"]) not in external_choices:
                 raise ValueError("construction requires an actual primary choice alternative")
-    dependencies = {product.semantic_id: json.loads(product.content) for product in formal}
     for annotation in inventory["annotations"]:
         named = annotation.get("named_match")
         if named is None:
@@ -693,7 +697,6 @@ def validate_interpreted_product(
         ]
         if len(blocks) != 1 or blocks[0]["dependency_digest"] != named["dependency_digest"]:
             raise ValueError("named rule lacks its exact original native block")
-        members = {packet["member_id"]: packet["body"] for packet in dependency["members"]}
         for ref in (
             *named["nodes"],
             *(
@@ -706,7 +709,7 @@ def validate_interpreted_product(
                 )
             ),
         ):
-            token = members.get(ref["member_id"])
+            token = external.get((ref["product_id"], ref["member_id"]))
             if (
                 ref["product_id"] != container["product_id"]
                 or token is None

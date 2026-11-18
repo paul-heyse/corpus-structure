@@ -129,7 +129,7 @@ def _reference_node(reference):
     )
 
 
-def _support_walk(metadata, seed, *, public=False):
+def _support_walk(metadata, seed, *, public=False, name="support_closure"):
     """Visit finite receipt nodes, including explicitly selected replacement support.
 
     Indexed per-node lateral lookups avoid materializing every historical edge.
@@ -139,11 +139,7 @@ def _support_walk(metadata, seed, *, public=False):
     original_support = metadata.tables["ops.data_derivation_original_support"]
     uses = metadata.tables["ops.demand_use"]
     populations = metadata.tables["ops.data_population"]
-    closure = (
-        select(seed.c.kind, seed.c.id)
-        .where(seed.c.id.is_not(None))
-        .cte("support_closure", recursive=True)
-    )
+    closure = select(seed.c.kind, seed.c.id).where(seed.c.id.is_not(None)).cte(name, recursive=True)
     reference = _items(
         func.coalesce(uses.c.selection["support"], _json([])), "selected_support_reference"
     )
@@ -176,7 +172,7 @@ def _support_walk(metadata, seed, *, public=False):
         )
     structural_report = cast(
         func.ops.ddo_structural_report_support(
-            uses.c.id, _var("boundary.id", Text), _requested_read_scope()["product_ids"]
+            uses.c.id, literal_column("boundary"), _requested_read_scope()["product_ids"]
         ),
         JSONB,
     )
@@ -410,17 +406,33 @@ def read_scope_rows(metadata):
 
 
 def read_access_universes(metadata):
-    nodes, _ = _demand_support_scope_inputs(metadata, include_unfulfilled=True)
+    """Pin the universes of the exact disclosed support and unresolved roots.
+
+    Authentication uses the same authority cut as support export. An evaluator
+    still receives complete issuer provenance through that walk. Ordinary readers
+    receive the authenticated conclusion and explicitly disclosed report edge.
+    """
+    obligations = _scoped_read_obligations(metadata).cte("access_scoped_obligations")
+    latest = _latest_read_use(metadata, obligations)
+    selected_uses = (
+        select(latest)
+        .select_from(obligations.join(latest, literal(True)))
+        .cte("access_selected_uses")
+    )
     products = metadata.tables["kb.data_product"]
+    inputs = metadata.tables["ops.data_derivation_input"]
     outputs = metadata.tables["ops.data_derivation_output"]
     admissions = metadata.tables["ops.original_source_admission"]
     kinds = metadata.tables["sem.data_kind_contract"]
+    in_scope = _original_in_read_context(admissions, obligations)
+    seed = _read_support_seed(metadata, selected_uses, admissions, in_scope)
+    nodes = _support_walk(metadata, seed, public=True)
+    episode_ids = select(nodes.c.id).where(nodes.c.kind == "episode")
+    authority_ids = select(nodes.c.id).where(nodes.c.kind == "authority")
     reached = union(
-        select(outputs.c.product_id).select_from(
-            nodes.join(
-                outputs, and_(nodes.c.kind == "episode", nodes.c.id == outputs.c.derivation_id)
-            )
-        ),
+        select(inputs.c.product_id).where(inputs.c.derivation_id.in_(episode_ids)),
+        select(outputs.c.product_id).where(outputs.c.derivation_id.in_(episode_ids)),
+        select(outputs.c.product_id).where(outputs.c.derivation_id.in_(authority_ids)),
         select(admissions.c.product_id).select_from(
             nodes.join(admissions, and_(nodes.c.kind == "original", nodes.c.id == admissions.c.id))
         ),
@@ -436,18 +448,31 @@ def read_access_universes(metadata):
         .join(kinds, kinds.c.kind_contract == nested.c.kind_contract)
     )
     definitions = metadata.tables["sem.data_operation_definition"]
-    selected = _items(_var("d.selection", JSONB)["operations"], "access_operation")
     roles = _items(definitions.c.input_roles.op("||")(definitions.c.output_roles), "access_role")
+    authenticated_conclusion = exists(
+        select(1)
+        .select_from(selected_uses)
+        .where(
+            selected_uses.c.obligation_id == obligations.c.id,
+            selected_uses.c.fate == "fulfilled",
+            func.ops.ddo_policy_authority_leaf(selected_uses.c.derivation_id),
+        )
+        .correlate(obligations)
+    )
     declared = (
         select(kinds.c.universe)
         .select_from(
-            definitions.join(
-                selected, selected.c.value["operation"].astext == definitions.c.operation_id
+            obligations.join(
+                definitions,
+                and_(
+                    definitions.c.operation_id == obligations.c.operation_id,
+                    definitions.c.release_id == _var("d.release_id", Text),
+                ),
             )
             .join(roles, literal(True))
             .join(kinds, kinds.c.kind_contract == roles.c.value["kind_contract"].astext)
         )
-        .where(definitions.c.release_id == _var("d.release_id", Text))
+        .where(~authenticated_conclusion)
     )
     universes = union(observed, declared).subquery("acquired_access_universes")
     return select(func.coalesce(func.jsonb_agg(universes.c.universe), _json([])))
@@ -1014,6 +1039,59 @@ def binding_branches(metadata):
     return computed, original
 
 
+def _original_in_read_context(admissions, obligations):
+    return or_(
+        exists(
+            select(1)
+            .select_from(obligations)
+            .where(
+                obligations.c.subject == admissions.c.subject,
+                obligations.c.original_source.is_not_distinct_from(admissions.c.original_source),
+                obligations.c.analyzed_scope == admissions.c.analyzed_scope,
+            )
+        ),
+        ~exists(select(1).select_from(obligations)),
+    )
+
+
+def _read_original_predicates(admissions, in_page):
+    return (
+        admissions.c.demand_id == _var("d.id", Text),
+        in_page,
+        _visible(admissions),
+        *(
+            or_(
+                ~_requested_read_scope().op("?")(literal(name)),
+                admissions.c[name].is_not_distinct_from(_requested_read_scope()[name].astext),
+            )
+            for name in ("subject", "original_source")
+        ),
+        or_(
+            ~_requested_read_scope().op("?")(literal("product_ids")),
+            exists(
+                select(1)
+                .select_from(
+                    _items(_requested_read_scope()["product_ids"], "scope_original_product")
+                )
+                .where(
+                    literal_column("scope_original_product.value", type_=JSONB).op("#>>")(
+                        literal_column("'{}'::text[]")
+                    )
+                    == admissions.c.product_id
+                )
+            ),
+        ),
+    )
+
+
+def _read_support_seed(metadata, selected_uses, admissions, in_page):
+    """Select exact uses and original facts before the public authority cut."""
+    return union(
+        _node("use", selected_uses.c.id),
+        _node("original", admissions.c.id).where(*_read_original_predicates(admissions, in_page)),
+    ).cte("export_support_seed")
+
+
 def selected_support_export(metadata, selected_uses, admissions, in_page):
     """Export the finite selected witness closure, including nonreturned intermediates.
 
@@ -1038,36 +1116,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         )
     )
     in_page = case((whole, or_(in_scope, ~exists(select(1).select_from(scoped)))), else_=in_page)
-    seed = union(
-        _node("use", seeds.c.id),
-        _node("original", admissions.c.id).where(
-            admissions.c.demand_id == _var("d.id", Text),
-            in_page,
-            _visible(admissions),
-            *(
-                or_(
-                    ~_requested_read_scope().op("?")(literal(name)),
-                    admissions.c[name].is_not_distinct_from(_requested_read_scope()[name].astext),
-                )
-                for name in ("subject", "original_source")
-            ),
-            or_(
-                ~_requested_read_scope().op("?")(literal("product_ids")),
-                exists(
-                    select(1)
-                    .select_from(
-                        _items(_requested_read_scope()["product_ids"], "scope_original_product")
-                    )
-                    .where(
-                        literal_column("scope_original_product.value", type_=JSONB).op("#>>")(
-                            literal_column("'{}'::text[]")
-                        )
-                        == admissions.c.product_id
-                    )
-                ),
-            ),
-        ),
-    ).cte("export_support_seed")
+    seed = _read_support_seed(metadata, seeds, admissions, in_page)
     nodes = _support_walk(metadata, seed, public=True)
     episodes = metadata.tables["ops.data_derivation"]
     inputs = metadata.tables["ops.data_derivation_input"]
@@ -1370,7 +1419,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             report_ref = cast(
                 func.ops.ddo_structural_report_support(
                     issuer_use.c.id,
-                    _var("boundary.id", Text),
+                    literal_column("boundary"),
                     _requested_read_scope()["product_ids"],
                 ),
                 JSONB,
@@ -1455,13 +1504,33 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     return value, body_access
 
 
+def read_selection(scope=None):
+    """Disclose a typed intent digest when an ordinary reader selects a scope."""
+    selection = _var("d.selection", JSONB)
+    principal = func.coalesce(
+        func.nullif(func.current_setting("role"), "none"), func.session_user()
+    )
+    evaluator = func.pg_has_role(principal, "corpus_sem_evaluator", "MEMBER", type_=Boolean())
+    bounded = and_(
+        (_var("boundary.scope", JSONB) if scope is None else scope) != _json({}),
+        ~evaluator,
+    )
+    public = _obj(
+        version=literal("data-demand-public-selection-v1"),
+        model=selection["model"],
+        intent_digest=func.ops.ddo_digest(selection),
+        **{name: selection[name] for name in ("roots", "targets", "root_operations", "discovery")},
+    )
+    return case((bounded, public), else_=selection)
+
+
 def _cut_fields():
     return dict(
         demand_id=_var("d.id", Text),
         project_id=_var("d.project_id", Text),
         release_id=_var("d.release_id", Text),
         runtime_id=_var("d.runtime_id", Text),
-        selection=_var("d.selection", JSONB),
+        selection=read_selection(),
         trust_snapshot=_var("boundary.trust_snapshot", JSONB),
         read_id=_var("boundary.id", Text),
         read_snapshot=_var("boundary.read_snapshot", Text),
@@ -1939,7 +2008,7 @@ def read_page(metadata):
     """One pure atomic page under already acquired native pins."""
     from sqlalchemy import case
 
-    demand, selection = _var("d.id", Text), _var("d.selection", JSONB)
+    demand = _var("d.id", Text)
     boundary = literal_column("boundary")
     obligations = metadata.tables["ops.data_obligation"]
     episodes = metadata.tables["ops.data_derivation"]
@@ -1971,6 +2040,8 @@ def read_page(metadata):
         .prefix_with("MATERIALIZED")
     )
     population_table = metadata.tables["ops.data_population"]
+    public_seed = _node("use", selected_uses.c.id).cte("page_public_support_seed")
+    public_nodes = _support_walk(metadata, public_seed, public=True, name="page_public_support")
     candidate_populations = (
         select(population_table)
         .where(
@@ -1980,6 +2051,17 @@ def read_page(metadata):
                 population_table.c.selected_obligation_id.in_(select(bounded.c.id)),
             ),
             _visible(population_table),
+            or_(
+                read_scope == _json({}),
+                exists(
+                    select(1)
+                    .select_from(public_nodes)
+                    .where(
+                        public_nodes.c.kind == "population",
+                        public_nodes.c.id == population_table.c.id,
+                    )
+                ),
+            ),
         )
         .cte("candidate_populations")
         .prefix_with("MATERIALIZED")
@@ -2123,8 +2205,14 @@ def read_page(metadata):
                 historical_fate=selected_uses.c.fate,
                 semantic_outcome=semantic_outcome,
                 completion_state=completion_state,
-                request_id=selected_uses.c.request_id,
-                generation=selected_uses.c.generation,
+                request_id=case(
+                    (func.ops.ddo_policy_authority_leaf(selected_uses.c.derivation_id), null()),
+                    else_=selected_uses.c.request_id,
+                ),
+                generation=case(
+                    (func.ops.ddo_policy_authority_leaf(selected_uses.c.derivation_id), null()),
+                    else_=selected_uses.c.generation,
+                ),
                 derivation_id=selected_uses.c.derivation_id,
                 rebind_derivation=case(
                     (
@@ -2138,7 +2226,16 @@ def read_page(metadata):
                     ),
                     else_=null(),
                 ),
-                selection=selected_uses.c.selection,
+                selection=case(
+                    (
+                        func.ops.ddo_policy_authority_leaf(selected_uses.c.derivation_id),
+                        _obj(
+                            kind=literal("native-authority"),
+                            protected_dependencies=literal("undisclosed"),
+                        ),
+                    ),
+                    else_=selected_uses.c.selection,
+                ),
                 trust_snapshot=selected_uses.c.trust_snapshot,
                 products=selected_products,
             ),
@@ -2233,10 +2330,9 @@ def read_page(metadata):
         select(_aggregate(admission_value, admissions.c.id))
         .select_from(admissions.join(products, products.c.id == admissions.c.product_id))
         .where(
-            admissions.c.demand_id == demand,
+            *_read_original_predicates(admissions, in_page),
             func.ops.ddo_original_admission_valid(admissions.table_valued(), boundary),
             func.ops.ddo_kind_access(products.c.kind_contract),
-            in_page,
         )
         .scalar_subquery()
     )
@@ -2388,7 +2484,7 @@ def read_page(metadata):
         payload=_obj(
             **cut_fields,
             view=_var("selected_view", Text),
-            intent=selection,
+            intent=read_selection(),
             root=_var("d.root", JSONB),
             state=state,
             uses=result_uses,

@@ -102,14 +102,24 @@ class CurrentCharacterization:
             subject_definition=row["subject_definition"],
         )
 
-    def register(self, target, *, profile=None):
+    def register(self, target, *, profile=None, products=(), active=()):
         from corpus_structure.orchestrate.source_operation import _default_profile_selections
         from corpus_structure.semantic.data_operation_service import DemandOperationSelection
         from corpus_structure.semantic.data_operation_source_discovery import (
             source_discovery_relations,
         )
         from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+        from corpus_structure.semantic.enriched_document_products import (
+            freeze_characterization_selection,
+        )
 
+        analytical_sources = ()
+        if target == "text.compose_view/source-native":
+            if profile is None:
+                raise ValueError("retained composition requires an explicit profile")
+            analytical_sources = freeze_characterization_selection(
+                profile=profile, products=products, active=active
+            )
         producer = "source.selected_views/discovery"
         supplied = (
             {target: DemandOperationSelection(operation=target, parameters={"profile": profile})}
@@ -161,6 +171,7 @@ class CurrentCharacterization:
                     FrozenSourceSet.from_selected(
                         "selected-source-views", (self.source_row["_selected_entry"],)
                     ),
+                    *analytical_sources,
                 ),
                 original_sources=(original.selection(),),
                 inference="controlled-pdf-records-v1",
@@ -189,8 +200,8 @@ class CurrentCharacterization:
             snapshot = read_data_demand(connection, demand, view="products", max_bytes=64 * 1024**2)
         return result, snapshot
 
-    def run(self, target, *, profile=None):
-        demand = self.register(target, profile=profile)
+    def run(self, target, *, profile=None, products=(), active=()):
+        demand = self.register(target, profile=profile, products=products, active=active)
         result, snapshot = self.advance(demand)
         return demand, result, snapshot
 

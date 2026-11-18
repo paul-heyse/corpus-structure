@@ -466,6 +466,31 @@ definitions:
     - inference
     - execution_profile
     additionalProperties: false
+  public_demand_selection:
+    description: Native disclosure of an exact demand intent without private authored values or source proofs.
+    type: object
+    properties:
+      version: {const: data-demand-public-selection-v1}
+      model: {type: string, pattern: '^[0-9a-f]{64}$'}
+      intent_digest: {$ref: '#/definitions/identifier'}
+      roots: {type: array, items: {$ref: '#/definitions/root_subject'}}
+      targets: {type: array, minItems: 1, items: {$ref: '#/definitions/identifier'}}
+      root_operations: {type: array, minItems: 1, items: {$ref: '#/definitions/identifier'}}
+      discovery: {type: array, items: {$ref: '#/definitions/discovery_selection'}}
+    required: [version, model, intent_digest, roots, targets, root_operations, discovery]
+    additionalProperties: false
+  read_demand_selection:
+    oneOf:
+    - {$ref: '#/definitions/demand_intent'}
+    - {$ref: '#/definitions/public_demand_selection'}
+  authority_selection:
+    description: The native authority leaf owns issuer custody and withholds its protected binding.
+    type: object
+    properties:
+      kind: {const: native-authority}
+      protected_dependencies: {const: undisclosed}
+    required: [kind, protected_dependencies]
+    additionalProperties: false
   binding_reason:
     type: object
     properties:
@@ -1074,6 +1099,7 @@ definitions:
         - $ref: '#/definitions/binding'
         - $ref: '#/definitions/result_binding'
         - $ref: '#/definitions/reason_selection'
+        - $ref: '#/definitions/authority_selection'
       trust_snapshot:
         $ref: '#/definitions/trust_snapshot'
       products:
@@ -1208,7 +1234,7 @@ definitions:
       demand_id:
         $ref: '#/definitions/identifier'
       selection:
-        $ref: '#/definitions/demand_intent'
+        $ref: '#/definitions/read_demand_selection'
       trust_snapshot:
         $ref: '#/definitions/trust_snapshot'
       after:
@@ -2117,7 +2143,7 @@ definitions:
       demand_id:
         $ref: '#/definitions/identifier'
       selection:
-        $ref: '#/definitions/demand_intent'
+        $ref: '#/definitions/read_demand_selection'
       after:
         $ref: '#/definitions/identifier'
       limit:
@@ -2182,7 +2208,7 @@ definitions:
       runtime_id: &cut_runtime_id
         $ref: '#/definitions/identifier'
       selection: &cut_selection
-        $ref: '#/definitions/demand_intent'
+        $ref: '#/definitions/read_demand_selection'
       trust_snapshot: &cut_trust_snapshot
         $ref: '#/definitions/trust_snapshot'
       read_id: &cut_read_id
@@ -2210,7 +2236,7 @@ definitions:
       scope: *cut_scope
 
       intent:
-        $ref: '#/definitions/demand_intent'
+        $ref: '#/definitions/read_demand_selection'
       root:
         type: array
         items:

@@ -79,6 +79,8 @@ def test_frozen_operation_multiplicity_order_acl_and_unknown_dependency_are_pres
 
 
 def test_native_function_explanation_preserves_statement_boundaries_body_and_acl():
+    from pglast import parse_sql
+
     from corpus_structure.semantic.native_authoring import definition_sql
     from corpus_structure.semantic.native_objects import NativeDefinition, NativeIdentity
 
@@ -90,9 +92,12 @@ def test_native_function_explanation_preserves_statement_boundaries_body_and_acl
     owner = 'ALTER FUNCTION "native test".f() OWNER TO publisher'
     revoke = 'REVOKE ALL ON FUNCTION "native test".f() FROM PUBLIC'
     identity = NativeIdentity("function", "native test", "f")
-    # The production source script keeps the existing exact termination convention.
-    assert definition_sql((NativeDefinition(identity, before, "native.sql", "publisher"),)) == (
-        before + ";\n" + owner + ";\n" + revoke + ";"
+    generated = definition_sql((NativeDefinition(identity, before, "native.sql", "publisher"),))
+    assert generated.startswith(before + ";\n")
+    assert generated.endswith(";")
+    # Generated owner and ACL statements must target the same function and roles.
+    assert tuple(row.stmt for row in parse_sql(generated)) == tuple(
+        row.stmt for row in parse_sql(before + ";" + owner + ";" + revoke + ";")
     )
 
     def obj(create):

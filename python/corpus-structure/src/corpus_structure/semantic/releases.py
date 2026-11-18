@@ -25,6 +25,7 @@ from .identifiers import ProjectId, ReleaseId
 from .identity import canonical_bytes
 from .operation_value_types import OperationResult, native_result_scope
 from .types import (
+    SEMANTIC_ARCHIVE_FORMAT,
     SEMANTIC_COMPILER_VERSION,
     PreparationProfile,
     PreparedRelease,
@@ -80,7 +81,7 @@ def _archive_bytes(
 ) -> bytes:
     return canonical_bytes(
         {
-            "format": "semantic-release-archive-3",
+            "format": SEMANTIC_ARCHIVE_FORMAT,
             "root": bundle.root,
             "sources": [s.name for s in bundle.sources],
             "dependencies": [s.name for s in dependencies.artifacts],
@@ -451,7 +452,7 @@ def load_release_inputs(
         if _digest(archive_bytes) != row["content_digest"]:
             raise ReleaseConflict("archive digest differs")
         archive = json.loads(archive_bytes)
-        if archive["format"] != "semantic-release-archive-3":
+        if archive["format"] != SEMANTIC_ARCHIVE_FORMAT:
             raise ReleaseConflict("unsupported archive format")
         inputs = _table("sem.input")
         source: dict[tuple[str, str], bytes] = {}

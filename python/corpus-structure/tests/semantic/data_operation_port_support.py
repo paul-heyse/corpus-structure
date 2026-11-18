@@ -106,6 +106,10 @@ def captured(content: bytes | None = None):
     from corpus_structure.semantic.data_operation_visual_read import (
         visual_read_schema,
     )
+    from corpus_structure.semantic.pdf_source_search import (
+        CONTRACT as SEARCH_CONTRACT,
+    )
+    from corpus_structure.semantic.pdf_source_search import search_projection_sources
     from corpus_structure.semantic.record_policy_native import (
         EVENT_FRAME_SCHEMA_SOURCE,
         GRADE_SCHEMA_SOURCE,
@@ -123,4 +127,5 @@ def captured(content: bytes | None = None):
         SourceArtifact(VISUAL_SOURCE, visual_read_schema()),
         SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),
         SourceArtifact(EVENT_FRAME_SCHEMA_SOURCE, operation_event_frame_schema()),
+        next(item for item in search_projection_sources() if item.name == SEARCH_CONTRACT),
     )

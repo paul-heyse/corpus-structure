@@ -4,43 +4,9 @@ from __future__ import annotations
 
 import copy
 import json
-from typing import Any
 
 from .data_operation_identity import semantic_value
-from .data_operation_wire import checked_json_schema, validate_wire_schema
-
-
-def _draft7(schema: Any) -> Any:
-    """Normalize Pydantic's local definition spelling without changing constraints."""
-    if isinstance(schema, list):
-        return [_draft7(item) for item in schema]
-    if not isinstance(schema, dict):
-        return schema
-    result = copy.deepcopy(schema)
-    for key, value in schema.items():
-        if key == "$ref":
-            result[key] = value.replace("#/$defs/", "#/definitions/")
-        elif key in {"properties", "patternProperties", "definitions", "$defs"}:
-            result.pop(key, None)
-            result["definitions" if key == "$defs" else key] = {
-                name: _draft7(child) for name, child in value.items()
-            }
-        elif key in {
-            "allOf",
-            "anyOf",
-            "oneOf",
-            "items",
-            "additionalItems",
-            "additionalProperties",
-            "contains",
-            "not",
-            "if",
-            "then",
-            "else",
-            "propertyNames",
-        }:
-            result[key] = _draft7(value)
-    return result
+from .data_operation_wire import checked_json_schema, generated_json_schema, validate_wire_schema
 
 
 def compile_nominal_parameters(parameters, *, schema, definitions, vocabularies, kinds):
@@ -146,7 +112,7 @@ def compile_nominal_parameters(parameters, *, schema, definitions, vocabularies,
     }
     for name, definition in nominal.items():
         kind = kinds[definition["kind"]]
-        wrapper = _draft7(adapters[wrappers[name]].json_schema())
+        wrapper = generated_json_schema(adapters[wrappers[name]].json_schema())
         body = {
             "$schema": "http://json-schema.org/draft-07/schema#",
             **({"definitions": wrapper["definitions"]} if "definitions" in wrapper else {}),

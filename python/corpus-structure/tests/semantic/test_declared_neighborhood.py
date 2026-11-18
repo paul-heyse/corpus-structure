@@ -84,6 +84,46 @@ def test_neighborhood_has_distinct_kind_factory_policy_and_exact_native_asset():
     assert all(item.complete for item in model.implementation_slices)
 
 
+def test_neighborhood_kernel_is_generated_with_complete_typed_cte_and_parameter_contract():
+    from pglast import ast, parse_sql
+
+    from corpus_structure.semantic.contextual_neighborhood import contextual_neighborhood_sql
+
+    source = contextual_neighborhood_sql()
+    (declaration,) = parse_sql(source)
+    assert isinstance(declaration.stmt, ast.CreateFunctionStmt)
+    routine = declaration.stmt
+    assert routine.funcname is not None and routine.parameters is not None
+    assert routine.options is not None
+    assert tuple(part.sval for part in routine.funcname) == ("ops", "contextual_mutual_neighbors")
+    assert tuple(parameter.name for parameter in routine.parameters) == (
+        "inv",
+        "profile",
+        "vectors",
+    )
+    for parameter in routine.parameters:
+        assert parameter.argType is not None and parameter.argType.names is not None
+        assert tuple(part.sval for part in parameter.argType.names) == ("jsonb",)
+    body_option = next(option for option in routine.options if option.defname == "as")
+    assert isinstance(body_option.arg, tuple) and isinstance(body_option.arg[0], ast.String)
+    body = body_option.arg[0].sval
+    (statement,) = parse_sql(body)
+    assert isinstance(statement.stmt, ast.SelectStmt)
+    assert statement.stmt.withClause is not None and statement.stmt.withClause.ctes is not None
+    assert {cte.ctename for cte in statement.stmt.withClause.ctes} == {
+        "targets",
+        "eligible",
+        "coverage",
+        "representatives",
+        "directed",
+        "mutual",
+    }
+    assert "OPERATOR(public.<=>)" in body
+    assert "public.vector" in body and "public.vector_dims" in body and "public.vector_norm" in body
+    assert "0.00001" in body
+    assert neighborhood_kernel_asset().content == source.encode()
+
+
 def test_neighborhood_preparation_retains_duplicate_and_missing_coverage_without_ranking():
     inventory, vectors, _, _ = frame(("A", "B"))
     raw = source_python(vectors["vectors"])

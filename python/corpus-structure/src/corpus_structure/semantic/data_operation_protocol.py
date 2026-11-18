@@ -114,46 +114,135 @@ def data_task_lifecycle(content: bytes) -> dict:
     return policy
 
 
-def render_data_task_guard(content: bytes, template: str, *, checks: str | None = None) -> str:
-    """Lower only declared lifecycle literals; all ownership/fence checks stay in SQL."""
-    if "-- {data_request_task_checks}" in template:
-        if checks is None:
-            from pathlib import Path
+def render_data_task_guard(content: bytes, *, target_metadata) -> str:
+    """Compile captured task columns and lifecycle policy into the trigger program."""
+    from sqlalchemy import Text, and_, exists, func, or_, select, tuple_
 
-            checks = (
-                Path(__file__)
-                .with_name("sql")
-                .joinpath("data_operation_task_checks.sql")
-                .read_text()
-            )
-        template = template.replace("-- {data_request_task_checks}", checks)
+    from .native_program import Block, If, Raise, Return, core_variable, function, pg_type, variable
+
     policy = data_task_lifecycle(content)
+    task = target_metadata.tables["ops.task"]
+    requests = target_metadata.tables["ops.data_request"]
+    new = {column.name: core_variable("new", column.type, column.name) for column in task.c}
+    old = {column.name: core_variable("old", column.type, column.name) for column in task.c}
+    state_transition = tuple_(old["status"], new["status"])
 
-    def quote(value):
-        return "'" + value.replace("'", "''") + "'"
+    def check(condition, message, sqlstate="P0001"):
+        return If(condition, (Raise(message, sqlstate),))
 
-    def transitions(key):
-        return (
-            "(OLD.status,NEW.status) IN ("
-            + ",".join(
-                "(" + quote(before) + "," + quote(after) + ")" for before, after in policy[key]
+    claim = check(
+        or_(
+            new["attempt"] != old["attempt"] + 1,
+            new["status"] != policy["running"],
+            func.nullif(new["claimed_by"], "").is_(None),
+            new["lease_until"].is_(None),
+            new["lease_until"] <= func.pg_catalog.clock_timestamp(),
+            ~state_transition.in_([tuple(edge) for edge in policy["new_attempt"]]),
+            and_(
+                old["status"] == policy["running"],
+                or_(
+                    old["lease_until"].is_(None),
+                    old["lease_until"] > func.pg_catalog.clock_timestamp(),
+                ),
+            ),
+        ),
+        "invalid data claim fence",
+    )
+    initial = check(
+        or_(
+            new["status"] != policy["initial"],
+            new["attempt"] != 0,
+            new["claimed_by"].is_not(None),
+            new["lease_until"].is_not(None),
+        ),
+        "invalid initial data task",
+    )
+    association = ("data_request_id", "data_generation", "release_id", "invocation_key")
+    update = (
+        check(
+            or_(
+                tuple_(*(new[name] for name in association)).is_distinct_from(
+                    tuple_(*(old[name] for name in association))
+                ),
+                old["status"].in_(policy["terminal"]),
+            ),
+            "data task association/terminal state immutable",
+        ),
+        If(
+            new["attempt"] != old["attempt"],
+            (claim,),
+            (
+                If(
+                    new["claimed_by"].is_distinct_from(old["claimed_by"]),
+                    (Raise("data holder requires new attempt", "P0001"),),
+                    (
+                        check(
+                            and_(
+                                new["status"] != old["status"],
+                                ~state_transition.in_(
+                                    [tuple(edge) for edge in policy["same_attempt"]]
+                                ),
+                            ),
+                            "invalid data task transition",
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    return function(
+        "ops",
+        "guard_execution_task",
+        parameters=(),
+        returns=pg_type("trigger"),
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                check(
+                    or_(new["data_request_id"].is_(None), new["data_generation"].is_(None)),
+                    "physical task requires declared request generation",
+                    "23514",
+                ),
+                check(
+                    or_(
+                        func.current_user() != "corpus_sem_publisher",
+                        ~exists(
+                            select(1)
+                            .select_from(requests)
+                            .where(
+                                requests.c.id == new["data_request_id"],
+                                requests.c.release_id == new["release_id"],
+                                requests.c.generation == new["data_generation"],
+                            )
+                        ),
+                    ),
+                    "data task requires protected admitted request generation",
+                    "23514",
+                ),
+                If(core_variable("tg_op", Text()) == "INSERT", (initial,), update),
+                check(
+                    and_(
+                        new["status"] == policy["running"],
+                        or_(
+                            new["attempt"] <= 0,
+                            new["claimed_by"].is_(None),
+                            new["lease_until"].is_(None),
+                        ),
+                    ),
+                    "data running task requires exact fence",
+                ),
+                check(
+                    and_(new["status"] != policy["running"], new["lease_until"].is_not(None)),
+                    "data terminal task retains lease",
+                ),
+                check(
+                    and_(
+                        new["status"].in_(policy["receipt_required"]),
+                        new["result_digest"].is_(None),
+                    ),
+                    "data completion requires receipt",
+                ),
+                Return(variable("new")),
             )
-            + ")"
-        )
-
-    products = {
-        "INITIAL": quote(policy["initial"]),
-        "RUNNING": quote(policy["running"]),
-        "TERMINAL": ",".join(map(quote, policy["terminal"])),
-        "RECEIPT_REQUIRED": ",".join(map(quote, policy["receipt_required"])),
-        "NEW_ATTEMPT": transitions("new_attempt"),
-        "SAME_ATTEMPT": transitions("same_attempt"),
-    }
-    for name, value in products.items():
-        token = "__DDO_TASK_" + name + "__"
-        if token not in template:
-            raise ValueError("data task guard lacks lifecycle projection " + name)
-        template = template.replace(token, value)
-    if "__DDO_TASK_" in template:
-        raise ValueError("data task guard has unresolved lifecycle projection")
-    return template
+        ),
+    )
